@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { loadTopicsConfig } from '../api';
 import { CopyButton, LoadingCards, Notice, TagInput } from '../components';
+import { safeUrl } from '../format';
 import {
   type Theme,
   clearLocalTopics,
@@ -100,7 +101,7 @@ export function SettingsView() {
             {status.url && (
               <>
                 {' '}
-                <a href={status.url} target="_blank" rel="noreferrer noopener">
+                <a href={safeUrl(status.url)} target="_blank" rel="noreferrer noopener">
                   コミットを見る ↗
                 </a>
               </>
