@@ -1,0 +1,114 @@
+name: Daily digest
+
+on:
+  schedule:
+    # 22:00 UTC = 07:00 JST。GitHub Actions の cron は数分〜十数分遅延することがあります。
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '対象日 (YYYY-MM-DD)。省略すると当日ぶん。'
+        required: false
+        type: string
+      skip_collect:
+        description: '収集をスキップして、既存データの再デプロイだけ行う'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: digest
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: 収集・要約
+    # ubuntu-slim は 15 分でジョブがタイムアウトするため、
+    # 40 弱のソースを巡回して LLM を呼ぶこのジョブでは使えない。
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 依存関係をインストール
+        run: npm ci
+
+      - name: ダイジェストを生成
+        if: ${{ !inputs.skip_collect }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+          RANK_MODEL: ${{ vars.RANK_MODEL }}
+          SUMMARY_MODEL: ${{ vars.SUMMARY_MODEL }}
+          SUMMARY_EFFORT: ${{ vars.SUMMARY_EFFORT }}
+          TOP_N: ${{ vars.TOP_N }}
+          OTHER_N: ${{ vars.OTHER_N }}
+          RANK_CANDIDATES: ${{ vars.RANK_CANDIDATES }}
+          # 式を直接 run に埋め込まず環境変数経由で渡す（シェルへの注入を避けるため）
+          DIGEST_DATE: ${{ inputs.date }}
+        run: |
+          if [ -n "${DIGEST_DATE:-}" ]; then
+            npm run collect -- --date="$DIGEST_DATE"
+          else
+            npm run collect
+          fi
+
+      - name: 結果をコミット
+        if: ${{ !inputs.skip_collect }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "chore(digest): $(TZ=Asia/Tokyo date '+%Y-%m-%d') のダイジェストを追加"
+            git push
+          fi
+
+  deploy:
+    name: GitHub Pages へデプロイ
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # collect ジョブが push した最新のデータを取り込む
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 依存関係をインストール
+        run: npm ci
+
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: ビルド
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: web/dist
+
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
