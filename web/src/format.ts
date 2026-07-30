@@ -25,6 +25,24 @@ export function metricSummary(m: Metrics): string {
   return parts.join(' · ');
 }
 
+/**
+ * 外部由来の URL を href に入れる前に検証する。
+ *
+ * 記事の URL や関連リンクは外部 API・RSS・LLM の出力から来るので信用できない。
+ * `javascript:` などのスキームを弾かないと、設定画面で localStorage に保存した
+ * GitHub トークンをクリック 1 回で抜かれる経路になる。
+ * 弾いた場合は undefined を返し、React 側では href の無いテキストとして描画される。
+ */
+export function safeUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'http:' || protocol === 'https:' ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const SOURCE_LABELS: Record<string, string> = {
   qiita: 'Qiita',
   zenn: 'Zenn',

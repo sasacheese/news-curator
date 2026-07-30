@@ -1,5 +1,5 @@
 import type { PreScoredItem, RawItem, TopicsConfig } from './types.js';
-import { normalizeUrl, titleKey } from './util.js';
+import { isHttpUrl, normalizeUrl, titleKey } from './util.js';
 
 /** ソース由来の人気指標を 0〜1 に潰す（対数スケール） */
 function popularityScore(item: RawItem): number {
@@ -151,6 +151,8 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
   const seenTitles = new Set<string>();
   const out: RawItem[] = [];
   for (const item of byUrl.values()) {
+    // 外部 API / RSS 由来の link は信用しない（javascript: などを保存させない）
+    if (!isHttpUrl(item.url)) continue;
     if (seenUrls.has(normalizeUrl(item.url))) continue;
     const tk = titleKey(item.title);
     if (tk.length >= 8) {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { navigate } from '../App';
 import { loadIndex } from '../api';
 import { Chip, Empty, Highlight, LoadingCards } from '../components';
-import { SOURCE_LABELS, formatDateShort } from '../format';
+import { SOURCE_LABELS, formatDateShort, safeUrl } from '../format';
 import type { IndexEntry, Manifest } from '../types';
 
 interface Props {
@@ -164,7 +164,7 @@ export function SearchView({ manifest, initialQuery }: Props) {
               <div className="row__score">{entry.score}</div>
               <div className="row__main">
                 <p className="row__title">
-                  <a href={entry.url} target="_blank" rel="noreferrer noopener">
+                  <a href={safeUrl(entry.url)} target="_blank" rel="noreferrer noopener">
                     <Highlight text={entry.title} terms={terms} />
                   </a>
                 </p>

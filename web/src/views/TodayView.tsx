@@ -3,7 +3,7 @@ import { navigate } from '../App';
 import { loadDigest } from '../api';
 import { Chip, CopyButton, Empty, LoadingCards, Notice } from '../components';
 import type { Digest, Manifest, RankedItem, TopItem } from '../types';
-import { formatDateLabel, metricSummary } from '../format';
+import { formatDateLabel, metricSummary, safeUrl } from '../format';
 
 interface Props {
   manifest: Manifest | null;
@@ -171,7 +171,7 @@ function TopCard({ item }: { item: TopItem }) {
           {metricSummary(item.metrics) && <Chip>{metricSummary(item.metrics)}</Chip>}
         </div>
         <h3 className="card__headline">{d.headline}</h3>
-        <a className="card__title-link" href={item.url} target="_blank" rel="noreferrer noopener">
+        <a className="card__title-link" href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
           ↗ {item.title}
         </a>
       </div>
@@ -244,7 +244,7 @@ function TopCard({ item }: { item: TopItem }) {
             <ul>
               {d.relatedLinks.map((l, i) => (
                 <li key={i}>
-                  <a href={l.url} target="_blank" rel="noreferrer noopener">
+                  <a href={safeUrl(l.url)} target="_blank" rel="noreferrer noopener">
                     {l.label}
                   </a>
                 </li>
@@ -268,7 +268,7 @@ function TopCard({ item }: { item: TopItem }) {
             </button>
           ))}
         </div>
-        <a className="btn btn--sm" href={item.url} target="_blank" rel="noreferrer noopener">
+        <a className="btn btn--sm" href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
           元記事を読む ↗
         </a>
       </div>
@@ -299,7 +299,7 @@ function OtherRow({ item }: { item: RankedItem }) {
       <div className="row__score">{item.score}</div>
       <div className="row__main">
         <p className="row__title">
-          <a href={item.url} target="_blank" rel="noreferrer noopener">
+          <a href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
             {item.title}
           </a>
         </p>

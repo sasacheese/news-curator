@@ -80,6 +80,12 @@ git push -u origin main
 
 **サイトの「設定」画面から編集できます。** トピック名・重要度(1〜5)・キーワードを、タグ入力の UI で複数追加・削除できます。
 
+サイトが公開されている間、設定タブはナビゲーションから隠してあります。
+`https://<ユーザー名>.github.io/news-curator/#/settings` を直接開いてください。
+一度開いたブラウザでは以降タブが表示されます。認証の代わりではないので、
+Cloudflare Access などを前に置いたら `web/src/App.tsx` の `SETTINGS_UNLOCK_KEY`
+まわりの分岐は消して構いません。
+
 保存方法は 2 つ:
 
 - **GitHub に保存** — Fine-grained personal access token（このリポジトリに `Contents: Read and write`）を一度貼っておくと、ブラウザから直接 `config/topics.json` をコミットできます。トークンはブラウザの localStorage にのみ保存され、送信先は api.github.com だけです
