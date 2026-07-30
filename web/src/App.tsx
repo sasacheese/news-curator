@@ -50,17 +50,45 @@ function useRoute(): Route {
   return route;
 }
 
-const TABS: { key: Route['name']; label: string; href: string }[] = [
+type Tab = { key: Route['name']; label: string; href: string };
+
+const TABS: Tab[] = [
   { key: 'today', label: '今日', href: '/today' },
   { key: 'archive', label: 'アーカイブ', href: '/archive' },
   { key: 'search', label: '検索', href: '/search' },
-  { key: 'settings', label: '設定', href: '/settings' },
 ];
+
+const SETTINGS_TAB: Tab = { key: 'settings', label: '設定', href: '/settings' };
+
+/**
+ * 設定タブはナビゲーションから隠す。
+ *
+ * サイトが公開されている間、設定画面（トピック編集と GitHub トークン入力）が
+ * 誰の目にも入るのは紛らわしいため。実害は無い——訪問者が編集しても変わるのは
+ * その人自身の localStorage だけで、リポジトリへの反映には write 権限付きの
+ * トークンが要る——が、UI としてノイズになる。
+ *
+ * `#/settings` を直接開けば今までどおり使え、一度開いたブラウザではタブが
+ * 出るようになる。認証の代わりではないので、Cloudflare Access を前に置いたら
+ * この分岐は消してよい。
+ */
+const SETTINGS_UNLOCK_KEY = 'news-curator:show-settings';
 
 export function App() {
   const route = useRoute();
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(
+    () => localStorage.getItem(SETTINGS_UNLOCK_KEY) === '1',
+  );
+
+  // 一度 #/settings を直接開いたブラウザでは、以降タブから辿れるようにする
+  useEffect(() => {
+    if (route.name === 'settings' && !showSettings) {
+      localStorage.setItem(SETTINGS_UNLOCK_KEY, '1');
+      setShowSettings(true);
+    }
+  }, [route.name, showSettings]);
 
   useEffect(() => {
     loadManifest().then(setManifest, (err: unknown) =>
@@ -98,7 +126,7 @@ export function App() {
             </span>
           </a>
           <nav className="tabs" aria-label="メインナビゲーション">
-            {TABS.map((tab) => (
+            {(showSettings ? [...TABS, SETTINGS_TAB] : TABS).map((tab) => (
               <button
                 key={tab.key}
                 type="button"
