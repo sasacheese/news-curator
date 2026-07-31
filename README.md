@@ -154,6 +154,17 @@ Cloudflare Access などを前に置いたら `web/src/App.tsx` の `SETTINGS_UN
 npm install
 ```
 
+### 必要なトークン
+
+| 変数 | 要否 | 用途 |
+| --- | --- | --- |
+| `GITHUB_TOKEN` | 実質必須 | GitHub Releases 35リポジトリ＋検索で 1 回あたり約 40 リクエスト。未認証は 60/時なので、続けて実行すると打ち止めになります。`$(gh auth token)` で足ります |
+| `ANTHROPIC_API_KEY` | 本番のみ | ローカルで `LLM_BACKEND=claude-code` を使う場合は不要 |
+| `QIITA_TOKEN` | 任意 | 未認証 60/時に対して 1 回 8 リクエストなので通常は不要 |
+
+トークンが無くても各ソースは個別に握りつぶされて処理は続行しますが、
+GitHub Releases が丸ごと落ちるとリリースノート由来の記事が拾えなくなります。
+
 ダイジェストを生成する（`data/` に書き出します）:
 
 ```bash
@@ -186,8 +197,11 @@ LLM_BACKEND=claude-code GITHUB_TOKEN=$(gh auth token) npm run collect
 エージェントハーネスを経由するぶんトークンも時間も大きく増えます。プロンプトを
 いじって出力を確かめる用途には十分ですが、毎朝の自動実行には向きません。
 
-CLI が PATH で見つからない場合は `CLAUDE_CLI_PATH` で実体を指定してください
-（Claude Code 実行中は `CLAUDE_CODE_EXECPATH` が自動で使われます）。
+**LLM 側に必要なものはありません。** provider が依存する `@anthropic-ai/claude-agent-sdk` が
+CLI を同梱していて、認証は macOS キーチェーンに保存済みの Claude Code のログインを使います。
+`claude` コマンドが PATH に無くても（mise のシムが壊れていても）動きます。
+
+別のビルドを使いたい場合だけ `CLAUDE_CLI_PATH` で実体を指定できます。
 
 保存せずに結果だけ見る:
 
