@@ -154,6 +154,19 @@ export function TodayView({ manifest, date }: Props) {
       <p className="faint" style={{ fontSize: 12, marginTop: 26 }}>
         採点 {digest.models.rank} / 要約 {digest.models.summary} ・ 生成{' '}
         {new Date(digest.generatedAt).toLocaleString('ja-JP')}
+        {digest.usage && (
+          <>
+            {' ・ '}
+            <span title={Object.entries(digest.usage.stages)
+              .map(
+                ([stage, s]) =>
+                  `${stage}: ${s.requests}req / in ${s.inputTokens.toLocaleString()} / out ${s.outputTokens.toLocaleString()} = $${s.estimatedCostUsd.toFixed(4)}`,
+              )
+              .join('\n')}>
+              API 費用 ${digest.usage.totalCostUsd.toFixed(3)}
+            </span>
+          </>
+        )}
       </p>
     </>
   );
@@ -193,7 +206,12 @@ function TopCard({ item }: { item: TopItem }) {
               {d.prerequisites!.map((p, i) => (
                 <div className="prereq__item" key={i}>
                   <dt>{p.term}</dt>
-                  <dd>{p.explanation}</dd>
+                  <dd>
+                    {p.stumblingPoint && (
+                      <p className="prereq__stumble">{p.stumblingPoint}</p>
+                    )}
+                    {p.explanation}
+                  </dd>
                 </div>
               ))}
             </dl>

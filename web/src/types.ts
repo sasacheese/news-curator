@@ -54,7 +54,23 @@ export interface RankedItem {
 
 export interface Prerequisite {
   term: string;
+  /** 記事のどこで詰まるか */
+  stumblingPoint?: string;
   explanation: string;
+}
+
+export interface UsageStat {
+  model: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface UsageReport {
+  stages: Record<string, UsageStat>;
+  totalCostUsd: number;
 }
 
 export type Visual =
@@ -118,6 +134,7 @@ export interface Digest {
   };
   topics: string[];
   models: { rank: string; summary: string };
+  usage?: UsageReport;
   notes: string[];
 }
 

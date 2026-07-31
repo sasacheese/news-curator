@@ -59,6 +59,8 @@ export interface RawItem {
 
 export interface PreScoredItem extends RawItem {
   preScore: number;
+  /** その日・そのソース内での人気の順位（0〜1）。指標を持たないソースは 0.5 */
+  popularityPercentile: number;
   matchedTopics: string[];
 }
 
@@ -74,7 +76,24 @@ export interface RankedItem extends PreScoredItem {
 /** 記事を読む前に押さえておくべき知識 */
 export interface Prerequisite {
   term: string;
+  /** 記事のどこで詰まるか。「なぜこの説明が要るのか」を読者に示す */
+  stumblingPoint: string;
   explanation: string;
+}
+
+/** LLM の使用量。実測にもとづいてコストを判断するために記録する */
+export interface UsageStat {
+  model: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface UsageReport {
+  stages: Record<string, UsageStat>;
+  totalCostUsd: number;
 }
 
 /**
@@ -147,6 +166,7 @@ export interface Digest {
   };
   topics: string[];
   models: { rank: string; summary: string };
+  usage: UsageReport;
   notes: string[];
 }
 

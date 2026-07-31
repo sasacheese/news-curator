@@ -52,6 +52,16 @@ function str(name: string, fallback: string): string {
 export function loadRuntimeConfig(): RuntimeConfig {
   const effort = str('SUMMARY_EFFORT', 'medium') as RuntimeConfig['summaryEffort'];
   return {
+    /**
+     * LLM に採点させる候補数。
+     *
+     * 45 まで絞るとコストは月 ¥80 ほど下がるが、実データで検証したところ
+     * 46〜60 位の帯に「実際にベスト3入りした記事」が含まれていた。
+     * 削減幅に対してリスクが大きすぎるので 90 のままにしている。
+     *
+     * 採点は 2 段階（スコアのみ → 上位だけ文章化）なので、ここを増やしても
+     * 増えるのは安い 1 段目の入力だけ。カバー範囲を広げたいなら上げてよい。
+     */
     rankCandidates: num('RANK_CANDIDATES', 90),
     topN: num('TOP_N', 3),
     otherN: num('OTHER_N', 12),
