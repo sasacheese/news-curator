@@ -107,6 +107,35 @@ npm install
 ANTHROPIC_API_KEY=sk-ant-... GITHUB_TOKEN=$(gh auth token) npm run collect
 ```
 
+### API キーを使わずに生成する（ローカル開発用）
+
+ログイン済みのローカル Claude Code CLI 経由で LLM を呼べます。API キー不要・従量課金なしで、
+Claude Code のサブスクリプション枠で動きます（[ai-sdk-provider-claude-code](https://github.com/ben-vargas/ai-sdk-provider-claude-code) を利用）。
+
+```bash
+LLM_BACKEND=claude-code GITHUB_TOKEN=$(gh auth token) npm run collect
+```
+
+> [!IMPORTANT]
+> **ローカル開発・検証専用です。** サブスクリプションの OAuth 認証は Claude Code と
+> それをラップする層のためのもので、プロダクトの LLM バックエンドとして常用するのは
+> Anthropic のポリシーに反します。CI で `LLM_BACKEND=claude-code` を指定すると
+> 明示的にエラーで止まります。本番は必ず `ANTHROPIC_API_KEY` を使ってください。
+
+技術的にも本番向きではありません。実測で比較すると:
+
+| | Anthropic API 直接 | Claude Code CLI 経由 |
+| --- | ---: | ---: |
+| 入力トークン（採点150件） | 約 54,000 | 291,762 |
+| 所要時間（全工程） | 約 30 秒 | 約 7 分 |
+| 費用 | 約 $0.19 | $0（サブスク枠） |
+
+エージェントハーネスを経由するぶんトークンも時間も大きく増えます。プロンプトを
+いじって出力を確かめる用途には十分ですが、毎朝の自動実行には向きません。
+
+CLI が PATH で見つからない場合は `CLAUDE_CLI_PATH` で実体を指定してください
+（Claude Code 実行中は `CLAUDE_CODE_EXECPATH` が自動で使われます）。
+
 保存せずに結果だけ見る:
 
 ```bash

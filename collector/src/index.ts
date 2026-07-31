@@ -1,6 +1,6 @@
 import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
-import { deepDive, getClient, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
+import { deepDive, getBackend, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
 import { dedupe, pickTopDiverse, preScore } from './prescore.js';
 import { collectAll } from './sources.js';
 import { loadSeenUrls, saveDigest } from './store.js';
@@ -38,9 +38,16 @@ async function main(): Promise<void> {
   log.info(`ダイジェスト日付 : ${date}`);
   log.info(`対象ウィンドウ   : ${formatJst(start)} 〜 ${formatJst(end)}`);
   log.info(`モデル           : rank=${runtime.rankModel} / summary=${runtime.summaryModel}`);
-  if (!getClient()) {
-    notes.push('ANTHROPIC_API_KEY が未設定のため、ルールベースのスコアで生成されています。');
-    log.warn('ANTHROPIC_API_KEY が未設定です（ルールベースで続行）');
+
+  const backend = await getBackend();
+  if (!backend) {
+    notes.push('LLM バックエンドが未設定のため、ルールベースのスコアで生成されています。');
+    log.warn(
+      'LLM バックエンドがありません（ルールベースで続行）。' +
+        'ANTHROPIC_API_KEY を設定するか、ローカル開発なら LLM_BACKEND=claude-code を使ってください。',
+    );
+  } else {
+    log.info(`バックエンド     : ${backend.name}${backend.metered ? '' : '（従量課金なし）'}`);
   }
 
   /* 1. 収集 --------------------------------------------------------- */

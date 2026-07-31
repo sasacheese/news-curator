@@ -1,5 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk';
+import type { LlmBackend } from './backend.js';
+import { selectBackend } from './backend.js';
+import { CATEGORIES } from './categories.js';
 import type { RuntimeConfig } from './config.js';
+import {
+  DeepDiveSchema,
+  DescribeResultSchema,
+  ScoreResultSchema,
+  type DescribeResult,
+} from './schemas.js';
 import type {
   DeepDive,
   PreScoredItem,
@@ -10,23 +18,13 @@ import type {
 } from './types.js';
 import { log, mapLimit, truncate } from './util.js';
 
-export const CATEGORIES = [
-  'リリース/アップデート',
-  '新機能・新ツール',
-  '設計・実装ノウハウ',
-  'パフォーマンス',
-  'AI/エージェント',
-  'Web標準/ブラウザ',
-  '調査・考察',
-  'その他',
-] as const;
+export { CATEGORIES };
 
-let client: Anthropic | null = null;
+let backend: LlmBackend | null | undefined;
 
-export function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) return null;
-  client ??= new Anthropic();
-  return client;
+export async function getBackend(): Promise<LlmBackend | null> {
+  if (backend === undefined) backend = await selectBackend();
+  return backend;
 }
 
 /* ------------------------------------------------------------------ *
@@ -52,13 +50,19 @@ export function resetUsage(): void {
   usageByStage.clear();
 }
 
-function recordUsage(stage: string, model: string, usage: Anthropic.Usage | undefined): void {
-  if (!usage) return;
-  const input = usage.input_tokens ?? 0;
-  const output = usage.output_tokens ?? 0;
-  const cacheRead = usage.cache_read_input_tokens ?? 0;
-  const price = PRICING[model];
+interface NormalizedUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+}
 
+function recordUsage(
+  stage: string,
+  model: string,
+  usage: NormalizedUsage,
+  metered: boolean,
+): void {
+  const price = metered ? PRICING[model] : undefined;
   const prev = usageByStage.get(stage) ?? {
     model,
     requests: 0,
@@ -71,13 +75,16 @@ function recordUsage(stage: string, model: string, usage: Anthropic.Usage | unde
   usageByStage.set(stage, {
     model,
     requests: prev.requests + 1,
-    inputTokens: prev.inputTokens + input,
-    outputTokens: prev.outputTokens + output,
-    cacheReadTokens: prev.cacheReadTokens + cacheRead,
+    inputTokens: prev.inputTokens + usage.inputTokens,
+    outputTokens: prev.outputTokens + usage.outputTokens,
+    cacheReadTokens: prev.cacheReadTokens + usage.cacheReadTokens,
     estimatedCostUsd:
       prev.estimatedCostUsd +
       (price
-        ? (input * price.input + output * price.output + cacheRead * price.cacheRead) / 1_000_000
+        ? (usage.inputTokens * price.input +
+            usage.outputTokens * price.output +
+            usage.cacheReadTokens * price.cacheRead) /
+          1_000_000
         : 0),
   });
 }
@@ -104,29 +111,14 @@ export function logUsage(): void {
   log.info(`  ${'合計'.padEnd(9)} $${report.totalCostUsd.toFixed(4)}`);
 }
 
-/**
- * Haiku 4.5 / Sonnet 4.5 世代は adaptive thinking と effort を受け付けないため、
- * これらのパラメータを付けずに呼ぶ必要がある。
- */
-function isLegacyModel(model: string): boolean {
-  return /haiku-4-5|sonnet-4-5|opus-4-5|haiku-3|sonnet-3/.test(model);
-}
-
-function extractJson(res: Anthropic.Message): unknown {
-  if (res.stop_reason === 'refusal') {
-    throw new Error('モデルが応答を拒否しました (stop_reason=refusal)');
-  }
-  const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text;
-  if (!text) throw new Error(`テキストブロックがありません (stop_reason=${res.stop_reason})`);
-  try {
-    return JSON.parse(text);
-  } catch {
-    // structured outputs でもごく稀に前後に文字が付くことがある
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end <= start) throw new Error('JSON をパースできませんでした');
-    return JSON.parse(text.slice(start, end + 1));
-  }
+/** バックエンドを呼んで使用量も記録する */
+async function complete<T>(
+  b: LlmBackend,
+  opts: Parameters<LlmBackend['complete']>[0] & { schema: import('zod').ZodType<T> },
+): Promise<T> {
+  const res = await b.complete<T>(opts);
+  recordUsage(opts.stage, opts.model, res.usage, b.metered);
+  return res.value;
 }
 
 /* ------------------------------------------------------------------ *
@@ -139,68 +131,6 @@ function extractJson(res: Anthropic.Message): unknown {
  * そこで 1 段目はスコアだけ返させ（1 件 10 トークン程度）、
  * 2 段目で生き残った十数件にだけ文章を書かせる。
  * ------------------------------------------------------------------ */
-
-/** 1 段目: 関連度スコアだけ。出力を最小にする。 */
-const SCORE_SCHEMA: Record<string, unknown> = {
-  type: 'object',
-  properties: {
-    items: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          ref: { type: 'integer', description: '入力に付与した番号' },
-          score: { type: 'integer', description: '0〜100 の関連度スコア' },
-        },
-        required: ['ref', 'score'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['items'],
-  additionalProperties: false,
-};
-
-/** 2 段目: 保存する分だけの要約とキーワード。 */
-const DESCRIBE_SCHEMA: Record<string, unknown> = {
-  type: 'object',
-  properties: {
-    items: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          ref: { type: 'integer', description: '入力に付与した番号' },
-          category: { type: 'string', enum: [...CATEGORIES] },
-          oneLiner: { type: 'string', description: '日本語1文の要約（60字以内）' },
-          reason: { type: 'string', description: 'この記事を選んだ理由（日本語40字以内）' },
-          keywords: {
-            type: 'array',
-            items: { type: 'string' },
-            description: '検索用キーワード3〜6個（固有名詞優先）',
-          },
-        },
-        required: ['ref', 'category', 'oneLiner', 'reason', 'keywords'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['items'],
-  additionalProperties: false,
-};
-
-interface ScoreResponseItem {
-  ref: number;
-  score: number;
-}
-
-interface DescribeResponseItem {
-  ref: number;
-  category: string;
-  oneLiner: string;
-  reason: string;
-  keywords: string[];
-}
 
 function readerContext(topics: TopicsConfig): string {
   const topicList = topics.topics
@@ -277,7 +207,7 @@ function ruleBasedFields(item: PreScoredItem, note: string) {
 
 /** 1 段目: 候補全件にスコアだけ付ける */
 async function scorePass(
-  anthropic: Anthropic,
+  b: LlmBackend,
   items: PreScoredItem[],
   topics: TopicsConfig,
   cfg: RuntimeConfig,
@@ -288,7 +218,6 @@ async function scorePass(
   }
 
   const system = scoreSystemPrompt(topics);
-  const isLegacy = isLegacyModel(cfg.rankModel);
   const scores = new Map<string, number>();
 
   await mapLimit(batches, 3, async (batch, batchIndex) => {
@@ -296,20 +225,14 @@ async function scorePass(
     const body = batch.map((item, i) => renderCandidate(item, offset + i, 500)).join('\n\n');
 
     try {
-      const res = await anthropic.messages.create({
+      const parsed = await complete(b, {
+        stage: 'score',
         model: cfg.rankModel,
-        max_tokens: 4000,
+        maxTokens: 4000,
         system,
-        messages: [
-          { role: 'user', content: `以下 ${batch.length} 件を採点してください。\n\n${body}` },
-        ],
-        output_config: { format: { type: 'json_schema', schema: SCORE_SCHEMA } },
-        // Haiku 4.5 世代は adaptive thinking を受け付けない
-        ...(isLegacy ? {} : { thinking: { type: 'adaptive' as const } }),
+        prompt: `以下 ${batch.length} 件を採点してください。\n\n${body}`,
+        schema: ScoreResultSchema,
       });
-      recordUsage('score', cfg.rankModel, res.usage);
-
-      const parsed = extractJson(res) as { items: ScoreResponseItem[] };
       for (const r of parsed.items ?? []) {
         const item = items[r.ref];
         if (item) scores.set(item.id, Math.max(0, Math.min(100, Math.round(r.score))));
@@ -324,31 +247,25 @@ async function scorePass(
 
 /** 2 段目: 実際に保存する分だけ文章化する */
 async function describePass(
-  anthropic: Anthropic,
+  b: LlmBackend,
   shortlist: PreScoredItem[],
   topics: TopicsConfig,
   cfg: RuntimeConfig,
-): Promise<Map<string, DescribeResponseItem>> {
-  const described = new Map<string, DescribeResponseItem>();
+): Promise<Map<string, DescribeResult['items'][number]>> {
+  const described = new Map<string, DescribeResult['items'][number]>();
   if (shortlist.length === 0) return described;
 
   const body = shortlist.map((item, i) => renderCandidate(item, i, 700)).join('\n\n');
-  const isLegacy = isLegacyModel(cfg.rankModel);
 
   try {
-    const res = await anthropic.messages.create({
+    const parsed = await complete(b, {
+      stage: 'describe',
       model: cfg.rankModel,
-      max_tokens: 8000,
+      maxTokens: 8000,
       system: describeSystemPrompt(topics),
-      messages: [
-        { role: 'user', content: `以下 ${shortlist.length} 件を要約してください。\n\n${body}` },
-      ],
-      output_config: { format: { type: 'json_schema', schema: DESCRIBE_SCHEMA } },
-      ...(isLegacy ? {} : { thinking: { type: 'adaptive' as const } }),
+      prompt: `以下 ${shortlist.length} 件を要約してください。\n\n${body}`,
+      schema: DescribeResultSchema,
     });
-    recordUsage('describe', cfg.rankModel, res.usage);
-
-    const parsed = extractJson(res) as { items: DescribeResponseItem[] };
     for (const r of parsed.items ?? []) {
       const item = shortlist[r.ref];
       if (item) described.set(item.id, r);
@@ -365,9 +282,9 @@ export async function rankItems(
   topics: TopicsConfig,
   cfg: RuntimeConfig,
 ): Promise<RankedItem[]> {
-  const anthropic = getClient();
-  if (!anthropic) {
-    log.warn('ANTHROPIC_API_KEY が無いためルールベースのスコアにフォールバックします');
+  const b = await getBackend();
+  if (!b) {
+    log.warn('LLM バックエンドが無いためルールベースのスコアにフォールバックします');
     return items.map((item) => ({
       ...item,
       score: Math.round(item.preScore * 100),
@@ -376,7 +293,7 @@ export async function rankItems(
   }
 
   // 1 段目
-  const scores = await scorePass(anthropic, items, topics, cfg);
+  const scores = await scorePass(b, items, topics, cfg);
   log.info(`  スコアリング: ${scores.size}/${items.length} 件`);
 
   const scoreOf = (item: PreScoredItem) =>
@@ -385,10 +302,10 @@ export async function rankItems(
 
   // 2 段目に回すのは、保存される分＋多様性確保のための余裕
   const shortlist = [...items]
-    .sort((a, b) => scoreOf(b) - scoreOf(a))
+    .sort((a, b2) => scoreOf(b2) - scoreOf(a))
     .slice(0, cfg.topN + cfg.otherN + 10);
 
-  const described = await describePass(anthropic, shortlist, topics, cfg);
+  const described = await describePass(b, shortlist, topics, cfg);
   log.info(`  要約: ${described.size}/${shortlist.length} 件`);
 
   return items.map((item) => {
@@ -403,9 +320,7 @@ export async function rankItems(
       oneLiner: r.oneLiner?.trim() || item.title,
       reason: r.reason?.trim() ?? '',
       keywords: (r.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 8),
-      category: CATEGORIES.includes(r.category as (typeof CATEGORIES)[number])
-        ? r.category
-        : 'その他',
+      category: CATEGORIES.includes(r.category) ? r.category : 'その他',
     };
   });
 }
@@ -413,194 +328,6 @@ export async function rankItems(
 /* ------------------------------------------------------------------ *
  * 2) 深掘り要約（高性能モデル）
  * ------------------------------------------------------------------ */
-
-/** visual フィールドの 3 バリアント */
-const VISUAL_VARIANTS = [
-  {
-    type: 'object',
-    description: '変更前後の対比。「何が変わるか」がある記事に最も合う。',
-    properties: {
-      type: { type: 'string', enum: ['comparison'] },
-      title: { type: 'string', description: '何と何を比べているか。20字以内。' },
-      beforeLabel: { type: 'string', description: '左側の見出し（例: 従来 / v1 まで）' },
-      afterLabel: { type: 'string', description: '右側の見出し（例: 今回 / v2 以降）' },
-      rows: {
-        type: 'array',
-        description: '比較の観点ごとに1行。2〜5行。',
-        items: {
-          type: 'object',
-          properties: {
-            aspect: { type: 'string', description: '観点（例: 書き方、デフォルト値）' },
-            before: { type: 'string' },
-            after: { type: 'string' },
-          },
-          required: ['aspect', 'before', 'after'],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ['type', 'title', 'beforeLabel', 'afterLabel', 'rows'],
-    additionalProperties: false,
-  },
-  {
-    type: 'object',
-    description: '処理やワークフローの流れ。順序が本質的な記事に合う。',
-    properties: {
-      type: { type: 'string', enum: ['flow'] },
-      title: { type: 'string', description: '何の流れか。20字以内。' },
-      steps: {
-        type: 'array',
-        description: '3〜6ステップ。',
-        items: {
-          type: 'object',
-          properties: {
-            label: { type: 'string', description: 'ステップ名。12字以内。' },
-            detail: { type: 'string', description: 'そのステップで起きること。30字以内。' },
-          },
-          required: ['label', 'detail'],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ['type', 'title', 'steps'],
-    additionalProperties: false,
-  },
-  {
-    type: 'object',
-    description: '記事に具体的な数値がある場合のみ。無い数値を作らないこと。',
-    properties: {
-      type: { type: 'string', enum: ['metrics'] },
-      title: { type: 'string', description: '何の数値か。20字以内。' },
-      items: {
-        type: 'array',
-        description: '1〜4個。',
-        items: {
-          type: 'object',
-          properties: {
-            label: { type: 'string', description: '指標名（例: ビルド時間）' },
-            value: { type: 'string', description: '変更後の値（単位込み。例: 12s）' },
-            baseline: {
-              description: '変更前の値。比較対象が無ければ null。',
-              anyOf: [{ type: 'null' }, { type: 'string' }],
-            },
-            direction: {
-              type: 'string',
-              enum: ['up-good', 'down-good', 'neutral'],
-              description: '値が増えるのが良いか減るのが良いか',
-            },
-            note: {
-              description: '測定条件などの補足。無ければ null。',
-              anyOf: [{ type: 'null' }, { type: 'string' }],
-            },
-          },
-          required: ['label', 'value', 'baseline', 'direction', 'note'],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ['type', 'title', 'items'],
-    additionalProperties: false,
-  },
-];
-
-const DEEP_SCHEMA: Record<string, unknown> = {
-  type: 'object',
-  properties: {
-    headline: { type: 'string', description: '結論を1文で。40字以内。' },
-    summary: { type: 'string', description: '概要。3〜5文、記事を読まなくても要点が掴める粒度。' },
-    prerequisites: {
-      type: 'array',
-      description:
-        'この記事で読者が詰まりそうな箇所を先回りして埋める解説。2〜4個。詰まる箇所が本当に無ければ空配列。',
-      items: {
-        type: 'object',
-        properties: {
-          term: { type: 'string', description: '押さえるべき概念の名前。20字以内。' },
-          stumblingPoint: {
-            type: 'string',
-            description:
-              '記事のどこで詰まるか。記事中の語や一文を引いて「〜と書かれているが、〜を知らないと〜が読み取れない」の形で具体的に書く。40〜80字。',
-          },
-          explanation: {
-            type: 'string',
-            description:
-              'その詰まりを解消する解説。3〜5文。定義だけで終わらせず、なぜそれが問題になるのか・この記事の文脈で何を意味するのかまで書く。',
-          },
-        },
-        required: ['term', 'stumblingPoint', 'explanation'],
-        additionalProperties: false,
-      },
-    },
-    visual: {
-      description:
-        '記事の要点を図にしたもの。最も内容に合う形式を1つ選ぶ。図にする価値が無ければ null。',
-      anyOf: [{ type: 'null' }, ...VISUAL_VARIANTS],
-    },
-    whatYouCanDo: {
-      type: 'array',
-      items: { type: 'string' },
-      description: '何ができるようになるか。2〜4個。',
-    },
-    whatChanges: {
-      type: 'array',
-      items: { type: 'string' },
-      description: '何が変わるか（従来との差分・破壊的変更・移行の要否）。2〜4個。',
-    },
-    howToTry: {
-      type: 'array',
-      items: { type: 'string' },
-      description: '試し方・使い方の手順。2〜5ステップ。具体的なコマンドや設定を含める。',
-    },
-    code: {
-      description: '手を動かすときにそのまま使えるコード。不要なら null。',
-      anyOf: [
-        { type: 'null' },
-        {
-          type: 'object',
-          properties: {
-            lang: { type: 'string' },
-            caption: { type: 'string' },
-            content: { type: 'string' },
-          },
-          required: ['lang', 'caption', 'content'],
-          additionalProperties: false,
-        },
-      ],
-    },
-    whyItMatters: { type: 'string', description: 'この読者にとってなぜ重要か。2〜3文。' },
-    caveats: {
-      type: 'array',
-      items: { type: 'string' },
-      description: '注意点・制限・まだ使えない条件。無ければ空配列。',
-    },
-    relatedLinks: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: { label: { type: 'string' }, url: { type: 'string' } },
-        required: ['label', 'url'],
-        additionalProperties: false,
-      },
-      description: '記事本文中にあった一次情報へのリンク。無ければ空配列。',
-    },
-    readingMinutes: { type: 'integer', description: 'このカードを読むのにかかる分数の目安' },
-  },
-  required: [
-    'headline',
-    'summary',
-    'prerequisites',
-    'visual',
-    'whatYouCanDo',
-    'whatChanges',
-    'howToTry',
-    'code',
-    'whyItMatters',
-    'caveats',
-    'relatedLinks',
-    'readingMinutes',
-  ],
-  additionalProperties: false,
-};
 
 function deepSystemPrompt(topics: TopicsConfig): string {
   return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
@@ -661,8 +388,8 @@ export async function deepDive(
   topics: TopicsConfig,
   cfg: RuntimeConfig,
 ): Promise<DeepDive> {
-  const anthropic = getClient();
-  if (!anthropic) return fallbackDeepDive(item);
+  const b = await getBackend();
+  if (!b) return fallbackDeepDive(item);
 
   const meta = [
     `タイトル: ${item.title}`,
@@ -678,32 +405,23 @@ export async function deepDive(
   const content = truncate(item.body || item.snippet, cfg.bodyCharLimit);
 
   try {
-    const res = await anthropic.messages.create({
+    const parsed = await complete(b, {
+      stage: 'deep',
       model: cfg.summaryModel,
-      max_tokens: 12_000,
+      maxTokens: 12_000,
+      effort: cfg.summaryEffort,
       system: deepSystemPrompt(topics),
-      messages: [
-        {
-          role: 'user',
-          content: `${meta}\n\n--- 本文ここから ---\n${content}\n--- 本文ここまで ---`,
-        },
-      ],
-      output_config: {
-        effort: cfg.summaryEffort,
-        format: { type: 'json_schema', schema: DEEP_SCHEMA },
-      },
-      thinking: { type: 'adaptive' },
+      prompt: `${meta}\n\n--- 本文ここから ---\n${content}\n--- 本文ここまで ---`,
+      schema: DeepDiveSchema,
     });
-    recordUsage('deep', cfg.summaryModel, res.usage);
 
-    const parsed = extractJson(res) as DeepDive;
     return {
       headline: parsed.headline?.trim() || item.oneLiner,
       summary: parsed.summary?.trim() || item.oneLiner,
       prerequisites: (parsed.prerequisites ?? [])
         .filter((p) => p?.term && p?.explanation)
         .map((p) => ({ ...p, stumblingPoint: p.stumblingPoint ?? '' })),
-      visual: normalizeVisual(parsed.visual),
+      visual: normalizeVisual(parsed.visual as DeepDive['visual']),
       whatYouCanDo: parsed.whatYouCanDo ?? [],
       whatChanges: parsed.whatChanges ?? [],
       howToTry: parsed.howToTry ?? [],
