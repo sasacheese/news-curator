@@ -1,6 +1,6 @@
 import type { SourcesConfig } from './config.js';
 import { fetchFeed } from './rss.js';
-import type { RawItem, SourceKind } from './types.js';
+import type { AuthorDetail, RawItem, SourceKind } from './types.js';
 import {
   detectLang,
   fetchJson,
@@ -43,6 +43,20 @@ function makeItem(partial: Omit<RawItem, 'id' | 'lang'> & { lang?: RawItem['lang
  * Qiita
  * ------------------------------------------------------------------ */
 
+interface QiitaUser {
+  id: string;
+  name: string;
+  description: string | null;
+  organization: string | null;
+  location: string | null;
+  followers_count: number;
+  items_count: number;
+  profile_image_url: string | null;
+  github_login_name: string | null;
+  twitter_screen_name: string | null;
+  website_url: string | null;
+}
+
 interface QiitaItem {
   id: string;
   title: string;
@@ -53,7 +67,33 @@ interface QiitaItem {
   stocks_count: number;
   comments_count: number;
   tags: { name: string }[];
-  user: { id: string };
+  user: QiitaUser;
+}
+
+function qiitaAuthor(user: QiitaUser | undefined): AuthorDetail | undefined {
+  if (!user?.id) return undefined;
+  const links: { label: string; url: string }[] = [];
+  if (user.github_login_name) {
+    links.push({ label: 'GitHub', url: `https://github.com/${user.github_login_name}` });
+  }
+  if (user.twitter_screen_name) {
+    links.push({ label: 'X', url: `https://x.com/${user.twitter_screen_name}` });
+  }
+  if (user.website_url?.startsWith('http')) {
+    links.push({ label: 'Web', url: user.website_url });
+  }
+  return {
+    name: user.name?.trim() || user.id,
+    handle: `@${user.id}`,
+    url: `https://qiita.com/${user.id}`,
+    avatarUrl: user.profile_image_url ?? undefined,
+    bio: user.description?.trim() || undefined,
+    organization: user.organization?.trim() || undefined,
+    location: user.location?.trim() || undefined,
+    followers: user.followers_count,
+    posts: user.items_count,
+    links,
+  };
 }
 
 async function collectQiita(cfg: SourcesConfig['qiita'], w: Window): Promise<RawItem[]> {
@@ -87,7 +127,8 @@ async function collectQiita(cfg: SourcesConfig['qiita'], w: Window): Promise<Raw
           title: it.title,
           url: it.url,
           publishedAt: created.toISOString(),
-          author: it.user?.id,
+          author: it.user?.name?.trim() || it.user?.id,
+          authorDetail: qiitaAuthor(it.user),
           tags: (it.tags ?? []).map((t) => t.name),
           snippet: body,
           body,
@@ -131,8 +172,23 @@ interface ZennArticle {
   comments_count: number;
   article_type: string;
   body_letters_count: number;
-  user?: { username?: string; name?: string };
-  publication?: { name?: string; display_name?: string } | null;
+  user?: { username?: string; name?: string; avatar_small_url?: string };
+  publication?: { name?: string; display_name?: string; avatar_small_url?: string } | null;
+}
+
+function zennAuthor(a: ZennArticle): AuthorDetail | undefined {
+  const u = a.user;
+  if (!u?.username) return undefined;
+  return {
+    name: u.name?.trim() || u.username,
+    handle: `@${u.username}`,
+    url: `https://zenn.dev/${u.username}`,
+    avatarUrl: u.avatar_small_url,
+    organization: a.publication?.display_name ?? undefined,
+    links: a.publication?.name
+      ? [{ label: 'Publication', url: `https://zenn.dev/p/${a.publication.name}` }]
+      : [],
+  };
 }
 
 async function collectZenn(cfg: SourcesConfig['zenn'], w: Window): Promise<RawItem[]> {
@@ -157,6 +213,7 @@ async function collectZenn(cfg: SourcesConfig['zenn'], w: Window): Promise<RawIt
         url,
         publishedAt: published.toISOString(),
         author: a.user?.name ?? a.user?.username,
+        authorDetail: zennAuthor(a),
         tags: [a.article_type].filter(Boolean),
         snippet: '',
         metrics: {
@@ -213,6 +270,7 @@ async function collectHatena(cfg: SourcesConfig['hatena'], w: Window): Promise<R
         url: e.link,
         publishedAt: (e.publishedAt ?? new Date()).toISOString(),
         author: e.author,
+        authorDetail: e.author ? { name: e.author } : undefined,
         tags: e.tags,
         snippet: e.summary || e.content,
         metrics: {},
@@ -278,6 +336,13 @@ async function collectHackerNews(cfg: SourcesConfig['hackernews'], w: Window): P
         url: h.url ?? `https://news.ycombinator.com/item?id=${h.objectID}`,
         publishedAt: new Date(h.created_at_i * 1000).toISOString(),
         author: h.author,
+        authorDetail: h.author
+          ? {
+              name: h.author,
+              handle: h.author,
+              url: `https://news.ycombinator.com/user?id=${encodeURIComponent(h.author)}`,
+            }
+          : undefined,
         tags: [],
         snippet: stripHtml(h.story_text ?? ''),
         metrics: { points: h.points ?? 0, comments: h.num_comments ?? 0 },
@@ -299,7 +364,29 @@ interface DevtoArticle {
   positive_reactions_count: number;
   comments_count: number;
   tag_list: string[];
-  user: { name: string };
+  user: {
+    name: string;
+    username?: string;
+    twitter_username?: string | null;
+    github_username?: string | null;
+    website_url?: string | null;
+    profile_image?: string | null;
+  };
+}
+
+function devtoAuthor(u: DevtoArticle['user'] | undefined): AuthorDetail | undefined {
+  if (!u?.name && !u?.username) return undefined;
+  const links: { label: string; url: string }[] = [];
+  if (u.github_username) links.push({ label: 'GitHub', url: `https://github.com/${u.github_username}` });
+  if (u.twitter_username) links.push({ label: 'X', url: `https://x.com/${u.twitter_username}` });
+  if (u.website_url?.startsWith('http')) links.push({ label: 'Web', url: u.website_url });
+  return {
+    name: u.name || u.username!,
+    handle: u.username ? `@${u.username}` : undefined,
+    url: u.username ? `https://dev.to/${u.username}` : undefined,
+    avatarUrl: u.profile_image ?? undefined,
+    links,
+  };
 }
 
 async function collectDevto(cfg: SourcesConfig['devto'], w: Window): Promise<RawItem[]> {
@@ -317,6 +404,7 @@ async function collectDevto(cfg: SourcesConfig['devto'], w: Window): Promise<Raw
         url: a.url,
         publishedAt: new Date(a.published_at).toISOString(),
         author: a.user?.name,
+        authorDetail: devtoAuthor(a.user),
         tags: a.tag_list ?? [],
         snippet: a.description ?? '',
         metrics: { likes: a.positive_reactions_count, comments: a.comments_count },
@@ -338,6 +426,7 @@ interface GhRelease {
   published_at: string | null;
   prerelease: boolean;
   draft: boolean;
+  author?: { login: string; html_url: string; avatar_url: string } | null;
 }
 
 function githubHeaders(): Record<string, string> {
@@ -372,6 +461,16 @@ async function collectGithubReleases(
               title: `${repo} ${r.name?.trim() || r.tag_name}`,
               url: r.html_url,
               publishedAt: new Date(r.published_at!).toISOString(),
+              author: r.author?.login,
+              authorDetail: r.author?.login
+                ? {
+                    name: r.author.login,
+                    handle: `@${r.author.login}`,
+                    url: r.author.html_url,
+                    avatarUrl: r.author.avatar_url,
+                    organization: repo.split('/')[0],
+                  }
+                : undefined,
               tags: [repo.split('/')[1] ?? repo, 'release'],
               snippet: body,
               body,
@@ -427,6 +526,13 @@ async function collectGithubTrending(
             url: r.html_url,
             // 「新着」の起点は作成日だが、ウィンドウ判定からは外して seen 判定で重複排除する
             publishedAt: new Date(r.created_at).toISOString(),
+            author: r.full_name.split('/')[0],
+            authorDetail: {
+              name: r.full_name.split('/')[0] ?? r.full_name,
+              url: `https://github.com/${r.full_name.split('/')[0]}`,
+              avatarUrl: `https://github.com/${r.full_name.split('/')[0]}.png?size=120`,
+              bio: r.description ?? undefined,
+            },
             tags: [r.language, ...(r.topics ?? [])].filter((t): t is string => Boolean(t)).slice(0, 8),
             snippet: r.description ?? '',
             metrics: { stars: r.stargazers_count },
@@ -461,6 +567,7 @@ async function collectRss(cfg: SourcesConfig['rss'], w: Window): Promise<RawItem
               url: e.link,
               publishedAt: e.publishedAt!.toISOString(),
               author: e.author,
+              authorDetail: e.author ? { name: e.author } : undefined,
               tags: e.tags,
               snippet: e.summary || e.content,
               body: e.content.length > 400 ? e.content : undefined,

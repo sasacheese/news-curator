@@ -135,6 +135,9 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
       ...winner,
       snippet: winner.snippet || loser.snippet,
       body: winner.body ?? loser.body,
+      // 同じ記事でも、はてブ経由より Qiita 経由のほうが作者情報が濃い
+      author: winner.author ?? loser.author,
+      authorDetail: winner.authorDetail ?? loser.authorDetail,
       tags: [...new Set([...winner.tags, ...loser.tags])],
       sourceWeight: Math.max(winner.sourceWeight, loser.sourceWeight),
       metrics: {

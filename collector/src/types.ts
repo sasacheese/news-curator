@@ -18,6 +18,24 @@ export interface Metrics {
   hatena?: number;
 }
 
+/**
+ * 記事の書き手。
+ * Qiita / Zenn / dev.to は一覧 API のレスポンスに含まれているので、
+ * 追加リクエストなしで取得できる。RSS などは名前だけ。
+ */
+export interface AuthorDetail {
+  name: string;
+  handle?: string;
+  url?: string;
+  avatarUrl?: string;
+  bio?: string;
+  organization?: string;
+  location?: string;
+  followers?: number;
+  posts?: number;
+  links?: { label: string; url: string }[];
+}
+
 /** 収集直後の生アイテム */
 export interface RawItem {
   id: string;
@@ -27,6 +45,7 @@ export interface RawItem {
   url: string;
   publishedAt: string;
   author?: string;
+  authorDetail?: AuthorDetail;
   tags: string[];
   /** 一覧表示や事前スコアリングに使う短い抜粋 */
   snippet: string;
@@ -52,9 +71,51 @@ export interface RankedItem extends PreScoredItem {
   category: string;
 }
 
+/** 記事を読む前に押さえておくべき知識 */
+export interface Prerequisite {
+  term: string;
+  explanation: string;
+}
+
+/**
+ * 記事の要点を図にしたもの。
+ *
+ * どれも「無理にチャートにしない」方針で選んでいる。
+ * - comparison: 変更前後の対比。テキストの対比なのでチャートではなく 2 カラム表
+ * - flow: 処理や手順の流れ。ステップ図
+ * - metrics: 数値の改善。2 本だけの棒グラフはアンチパターンなので stat tile
+ */
+export type Visual =
+  | {
+      type: 'comparison';
+      title: string;
+      beforeLabel: string;
+      afterLabel: string;
+      rows: { aspect: string; before: string; after: string }[];
+    }
+  | {
+      type: 'flow';
+      title: string;
+      steps: { label: string; detail: string }[];
+    }
+  | {
+      type: 'metrics';
+      title: string;
+      items: {
+        label: string;
+        value: string;
+        baseline: string | null;
+        /** 値が増えるのが良いのか悪いのか。矢印の向きと色に使う */
+        direction: 'up-good' | 'down-good' | 'neutral';
+        note: string | null;
+      }[];
+    };
+
 export interface DeepDive {
   headline: string;
   summary: string;
+  prerequisites: Prerequisite[];
+  visual: Visual | null;
   whatYouCanDo: string[];
   whatChanges: string[];
   howToTry: string[];

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { navigate } from '../App';
+import { AuthorModal } from '../AuthorModal';
+import { VisualFigure } from '../VisualFigure';
 import { loadDigest } from '../api';
 import { Chip, CopyButton, Empty, LoadingCards, Notice } from '../components';
 import type { Digest, Manifest, RankedItem, TopItem } from '../types';
-import { formatDateLabel, metricSummary, safeUrl } from '../format';
+import { formatDateLabel, formatPublished, metricSummary, safeUrl } from '../format';
 
 interface Props {
   manifest: Manifest | null;
@@ -174,10 +176,31 @@ function TopCard({ item }: { item: TopItem }) {
         <a className="card__title-link" href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
           ↗ {item.title}
         </a>
+        <Byline item={item} />
       </div>
 
       <div className="card__body">
         <p className="card__summary">{d.summary}</p>
+
+        {(d.prerequisites?.length ?? 0) > 0 && (
+          <details className="prereq">
+            <summary className="prereq__summary">
+              <span className="prereq__marker" aria-hidden="true" />
+              前提知識
+              <span className="prereq__count">{d.prerequisites!.length}</span>
+            </summary>
+            <dl className="prereq__list">
+              {d.prerequisites!.map((p, i) => (
+                <div className="prereq__item" key={i}>
+                  <dt>{p.term}</dt>
+                  <dd>{p.explanation}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        )}
+
+        {d.visual && <VisualFigure visual={d.visual} />}
 
         {d.whatYouCanDo.length > 0 && (
           <Detail label="何ができるようになるか">
@@ -276,6 +299,48 @@ function TopCard({ item }: { item: TopItem }) {
   );
 }
 
+/** 公開日時と著者。著者情報が取れているソースではクリックで詳細を出す。 */
+function Byline({ item }: { item: RankedItem }) {
+  const [open, setOpen] = useState(false);
+  const published = formatPublished(item.publishedAt);
+  const detail = item.authorDetail;
+
+  if (!published && !item.author) return null;
+
+  return (
+    <p className="byline">
+      {published && (
+        <time dateTime={item.publishedAt} className="byline__time">
+          {published}
+        </time>
+      )}
+      {item.author && (
+        <>
+          <span className="byline__sep" aria-hidden="true">
+            ·
+          </span>
+          {detail ? (
+            <>
+              <button type="button" className="byline__author" onClick={() => setOpen(true)}>
+                {item.author}
+              </button>
+              {open && (
+                <AuthorModal
+                  author={detail}
+                  sourceLabel={item.sourceLabel}
+                  onClose={() => setOpen(false)}
+                />
+              )}
+            </>
+          ) : (
+            <span className="byline__author byline__author--plain">{item.author}</span>
+          )}
+        </>
+      )}
+    </p>
+  );
+}
+
 function Detail({
   label,
   children,
@@ -304,6 +369,7 @@ function OtherRow({ item }: { item: RankedItem }) {
           </a>
         </p>
         <p className="row__summary">{item.oneLiner}</p>
+        <Byline item={item} />
         <div className="row__meta">
           <Chip>{item.category}</Chip>
           <span>{item.sourceLabel}</span>

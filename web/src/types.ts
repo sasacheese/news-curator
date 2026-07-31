@@ -18,6 +18,19 @@ export interface Metrics {
   hatena?: number;
 }
 
+export interface AuthorDetail {
+  name: string;
+  handle?: string;
+  url?: string;
+  avatarUrl?: string;
+  bio?: string;
+  organization?: string;
+  location?: string;
+  followers?: number;
+  posts?: number;
+  links?: { label: string; url: string }[];
+}
+
 export interface RankedItem {
   id: string;
   source: SourceKind;
@@ -26,6 +39,7 @@ export interface RankedItem {
   url: string;
   publishedAt: string;
   author?: string;
+  authorDetail?: AuthorDetail;
   tags: string[];
   snippet: string;
   metrics: Metrics;
@@ -38,9 +52,41 @@ export interface RankedItem {
   category: string;
 }
 
+export interface Prerequisite {
+  term: string;
+  explanation: string;
+}
+
+export type Visual =
+  | {
+      type: 'comparison';
+      title: string;
+      beforeLabel: string;
+      afterLabel: string;
+      rows: { aspect: string; before: string; after: string }[];
+    }
+  | {
+      type: 'flow';
+      title: string;
+      steps: { label: string; detail: string }[];
+    }
+  | {
+      type: 'metrics';
+      title: string;
+      items: {
+        label: string;
+        value: string;
+        baseline: string | null;
+        direction: 'up-good' | 'down-good' | 'neutral';
+        note: string | null;
+      }[];
+    };
+
 export interface DeepDive {
   headline: string;
   summary: string;
+  prerequisites?: Prerequisite[];
+  visual?: Visual | null;
   whatYouCanDo: string[];
   whatChanges: string[];
   howToTry: string[];

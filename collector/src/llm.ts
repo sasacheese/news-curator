@@ -238,11 +238,122 @@ export async function rankItems(
  * 2) 深掘り要約（高性能モデル）
  * ------------------------------------------------------------------ */
 
+/** visual フィールドの 3 バリアント */
+const VISUAL_VARIANTS = [
+  {
+    type: 'object',
+    description: '変更前後の対比。「何が変わるか」がある記事に最も合う。',
+    properties: {
+      type: { type: 'string', enum: ['comparison'] },
+      title: { type: 'string', description: '何と何を比べているか。20字以内。' },
+      beforeLabel: { type: 'string', description: '左側の見出し（例: 従来 / v1 まで）' },
+      afterLabel: { type: 'string', description: '右側の見出し（例: 今回 / v2 以降）' },
+      rows: {
+        type: 'array',
+        description: '比較の観点ごとに1行。2〜5行。',
+        items: {
+          type: 'object',
+          properties: {
+            aspect: { type: 'string', description: '観点（例: 書き方、デフォルト値）' },
+            before: { type: 'string' },
+            after: { type: 'string' },
+          },
+          required: ['aspect', 'before', 'after'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['type', 'title', 'beforeLabel', 'afterLabel', 'rows'],
+    additionalProperties: false,
+  },
+  {
+    type: 'object',
+    description: '処理やワークフローの流れ。順序が本質的な記事に合う。',
+    properties: {
+      type: { type: 'string', enum: ['flow'] },
+      title: { type: 'string', description: '何の流れか。20字以内。' },
+      steps: {
+        type: 'array',
+        description: '3〜6ステップ。',
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string', description: 'ステップ名。12字以内。' },
+            detail: { type: 'string', description: 'そのステップで起きること。30字以内。' },
+          },
+          required: ['label', 'detail'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['type', 'title', 'steps'],
+    additionalProperties: false,
+  },
+  {
+    type: 'object',
+    description: '記事に具体的な数値がある場合のみ。無い数値を作らないこと。',
+    properties: {
+      type: { type: 'string', enum: ['metrics'] },
+      title: { type: 'string', description: '何の数値か。20字以内。' },
+      items: {
+        type: 'array',
+        description: '1〜4個。',
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string', description: '指標名（例: ビルド時間）' },
+            value: { type: 'string', description: '変更後の値（単位込み。例: 12s）' },
+            baseline: {
+              description: '変更前の値。比較対象が無ければ null。',
+              anyOf: [{ type: 'null' }, { type: 'string' }],
+            },
+            direction: {
+              type: 'string',
+              enum: ['up-good', 'down-good', 'neutral'],
+              description: '値が増えるのが良いか減るのが良いか',
+            },
+            note: {
+              description: '測定条件などの補足。無ければ null。',
+              anyOf: [{ type: 'null' }, { type: 'string' }],
+            },
+          },
+          required: ['label', 'value', 'baseline', 'direction', 'note'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['type', 'title', 'items'],
+    additionalProperties: false,
+  },
+];
+
 const DEEP_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {
     headline: { type: 'string', description: '結論を1文で。40字以内。' },
     summary: { type: 'string', description: '概要。3〜5文、記事を読まなくても要点が掴める粒度。' },
+    prerequisites: {
+      type: 'array',
+      description:
+        'この記事を読む前に知っておくべき前提知識。2〜4個。記事の前提になっている概念や、知っていると凄さがわかる周辺知識。',
+      items: {
+        type: 'object',
+        properties: {
+          term: { type: 'string', description: '用語や概念の名前。20字以内。' },
+          explanation: {
+            type: 'string',
+            description: 'その分野に詳しくない人にも伝わる説明。2〜3文。',
+          },
+        },
+        required: ['term', 'explanation'],
+        additionalProperties: false,
+      },
+    },
+    visual: {
+      description:
+        '記事の要点を図にしたもの。最も内容に合う形式を1つ選ぶ。図にする価値が無ければ null。',
+      anyOf: [{ type: 'null' }, ...VISUAL_VARIANTS],
+    },
     whatYouCanDo: {
       type: 'array',
       items: { type: 'string' },
@@ -295,6 +406,8 @@ const DEEP_SCHEMA: Record<string, unknown> = {
   required: [
     'headline',
     'summary',
+    'prerequisites',
+    'visual',
     'whatYouCanDo',
     'whatChanges',
     'howToTry',
@@ -322,7 +435,21 @@ ${topics.profile}
 - バージョン番号、フラグ名、デフォルト値の変更は省略せず正確に書く。
 - 破壊的変更や移行が必要な点があれば、必ず whatChanges か caveats に入れる。
 - code は、読者がコピペして動かし始められる最小の断片にする。記事に該当するものが無ければ null。
-- 冗長な前置き・一般論・「重要です」といった中身のない強調は書かない。`;
+- 冗長な前置き・一般論・「重要です」といった中身のない強調は書かない。
+
+# prerequisites（前提知識）の書き方
+- 「これを知らないと記事の意味がわからない」「これを知っていると凄さがわかる」ものを選ぶ。
+- 読者プロフィールに書かれている技術は既知として扱い、説明しない。React を使う読者に「React とは」を書かない。
+- 逆に、読者の主戦場から外れた領域（低レイヤ、他言語のエコシステム、専門用語）は丁寧に説明する。
+- 記事本文で説明されている内容の繰り返しではなく、記事が説明を省略している前提を埋める。
+- 用語の辞書的定義で終わらせず、「なぜそれが問題になるのか」まで書く。
+
+# visual（図）の選び方
+- comparison / flow / metrics のうち、記事の中身に最も合うものを1つだけ選ぶ。
+- 記事の主題が「変更」なら comparison、「手順・仕組み」なら flow、「性能改善」なら metrics。
+- metrics は記事に実際の数値が書かれている場合のみ。数値を推測で作らない。
+- どれも当てはまらない、または図にしても情報が増えないなら null にする。無理に図を作らない。
+- 図は本文の要約ではなく、文章では伝わりにくい構造（対比・順序・量）を担当させる。`;
 }
 
 export async function deepDive(
@@ -368,6 +495,8 @@ export async function deepDive(
     return {
       headline: parsed.headline?.trim() || item.oneLiner,
       summary: parsed.summary?.trim() || item.oneLiner,
+      prerequisites: (parsed.prerequisites ?? []).filter((p) => p?.term && p?.explanation),
+      visual: normalizeVisual(parsed.visual),
       whatYouCanDo: parsed.whatYouCanDo ?? [],
       whatChanges: parsed.whatChanges ?? [],
       howToTry: parsed.howToTry ?? [],
@@ -385,10 +514,40 @@ export async function deepDive(
   }
 }
 
+/**
+ * 図は空でも成立するので、中身が足りないバリアントは丸ごと落とす。
+ * 半端な図を出すより、図が無いほうが読みやすい。
+ */
+function normalizeVisual(visual: DeepDive['visual']): DeepDive['visual'] {
+  if (!visual || typeof visual !== 'object') return null;
+
+  switch (visual.type) {
+    case 'comparison': {
+      const rows = (visual.rows ?? []).filter((r) => r?.aspect && (r.before || r.after));
+      if (rows.length < 2) return null;
+      return { ...visual, rows };
+    }
+    case 'flow': {
+      const steps = (visual.steps ?? []).filter((s) => s?.label);
+      if (steps.length < 2) return null;
+      return { ...visual, steps };
+    }
+    case 'metrics': {
+      const items = (visual.items ?? []).filter((i) => i?.label && i?.value);
+      if (items.length === 0) return null;
+      return { ...visual, items };
+    }
+    default:
+      return null;
+  }
+}
+
 function fallbackDeepDive(item: RankedItem): DeepDive {
   return {
     headline: item.oneLiner,
     summary: truncate((item.body || item.snippet).replace(/\s+/g, ' ').trim(), 500),
+    prerequisites: [],
+    visual: null,
     whatYouCanDo: [],
     whatChanges: [],
     howToTry: ['元記事を開いて確認してください。'],
