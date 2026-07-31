@@ -32,6 +32,20 @@ export const DescribeResultSchema = z.object({
       oneLiner: z.string().describe('日本語1文の要約（60字以内）'),
       reason: z.string().describe('この記事を選んだ理由（日本語40字以内）'),
       keywords: z.array(z.string()).describe('検索用キーワード3〜6個（固有名詞優先）'),
+      domain: z
+        .enum(['ai', 'general'])
+        .describe(
+          'ai = LLM・生成AI・AIエージェント・コーディングエージェントが主題。それ以外は general。AI をツールとして使っているだけの記事は general。',
+        ),
+      readingMinutes: z
+        .number()
+        .int()
+        .describe('元記事を読み通すのにかかる分数の目安。1〜30。'),
+      payoff: z
+        .enum(['apply', 'decide', 'aware'])
+        .describe(
+          'apply = 読めば今日のコードにすぐ適用できる（具体的な手順やコードがある） / decide = 技術選定や設計の判断材料になる / aware = 今すぐの行動は不要だが知っておくと後で効く',
+        ),
     }),
   ),
 });
@@ -47,6 +61,12 @@ export const ReleaseResultSchema = z.object({
           'ソフトウェアやモデルの「出荷」の告知なら true。事業提携・料金改定・導入事例・解説記事は false。',
         ),
       product: z.string().describe('製品・ライブラリ・モデルの名前。例: Vite, Playwright, Gemini'),
+      what: z
+        .string()
+        .nullable()
+        .describe(
+          'その製品が「何をするものか」を端的に。20〜40字。例: 「Cloudflare Workers のデプロイ CLI」。知らない製品なら推測せず null。',
+        ),
       version: z.string().nullable().describe('バージョン。無ければ null。例: v8.2.0'),
       kind: z
         .enum(RELEASE_KINDS)

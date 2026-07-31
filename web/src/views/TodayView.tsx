@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { navigate } from '../App';
 import { AuthorModal } from '../AuthorModal';
+import { OtherArticles } from '../OtherArticles';
 import { ReleaseList } from '../ReleaseList';
 import { VisualFigure } from '../VisualFigure';
 import { loadDigest } from '../api';
@@ -158,11 +159,7 @@ export function TodayView({ manifest, date }: Props) {
       {digest.others.length > 0 && (
         <>
           <h2 className="section-title">その他の注目記事 ({digest.others.length})</h2>
-          <div className="list">
-            {digest.others.map((item) => (
-              <OtherRow key={item.id} item={item} />
-            ))}
-          </div>
+          <OtherArticles items={digest.others} />
         </>
       )}
 
@@ -387,38 +384,6 @@ function Detail({
     <div className={caveat ? 'detail detail--caveat' : 'detail'}>
       <div className="detail__label">{label}</div>
       {children}
-    </div>
-  );
-}
-
-function OtherRow({ item }: { item: RankedItem }) {
-  return (
-    <div className="row">
-      <div className="row__score">{item.score}</div>
-      <div className="row__main">
-        <p className="row__title">
-          <a href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
-            {item.title}
-          </a>
-        </p>
-        <p className="row__summary">{item.oneLiner}</p>
-        <Byline item={item} />
-        <div className="row__meta">
-          <Chip>{item.category}</Chip>
-          <span>{item.sourceLabel}</span>
-          {metricSummary(item.metrics) && <span>· {metricSummary(item.metrics)}</span>}
-          {item.keywords.slice(0, 4).map((k) => (
-            <button
-              key={k}
-              type="button"
-              className="chip"
-              onClick={() => navigate(`/search?q=${encodeURIComponent(k)}`)}
-            >
-              #{k}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

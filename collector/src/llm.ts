@@ -8,6 +8,7 @@ import {
   ScoreResultSchema,
   type DescribeResult,
 } from './schemas.js';
+import { PAYOFFS } from './types.js';
 import type {
   DeepDive,
   PreScoredItem,
@@ -175,7 +176,24 @@ ${readerContext(topics)}
 - oneLiner は「何が起きたか」を主語述語のある1文で。「〜について」のような曖昧な書き方は禁止。
 - reason はこの読者にとっての意味を40字以内で。一般論ではなく読者の状況に紐づける。
 - keywords は後から検索するためのもの。製品名・API名・バージョン番号などの固有名詞を優先する。
-- 入力されたすべての ref に対して、必ず1件ずつ結果を返す。`;
+- 入力されたすべての ref に対して、必ず1件ずつ結果を返す。
+
+# domain（AI か否か）
+- LLM・生成AI・AIエージェント・コーディングエージェントそのものが主題なら ai。
+- AI を道具として使った話（AI で何かを作ってみた等）でも、記事の主題が AI の使い方なら ai。
+- 主題が Web フロントエンド・インフラ・言語仕様などで、AI は文中に出てくるだけなら general。
+
+# readingMinutes と payoff（時間対効果）
+読者が「どれを読むか」を選ぶための材料なので、正直に見積もること。
+
+- readingMinutes は元記事を読み通す時間。抜粋の情報量と記事の型から推定する。
+  リリースノートや短い告知は 1〜3 分、通常の技術記事は 5〜10 分、
+  詳細な検証記事や長編は 15 分以上。
+- payoff は読んだ結果として何が得られるか。
+  - apply : 具体的な手順・コマンド・コードがあり、読めば今日の作業に適用できる
+  - decide: 比較・検証・設計論で、技術選定や設計判断の材料になる
+  - aware : 動向・発表・所感など。今すぐの行動には結びつかないが知っておく価値がある
+- 「読めば何かの役に立つはず」で apply にしない。手を動かせる具体物があるときだけ apply。`;
 }
 
 function renderCandidate(item: PreScoredItem, ref: number, excerptChars: number): string {
@@ -202,6 +220,12 @@ function ruleBasedFields(item: PreScoredItem, note: string) {
     reason: note,
     keywords: item.matchedTopics.slice(0, 5),
     category: 'その他',
+    domain: item.matchedTopics.some((t) => /AI|Claude|Codex/.test(t))
+      ? ('ai' as const)
+      : ('general' as const),
+    // 本文の長さから機械的に見積もる（日本語は約 600 字/分）
+    readingMinutes: Math.max(1, Math.min(30, Math.round((item.body?.length ?? 600) / 600))),
+    payoff: 'aware' as const,
   };
 }
 
@@ -321,6 +345,11 @@ export async function rankItems(
       reason: r.reason?.trim() ?? '',
       keywords: (r.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 8),
       category: CATEGORIES.includes(r.category) ? r.category : 'その他',
+      domain: r.domain === 'ai' ? 'ai' : 'general',
+      readingMinutes: Number.isFinite(r.readingMinutes)
+        ? Math.max(1, Math.min(30, Math.round(r.readingMinutes)))
+        : 5,
+      payoff: PAYOFFS.includes(r.payoff) ? r.payoff : 'aware',
     };
   });
 }

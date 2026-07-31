@@ -31,6 +31,8 @@ export interface AuthorDetail {
   links?: { label: string; url: string }[];
 }
 
+export type Payoff = 'apply' | 'decide' | 'aware';
+
 export interface RankedItem {
   id: string;
   source: SourceKind;
@@ -50,6 +52,12 @@ export interface RankedItem {
   reason: string;
   keywords: string[];
   category: string;
+  /** AI が主題か、それ以外か */
+  domain?: 'ai' | 'general';
+  /** 元記事の読了目安（分） */
+  readingMinutes?: number;
+  /** 読んだ結果として何が得られるか */
+  payoff?: Payoff;
 }
 
 export interface Prerequisite {
@@ -123,6 +131,7 @@ export type ReleaseKind = 'ai-model' | 'major' | 'minor' | 'patch' | 'service';
 export interface ReleaseItem {
   id: string;
   product: string;
+  what?: string | null;
   version: string | null;
   kind: ReleaseKind;
   summary: string;

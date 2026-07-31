@@ -200,7 +200,7 @@ export async function extractReleases(
 
 function toReleaseItem(
   c: Candidate,
-  r: { product: string; version: string | null; kind: string; summary: string },
+  r: { product: string; what?: string | null; version: string | null; kind: string; summary: string },
 ): ReleaseItem {
   const kind = (KIND_ORDER as Record<string, number>)[r.kind] != null
     ? (r.kind as ReleaseKind)
@@ -208,6 +208,7 @@ function toReleaseItem(
   return {
     id: c.item.id,
     product: r.product?.trim() || c.item.sourceLabel,
+    what: r.what?.trim() || null,
     version: r.version?.trim() || null,
     kind,
     summary: r.summary?.trim() || '',

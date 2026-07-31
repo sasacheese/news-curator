@@ -64,6 +64,10 @@ export interface PreScoredItem extends RawItem {
   matchedTopics: string[];
 }
 
+/** 読んだ結果として何が得られるか。時間対効果の「リターン」側。 */
+export const PAYOFFS = ['apply', 'decide', 'aware'] as const;
+export type Payoff = (typeof PAYOFFS)[number];
+
 /** LLM によるランク付け結果 */
 export interface RankedItem extends PreScoredItem {
   score: number;
@@ -71,6 +75,11 @@ export interface RankedItem extends PreScoredItem {
   reason: string;
   keywords: string[];
   category: string;
+  /** AI が主題か、それ以外か */
+  domain: 'ai' | 'general';
+  /** 元記事の読了目安（分）。時間対効果の「コスト」側 */
+  readingMinutes: number;
+  payoff: Payoff;
 }
 
 /** 記事を読む前に押さえておくべき知識 */
@@ -163,6 +172,8 @@ export interface ReleaseItem {
   id: string;
   /** 製品・ライブラリ名 */
   product: string;
+  /** その製品が何をするものか。1文。判別できなければ null */
+  what: string | null;
   version: string | null;
   kind: ReleaseKind;
   /** 何が入ったか。1〜2文 */

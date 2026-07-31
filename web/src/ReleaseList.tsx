@@ -56,6 +56,7 @@ export function ReleaseList({
                   {r.version && <code className="rel__version">{r.version}</code>}
                   {highlightIds.has(r.id) && <span className="rel__badge">ベスト3で詳説</span>}
                 </p>
+                {r.what && <p className="rel__what">{r.what}</p>}
                 {r.summary && <p className="rel__summary">{r.summary}</p>}
                 {r.alsoReleased.length > 0 && (
                   <details className="rel__also">
