@@ -2,6 +2,7 @@ import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
 import { deepDive, getBackend, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
 import { dedupe, pickTopDiverse, preScore } from './prescore.js';
+import { collectReleaseCandidates, extractReleases } from './releases.js';
 import { collectAll } from './sources.js';
 import { loadSeenUrls, saveDigest } from './store.js';
 import type { Digest, RankedItem, TopItem } from './types.js';
@@ -66,6 +67,14 @@ async function main(): Promise<void> {
   const unique = dedupe(collected, seenUrls);
   log.info(`重複排除後 ${unique.length} 件（-${collected.length - unique.length}）`);
 
+  /* 2.5 リリース情報 ------------------------------------------------- */
+  // ランキングとは別枠。順位をつけず全件出す。
+  log.step('リリース情報');
+  const releaseCandidates = collectReleaseCandidates(unique, { start, end });
+  log.info(`  候補 ${releaseCandidates.length} 件`);
+  const releases = await extractReleases(backend, releaseCandidates, topics, runtime);
+  const releaseIds = new Set(releases.map((r) => r.id));
+
   /* 3. 事前スコアリング --------------------------------------------- */
   log.step('3/6 事前スコアリング');
   const withHatena = await enrichHatenaCounts(unique);
@@ -95,8 +104,11 @@ async function main(): Promise<void> {
     return { ...withBody, rank: i + 1, deep };
   });
 
+  // リリース情報は別枠で全件出しているので、一覧には重複させない
   const topIds = new Set(top.map((t) => t.id));
-  const others = ranked.filter((item) => !topIds.has(item.id)).slice(0, runtime.otherN);
+  const others = ranked
+    .filter((item) => !topIds.has(item.id) && !releaseIds.has(item.id))
+    .slice(0, runtime.otherN);
 
   /* 6. 保存 --------------------------------------------------------- */
   log.step('6/6 保存');
@@ -110,6 +122,7 @@ async function main(): Promise<void> {
     generatedAt: new Date().toISOString(),
     window: { start: start.toISOString(), end: end.toISOString() },
     top,
+    releases,
     others,
     stats: {
       collected: collected.length,

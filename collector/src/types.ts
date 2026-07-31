@@ -150,11 +150,37 @@ export interface TopItem extends RankedItem {
   deep: DeepDive;
 }
 
+/**
+ * リリース情報。
+ *
+ * 「知っているか知らないか」だけで差が出る種類の情報なので、
+ * ランキングせずに全件出す。ベスト3とは別枠。
+ */
+export const RELEASE_KINDS = ['ai-model', 'major', 'minor', 'patch', 'service'] as const;
+export type ReleaseKind = (typeof RELEASE_KINDS)[number];
+
+export interface ReleaseItem {
+  id: string;
+  /** 製品・ライブラリ名 */
+  product: string;
+  version: string | null;
+  kind: ReleaseKind;
+  /** 何が入ったか。1〜2文 */
+  summary: string;
+  title: string;
+  url: string;
+  sourceLabel: string;
+  publishedAt: string;
+  /** 同時にリリースされた関連パッケージ（モノレポ対策） */
+  alsoReleased: string[];
+}
+
 export interface Digest {
   date: string;
   generatedAt: string;
   window: { start: string; end: string };
   top: TopItem[];
+  releases: ReleaseItem[];
   others: RankedItem[];
   stats: {
     collected: number;

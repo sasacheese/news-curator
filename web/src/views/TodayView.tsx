@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { navigate } from '../App';
 import { AuthorModal } from '../AuthorModal';
+import { ReleaseList } from '../ReleaseList';
 import { VisualFigure } from '../VisualFigure';
 import { loadDigest } from '../api';
 import { Chip, CopyButton, Empty, LoadingCards, Notice } from '../components';
@@ -138,6 +139,20 @@ export function TodayView({ manifest, date }: Props) {
         <Empty title="この日は該当する記事がありませんでした" />
       ) : (
         digest.top.map((item) => <TopCard key={item.id} item={item} />)
+      )}
+
+      {(digest.releases?.length ?? 0) > 0 && (
+        <>
+          <h2 className="section-title">リリース情報 ({digest.releases!.length})</h2>
+          <p className="section-lead">
+            順位はつけず全件載せています。知っているかどうかだけで差が出るものなので、
+            上から流し読みして気になったものだけ開いてください。
+          </p>
+          <ReleaseList
+            releases={digest.releases!}
+            highlightIds={new Set(digest.top.map((t) => t.id))}
+          />
+        </>
       )}
 
       {digest.others.length > 0 && (

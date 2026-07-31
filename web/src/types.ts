@@ -118,11 +118,27 @@ export interface TopItem extends RankedItem {
   deep: DeepDive;
 }
 
+export type ReleaseKind = 'ai-model' | 'major' | 'minor' | 'patch' | 'service';
+
+export interface ReleaseItem {
+  id: string;
+  product: string;
+  version: string | null;
+  kind: ReleaseKind;
+  summary: string;
+  title: string;
+  url: string;
+  sourceLabel: string;
+  publishedAt: string;
+  alsoReleased: string[];
+}
+
 export interface Digest {
   date: string;
   generatedAt: string;
   window: { start: string; end: string };
   top: TopItem[];
+  releases?: ReleaseItem[];
   others: RankedItem[];
   stats: {
     collected: number;

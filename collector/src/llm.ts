@@ -112,7 +112,7 @@ export function logUsage(): void {
 }
 
 /** バックエンドを呼んで使用量も記録する */
-async function complete<T>(
+export async function complete<T>(
   b: LlmBackend,
   opts: Parameters<LlmBackend['complete']>[0] & { schema: import('zod').ZodType<T> },
 ): Promise<T> {

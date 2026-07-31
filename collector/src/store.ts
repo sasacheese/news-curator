@@ -83,7 +83,25 @@ export function toIndexEntries(digest: Digest): IndexEntry[] {
     lang: item.lang,
   }));
 
-  return [...fromTop, ...fromOthers];
+  // リリース情報も後から「あれ何だっけ」で引けるようにインデックスへ入れる
+  const fromReleases = (digest.releases ?? []).map<IndexEntry>((item) => ({
+    id: item.id,
+    date: digest.date,
+    rank: null,
+    title: item.title,
+    url: item.url,
+    source: 'github_release',
+    sourceLabel: item.sourceLabel,
+    summary: item.summary,
+    keywords: [item.product, item.version].filter((v): v is string => Boolean(v)),
+    topics: [],
+    category: 'リリース/アップデート',
+    score: 0,
+    publishedAt: item.publishedAt,
+    lang: 'unknown',
+  }));
+
+  return [...fromTop, ...fromReleases, ...fromOthers];
 }
 
 export async function saveDigest(digest: Digest): Promise<void> {
