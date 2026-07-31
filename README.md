@@ -47,7 +47,10 @@ git push -u origin main
 
 ## 何をどこから集めているか
 
-`config/sources.json` で管理しています。前日 7:00 〜 当日 7:00（JST）に公開されたものだけが対象です。
+前日 7:00 〜 当日 7:00（JST）に公開されたものだけが対象です。設定は 2 つに分かれています。
+
+- `config/watchlist.json` — **どこを監視するか**（リポジトリ・フィード・CHANGELOG）。運用中に増減する部分
+- `config/sources.json` — 各ソースの有効/無効と取得量のチューニング
 
 | ソース | 内容 |
 | --- | --- |
@@ -61,7 +64,28 @@ git push -u origin main
 | 公式ブログ RSS | Chrome Developers / web.dev / V8 / MDN / Node.js / TypeScript / React / Next.js / Vite / Vercel / GitHub / Cloudflare / Google Cloud / OpenAI など 22 フィード |
 | CHANGELOG | Claude Code の CHANGELOG.md |
 
-ソースを足したい / 減らしたいときは `config/sources.json` を編集してください（`enabled: false` でスキップ）。
+ソースそのものを止めたいときは `config/sources.json` の `enabled: false` を使ってください。
+
+### 監視対象の追加・削除
+
+`config/watchlist.json` の 3 つの配列を編集するだけです。ダイジェスト画面の「リリース情報」の下に
+現在の監視対象一覧と **GitHubで編集** リンクがあるので、そこから Web エディタを開いて
+コミットすれば翌朝の実行から反映されます（ローカルに clone しなくても、トークンを用意しなくても構いません）。
+
+```jsonc
+{
+  // GitHub Releases を見るリポジトリ。owner/repo
+  "repos": ["facebook/react", "vitejs/vite"],
+  // RSS / Atom。weight は事前スコアの下駄（1〜5、既定 3）で、一次情報ほど高く
+  "feeds": [{ "label": "React Blog", "url": "https://react.dev/rss.xml", "weight": 5 }],
+  // リリースノートを持たず CHANGELOG.md だけ更新するもの。url は raw、homepage は表示用（省略可）
+  "changelogs": [{ "label": "Claude Code", "url": "https://raw.githubusercontent.com/…/CHANGELOG.md" }]
+}
+```
+
+書式を外した項目は警告を出してスキップし、URL の重複も落とします。1 行の typo でその日の収集が
+丸ごと止まることはありません。実行ログの `監視対象: リポジトリ N / フィード N / CHANGELOG N` で
+実際に読まれた件数を確認できます。
 
 ## リリース情報は別枠
 
@@ -219,7 +243,7 @@ http://localhost:5173/news-curator/ が開きます。`data/` と `config/` は 
 | --- | --- |
 | `data/digests/YYYY-MM-DD.json` | その日のダイジェスト全文（ベスト3の深掘り + リリース情報 + その他） |
 | `data/index/YYYY-MM.json` | 検索用の月別インデックス（タイトル・要約・キーワード・リンク） |
-| `data/manifest.json` | 生成済みの日付・月の一覧 |
+| `data/manifest.json` | 生成済みの日付・月の一覧と、生成元リポジトリ（設定編集リンク用） |
 
 検索画面はこの月別インデックスを読み込んで、タイトル・要約・キーワード・トピックを対象に AND 検索します。
 すべて Git 管理なので、`git log data/` で履歴も追えますし、`grep` でも探せます。
@@ -229,7 +253,7 @@ http://localhost:5173/news-curator/ が開きます。`data/` と `config/` は 
 ```
 collector/     収集・採点・要約（Node.js + TypeScript、GitHub Actions 上で実行）
 web/           閲覧用の SPA（Vite + React、GitHub Pages で配信）
-config/        トピック定義とソース定義（UI から編集可能）
+config/        トピック定義・監視対象・ソース定義
 data/          生成されたダイジェストと検索インデックス
 ```
 

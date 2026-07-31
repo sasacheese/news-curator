@@ -186,6 +186,15 @@ export interface Manifest {
   latest: string | null;
   dates: string[];
   months: string[];
+  /** 生成元リポジトリ（owner/repo）。設定ファイルの編集画面へのリンクに使う */
+  repo?: string | null;
+}
+
+/** リリース情報の監視対象。config/watchlist.json をそのまま読む */
+export interface Watchlist {
+  repos: string[];
+  feeds: { label: string; url: string; weight?: number }[];
+  changelogs: { label: string; url: string; homepage?: string }[];
 }
 
 export interface Topic {

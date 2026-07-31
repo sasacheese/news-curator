@@ -4,6 +4,7 @@ import { AuthorModal } from '../AuthorModal';
 import { OtherArticles } from '../OtherArticles';
 import { ReleaseList } from '../ReleaseList';
 import { VisualFigure } from '../VisualFigure';
+import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
 import { Chip, CopyButton, Empty, LoadingCards, Notice } from '../components';
 import type { Digest, Manifest, RankedItem, TopItem } from '../types';
@@ -142,17 +143,28 @@ export function TodayView({ manifest, date }: Props) {
         digest.top.map((item) => <TopCard key={item.id} item={item} />)
       )}
 
-      {(digest.releases?.length ?? 0) > 0 && (
+      {/* releases が undefined なのはこの機能より前に生成した日。0 件の日とは区別する */}
+      {digest.releases && (
         <>
-          <h2 className="section-title">リリース情報 ({digest.releases!.length})</h2>
-          <p className="section-lead">
-            順位はつけず全件載せています。知っているかどうかだけで差が出るものなので、
-            上から流し読みして気になったものだけ開いてください。
-          </p>
-          <ReleaseList
-            releases={digest.releases!}
-            highlightIds={new Set(digest.top.map((t) => t.id))}
-          />
+          <h2 className="section-title">リリース情報 ({digest.releases.length})</h2>
+          {digest.releases.length === 0 ? (
+            <p className="section-lead">
+              この日は監視対象からのリリースがありませんでした。見落としが気になる場合は、
+              下の監視対象に追加してください。
+            </p>
+          ) : (
+            <>
+              <p className="section-lead">
+                順位はつけず全件載せています。知っているかどうかだけで差が出るものなので、
+                上から流し読みして気になったものだけ開いてください。
+              </p>
+              <ReleaseList
+                releases={digest.releases}
+                highlightIds={new Set(digest.top.map((t) => t.id))}
+              />
+            </>
+          )}
+          <WatchlistPanel repo={manifest?.repo} />
         </>
       )}
 

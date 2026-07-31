@@ -132,11 +132,14 @@ export async function saveDigest(digest: Digest): Promise<void> {
     .sort()
     .reverse();
 
+  // ローカル実行では GITHUB_REPOSITORY が無いので、既知の値を null で上書きしない
+  const previous = await readJsonOr<Partial<Manifest>>(MANIFEST_PATH, {});
   const manifest: Manifest = {
     updatedAt: new Date().toISOString(),
     latest: dates[0] ?? null,
     dates,
     months,
+    repo: process.env.GITHUB_REPOSITORY?.trim() || previous.repo || null,
   };
   await writeJson(MANIFEST_PATH, manifest);
 

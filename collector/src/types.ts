@@ -230,6 +230,24 @@ export interface Manifest {
   latest: string | null;
   dates: string[];
   months: string[];
+  /**
+   * 生成元リポジトリ（owner/repo）。UI から設定ファイルの編集画面へ飛ぶために使う。
+   * ホスト名からは推測できない（Cloudflare Pages などに移した時点で破綻する）ので、
+   * 生成側で GITHUB_REPOSITORY を記録しておく。
+   */
+  repo: string | null;
+}
+
+/**
+ * リリース情報の監視対象。
+ *
+ * 「どこを見るか」は運用中に増減するので、チューニング項目（sources.json）とは
+ * 分けて config/watchlist.json に置き、GitHub の Web エディタから直接編集できるようにしている。
+ */
+export interface Watchlist {
+  repos: string[];
+  feeds: { label: string; url: string; weight: number }[];
+  changelogs: { label: string; url: string; homepage: string }[];
 }
 
 export interface Topic {
