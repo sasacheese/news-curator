@@ -47,7 +47,10 @@ git push -u origin main
 
 ## 何をどこから集めているか
 
-`config/sources.json` で管理しています。前日 7:00 〜 当日 7:00（JST）に公開されたものだけが対象です。
+前日 7:00 〜 当日 7:00（JST）に公開されたものだけが対象です。設定は 2 つに分かれています。
+
+- `config/watchlist.json` — **どこを監視するか**（リポジトリ・フィード・CHANGELOG）。運用中に増減する部分
+- `config/sources.json` — 各ソースの有効/無効と取得量のチューニング
 
 | ソース | 内容 |
 | --- | --- |
@@ -61,13 +64,63 @@ git push -u origin main
 | 公式ブログ RSS | Chrome Developers / web.dev / V8 / MDN / Node.js / TypeScript / React / Next.js / Vite / Vercel / GitHub / Cloudflare / Google Cloud / OpenAI など 22 フィード |
 | CHANGELOG | Claude Code の CHANGELOG.md |
 
-ソースを足したい / 減らしたいときは `config/sources.json` を編集してください（`enabled: false` でスキップ）。
+ソースそのものを止めたいときは `config/sources.json` の `enabled: false` を使ってください。
+
+### 監視対象の追加・削除
+
+`config/watchlist.json` の 3 つの配列を編集するだけです。ダイジェスト画面の「リリース情報」の下に
+現在の監視対象一覧と **GitHubで編集** リンクがあるので、そこから Web エディタを開いて
+コミットすれば翌朝の実行から反映されます（ローカルに clone しなくても、トークンを用意しなくても構いません）。
+
+```jsonc
+{
+  // GitHub Releases を見るリポジトリ。owner/repo
+  "repos": ["facebook/react", "vitejs/vite"],
+  // RSS / Atom。weight は事前スコアの下駄（1〜5、既定 3）で、一次情報ほど高く
+  "feeds": [{ "label": "React Blog", "url": "https://react.dev/rss.xml", "weight": 5 }],
+  // リリースノートを持たず CHANGELOG.md だけ更新するもの。url は raw、homepage は表示用（省略可）
+  "changelogs": [{ "label": "Claude Code", "url": "https://raw.githubusercontent.com/…/CHANGELOG.md" }]
+}
+```
+
+書式を外した項目は警告を出してスキップし、URL の重複も落とします。1 行の typo でその日の収集が
+丸ごと止まることはありません。実行ログの `監視対象: リポジトリ N / フィード N / CHANGELOG N` で
+実際に読まれた件数を確認できます。
+
+## リリース情報は別枠
+
+新しい AI モデル・新 API・ライブラリの新バージョン・GA 昇格・新規公開などは、
+**ランキングせずに全件**を別セクションに出します。読む価値の順位ではなく
+「知っているかどうか」だけで差が出る種類の情報だからです。
+
+種類ごとにまとめ、手元を更新する判断が要るものを上に置きます。
+
+| 種類 | 対象 |
+| --- | --- |
+| AIモデル | 新しいモデルの公開 |
+| メジャー / 新規公開 | メジャー版・GA 昇格・新しいライブラリ |
+| 機能追加 | マイナー版 |
+| サービス | SaaS・開発者向けサービスの機能追加 |
+| パッチ | 修正のみ |
+
+実装上の工夫が 2 つあります。
+
+- **モノレポの一括リリースをまとめます。** 実測で `cloudflare/workers-sdk` が
+  1 日に 10 パッケージ同時リリースしていました。リポジトリ単位で 1 件にまとめ、
+  残りは「同時リリース 9 件」の折りたたみに入れます
+- **公式ブログのリリース以外を除外します。** Vercel Changelog や GitHub Changelog には
+  事業提携・料金改定・導入事例が混ざるので、LLM に判定させて落とします。
+  ただし GitHub Releases と CHANGELOG は定義上リリースなので判定を待たずに採用します
+
+リリース情報はベスト3にも入りえます（重大なリリースは深掘りする価値があるため）。
+その場合は「ベスト3で詳説」の印がつき、「その他の注目記事」からは除外されます。
 
 ## どう選んでいるか
 
 ```
-収集(500件前後) → 重複排除 → 事前スコアリング(90件に絞る)
-    → Claude Haiku 4.5 で全件採点 → ベスト3を Claude Sonnet 5 で深掘り
+収集(600件前後) → 重複排除 ─┬→ リリース情報を抽出（順位なし・全件）
+                             └→ 事前スコアリング(150件に絞る)
+                                 → Claude Haiku 4.5 で採点 → ベスト3を Claude Sonnet 5 で深掘り
 ```
 
 1. **重複排除** — URL 正規化・タイトル近似・過去に掲載済みの URL の 3 段階。同じ記事が翌日以降に再浮上しません
@@ -188,9 +241,9 @@ http://localhost:5173/news-curator/ が開きます。`data/` と `config/` は 
 
 | パス | 内容 |
 | --- | --- |
-| `data/digests/YYYY-MM-DD.json` | その日のダイジェスト全文（ベスト3の深掘り + その他） |
+| `data/digests/YYYY-MM-DD.json` | その日のダイジェスト全文（ベスト3の深掘り + リリース情報 + その他） |
 | `data/index/YYYY-MM.json` | 検索用の月別インデックス（タイトル・要約・キーワード・リンク） |
-| `data/manifest.json` | 生成済みの日付・月の一覧 |
+| `data/manifest.json` | 生成済みの日付・月の一覧と、生成元リポジトリ（設定編集リンク用） |
 
 検索画面はこの月別インデックスを読み込んで、タイトル・要約・キーワード・トピックを対象に AND 検索します。
 すべて Git 管理なので、`git log data/` で履歴も追えますし、`grep` でも探せます。
@@ -200,7 +253,7 @@ http://localhost:5173/news-curator/ が開きます。`data/` と `config/` は 
 ```
 collector/     収集・採点・要約（Node.js + TypeScript、GitHub Actions 上で実行）
 web/           閲覧用の SPA（Vite + React、GitHub Pages で配信）
-config/        トピック定義とソース定義（UI から編集可能）
+config/        トピック定義・監視対象・ソース定義
 data/          生成されたダイジェストと検索インデックス
 ```
 

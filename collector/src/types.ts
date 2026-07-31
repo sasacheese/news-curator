@@ -64,6 +64,10 @@ export interface PreScoredItem extends RawItem {
   matchedTopics: string[];
 }
 
+/** 読んだ結果として何が得られるか。時間対効果の「リターン」側。 */
+export const PAYOFFS = ['apply', 'decide', 'aware'] as const;
+export type Payoff = (typeof PAYOFFS)[number];
+
 /** LLM によるランク付け結果 */
 export interface RankedItem extends PreScoredItem {
   score: number;
@@ -71,6 +75,11 @@ export interface RankedItem extends PreScoredItem {
   reason: string;
   keywords: string[];
   category: string;
+  /** AI が主題か、それ以外か */
+  domain: 'ai' | 'general';
+  /** 元記事の読了目安（分）。時間対効果の「コスト」側 */
+  readingMinutes: number;
+  payoff: Payoff;
 }
 
 /** 記事を読む前に押さえておくべき知識 */
@@ -150,11 +159,39 @@ export interface TopItem extends RankedItem {
   deep: DeepDive;
 }
 
+/**
+ * リリース情報。
+ *
+ * 「知っているか知らないか」だけで差が出る種類の情報なので、
+ * ランキングせずに全件出す。ベスト3とは別枠。
+ */
+export const RELEASE_KINDS = ['ai-model', 'major', 'minor', 'patch', 'service'] as const;
+export type ReleaseKind = (typeof RELEASE_KINDS)[number];
+
+export interface ReleaseItem {
+  id: string;
+  /** 製品・ライブラリ名 */
+  product: string;
+  /** その製品が何をするものか。1文。判別できなければ null */
+  what: string | null;
+  version: string | null;
+  kind: ReleaseKind;
+  /** 何が入ったか。1〜2文 */
+  summary: string;
+  title: string;
+  url: string;
+  sourceLabel: string;
+  publishedAt: string;
+  /** 同時にリリースされた関連パッケージ（モノレポ対策） */
+  alsoReleased: string[];
+}
+
 export interface Digest {
   date: string;
   generatedAt: string;
   window: { start: string; end: string };
   top: TopItem[];
+  releases: ReleaseItem[];
   others: RankedItem[];
   stats: {
     collected: number;
@@ -193,6 +230,24 @@ export interface Manifest {
   latest: string | null;
   dates: string[];
   months: string[];
+  /**
+   * 生成元リポジトリ（owner/repo）。UI から設定ファイルの編集画面へ飛ぶために使う。
+   * ホスト名からは推測できない（Cloudflare Pages などに移した時点で破綻する）ので、
+   * 生成側で GITHUB_REPOSITORY を記録しておく。
+   */
+  repo: string | null;
+}
+
+/**
+ * リリース情報の監視対象。
+ *
+ * 「どこを見るか」は運用中に増減するので、チューニング項目（sources.json）とは
+ * 分けて config/watchlist.json に置き、GitHub の Web エディタから直接編集できるようにしている。
+ */
+export interface Watchlist {
+  repos: string[];
+  feeds: { label: string; url: string; weight: number }[];
+  changelogs: { label: string; url: string; homepage: string }[];
 }
 
 export interface Topic {

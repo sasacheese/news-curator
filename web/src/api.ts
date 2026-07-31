@@ -1,4 +1,4 @@
-import type { Digest, IndexEntry, Manifest, TopicsConfig } from './types';
+import type { Digest, IndexEntry, Manifest, TopicsConfig, Watchlist } from './types';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -22,6 +22,10 @@ export function loadIndexShard(month: string): Promise<IndexEntry[]> {
 
 export function loadTopicsConfig(): Promise<TopicsConfig> {
   return getJson<TopicsConfig>('config/topics.json');
+}
+
+export function loadWatchlist(): Promise<Watchlist> {
+  return getJson<Watchlist>('config/watchlist.json');
 }
 
 /** 検索インデックスをまとめて読み込む（新しい月から） */

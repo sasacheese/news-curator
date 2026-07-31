@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { TopicsConfig } from './types.js';
+import type { TopicsConfig, Watchlist } from './types.js';
+import { log } from './util.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(here, '../..');
@@ -19,6 +20,13 @@ export interface SourcesConfig {
   rss: { enabled: boolean; feeds: { label: string; url: string; weight: number }[] };
   changelogs: { enabled: boolean; entries: { label: string; url: string; homepage: string }[] };
 }
+
+/** sources.json の「監視対象リスト抜き」の形。リストは watchlist.json から合流させる。 */
+type SourcesFile = Omit<SourcesConfig, 'githubReleases' | 'rss' | 'changelogs'> & {
+  githubReleases: Omit<SourcesConfig['githubReleases'], 'repos'>;
+  rss: Omit<SourcesConfig['rss'], 'feeds'>;
+  changelogs: Omit<SourcesConfig['changelogs'], 'entries'>;
+};
 
 /** 実行時のチューニング項目。すべて環境変数で上書きできる。 */
 export interface RuntimeConfig {
@@ -95,6 +103,114 @@ export async function loadTopics(): Promise<TopicsConfig> {
   };
 }
 
+/**
+ * 監視対象リストを読む。
+ *
+ * このファイルは GitHub の Web エディタから手で編集される前提なので、
+ * 書式を外した項目は落として警告するだけにとどめる。1 行の typo で
+ * その日の収集が丸ごと止まる方が損失が大きい。
+ */
+export async function loadWatchlist(): Promise<Watchlist> {
+  const raw = await readJson<Partial<Watchlist>>(resolve(CONFIG_DIR, 'watchlist.json'));
+  const dropped: string[] = [];
+
+  const repos = uniqueBy(
+    asArray(raw.repos).filter((r) => {
+      const ok = typeof r === 'string' && /^[\w.-]+\/[\w.-]+$/.test(r.trim());
+      if (!ok) dropped.push(`repos: ${JSON.stringify(r)}`);
+      return ok;
+    }).map((r) => r.trim()),
+    (r) => r.toLowerCase(),
+  );
+
+  const feeds = uniqueBy(
+    asArray(raw.feeds).flatMap((f) => {
+      if (!f || typeof f !== 'object' || !isHttpUrl(f.url) || !f.label?.trim()) {
+        dropped.push(`feeds: ${JSON.stringify(f)}`);
+        return [];
+      }
+      const weight = Number(f.weight);
+      return [
+        {
+          label: f.label.trim(),
+          url: f.url.trim(),
+          weight: Number.isFinite(weight) ? clamp(weight, 1, 5) : 3,
+        },
+      ];
+    }),
+    (f) => normalizeKey(f.url),
+  );
+
+  const changelogs = uniqueBy(
+    asArray(raw.changelogs).flatMap((c) => {
+      if (!c || typeof c !== 'object' || !isHttpUrl(c.url) || !c.label?.trim()) {
+        dropped.push(`changelogs: ${JSON.stringify(c)}`);
+        return [];
+      }
+      return [
+        {
+          label: c.label.trim(),
+          url: c.url.trim(),
+          homepage: isHttpUrl(c.homepage) ? c.homepage.trim() : c.url.trim(),
+        },
+      ];
+    }),
+    (c) => normalizeKey(c.url),
+  );
+
+  if (dropped.length > 0) {
+    log.warn(
+      `watchlist.json の ${dropped.length} 件を書式不正としてスキップしました: ${dropped.join(', ')}`,
+    );
+  }
+  log.info(
+    `監視対象: リポジトリ ${repos.length} / フィード ${feeds.length} / CHANGELOG ${changelogs.length}`,
+  );
+  return { repos, feeds, changelogs };
+}
+
 export async function loadSources(): Promise<SourcesConfig> {
-  return await readJson<SourcesConfig>(resolve(CONFIG_DIR, 'sources.json'));
+  const [file, watchlist] = await Promise.all([
+    readJson<SourcesFile>(resolve(CONFIG_DIR, 'sources.json')),
+    loadWatchlist(),
+  ]);
+  return {
+    ...file,
+    githubReleases: { ...file.githubReleases, repos: watchlist.repos },
+    rss: { ...file.rss, feeds: watchlist.feeds },
+    changelogs: { ...file.changelogs, entries: watchlist.changelogs },
+  };
+}
+
+function asArray<T>(v: T[] | undefined): T[] {
+  return Array.isArray(v) ? v : [];
+}
+
+function isHttpUrl(v: unknown): v is string {
+  if (typeof v !== 'string') return false;
+  try {
+    const u = new URL(v.trim());
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
+}
+
+/** 末尾スラッシュだけ違う重複を拾うための正規化 */
+function normalizeKey(url: string): string {
+  return url.trim().replace(/\/+$/, '').toLowerCase();
+}
+
+function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const k = key(item);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }

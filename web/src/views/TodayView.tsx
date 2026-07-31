@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { navigate } from '../App';
 import { AuthorModal } from '../AuthorModal';
+import { OtherArticles } from '../OtherArticles';
+import { ReleaseList } from '../ReleaseList';
 import { VisualFigure } from '../VisualFigure';
+import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
 import { Chip, CopyButton, Empty, LoadingCards, Notice } from '../components';
 import type { Digest, Manifest, RankedItem, TopItem } from '../types';
@@ -140,14 +143,35 @@ export function TodayView({ manifest, date }: Props) {
         digest.top.map((item) => <TopCard key={item.id} item={item} />)
       )}
 
+      {/* releases が undefined なのはこの機能より前に生成した日。0 件の日とは区別する */}
+      {digest.releases && (
+        <>
+          <h2 className="section-title">リリース情報 ({digest.releases.length})</h2>
+          {digest.releases.length === 0 ? (
+            <p className="section-lead">
+              この日は監視対象からのリリースがありませんでした。見落としが気になる場合は、
+              下の監視対象に追加してください。
+            </p>
+          ) : (
+            <>
+              <p className="section-lead">
+                順位はつけず全件載せています。知っているかどうかだけで差が出るものなので、
+                上から流し読みして気になったものだけ開いてください。
+              </p>
+              <ReleaseList
+                releases={digest.releases}
+                highlightIds={new Set(digest.top.map((t) => t.id))}
+              />
+            </>
+          )}
+          <WatchlistPanel repo={manifest?.repo} />
+        </>
+      )}
+
       {digest.others.length > 0 && (
         <>
           <h2 className="section-title">その他の注目記事 ({digest.others.length})</h2>
-          <div className="list">
-            {digest.others.map((item) => (
-              <OtherRow key={item.id} item={item} />
-            ))}
-          </div>
+          <OtherArticles items={digest.others} />
         </>
       )}
 
@@ -372,38 +396,6 @@ function Detail({
     <div className={caveat ? 'detail detail--caveat' : 'detail'}>
       <div className="detail__label">{label}</div>
       {children}
-    </div>
-  );
-}
-
-function OtherRow({ item }: { item: RankedItem }) {
-  return (
-    <div className="row">
-      <div className="row__score">{item.score}</div>
-      <div className="row__main">
-        <p className="row__title">
-          <a href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
-            {item.title}
-          </a>
-        </p>
-        <p className="row__summary">{item.oneLiner}</p>
-        <Byline item={item} />
-        <div className="row__meta">
-          <Chip>{item.category}</Chip>
-          <span>{item.sourceLabel}</span>
-          {metricSummary(item.metrics) && <span>· {metricSummary(item.metrics)}</span>}
-          {item.keywords.slice(0, 4).map((k) => (
-            <button
-              key={k}
-              type="button"
-              className="chip"
-              onClick={() => navigate(`/search?q=${encodeURIComponent(k)}`)}
-            >
-              #{k}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

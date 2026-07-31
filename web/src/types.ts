@@ -31,6 +31,8 @@ export interface AuthorDetail {
   links?: { label: string; url: string }[];
 }
 
+export type Payoff = 'apply' | 'decide' | 'aware';
+
 export interface RankedItem {
   id: string;
   source: SourceKind;
@@ -50,6 +52,12 @@ export interface RankedItem {
   reason: string;
   keywords: string[];
   category: string;
+  /** AI が主題か、それ以外か */
+  domain?: 'ai' | 'general';
+  /** 元記事の読了目安（分） */
+  readingMinutes?: number;
+  /** 読んだ結果として何が得られるか */
+  payoff?: Payoff;
 }
 
 export interface Prerequisite {
@@ -118,11 +126,28 @@ export interface TopItem extends RankedItem {
   deep: DeepDive;
 }
 
+export type ReleaseKind = 'ai-model' | 'major' | 'minor' | 'patch' | 'service';
+
+export interface ReleaseItem {
+  id: string;
+  product: string;
+  what?: string | null;
+  version: string | null;
+  kind: ReleaseKind;
+  summary: string;
+  title: string;
+  url: string;
+  sourceLabel: string;
+  publishedAt: string;
+  alsoReleased: string[];
+}
+
 export interface Digest {
   date: string;
   generatedAt: string;
   window: { start: string; end: string };
   top: TopItem[];
+  releases?: ReleaseItem[];
   others: RankedItem[];
   stats: {
     collected: number;
@@ -161,6 +186,15 @@ export interface Manifest {
   latest: string | null;
   dates: string[];
   months: string[];
+  /** 生成元リポジトリ（owner/repo）。設定ファイルの編集画面へのリンクに使う */
+  repo?: string | null;
+}
+
+/** リリース情報の監視対象。config/watchlist.json をそのまま読む */
+export interface Watchlist {
+  repos: string[];
+  feeds: { label: string; url: string; weight?: number }[];
+  changelogs: { label: string; url: string; homepage?: string }[];
 }
 
 export interface Topic {
