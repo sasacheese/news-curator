@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { loadManifest } from './api';
 import { Notice } from './components';
+import { RETIRED_TOKEN_KEY, purgeRetiredKeys } from './settings';
 import type { Manifest } from './types';
 import { ArchiveView } from './views/ArchiveView';
 import { SearchView } from './views/SearchView';
@@ -52,43 +53,30 @@ function useRoute(): Route {
 
 type Tab = { key: Route['name']; label: string; href: string };
 
+/**
+ * 設定タブは普通に出す。
+ *
+ * 以前は隠していた。公開サイトに GitHub トークンの入力欄があるのが紛らわしく、
+ * コントロールパネルのように見えたため。トークン方式をやめて GitHub の
+ * Web エディタへのリンクに変えたので、この画面には秘密が何も無くなった。
+ * 訪問者が編集しても変わるのはその人自身の localStorage だけで、
+ * リポジトリへの反映は GitHub 側の権限で止まる。
+ */
 const TABS: Tab[] = [
   { key: 'today', label: '今日', href: '/today' },
   { key: 'archive', label: 'アーカイブ', href: '/archive' },
   { key: 'search', label: '検索', href: '/search' },
+  { key: 'settings', label: '設定', href: '/settings' },
 ];
-
-const SETTINGS_TAB: Tab = { key: 'settings', label: '設定', href: '/settings' };
-
-/**
- * 設定タブはナビゲーションから隠す。
- *
- * サイトが公開されている間、設定画面（トピック編集と GitHub トークン入力）が
- * 誰の目にも入るのは紛らわしいため。実害は無い——訪問者が編集しても変わるのは
- * その人自身の localStorage だけで、リポジトリへの反映には write 権限付きの
- * トークンが要る——が、UI としてノイズになる。
- *
- * `#/settings` を直接開けば今までどおり使え、一度開いたブラウザではタブが
- * 出るようになる。認証の代わりではないので、Cloudflare Access を前に置いたら
- * この分岐は消してよい。
- */
-const SETTINGS_UNLOCK_KEY = 'news-curator:show-settings';
 
 export function App() {
   const route = useRoute();
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(
-    () => localStorage.getItem(SETTINGS_UNLOCK_KEY) === '1',
-  );
+  const [purged, setPurged] = useState<string[]>([]);
 
-  // 一度 #/settings を直接開いたブラウザでは、以降タブから辿れるようにする
-  useEffect(() => {
-    if (route.name === 'settings' && !showSettings) {
-      localStorage.setItem(SETTINGS_UNLOCK_KEY, '1');
-      setShowSettings(true);
-    }
-  }, [route.name, showSettings]);
+  // 撤去した機能が残したトークンを消す。過去に保存したブラウザだけが対象
+  useEffect(() => setPurged(purgeRetiredKeys()), []);
 
   useEffect(() => {
     loadManifest().then(setManifest, (err: unknown) =>
@@ -126,7 +114,7 @@ export function App() {
             </span>
           </a>
           <nav className="tabs" aria-label="メインナビゲーション">
-            {(showSettings ? [...TABS, SETTINGS_TAB] : TABS).map((tab) => (
+            {TABS.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
@@ -142,6 +130,24 @@ export function App() {
 
       <main>
         <div className="container">
+          {purged.includes(RETIRED_TOKEN_KEY) && (
+            <div style={{ marginBottom: 18 }}>
+              <Notice kind="info">
+                このブラウザに保存されていた GitHub トークンを削除しました。
+                設定の反映はトークンを使わない方式（GitHub の Web エディタ）に変わりました。
+                削除しても失効はしないので、{' '}
+                <a
+                  href="https://github.com/settings/personal-access-tokens"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  GitHub の設定
+                </a>{' '}
+                から revoke してください。
+              </Notice>
+            </div>
+          )}
+
           {error && (
             <Notice kind="error">
               データを読み込めませんでした: {error}
@@ -158,7 +164,7 @@ export function App() {
           {!error && route.name === 'search' && (
             <SearchView manifest={manifest} initialQuery={route.q ?? ''} />
           )}
-          {route.name === 'settings' && <SettingsView />}
+          {route.name === 'settings' && <SettingsView manifest={manifest} />}
         </div>
       </main>
 
