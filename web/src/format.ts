@@ -14,6 +14,20 @@ export function formatDateShort(date: string): string {
   return `${Number(m)}/${Number(d)}`;
 }
 
+/** 記事の公開日時（JST）。同日なら時刻まで、それ以外は日付まで。 */
+export function formatPublished(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /** 人気指標を1行にまとめる */
 export function metricSummary(m: Metrics): string {
   const parts: string[] = [];

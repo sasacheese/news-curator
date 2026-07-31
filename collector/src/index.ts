@@ -1,6 +1,6 @@
 import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
-import { deepDive, getClient, rankItems } from './llm.js';
+import { deepDive, getClient, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
 import { dedupe, pickTopDiverse, preScore } from './prescore.js';
 import { collectAll } from './sources.js';
 import { loadSeenUrls, saveDigest } from './store.js';
@@ -33,6 +33,7 @@ async function main(): Promise<void> {
 
   const { date, start, end } = resolveWindow(new Date(), args.date, runtime.cutoffHour);
   const notes: string[] = [];
+  resetUsage();
 
   log.info(`ダイジェスト日付 : ${date}`);
   log.info(`対象ウィンドウ   : ${formatJst(start)} 〜 ${formatJst(end)}`);
@@ -114,8 +115,12 @@ async function main(): Promise<void> {
     },
     topics: topics.topics.map((t) => t.name),
     models: { rank: runtime.rankModel, summary: runtime.summaryModel },
+    usage: getUsageReport(),
     notes,
   };
+
+  log.step('使用量');
+  logUsage();
 
   if (args.dryRun) {
     log.info('--dry-run のため保存しません');

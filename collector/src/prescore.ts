@@ -1,17 +1,75 @@
-import type { PreScoredItem, RawItem, TopicsConfig } from './types.js';
+import type { PreScoredItem, RawItem, SourceKind, TopicsConfig } from './types.js';
 import { isHttpUrl, normalizeUrl, titleKey } from './util.js';
 
-/** ソース由来の人気指標を 0〜1 に潰す（対数スケール） */
-function popularityScore(item: RawItem): number {
+/**
+ * そのソースにおける主要な人気指標の生値。
+ *
+ * Qiita の LGTM・HN の points・GitHub の star は単位も桁も違うので、
+ * この生値どうしを直接比べてはいけない（→ popularityPercentiles で正規化する）。
+ */
+function rawPopularity(item: RawItem): number | null {
   const m = item.metrics;
-  const signals: number[] = [];
-  if (m.likes != null) signals.push(Math.log10(1 + m.likes) / Math.log10(300));
-  if (m.stocks != null) signals.push(Math.log10(1 + m.stocks) / Math.log10(300));
-  if (m.hatena != null) signals.push(Math.log10(1 + m.hatena) / Math.log10(500));
-  if (m.points != null) signals.push(Math.log10(1 + m.points) / Math.log10(600));
-  if (m.stars != null) signals.push(Math.log10(1 + m.stars) / Math.log10(20_000));
-  if (signals.length === 0) return 0;
-  return Math.min(1, Math.max(...signals));
+  switch (item.source) {
+    case 'qiita':
+    case 'zenn':
+    case 'devto':
+      return (m.likes ?? 0) + (m.stocks ?? 0) * 0.5;
+    case 'hackernews':
+      return m.points ?? 0;
+    case 'hatena':
+      return m.hatena ?? 0;
+    case 'github_repo':
+      return m.stars ?? 0;
+    default:
+      // RSS・リリースノート・CHANGELOG は人気指標を持たない
+      return m.hatena ?? null;
+  }
+}
+
+/** 公開からの経過時間（時間単位）。速さの比較に使う。 */
+function hoursSince(item: RawItem, now: Date): number {
+  const published = new Date(item.publishedAt).getTime();
+  if (Number.isNaN(published)) return 24;
+  return Math.max(1, (now.getTime() - published) / 3_600_000);
+}
+
+/**
+ * 人気度を「その日・そのソース内での順位」に正規化する。
+ *
+ * プラットフォームをまたいで生の数字を比べることはできないが、
+ * 「Qiita の today 上位5%」と「HN の today 上位5%」なら比較できる。
+ * 固定の対数スケールと違って母集団に自動で追従するので、
+ * 閑散日に低い値ばかりになったり、祭りの日に全部飽和したりしない。
+ *
+ * さらに、生値そのものではなく「1時間あたりの伸び」で順位をつける。
+ * 3時間で20 LGTM の記事は、20時間で30 LGTM の記事より勢いがある。
+ */
+export function popularityPercentiles(items: RawItem[], now = new Date()): Map<string, number> {
+  const bySource = new Map<SourceKind, { id: string; rate: number }[]>();
+
+  for (const item of items) {
+    const raw = rawPopularity(item);
+    if (raw == null) continue;
+    const list = bySource.get(item.source) ?? [];
+    list.push({ id: item.id, rate: raw / hoursSince(item, now) });
+    bySource.set(item.source, list);
+  }
+
+  const percentiles = new Map<string, number>();
+  for (const list of bySource.values()) {
+    // 母集団が小さすぎると順位に意味が無いので、中庸に倒す
+    if (list.length < 5) {
+      for (const entry of list) percentiles.set(entry.id, 0.5);
+      continue;
+    }
+    list.sort((a, b) => a.rate - b.rate);
+    const last = list.length - 1;
+    for (let i = 0; i < list.length; i++) {
+      percentiles.set(list[i]!.id, i / last);
+    }
+  }
+
+  return percentiles;
 }
 
 /**
@@ -67,16 +125,21 @@ function sourceBonus(item: RawItem): number {
   }
 }
 
-export function preScore(items: RawItem[], topics: TopicsConfig): PreScoredItem[] {
+export function preScore(items: RawItem[], topics: TopicsConfig, now = new Date()): PreScoredItem[] {
+  const percentiles = popularityPercentiles(items, now);
+
   return items.map((item) => {
     const { score: topicScore, matched } = topicMatch(item, topics.topics);
-    const pop = popularityScore(item);
+    // 人気指標を持たないソース（公式ブログ・リリースノート）は中庸に置き、
+    // 一次情報ボーナスのほうで拾う
+    const pop = percentiles.get(item.id) ?? 0.5;
     const penalty = excluded(item, topics.exclude.keywords) ? 0.65 : 0;
     // トピック適合を主、人気度を従にする
     const raw = topicScore * 0.68 + pop * 0.22 + sourceBonus(item) - penalty;
     return {
       ...item,
       preScore: Math.max(0, Math.min(1, raw)),
+      popularityPercentile: pop,
       matchedTopics: matched,
     };
   });
@@ -135,6 +198,9 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
       ...winner,
       snippet: winner.snippet || loser.snippet,
       body: winner.body ?? loser.body,
+      // 同じ記事でも、はてブ経由より Qiita 経由のほうが作者情報が濃い
+      author: winner.author ?? loser.author,
+      authorDetail: winner.authorDetail ?? loser.authorDetail,
       tags: [...new Set([...winner.tags, ...loser.tags])],
       sourceWeight: Math.max(winner.sourceWeight, loser.sourceWeight),
       metrics: {

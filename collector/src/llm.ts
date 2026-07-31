@@ -1,6 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { RuntimeConfig } from './config.js';
-import type { DeepDive, PreScoredItem, RankedItem, TopicsConfig } from './types.js';
+import type {
+  DeepDive,
+  PreScoredItem,
+  RankedItem,
+  TopicsConfig,
+  UsageReport,
+  UsageStat,
+} from './types.js';
 import { log, mapLimit, truncate } from './util.js';
 
 export const CATEGORIES = [
@@ -20,6 +27,81 @@ export function getClient(): Anthropic | null {
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) return null;
   client ??= new Anthropic();
   return client;
+}
+
+/* ------------------------------------------------------------------ *
+ * 使用量の計測
+ * ------------------------------------------------------------------ */
+
+/**
+ * 100万トークンあたりの単価（USD）。コスト表示は概算用。
+ * 値下げや導入価格の終了で変わるので、判断に使う前に公式の価格表と突き合わせること。
+ * Sonnet 5 の入出力は 2026-08-31 までの導入価格（通常は $3 / $15）。
+ */
+const PRICING: Record<string, { input: number; output: number; cacheRead: number }> = {
+  'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5 },
+  'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2 },
+  'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1 },
+  'claude-opus-4-8': { input: 5, output: 25, cacheRead: 0.5 },
+  'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3 },
+};
+
+const usageByStage = new Map<string, UsageStat>();
+
+export function resetUsage(): void {
+  usageByStage.clear();
+}
+
+function recordUsage(stage: string, model: string, usage: Anthropic.Usage | undefined): void {
+  if (!usage) return;
+  const input = usage.input_tokens ?? 0;
+  const output = usage.output_tokens ?? 0;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const price = PRICING[model];
+
+  const prev = usageByStage.get(stage) ?? {
+    model,
+    requests: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    estimatedCostUsd: 0,
+  };
+
+  usageByStage.set(stage, {
+    model,
+    requests: prev.requests + 1,
+    inputTokens: prev.inputTokens + input,
+    outputTokens: prev.outputTokens + output,
+    cacheReadTokens: prev.cacheReadTokens + cacheRead,
+    estimatedCostUsd:
+      prev.estimatedCostUsd +
+      (price
+        ? (input * price.input + output * price.output + cacheRead * price.cacheRead) / 1_000_000
+        : 0),
+  });
+}
+
+export function getUsageReport(): UsageReport {
+  const stages: Record<string, UsageStat> = {};
+  let total = 0;
+  for (const [stage, stat] of usageByStage) {
+    stages[stage] = stat;
+    total += stat.estimatedCostUsd;
+  }
+  return { stages, totalCostUsd: Math.round(total * 10_000) / 10_000 };
+}
+
+export function logUsage(): void {
+  const report = getUsageReport();
+  for (const [stage, s] of Object.entries(report.stages)) {
+    log.info(
+      `  ${stage.padEnd(10)} ${String(s.requests).padStart(2)}req ` +
+        `in ${s.inputTokens.toLocaleString().padStart(8)} / out ${s.outputTokens.toLocaleString().padStart(7)} ` +
+        `= $${s.estimatedCostUsd.toFixed(4)} (${s.model})`,
+    );
+  }
+  log.info(`  ${'合計'.padEnd(9)} $${report.totalCostUsd.toFixed(4)}`);
 }
 
 /**
@@ -48,10 +130,18 @@ function extractJson(res: Anthropic.Message): unknown {
 }
 
 /* ------------------------------------------------------------------ *
- * 1) ランキング（安価なモデルで一括スコアリング）
+ * 1) ランキング（2 段階）
+ *
+ * 以前は候補全件に対して、スコアと同時に oneLiner・keywords まで書かせていた。
+ * だが実際に保存するのは上位十数件だけで、残りの文章は捨てていた。
+ * 出力トークンは入力の 5 倍高いので、これが採点コストの大半を占めていた。
+ *
+ * そこで 1 段目はスコアだけ返させ（1 件 10 トークン程度）、
+ * 2 段目で生き残った十数件にだけ文章を書かせる。
  * ------------------------------------------------------------------ */
 
-const RANK_SCHEMA: Record<string, unknown> = {
+/** 1 段目: 関連度スコアだけ。出力を最小にする。 */
+const SCORE_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {
     items: {
@@ -61,16 +151,8 @@ const RANK_SCHEMA: Record<string, unknown> = {
         properties: {
           ref: { type: 'integer', description: '入力に付与した番号' },
           score: { type: 'integer', description: '0〜100 の関連度スコア' },
-          category: { type: 'string', enum: [...CATEGORIES] },
-          oneLiner: { type: 'string', description: '日本語1文の要約（60字以内）' },
-          reason: { type: 'string', description: 'このスコアにした理由（日本語40字以内）' },
-          keywords: {
-            type: 'array',
-            items: { type: 'string' },
-            description: '検索用キーワード3〜6個（固有名詞優先）',
-          },
         },
-        required: ['ref', 'score', 'category', 'oneLiner', 'reason', 'keywords'],
+        required: ['ref', 'score'],
         additionalProperties: false,
       },
     },
@@ -79,28 +161,59 @@ const RANK_SCHEMA: Record<string, unknown> = {
   additionalProperties: false,
 };
 
-interface RankResponseItem {
+/** 2 段目: 保存する分だけの要約とキーワード。 */
+const DESCRIBE_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          ref: { type: 'integer', description: '入力に付与した番号' },
+          category: { type: 'string', enum: [...CATEGORIES] },
+          oneLiner: { type: 'string', description: '日本語1文の要約（60字以内）' },
+          reason: { type: 'string', description: 'この記事を選んだ理由（日本語40字以内）' },
+          keywords: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '検索用キーワード3〜6個（固有名詞優先）',
+          },
+        },
+        required: ['ref', 'category', 'oneLiner', 'reason', 'keywords'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['items'],
+  additionalProperties: false,
+};
+
+interface ScoreResponseItem {
   ref: number;
   score: number;
+}
+
+interface DescribeResponseItem {
+  ref: number;
   category: string;
   oneLiner: string;
   reason: string;
   keywords: string[];
 }
 
-function rankSystemPrompt(topics: TopicsConfig): string {
+function readerContext(topics: TopicsConfig): string {
   const topicList = topics.topics
     .map((t) => `- ${t.name}（重要度 ${t.weight}/5）: ${t.keywords.slice(0, 8).join(', ')}`)
     .join('\n');
+  return `# 読者プロフィール\n${topics.profile}\n\n# 関心トピック\n${topicList}`;
+}
 
+function scoreSystemPrompt(topics: TopicsConfig): string {
   return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
-渡された記事リストを、この読者にとっての「今日読む価値」で 0〜100 点に採点してください。
+渡された記事を、この読者にとっての「今日読む価値」で 0〜100 点に採点してください。
 
-# 読者プロフィール
-${topics.profile}
-
-# 関心トピック
-${topicList}
+${readerContext(topics)}
 
 # 採点基準
 - 90-100: 読者が日常的に使う技術の重大な変更・新機能。今日知らないと損をするレベル。
@@ -112,41 +225,139 @@ ${topicList}
 # 重要な判断ルール
 - 一次情報（公式リリースノート、公式ブログ、仕様策定）は二次情報より高く評価する。
 - 「〜してみた」「入門」「まとめ」系は、独自の検証や数値がない限り 40 点以下。
-- 人気（いいね数・スター数）は参考程度。読者の関心との一致を最優先する。
+- 人気（いいね数・順位）は参考程度。読者の関心との一致を最優先する。
 - 同じ話題の記事が複数あるときは、最も一次情報に近く情報量の多いものを高くする。
 - 日本語・英語で有利不利をつけない。
 
 # 出力
+- 説明や理由は書かず、ref と score だけを返す。
+- 入力されたすべての ref に対して、必ず1件ずつ結果を返す。`;
+}
+
+function describeSystemPrompt(topics: TopicsConfig): string {
+  return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
+選抜済みの記事について、一覧に載せる要約とキーワードを書いてください。
+
+${readerContext(topics)}
+
+# 出力
 - すべて日本語で書く。
 - oneLiner は「何が起きたか」を主語述語のある1文で。「〜について」のような曖昧な書き方は禁止。
+- reason はこの読者にとっての意味を40字以内で。一般論ではなく読者の状況に紐づける。
 - keywords は後から検索するためのもの。製品名・API名・バージョン番号などの固有名詞を優先する。
 - 入力されたすべての ref に対して、必ず1件ずつ結果を返す。`;
 }
 
-function renderCandidate(item: PreScoredItem, ref: number): string {
-  const m = item.metrics;
-  const signals = [
-    m.likes != null ? `LGTM/いいね ${m.likes}` : null,
-    m.stocks != null ? `ストック ${m.stocks}` : null,
-    m.hatena != null ? `はてブ ${m.hatena}` : null,
-    m.points != null ? `HN ${m.points}pt` : null,
-    m.stars != null ? `★${m.stars}` : null,
-  ]
-    .filter(Boolean)
-    .join(' / ');
-
-  const excerpt = truncate((item.body || item.snippet).replace(/\s+/g, ' ').trim(), 700);
+function renderCandidate(item: PreScoredItem, ref: number, excerptChars: number): string {
+  const excerpt = truncate((item.body || item.snippet).replace(/\s+/g, ' ').trim(), excerptChars);
+  // 生の LGTM 数などは渡さない。プラットフォーム間で桁が違って比較できず、
+  // モデルが数字の大きいソースに引きずられるため、正規化済みの順位だけを渡す。
+  const popularity = `同ソース内で上位 ${Math.round((1 - item.popularityPercentile) * 100)}%`;
 
   return [
     `[${ref}] ${item.title}`,
-    `  ソース: ${item.sourceLabel}`,
+    `  ソース: ${item.sourceLabel} / ${popularity}`,
     item.tags.length ? `  タグ: ${item.tags.slice(0, 8).join(', ')}` : null,
-    signals ? `  指標: ${signals}` : null,
     item.matchedTopics.length ? `  事前マッチ: ${item.matchedTopics.join(', ')}` : null,
     `  抜粋: ${excerpt || '(本文なし)'}`,
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+/** LLM を使わないときのフォールバック値 */
+function ruleBasedFields(item: PreScoredItem, note: string) {
+  return {
+    oneLiner: truncate(item.snippet.replace(/\s+/g, ' ').trim(), 80) || item.title,
+    reason: note,
+    keywords: item.matchedTopics.slice(0, 5),
+    category: 'その他',
+  };
+}
+
+/** 1 段目: 候補全件にスコアだけ付ける */
+async function scorePass(
+  anthropic: Anthropic,
+  items: PreScoredItem[],
+  topics: TopicsConfig,
+  cfg: RuntimeConfig,
+): Promise<Map<string, number>> {
+  const batches: PreScoredItem[][] = [];
+  for (let i = 0; i < items.length; i += cfg.rankBatchSize) {
+    batches.push(items.slice(i, i + cfg.rankBatchSize));
+  }
+
+  const system = scoreSystemPrompt(topics);
+  const isLegacy = isLegacyModel(cfg.rankModel);
+  const scores = new Map<string, number>();
+
+  await mapLimit(batches, 3, async (batch, batchIndex) => {
+    const offset = batchIndex * cfg.rankBatchSize;
+    const body = batch.map((item, i) => renderCandidate(item, offset + i, 500)).join('\n\n');
+
+    try {
+      const res = await anthropic.messages.create({
+        model: cfg.rankModel,
+        max_tokens: 4000,
+        system,
+        messages: [
+          { role: 'user', content: `以下 ${batch.length} 件を採点してください。\n\n${body}` },
+        ],
+        output_config: { format: { type: 'json_schema', schema: SCORE_SCHEMA } },
+        // Haiku 4.5 世代は adaptive thinking を受け付けない
+        ...(isLegacy ? {} : { thinking: { type: 'adaptive' as const } }),
+      });
+      recordUsage('score', cfg.rankModel, res.usage);
+
+      const parsed = extractJson(res) as { items: ScoreResponseItem[] };
+      for (const r of parsed.items ?? []) {
+        const item = items[r.ref];
+        if (item) scores.set(item.id, Math.max(0, Math.min(100, Math.round(r.score))));
+      }
+    } catch (err) {
+      log.warn(`採点 batch ${batchIndex}: ${err instanceof Error ? err.message : err}`);
+    }
+  });
+
+  return scores;
+}
+
+/** 2 段目: 実際に保存する分だけ文章化する */
+async function describePass(
+  anthropic: Anthropic,
+  shortlist: PreScoredItem[],
+  topics: TopicsConfig,
+  cfg: RuntimeConfig,
+): Promise<Map<string, DescribeResponseItem>> {
+  const described = new Map<string, DescribeResponseItem>();
+  if (shortlist.length === 0) return described;
+
+  const body = shortlist.map((item, i) => renderCandidate(item, i, 700)).join('\n\n');
+  const isLegacy = isLegacyModel(cfg.rankModel);
+
+  try {
+    const res = await anthropic.messages.create({
+      model: cfg.rankModel,
+      max_tokens: 8000,
+      system: describeSystemPrompt(topics),
+      messages: [
+        { role: 'user', content: `以下 ${shortlist.length} 件を要約してください。\n\n${body}` },
+      ],
+      output_config: { format: { type: 'json_schema', schema: DESCRIBE_SCHEMA } },
+      ...(isLegacy ? {} : { thinking: { type: 'adaptive' as const } }),
+    });
+    recordUsage('describe', cfg.rankModel, res.usage);
+
+    const parsed = extractJson(res) as { items: DescribeResponseItem[] };
+    for (const r of parsed.items ?? []) {
+      const item = shortlist[r.ref];
+      if (item) described.set(item.id, r);
+    }
+  } catch (err) {
+    log.warn(`要約: ${err instanceof Error ? err.message : err}`);
+  }
+
+  return described;
 }
 
 export async function rankItems(
@@ -160,70 +371,35 @@ export async function rankItems(
     return items.map((item) => ({
       ...item,
       score: Math.round(item.preScore * 100),
-      oneLiner: truncate(item.snippet.replace(/\s+/g, ' ').trim(), 80) || item.title,
-      reason: '事前スコアのみ（LLM 未使用）',
-      keywords: item.matchedTopics.slice(0, 5),
-      category: 'その他',
+      ...ruleBasedFields(item, '事前スコアのみ（LLM 未使用）'),
     }));
   }
 
-  const batches: PreScoredItem[][] = [];
-  for (let i = 0; i < items.length; i += cfg.rankBatchSize) {
-    batches.push(items.slice(i, i + cfg.rankBatchSize));
-  }
+  // 1 段目
+  const scores = await scorePass(anthropic, items, topics, cfg);
+  log.info(`  スコアリング: ${scores.size}/${items.length} 件`);
 
-  const system = rankSystemPrompt(topics);
-  const isLegacy = isLegacyModel(cfg.rankModel);
+  const scoreOf = (item: PreScoredItem) =>
+    // 採点に失敗した分は事前スコアで代替する（控えめに）
+    scores.get(item.id) ?? Math.round(item.preScore * 60);
 
-  const scored = new Map<string, RankResponseItem>();
+  // 2 段目に回すのは、保存される分＋多様性確保のための余裕
+  const shortlist = [...items]
+    .sort((a, b) => scoreOf(b) - scoreOf(a))
+    .slice(0, cfg.topN + cfg.otherN + 10);
 
-  await mapLimit(batches, 3, async (batch, batchIndex) => {
-    const offset = batchIndex * cfg.rankBatchSize;
-    const body = batch.map((item, i) => renderCandidate(item, offset + i)).join('\n\n');
-
-    try {
-      const res = await anthropic.messages.create({
-        model: cfg.rankModel,
-        max_tokens: 8000,
-        system,
-        messages: [
-          {
-            role: 'user',
-            content: `以下 ${batch.length} 件を採点してください。\n\n${body}`,
-          },
-        ],
-        output_config: { format: { type: 'json_schema', schema: RANK_SCHEMA } },
-        // Haiku 4.5 世代は adaptive thinking を受け付けない
-        ...(isLegacy ? {} : { thinking: { type: 'adaptive' as const } }),
-      });
-
-      const parsed = extractJson(res) as { items: RankResponseItem[] };
-      for (const r of parsed.items ?? []) {
-        const item = items[r.ref];
-        if (item) scored.set(item.id, r);
-      }
-    } catch (err) {
-      log.warn(`ランキング batch ${batchIndex}: ${err instanceof Error ? err.message : err}`);
-    }
-  });
-
-  log.info(`  LLM 採点: ${scored.size}/${items.length} 件`);
+  const described = await describePass(anthropic, shortlist, topics, cfg);
+  log.info(`  要約: ${described.size}/${shortlist.length} 件`);
 
   return items.map((item) => {
-    const r = scored.get(item.id);
+    const r = described.get(item.id);
+    const score = scoreOf(item);
     if (!r) {
-      return {
-        ...item,
-        score: Math.round(item.preScore * 60), // 未採点は控えめに
-        oneLiner: truncate(item.snippet.replace(/\s+/g, ' ').trim(), 80) || item.title,
-        reason: '採点失敗（事前スコアで代替）',
-        keywords: item.matchedTopics.slice(0, 5),
-        category: 'その他',
-      };
+      return { ...item, score, ...ruleBasedFields(item, scores.has(item.id) ? '' : '採点失敗') };
     }
     return {
       ...item,
-      score: Math.max(0, Math.min(100, Math.round(r.score))),
+      score,
       oneLiner: r.oneLiner?.trim() || item.title,
       reason: r.reason?.trim() ?? '',
       keywords: (r.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 8),
@@ -238,11 +414,128 @@ export async function rankItems(
  * 2) 深掘り要約（高性能モデル）
  * ------------------------------------------------------------------ */
 
+/** visual フィールドの 3 バリアント */
+const VISUAL_VARIANTS = [
+  {
+    type: 'object',
+    description: '変更前後の対比。「何が変わるか」がある記事に最も合う。',
+    properties: {
+      type: { type: 'string', enum: ['comparison'] },
+      title: { type: 'string', description: '何と何を比べているか。20字以内。' },
+      beforeLabel: { type: 'string', description: '左側の見出し（例: 従来 / v1 まで）' },
+      afterLabel: { type: 'string', description: '右側の見出し（例: 今回 / v2 以降）' },
+      rows: {
+        type: 'array',
+        description: '比較の観点ごとに1行。2〜5行。',
+        items: {
+          type: 'object',
+          properties: {
+            aspect: { type: 'string', description: '観点（例: 書き方、デフォルト値）' },
+            before: { type: 'string' },
+            after: { type: 'string' },
+          },
+          required: ['aspect', 'before', 'after'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['type', 'title', 'beforeLabel', 'afterLabel', 'rows'],
+    additionalProperties: false,
+  },
+  {
+    type: 'object',
+    description: '処理やワークフローの流れ。順序が本質的な記事に合う。',
+    properties: {
+      type: { type: 'string', enum: ['flow'] },
+      title: { type: 'string', description: '何の流れか。20字以内。' },
+      steps: {
+        type: 'array',
+        description: '3〜6ステップ。',
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string', description: 'ステップ名。12字以内。' },
+            detail: { type: 'string', description: 'そのステップで起きること。30字以内。' },
+          },
+          required: ['label', 'detail'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['type', 'title', 'steps'],
+    additionalProperties: false,
+  },
+  {
+    type: 'object',
+    description: '記事に具体的な数値がある場合のみ。無い数値を作らないこと。',
+    properties: {
+      type: { type: 'string', enum: ['metrics'] },
+      title: { type: 'string', description: '何の数値か。20字以内。' },
+      items: {
+        type: 'array',
+        description: '1〜4個。',
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string', description: '指標名（例: ビルド時間）' },
+            value: { type: 'string', description: '変更後の値（単位込み。例: 12s）' },
+            baseline: {
+              description: '変更前の値。比較対象が無ければ null。',
+              anyOf: [{ type: 'null' }, { type: 'string' }],
+            },
+            direction: {
+              type: 'string',
+              enum: ['up-good', 'down-good', 'neutral'],
+              description: '値が増えるのが良いか減るのが良いか',
+            },
+            note: {
+              description: '測定条件などの補足。無ければ null。',
+              anyOf: [{ type: 'null' }, { type: 'string' }],
+            },
+          },
+          required: ['label', 'value', 'baseline', 'direction', 'note'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['type', 'title', 'items'],
+    additionalProperties: false,
+  },
+];
+
 const DEEP_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {
     headline: { type: 'string', description: '結論を1文で。40字以内。' },
     summary: { type: 'string', description: '概要。3〜5文、記事を読まなくても要点が掴める粒度。' },
+    prerequisites: {
+      type: 'array',
+      description:
+        'この記事で読者が詰まりそうな箇所を先回りして埋める解説。2〜4個。詰まる箇所が本当に無ければ空配列。',
+      items: {
+        type: 'object',
+        properties: {
+          term: { type: 'string', description: '押さえるべき概念の名前。20字以内。' },
+          stumblingPoint: {
+            type: 'string',
+            description:
+              '記事のどこで詰まるか。記事中の語や一文を引いて「〜と書かれているが、〜を知らないと〜が読み取れない」の形で具体的に書く。40〜80字。',
+          },
+          explanation: {
+            type: 'string',
+            description:
+              'その詰まりを解消する解説。3〜5文。定義だけで終わらせず、なぜそれが問題になるのか・この記事の文脈で何を意味するのかまで書く。',
+          },
+        },
+        required: ['term', 'stumblingPoint', 'explanation'],
+        additionalProperties: false,
+      },
+    },
+    visual: {
+      description:
+        '記事の要点を図にしたもの。最も内容に合う形式を1つ選ぶ。図にする価値が無ければ null。',
+      anyOf: [{ type: 'null' }, ...VISUAL_VARIANTS],
+    },
     whatYouCanDo: {
       type: 'array',
       items: { type: 'string' },
@@ -295,6 +588,8 @@ const DEEP_SCHEMA: Record<string, unknown> = {
   required: [
     'headline',
     'summary',
+    'prerequisites',
+    'visual',
     'whatYouCanDo',
     'whatChanges',
     'howToTry',
@@ -322,7 +617,43 @@ ${topics.profile}
 - バージョン番号、フラグ名、デフォルト値の変更は省略せず正確に書く。
 - 破壊的変更や移行が必要な点があれば、必ず whatChanges か caveats に入れる。
 - code は、読者がコピペして動かし始められる最小の断片にする。記事に該当するものが無ければ null。
-- 冗長な前置き・一般論・「重要です」といった中身のない強調は書かない。`;
+- 冗長な前置き・一般論・「重要です」といった中身のない強調は書かない。
+
+# prerequisites（前提知識）の書き方
+
+まず、次のことを頭の中でやってから書き始めること。
+
+**この記事を、有能だが専門分野が違うエンジニアが読んでいる場面を想像する。**
+（たとえばこの記事がフロントエンドの話なら、普段はバックエンドや機械学習をやっている人。
+低レイヤの話なら、普段は業務Webアプリを書いている人。）
+その人が記事を頭から読んでいったときに、**どの一文で手が止まるか**を具体的に洗い出す。
+手が止まる典型は次のようなところ:
+
+- 説明なしに出てくる固有名詞・略語（ツール名、仕様名、内部用語）
+- 「もちろん〜なので」「当然〜だから」と、前提を共有している体で飛ばされている推論
+- その分野では常識だが外から見ると理由がわからない慣習・制約
+- 数値や挙動の変化が「すごい」とされているが、比較対象を知らないと凄さがわからない箇所
+- 記事が解決している問題そのものが、その問題に遭遇したことがないと実感できない場合
+
+そのうえで、**手が止まる箇所ごとに 1 項目**書く。
+
+- stumblingPoint には、記事のどの記述で詰まるかを、記事中の語や一文を引いて具体的に書く。
+  「〜という前提知識が必要」のような一般論ではなく、「記事は〜と書いているが、
+  〜を知らないと〜が読み取れない」という形にする。
+- explanation は、その詰まりが解消される説明を書く。用語の辞書的定義で終わらせない。
+  「それが無いと何が困るのか」「この記事の文脈では何を意味するのか」まで踏み込む。
+  必要なら、読者が既に知っている別分野の概念に例える。
+- 読者プロフィールに書かれている技術は既知として扱い、説明しない。
+  React を使う読者に「React とは」を書かない。それは詰まりどころではない。
+- 記事本文が丁寧に説明している内容を繰り返さない。記事が省略している前提だけを埋める。
+- 記事を最後まで読んでも詰まる箇所が無いなら、空配列でよい。埋めるために水増ししない。
+
+# visual（図）の選び方
+- comparison / flow / metrics のうち、記事の中身に最も合うものを1つだけ選ぶ。
+- 記事の主題が「変更」なら comparison、「手順・仕組み」なら flow、「性能改善」なら metrics。
+- metrics は記事に実際の数値が書かれている場合のみ。数値を推測で作らない。
+- どれも当てはまらない、または図にしても情報が増えないなら null にする。無理に図を作らない。
+- 図は本文の要約ではなく、文章では伝わりにくい構造（対比・順序・量）を担当させる。`;
 }
 
 export async function deepDive(
@@ -363,11 +694,16 @@ export async function deepDive(
       },
       thinking: { type: 'adaptive' },
     });
+    recordUsage('deep', cfg.summaryModel, res.usage);
 
     const parsed = extractJson(res) as DeepDive;
     return {
       headline: parsed.headline?.trim() || item.oneLiner,
       summary: parsed.summary?.trim() || item.oneLiner,
+      prerequisites: (parsed.prerequisites ?? [])
+        .filter((p) => p?.term && p?.explanation)
+        .map((p) => ({ ...p, stumblingPoint: p.stumblingPoint ?? '' })),
+      visual: normalizeVisual(parsed.visual),
       whatYouCanDo: parsed.whatYouCanDo ?? [],
       whatChanges: parsed.whatChanges ?? [],
       howToTry: parsed.howToTry ?? [],
@@ -385,10 +721,40 @@ export async function deepDive(
   }
 }
 
+/**
+ * 図は空でも成立するので、中身が足りないバリアントは丸ごと落とす。
+ * 半端な図を出すより、図が無いほうが読みやすい。
+ */
+function normalizeVisual(visual: DeepDive['visual']): DeepDive['visual'] {
+  if (!visual || typeof visual !== 'object') return null;
+
+  switch (visual.type) {
+    case 'comparison': {
+      const rows = (visual.rows ?? []).filter((r) => r?.aspect && (r.before || r.after));
+      if (rows.length < 2) return null;
+      return { ...visual, rows };
+    }
+    case 'flow': {
+      const steps = (visual.steps ?? []).filter((s) => s?.label);
+      if (steps.length < 2) return null;
+      return { ...visual, steps };
+    }
+    case 'metrics': {
+      const items = (visual.items ?? []).filter((i) => i?.label && i?.value);
+      if (items.length === 0) return null;
+      return { ...visual, items };
+    }
+    default:
+      return null;
+  }
+}
+
 function fallbackDeepDive(item: RankedItem): DeepDive {
   return {
     headline: item.oneLiner,
     summary: truncate((item.body || item.snippet).replace(/\s+/g, ' ').trim(), 500),
+    prerequisites: [],
+    visual: null,
     whatYouCanDo: [],
     whatChanges: [],
     howToTry: ['元記事を開いて確認してください。'],
