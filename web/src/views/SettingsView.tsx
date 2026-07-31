@@ -66,6 +66,42 @@ export function SettingsView({ manifest }: { manifest: Manifest | null }) {
         <h1 className="datebar__date">設定</h1>
       </div>
 
+      {/*
+        久しぶりに開いたときに一番忘れているのは「編集しただけでは何も起きない」こと。
+        3 段階のどこにいるかが一目で分かる形にして、本文より前に置く。
+      */}
+      <section className="howto">
+        <h2 className="howto__title">この画面で編集しても、すぐには反映されません</h2>
+        <ol className="howto__steps">
+          <li>
+            <strong>編集する</strong>
+            <span>
+              内容は<strong>このブラウザの中だけ</strong>に一時保存されます（localStorage）。
+              他の端末や他のブラウザからは見えず、毎朝の収集にもまだ影響しません。
+            </span>
+          </li>
+          <li>
+            <strong>GitHub にコミットする</strong>
+            <span>
+              下の「変更をリポジトリに反映する」の手順で <code>{TOPICS_PATH}</code> に
+              コミットします。<strong>ここで初めて確定します。</strong>
+            </span>
+          </li>
+          <li>
+            <strong>翌朝の実行から効く</strong>
+            <span>
+              収集は毎朝 7:00 の GitHub Actions で走るので、反映されるのは次回の実行からです。
+              今日のダイジェストが作り直されるわけではありません。
+            </span>
+          </li>
+        </ol>
+        <p className="howto__note">
+          コミットしなければ何も変わりません。途中まで編集して閉じても大丈夫で、
+          次に同じブラウザで開けば続きから編集できます。やり直したいときは
+          「リポジトリの内容に戻す」で現在のリポジトリの内容に戻せます。
+        </p>
+      </section>
+
       {status && (
         <div style={{ marginBottom: 18 }}>
           <Notice kind={status.kind === 'ok' ? 'ok' : status.kind === 'error' ? 'error' : 'info'}>
