@@ -140,12 +140,18 @@ http://localhost:5173/news-curator/ が開きます。`data/` と `config/` は 
 | `SUMMARY_EFFORT` | `medium` | 深掘りの思考量。`low`〜`max` |
 | `TOP_N` | `3` | 深掘りする件数 |
 | `OTHER_N` | `12` | 「その他の注目記事」の件数 |
-| `RANK_CANDIDATES` | `90` | LLM に採点させる候補数。コストにほぼ比例します |
+| `RANK_CANDIDATES` | `150` | LLM に採点させる候補数。採点は2段階なので、増やしても効くのは安い1段目の入力だけです |
 | `BODY_CHAR_LIMIT` | `12000` | 深掘り時に LLM へ渡す本文の最大文字数 |
 | `CUTOFF_HOUR` | `7` | 集計の区切り時刻（JST） |
 
-コストを下げたいとき — `RANK_CANDIDATES` を 60 に、`SUMMARY_EFFORT` を `low` に。
+コストを下げたいとき — `SUMMARY_EFFORT` を `low` に、`OTHER_N` を減らす。
 品質を上げたいとき — `SUMMARY_MODEL=claude-opus-5`、`SUMMARY_EFFORT=high` に。
+
+`RANK_CANDIDATES` を絞るのは割に合いません。45 まで下げる案を実データで検証したところ、
+46〜60 位の帯に実際にベスト3入りした記事が含まれていました。削減額は月 ¥80 程度です。
+
+実際にかかった費用は毎回 `data/digests/YYYY-MM-DD.json` の `usage` に工程別で記録され、
+サイト末尾にも表示されます。調整の判断はそちらの実測値を見てください。
 
 ---
 
