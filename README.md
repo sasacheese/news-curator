@@ -133,18 +133,29 @@ git push -u origin main
 
 **サイトの「設定」画面から編集できます。** トピック名・重要度(1〜5)・キーワードを、タグ入力の UI で複数追加・削除できます。
 
-サイトが公開されている間、設定タブはナビゲーションから隠してあります。
-`https://<ユーザー名>.github.io/news-curator/#/settings` を直接開いてください。
-一度開いたブラウザでは以降タブが表示されます。認証の代わりではないので、
-Cloudflare Access などを前に置いたら `web/src/App.tsx` の `SETTINGS_UNLOCK_KEY`
-まわりの分岐は消して構いません。
+収集処理は GitHub Actions 上で `config/topics.json` を読むので、編集内容は一度リポジトリへ
+コミットする必要があります。手順は 3 ステップです。
 
-保存方法は 2 つ:
-
-- **GitHub に保存** — Fine-grained personal access token（このリポジトリに `Contents: Read and write`）を一度貼っておくと、ブラウザから直接 `config/topics.json` をコミットできます。トークンはブラウザの localStorage にのみ保存され、送信先は api.github.com だけです
-- **JSON をコピー** — トークンを使いたくない場合。コピーして `config/topics.json` に貼り付けてください
+1. **JSON をコピー** で画面の内容をクリップボードに取る
+2. **GitHubで編集** で `config/topics.json` の Web エディタを開く
+3. 貼り替えてコミットする（翌朝の実行から反映）
 
 「読者プロフィール」欄も採点精度に直接効きます。使っている技術・立場・何に興味がないかを書くほど精度が上がります。
+
+### 設定画面にアクセストークンは要りません
+
+以前はブラウザに Fine-grained personal access token を貼って GitHub Contents API を
+直接叩いていましたが、やめました。公開サイトの localStorage に write 権限付きの
+トークンを常駐させる割に、書き込みの認可はリポジトリの権限そのもので足ります。
+GitHub の Web エディタへ飛ばせば、ログイン済みで権限があれば編集でき、無ければできない。
+リポジトリを private にしてもこの方式のまま動きます。
+
+そのため設定画面には秘密が何も無く、タブも隠していません。訪問者が編集しても
+変わるのはその人自身の localStorage だけです。
+
+**過去にトークンを保存したことがある場合**、次にサイトを開いた時点で自動的に削除され、
+その旨が画面に出ます。ただし削除しても失効はしないので、
+[GitHub の設定](https://github.com/settings/personal-access-tokens)から revoke してください。
 
 ---
 

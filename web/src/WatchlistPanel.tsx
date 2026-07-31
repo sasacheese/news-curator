@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { loadWatchlist } from './api';
 import { safeUrl } from './format';
+import { editUrl, isRepoSlug } from './github';
 import type { Watchlist } from './types';
 
 /**
@@ -12,10 +13,6 @@ import type { Watchlist } from './types';
  */
 
 const WATCHLIST_PATH = 'config/watchlist.json';
-
-function editUrl(repo: string): string {
-  return `https://github.com/${repo}/edit/main/${WATCHLIST_PATH}`;
-}
 
 export function WatchlistPanel({ repo }: { repo?: string | null }) {
   const [list, setList] = useState<Watchlist | null>(null);
@@ -36,7 +33,7 @@ export function WatchlistPanel({ repo }: { repo?: string | null }) {
   const repos = list.repos ?? [];
   const feeds = list.feeds ?? [];
   const changelogs = list.changelogs ?? [];
-  const valid = repo && /^[\w.-]+\/[\w.-]+$/.test(repo) ? repo : null;
+  const valid = isRepoSlug(repo) ? repo : null;
 
   return (
     <details className="watch">
@@ -56,7 +53,7 @@ export function WatchlistPanel({ repo }: { repo?: string | null }) {
               {' '}
               <a
                 className="watch__edit"
-                href={editUrl(valid)}
+                href={editUrl(valid, WATCHLIST_PATH)}
                 target="_blank"
                 rel="noreferrer noopener"
               >

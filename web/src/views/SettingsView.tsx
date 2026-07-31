@@ -1,36 +1,30 @@
 import { useEffect, useState } from 'react';
 import { loadTopicsConfig } from '../api';
 import { CopyButton, LoadingCards, Notice, TagInput } from '../components';
-import { safeUrl } from '../format';
+import { editUrl, isRepoSlug } from '../github';
 import {
   type Theme,
   clearLocalTopics,
   getLocalTopics,
-  getRepo,
   getTheme,
-  getToken,
-  pushTopicsToGitHub,
   saveLocalTopics,
-  setRepo as persistRepo,
   setTheme as persistTheme,
-  setToken as persistToken,
 } from '../settings';
-import type { Topic, TopicsConfig } from '../types';
+import type { Manifest, Topic, TopicsConfig } from '../types';
 
-type Status = { kind: 'ok' | 'error' | 'info'; message: string; url?: string } | null;
+type Status = { kind: 'ok' | 'error' | 'info'; message: string } | null;
 
 const EMPTY_TOPIC: Topic = { name: '', weight: 3, keywords: [] };
+const TOPICS_PATH = 'config/topics.json';
 
-export function SettingsView() {
+export function SettingsView({ manifest }: { manifest: Manifest | null }) {
   const [remote, setRemote] = useState<TopicsConfig | null>(null);
   const [config, setConfig] = useState<TopicsConfig | null>(null);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<Status>(null);
-  const [pushing, setPushing] = useState(false);
 
   const [theme, setThemeState] = useState<Theme>(() => getTheme());
-  const [repo, setRepoState] = useState(() => getRepo());
-  const [token, setTokenState] = useState(() => getToken());
+  const repo = isRepoSlug(manifest?.repo) ? manifest.repo : null;
 
   useEffect(() => {
     loadTopicsConfig().then(
@@ -66,46 +60,52 @@ export function SettingsView() {
 
   const serialized = `${JSON.stringify(config, null, 2)}\n`;
 
-  const push = async () => {
-    setPushing(true);
-    setStatus(null);
-    try {
-      persistRepo(repo);
-      persistToken(token);
-      const url = await pushTopicsToGitHub(config, { repo, token });
-      clearLocalTopics();
-      setDirty(false);
-      setRemote(config);
-      setStatus({
-        kind: 'ok',
-        message: 'config/topics.json をコミットしました。次回の実行から反映されます。',
-        url,
-      });
-    } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setPushing(false);
-    }
-  };
-
   return (
     <>
       <div className="datebar">
         <h1 className="datebar__date">設定</h1>
       </div>
 
+      {/*
+        久しぶりに開いたときに一番忘れているのは「編集しただけでは何も起きない」こと。
+        3 段階のどこにいるかが一目で分かる形にして、本文より前に置く。
+      */}
+      <section className="howto">
+        <h2 className="howto__title">この画面で編集しても、すぐには反映されません</h2>
+        <ol className="howto__steps">
+          <li>
+            <strong>編集する</strong>
+            <span>
+              内容は<strong>このブラウザの中だけ</strong>に一時保存されます（localStorage）。
+              他の端末や他のブラウザからは見えず、毎朝の収集にもまだ影響しません。
+            </span>
+          </li>
+          <li>
+            <strong>GitHub にコミットする</strong>
+            <span>
+              下の「変更をリポジトリに反映する」の手順で <code>{TOPICS_PATH}</code> に
+              コミットします。<strong>ここで初めて確定します。</strong>
+            </span>
+          </li>
+          <li>
+            <strong>翌朝の実行から効く</strong>
+            <span>
+              収集は毎朝 7:00 の GitHub Actions で走るので、反映されるのは次回の実行からです。
+              今日のダイジェストが作り直されるわけではありません。
+            </span>
+          </li>
+        </ol>
+        <p className="howto__note">
+          コミットしなければ何も変わりません。途中まで編集して閉じても大丈夫で、
+          次に同じブラウザで開けば続きから編集できます。やり直したいときは
+          「リポジトリの内容に戻す」で現在のリポジトリの内容に戻せます。
+        </p>
+      </section>
+
       {status && (
         <div style={{ marginBottom: 18 }}>
           <Notice kind={status.kind === 'ok' ? 'ok' : status.kind === 'error' ? 'error' : 'info'}>
             {status.message}
-            {status.url && (
-              <>
-                {' '}
-                <a href={safeUrl(status.url)} target="_blank" rel="noreferrer noopener">
-                  コミットを見る ↗
-                </a>
-              </>
-            )}
           </Notice>
         </div>
       )}
@@ -114,7 +114,7 @@ export function SettingsView() {
         <div style={{ marginBottom: 18 }}>
           <Notice>
             未保存の変更があります（このブラウザにのみ保存されています）。
-            収集処理に反映するには、下の「GitHub に保存」でリポジトリへコミットしてください。
+            収集処理に反映するには、下の「変更をリポジトリに反映する」の手順でコミットしてください。
           </Notice>
         </div>
       )}
@@ -211,57 +211,37 @@ export function SettingsView() {
         />
       </section>
 
-      {/* ---------------- 保存 ---------------- */}
+      {/* ---------------- 反映 ---------------- */}
       <section className="settings-section">
-        <h2>変更をリポジトリに保存</h2>
+        <h2>変更をリポジトリに反映する</h2>
         <p>
-          収集処理は GitHub Actions 上で <code>config/topics.json</code> を読むため、
-          設定を反映するにはリポジトリへコミットする必要があります。
-          トークンはこのブラウザの localStorage にのみ保存され、送信先は api.github.com だけです。
-          <br />
-          Fine-grained personal access token を、このリポジトリに対して{' '}
-          <strong>Contents: Read and write</strong> の権限で発行してください。
+          収集処理は GitHub Actions 上で <code>{TOPICS_PATH}</code> を読むため、
+          この画面の編集内容は一度リポジトリへコミットする必要があります。
+          コミットは GitHub の Web エディタで行うので、アクセストークンは要りません。
         </p>
 
-        <div className="field">
-          <label className="field__label" htmlFor="repo">
-            リポジトリ
-          </label>
-          <input
-            id="repo"
-            type="text"
-            value={repo}
-            placeholder="owner/repo"
-            onChange={(e) => setRepoState(e.target.value)}
-            onBlur={(e) => persistRepo(e.target.value)}
-          />
-        </div>
-
-        <div className="field">
-          <label className="field__label" htmlFor="token">
-            GitHub トークン
-          </label>
-          <input
-            id="token"
-            type="password"
-            value={token}
-            placeholder="github_pat_..."
-            autoComplete="off"
-            onChange={(e) => setTokenState(e.target.value)}
-            onBlur={(e) => persistToken(e.target.value)}
-          />
-        </div>
+        <ol className="steps">
+          <li>
+            <strong>JSON をコピー</strong> で、この画面の内容をクリップボードに取る
+          </li>
+          <li>
+            <strong>GitHubで編集</strong> で <code>{TOPICS_PATH}</code> の編集画面を開く
+          </li>
+          <li>中身を貼り替えてコミットする（翌朝の実行から反映されます）</li>
+        </ol>
 
         <div className="actions">
-          <button
-            type="button"
-            className="btn btn--primary"
-            disabled={pushing || !repo || !token}
-            onClick={push}
-          >
-            {pushing ? '保存中…' : 'GitHub に保存'}
-          </button>
           <CopyButton text={serialized} label="JSON をコピー" />
+          {repo && (
+            <a
+              className="btn btn--primary"
+              href={editUrl(repo, TOPICS_PATH)}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              GitHubで編集 ↗
+            </a>
+          )}
           <button
             type="button"
             className="btn btn--ghost"
@@ -278,10 +258,12 @@ export function SettingsView() {
           </button>
         </div>
 
-        <p className="field__hint" style={{ marginTop: 12 }}>
-          トークンを使いたくない場合は「JSON をコピー」して、リポジトリの{' '}
-          <code>config/topics.json</code> に直接貼り付けてください。
-        </p>
+        {!repo && (
+          <p className="field__hint" style={{ marginTop: 12 }}>
+            リポジトリが特定できないため編集リンクを出せません。コピーした JSON を{' '}
+            <code>{TOPICS_PATH}</code> に直接貼り付けてください。
+          </p>
+        )}
       </section>
 
       {/* ---------------- 表示 ---------------- */}
