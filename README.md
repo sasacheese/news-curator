@@ -220,6 +220,66 @@ LLM を呼ぶのは **4 か所だけ**です。ほかの工程（収集・重複
 **段階が欠けていたら、その段は落ちています。** 例外にならず静かにルールベースへ
 フォールバックするので、`usage.stages` に 4 つ揃っているかが一番早い健全性チェックです。
 
+## 別のモデル・別のプロバイダで試す
+
+`RANK_MODEL` と `SUMMARY_MODEL` にモデル ID を入れると、**モデル ID で自動的に
+プロバイダを振り分けます**（`gpt-*` なら OpenAI、それ以外は Anthropic）。
+段ごとに混ぜられるので、「採点だけ安いモデル、深掘りは据え置き」も試せます。
+
+### 本番（GitHub Actions）で切り替える
+
+コード変更は不要です。**Settings → Secrets and variables → Actions** で:
+
+| 種類 | Name | Value |
+| --- | --- | --- |
+| Secret | `OPENAI_API_KEY` | `sk-...` |
+| Variable | `RANK_MODEL` | `gpt-5.6-luna` |
+| Variable | `SUMMARY_MODEL` | `gpt-5.6-luna` |
+
+Variable を消せば既定（Claude）に戻ります。`ANTHROPIC_API_KEY` は登録したままで
+構いません。指定されたモデル ID 側のキーだけが使われます。
+
+### 回す前に 10 秒で確かめる
+
+プロバイダを替えたときの最初の関門は、**構造化出力のスキーマが受理されるか**です。
+本番を 10 分回した末に落ちるより先に分かるよう、最小の呼び出しで 4 つのスキーマを試せます。
+
+```bash
+OPENAI_API_KEY=sk-... RANK_MODEL=gpt-5.6-luna SUMMARY_MODEL=gpt-5.6-luna npm run check:llm
+```
+
+数円で終わります。これが通ってから本番を回してください。
+
+### 同じ入力で A/B を取る
+
+トレンド系のソースは実行のたびに中身が変わるので、そのまま 2 回走らせても
+**モデルの差なのか母集団の差なのか分かりません**。収集結果を固定して比べます。
+
+```bash
+export SP=/tmp/exp && mkdir -p $SP
+export COLLECT_CACHE=$SP/input.json          # 1 回目に作られ、2 回目以降は再利用
+
+ANTHROPIC_API_KEY=... GITHUB_TOKEN=$(gh auth token) \
+  npm run collect -- --out $SP/A.json
+OPENAI_API_KEY=... GITHUB_TOKEN=$(gh auth token) \
+  RANK_MODEL=gpt-5.6-luna SUMMARY_MODEL=gpt-5.6-luna npm run collect -- --out $SP/B.json
+
+npm run compare -- $SP/A.json $SP/B.json
+```
+
+`--out` は `data/` を触らないので、実験しても本番データは汚れません。
+`compare` は段階別の費用と実行時間、同じ記事に対する判定の一致率
+（category / domain / payoff / durability とスコア差）、ベスト N の入れ替わり、
+読みどころの文面の見比べを出します。
+
+> 費用を比べるなら**両方とも API キー経由**で実行してください。
+> `LLM_BACKEND=claude-code` は従量課金がないので費用が $0 になり、比較になりません
+> （`compare` が警告を出します）。
+
+> `SUMMARY_EFFORT` は Anthropic のモデルにしか効きません。`gpt-5.6-luna` で
+> `reasoning_effort` が使えるか確認できなかったため、推測でパラメータを送っていません。
+> 深掘りの比較は Claude 側がやや有利な条件になります。
+
 ## 画面の使い方
 
 - **目次** — ページ冒頭に件数付きのページ内リンクがあります

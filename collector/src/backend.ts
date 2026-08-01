@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+import { zodResponseFormat } from 'openai/helpers/zod';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import type { z } from 'zod';
 import { log } from './util.js';
@@ -175,6 +177,79 @@ async function createClaudeCodeBackend(): Promise<LlmBackend> {
  * 選択
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * 比較用: OpenAI API
+ * ------------------------------------------------------------------ */
+
+/**
+ * OpenAI のモデルか。段ごとにプロバイダを混ぜられるよう、
+ * バックエンドはモデル ID で振り分ける（採点だけ Luna、深掘りは Sonnet、なども試せる）。
+ */
+export function isOpenAiModel(model: string): boolean {
+  return /^(gpt|o[0-9])/.test(model);
+}
+
+function createOpenAiBackend(): LlmBackend {
+  const client = new OpenAI();
+
+  return {
+    name: 'openai',
+    metered: true,
+    async complete<T>(opts: CompleteOptions<T>): Promise<CompleteResult<T>> {
+      const res = await client.chat.completions.parse({
+        model: opts.model,
+        max_completion_tokens: opts.maxTokens,
+        messages: [
+          { role: 'system', content: opts.system },
+          { role: 'user', content: opts.prompt },
+        ],
+        response_format: zodResponseFormat(opts.schema, opts.stage),
+      });
+
+      const choice = res.choices[0];
+      if (choice?.message.refusal) {
+        throw new Error(`モデルが応答を拒否しました: ${choice.message.refusal}`);
+      }
+      const parsed = choice?.message.parsed;
+      if (parsed == null) {
+        throw new Error(`構造化出力を取得できませんでした (finish_reason=${choice?.finish_reason})`);
+      }
+
+      const cached = res.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+      return {
+        value: parsed as T,
+        usage: {
+          // prompt_tokens はキャッシュ分を含むので、単価を分けるために差し引く
+          inputTokens: Math.max(0, (res.usage?.prompt_tokens ?? 0) - cached),
+          outputTokens: res.usage?.completion_tokens ?? 0,
+          cacheReadTokens: cached,
+        },
+      };
+    },
+  };
+}
+
+/**
+ * モデル ID で振り分けるバックエンド。
+ * RANK_MODEL と SUMMARY_MODEL に別プロバイダのモデルを指定できるようにするため。
+ */
+function createRouterBackend(anthropic: LlmBackend | null, openai: LlmBackend | null): LlmBackend {
+  return {
+    name: [anthropic?.name, openai?.name].filter(Boolean).join('+'),
+    metered: true,
+    async complete<T>(opts: CompleteOptions<T>): Promise<CompleteResult<T>> {
+      const backend = isOpenAiModel(opts.model) ? openai : anthropic;
+      if (!backend) {
+        throw new Error(
+          `${opts.model} を呼ぶための API キーがありません` +
+            `（${isOpenAiModel(opts.model) ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY'} を設定してください）`,
+        );
+      }
+      return backend.complete(opts);
+    },
+  };
+}
+
 export async function selectBackend(): Promise<LlmBackend | null> {
   const requested = process.env.LLM_BACKEND?.trim();
 
@@ -191,9 +266,21 @@ export async function selectBackend(): Promise<LlmBackend | null> {
     return await createClaudeCodeBackend();
   }
 
-  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
-    return createAnthropicBackend();
-  }
+  const anthropic =
+    process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN
+      ? createAnthropicBackend()
+      : null;
+  const openai = process.env.OPENAI_API_KEY ? createOpenAiBackend() : null;
 
-  return null;
+  if (!anthropic && !openai) return null;
+
+  /*
+   * 片方しか無くても必ずルーター経由にする。
+   * 素通しにすると、たとえば OPENAI_API_KEY だけの状態で RANK_MODEL が
+   * claude-* のままだったときに、Anthropic のモデル名を OpenAI へ投げて
+   * 404 になる。ルーターなら「どのキーが足りないか」で落ちる。
+   */
+  const backend = createRouterBackend(anthropic, openai);
+  log.info(`LLM バックエンド: ${backend.name}（モデル ID で振り分け）`);
+  return backend;
 }

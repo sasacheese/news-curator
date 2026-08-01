@@ -49,6 +49,8 @@ const sonnet5Price = () =>
 
 const PRICING: Record<string, { input: number; output: number; cacheRead: number }> = {
   'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5 },
+  // 比較用。272K トークンを超える入力は $0.40/$1.80 に上がるが、ここでは扱わない
+  'gpt-5.6-luna': { input: 0.2, output: 1.2, cacheRead: 0.02 },
   get 'claude-sonnet-5'() {
     return sonnet5Price();
   },
@@ -74,6 +76,7 @@ function recordUsage(
   model: string,
   usage: NormalizedUsage,
   metered: boolean,
+  elapsedMs: number,
 ): void {
   const price = metered ? PRICING[model] : undefined;
   const prev = usageByStage.get(stage) ?? {
@@ -83,6 +86,7 @@ function recordUsage(
     outputTokens: 0,
     cacheReadTokens: 0,
     estimatedCostUsd: 0,
+    elapsedMs: 0,
   };
 
   usageByStage.set(stage, {
@@ -91,6 +95,7 @@ function recordUsage(
     inputTokens: prev.inputTokens + usage.inputTokens,
     outputTokens: prev.outputTokens + usage.outputTokens,
     cacheReadTokens: prev.cacheReadTokens + usage.cacheReadTokens,
+    elapsedMs: prev.elapsedMs + elapsedMs,
     estimatedCostUsd:
       prev.estimatedCostUsd +
       (price
@@ -129,8 +134,9 @@ export async function complete<T>(
   b: LlmBackend,
   opts: Parameters<LlmBackend['complete']>[0] & { schema: import('zod').ZodType<T> },
 ): Promise<T> {
+  const startedAt = Date.now();
   const res = await b.complete<T>(opts);
-  recordUsage(opts.stage, opts.model, res.usage, b.metered);
+  recordUsage(opts.stage, opts.model, res.usage, b.metered, Date.now() - startedAt);
   return res.value;
 }
 
