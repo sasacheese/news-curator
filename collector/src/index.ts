@@ -118,20 +118,42 @@ async function main(): Promise<void> {
       match: (i) => i.durability === 'foundational' || i.durability === 'durable',
     },
   ];
-  const topCandidates = pickTopDiverse(ranked, runtime.topN, slotRules);
-  for (const rule of slotRules) {
-    if (!topCandidates.some(rule.match)) {
-      log.warn(`  ベスト${runtime.topN}に「${rule.label}」の枠を確保できませんでした`);
+  /**
+   * AI とそれ以外で別々にベスト N を作る。
+   * 母集団が AI 一色なので、混ぜて 1 つのベスト3にすると AI 以外が入らない。
+   * 枠ルールはどちらのグループにも同じように効かせる。
+   */
+  const groups = [
+    { key: 'ai' as const, items: ranked.filter((i) => i.domain === 'ai') },
+    { key: 'general' as const, items: ranked.filter((i) => i.domain !== 'ai') },
+  ];
+  const topCandidates = groups.flatMap((g) => {
+    const picked = pickTopDiverse(g.items, runtime.topN, slotRules);
+    for (const rule of slotRules) {
+      if (picked.length > 0 && !picked.some(rule.match)) {
+        log.warn(`  ${g.key} のベスト${runtime.topN}に「${rule.label}」の枠を確保できませんでした`);
+      }
     }
-  }
+    log.info(`  ${g.key}: ${picked.length} 件（候補 ${g.items.length}）`);
+    return picked;
+  });
   const enriched = await enrichBodies(topCandidates, runtime.bodyCharLimit);
   const enrichedById = new Map(enriched.map((i) => [i.id, i]));
 
-  const top: TopItem[] = await mapLimit(topCandidates, 3, async (item, i) => {
+  // rank はグループ内で 1 から振る（画面上も「AI のベスト3」「AI以外のベスト3」で分かれる）
+  const rankOf = new Map<string, number>();
+  for (const g of groups) {
+    let r = 0;
+    for (const c of topCandidates) {
+      if ((c.domain === 'ai') === (g.key === 'ai')) rankOf.set(c.id, ++r);
+    }
+  }
+
+  const top: TopItem[] = await mapLimit(topCandidates, 3, async (item) => {
     const withBody = { ...item, ...(enrichedById.get(item.id) ?? {}) } as RankedItem;
     const deep = await deepDive(withBody, topics, runtime);
-    log.info(`  #${i + 1} ${deep.headline}`);
-    return { ...withBody, rank: i + 1, deep };
+    log.info(`  [${item.domain}] #${rankOf.get(item.id)} ${deep.headline}`);
+    return { ...withBody, rank: rankOf.get(item.id) ?? 1, deep };
   });
 
   // リリース情報は別枠で全件出しているので、一覧には重複させない

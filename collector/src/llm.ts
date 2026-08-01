@@ -384,7 +384,8 @@ export async function rankItems(
   const byScore = [...items].sort((a, b2) => scoreOf(b2) - scoreOf(a));
   const base = byScore.slice(0, cfg.topN + cfg.otherN + 10);
   const baseIds = new Set(base.map((i) => i.id));
-  const headroom = Math.ceil(cfg.otherN / 2);
+  // ベスト N もドメイン別・一次情報枠でスコア順の外から拾うので、その分も見込む
+  const headroom = cfg.topN + Math.ceil(cfg.otherN / 2);
   const extra = [
     ...byScore.filter((i) => !baseIds.has(i.id) && !looksAi(i)).slice(0, headroom),
     ...byScore.filter((i) => !baseIds.has(i.id) && isPrimarySource(i)).slice(0, headroom),
