@@ -8,7 +8,7 @@ import {
   ScoreResultSchema,
   type DescribeResult,
 } from './schemas.js';
-import { PAYOFFS } from './types.js';
+import { DURABILITIES, PAYOFFS } from './types.js';
 import type {
   DeepDive,
   PreScoredItem,
@@ -174,9 +174,28 @@ ${readerContext(topics)}
 # 出力
 - すべて日本語で書く。
 - oneLiner は「何が起きたか」を主語述語のある1文で。「〜について」のような曖昧な書き方は禁止。
-- reason はこの読者にとっての意味を40字以内で。一般論ではなく読者の状況に紐づける。
+- reason は「どの観点で読むとよいか」。詳しくは下の節を参照。
 - keywords は後から検索するためのもの。製品名・API名・バージョン番号などの固有名詞を優先する。
 - 入力されたすべての ref に対して、必ず1件ずつ結果を返す。
+
+# reason（読みどころ）
+**要約の言い換えを書かない。** oneLiner が「何が書いてあるか」なら、
+reason は「それをどう読むと自分の役に立つか」を書く。
+読者がその記事を開く前に、どこに注目すればよいかがわかる一文にする。
+
+書き方のパターン:
+- 記事の主題より価値のある副次的な部分を指す
+  例:「移行手順そのものより、なぜその設計を選んだかの判断基準が自分の環境にも効く」
+- 読者の既存の関心・作業に接続する
+  例:「同じ構成を Next.js でも組んでいるなら、ここでの落とし穴はそのまま当てはまる」
+- 使いどころと使いどころでないところを分ける
+  例:「小規模では過剰だが、CI が遅くなってきたチームには導入判断の材料になる」
+- 数字や主張の読み方を示す
+  例:「30%短縮という数字より、どの条件で測ったかを見ると自分のケースに換算できる」
+
+- 60〜90字。「〜に役立つ」「重要な知識」のような中身のない締めで終わらせない。
+- 一般論ではなく、この読者のプロフィールに紐づける。
+- 記事に書かれていない効能を推測で足さない。
 
 # domain（AI か否か）
 - LLM・生成AI・AIエージェント・コーディングエージェントそのものが主題なら ai。
@@ -193,7 +212,26 @@ ${readerContext(topics)}
   - apply : 具体的な手順・コマンド・コードがあり、読めば今日の作業に適用できる
   - decide: 比較・検証・設計論で、技術選定や設計判断の材料になる
   - aware : 動向・発表・所感など。今すぐの行動には結びつかないが知っておく価値がある
-- 「読めば何かの役に立つはず」で apply にしない。手を動かせる具体物があるときだけ apply。`;
+- 「読めば何かの役に立つはず」で apply にしない。手を動かせる具体物があるときだけ apply。
+
+# durability（どれくらい保つか）
+payoff とは別の軸。「今日役に立つか」ではなく「1年後にも意味があるか」で判定する。
+判断に迷ったら「この記事を1年後に読み返して、まだ通用するか」を考える。
+
+- foundational : 言語仕様・Web標準・ブラウザの実装・プロトコル・アルゴリズム・
+  計算機科学の原理。実装が変わっても知識が残る。数年単位。
+  例: TypeScript の型システムの仕組み、Baseline に入った CSS 機能、HTTP/3 の設計
+- durable : ライブラリのメジャーバージョンの変更点、アーキテクチャや運用の知見、
+  失敗から得られた設計上の教訓。次のメジャー版までは効く。1年程度。
+  例: React 19 の破壊的変更、大規模移行の設計判断、障害の事後分析
+- ephemeral : 特定ツールの今の使いこなし、現行バージョン限定の回避策、
+  「試してみた」「比較してみた」。ツールが更新されれば古くなる。数週間〜数ヶ月。
+  例: 特定 CLI のオプションの小技、今のモデルのプロンプトのコツ、料金節約の裏技
+
+- **AI 関連だからといって ephemeral にしない。** 新しいモデルの能力の変化や
+  MCP のようなプロトコルの話は durable 以上のことが多い。
+  逆に、AI 以外でも「〇〇を導入してみた」の類は ephemeral。
+- 有用さと混同しない。今すごく便利な Tips でも、来年通用しないなら ephemeral。`;
 }
 
 function renderCandidate(item: PreScoredItem, ref: number, excerptChars: number): string {
@@ -214,18 +252,28 @@ function renderCandidate(item: PreScoredItem, ref: number, excerptChars: number)
 }
 
 /** LLM を使わないときのフォールバック値 */
+/** 要約前に AI 関連かを粗く見分ける。候補の広げ方を決めるためだけに使う */
+function looksAi(item: PreScoredItem): boolean {
+  return item.matchedTopics.some((t) => /AI|Claude|Codex/.test(t));
+}
+
+/** 一次情報か。ベスト3の枠確保の対象になりうるかの判定に使う */
+function isPrimarySource(item: PreScoredItem): boolean {
+  return item.source === 'rss' || item.source === 'github_release' || item.source === 'changelog';
+}
+
 function ruleBasedFields(item: PreScoredItem, note: string) {
   return {
     oneLiner: truncate(item.snippet.replace(/\s+/g, ' ').trim(), 80) || item.title,
     reason: note,
     keywords: item.matchedTopics.slice(0, 5),
     category: 'その他',
-    domain: item.matchedTopics.some((t) => /AI|Claude|Codex/.test(t))
-      ? ('ai' as const)
-      : ('general' as const),
+    domain: looksAi(item) ? ('ai' as const) : ('general' as const),
     // 本文の長さから機械的に見積もる（日本語は約 600 字/分）
     readingMinutes: Math.max(1, Math.min(30, Math.round((item.body?.length ?? 600) / 600))),
     payoff: 'aware' as const,
+    // 判定できないので中庸に置く。ephemeral にすると枠確保から機械的に外れてしまう
+    durability: 'durable' as const,
   };
 }
 
@@ -324,10 +372,25 @@ export async function rankItems(
     // 採点に失敗した分は事前スコアで代替する（控えめに）
     scores.get(item.id) ?? Math.round(item.preScore * 60);
 
-  // 2 段目に回すのは、保存される分＋多様性確保のための余裕
-  const shortlist = [...items]
-    .sort((a, b2) => scoreOf(b2) - scoreOf(a))
-    .slice(0, cfg.topN + cfg.otherN + 10);
+  /**
+   * 2 段目に回す候補。
+   *
+   * 単純なスコア上位だけでは足りない。一覧は AI 以外に別枠を与えており、
+   * ベスト3も一次情報の枠を確保するため、どちらもスコア順の外から拾うことがある。
+   * 要約されていない項目が選ばれると、要約が本文の切り出しになり、
+   * durability も既定値になる（判定していないのに枠を満たしてしまう）。
+   * その分だけ候補を広げておく。
+   */
+  const byScore = [...items].sort((a, b2) => scoreOf(b2) - scoreOf(a));
+  const base = byScore.slice(0, cfg.topN + cfg.otherN + 10);
+  const baseIds = new Set(base.map((i) => i.id));
+  // ベスト N もドメイン別・一次情報枠でスコア順の外から拾うので、その分も見込む
+  const headroom = cfg.topN + Math.ceil(cfg.otherN / 2);
+  const extra = [
+    ...byScore.filter((i) => !baseIds.has(i.id) && !looksAi(i)).slice(0, headroom),
+    ...byScore.filter((i) => !baseIds.has(i.id) && isPrimarySource(i)).slice(0, headroom),
+  ];
+  const shortlist = [...base, ...new Map(extra.map((i) => [i.id, i])).values()];
 
   const described = await describePass(b, shortlist, topics, cfg);
   log.info(`  要約: ${described.size}/${shortlist.length} 件`);
@@ -350,6 +413,7 @@ export async function rankItems(
         ? Math.max(1, Math.min(30, Math.round(r.readingMinutes)))
         : 5,
       payoff: PAYOFFS.includes(r.payoff) ? r.payoff : 'aware',
+      durability: DURABILITIES.includes(r.durability) ? r.durability : 'durable',
     };
   });
 }

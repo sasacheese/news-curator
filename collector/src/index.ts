@@ -1,7 +1,8 @@
 import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
 import { deepDive, getBackend, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
-import { dedupe, pickTopDiverse, preScore } from './prescore.js';
+import type { SlotRule } from './prescore.js';
+import { dedupe, pickByDomain, pickTopDiverse, preScore } from './prescore.js';
 import { collectReleaseCandidates, extractReleases } from './releases.js';
 import { collectAll } from './sources.js';
 import { loadSeenUrls, saveDigest } from './store.js';
@@ -99,22 +100,71 @@ async function main(): Promise<void> {
 
   /* 5. 深掘り要約 --------------------------------------------------- */
   log.step('5/6 深掘り要約');
-  const topCandidates = pickTopDiverse(ranked, runtime.topN);
+  /**
+   * ベスト3の枠。スコア順で埋めたあと、満たしていないものだけ下位と入れ替える。
+   * 1 位は動かさないので、その日の最重要は必ず残る。
+   *
+   * 一次情報を先に置いているのは、実測でベスト3+その他の 15 件中 0〜1 件しか
+   * 一次情報が残らなかったため。公式ブログを毎日 40 件拾っているのに、
+   * Qiita/Zenn の二次情報が構造的に勝っていた。
+   */
+  const slotRules: SlotRule<RankedItem>[] = [
+    {
+      label: '一次情報',
+      match: (i) => i.source === 'rss' || i.source === 'github_release' || i.source === 'changelog',
+    },
+    {
+      label: '長く効くもの',
+      match: (i) => i.durability === 'foundational' || i.durability === 'durable',
+    },
+  ];
+  /**
+   * AI とそれ以外で別々にベスト N を作る。
+   * 母集団が AI 一色なので、混ぜて 1 つのベスト3にすると AI 以外が入らない。
+   * 枠ルールはどちらのグループにも同じように効かせる。
+   */
+  const groups = [
+    { key: 'ai' as const, items: ranked.filter((i) => i.domain === 'ai') },
+    { key: 'general' as const, items: ranked.filter((i) => i.domain !== 'ai') },
+  ];
+  const topCandidates = groups.flatMap((g) => {
+    const picked = pickTopDiverse(g.items, runtime.topN, slotRules);
+    for (const rule of slotRules) {
+      if (picked.length > 0 && !picked.some(rule.match)) {
+        log.warn(`  ${g.key} のベスト${runtime.topN}に「${rule.label}」の枠を確保できませんでした`);
+      }
+    }
+    log.info(`  ${g.key}: ${picked.length} 件（候補 ${g.items.length}）`);
+    return picked;
+  });
   const enriched = await enrichBodies(topCandidates, runtime.bodyCharLimit);
   const enrichedById = new Map(enriched.map((i) => [i.id, i]));
 
-  const top: TopItem[] = await mapLimit(topCandidates, 3, async (item, i) => {
+  // rank はグループ内で 1 から振る（画面上も「AI のベスト3」「AI以外のベスト3」で分かれる）
+  const rankOf = new Map<string, number>();
+  for (const g of groups) {
+    let r = 0;
+    for (const c of topCandidates) {
+      if ((c.domain === 'ai') === (g.key === 'ai')) rankOf.set(c.id, ++r);
+    }
+  }
+
+  const top: TopItem[] = await mapLimit(topCandidates, 3, async (item) => {
     const withBody = { ...item, ...(enrichedById.get(item.id) ?? {}) } as RankedItem;
     const deep = await deepDive(withBody, topics, runtime);
-    log.info(`  #${i + 1} ${deep.headline}`);
-    return { ...withBody, rank: i + 1, deep };
+    log.info(`  [${item.domain}] #${rankOf.get(item.id)} ${deep.headline}`);
+    return { ...withBody, rank: rankOf.get(item.id) ?? 1, deep };
   });
 
   // リリース情報は別枠で全件出しているので、一覧には重複させない
   const topIds = new Set(top.map((t) => t.id));
-  const others = ranked
-    .filter((item) => !topIds.has(item.id) && !releaseUrls.has(item.url))
-    .slice(0, runtime.otherN);
+  const remaining = ranked.filter(
+    (item) => !topIds.has(item.id) && !releaseUrls.has(item.url),
+  );
+  // AI と AI 以外に別々の枠を与える（母集団が AI に偏っているため）
+  const byDomain = pickByDomain(remaining, runtime.otherN);
+  const others = [...byDomain.ai, ...byDomain.general].sort((a, b) => b.score - a.score);
+  log.info(`  その他の注目記事: AI ${byDomain.ai.length} / AI以外 ${byDomain.general.length}`);
 
   /* 6. 保存 --------------------------------------------------------- */
   log.step('6/6 保存');

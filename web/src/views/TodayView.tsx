@@ -73,6 +73,11 @@ export function TodayView({ manifest, date }: Props) {
   const newer = idx > 0 ? manifest.dates[idx - 1] : undefined;
   const older = idx >= 0 && idx < manifest.dates.length - 1 ? manifest.dates[idx + 1] : undefined;
 
+  const topGroups = TOP_GROUPS.map((g) => ({
+    ...g,
+    items: digest.top.filter((t) => (t.domain === 'ai') === (g.id === 'top-ai')),
+  })).filter((g) => g.items.length > 0);
+
   return (
     <>
       <div className="datebar">
@@ -136,17 +141,30 @@ export function TodayView({ manifest, date }: Props) {
         </div>
       </section>
 
-      <h2 className="section-title">今日のベスト{digest.top.length}</h2>
+      <Toc digest={digest} />
+
       {digest.top.length === 0 ? (
         <Empty title="この日は該当する記事がありませんでした" />
       ) : (
-        digest.top.map((item) => <TopCard key={item.id} item={item} />)
+        topGroups.map((g) => (
+          <section key={g.id}>
+            <h2 className="section-title" id={g.id}>
+              {g.label}
+              {g.items.length}
+            </h2>
+            {g.items.map((item) => (
+              <TopCard key={item.id} item={item} />
+            ))}
+          </section>
+        ))
       )}
 
       {/* releases が undefined なのはこの機能より前に生成した日。0 件の日とは区別する */}
       {digest.releases && (
         <>
-          <h2 className="section-title">リリース情報 ({digest.releases.length})</h2>
+          <h2 className="section-title" id="releases">
+            リリース情報 ({digest.releases.length})
+          </h2>
           {digest.releases.length === 0 ? (
             <p className="section-lead">
               この日は監視対象からのリリースがありませんでした。見落としが気になる場合は、
@@ -170,7 +188,9 @@ export function TodayView({ manifest, date }: Props) {
 
       {digest.others.length > 0 && (
         <>
-          <h2 className="section-title">その他の注目記事 ({digest.others.length})</h2>
+          <h2 className="section-title" id="others">
+            その他の注目記事 ({digest.others.length})
+          </h2>
           <OtherArticles items={digest.others} />
         </>
       )}
@@ -196,11 +216,80 @@ export function TodayView({ manifest, date }: Props) {
   );
 }
 
+/** ベストN のグループ。目次と見出しで同じ定義を使う */
+const TOP_GROUPS = [
+  { id: 'top-ai', label: 'AI のベスト' },
+  { id: 'top-general', label: 'AI以外のベスト' },
+] as const;
+
+export function cardDomId(id: string): string {
+  return `card-${id}`;
+}
+
+/**
+ * 目的の位置へ移動する。
+ *
+ * href="#id" は使えない。このアプリはハッシュルーティングなので、
+ * ハッシュを書き換えるとルート自体が変わってしまう（日付が飛ぶ）。
+ * 記事へ飛ぶときは畳んであるカードを開く——目次から記事名を選ぶのは
+ * 「そこへ行きたい」ではなく「それを読みたい」なので。
+ */
+function jumpTo(id: string): void {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el instanceof HTMLDetailsElement) el.open = true;
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+/** ページ内リンクの目次。第2階層にベストNの見出しを出す */
+function Toc({ digest }: { digest: Digest }) {
+  const entries: { id: string; label: string; count?: number; nested?: boolean }[] = [];
+
+  for (const g of TOP_GROUPS) {
+    const items = digest.top.filter((t) => (t.domain === 'ai') === (g.id === 'top-ai'));
+    if (items.length === 0) continue;
+    entries.push({ id: g.id, label: `${g.label}${items.length}` });
+    for (const item of items) {
+      entries.push({ id: cardDomId(item.id), label: item.deep.headline, nested: true });
+    }
+  }
+  if (digest.releases?.length) {
+    entries.push({ id: 'releases', label: 'リリース情報', count: digest.releases.length });
+  }
+  if (digest.others.length > 0) {
+    entries.push({ id: 'others', label: 'その他の注目記事', count: digest.others.length });
+  }
+
+  if (entries.length < 2) return null;
+
+  return (
+    <nav className="toc" aria-label="このページの目次">
+      {entries.map((e) => (
+        <button
+          key={e.id}
+          type="button"
+          className={e.nested ? 'toc__item toc__item--nested' : 'toc__item'}
+          onClick={() => jumpTo(e.id)}
+        >
+          <span className="toc__label">{e.label}</span>
+          {e.count != null && <span className="toc__count">{e.count}</span>}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 function TopCard({ item }: { item: TopItem }) {
   const d = item.deep;
   return (
-    <article className="card">
-      <div className="card__head">
+    /*
+     * 畳んだ状態を既定にする。カード 1 枚が長く、6 枚並ぶとスクロール量が多いため。
+     * 見出し・読みどころ・所要時間まで畳んだまま見えるので、開く前に選べる。
+     * summary の中にリンクやボタンを置くと開閉と競合するので、
+     * 元記事リンクと著者は本文側に移してある。
+     */
+    <details className="card" id={cardDomId(item.id)}>
+      <summary className="card__head">
         <div className="card__meta">
           <span className="rank">{item.rank}</span>
           <Chip accent>{item.category}</Chip>
@@ -210,13 +299,28 @@ function TopCard({ item }: { item: TopItem }) {
           {metricSummary(item.metrics) && <Chip>{metricSummary(item.metrics)}</Chip>}
         </div>
         <h3 className="card__headline">{d.headline}</h3>
-        <a className="card__title-link" href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
-          ↗ {item.title}
-        </a>
-        <Byline item={item} />
-      </div>
+        <p className="card__source-title">{item.title}</p>
+        {item.reason && (
+          <p className="card__lens">
+            <span className="card__lens-label">読みどころ</span>
+            {item.reason}
+          </p>
+        )}
+        <span className="card__toggle" aria-hidden="true" />
+      </summary>
 
       <div className="card__body">
+        <div className="card__origin">
+          <a
+            className="card__title-link"
+            href={safeUrl(item.url)}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            ↗ {item.title}
+          </a>
+          <Byline item={item} />
+        </div>
         <p className="card__summary">{d.summary}</p>
 
         {(d.prerequisites?.length ?? 0) > 0 && (
@@ -337,7 +441,7 @@ function TopCard({ item }: { item: TopItem }) {
           元記事を読む ↗
         </a>
       </div>
-    </article>
+    </details>
   );
 }
 

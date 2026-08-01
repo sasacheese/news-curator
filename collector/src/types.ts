@@ -68,6 +68,17 @@ export interface PreScoredItem extends RawItem {
 export const PAYOFFS = ['apply', 'decide', 'aware'] as const;
 export type Payoff = (typeof PAYOFFS)[number];
 
+/**
+ * この情報がどれくらい保つか。
+ *
+ * 「今日読む価値」だけで採点すると旬の使いこなし Tips が上位を占める。
+ * 実測でベスト3が2日とも「Claude Code のトークン節約術」「サブエージェント並列は
+ * お得か」の類で埋まり、同じ日に出ていた Vite 8 や TypeScript の言語機能が
+ * 下に沈んでいた。長期価値を別の軸として持たせて、枠を確保できるようにする。
+ */
+export const DURABILITIES = ['foundational', 'durable', 'ephemeral'] as const;
+export type Durability = (typeof DURABILITIES)[number];
+
 /** LLM によるランク付け結果 */
 export interface RankedItem extends PreScoredItem {
   score: number;
@@ -80,6 +91,8 @@ export interface RankedItem extends PreScoredItem {
   /** 元記事の読了目安（分）。時間対効果の「コスト」側 */
   readingMinutes: number;
   payoff: Payoff;
+  /** この情報がどれくらい保つか。ベスト3の枠確保に使う */
+  durability: Durability;
 }
 
 /** 記事を読む前に押さえておくべき知識 */
