@@ -23,17 +23,26 @@ export const ScoreResultSchema = z.object({
     .describe('入力されたすべての ref に対して1件ずつ'),
 });
 
-/** 2 段目: 保存する分だけの要約とキーワード。 */
+/**
+ * 2 段目: 保存する分だけの要約とキーワード。
+ *
+ * enum には .catch() で既定値を付けている。zodOutputFormat は Zod の enum を
+ * JSON Schema の enum キーワードに変換せず、許容値を description に載せるだけなので、
+ * 生成側では制約されない。1 件が枠外の値を返すとバッチ全体（25 件）の検証が落ち、
+ * 全部がルールベースにフォールバックする——実際に本番で毎日そうなっていた。
+ * 既定値に丸めれば、落ちるのはその 1 件のカテゴリだけで済む。
+ */
 export const DescribeResultSchema = z.object({
   items: z.array(
     z.object({
       ref: z.number().int().describe('入力に付与した番号'),
-      category: z.enum(CATEGORIES),
+      category: z.enum(CATEGORIES).catch('その他'),
       oneLiner: z.string().describe('日本語1文の要約（60字以内）'),
       reason: z.string().describe('この記事を選んだ理由（日本語40字以内）'),
       keywords: z.array(z.string()).describe('検索用キーワード3〜6個（固有名詞優先）'),
       domain: z
         .enum(['ai', 'general'])
+        .catch('general')
         .describe(
           'ai = LLM・生成AI・AIエージェント・コーディングエージェントが主題。それ以外は general。AI をツールとして使っているだけの記事は general。',
         ),
@@ -43,6 +52,7 @@ export const DescribeResultSchema = z.object({
         .describe('元記事を読み通すのにかかる分数の目安。1〜30。'),
       payoff: z
         .enum(['apply', 'decide', 'aware'])
+        .catch('aware')
         .describe(
           'apply = 読めば今日のコードにすぐ適用できる（具体的な手順やコードがある） / decide = 技術選定や設計の判断材料になる / aware = 今すぐの行動は不要だが知っておくと後で効く',
         ),
@@ -70,6 +80,7 @@ export const ReleaseResultSchema = z.object({
       version: z.string().nullable().describe('バージョン。無ければ null。例: v8.2.0'),
       kind: z
         .enum(RELEASE_KINDS)
+        .catch('minor')
         .describe(
           'ai-model=新しいAIモデル / major=メジャー版・GA・新規公開 / minor=機能追加 / patch=修正のみ / service=SaaSの機能追加',
         ),
@@ -134,6 +145,7 @@ const MetricsSchema = z.object({
         baseline: z.string().nullable().describe('変更前の値。比較対象が無ければ null。'),
         direction: z
           .enum(['up-good', 'down-good', 'neutral'])
+          .catch('neutral')
           .describe('値が増えるのが良いか減るのが良いか'),
         note: z.string().nullable().describe('測定条件などの補足。無ければ null。'),
       }),

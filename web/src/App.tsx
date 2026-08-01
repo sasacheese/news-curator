@@ -54,19 +54,17 @@ function useRoute(): Route {
 type Tab = { key: Route['name']; label: string; href: string };
 
 /**
- * 設定タブは普通に出す。
+ * 設定はナビゲーションに出さない。`#/settings` を直接開いたときだけ使える。
  *
- * 以前は隠していた。公開サイトに GitHub トークンの入力欄があるのが紛らわしく、
- * コントロールパネルのように見えたため。トークン方式をやめて GitHub の
- * Web エディタへのリンクに変えたので、この画面には秘密が何も無くなった。
- * 訪問者が編集しても変わるのはその人自身の localStorage だけで、
- * リポジトリへの反映は GitHub 側の権限で止まる。
+ * このサイトは公開されているので、読み手向けでない画面をリンクで晒さない。
+ * 一度開いたら以降タブに出す、という以前の緩和はやめた（URL 直打ちのみ）。
+ * 画面自体に秘密は無い（トークン方式をやめたため）ので、これは秘匿ではなく
+ * 「読み手に見せる導線を絞る」ための措置。
  */
 const TABS: Tab[] = [
   { key: 'today', label: '今日', href: '/today' },
   { key: 'archive', label: 'アーカイブ', href: '/archive' },
   { key: 'search', label: '検索', href: '/search' },
-  { key: 'settings', label: '設定', href: '/settings' },
 ];
 
 export function App() {
@@ -77,6 +75,23 @@ export function App() {
 
   // 撤去した機能が残したトークンを消す。過去に保存したブラウザだけが対象
   useEffect(() => setPurged(purgeRetiredKeys()), []);
+
+  /**
+   * 設定画面を開いている間だけ noindex を立てる。
+   *
+   * ハッシュはサーバーに送られないので `#/settings` がクローラに
+   * 別ページとして拾われることはそもそも無い。ナビゲーションからリンクも
+   * 外したので導線も無い。それでも、JS を実行するクローラがこの状態を
+   * 踏んだときに拾われないよう明示しておく。
+   */
+  useEffect(() => {
+    if (route.name !== 'settings') return;
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, nofollow, noarchive';
+    document.head.appendChild(meta);
+    return () => meta.remove();
+  }, [route.name]);
 
   useEffect(() => {
     loadManifest().then(setManifest, (err: unknown) =>
