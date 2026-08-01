@@ -222,23 +222,43 @@ const TOP_GROUPS = [
   { id: 'top-general', label: 'AI以外のベスト' },
 ] as const;
 
+export function cardDomId(id: string): string {
+  return `card-${id}`;
+}
+
 /**
- * ページ内リンクの目次。
+ * 目的の位置へ移動する。
  *
  * href="#id" は使えない。このアプリはハッシュルーティングなので、
  * ハッシュを書き換えるとルート自体が変わってしまう（日付が飛ぶ）。
- * scrollIntoView で移動する。
+ * 記事へ飛ぶときは畳んであるカードを開く——目次から記事名を選ぶのは
+ * 「そこへ行きたい」ではなく「それを読みたい」なので。
  */
+function jumpTo(id: string): void {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el instanceof HTMLDetailsElement) el.open = true;
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+/** ページ内リンクの目次。第2階層にベストNの見出しを出す */
 function Toc({ digest }: { digest: Digest }) {
-  const entries = [
-    ...TOP_GROUPS.map((g) => ({
-      id: g.id,
-      label: g.label,
-      count: digest.top.filter((t) => (t.domain === 'ai') === (g.id === 'top-ai')).length,
-    })),
-    { id: 'releases', label: 'リリース情報', count: digest.releases?.length ?? 0 },
-    { id: 'others', label: 'その他の注目記事', count: digest.others.length },
-  ].filter((e) => e.count > 0);
+  const entries: { id: string; label: string; count?: number; nested?: boolean }[] = [];
+
+  for (const g of TOP_GROUPS) {
+    const items = digest.top.filter((t) => (t.domain === 'ai') === (g.id === 'top-ai'));
+    if (items.length === 0) continue;
+    entries.push({ id: g.id, label: `${g.label}${items.length}` });
+    for (const item of items) {
+      entries.push({ id: cardDomId(item.id), label: item.deep.headline, nested: true });
+    }
+  }
+  if (digest.releases?.length) {
+    entries.push({ id: 'releases', label: 'リリース情報', count: digest.releases.length });
+  }
+  if (digest.others.length > 0) {
+    entries.push({ id: 'others', label: 'その他の注目記事', count: digest.others.length });
+  }
 
   if (entries.length < 2) return null;
 
@@ -248,11 +268,11 @@ function Toc({ digest }: { digest: Digest }) {
         <button
           key={e.id}
           type="button"
-          className="toc__item"
-          onClick={() => document.getElementById(e.id)?.scrollIntoView({ behavior: 'smooth' })}
+          className={e.nested ? 'toc__item toc__item--nested' : 'toc__item'}
+          onClick={() => jumpTo(e.id)}
         >
-          {e.label}
-          <span className="toc__count">{e.count}</span>
+          <span className="toc__label">{e.label}</span>
+          {e.count != null && <span className="toc__count">{e.count}</span>}
         </button>
       ))}
     </nav>
@@ -268,7 +288,7 @@ function TopCard({ item }: { item: TopItem }) {
      * summary の中にリンクやボタンを置くと開閉と競合するので、
      * 元記事リンクと著者は本文側に移してある。
      */
-    <details className="card">
+    <details className="card" id={cardDomId(item.id)}>
       <summary className="card__head">
         <div className="card__meta">
           <span className="rank">{item.rank}</span>
