@@ -37,9 +37,21 @@ export async function getBackend(): Promise<LlmBackend | null> {
  * 値下げや導入価格の終了で変わるので、判断に使う前に公式の価格表と突き合わせること。
  * Sonnet 5 の入出力は 2026-08-31 までの導入価格（通常は $3 / $15）。
  */
+/**
+ * Sonnet 5 の $2/$10 は 2026-08-31 までの導入価格。
+ * 期限を過ぎたら $3/$15 に戻るので、表示コストが 50% 過小にならないよう切り替える。
+ */
+const SONNET_5_INTRO_UNTIL = Date.parse('2026-09-01T00:00:00Z');
+const sonnet5Price = () =>
+  Date.now() < SONNET_5_INTRO_UNTIL
+    ? { input: 2, output: 10, cacheRead: 0.2 }
+    : { input: 3, output: 15, cacheRead: 0.3 };
+
 const PRICING: Record<string, { input: number; output: number; cacheRead: number }> = {
   'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5 },
-  'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2 },
+  get 'claude-sonnet-5'() {
+    return sonnet5Price();
+  },
   'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1 },
   'claude-opus-4-8': { input: 5, output: 25, cacheRead: 0.5 },
   'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3 },

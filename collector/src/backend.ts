@@ -35,6 +35,46 @@ function isLegacyModel(model: string): boolean {
   return /haiku-4-5|sonnet-4-5|opus-4-5|haiku-3|sonnet-3/.test(model);
 }
 
+/**
+ * 許容値を JSON Schema の enum キーワードとして復元する。
+ *
+ * zodOutputFormat は Zod の enum を enum キーワードに落とさず、
+ * description に `{enum: ["a","b"]}` と書くだけで返す。これだと
+ * 生成時に制約が効かず、枠外の値が返る。実測で 25 件中 1 件が枠外の
+ * カテゴリを返してバッチ全体の検証が落ちた。
+ *
+ * enum キーワードが載れば構造化出力の制約デコードが効き、
+ * そもそも枠外の値が生成されなくなる。
+ * description の書式が変わったら何もしない（今の挙動に戻るだけ）。
+ */
+function restoreEnums(node: unknown): void {
+  if (Array.isArray(node)) {
+    for (const child of node) restoreEnums(child);
+    return;
+  }
+  if (node === null || typeof node !== 'object') return;
+
+  const obj = node as Record<string, unknown>;
+  if (typeof obj.description === 'string' && obj.enum === undefined) {
+    const m = obj.description.match(/enum:\s*(\[[^\]]*\])/);
+    if (m?.[1]) {
+      try {
+        const values: unknown = JSON.parse(m[1]);
+        if (Array.isArray(values) && values.length > 0) obj.enum = values;
+      } catch {
+        // 書式が想定と違うだけなので、制約なしのまま進める
+      }
+    }
+  }
+  for (const child of Object.values(obj)) restoreEnums(child);
+}
+
+function outputFormat<T>(schema: CompleteOptions<T>['schema']) {
+  const format = zodOutputFormat(schema);
+  restoreEnums(format);
+  return format;
+}
+
 function createAnthropicBackend(): LlmBackend {
   const client = new Anthropic();
 
@@ -49,7 +89,7 @@ function createAnthropicBackend(): LlmBackend {
         system: opts.system,
         messages: [{ role: 'user', content: opts.prompt }],
         output_config: {
-          format: zodOutputFormat(opts.schema),
+          format: outputFormat(opts.schema),
           ...(legacy || !opts.effort ? {} : { effort: opts.effort }),
         },
         ...(legacy ? {} : { thinking: { type: 'adaptive' as const } }),
