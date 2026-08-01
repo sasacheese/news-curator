@@ -436,6 +436,9 @@ function githubHeaders(): Record<string, string> {
   return h;
 }
 
+/** 1 リポジトリあたりに取るリリース件数。1 ページで済む範囲で最大に寄せている */
+const RELEASES_PER_PAGE = 100;
+
 async function collectGithubReleases(
   cfg: SourcesConfig['githubReleases'],
   w: Window,
@@ -445,10 +448,33 @@ async function collectGithubReleases(
     safe(
       `gh-release(${repo})`,
       async () => {
+        /**
+         * per_page は多めに取る。リクエスト数は 1 ページなら同じで、
+         * モノレポは 1 日に 10 件以上リリースすることがあるため。
+         * 実測で cloudflare/workers-sdk が 1 日 10 パッケージ出しており、
+         * per_page=10 だとウィンドウ内のリリースが新しいものに押し出されて
+         * 静かに落ちていた（実行が数時間ずれるだけで件数が変わる）。
+         */
         const releases = await fetchJson<GhRelease[]>(
-          `https://api.github.com/repos/${repo}/releases?per_page=10`,
+          `https://api.github.com/repos/${repo}/releases?per_page=${RELEASES_PER_PAGE}`,
           { headers },
         );
+
+        // 取りこぼしは黙って起きるので、遡れなかったときは気づけるようにする
+        const oldest = releases.reduce<number | null>((min, r) => {
+          const t = r.published_at ? new Date(r.published_at).getTime() : null;
+          return t === null ? min : min === null ? t : Math.min(min, t);
+        }, null);
+        if (
+          releases.length >= RELEASES_PER_PAGE &&
+          oldest !== null &&
+          oldest >= w.start.getTime()
+        ) {
+          log.warn(
+            `gh-release(${repo}): ${RELEASES_PER_PAGE} 件ではウィンドウ開始まで遡れませんでした（取りこぼしの可能性あり）`,
+          );
+        }
+
         return releases
           .filter((r) => !r.draft)
           .filter((r) => cfg.includePrerelease || !r.prerelease)

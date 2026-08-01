@@ -2,7 +2,7 @@ import type { LlmBackend } from './backend.js';
 import type { RuntimeConfig } from './config.js';
 import { complete } from './llm.js';
 import { ReleaseResultSchema } from './schemas.js';
-import type { RawItem, ReleaseItem, ReleaseKind, TopicsConfig } from './types.js';
+import type { RawItem, ReleaseAlso, ReleaseItem, ReleaseKind, TopicsConfig } from './types.js';
 import { log, truncate } from './util.js';
 
 /**
@@ -16,15 +16,17 @@ import { log, truncate } from './util.js';
  * 表示順。
  *
  * 「自分の手元を更新する判断が要るもの」を上に置く。
- * SaaS の機能追加（service）は数が多くなりがちで、実測でも 20 件中 13 件を占めた。
- * これを上に置くとライブラリのバージョン更新が下に埋もれるため、minor より下にする。
+ * SaaS の機能追加（service）は数が多くなりがちで、実測では 19 件中 14 件を占めた。
+ * 以前は minor と patch の間に置いていたが、それだとライブラリ関連が
+ * 14 件の SaaS 告知で分断され、patch のライブラリ（実測では Playwright と
+ * Claude Code）が埋もれた。ライブラリを連続させるため service を最後にする。
  */
 const KIND_ORDER: Record<ReleaseKind, number> = {
   'ai-model': 0,
   major: 1,
   minor: 2,
-  service: 3,
-  patch: 4,
+  patch: 3,
+  service: 4,
 };
 
 export const KIND_LABELS: Record<ReleaseKind, string> = {
@@ -38,7 +40,7 @@ export const KIND_LABELS: Record<ReleaseKind, string> = {
 interface Candidate {
   item: RawItem;
   /** 同時にリリースされた関連パッケージ */
-  alsoReleased: string[];
+  alsoReleased: ReleaseAlso[];
   /** ソースの性質上リリースが確定しているもの（LLM の判定を待たない） */
   definite: boolean;
 }
@@ -64,7 +66,7 @@ function groupGithubReleases(items: RawItem[]): Candidate[] {
       // 代表以外はタイトルからリポジトリ名の接頭辞を落として並べる
       alsoReleased: sorted
         .slice(1)
-        .map((i) => i.title.replace(/^\S+\/\S+\s+/, ''))
+        .map((i) => ({ label: i.title.replace(/^\S+\/\S+\s+/, ''), url: i.url }))
         .slice(0, 12),
       definite: true,
     };
@@ -142,7 +144,9 @@ function renderCandidate(c: Candidate, ref: number): string {
   return [
     `[${ref}] ${c.item.title}`,
     `  ソース: ${c.item.sourceLabel}`,
-    c.alsoReleased.length ? `  同時リリース: ${c.alsoReleased.join(', ')}` : null,
+    c.alsoReleased.length
+      ? `  同時リリース: ${c.alsoReleased.map((a) => a.label).join(', ')}`
+      : null,
     `  抜粋: ${excerpt || '(本文なし)'}`,
   ]
     .filter(Boolean)
@@ -190,8 +194,12 @@ export async function extractReleases(
       out.push(toReleaseItem(c, r));
     }
 
-    log.info(`  リリース抽出: ${out.length}/${candidates.length} 件`);
-    return sortReleases(out);
+    const merged = mergeSameProduct(out);
+    log.info(
+      `  リリース抽出: ${out.length}/${candidates.length} 件` +
+        (merged.length !== out.length ? `（同一製品をまとめて ${merged.length} 件）` : ''),
+    );
+    return sortReleases(merged);
   } catch (err) {
     log.warn(`リリース抽出: ${err instanceof Error ? err.message : err}`);
     return [];
@@ -218,6 +226,40 @@ function toReleaseItem(
     publishedAt: c.item.publishedAt,
     alsoReleased: c.alsoReleased,
   };
+}
+
+/**
+ * 同じ種類・同じ製品の項目を 1 件にまとめる。
+ *
+ * Vercel Changelog や GitHub Changelog は同じ製品の告知を 1 日に複数出す
+ * （実測: Vercel 4 件 / GitHub Copilot 3 件 / Vercel AI Gateway 2 件）。
+ * そのままだと同じ名前が並んで一覧が埋まるので、要約が最も厚いものを代表にし、
+ * 残りは折りたたみに入れる。個別に辿れるよう URL は保持する。
+ *
+ * 種類はキーに含める。同じ製品でも minor と patch は重みが違うので混ぜない。
+ */
+function mergeSameProduct(items: ReleaseItem[]): ReleaseItem[] {
+  const groups = new Map<string, ReleaseItem[]>();
+  for (const item of items) {
+    const key = `${item.kind}::${item.product.trim().toLowerCase()}`;
+    const list = groups.get(key) ?? [];
+    list.push(item);
+    groups.set(key, list);
+  }
+
+  return [...groups.values()].map((group) => {
+    if (group.length === 1) return group[0]!;
+    const sorted = [...group].sort((a, b) => b.summary.length - a.summary.length);
+    const primary = sorted[0]!;
+    const extra: ReleaseAlso[] = sorted.slice(1).map((r) => ({ label: r.title, url: r.url }));
+    return {
+      ...primary,
+      // 代表にバージョンが無く、まとめた側にあるなら拾う
+      version: primary.version ?? sorted.find((r) => r.version)?.version ?? null,
+      what: primary.what ?? sorted.find((r) => r.what)?.what ?? null,
+      alsoReleased: [...primary.alsoReleased, ...extra].slice(0, 12),
+    };
+  });
 }
 
 function sortReleases(items: ReleaseItem[]): ReleaseItem[] {

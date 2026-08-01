@@ -1,5 +1,5 @@
 import { safeUrl } from './format';
-import type { ReleaseItem, ReleaseKind } from './types';
+import type { ReleaseAlso, ReleaseItem, ReleaseKind } from './types';
 
 /**
  * リリース情報。
@@ -17,8 +17,16 @@ const KIND_LABELS: Record<ReleaseKind, string> = {
   patch: 'パッチ',
 };
 
-// 手元を更新する判断が要るものを上に。SaaS の機能追加は件数が多いので下げる。
-const KIND_ORDER: ReleaseKind[] = ['ai-model', 'major', 'minor', 'service', 'patch'];
+/**
+ * 手元を更新する判断が要るものを上に。SaaS の機能追加（service）は件数が多く、
+ * 途中に置くとライブラリ関連が分断されて patch のライブラリが埋もれるので最後に置く。
+ */
+const KIND_ORDER: ReleaseKind[] = ['ai-model', 'major', 'minor', 'patch', 'service'];
+
+/** 旧データ（文字列配列）も受けられるようにそろえる */
+function normalizeAlso(v: string | ReleaseAlso): { label: string; url: string | null } {
+  return typeof v === 'string' ? { label: v, url: null } : { label: v.label, url: v.url };
+}
 
 export function ReleaseList({
   releases,
@@ -60,11 +68,17 @@ export function ReleaseList({
                 {r.summary && <p className="rel__summary">{r.summary}</p>}
                 {r.alsoReleased.length > 0 && (
                   <details className="rel__also">
-                    <summary>同時リリース {r.alsoReleased.length} 件</summary>
+                    <summary>同じ製品の他 {r.alsoReleased.length} 件</summary>
                     <ul>
-                      {r.alsoReleased.map((v) => (
-                        <li key={v}>
-                          <code>{v}</code>
+                      {r.alsoReleased.map(normalizeAlso).map((a) => (
+                        <li key={a.url ?? a.label}>
+                          {a.url ? (
+                            <a href={safeUrl(a.url)} target="_blank" rel="noreferrer noopener">
+                              {a.label}
+                            </a>
+                          ) : (
+                            <code>{a.label}</code>
+                          )}
                         </li>
                       ))}
                     </ul>
