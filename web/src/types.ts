@@ -33,6 +33,9 @@ export interface AuthorDetail {
 
 export type Payoff = 'apply' | 'decide' | 'aware';
 
+/** この情報がどれくらい保つか */
+export type Durability = 'foundational' | 'durable' | 'ephemeral';
+
 export interface RankedItem {
   id: string;
   source: SourceKind;
@@ -58,6 +61,8 @@ export interface RankedItem {
   readingMinutes?: number;
   /** 読んだ結果として何が得られるか */
   payoff?: Payoff;
+  /** この情報がどれくらい保つか。この機能より前の日は undefined */
+  durability?: Durability;
 }
 
 export interface Prerequisite {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CATEGORIES } from './categories.js';
-import { RELEASE_KINDS } from './types.js';
+import { DURABILITIES, RELEASE_KINDS } from './types.js';
 
 /**
  * LLM に返させる構造の定義元。
@@ -38,7 +38,11 @@ export const DescribeResultSchema = z.object({
       ref: z.number().int().describe('入力に付与した番号'),
       category: z.enum(CATEGORIES).catch('その他'),
       oneLiner: z.string().describe('日本語1文の要約（60字以内）'),
-      reason: z.string().describe('この記事を選んだ理由（日本語40字以内）'),
+      reason: z
+        .string()
+        .describe(
+          'どの観点で読むとよいか。60〜90字。oneLiner の言い換えではなく、「この記事のどこに注目すると自分の役に立つか」を読者に向けて書く。',
+        ),
       keywords: z.array(z.string()).describe('検索用キーワード3〜6個（固有名詞優先）'),
       domain: z
         .enum(['ai', 'general'])
@@ -55,6 +59,12 @@ export const DescribeResultSchema = z.object({
         .catch('aware')
         .describe(
           'apply = 読めば今日のコードにすぐ適用できる（具体的な手順やコードがある） / decide = 技術選定や設計の判断材料になる / aware = 今すぐの行動は不要だが知っておくと後で効く',
+        ),
+      durability: z
+        .enum(DURABILITIES)
+        .catch('durable')
+        .describe(
+          'この情報が何年もつか。foundational = 言語仕様・標準・ブラウザ実装・プロトコル・アルゴリズムなど、数年単位で効く / durable = ライブラリのメジャー変更・設計や運用の知見など、1年程度は効く / ephemeral = 特定ツールの今の使いこなし・回避策・「試してみた」など、数週間〜数ヶ月で陳腐化する',
         ),
     }),
   ),

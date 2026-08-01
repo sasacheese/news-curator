@@ -217,6 +217,13 @@ function TopCard({ item }: { item: TopItem }) {
       </div>
 
       <div className="card__body">
+        {/* 長いカードを読み始める前に「どこに注目すればよいか」を先に置く */}
+        {item.reason && (
+          <p className="card__lens">
+            <span className="card__lens-label">読みどころ</span>
+            {item.reason}
+          </p>
+        )}
         <p className="card__summary">{d.summary}</p>
 
         {(d.prerequisites?.length ?? 0) > 0 && (

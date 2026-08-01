@@ -1,7 +1,8 @@
 import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
 import { deepDive, getBackend, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
-import { dedupe, pickTopDiverse, preScore } from './prescore.js';
+import type { SlotRule } from './prescore.js';
+import { dedupe, pickByDomain, pickTopDiverse, preScore } from './prescore.js';
 import { collectReleaseCandidates, extractReleases } from './releases.js';
 import { collectAll } from './sources.js';
 import { loadSeenUrls, saveDigest } from './store.js';
@@ -99,7 +100,30 @@ async function main(): Promise<void> {
 
   /* 5. 深掘り要約 --------------------------------------------------- */
   log.step('5/6 深掘り要約');
-  const topCandidates = pickTopDiverse(ranked, runtime.topN);
+  /**
+   * ベスト3の枠。スコア順で埋めたあと、満たしていないものだけ下位と入れ替える。
+   * 1 位は動かさないので、その日の最重要は必ず残る。
+   *
+   * 一次情報を先に置いているのは、実測でベスト3+その他の 15 件中 0〜1 件しか
+   * 一次情報が残らなかったため。公式ブログを毎日 40 件拾っているのに、
+   * Qiita/Zenn の二次情報が構造的に勝っていた。
+   */
+  const slotRules: SlotRule<RankedItem>[] = [
+    {
+      label: '一次情報',
+      match: (i) => i.source === 'rss' || i.source === 'github_release' || i.source === 'changelog',
+    },
+    {
+      label: '長く効くもの',
+      match: (i) => i.durability === 'foundational' || i.durability === 'durable',
+    },
+  ];
+  const topCandidates = pickTopDiverse(ranked, runtime.topN, slotRules);
+  for (const rule of slotRules) {
+    if (!topCandidates.some(rule.match)) {
+      log.warn(`  ベスト${runtime.topN}に「${rule.label}」の枠を確保できませんでした`);
+    }
+  }
   const enriched = await enrichBodies(topCandidates, runtime.bodyCharLimit);
   const enrichedById = new Map(enriched.map((i) => [i.id, i]));
 
@@ -112,9 +136,13 @@ async function main(): Promise<void> {
 
   // リリース情報は別枠で全件出しているので、一覧には重複させない
   const topIds = new Set(top.map((t) => t.id));
-  const others = ranked
-    .filter((item) => !topIds.has(item.id) && !releaseUrls.has(item.url))
-    .slice(0, runtime.otherN);
+  const remaining = ranked.filter(
+    (item) => !topIds.has(item.id) && !releaseUrls.has(item.url),
+  );
+  // AI と AI 以外に別々の枠を与える（母集団が AI に偏っているため）
+  const byDomain = pickByDomain(remaining, runtime.otherN);
+  const others = [...byDomain.ai, ...byDomain.general].sort((a, b) => b.score - a.score);
+  log.info(`  その他の注目記事: AI ${byDomain.ai.length} / AI以外 ${byDomain.general.length}`);
 
   /* 6. 保存 --------------------------------------------------------- */
   log.step('6/6 保存');

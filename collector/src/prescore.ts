@@ -145,14 +145,26 @@ export function preScore(items: RawItem[], topics: TopicsConfig, now = new Date(
   });
 }
 
+/** ベスト3に必ず1枠は入れたい性質。満たせない日は黙って諦める */
+export interface SlotRule<T> {
+  label: string;
+  match: (item: T) => boolean;
+}
+
 /**
- * 上位 n 件を選ぶ。同じ発信元が枠を独占しないよう、まず 1 ソース 1 件で埋め、
- * 足りなければスコア順に補充する。
- * （例: 同じ日に nodejs/node のリリースが 3 本出ても、ベスト3が全部それにならないようにする）
+ * 上位 n 件を選ぶ。
+ *
+ * まずスコア順に 1 ソース 1 件で埋める（同じ日に nodejs/node のリリースが 3 本出ても
+ * ベスト3を独占させないため）。そのうえで、満たされていない枠ルールがあれば
+ * 下位の枠と入れ替えて確保する。
+ *
+ * 入れ替えは下位からで、1 位は必ず残す。その日の最重要が枠確保で押し出されるのは
+ * 本末転倒なため。ルールを満たす候補が無い日は、そのルールは諦めてスコア順のままにする。
  */
 export function pickTopDiverse<T extends { id: string; sourceLabel: string; score: number }>(
   ranked: readonly T[],
   n: number,
+  rules: readonly SlotRule<T>[] = [],
 ): T[] {
   const picked: T[] = [];
   const usedSources = new Set<string>();
@@ -171,6 +183,33 @@ export function pickTopDiverse<T extends { id: string; sourceLabel: string; scor
       if (pickedIds.has(item.id)) continue;
       picked.push(item);
       pickedIds.add(item.id);
+    }
+  }
+
+  for (const rule of rules) {
+    if (picked.some(rule.match)) continue;
+
+    const pickedIds = new Set(picked.map((i) => i.id));
+    const candidate = ranked.find(
+      (i) => rule.match(i) && !pickedIds.has(i.id) && !usedSources.has(i.sourceLabel),
+    );
+    if (!candidate) continue;
+
+    // 他のルールを単独で満たしている枠は動かさない（確保し直しになるため）
+    const soleSatisfiers = new Set(
+      rules.flatMap((other) => {
+        const hits = picked.filter(other.match);
+        return hits.length === 1 ? hits.map((h) => h.id) : [];
+      }),
+    );
+
+    for (let i = picked.length - 1; i >= 1; i--) {
+      const victim = picked[i]!;
+      if (soleSatisfiers.has(victim.id)) continue;
+      usedSources.delete(victim.sourceLabel);
+      picked[i] = candidate;
+      usedSources.add(candidate.sourceLabel);
+      break;
     }
   }
 
@@ -228,4 +267,31 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
     out.push(item);
   }
   return out;
+}
+
+/**
+ * 一覧を「AI」と「それ以外」に分けて選ぶ。
+ *
+ * 母集団が AI に大きく偏っている（実測で採点上位 15 件のうち 13〜15 件が AI）ので、
+ * 単純なスコア順だと AI 以外が 1〜2 件しか残らない。リリース情報を別枠にしたのと
+ * 同じ考えで、量の違うものに別の予算を与える。
+ *
+ * 片方が足りない日はもう片方で埋める（枠を空けたまま件数を減らさない）。
+ */
+export function pickByDomain<T extends { domain: 'ai' | 'general' }>(
+  ranked: readonly T[],
+  total: number,
+  generalShare = 1 / 3,
+): { ai: T[]; general: T[] } {
+  const generalQuota = Math.max(1, Math.round(total * generalShare));
+  const general = ranked.filter((i) => i.domain !== 'ai').slice(0, generalQuota);
+  const ai = ranked.filter((i) => i.domain === 'ai').slice(0, total - general.length);
+  // AI 側が足りなければ AI 以外で埋め戻す
+  if (ai.length + general.length < total) {
+    const extra = ranked
+      .filter((i) => i.domain !== 'ai' && !general.includes(i))
+      .slice(0, total - ai.length - general.length);
+    general.push(...extra);
+  }
+  return { ai, general };
 }
