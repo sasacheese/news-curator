@@ -36,7 +36,17 @@ export const DescribeResultSchema = z.object({
   items: z.array(
     z.object({
       ref: z.number().int().describe('入力に付与した番号'),
-      category: z.enum(CATEGORIES).catch('その他'),
+      /*
+       * .catch() は description に default を書き込むので、指示が無いと
+       * モデルが既定値をそのまま返す（実測で 18 件すべて「その他」になった）。
+       * 何を選ぶかを明示する。
+       */
+      category: z
+        .enum(CATEGORIES)
+        .catch('その他')
+        .describe(
+          `記事の分類。次から最も近いものを1つ選ぶ: ${CATEGORIES.join(' / ')}。どれにも当てはまらないときだけ「その他」にする。`,
+        ),
       oneLiner: z.string().describe('日本語1文の要約（60字以内）'),
       reason: z
         .string()

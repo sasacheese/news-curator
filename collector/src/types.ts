@@ -111,6 +111,8 @@ export interface UsageStat {
   outputTokens: number;
   cacheReadTokens: number;
   estimatedCostUsd: number;
+  /** その段にかかった実時間の合計（並列実行するので壁時計とは一致しない） */
+  elapsedMs: number;
 }
 
 export interface UsageReport {

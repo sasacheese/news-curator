@@ -37,9 +37,23 @@ export async function getBackend(): Promise<LlmBackend | null> {
  * 値下げや導入価格の終了で変わるので、判断に使う前に公式の価格表と突き合わせること。
  * Sonnet 5 の入出力は 2026-08-31 までの導入価格（通常は $3 / $15）。
  */
+/**
+ * Sonnet 5 の $2/$10 は 2026-08-31 までの導入価格。
+ * 期限を過ぎたら $3/$15 に戻るので、表示コストが 50% 過小にならないよう切り替える。
+ */
+const SONNET_5_INTRO_UNTIL = Date.parse('2026-09-01T00:00:00Z');
+const sonnet5Price = () =>
+  Date.now() < SONNET_5_INTRO_UNTIL
+    ? { input: 2, output: 10, cacheRead: 0.2 }
+    : { input: 3, output: 15, cacheRead: 0.3 };
+
 const PRICING: Record<string, { input: number; output: number; cacheRead: number }> = {
   'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5 },
-  'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2 },
+  // 比較用。272K トークンを超える入力は $0.40/$1.80 に上がるが、ここでは扱わない
+  'gpt-5.6-luna': { input: 0.2, output: 1.2, cacheRead: 0.02 },
+  get 'claude-sonnet-5'() {
+    return sonnet5Price();
+  },
   'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1 },
   'claude-opus-4-8': { input: 5, output: 25, cacheRead: 0.5 },
   'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3 },
@@ -62,6 +76,7 @@ function recordUsage(
   model: string,
   usage: NormalizedUsage,
   metered: boolean,
+  elapsedMs: number,
 ): void {
   const price = metered ? PRICING[model] : undefined;
   const prev = usageByStage.get(stage) ?? {
@@ -71,6 +86,7 @@ function recordUsage(
     outputTokens: 0,
     cacheReadTokens: 0,
     estimatedCostUsd: 0,
+    elapsedMs: 0,
   };
 
   usageByStage.set(stage, {
@@ -79,6 +95,7 @@ function recordUsage(
     inputTokens: prev.inputTokens + usage.inputTokens,
     outputTokens: prev.outputTokens + usage.outputTokens,
     cacheReadTokens: prev.cacheReadTokens + usage.cacheReadTokens,
+    elapsedMs: prev.elapsedMs + elapsedMs,
     estimatedCostUsd:
       prev.estimatedCostUsd +
       (price
@@ -117,8 +134,9 @@ export async function complete<T>(
   b: LlmBackend,
   opts: Parameters<LlmBackend['complete']>[0] & { schema: import('zod').ZodType<T> },
 ): Promise<T> {
+  const startedAt = Date.now();
   const res = await b.complete<T>(opts);
-  recordUsage(opts.stage, opts.model, res.usage, b.metered);
+  recordUsage(opts.stage, opts.model, res.usage, b.metered, Date.now() - startedAt);
   return res.value;
 }
 
@@ -177,6 +195,12 @@ ${readerContext(topics)}
 - reason は「どの観点で読むとよいか」。詳しくは下の節を参照。
 - keywords は後から検索するためのもの。製品名・API名・バージョン番号などの固有名詞を優先する。
 - 入力されたすべての ref に対して、必ず1件ずつ結果を返す。
+
+# category（分類）
+次の中から最も近いものを1つ選ぶ。
+${CATEGORIES.join(' / ')}
+「その他」はどれにも当てはまらないときだけ。迷ったら主題に一番近いものを選ぶ。
+（スキーマの制約は生成時に効いていないので、ここの指示で選ぶこと）
 
 # reason（読みどころ）
 **要約の言い換えを書かない。** oneLiner が「何が書いてあるか」なら、
@@ -317,6 +341,12 @@ async function scorePass(
   return scores;
 }
 
+/**
+ * 要約 1 リクエストあたりの件数。
+ * 出力が大きい段なので、採点（18件）より小さく刻む。
+ */
+const DESCRIBE_BATCH_SIZE = 12;
+
 /** 2 段目: 実際に保存する分だけ文章化する */
 async function describePass(
   b: LlmBackend,
@@ -327,24 +357,42 @@ async function describePass(
   const described = new Map<string, DescribeResult['items'][number]>();
   if (shortlist.length === 0) return described;
 
-  const body = shortlist.map((item, i) => renderCandidate(item, i, 700)).join('\n\n');
-
-  try {
-    const parsed = await complete(b, {
-      stage: 'describe',
-      model: cfg.rankModel,
-      maxTokens: 8000,
-      system: describeSystemPrompt(topics),
-      prompt: `以下 ${shortlist.length} 件を要約してください。\n\n${body}`,
-      schema: DescribeResultSchema,
-    });
-    for (const r of parsed.items ?? []) {
-      const item = shortlist[r.ref];
-      if (item) described.set(item.id, r);
-    }
-  } catch (err) {
-    log.warn(`要約: ${err instanceof Error ? err.message : err}`);
+  /**
+   * 採点と同じくバッチに割る。
+   *
+   * 1 回にまとめると出力が max_tokens を超えて JSON が途中で切れ、
+   * その回の全件が失われる（本番で 0/42 件になった）。1 件あたり
+   * 要約・読みどころ・キーワードで 400〜500 トークン使うので、
+   * 12 件で 6,000 前後。max_tokens は倍以上を確保しておく。
+   * 分けておけば、1 バッチが落ちても残りは生き残る。
+   */
+  const batches: PreScoredItem[][] = [];
+  for (let i = 0; i < shortlist.length; i += DESCRIBE_BATCH_SIZE) {
+    batches.push(shortlist.slice(i, i + DESCRIBE_BATCH_SIZE));
   }
+
+  const system = describeSystemPrompt(topics);
+  await mapLimit(batches, 3, async (batch, batchIndex) => {
+    // ref は採点段と同じく通し番号で振る（実装が食い違うと取り違えの温床になる）
+    const offset = batchIndex * DESCRIBE_BATCH_SIZE;
+    const body = batch.map((item, i) => renderCandidate(item, offset + i, 700)).join('\n\n');
+    try {
+      const parsed = await complete(b, {
+        stage: 'describe',
+        model: cfg.rankModel,
+        maxTokens: 16000,
+        system,
+        prompt: `以下 ${batch.length} 件を要約してください。\n\n${body}`,
+        schema: DescribeResultSchema,
+      });
+      for (const r of parsed.items ?? []) {
+        const item = shortlist[r.ref];
+        if (item) described.set(item.id, r);
+      }
+    } catch (err) {
+      log.warn(`要約 batch ${batchIndex}: ${err instanceof Error ? err.message : err}`);
+    }
+  });
 
   return described;
 }
@@ -382,7 +430,8 @@ export async function rankItems(
    * その分だけ候補を広げておく。
    */
   const byScore = [...items].sort((a, b2) => scoreOf(b2) - scoreOf(a));
-  const base = byScore.slice(0, cfg.topN + cfg.otherN + 10);
+  // topN は AI / AI以外 の 2 グループぶん必要
+  const base = byScore.slice(0, cfg.topN * 2 + cfg.otherN + 10);
   const baseIds = new Set(base.map((i) => i.id));
   // ベスト N もドメイン別・一次情報枠でスコア順の外から拾うので、その分も見込む
   const headroom = cfg.topN + Math.ceil(cfg.otherN / 2);

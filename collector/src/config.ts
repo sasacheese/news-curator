@@ -71,7 +71,13 @@ export function loadRuntimeConfig(): RuntimeConfig {
      * 46〜60 位の帯に「実際にベスト3入りした記事」が含まれていた。
      */
     rankCandidates: num('RANK_CANDIDATES', 150),
-    topN: num('TOP_N', 3),
+    /**
+     * 深掘りする件数。AI / AI以外 の**グループごと**なので、既定 2 で 4 件。
+     * 深掘りは Sonnet を使う一番高い工程で、実測でも全体の 6〜7 割を占める。
+     * 3 にすると 6 件になり 1 日あたり $0.12 ほど増える。
+     * 読了目安も 3 なら 36 分で「30分でキャッチアップ」を超える。
+     */
+    topN: num('TOP_N', 2),
     otherN: num('OTHER_N', 12),
     rankModel: str('RANK_MODEL', 'claude-haiku-4-5'),
     summaryModel: str('SUMMARY_MODEL', 'claude-sonnet-5'),

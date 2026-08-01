@@ -1,3 +1,4 @@
+import { readFile, writeFile } from 'node:fs/promises';
 import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
 import { deepDive, getBackend, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
@@ -6,12 +7,14 @@ import { dedupe, pickByDomain, pickTopDiverse, preScore } from './prescore.js';
 import { collectReleaseCandidates, extractReleases } from './releases.js';
 import { collectAll } from './sources.js';
 import { loadSeenUrls, saveDigest } from './store.js';
-import type { Digest, RankedItem, TopItem } from './types.js';
+import type { Digest, RankedItem, RawItem, TopItem } from './types.js';
 import { formatJst, log, mapLimit, resolveWindow } from './util.js';
 
 interface Args {
   date?: string;
   dryRun: boolean;
+  /** data/ を触らずに指定パスへ書き出す。モデル比較で使う */
+  out?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -21,6 +24,8 @@ function parseArgs(argv: string[]): Args {
     if (a === '--dry-run') args.dryRun = true;
     else if (a === '--date') args.date = argv[++i];
     else if (a.startsWith('--date=')) args.date = a.slice('--date='.length);
+    else if (a === '--out') args.out = argv[++i];
+    else if (a.startsWith('--out=')) args.out = a.slice('--out='.length);
   }
   if (args.date && !/^\d{4}-\d{2}-\d{2}$/.test(args.date)) {
     throw new Error(`--date は YYYY-MM-DD 形式で指定してください: ${args.date}`);
@@ -54,7 +59,14 @@ async function main(): Promise<void> {
 
   /* 1. 収集 --------------------------------------------------------- */
   log.step('1/6 収集');
-  const collected = await collectAll(sources, { start, end });
+  /**
+   * COLLECT_CACHE を指定すると収集結果を再利用する。
+   * モデルを比べるときに入力が違うと比較にならないため
+   * （トレンド系のソースは実行のたびに中身が変わる）。実験用で、本番では使わない。
+   */
+  const collected = await withCollectCache(process.env.COLLECT_CACHE, () =>
+    collectAll(sources, { start, end }),
+  );
   log.info(`合計 ${collected.length} 件`);
 
   if (collected.length === 0) {
@@ -166,6 +178,17 @@ async function main(): Promise<void> {
   const others = [...byDomain.ai, ...byDomain.general].sort((a, b) => b.score - a.score);
   log.info(`  その他の注目記事: AI ${byDomain.ai.length} / AI以外 ${byDomain.general.length}`);
 
+  // 選定は ranked 全体に届くので、要約対象の外から拾うことが原理的にありうる。
+  // 起きたら気づけるようにしておく（黙って本文の切り出しが出るのが一番まずい）
+  const undescribed = [...top, ...others].filter((i) => !i.reason);
+  if (undescribed.length > 0) {
+    log.warn(
+      `  要約されていない項目が ${undescribed.length} 件選ばれました: ${undescribed
+        .map((i) => i.title.slice(0, 30))
+        .join(' / ')}`,
+    );
+  }
+
   /* 6. 保存 --------------------------------------------------------- */
   log.step('6/6 保存');
   const bySource: Record<string, number> = {};
@@ -204,10 +227,48 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (args.out) {
+    await writeFile(args.out, `${JSON.stringify(digest, null, 2)}\n`, 'utf8');
+    log.info(`保存: ${args.out}（data/ は変更していません）`);
+    logComparableSummary(digest);
+    return;
+  }
+
   await saveDigest(digest);
   log.info(
     `\n✔ 完了: ベスト${top.length}件 + その他${others.length}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
   );
+}
+
+/** 収集結果をファイルに固定する。モデル比較で同じ入力を使うため */
+async function withCollectCache(
+  path: string | undefined,
+  fetch: () => Promise<RawItem[]>,
+): Promise<RawItem[]> {
+  if (!path) return await fetch();
+  try {
+    const cached = JSON.parse(await readFile(path, 'utf8')) as RawItem[];
+    log.info(`収集キャッシュを再利用: ${path}（${cached.length} 件）`);
+    return cached;
+  } catch {
+    const fresh = await fetch();
+    await writeFile(path, `${JSON.stringify(fresh)}\n`, 'utf8');
+    log.info(`収集キャッシュを作成: ${path}`);
+    return fresh;
+  }
+}
+
+/** モデル比較のときに目で追う値をまとめて出す */
+function logComparableSummary(digest: Digest): void {
+  log.step('比較用サマリ');
+  for (const [stage, s] of Object.entries(digest.usage.stages)) {
+    log.info(
+      `  ${stage.padEnd(9)} ${String(s.requests).padStart(2)}req ` +
+        `in ${s.inputTokens.toLocaleString().padStart(8)} out ${s.outputTokens.toLocaleString().padStart(7)} ` +
+        `$${s.estimatedCostUsd.toFixed(4)} ${(s.elapsedMs / 1000).toFixed(1)}s ${s.model}`,
+    );
+  }
+  log.info(`  合計 $${digest.usage.totalCostUsd.toFixed(4)}`);
 }
 
 main().catch((err) => {
