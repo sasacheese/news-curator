@@ -166,6 +166,17 @@ async function main(): Promise<void> {
   const others = [...byDomain.ai, ...byDomain.general].sort((a, b) => b.score - a.score);
   log.info(`  その他の注目記事: AI ${byDomain.ai.length} / AI以外 ${byDomain.general.length}`);
 
+  // 選定は ranked 全体に届くので、要約対象の外から拾うことが原理的にありうる。
+  // 起きたら気づけるようにしておく（黙って本文の切り出しが出るのが一番まずい）
+  const undescribed = [...top, ...others].filter((i) => !i.reason);
+  if (undescribed.length > 0) {
+    log.warn(
+      `  要約されていない項目が ${undescribed.length} 件選ばれました: ${undescribed
+        .map((i) => i.title.slice(0, 30))
+        .join(' / ')}`,
+    );
+  }
+
   /* 6. 保存 --------------------------------------------------------- */
   log.step('6/6 保存');
   const bySource: Record<string, number> = {};
