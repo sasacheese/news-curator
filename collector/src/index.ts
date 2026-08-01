@@ -73,7 +73,13 @@ async function main(): Promise<void> {
   const releaseCandidates = collectReleaseCandidates(unique, { start, end });
   log.info(`  候補 ${releaseCandidates.length} 件`);
   const releases = await extractReleases(backend, releaseCandidates, topics, runtime);
-  const releaseIds = new Set(releases.map((r) => r.id));
+  /**
+   * URL で持つ。同一製品でまとめられた項目は代表の折りたたみに入って
+   * id が releases から消えるので、id だけで突き合わせると一覧に再登場してしまう。
+   */
+  const releaseUrls = new Set(
+    releases.flatMap((r) => [r.url, ...r.alsoReleased.map((a) => a.url)]),
+  );
 
   /* 3. 事前スコアリング --------------------------------------------- */
   log.step('3/6 事前スコアリング');
@@ -107,7 +113,7 @@ async function main(): Promise<void> {
   // リリース情報は別枠で全件出しているので、一覧には重複させない
   const topIds = new Set(top.map((t) => t.id));
   const others = ranked
-    .filter((item) => !topIds.has(item.id) && !releaseIds.has(item.id))
+    .filter((item) => !topIds.has(item.id) && !releaseUrls.has(item.url))
     .slice(0, runtime.otherN);
 
   /* 6. 保存 --------------------------------------------------------- */

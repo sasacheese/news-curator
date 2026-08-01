@@ -128,6 +128,12 @@ export interface TopItem extends RankedItem {
 
 export type ReleaseKind = 'ai-model' | 'major' | 'minor' | 'patch' | 'service';
 
+/** 代表にまとめた同じ製品の他の項目 */
+export interface ReleaseAlso {
+  label: string;
+  url: string;
+}
+
 export interface ReleaseItem {
   id: string;
   product: string;
@@ -139,7 +145,8 @@ export interface ReleaseItem {
   url: string;
   sourceLabel: string;
   publishedAt: string;
-  alsoReleased: string[];
+  /** この機能より前に生成した日は文字列配列なので、両方を受ける */
+  alsoReleased: (string | ReleaseAlso)[];
 }
 
 export interface Digest {

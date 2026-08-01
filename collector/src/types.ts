@@ -168,6 +168,18 @@ export interface TopItem extends RankedItem {
 export const RELEASE_KINDS = ['ai-model', 'major', 'minor', 'patch', 'service'] as const;
 export type ReleaseKind = (typeof RELEASE_KINDS)[number];
 
+/**
+ * 代表にまとめられた、同じ製品の他の項目。
+ *
+ * 2 種類が入る。どちらも「1 行に畳んで、開けば個別に辿れる」で足りるので同じ形にした。
+ * - モノレポが同時リリースした関連パッケージ
+ * - 同じ製品について同日に出た別の告知（Vercel Changelog などが 1 日に複数出す）
+ */
+export interface ReleaseAlso {
+  label: string;
+  url: string;
+}
+
 export interface ReleaseItem {
   id: string;
   /** 製品・ライブラリ名 */
@@ -182,8 +194,8 @@ export interface ReleaseItem {
   url: string;
   sourceLabel: string;
   publishedAt: string;
-  /** 同時にリリースされた関連パッケージ（モノレポ対策） */
-  alsoReleased: string[];
+  /** 代表にまとめた同じ製品の他の項目 */
+  alsoReleased: ReleaseAlso[];
 }
 
 export interface Digest {
