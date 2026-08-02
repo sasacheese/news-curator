@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { formatMonthLabel } from './format';
 
 export function Chip({
   children,
@@ -32,6 +33,47 @@ export function BuzzChip() {
     >
       <span aria-hidden="true">◆</span> 話題
     </span>
+  );
+}
+
+/** 全期間を選んだことを表す値。月の文字列と混ざらないようにしている */
+export const ALL_MONTHS = '*';
+
+/**
+ * 対象月の選択。
+ *
+ * 読み込みの単位を表示の単位と一致させるためのもの。アーカイブが何年ぶんに
+ * 増えても、既定では 1 ヶ月ぶんしか読まない。日数を添えているのは manifest だけで
+ * 分かる情報で、インデックスを読まずに月の中身の量が伝わるため。
+ */
+export function MonthPicker({
+  months,
+  value,
+  onChange,
+  dayCounts,
+  allowAll = false,
+  label = '対象月',
+}: {
+  months: readonly string[];
+  value: string;
+  onChange: (month: string) => void;
+  dayCounts: Map<string, number>;
+  allowAll?: boolean;
+  label?: string;
+}) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+      {months.map((m) => {
+        const days = dayCounts.get(m);
+        return (
+          <option key={m} value={m}>
+            {formatMonthLabel(m)}
+            {days ? `（${days}日）` : ''}
+          </option>
+        );
+      })}
+      {allowAll && <option value={ALL_MONTHS}>全期間（月ごとに順に読み込み）</option>}
+    </select>
   );
 }
 
