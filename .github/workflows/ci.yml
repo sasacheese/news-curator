@@ -1,0 +1,43 @@
+name: CI
+
+# 型チェックがどこでも走っていなかったので追加した。
+# vite build も tsx も型を検査せずに落とすだけなので、
+# これが無いと型エラーは本番デプロイまで通り抜けてしまう。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 読むだけ。デプロイ権限は digest.yml 側にしか持たせない。
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: 型チェック・テスト・ビルド
+    # digest.yml と違ってこのジョブは数分で終わるので、1 vCPU・15 分制限の
+    # ubuntu-slim で足りる。node は setup-node で入れる。docker は使わない。
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: 型チェック
+        run: npm run typecheck
+
+      - name: テスト
+        run: npm test
+
+      - name: ビルド
+        run: npm run build

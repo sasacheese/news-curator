@@ -135,7 +135,7 @@ function sourceBonus(item: RawItem): number {
  *   qiita   中央 0  上位1% 8    zenn        中央 1     上位10% 12
  *   HN      中央116 上位10% 492  github_repo 中央 1045  上位10% 3071
  */
-function isBuzzing(item: RawItem): boolean {
+export function isBuzzing(item: RawItem): boolean {
   const m = item.metrics;
   const from = item.foundIn ?? [item.source];
 
