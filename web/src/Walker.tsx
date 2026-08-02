@@ -117,11 +117,7 @@ export function Walker() {
           className="walker__cat"
           onClick={hop}
           aria-label="猫。クリックすると跳ねます"
-          title={
-            minutes >= 1
-              ? `読了目安 ${Math.round(minutes)} 分で画面を往復します`
-              : `${Math.round(minutes * 60)} 秒で画面を往復します（動作確認用の設定）`
-          }
+          title={`読了目安 ${minutes} 分で画面を往復します`}
         >
           <svg viewBox="0 0 28 18" width="28" height="18" aria-hidden="true" focusable="false">
             {/* しっぽ。歩きに合わせて揺れる */}
