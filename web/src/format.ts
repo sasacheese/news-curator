@@ -14,6 +14,23 @@ export function formatDateShort(date: string): string {
   return `${Number(m)}/${Number(d)}`;
 }
 
+/** YYYY-MM → 2026年8月 */
+export function formatMonthLabel(month: string): string {
+  const [y, m] = month.split('-');
+  if (!y || !m) return month;
+  return `${Number(y)}年${Number(m)}月`;
+}
+
+/** manifest.dates（新しい順）を月ごとの日数に畳む。読み込まずに月の目次を出すため */
+export function daysPerMonth(dates: readonly string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const date of dates) {
+    const month = date.slice(0, 7);
+    counts.set(month, (counts.get(month) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** 記事の公開日時（JST）。同日なら時刻まで、それ以外は日付まで。 */
 export function formatPublished(iso: string): string {
   const d = new Date(iso);

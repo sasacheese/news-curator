@@ -31,7 +31,8 @@ export function TodayView({ manifest, date }: Props) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    loadDigest(targetDate).then(
+    // 過去日のダイジェストは書かれた後は変わらないので、キャッシュをそのまま使わせる
+    loadDigest(targetDate, manifest?.latest ?? null).then(
       (d) => {
         if (!cancelled) {
           setDigest(d);

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { navigate } from '../App';
-import { loadIndex } from '../api';
-import { Chip, Empty, Highlight, LoadingCards } from '../components';
-import { SOURCE_LABELS, formatDateShort, safeUrl } from '../format';
+import { loadIndexByMonth, loadIndexShard } from '../api';
+import { ALL_MONTHS, Chip, Empty, Highlight, LoadingCards, MonthPicker } from '../components';
+import { SOURCE_LABELS, daysPerMonth, formatDateShort, formatMonthLabel, safeUrl } from '../format';
 import type { IndexEntry, Manifest } from '../types';
 
 interface Props {
@@ -44,17 +44,61 @@ function relevance(e: IndexEntry, terms: string[]): number {
 }
 
 export function SearchView({ manifest, initialQuery }: Props) {
+  const months = manifest?.months ?? [];
+  const latestMonth = months[0] ?? null;
   const [entries, setEntries] = useState<IndexEntry[] | null>(null);
+  const [month, setMonth] = useState<string | null>(null);
+  /** 全期間のときだけ、何ヶ月読み終わったか */
+  const [loadedMonths, setLoadedMonths] = useState(0);
   const [query, setQuery] = useState(initialQuery);
   const [source, setSource] = useState('');
   const [category, setCategory] = useState('');
-  const [period, setPeriod] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 既定は最新の月。1 ヶ月ぶんだけ読む
   useEffect(() => {
-    if (!manifest) return;
-    loadIndex(manifest.months).then(setEntries, () => setEntries([]));
-  }, [manifest]);
+    if (latestMonth) setMonth((m) => m ?? latestMonth);
+  }, [latestMonth]);
+
+  useEffect(() => {
+    if (!month) return;
+    let cancelled = false;
+    setEntries(null);
+    setLoadedMonths(0);
+
+    if (month !== ALL_MONTHS) {
+      loadIndexShard(month, latestMonth).then(
+        (e) => !cancelled && setEntries(e),
+        () => !cancelled && setEntries([]),
+      );
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // 全期間。1 リクエストは 1 ヶ月ぶんのまま、読めた月から順に結果へ足していく
+    const acc: IndexEntry[] = [];
+    void loadIndexByMonth(
+      months,
+      latestMonth,
+      (_m, shard) => {
+        acc.push(...shard);
+        setEntries([...acc]);
+        setLoadedMonths((n) => n + 1);
+      },
+      () => cancelled,
+    );
+    return () => {
+      cancelled = true;
+    };
+    // months は manifest と同時にしか変わらないので、依存に入れても再実行されない
+  }, [month, latestMonth, months]);
+
+  // 月を変えるとソース・カテゴリの選択肢自体が変わるので、絞り込みは外す
+  useEffect(() => {
+    setSource('');
+    setCategory('');
+  }, [month]);
 
   useEffect(() => setQuery(initialQuery), [initialQuery]);
 
@@ -76,29 +120,31 @@ export function SearchView({ manifest, initialQuery }: Props) {
 
   const results = useMemo(() => {
     if (!entries) return [];
-    const cutoff =
-      period === ''
-        ? null
-        : new Date(Date.now() - Number(period) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
     return entries
       .filter((e) => !source || e.source === source)
       .filter((e) => !category || e.category === category)
-      .filter((e) => !cutoff || e.date >= cutoff)
       .map((e) => ({ entry: e, rel: relevance(e, terms) }))
       .filter((r) => r.rel >= 0)
       .sort((a, b) => (b.rel === a.rel ? b.entry.date.localeCompare(a.entry.date) : b.rel - a.rel))
       .slice(0, 300);
-  }, [entries, terms, source, category, period]);
+  }, [entries, terms, source, category]);
 
-  if (!manifest || !entries) return <LoadingCards count={2} />;
+  const dayCounts = useMemo(() => daysPerMonth(manifest?.dates ?? []), [manifest?.dates]);
+  const loadingRest = month === ALL_MONTHS && loadedMonths < months.length;
+
+  if (!manifest || !month || !entries) return <LoadingCards count={2} />;
 
   return (
     <>
       <div className="datebar">
         <h1 className="datebar__date">検索</h1>
         <div className="datebar__meta">
-          <span>保存済み {entries.length.toLocaleString()} 件が対象</span>
+          <span>{entries.length.toLocaleString()} 件が対象</span>
+          {loadingRest && (
+            <span className="faint">
+              · 全期間を読み込み中 {loadedMonths}/{months.length} ヶ月
+            </span>
+          )}
         </div>
       </div>
 
@@ -140,12 +186,15 @@ export function SearchView({ manifest, initialQuery }: Props) {
             </option>
           ))}
         </select>
-        <select value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="期間">
-          <option value="">全期間</option>
-          <option value="7">直近 7 日</option>
-          <option value="30">直近 30 日</option>
-          <option value="90">直近 90 日</option>
-        </select>
+        {/* 期間の絞り込みは月の選択そのものが担う。読む量と検索範囲を一致させている */}
+        <MonthPicker
+          months={months}
+          value={month}
+          onChange={setMonth}
+          dayCounts={dayCounts}
+          allowAll
+          label="対象期間"
+        />
       </div>
 
       <p className="result-count">
@@ -156,6 +205,20 @@ export function SearchView({ manifest, initialQuery }: Props) {
       {results.length === 0 ? (
         <Empty title="該当する記事がありません">
           <p>検索語を減らすか、フィルタを外してみてください。</p>
+          {month !== ALL_MONTHS && (
+            <p>
+              いま探しているのは {formatMonthLabel(month)} ぶんだけです。
+              <br />
+              <button
+                type="button"
+                className="btn btn--sm"
+                style={{ marginTop: 8 }}
+                onClick={() => setMonth(ALL_MONTHS)}
+              >
+                全期間を検索
+              </button>
+            </p>
+          )}
         </Empty>
       ) : (
         <div className="list">
