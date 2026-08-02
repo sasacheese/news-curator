@@ -55,10 +55,20 @@ export interface RawItem {
   lang: 'ja' | 'en' | 'unknown';
   /** ソース定義側で与えた基礎点（RSS の weight など） */
   sourceWeight: number;
+  /** 重複排除でまとめた際に、どのソースから見つかったか。話題性の判定に使う */
+  foundIn?: SourceKind[];
 }
 
 export interface PreScoredItem extends RawItem {
   preScore: number;
+  /**
+   * 他のエンジニアと共通の話題になりうるか。
+   *
+   * 24 時間ぶんしか見ていないので「世間的に話題」は本来まだ確定しない。
+   * 判定できるのは「そのプラットフォームの当日として明らかに伸びている」まで。
+   * 一番強い根拠ははてブのホットエントリー掲載で、これは定義上そこに載った時点で話題。
+   */
+  buzz: boolean;
   /** その日・そのソース内での人気の順位（0〜1）。指標を持たないソースは 0.5 */
   popularityPercentile: number;
   matchedTopics: string[];

@@ -6,6 +6,8 @@ import { ReleaseList } from '../ReleaseList';
 import { VisualFigure } from '../VisualFigure';
 import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
+import { Annotated } from '../Annotated';
+import { BuzzChip } from '../components';
 import { Chip, CopyButton, Empty, LoadingCards, Notice } from '../components';
 import type { Digest, Manifest, RankedItem, TopItem } from '../types';
 import { formatDateLabel, formatPublished, metricSummary, safeUrl } from '../format';
@@ -281,6 +283,7 @@ function Toc({ digest }: { digest: Digest }) {
 
 function TopCard({ item }: { item: TopItem }) {
   const d = item.deep;
+  const pr = d.prerequisites ?? [];
   return (
     /*
      * 畳んだ状態を既定にする。カード 1 枚が長く、6 枚並ぶとスクロール量が多いため。
@@ -295,6 +298,7 @@ function TopCard({ item }: { item: TopItem }) {
           <Chip accent>{item.category}</Chip>
           <Chip>{item.sourceLabel}</Chip>
           <Chip title="AI による関心一致スコア">スコア {item.score}</Chip>
+          {item.buzz && <BuzzChip />}
           <Chip>約 {d.readingMinutes} 分</Chip>
           {metricSummary(item.metrics) && <Chip>{metricSummary(item.metrics)}</Chip>}
         </div>
@@ -321,7 +325,9 @@ function TopCard({ item }: { item: TopItem }) {
           </a>
           <Byline item={item} />
         </div>
-        <p className="card__summary">{d.summary}</p>
+        <p className="card__summary">
+          <Annotated text={d.summary} prerequisites={pr} idPrefix={`${item.id}-sum`} />
+        </p>
 
         {(d.prerequisites?.length ?? 0) > 0 && (
           <details className="prereq">
@@ -352,7 +358,9 @@ function TopCard({ item }: { item: TopItem }) {
           <Detail label="何ができるようになるか">
             <ul>
               {d.whatYouCanDo.map((t, i) => (
-                <li key={i}>{t}</li>
+                <li key={i}>
+                  <Annotated text={t} prerequisites={pr} idPrefix={`${item.id}-can-${i}`} />
+                </li>
               ))}
             </ul>
           </Detail>
@@ -362,7 +370,9 @@ function TopCard({ item }: { item: TopItem }) {
           <Detail label="何が変わるか">
             <ul>
               {d.whatChanges.map((t, i) => (
-                <li key={i}>{t}</li>
+                <li key={i}>
+                  <Annotated text={t} prerequisites={pr} idPrefix={`${item.id}-chg-${i}`} />
+                </li>
               ))}
             </ul>
           </Detail>
@@ -394,7 +404,9 @@ function TopCard({ item }: { item: TopItem }) {
 
         {d.whyItMatters && (
           <Detail label="なぜ重要か">
-            <p>{d.whyItMatters}</p>
+            <p>
+              <Annotated text={d.whyItMatters} prerequisites={pr} idPrefix={`${item.id}-why`} />
+            </p>
           </Detail>
         )}
 

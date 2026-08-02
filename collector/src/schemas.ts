@@ -112,7 +112,11 @@ export const ReleaseResultSchema = z.object({
 });
 
 const PrerequisiteSchema = z.object({
-  term: z.string().describe('押さえるべき概念の名前。20字以内。'),
+  term: z
+    .string()
+    .describe(
+      'このカードの summary・箇条書き・whyItMatters の中で実際に使った語を、一字一句そろえて書く（画面でその語に注釈を付けるため）。短い名詞か識別子で25字以内。文にしない。',
+    ),
   stumblingPoint: z
     .string()
     .describe(
@@ -178,7 +182,9 @@ export const DeepDiveSchema = z.object({
   summary: z.string().describe('概要。3〜5文、記事を読まなくても要点が掴める粒度。'),
   prerequisites: z
     .array(PrerequisiteSchema)
-    .describe('読者が詰まりそうな箇所を先回りして埋める解説。2〜4個。無ければ空配列。'),
+    .describe(
+      '読者が詰まりそうな箇所を先回りして埋める解説。4〜8個で網羅側に倒す（迷ったら入れる）。term は自分が summary や箇条書きで実際に使った語とそろえる。本当に詰まる箇所が無ければ空配列。',
+    ),
   visual: z
     .union([ComparisonSchema, FlowSchema, MetricsSchema])
     .nullable()

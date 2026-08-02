@@ -1,18 +1,17 @@
 import { useMemo, useState } from 'react';
 import { navigate } from './App';
-import { Chip } from './components';
+import { BuzzChip, Chip } from './components';
 import { metricSummary, safeUrl } from './format';
-import type { Durability, Payoff, RankedItem } from './types';
+import type { Payoff, RankedItem } from './types';
 
 /**
  * その他の注目記事。
  *
- * AI とそれ以外を別セクションにしている。母集団が AI に大きく偏っていて
- * （実測で上位 15 件のうち 13〜15 件が AI）、混ぜて並べると AI 以外が
- * 1〜2 件しか目に入らないため。収集側でも別々の枠を与えている。
+ * AI とそれ以外をタブで切り替える。母集団が AI に大きく偏っていて
+ * （実測で 12 件中 8 件が AI）、混ぜて並べると AI 以外が埋もれるため。
+ * 収集側でも AI 以外に全体の 1/3 を確保している。
  *
- * 並べ替えは「重要度」と「時間対効果」の 2 通り。時間対効果は payoff を
- * readingMinutes で割った値で、短時間で手を動かせるものが上に来る。
+ * 並びは重要度順の一本にした。時間対効果順も付けていたが使われなかったので外した。
  */
 
 const PAYOFF_LABELS: Record<Payoff, string> = {
@@ -21,21 +20,7 @@ const PAYOFF_LABELS: Record<Payoff, string> = {
   aware: '知っておく',
 };
 
-/** 時間対効果の重み。並べ替えの根拠を明示できるよう、単純な定義にしている。 */
-const PAYOFF_WEIGHT: Record<Payoff, number> = { apply: 3, decide: 2, aware: 1 };
-
-const DURABILITY_LABELS: Record<Durability, string> = {
-  foundational: '長く効く',
-  durable: '1年もつ',
-  ephemeral: '旬の話題',
-};
-
-function efficiency(item: RankedItem): number {
-  const weight = PAYOFF_WEIGHT[item.payoff ?? 'aware'];
-  return weight / Math.max(1, item.readingMinutes ?? 5);
-}
-
-type SortKey = 'score' | 'efficiency';
+type DomainTab = 'ai' | 'general';
 
 function Row({ item }: { item: RankedItem }) {
   return (
@@ -55,15 +40,14 @@ function Row({ item }: { item: RankedItem }) {
           </p>
         )}
         <div className="row__meta">
+          {item.buzz && <BuzzChip />}
           {item.readingMinutes != null && item.payoff && (
             <Chip accent={item.payoff === 'apply'}>
               {item.readingMinutes}分 · {PAYOFF_LABELS[item.payoff]}
             </Chip>
           )}
           {item.durability === 'foundational' && (
-            <Chip title="言語仕様・Web標準など、数年単位で効く情報">
-              {DURABILITY_LABELS.foundational}
-            </Chip>
+            <Chip title="言語仕様・Web標準など、数年単位で効く情報">長く効く</Chip>
           )}
           <Chip>{item.category}</Chip>
           <span>{item.sourceLabel}</span>
@@ -85,50 +69,48 @@ function Row({ item }: { item: RankedItem }) {
 }
 
 export function OtherArticles({ items }: { items: RankedItem[] }) {
-  const [sort, setSort] = useState<SortKey>('score');
+  const groups = useMemo(
+    () => ({
+      ai: items.filter((i) => i.domain === 'ai'),
+      general: items.filter((i) => i.domain !== 'ai'),
+    }),
+    [items],
+  );
+  // 件数の多い側を初期表示にする（片方が 0 件のときに空を見せないため）
+  const [tab, setTab] = useState<DomainTab>(
+    groups.ai.length >= groups.general.length ? 'ai' : 'general',
+  );
 
-  const groups = useMemo(() => {
-    const order = (list: RankedItem[]) =>
-      sort === 'score' ? list : [...list].sort((a, b) => efficiency(b) - efficiency(a));
-    return [
-      { key: 'ai', label: 'AI', items: order(items.filter((i) => i.domain === 'ai')) },
-      { key: 'general', label: 'AI以外', items: order(items.filter((i) => i.domain !== 'ai')) },
-    ].filter((g) => g.items.length > 0);
-  }, [items, sort]);
-
-  if (groups.length === 0) return null;
+  const shown = groups[tab];
 
   return (
     <>
       <div className="listctl">
         <div className="segmented">
-          <button type="button" aria-pressed={sort === 'score'} onClick={() => setSort('score')}>
-            重要度順
-          </button>
-          <button
-            type="button"
-            aria-pressed={sort === 'efficiency'}
-            onClick={() => setSort('efficiency')}
-            title="読了目安が短く、手を動かせるものほど上に来ます"
-          >
-            時間対効果順
-          </button>
+          {(
+            [
+              ['ai', 'AI'],
+              ['general', 'AI以外'],
+            ] as const
+          ).map(([key, label]) => (
+            <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)}>
+              {label} <span className="segmented__count">{groups[key].length}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {groups.map((group) => (
-        <section className="othergroup" key={group.key}>
-          <h3 className="othergroup__title">
-            {group.label}
-            <span className="othergroup__count">{group.items.length}</span>
-          </h3>
-          <div className="list">
-            {group.items.map((item) => (
-              <Row key={item.id} item={item} />
-            ))}
-          </div>
-        </section>
-      ))}
+      {shown.length === 0 ? (
+        <p className="faint" style={{ fontSize: 13 }}>
+          この日は該当する記事がありませんでした。
+        </p>
+      ) : (
+        <div className="list">
+          {shown.map((item) => (
+            <Row key={item.id} item={item} />
+          ))}
+        </div>
+      )}
     </>
   );
 }

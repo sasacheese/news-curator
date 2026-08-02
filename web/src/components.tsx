@@ -17,6 +17,24 @@ export function Chip({
   );
 }
 
+
+/**
+ * 他のエンジニアと共通の話題になりうる印。
+ *
+ * 色だけに頼らないよう、記号と文字を併記している。
+ * 判定根拠は収集側（はてブのホットエントリー掲載など）。
+ */
+export function BuzzChip() {
+  return (
+    <span
+      className="chip chip--buzz"
+      title="はてなブックマークのホットエントリー掲載、または同日のプラットフォーム内で明確に伸びている記事"
+    >
+      <span aria-hidden="true">◆</span> 話題
+    </span>
+  );
+}
+
 export function Notice({
   children,
   kind = 'info',

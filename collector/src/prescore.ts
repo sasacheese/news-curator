@@ -125,6 +125,40 @@ function sourceBonus(item: RawItem): number {
   }
 }
 
+
+/**
+ * 他のエンジニアと共通の話題になりうるか。
+ *
+ * 実測（590 件・24 時間）にもとづく絶対値のしきい値。相対順位は使わない——
+ * その日の Qiita の中央値は LGTM 0 なので、相対では「LGTM 1」が上位 87% に来てしまう。
+ *
+ *   qiita   中央 0  上位1% 8    zenn        中央 1     上位10% 12
+ *   HN      中央116 上位10% 492  github_repo 中央 1045  上位10% 3071
+ */
+function isBuzzing(item: RawItem): boolean {
+  const m = item.metrics;
+  const from = item.foundIn ?? [item.source];
+
+  // はてブのテクノロジーホットエントリーは、載った時点で定義上「話題」
+  if (from.includes('hatena')) return true;
+  // 他ソース由来でも、はてブが付き始めていれば拾う
+  if ((m.hatena ?? 0) >= 5) return true;
+
+  switch (item.source) {
+    case 'qiita':
+    case 'zenn':
+    case 'devto':
+      return (m.likes ?? 0) + (m.stocks ?? 0) * 0.5 >= 10;
+    case 'hackernews':
+      return (m.points ?? 0) >= 300;
+    case 'github_repo':
+      return (m.stars ?? 0) >= 3000;
+    default:
+      // 公式ブログ・リリースノートは指標を持たないので、はてブが付くかどうかだけ
+      return false;
+  }
+}
+
 export function preScore(items: RawItem[], topics: TopicsConfig, now = new Date()): PreScoredItem[] {
   const percentiles = popularityPercentiles(items, now);
 
@@ -141,6 +175,7 @@ export function preScore(items: RawItem[], topics: TopicsConfig, now = new Date(
       preScore: Math.max(0, Math.min(1, raw)),
       popularityPercentile: pop,
       matchedTopics: matched,
+      buzz: isBuzzing(item),
     };
   });
 }
@@ -227,7 +262,7 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
     const key = normalizeUrl(item.url);
     const existing = byUrl.get(key);
     if (!existing) {
-      byUrl.set(key, item);
+      byUrl.set(key, { ...item, foundIn: [item.source] });
       continue;
     }
     // 情報量の多い方を残しつつ、メトリクスは足し合わせる
@@ -242,6 +277,8 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
       authorDetail: winner.authorDetail ?? loser.authorDetail,
       tags: [...new Set([...winner.tags, ...loser.tags])],
       sourceWeight: Math.max(winner.sourceWeight, loser.sourceWeight),
+      // どこから見つかったかは全部覚えておく（はてブ経由かどうかが話題性の根拠になる）
+      foundIn: [...new Set([...(existing.foundIn ?? [existing.source]), item.source])],
       metrics: {
         likes: Math.max(winner.metrics.likes ?? 0, loser.metrics.likes ?? 0) || undefined,
         stocks: Math.max(winner.metrics.stocks ?? 0, loser.metrics.stocks ?? 0) || undefined,
