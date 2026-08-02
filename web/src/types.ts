@@ -63,6 +63,8 @@ export interface RankedItem {
   payoff?: Payoff;
   /** この情報がどれくらい保つか。この機能より前の日は undefined */
   durability?: Durability;
+  /** 他のエンジニアと共通の話題になりうるか。この機能より前の日は undefined */
+  buzz?: boolean;
 }
 
 export interface Prerequisite {
