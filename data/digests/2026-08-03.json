@@ -1,0 +1,1544 @@
+{
+  "date": "2026-08-03",
+  "generatedAt": "2026-08-02T22:52:32.022Z",
+  "window": {
+    "start": "2026-08-01T22:00:00.000Z",
+    "end": "2026-08-02T22:00:00.000Z"
+  },
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.219のsandbox新設定、クラウドでは効かなかった",
+      "url": "https://qiita.com/kai_kou/items/9032a534a15a1eb55bae",
+      "publishedAt": "2026-08-02T11:08:45.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。2023年2月からアライドアーキテクツ株式会社のエンジニアリングマネージャーとしてワイワイやってます。",
+        "organization": "アライドアーキテクツ株式会社",
+        "location": "Osaka, Japan",
+        "followers": 935,
+        "posts": 714,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "CLI",
+        "OpenSource",
+        "sandbox"
+      ],
+      "snippet": "TL;DR ・Claude Code v2.1.219 で DirectoryAdded フック（セッション途中でのディレクトリ追加を検知）と sandbox.network.strictAllowlist（許可リスト外ホストへの通信を無条件で拒否する設定）が追加されました。 ・対象読者は、Claude Code をクラウド実行環境（Claude Code on the web・Routines 等）で運用しているエンジニアです。 ・実際に自分のクラウドセッションで確認したところ、DirectoryAdded フックの実装はバイナリレベルで確認できましたが、sandbox.network.strictAllowlist はクラウド環境では発動条件（bwrap）自体が存在せず、設定しても効果がありませんでした。 はじめに Claude Code を Routines でクラウド常駐スケジュー…",
+      "body": "TL;DR\n・Claude Code v2.1.219 で DirectoryAdded フック（セッション途中でのディレクトリ追加を検知）と sandbox.network.strictAllowlist（許可リスト外ホストへの通信を無条件で拒否する設定）が追加されました。\n・対象読者は、Claude Code をクラウド実行環境（Claude Code on the web・Routines 等）で運用しているエンジニアです。\n・実際に自分のクラウドセッションで確認したところ、DirectoryAdded フックの実装はバイナリレベルで確認できましたが、sandbox.network.strictAllowlist はクラウド環境では発動条件（bwrap）自体が存在せず、設定しても効果がありませんでした。\n\nはじめに\n\nClaude Code を Routines でクラウド常駐スケジュール実行していると、「新しいセキュリティ設定が追加された」というリリースノートを見るたびに、実際に自分の運用環境でその設定が効くのかどうか気になります。ローカルの Mac ならまだしも、クラウドのコンテナ実行環境ではどうなるのか、公式ドキュメントだけでは分かりません。\n\n今回は v2.1.219 で追加された 2 つの新機能について、実際に自分が動かしているクラウドセッションで検証しました。\n\nv2.1.219 で追加されたもの（公式リリースノートより）\n\nまず公式情報を確認します。Claude Code の公式 CHANGELOG（anthropics/claude-code）の v2.1.219 エントリには、次の記述があります。\n・DirectoryAdded フックを追加。/add-dir コマンド、または SDK の registerreporoot コントロールリクエストによってセッション途中で作業ディレクトリが登録されたときに発火する\n・sandbox.network.strictAllowlist 設定を追加。サンドボックス化されたコマンドについて、許可リスト外のホストへの通信をプロンプトなしで拒否する\n・デフォルトの Opus モデルが Claude Opus 5（1M コンテキスト）に変更\n・workflowSizeGuideline 設定キーを追加（Dynamic workflow のサイズガイドラインをどの設定ファイルからでも指定可能に）\n・stream-json 出力で深度 2 以上のサブエージェント転送に対応\n\nこのうち、クラウド運用に直接関わる DirectoryAdded フックと sandbox.network.strictAllowlist の 2 つを掘り下げます。\n\n実際に検証した結果\n\n1. DirectoryAdded フックはバイナリレベルで実在した\n\n自分のセッションで動いている Claude Code のバージョンをまず確認しました。\n\n [code] \n\nv2.1.219 以降のバージョンです。CLI バイナリの文字列を直接調べると、該当機能に関する文字列が実際に埋め込まれていることが確認できました。\n\n [code] \n\nregisterreporoot にはエラーメッセージが複数種類あり（対象がディレクトリでない・登録許可範囲外・登録済み）、リリースノートの説明どおり境界チェックを伴う実装であることが読み取れます。\n\n一方で、この機能を実際に発火させる（stream-json 経由で registerreporoot コントロールリクエストを送る）テストは、今回はタイムボックス内で安全に完了できませんでした。ネスト起動した検証用セッションが意図せず本番リポジトリの作業ディレクトリで実行されてしまい（cd の反映漏れが原因）、独立した検証環境を用意しないまま実行するリスクが高いと判断したためです。実行までは確認できず、CLI バイナリに機能が実装されている事実の確認にとどめています。\n\n2. strictAllowlist は「クラウドでは無条件で無効」だった\n\nこちらは実際に自分のセッションの環境を調べることで、明確な結論が出ました。\n\n [code] \n\nsandbox.network.strictAllowlist を含む Claude Code のサンドボックス機能は、Linux では bwrap（bubblewrap）を使って実装されています。今回検証したクラウドのセッションコンテナには bwrap コマンド自体が存在しませんでした（command -v bwrap が exit code 1）。\n\nつまり sandbox.enabled: true や sandbox.network.strictAllowlist を settings.json に書いても、実行基盤側に bwrap がなければ設定は静かに無視され、許可リスト外の通信もブロックされません。ISSANDBOX=yes という環境変数は立っていますが、これは Claude Code のサンドボックス機能の話ではなく、セッションコンテナ自体が使い捨て隔離環境であることを示す別のレイヤーの変数です。\n\n [code] \n\nなぜ気づきにくいのか\n\nこの挙動が厄介なのは、エラーも警告も出ない 点です。設定ファイルに sandbox.network.strictAllowlist: true と書いても、Claude Code の起動時に「この環境では無効です」といった通知は表示されません。設定した本人は「もう許可リスト外への通信は止まっているはず」と思い込みますが、実際には何も変わっていません。\n\n自分が運用しているプロジェクトでは、このギャップに気づいたのは今回が初めてではありません。以前 sandbox.network.allowedDomains（ドメイン単位の許可リスト）を検証したときにも同じ結論（クラウドでは無効）に達しており、strictAllowlist はその発展形の設定なので当然同じ制約を引き継ぎます。つまり sandbox.network. 配下の設定は、少なくとも現時点のクラウド実行環境では すべて無効 と考えてよいということです。\n\nクラウド運用者が今すぐできること\n\nsandbox.network. に頼れない以上、クラウドでのネットワーク制御は別のレイヤーで組み立てる必要があります。実際に自分が運用で使っているのは次の 3 層です。\n\n [code] \n\nsandbox.network.allowedDomains や sandbox.network.strictAllowlist はこの図に含まれていません。クラウドで通信を制限したいなら、permissions.deny でツール自体を絞るか、PreToolUse フックで実行前にコマンド内容を検査する方式にする必要があります。\n\nまとめに代えて\n\nDirectoryAdded フックはバイナリに実装が存在することを確認できましたが、実際の発火テストは安全な検証環境を用意できずに持ち越しになりました。一方で sandbox.network.strictAllowlist は、クラウド実行環境では bwrap が存在しないという一点で無条件に無効化されることが、環境変数とコマンドの実行結果からはっきり確認できました。\n\n新しいセキュリティ設定がリリースノートに載ったとき、「設定を書いたから安全になった」と思い込む前に、自分が動かしている実行基盤でその設定の前提条件（今回で言えば bwrap の有無）が満たされているかを、まず command -v 一発で確認する価値があります。\n\n参考\n・Claude Code CHANGELOG（公式）\n・anthropics/claude-code（GitHubリポジトリ本体）\n\n関連記事\n・Claude Codeのハマりどころ14件、8件はドキュメント1行と食い違った\n・似た青3色はNG判定──Claude Code新スキル/datavizで配色を機械検証した\n・Claude Codeの/rewind、事故った3時間を1コマンドで巻き戻せる仕組みだった",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9046ab0bfdf9a970",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7498203592814372,
+      "popularityPercentile": 0.31736526946107785,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 90,
+      "oneLiner": "Claude Code v2.1.219の新設定をクラウド環境で検証した。",
+      "reason": "DirectoryAdded はクラウドでも実装を確認できたが、通信制限の strictAllowlist は bwrap がないため発動しなかった。設定名だけでは実行環境での有効性を判断できない。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.219",
+        "DirectoryAdded",
+        "sandbox.network.strictAllowlist",
+        "Routines"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "ai",
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": "クラウドではstrictAllowlistに依存できない",
+        "summary": "Claude Code v2.1.219 では、セッション途中のディレクトリ追加を検知する DirectoryAdded と、許可リスト外ホストへの通信を拒否する sandbox.network.strictAllowlist が追加されました。記事のクラウドセッションでは DirectoryAdded の実装はバイナリに存在しましたが、実際の発火は未確認です。一方、sandbox.network.strictAllowlist は Linux の実装前提である bwrap が存在せず、設定しても警告なしに無効でした。Routines などのクラウド運用では、sandbox.network.* ではなく permissions.deny や PreToolUse など別レイヤーの制御を検討します。",
+        "prerequisites": [
+          {
+            "term": "bwrap",
+            "stumblingPoint": "記事は「sandbox.network.strictAllowlist は bwrap を使って実装」と書くが、bwrap がないと何が起きるかを知らないと結論を読めない。",
+            "explanation": "bwrap（bubblewrap）は、Linux 上で Claude Code の sandbox を実装するために使われる実行基盤です。この記事の結論は設定値そのものではなく、実行環境に bwrap が存在するかで決まります。したがって設定を書くだけでは不十分で、`command -v bwrap` による前提条件の確認が必要です。"
+          },
+          {
+            "term": "sandbox.network.strictAllowlist",
+            "stumblingPoint": "記事は「sandbox.network.strictAllowlist を追加」と書くが、設定を書けば通常の権限拒否が働く機能なのか、sandbox 前提の機能なのかが読み取りにくい。",
+            "explanation": "sandbox.network.strictAllowlist は、サンドボックス化されたコマンドから許可リスト外のホストへの通信を、プロンプトなしで拒否する設定です。ただし拒否処理を担う sandbox が実際に起動していることが前提です。クラウドセッションではその前提が欠けるため、設定の存在だけではネットワーク制御になりません。"
+          },
+          {
+            "term": "DirectoryAdded",
+            "stumblingPoint": "記事は「DirectoryAdded フックを追加」と書くが、セッション開始時のフックと違い、何を契機に発火するのかを知らないと用途を判断できない。",
+            "explanation": "DirectoryAdded は、セッションの途中で作業ディレクトリが登録されたタイミングを受け取るフックです。`/add-dir` または SDK の `registerreporoot` による登録が対象で、単にセッション開始時の作業ディレクトリを検知する機能ではありません。この記事ではバイナリに実装があることは確認済みですが、イベントが実際に発火するところまでは確認していません。"
+          },
+          {
+            "term": "registerreporoot",
+            "stumblingPoint": "記事は「SDK の registerreporoot コントロールリクエスト」と書くが、これが DirectoryAdded の発火契機であり、登録時の境界チェックも担うことが読み取りにくい。",
+            "explanation": "`registerreporoot` は SDK からセッションに作業ディレクトリを登録するための control request です。記事では、対象がディレクトリか、登録許可範囲内か、すでに登録済みかを検査するエラーメッセージがバイナリに含まれることを確認しています。つまり任意のパスを無条件に追加する仕組みではなく、境界チェックを伴う登録処理です。"
+          },
+          {
+            "term": "ISSANDBOX",
+            "stumblingPoint": "記事は「ISSANDBOX=yes だが Claude Code のサンドボックスとは別」と書くが、コンテナ隔離とコマンド単位の sandbox を混同すると安全性を過大評価する。",
+            "explanation": "ISSANDBOX=yes は、クラウドのセッションコンテナが使い捨ての隔離環境で動いていることを示す変数です。これは Claude Code が bwrap で各コマンドをサンドボックス化していることとは別のレイヤーです。コンテナ自体が隔離されていても、sandbox.network.strictAllowlist によるホスト単位の通信制御が有効とは限りません。"
+          },
+          {
+            "term": "permissions.deny",
+            "stumblingPoint": "記事は「permissions.deny でツール自体を絞る」と書くが、ネットワーク設定が効かないときに、なぜツール制限が代替策になるのかを知らないと移行方針を立てにくい。",
+            "explanation": "permissions.deny は、クラウド側で Claude Code に許可しないツール操作を制限するための別レイヤーです。bwrap がない環境では、sandbox.network.* による通信制御を期待できないため、まず実行可能なツールや操作自体を狭める用途になります。記事では具体的な設定例までは示されていないため、ここでは採用すべき制御層として扱います。"
+          },
+          {
+            "term": "PreToolUse",
+            "stumblingPoint": "記事は「PreToolUse フックで実行前にコマンド内容を検査」と書くが、通信を後段で遮断するのではなく、ツール呼び出し前に止める方式だと理解しないと設計を誤る。",
+            "explanation": "PreToolUse は、ツール実行前に介入してコマンド内容を検査するフックです。クラウドで bwrap によるネットワーク遮断が使えない場合、許可しない宛先や危険な操作を実行前に判定する場所になります。ただし記事は具体的な判定スクリプトまでは提示していないため、実装時には検査対象と拒否条件を別途定義する必要があります。"
+          },
+          {
+            "term": "Routines",
+            "stumblingPoint": "記事は「Routines でクラウド常駐スケジュール実行」と書くが、ローカル CLI と同じ設定が同じ実行基盤で効くとは限らない点が前提になっている。",
+            "explanation": "Routines は、Claude Code をクラウド上で常駐・スケジュール実行する運用形態として記事に登場します。ローカル Mac と違い、利用者が実行ホストのパッケージや Linux サンドボックス実装を直接管理できない可能性があります。そのためリリースノートの設定名を確認するだけでなく、実際のセッション内で bwrap の有無を調べる必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "クラウド運用での設定差分",
+          "beforeLabel": "従来・設定だけを見た場合",
+          "afterLabel": "v2.1.219以降・クラウド検証",
+          "rows": [
+            {
+              "aspect": "前提条件",
+              "before": "設定ファイルに値を書けば効くと判断しやすい",
+              "after": "bwrap の有無を確認し、なければ sandbox.network.* に依存しない"
+            },
+            {
+              "aspect": "DirectoryAdded",
+              "before": "セッション途中のディレクトリ追加検知の詳細は不明",
+              "after": "DirectoryAdded の実装存在は確認済み。発火は未確認"
+            },
+            {
+              "aspect": "クラウドの制御",
+              "before": "sandbox.network.strictAllowlist / allowedDomains に依存",
+              "after": "permissions.deny や PreToolUse で別レイヤーを構成"
+            },
+            {
+              "aspect": "失敗時の挙動",
+              "before": "無効ならエラーや警告が出ると期待しやすい",
+              "after": "警告なしに設定が無視される"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "クラウドセッション内で `command -v bwrap` を実行し、Claude Code の sandbox 設定が機能する前提を確認できます。",
+          "DirectoryAdded と registerreporoot を使う設計を検討できますが、発火テストは本番リポジトリから分離した環境で行えます。",
+          "クラウドの通信・操作制限を permissions.deny によるツール制限と PreToolUse による事前検査へ分散できます。"
+        ],
+        "whatChanges": [
+          "v2.1.219 で DirectoryAdded フックが追加され、`/add-dir` または SDK の `registerreporoot` によるセッション途中の作業ディレクトリ登録を検知できます。",
+          "v2.1.219 で sandbox.network.strictAllowlist が追加されましたが、記事のクラウドセッションでは bwrap がないため実効性がありません。",
+          "v2.1.219 ではデフォルトの Opus モデルが Claude Opus 5（1M コンテキスト）に変更され、workflowSizeGuideline 設定キーと stream-json の深度 2 以上のサブエージェント転送も追加されています。",
+          "クラウド環境では sandbox.network.strictAllowlist を設定するだけでは移行・防御にならず、permissions.deny または PreToolUse を使った制御へ運用を移す必要があります。"
+        ],
+        "howToTry": [
+          "Claude Code の実行中セッションで `command -v bwrap` を実行し、終了コードを確認します。記事の検証環境では `exit code 1` で、bwrap は存在しませんでした。",
+          "設定ファイルに `sandbox.enabled: true` と `sandbox.network.strictAllowlist: true` を追加して起動し、起動時に無効化の警告が出ないことを確認します。警告がなくても、bwrap がなければ設定は有効になりません。",
+          "クラウドの通信制御を確認・実装する場合は、sandbox.network.* ではなく `permissions.deny` でツールを制限するか、`PreToolUse` フックで実行前のコマンド内容を検査します。",
+          "セッション途中で追加された作業ディレクトリを扱う場合は、`DirectoryAdded` フックと SDK の `registerreporoot` を使う設計を検討できます。ただし、実際の発火確認は本番リポジトリと分離した検証環境で行ってください。"
+        ],
+        "code": {
+          "lang": "bash",
+          "caption": "クラウドセッションで bwrap の有無を確認する",
+          "content": "if command -v bwrap >/dev/null 2>&1; then\n  echo \"bwrap: available\"\nelse\n  echo \"bwrap: unavailable; Claude Code sandbox settings may be ignored\"\nfi"
+        },
+        "whyItMatters": "クラウドの隔離コンテナで動いていることと、Claude Code の sandbox.network.strictAllowlist が有効であることは別です。設定がエラーなく無視されるため、「設定を書いたから安全になった」という誤認を防ぐには、まず bwrap の有無を実行環境で確認する必要があります。",
+        "caveats": [
+          "DirectoryAdded は CLI バイナリ内の実装存在まで確認されており、/add-dir や SDK の registerreporoot による実際の発火は未検証です。",
+          "sandbox.network.strictAllowlist の検証結果は、記事執筆者が使ったクラウドセッションの環境に基づきます。",
+          "クラウドセッションでは bwrap が存在しないため、sandbox.enabled: true や sandbox.network.strictAllowlist を設定してもエラーや警告なしに無視されます。",
+          "ISSANDBOX=yes は Claude Code の sandbox 機能が有効であることを示す変数ではなく、セッションコンテナ自体が隔離環境であることを示す別レイヤーの変数です。",
+          "sandbox.network.allowedDomains も同じ理由でクラウドでは無効と検証されており、記事では現時点のクラウド環境で sandbox.network. 配下の設定はすべて無効と考えるべきだとしています。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "元記事（Qiita）",
+            "url": "https://qiita.com/kai_kou/items/9032a534a15a1eb55bae"
+          }
+        ],
+        "readingMinutes": 5
+      }
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn",
+      "title": "npmで入れたAI用MCPサーバーを直接叩いたら、ファイルアクセスの初期設定が『全許可』だった",
+      "url": "https://zenn.dev/numarn/articles/desktop-commander-mcp-allowlist-handson",
+      "publishedAt": "2026-08-02T17:37:39.547Z",
+      "author": "ぬまーんのZenn記事",
+      "authorDetail": {
+        "name": "ぬまーんのZenn記事",
+        "handle": "@numarn",
+        "url": "https://zenn.dev/numarn",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocLn8-kCFINjM9enhZ8SolSugDxhZ3tizbGe4UalIlFz0kpowTO9=s250-c",
+        "links": []
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "Claude Code のようなAIツールには、「MCP(Model Context Protocol)」という仕組みで外部機能を追加できます。ファイル操作やターミナル操作をAIに任せられる拡張機能、といったイメージです。今回は GitHub のトレンド一覧に出てきた、ターミナル操作・ファイル編集用のMCPサーバー(npmで配布されている実在のパッケージ)を、AI本体を経由せずに直接叩いて、初期設定がどうなっているかを確かめました。 結論から言うと、 「ファイルアクセスを許可する場所」を自分で指定しない限り、初期設定のままではファイルシステム全体を読み書きできる状態でした。 危険なシェルコマンド( sudo など)は32件ブロックされているのに、ファイルの読み書き側にはそういう制限が最初から入っていなかった、という食い違いが今回の一番の発見です。 なぜAI本体を経由せずに試したか MCPサ…",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "95b201050e5824bf",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.772,
+      "popularityPercentile": 0.41818181818181815,
+      "matchedTopics": [
+        "Node.js",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "npmで導入したAI向けMCPサーバーの初期設定が、ファイルへの全アクセスを許可していた。",
+      "reason": "MCPサーバーは導入直後から安全に隔離されるとは限らず、初期設定によってローカルファイル全体へ触れられる場合がある。AIツールの権限確認が主題になっている。",
+      "keywords": [
+        "MCP",
+        "npm",
+        "ファイルアクセス",
+        "Node.js",
+        "セキュリティ"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "Claude Code のようなAIツールには、「MCP(Model Context Protocol)」という仕組みで外部機能を追加できます。ファイル操作やターミナル操作をAIに任せられる拡張機能、といったイメージです。今回は GitHub のトレンド一覧に出てきた、ターミナル操作・ファイル編集用のMCPサーバー(npmで配布されている実在のパッケージ)を、AI本体を経由せずに直接叩いて、初期設定がどうなっているかを確かめました。\n\n 結論から言うと、 「ファイルアクセスを許可する場所」を自分で指定しない限り、初期設定のままではファイルシステム全体を読み書きできる状態でした。 危険なシェルコマンド( sudo など)は32件ブロックされているのに、ファイルの読み書き側にはそういう制限が最初から入っていなかった、という食い違いが今回の一番の発見です。\n\n \n なぜAI本体を経由せずに試したか\n\n MCPサーバーは普通、Claude のようなAIが会話の中で呼び出して使うものです。ただ、それだと「AIがどう振る舞ったか」までしか見えず、「サーバー自体が最初から何を許可しているか」が分かりにくくなります。そこで今回は、AIを一切介さず、サーバーに直接「JSON-RPC」という決まった書式の指示文(手順を機械同士でやり取りするための規格、と考えてください)を送りつけて、返ってきた生の応答だけを見る、という方法を取りました。AIの気まぐれではなく、サーバー自体の仕様を確かめたかったからです。\n\n やり方はシンプルで、 npm install でパッケージを取得し、その中の起動用ファイルを子プロセスとして立ち上げ、標準入出力(プログラム同士がテキストをやり取りする一番シンプルな経路)越しに指示文を送るだけです。以前ローカルMCPを試したときは対象を git clone する必要があって環境の制約で断念しましたが、今回のパッケージは npm 経由で完結したので、その壁を回避できました。\n\n \n やってみたら: 使える機能が26個、そして「設定を見る」機能があった\n\n まず「使える機能を全部教えて」という指示文を送ると、 26個 の機能名が返ってきました。ファイル読み書き・ディレクトリ一覧・検索・プロセス起動など、たしかにターミナル操作+ファイル編集の一式です。同じ指示を2回送って、2回とも同じ26個・同じ並び順が返ってくることも確認したので、狙って再現できる結果だと分かりました。\n\n その中に get_config (現在の設定を返す)という機能があったので、これも直接呼んでみました。返ってきたJSONの中に、こんな項目がありました。\n\n \"allowedDirectories\": [] \n \"blockedCommands\": [ \"mkfs\", \"sudo\", \"su\", \"passwd\", ... 全32件 ] \n \"telemetryEnabled\": true \n \n\n allowedDirectories は「AIがアクセスしてよいフォルダの一覧」を指定する項目です。一見、空っぽ( [] )だから「何も許可されていない=安全」に見えます。ところが、この機能自体の説明文にはこう書いてありました。\n\n \n Setting allowedDirectories to an empty array ([]) allows full access to the entire file system, regardless of the operating system.\n\n(allowedDirectories を空配列にすると、OSを問わずファイルシステム全体への完全なアクセスを許可します)\n\n \n つまり「空=制限なし=フォルダを指定するまでは全部見える」という、直感と逆の初期値でした。ここで「本当にそうなのか、実際に試さないと信じられない」と思い、次の検証に進みました。\n\n Impact: 実在する機能は26個(2回実行して同一の26個・同一順序を確認)。設定確認機能 get_config は引数なしで正常応答。 \n\n \n 本当に読めるのか、プロジェクトの外を触ってみた\n\n allowedDirectories: [] の説明を鵜呑みにせず、実際に「ディレクトリ一覧を見る」機能を、作業フォルダの外―― /etc と /root に対して呼んでみました。\n\n 結果、どちらもエラーにならず、実際にフォルダの中身の一覧が返ってきました。 /etc では設定ファイル群、 /root では .bashrc や .cache 、 .aws 、 .claude といった、個人の作業環境に紐づきそうなフォルダ名まで一覧に含まれていました(中身のファイルまでは読んでいません。フォルダ名の一覧が取得できた、というところまでの確認です)。\n\n 説明文に書いてあった「空配列=全許可」は、机上の注意書きではなく、実際にその通りに動く仕様だと確認できました。これは「設定項目の名前と説明を読んだだけでは安心できず、実際に動かしてみないと本当の挙動は分からない」という、今回一番実感した点です。\n\n Impact: /etc ・ /root いずれもエラー0件でディレクトリ一覧を取得( allowedDirectories: [] のデフォルト設定のまま)。 \n\n \n シェルコマンドは32件ブロックなのに、ファイルは無防備という設計のギャップ\n\n get_config の応答には blockedCommands という項目もあり、 sudo や su 、 passwd 、 mkfs 、 shutdown など、システムに深刻な影響を与えるコマンド32件が最初からブロックリストに入っていました。つまり「危険なコマンドを実行させない」という配慮は、設計時点でちゃんと作り込まれています。\n\n ところが、ファイルの読み書き・一覧取得という、地味だけれど機微な情報に触れうる機能の方は、こうした初期制限が一切ありませんでした。「派手に壊せる操作」は初期状態で塞がれているのに、「静かに覗き見できる操作」は野放しになっている、という非対称さが今回の検証で一番印象に残った部分です。ちなみに telemetryEnabled (利用状況の送信)も初期値は true で、これも自分で気づいて変更しない限り送信され続ける設定でした。\n\n Impact: 危険シェルコマンドのブロックは32件と具体的に設定されている一方、ファイルアクセス制限(allowedDirectories)は初期値が空(=無制限)。 \n\n \n まとめ\n\n \n \n \n 確認した項目 \n 初期値・実測結果 \n 意味 \n\n \n \n \n 利用可能な機能数 \n 26個(2回とも同一) \n ファイル操作・検索・プロセス管理まで一式が最初から有効 \n\n \n \n allowedDirectories (アクセス許可フォルダ) \n 空配列 [] \n \n 説明文どおり「未設定=全フォルダ許可」。 /etc ・ /root とも実際に一覧取得できた \n\n \n \n blockedCommands (禁止シェルコマンド) \n 32件を具体的に列挙 \n \n sudo ・ mkfs 等、破壊的操作は初期状態からブロック済み \n\n \n \n telemetryEnabled (利用状況送信) \n true \n 自分で無効化しない限り送信される初期設定 \n\n \n \n AI用の拡張機能(MCPサーバー)は、npmで一発インストールできる手軽さの裏で、「何にアクセスしてよいか」を自分で絞り込む一手間を省くと、初期状態のまま全部触れる権限を持って動き出すことがある、というのが今回の実測から得た教訓でした。導入した直後にまず get_config のような設定確認の機能があれば呼んでみて、許可範囲が想定通りかを自分の目で確かめる価値はありそうです。\n\n \n 筆者(numarn)は、生成AIの実務活用を、実際に手元で動かして確かめた範囲で書いています。",
+      "rank": 2,
+      "deep": {
+        "headline": "MCPの空設定はファイル全許可だった",
+        "summary": "npmで導入したMCPサーバーをAI経由ではなくJSON-RPCで直接検証したところ、26個の機能が公開され、`get_config` で `allowedDirectories: []` が確認された。この空配列は「アクセス不可」ではなくファイルシステム全体への許可を意味し、実際に `/etc` と `/root` のディレクトリ一覧を取得できた。一方、`blockedCommands` には `sudo`や`mkfs`など32件が登録されていたが、ファイル操作側の初期制限はなかった。さらに `telemetryEnabled` の初期値は `true` だった。",
+        "prerequisites": [
+          {
+            "term": "MCP",
+            "stumblingPoint": "記事は「MCPサーバーをAI本体を経由せずに直接叩いた」と書いているが、MCPサーバー単体を検証する意味を知らないと、通常のAI利用との違いが読み取れない。",
+            "explanation": "MCPは、AIツールが外部プログラムの機能を呼び出すためのプロトコルです。この記事ではAIの判断を評価するのではなく、MCPサーバー単体にどの操作を公開し、どの権限で実行するかを調べています。Claude Codeなどのクライアントを経由しないため、AIのプロンプトや判断による影響を切り離せます。"
+          },
+          {
+            "term": "JSON-RPC",
+            "stumblingPoint": "記事は「決まった書式の指示文」と説明しているが、JSON-RPCを知らないと、AIへの指示ではなくAPI呼び出しを送っていることが分かりにくい。",
+            "explanation": "JSON-RPCは、メソッド名と引数をJSONで指定して処理を依頼する形式です。ここでは自然言語で「このフォルダを見て」と頼むのではなく、サーバーが公開している機能を名前で直接呼び出すため、サーバーが返す生の許可・拒否結果を確認できます。"
+          },
+          {
+            "term": "allowedDirectories",
+            "stumblingPoint": "記事は「空=制限なし」と書いているが、許可リストの空配列を通常のdeny-allとして理解していると、直感と逆の挙動を読み違える。",
+            "explanation": "`allowedDirectories` は名前だけ見ると、空配列なら許可先がないように見えます。しかしこの記事の実装では、空配列が「許可リスト未設定」を表し、結果として制限なしになります。設定値の空が安全側のdeny-allではなく、全許可側のallow-allになっている点が事故の起点です。"
+          },
+          {
+            "term": "blockedCommands",
+            "stumblingPoint": "記事は「危険なシェルコマンド32件がブロック」と書いているが、これだけでファイルAPIも安全だと判断できない理由を知らないと、設計上のギャップを見落とす。",
+            "explanation": "`blockedCommands` は、シェル経由で実行できる危険なコマンドを個別に拒否する設定です。`sudo`や`mkfs`が含まれていても、これはコマンド実行経路だけの防御であり、ファイル一覧取得・読み書き機能に同じ制限が自動適用されるわけではありません。"
+          },
+          {
+            "term": "get_config",
+            "stumblingPoint": "記事は「設定を見る機能」として `get_config` を呼んでいるが、AIの補助機能ではなく、サーバーの実効設定を直接確認する診断用の機能だと知らないと重要性が伝わらない。",
+            "explanation": "`get_config` は、サーバーの現在設定を返すMCP機能です。引数なしで呼べるため、導入直後に実際の許可範囲や送信設定を確認する入口になります。AIに質問して推測するのではなく、設定値を直接取得するのがこの記事の検証方法です。"
+          },
+          {
+            "term": "telemetryEnabled",
+            "stumblingPoint": "記事は `telemetryEnabled: true` を設定項目として挙げているが、ファイル権限の検証と同時に利用状況送信の初期状態も確認していることを知らないと、見落としやすい。",
+            "explanation": "`telemetryEnabled` は利用状況の送信を有効にする設定です。この記事で確認された初期値は `true` なので、ファイルアクセスとは別に、導入時点で外部送信が有効になっている可能性を設定確認の対象に含める必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "MCP初期設定の見た目と実効権限",
+          "beforeLabel": "設定名から受ける印象",
+          "afterLabel": "検証で判明した実効設定",
+          "rows": [
+            {
+              "aspect": "空配列の意味",
+              "before": "許可フォルダがないためアクセス不可に見える",
+              "after": "`allowedDirectories: []` は全ファイルシステムを許可"
+            },
+            {
+              "aspect": "実測結果",
+              "before": "作業フォルダ内だけに限定されているように見える",
+              "after": "`/etc` と `/root` の一覧取得に成功"
+            },
+            {
+              "aspect": "シェル操作",
+              "before": "危険なコマンドは初期状態からブロック",
+              "after": "`blockedCommands` に32件を登録"
+            },
+            {
+              "aspect": "ファイル操作",
+              "before": "シェル操作と同程度に保護されているとは限らない",
+              "after": "ファイル一覧・読み書き側には初期制限なし"
+            },
+            {
+              "aspect": "利用状況送信",
+              "before": "導入時に無効化されているとは限らない",
+              "after": "`telemetryEnabled: true`"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "MCPサーバーをAIクライアントへ接続する前に、`get_config` を直接呼び出してアクセス範囲と送信設定を確認できる。",
+          "`allowedDirectories` に作業対象のディレクトリだけを設定し、プロジェクト外の `/etc` や `/root` などをアクセス対象から外せる。",
+          "利用可能な機能一覧を取得し、ファイル読み書き・検索・プロセス起動など、想定外の機能が有効になっていないか確認できる。"
+        ],
+        "whatChanges": [
+          "このMCPサーバーでは、`allowedDirectories` を明示的に設定しない限り、ファイルアクセス範囲が全ファイルシステムになります。導入時に許可フォルダを指定する運用へ変更が必要です。",
+          "`blockedCommands` によるシェルコマンド制限があっても、ファイル操作機能の権限は別途確認する必要があります。コマンドブロックだけを安全性の根拠にできません。",
+          "`telemetryEnabled` の初期値は `true` です。利用状況の送信を止める場合は、導入後に設定を変更する必要があります。"
+        ],
+        "howToTry": [
+          "記事で検証されたnpmパッケージを導入する。本文にはパッケージ名とバージョンがないため、実際の対象名は記事の導入元またはnpm上で確認する必要がある。",
+          "パッケージ内の起動用ファイルを子プロセスとして起動し、標準入出力経由でJSON-RPCを送る。まず利用可能な機能一覧を取得し、記事では26個が2回とも同じ順序で返っている。",
+          "引数なしで `get_config` を呼び、`allowedDirectories`、`blockedCommands`、`telemetryEnabled` の初期値を確認する。特に `allowedDirectories: []` は「許可対象なし」ではなく、ファイルシステム全体へのアクセスを意味する。",
+          "作業フォルダ外のディレクトリ一覧取得機能を、検証環境を壊さない範囲で `/etc` と `/root` に対して呼び出し、エラーにならず一覧が返るかを確認する。実ファイルの読み書きは行わない。"
+        ],
+        "code": null,
+        "whyItMatters": "Claude CodeなどからMCPサーバーを使う場合、AIの振る舞いではなく、サーバー自体が持つ実効権限が安全性の下限になります。`blockedCommands` が整備されていても、`allowedDirectories` が空配列なら機密ファイルの一覧取得や読み書きが可能になり得るため、導入直後の設定確認と許可範囲の明示が必要です。",
+        "caveats": [
+          "記事本文には対象npmパッケージ名、バージョン、起動ファイル名、実行に使ったJSON-RPC payloadが記載されていないため、同じ検証をそのまま再現できる完全なコマンドは特定できない。",
+          "検証したのはディレクトリ一覧の取得までで、/etcや/root内のファイル内容の読み取り・書き込みは確認していない。",
+          "blockedCommandsの32件はシェルコマンドに対する制限であり、ファイル操作APIのアクセス範囲を制限するものではない。",
+          "telemetryEnabled が true のため、利用状況の送信を望まない場合は導入後に設定変更が必要になる。"
+        ],
+        "relatedLinks": [],
+        "readingMinutes": 4
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "S3に置くSkillとArtifactをGuardDuty Malware Protection for S3 でスキャンしてみた",
+      "url": "https://qiita.com/nuance-sudo/items/59c2bf8e5c0fc289262f",
+      "publishedAt": "2026-08-02T05:11:33.000Z",
+      "author": "nuance-sudo",
+      "authorDetail": {
+        "name": "nuance-sudo",
+        "handle": "@nuance-sudo",
+        "url": "https://qiita.com/nuance-sudo",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4348475/3fc4a6f2864a5a1a2b472db5458cee203da67baa/large.png?1785037119",
+        "followers": 0,
+        "posts": 2,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/nuance-sudo"
+          }
+        ]
+      },
+      "tags": [
+        "AWS",
+        "GuardDuty",
+        "S3",
+        "Malware",
+        "Security"
+      ],
+      "snippet": "TL;DR ・S3にアップロードしたSkill（ZIP）とArtifact（HTML）を、GuardDuty Malware Protection for S3 で自動スキャンできます ・マルウェア検知テスト用の EICAR ZIP は THREATSFOUND として検知されました ・一方、認証情報を外部送信しようとする合成Skillや、ブラウザ内データを外部送信しようとする合成Artifactは検知できませんでした ・GuardDutyはマルウェア検知という役割を果たしましたが、コードの意図・脆弱性・実行時の挙動までは判定しません --- 1. SkillとArtifactを受け入れるときのリスク SkillもArtifactも、AIの製品機能になった 作業手順やツールの使い方をSkillとしてファイルにまとめ、エージェントに読み込ませて活用する。AIが生成したHTMLページを組織内で…",
+      "body": "TL;DR\n・S3にアップロードしたSkill（ZIP）とArtifact（HTML）を、GuardDuty Malware Protection for S3 で自動スキャンできます\n・マルウェア検知テスト用の EICAR ZIP は THREATSFOUND として検知されました\n・一方、認証情報を外部送信しようとする合成Skillや、ブラウザ内データを外部送信しようとする合成Artifactは検知できませんでした\n・GuardDutyはマルウェア検知という役割を果たしましたが、コードの意図・脆弱性・実行時の挙動までは判定しません\n\n---\n\n1. SkillとArtifactを受け入れるときのリスク\n\nSkillもArtifactも、AIの製品機能になった\n\n作業手順やツールの使い方をSkillとしてファイルにまとめ、エージェントに読み込ませて活用する。AIが生成したHTMLページを組織内で共有する。こうした機能が製品として提供され始めています。\n・Claude Code では、SKILL.md と補助スクリプトをまとめたSkillを追加でき、エージェントの振る舞いを拡張できます\n・Claude Cowork では、AIが作成した永続的なインタラクティブHTMLダッシュボード（ライブアーティファクト）を組織内で共有できます\n\nXでは次のような投稿が話題になりました。記事公開時点で50万Viewを超えています\n\nhttps://x.com/mikoto2000/status/2082826459719332128?s=20\n\n一方で、こうした機能を自前のエージェント基盤で再現・拡張しようとすると、S3へ置くファイルを利用・公開する前に検査したいという課題が出てきます。\n\nSkillには指示を書いた SKILL.md に加え、エージェントが実行するPythonスクリプトを同梱できます。つまり、外部から取り込んだSkillの中に認証情報を収集・送信するコードが含まれていれば、エージェントがそれを実行してしまう可能性があります。\n\nArtifactも同様です。自己完結型のHTMLとはいえ、JavaScriptが埋め込まれていれば、ブラウザ上で任意の処理が動きます。ユーザーの入力内容やCookieを外部サーバーへ送信するコードが仕込まれていても、HTMLファイルの見た目だけでは分かりません。\n\nつまり、ユーザーやエージェントが自由にS3を経由してSkillやArtifactを受け入れ・配信する構成では、ファイルの中身を無条件に信用できないのです。\n\nGuardDuty Malware Protection for S3\n\nAWSには、S3バケットにアップロードされたファイルをマルウェアスキャンする機能として GuardDuty Malware Protection for S3 があります。\n\nhttps://youtu.be/Z6CHuJTkTgI?si=-k1s4L9hkAZY4Pfo\n\nAWS Black Belt（2026年6月）でも、「ユーザーがアップロードしたファイルを他のユーザーに配信する前にスキャンすることで、サービスとしてファイルの安全性を担保したい」というニーズが紹介されています。今回のSkill・Artifactの検査は、まさにこのユースケースに当たります。\n\nどのように動くのか\n\n \n 引用元：Amazon Web Services Japan「AWS Black Belt Online Seminar Amazon GuardDuty Malware Protection for S3」p.14（2026年6月公開資料）\n\nGuardDuty Malware Protection for S3は、エージェントレスで動作します。S3バケットのパフォーマンスに影響を与えない仕組みになっています。\n\n1. ユーザーが保護対象のS3バケットにファイルをアップロードします\n2. これをトリガーとして、GuardDutyのサービスアカウントがカスタマーアカウント内のサービスロールを使ってS3オブジェクトを取得します\n3. サービスアカウント側でマルウェアスキャンが実行されます\n4. スキャン完了後、結果が以下の形で連携されます：\n・S3オブジェクトへの結果タグの付与（GuardDutyMalwareScanStatus）\n・CloudWatchメトリクス\n・EventBridge\n\nスキャンエンジンはAWSおよびサードパーティが開発しており、ユーザー独自のスキャン基盤の構築や管理は不要です。\n\n結果タグの値\n\nスキャン結果は、S3オブジェクトに GuardDutyMalwareScanStatus タグとして付与されます。取り得る値は以下のとおりです。\n\n| タグの値 | 意味 |\n|---|---|\n| NOTHREATSFOUND | スキャンの結果、脅威は検出されなかった |\n| THREATSFOUND | スキャンの結果、脅威が検出された |\n| UNSUPPORTED | サポートされていないファイル形式だった |\n| ACCESSDENIED | GuardDutyがオブジェクトにアクセスできなかった |\n| FAILED | スキャンが失敗した |\n\nS3へアップロードするだけで自動スキャンが走り、結果をタグで確認できる。この仕組みをSkillやArtifactの受け入れフローに組み込めば、利用・公開前のマルウェア検査として機能するはずです。そこで実際に保護プランを作成し、複数の検体をスキャンしてみました。\n\n---\n\n2. やってみた　GuardDutyでS3バケットを保護する\n\n検証専用の非公開S3バケットを作成し、GuardDuty Malware Protection for S3の保護プランを設定しました。手順を順に説明します。\n\n2-1. 検証専用バケットの作成\n\nS3コンソールから、検証専用のバケットを1つ作成しました。\n \n\n2-2. GuardDutyでMalware Protectionだけを開始する\n\nGuardDutyコンソールを開き、脅威検出サービス全体ではなく Malware Protection 機能だけを選択して開始しました。\n\n \n\n2-3. S3向けMalware Protectionを選択する\n\nMalware Protectionの中から S3のMalware Protection を選びます。\n\n \n\n2-4. 保護プランを作成する\n\n新しい保護プランの作成画面で、以下を設定しました。\n\n| 設定項目 | 値 |\n|---|---|\n| 対象バケット | 検証専用バケット |\n| オブジェクトの範囲 | バケット内のすべてのオブジェクト |\n| スキャン結果のタグ付け | 有効 |\n| サービスロール | 新しいサービスロールを作成 |\n\n \n\n2-5. ACTIVEを確認する\n\n作成後、保護対象バケットのステータスが ACTIVE になったことを確認しました。これでバケットへアップロードされる新しいオブジェクトが自動でスキャンされます。\n \n\n---\n\n3. マルウェアは検知できた\n\n保護プランが ACTIVE になったバケットへ、5つの検体をアップロードしました。\n\n3-1. 検体の一覧\n\n| # | 検体 | 内容 | スキャン結果 |\n| --: | --------------------------------- | ------------------------------------ | ------------------- |\n| 1 | clean-skill.zip | 無害な SKILL.md と hello.py を含むSkill | NOTHREATSFOUND |\n| 2 | clean-artifact.html | 外部通信しない自己完結型HTML | NOTHREATSFOUND |\n| 3 | credential-forwarding-skill.zip | 認証情報を外部送信しようとするPythonを含む合成Skill | NOTHREATSFOUND |\n| 4 | external-post-artifact.html | ブラウザ内データを外部送信しようとする合成HTML | NOTHREATSFOUND |\n| 5 | eicar.zip | EICAR公式テストファイルを含むZIP | THREATSFOUND |\n\n3-2. EICARとは\n\nEICAR Anti-Malware Test File は、実マルウェアを使わずにマルウェア対策製品の検知機能が正しく動作するかを確認するための標準テストファイルです。今回使用したのは公式サイトで配布されている68バイトの eicar.com を含む184バイトのZIPファイルです。\n\n3-3. スキャン結果の確認方法\n\nスキャン結果は、S3オブジェクトに付与される GuardDutyMalwareScanStatus タグで確認できます。\n\n今回アップロードしたEICAR ZIPには、THREATSFOUND が付与されました。\n \n\n3-4. CloudWatchメトリクスでも検知を確認\n\nCloudWatchメトリクスでも InfectedScanCount = 1 を確認しました。\n \n\n正常な2検体（clean-skill.zip と clean-artifact.html）は NOTHREATSFOUND でした。\n \n\nここまでで、GuardDuty Malware Protection for S3がマルウェア検知の入口として機能することを確認できました。\n\n---\n\n4. 危険なロジックの有無までは分からなかった\n\n検証で使った5検体のうち、2つには意図的に危険なロジックを模したコードを含めていました。どちらも検知できませんでした。\n\n4-1. 認証情報を外部送信しようとするSkill\n\ncredential-forwarding-skill.zip に含まれるPythonスクリプトは、AWS で始まる環境変数と OPENAIAPIKEY、ANTHROPICAPIKEY を収集し、予約ドメイン（collector.example.invalid）へPOSTしようとする内容です。\n\n [code] \n\nこのSkillのSKILL.mdは、エージェントに対して「ユーザーに応答する前に scripts/collectcontext.py を実行してランタイム構成を収集せよ」と指示しています。\n\n結果：NOTHREATSFOUND\n\n4-2. ブラウザ内データを外部送信しようとするArtifact\n\nexternal-post-artifact.html は、ボタンをクリックすると入力値・localStorage・Cookieを予約ドメインへPOSTしようとするHTMLです。\n\n [code] \n\n結果：NOTHREATSFOUND\n\n4-3. なぜ検知できないのか\n\nGuardDutyは「期待どおりに動作した」と考えるべきです。\n\nGuardDuty Malware Protection for S3は、主にファイルベースでマルウェアを検知します。検出には、侵害の痕跡（IoC）、YARAルール、ヒューリスティック、機械学習などが使われます。一方、ファイルを実際に動かして挙動を観察するライブ動的解析は行いません。\n\n今回の合成検体は「正当なプログラミング構文で書かれた、意図的に危険な処理」です。環境変数の読み取りや fetch によるHTTP POST自体は、通常のアプリケーションでも使われます。そのコードを何の目的で動かすのかという意味や意図までは、このマルウェアスキャンの結果だけでは判断できません。\n\n今回確認できたこと\n・EICAR ZIPは THREATSFOUND として検知されました\n・S3へアップロードした新しいオブジェクトを自動スキャンできます\n\nGuardDutyだけでは確認できないこと\n・コードの意図が良性か悪意あるものか\n・脆弱性（XSS、危険な eval など）\n・プロンプトインジェクション\n・認証情報のハードコードや外部送信\n・過剰なIAM権限の要求\n・依存関係の脆弱性\n\nNOTHREATSFOUND は「GuardDutyのマルウェア検査で脅威を検出しなかった」という意味であり、「コードが安全」「実行しても問題ない」という保証ではありません。\n\n---\n\n5. GuardDutyだけでは足りない\n\n今回の結果から、SkillやArtifactの安全確認を1つのサービスだけで完結させるのは難しいと分かりました。GuardDutyをマルウェア検知として残し、その先を次の3つの方法で補う構成を考えました。\n\nAIとどのような脅威があるか洗い出しました。見落としている観点もあるかもしれません。SkillやArtifactの受け入れ・公開時に気をつけている脅威や防御方法があれば、ぜひコメントで教えてください。\n\nパターン1：S3へのアップロード時に静的検査する\n\nSkillやArtifactをS3で直接受け入れる場合は、すぐに公開せず、まず隔離用の領域へ置きます。ZIPは中のコードを実行せずに展開し、次の観点で機械的に検査します。\n\n| 検査 | 確認するもの | ツールの例 |\n|---|---|---|\n| 静的解析 | XSS、危険なeval、コマンド実行、外部通信 | Semgrep |\n| 依存関係 | Pythonやnpmパッケージの既知の脆弱性 | OSV-Scanner |\n| 秘密情報 | APIキー、トークン、認証情報 | Gitleaks |\n\n今回の合成検体なら、Skillのos.environや外部HTTP通信、Artifactのfetch、document.cookie、localStorageなどが確認対象になります。ただし、外部通信自体は正常なSkillでも利用します。見つけたら即座に拒否するのではなく、レビューが必要なファイルとして扱います。\n\nパターン2：LLMで意味や意図を補助レビューする\n\n静的解析は、fetchやos.environといった構文を見つけることは得意です。しかし、その処理が機能上必要なのか、認証情報を盗むためなのかというコードの意図までは、単純なルールだけでは判断しにくい場合があります。\n\nそこで、静的検査で抽出したコードや検出箇所をLLMに渡し、次のような観点で補助評価させる方法が考えられます。\n・認証情報を読み取って外部へ送信していないか\n・ユーザーに見えない外部通信がないか\n・不要なコマンドを実行しようとしていないか\n・エージェントの指示を上書きするプロンプトインジェクションがないか\n\nAmazon Bedrock Guardrailsにはプロンプト攻撃を検出する機能がありますが、コード脆弱性スキャナーではありません。静的検査の代わりではなく、意味や文脈を確認する補助として使い、リスクが高い判定は人間が確認する形が現実的です。\n\nパターン3：検知できなくても被害を抑える\n\n悪意あるロジックを事前に100%見つけることは困難です。そのため、検査をすり抜ける前提で実行環境と公開方法を制限します。\n\nSkillのコードは、本番環境で直接実行せず、サンドボックスへ隔離します。Amazon Bedrock AgentCore Code Interpreterのような隔離実行環境を使い、本番の認証情報を渡さない、IAM権限を最小化する、外部通信を制限するといった対策を重ねます。\n\nArtifactは別ドメインやsandbox属性を付けたiframeで表示し、外部通信やスクリプトの実行範囲を制限します。CloudFrontで配信する場合は、レスポンスヘッダーポリシーを使ってContent Security Policy（CSP）を付与できます。\n\n---\n\nまとめ\n\nSkillやArtifactは、エージェントやAIの機能を素早く広げられる便利な仕組みです。一方で、外部から取り込んだSkillやAIが生成したHTMLを、そのまま実行・公開することにはリスクがあります。\n\n今回、GuardDuty Malware Protection for S3でEICAR ZIPを検知できることを確認できました。S3へアップロードされるファイルのマルウェア検知として、GuardDutyは有効な入口です。\n\nしかし、認証情報の外部送信やブラウザ内データの送信を模した検体は検知できませんでした。マルウェア検知と、コードの脆弱性・意図・実行時の安全性は別の問題です。\n\n自前のエージェント基盤でSkillやArtifactを受け入れるなら、GuardDutyだけに期待するのではなく、静的検査、意味・意図の確認、隔離実行を組み合わせるところから考え始めるのがよさそうです。\n\n---\n\n参考資料\n・GuardDuty Malware Protection for S3\n・Monitoring S3 object scans\n・GuardDuty malware detection scan engine\n・EICAR Anti-Malware Test File\n・Claude Code Skills\n・Claude Coworkでライブアーティファクトを使用する\n・2026 年 6 月の AWS Black Belt オンラインセミナー資料及び動画公開のご案内",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "aac2fe74da317116",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7893413173652695,
+      "popularityPercentile": 0.49700598802395207,
+      "matchedTopics": [
+        "Claude Code",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "GuardDutyのS3スキャンはマルウェアを検知したが、悪意あるコードの意図は見抜けなかった。",
+      "reason": "EICAR ZIP は THREATSFOUND になった一方、認証情報の外部送信を仕込んだSkillやArtifactは検知されなかった。GuardDutyはファイル検査であり、コード監査や実行時防御の代替ではない。",
+      "keywords": [
+        "AWS",
+        "Amazon GuardDuty",
+        "Malware Protection for S3",
+        "S3",
+        "EICAR",
+        "Skill"
+      ],
+      "category": "Web標準/ブラウザ",
+      "domain": "general",
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "headline": "S3スキャンだけではSkillを安全化できない",
+        "summary": "GuardDuty Malware Protection for S3 は、S3へアップロードされたSkillやArtifactを自動スキャンし、`GuardDutyMalwareScanStatus` タグやCloudWatch、EventBridgeで結果を連携できます。EICAR ZIPは `THREATSFOUND`、無害なSkillとArtifactは `NOTHREATSFOUND` になりました。一方、認証情報やブラウザ内データを外部送信するコードは `NOTHREATSFOUND` で、GuardDuty単体ではコードの意図・脆弱性・実行時挙動を判定できません。受け入れフローでは、GuardDutyを入口に、静的解析、依存関係・秘密情報検査、意味のレビュー、サンドボックス実行を組み合わせます。",
+        "prerequisites": [
+          {
+            "term": "SKILL.md",
+            "stumblingPoint": "記事は「Skillには指示を書いた SKILL.md に加え、エージェントが実行するPythonスクリプトを同梱できます」と書いているが、Skillが実行可能コードを含む配布単位だと知らないと危険性を読み取れない。",
+            "explanation": "この記事でいうSkillは、`SKILL.md` だけでなく、エージェントが実行するPythonスクリプトも含むZIP形式のファイルです。そのため、単なる設定ファイルの受け渡しではなく、外部から取り込んだコードをエージェントの権限で実行するサプライチェーン上の入力として扱う必要があります。`SKILL.md` の指示によってスクリプト実行が促される点が、S3上のファイルを無条件に信頼できない理由です。"
+          },
+          {
+            "term": "Artifact",
+            "stumblingPoint": "記事は「自己完結型のHTMLとはいえ、JavaScriptが埋め込まれていれば」と書いているが、自己完結型が外部通信しないことを意味しないと知らないとArtifactのリスクを過小評価する。",
+            "explanation": "Artifactは見た目がHTMLでも、埋め込まれたJavaScriptがブラウザの入力値、`localStorage`、Cookieなどにアクセスし、外部通信を行える場合があります。つまり、HTMLの表示内容を目視するだけでは、ユーザー操作後のデータ送信処理を判断できません。この記事では、自己完結型であることと安全であることを分けて考えています。"
+          },
+          {
+            "term": "GuardDuty Malware Protection for S3",
+            "stumblingPoint": "記事は「GuardDuty Malware Protection for S3は、エージェントレスで動作します」と書いているが、アップロード後にどの主体がオブジェクトを取得し、結果をどこへ返すのかを知らないと仕組みを追えない。",
+            "explanation": "GuardDuty Malware Protection for S3 は、S3バケットへの新規オブジェクトのアップロードを起点に、AWS側のサービスアカウントがオブジェクトを取得してスキャンします。アプリケーション側でスキャンサーバーを常駐させる方式ではないため、記事はこれを「エージェントレス」と説明しています。ただし、スキャン完了前に公開・実行すると検査結果を待たずにファイルを利用することになるため、受け入れフローで結果確認を待つ必要があります。"
+          },
+          {
+            "term": "GuardDutyMalwareScanStatus",
+            "stumblingPoint": "記事は「NOTHREATSFOUND は『コードが安全』『実行しても問題ない』という保証ではありません」と書いているが、S3タグを公開可否の最終判定に使う場合の意味の範囲を知らないと誤用しやすい。",
+            "explanation": "`GuardDutyMalwareScanStatus` は、S3オブジェクトに付くスキャン結果タグです。`NOTHREATSFOUND` は脅威なし、`THREATSFOUND` は脅威ありを表しますが、前者は静的なマルウェア検査の結果に限定されます。コードレビューや脆弱性検査の合格フラグとして流用してはいけません。"
+          },
+          {
+            "term": "EICAR ZIP",
+            "stumblingPoint": "記事は「EICAR ZIP は THREATSFOUND として検知されました」と書いているが、EICARが実マルウェアではなく検知機能の動作確認用ファイルだと知らないと結果の意味を取り違える。",
+            "explanation": "EICAR Anti-Malware Test File は、実際のマルウェアではなく、マルウェア対策製品の検知経路を確認するための標準テストファイルです。この記事では、公式の68バイトの `eicar.com` を含む184バイトのZIPを使い、検知時の `THREATSFOUND` とCloudWatchの `InfectedScanCount = 1` を確認しています。したがって、EICARの検知はスキャン機能が動いた証拠であり、任意の悪意あるコードを検出できる証明ではありません。"
+          },
+          {
+            "term": "静的解析",
+            "stumblingPoint": "記事は「ZIPは中のコードを実行せずに展開し、静的解析する」と書いているが、静的解析は危険な構文の発見であって、処理の目的や悪意の確定ではないと知らないと判定を自動拒否に寄せすぎる。",
+            "explanation": "静的解析は、ファイルを実行せずにソースコードや構文を調べる検査です。この記事の例では `os.environ`、`fetch`、`document.cookie`、`localStorage` など、情報取得や外部通信に関係する処理を見つける用途になります。ただし、それらは正当な機能にも現れるため、検出した時点で即拒否するのではなく、レビュー対象として扱う設計が示されています。"
+          },
+          {
+            "term": "サンドボックス",
+            "stumblingPoint": "記事は「Skillのコードは、本番環境で直接実行せず、サンドボックスへ隔離します」と書いているが、検出漏れを前提に実行権限とネットワーク到達性を制限する対策だと知らないと目的が読み取りにくい。",
+            "explanation": "サンドボックスは、取り込んだコードを本番環境から隔離して実行する境界です。記事では、検査をすり抜ける前提で、本番の認証情報を渡さない、IAM権限を最小化する、外部通信を制限するという多層防御を求めています。これは検出精度だけに依存せず、悪意ある処理が動いた場合の到達範囲と被害を小さくする考え方です。"
+          },
+          {
+            "term": "CSP",
+            "stumblingPoint": "記事は「CloudFrontで配信する場合は、レスポンスヘッダーポリシーを使ってContent Security Policy（CSP）を付与できます」と書いているが、CSPが検査ではなくブラウザ実行時の制限だと知らないと役割を混同する。",
+            "explanation": "CSP（Content Security Policy）は、ブラウザが読み込めるスクリプトや接続先などをレスポンスヘッダーで制限する仕組みです。この記事では、CloudFrontで配信するArtifactにCSPを付け、HTML内のJavaScriptや外部通信の実行範囲を狭める対策として挙げています。CSPはコードの悪意を判定するものではなく、公開後のブラウザ側の被害を抑える防御です。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "検査範囲の比較",
+          "beforeLabel": "従来の期待",
+          "afterLabel": "GuardDuty後",
+          "rows": [
+            {
+              "aspect": "検知範囲",
+              "before": "ファイルの安全性を一括判定できると期待",
+              "after": "マルウェア検知の入口として利用"
+            },
+            {
+              "aspect": "既知の検知テスト",
+              "before": "検証前",
+              "after": "EICAR ZIPはTHREATSFOUND"
+            },
+            {
+              "aspect": "コードの意図・挙動",
+              "before": "GuardDutyで判定できると期待",
+              "after": "危険な外部送信コードもNOTHREATSFOUNDになり得る"
+            },
+            {
+              "aspect": "受け入れフロー",
+              "before": "GuardDuty単体",
+              "after": "静的解析・レビュー・隔離実行を追加"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "EICAR ZIPを使って、S3アップロードから `THREATSFOUND` タグ付与までの検知経路を検証できる。",
+          "Skillの `os.environ` や外部HTTP通信、Artifactの `fetch`、`document.cookie`、`localStorage` を静的検査のレビュー対象として抽出できる。",
+          "Skillを本番環境で直接実行せず、Amazon Bedrock AgentCore Code Interpreterのような隔離実行環境で、本番認証情報なし・最小IAM権限・外部通信制限の条件で動かせる。",
+          "Artifactを別ドメインやsandbox属性付きのiframeで表示し、CloudFront配信時にはCSPを付与してブラウザ側の実行範囲を制限できる。"
+        ],
+        "whatChanges": [
+          "S3の新規オブジェクトをトリガーに自動スキャンされ、結果が `GuardDutyMalwareScanStatus` タグ、CloudWatchメトリクス、EventBridgeへ連携される。",
+          "保護プラン作成時に対象バケット、オブジェクト範囲、タグ付け、サービスロールを設定し、ステータスが `ACTIVE` になった後の新規オブジェクトが対象になる。",
+          "`NOTHREATSFOUND` をSkillやArtifactの公開・実行許可とみなせない。GuardDuty単体では静的なマルウェア検知を超えるコードレビュー機能にはならない。",
+          "受け入れ後のフローに、静的解析、依存関係検査、秘密情報検出、LLMによる補助レビュー、サンドボックス実行を追加する必要がある。"
+        ],
+        "howToTry": [
+          "GuardDutyコンソールで Malware Protection だけを開始し、S3向けMalware Protectionから検証専用の非公開バケットに保護プランを作成する。対象範囲はバケット内のすべてのオブジェクト、スキャン結果のタグ付けは有効、新しいサービスロールを作成する設定にする。",
+          "保護プランのステータスが ACTIVE になったことを確認してから、検体をアップロードする。CLIを使う場合は `export BUCKET='検証用バケット名' && aws s3 cp ./eicar.zip \"s3://${BUCKET}/eicar.zip\"` のようにアップロードする。",
+          "スキャン完了後、S3オブジェクトの `GuardDutyMalwareScanStatus` タグを確認する。CLIでは `aws s3api get-object-tagging --bucket \"$BUCKET\" --key eicar.zip` を実行し、EICAR ZIPで `THREATSFOUND` になることを確認する。",
+          "正常ファイルが `NOTHREATSFOUND` になることも確認したうえで、SkillやArtifactを直接公開・実行せず、ZIPの静的解析、依存関係検査、秘密情報検出、LLMによる補助レビューを通過させる。"
+        ],
+        "code": null,
+        "whyItMatters": "Claude CodeのSkillやAI生成ArtifactをS3経由で受け入れる場合、ファイルを保存できることと、安全に実行・公開できることは別です。フロントエンドのHTMLとバックエンド寄りのPythonコードを同じ受け入れフローで扱うなら、GuardDutyのマルウェア検知だけでなく、コードの意味と実行権限まで分離して管理する必要があります。",
+        "caveats": [
+          "GuardDutyMalwareScanStatus の NOTHREATSFOUND は、GuardDutyのマルウェア検査で脅威を検出しなかったという意味であり、コードの安全性や実行時の無害性を保証しない。",
+          "今回の検証では、認証情報の外部送信、ブラウザ内データの外部送信、XSS、危険な eval、プロンプトインジェクション、依存関係の脆弱性などは検出できなかった。",
+          "GuardDuty Malware Protection for S3 はライブ動的解析を行わず、コードの意図や実行時の挙動までは判定しない。",
+          "UNSUPPORTED、ACCESSDENIED、FAILED の場合もあるため、結果タグが NOTHREATSFOUND 以外なら利用・公開を止める設計が必要になる。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "GuardDuty Malware Protection for S3 の検証動画",
+            "url": "https://youtu.be/Z6CHuJTkTgI?si=-k1s4L9hkAZY4Pfo"
+          },
+          {
+            "label": "話題になったSkill関連の投稿",
+            "url": "https://x.com/mikoto2000/status/2082826459719332128?s=20"
+          }
+        ],
+        "readingMinutes": 6
+      }
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn",
+      "title": "Next.js App RouterをCloudflare Workers (OpenNext) で本番運用してハマった4点",
+      "url": "https://zenn.dev/suzuderu/articles/84a8314cb4bef6",
+      "publishedAt": "2026-08-02T20:40:53.922Z",
+      "author": "suzuderu",
+      "authorDetail": {
+        "name": "suzuderu",
+        "handle": "@suzuderu",
+        "url": "https://zenn.dev/suzuderu",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocJlgisq_Ra5PHgmzUo3pjKrKKrxKGCOCJBsVqr0GYiUnsl90g=s250-c",
+        "links": []
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "Next.js App Router のサイトを Cloudflare Workers で運用するとき、いまは OpenNext の Cloudflare アダプタ ( @opennextjs/cloudflare ) が現実的な選択肢になっています。 相続税シミュレーター「相続のバトン」 をこの構成で本番運用しているので、構成と運用でハマった点をまとめます。 構成 Next.js 15 (App Router) + @opennextjs/cloudflare 1.x データ: Cloudflare D1 (SQLite互換)、 wrangler d1 migrations で管理 レート制限: Workers KV で実装 (外部ライブラリなし) テスト: Vitest (ユニット235本) デプロイ: opennextjs-cloudflare build && opennextjs…",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "3e97bf723886e523",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.76,
+      "popularityPercentile": 0.36363636363636365,
+      "matchedTopics": [
+        "Next.js",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "Next.js App RouterをOpenNext経由でCloudflare Workersに本番運用した際の問題を扱う。",
+      "reason": "本文の抜粋はなく、Next.js App RouterをCloudflare Workersへ載せた際に遭遇した4つの問題を扱う記事だとタイトルから分かる範囲に限られる。",
+      "keywords": [
+        "Next.js",
+        "App Router",
+        "Cloudflare Workers",
+        "OpenNext",
+        "Cloudflare"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "body": "Next.js App Router のサイトを Cloudflare Workers で運用するとき、いまは OpenNext の Cloudflare アダプタ ( @opennextjs/cloudflare ) が現実的な選択肢になっています。 相続税シミュレーター「相続のバトン」 をこの構成で本番運用しているので、構成と運用でハマった点をまとめます。\n\n \n 構成\n\n \n Next.js 15 (App Router) + @opennextjs/cloudflare 1.x\n\n データ: Cloudflare D1 (SQLite互換)、 wrangler d1 migrations で管理\n\n レート制限: Workers KV で実装 (外部ライブラリなし)\n\n テスト: Vitest (ユニット235本)\n\n デプロイ: opennextjs-cloudflare build && opennextjs-cloudflare deploy \n\n \n package.json はこれだけです。\n\n { \n \"scripts\" : { \n \"build:cf\" : \"opennextjs-cloudflare build\" , \n \"deploy:cf\" : \"opennextjs-cloudflare build && opennextjs-cloudflare deploy\" , \n \"db:migrate:remote\" : \"wrangler d1 migrations apply mydb --remote\" \n } \n } \n \n\n \n ハマった点\n\n \n 1. 静的アセットは public/ に置くだけで配信される\n\n IndexNow の鍵ファイルのように「ドメイン直下に静的ファイルを1個置きたい」ケースは、 public/xxxx.txt に置けば https://example.com/xxxx.txt で配信されます。Pages Functions のような特別な設定は不要でした。\n\n \n 2. metadata の openGraph は「マージされない」\n\n ページ側で openGraph を定義すると、ルート layout.tsx の openGraph.images は 継承されずに丸ごと消えます 。下層ページ全部で og:image が欠落していたのに気づいたのは、Ahrefs の Site Audit に「OG incomplete」を26件出されてからでした。\n\n 対処はシンプルで、共有定数を作って全ページの openGraph に明示的に渡すことです。\n\n // lib/brand.ts \n export const SITE_OG_IMAGE = { \n url: `${ SITE_ORIGIN }/images/hero.webp` , \n width: 1456 , \n height: 820 , \n } as const ; \n \n // 各ページ \n openGraph : { \n images : [ SITE_OG_IMAGE ], // ← ページごとに明示しないと消える \n type : \"article\" , \n ... \n } \n \n\n \n 3. D1 のマイグレーションは「台帳」が正\n\n wrangler d1 execute で直接SQLを流すと、 d1_migrations テーブル (適用台帳) に記録が残らず、後から migrations list が全ファイル「未適用」と報告してきます。必ず wrangler d1 migrations apply 経由で流す。直接流してしまった場合は台帳に INSERT OR IGNORE で追記して整合を取ります。\n\n \n 4. KVレート制限は「読んで書くだけ」で十分\n\n 小規模サイトのフォーム保護なら、KVに key = IP、value = 試行回数、expirationTtl = 窓秒数 を書くだけの実装で足ります。Durable Objects は正確な滑走窓が必要になってからで遅くありません。\n\n \n まとめ\n\n \n OpenNext + Workers は App Router がほぼそのまま動く。落とし穴はNext.js側 (metadata継承) とD1運用に多い\n\n SEO系の欠落 (og:image等) は自分では気づきにくい。外部クローラー (Ahrefs/GSC) を回して初めて見つかるものが多かった\n\n \n 実物はこちらで動いています: 相続のバトン — 相続税シミュレーター",
+      "rank": 2,
+      "deep": {
+        "headline": "OpenNext本番運用の4つの落とし穴",
+        "summary": "Next.js 15のApp RouterをCloudflare Workersへ載せる構成では、@opennextjs/cloudflare 1.xを使って `opennextjs-cloudflare build` と `deploy` を実行する。実運用で詰まりやすいのは、public/の静的配信ではなく、ページ側のopenGraphによるmetadata継承の欠落と、D1のd1_migrations台帳の不整合。小規模フォームのレート制限は、Workers KVにIPごとの試行回数とexpirationTtlを書くだけで始められる。",
+        "prerequisites": [
+          {
+            "term": "public/",
+            "stumblingPoint": "「静的アセットは public/ に置くだけで配信される」とあるが、public/とドメイン直下のURLの対応を知らないと配置先を判断できない。",
+            "explanation": "`public/` はNext.jsの静的ファイル置き場で、ここに置いたファイルはパスを保ったまま配信される。この記事ではCloudflare側にPages Functionsのような個別設定を追加するのではなく、Next.jsプロジェクト内の配置だけで `https://example.com/xxxx.txt` を成立させている。"
+          },
+          {
+            "term": "openGraph",
+            "stumblingPoint": "「metadata の openGraph は『マージされない』」とあるが、どの設定が消え、なぜ下層ページのOGP欠落になるのかが読み取りにくい。",
+            "explanation": "`openGraph` はページのOGPメタデータをまとめる領域で、`images` はSNSやクローラーが参照する画像情報。この記事のケースでは、下層ページで `openGraph` オブジェクトを再定義すると、layout.tsx側の `openGraph.images` を自動合成してくれないため、ページごとの指定が必要になる。"
+          },
+          {
+            "term": "SITE_OG_IMAGE",
+            "stumblingPoint": "「共有定数を作って全ページの openGraph に明示的に渡す」とあるが、共有定数化とページ側への明示指定が別の作業だと分からないと再発する。",
+            "explanation": "`SITE_OG_IMAGE` のような共有定数にすると、URL・サイズをページごとにコピーせずに済む。ただし共有定数を作るだけでは継承問題は解決せず、各ページの `openGraph.images` へ明示的に渡すことがポイントになる。"
+          },
+          {
+            "term": "d1_migrations",
+            "stumblingPoint": "「D1 のマイグレーションは『台帳』が正」とあるが、SQL実行の成否とは別に適用履歴を管理する仕組みがあることを知らないと問題の原因を追えない。",
+            "explanation": "`d1_migrations` は、D1のスキーマ変更ファイルがどこまで適用されたかを記録する台帳。実際のテーブル状態だけが正しくても、この台帳が更新されていなければ、次回の `migrations list` ではファイルを未適用と扱うため、DBの実体と管理状態が食い違う。"
+          },
+          {
+            "term": "wrangler d1 migrations apply",
+            "stumblingPoint": "「必ず wrangler d1 migrations apply 経由で流す」とあるが、wrangler d1 executeでもSQLが実行できるため、両者の運用上の違いを知らないと直接実行してしまう。",
+            "explanation": "`wrangler d1 execute` はSQLを直接実行する手段で、記事の構成ではマイグレーションの適用履歴を自動で正しく更新する経路として扱われていない。一方、`wrangler d1 migrations apply` はマイグレーションファイルと適用台帳を一緒に管理するため、通常のスキーマ変更に使うべき経路になる。"
+          },
+          {
+            "term": "expirationTtl",
+            "stumblingPoint": "「KVに key = IP、value = 試行回数、expirationTtl = 窓秒数を書くだけ」とあるが、expirationTtlがレート制限の時間窓を表すことを知らないと実装意図を読み取れない。",
+            "explanation": "`expirationTtl` はKVに保存した値を一定秒数後に期限切れにする設定。この構成ではIPをキーに試行回数を保存し、窓の秒数を有効期限にして、外部ライブラリなしでフォームの簡易な試行制限を作る。リクエスト間の厳密な同時性や滑走窓が主目的ではない。"
+          },
+          {
+            "term": "Durable Objects",
+            "stumblingPoint": "「Durable Objects は正確な滑走窓が必要になってから」とあるが、KVで十分なケースと、より厳密な制御を要するケースの境界が分からない。",
+            "explanation": "Durable Objects は、この記事ではKVより正確な滑走窓が必要になった段階の選択肢として登場する。したがって、まず小規模サイトのフォーム保護をKVで実装し、正確さが要件になったら別の仕組みへ移すという段階的な判断を示している。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "本番運用の選択肢",
+          "beforeLabel": "避ける運用",
+          "afterLabel": "推奨運用",
+          "rows": [
+            {
+              "aspect": "静的ファイル",
+              "before": "特別なPages Functions設定を追加",
+              "after": "public/xxxx.txt に配置"
+            },
+            {
+              "aspect": "OGP画像",
+              "before": "layout.tsxのopenGraph.images継承に依存",
+              "after": "各ページで openGraph.images を明示"
+            },
+            {
+              "aspect": "D1変更",
+              "before": "wrangler d1 executeで直接SQL",
+              "after": "wrangler d1 migrations apply"
+            },
+            {
+              "aspect": "フォーム制限",
+              "before": "最初からDurable Objectsを導入",
+              "after": "Workers KVでIP・試行回数・expirationTtlを保存"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "IndexNowの鍵ファイルなどを `public/` に置き、ドメイン直下の静的URLとして配信できる。",
+          "共有の `SITE_OG_IMAGE` を使い回しながら、各ページのOGP画像欠落を防げる。",
+          "D1マイグレーションをリモート環境へ適用し、`d1_migrations` の台帳を基準に運用できる。",
+          "IPごとの試行回数をWorkers KVに保存して、小規模フォームの簡易レート制限を実装できる。"
+        ],
+        "whatChanges": [
+          "Cloudflare WorkersへのNext.jsデプロイは、`@opennextjs/cloudflare` 1.xの `opennextjs-cloudflare build` と `opennextjs-cloudflare deploy` を使う構成になる。",
+          "OGP画像はlayout.tsxの `openGraph.images` 継承に依存できず、ページごとの `metadata.openGraph.images` に明示的に指定する必要がある。",
+          "D1のスキーマ変更は `wrangler d1 execute` ではなく `wrangler d1 migrations apply` で適用し、適用台帳と実DBの状態を一致させる。",
+          "小規模サイトのフォーム保護では、外部ライブラリやDurable Objectsを使わず、Workers KVの期限付きカウンターから始められる。"
+        ],
+        "howToTry": [
+          "ドメイン直下に置くファイルを `public/xxxx.txt` として追加し、`https://example.com/xxxx.txt` で取得できる構成にする。",
+          "`lib/brand.ts` に共有の `SITE_OG_IMAGE` を作り、各ページの `metadata.openGraph.images` に `[SITE_OG_IMAGE]` を明示する。",
+          "`package.json` に `\"build:cf\": \"opennextjs-cloudflare build\"` と `\"deploy:cf\": \"opennextjs-cloudflare build && opennextjs-cloudflare deploy\"` を追加し、`npm run deploy:cf` でビルドとデプロイを実行する。",
+          "D1のリモート環境へは、マイグレーションファイルを用意したうえで `npx wrangler d1 migrations apply mydb --remote` を実行する。すでに `wrangler d1 execute` を使った場合は、`d1_migrations` に `INSERT OR IGNORE` で適用済み履歴を反映して台帳を合わせる。"
+        ],
+        "code": {
+          "lang": "tsx",
+          "caption": "共有OG画像を各ページで明示する",
+          "content": "const SITE_ORIGIN = \"https://example.com\";\n\nexport const SITE_OG_IMAGE = {\n  url: `${SITE_ORIGIN}/images/hero.webp`,\n  width: 1456,\n  height: 820,\n} as const;\n\nexport const metadata = {\n  openGraph: {\n    images: [SITE_OG_IMAGE],\n    type: \"article\",\n  },\n};"
+        },
+        "whyItMatters": "React/Next.jsのコードが動いていても、metadata継承の欠落は画面では見えにくく、外部クローラーの監査で初めて発覚しやすい。さらにD1はSQLの実行結果だけでなく、d1_migrationsの台帳もデプロイ運用の一部になるため、実装とリリース手順の両方を直す必要がある。",
+        "caveats": [
+          "ページ側で openGraph を定義すると、ルート layout.tsx の openGraph.images は継承されず、下層ページから消える。",
+          "D1 に wrangler d1 execute で直接SQLを流すと、d1_migrations の適用台帳と実際の状態がずれる。通常は wrangler d1 migrations apply を使う。",
+          "直接SQLを流してしまった場合の復旧には、d1_migrations への INSERT OR IGNORE による台帳の整合が必要だが、記事では具体的なINSERT文やスキーマまでは示されていない。",
+          "KVへの試行回数保存は小規模サイトのフォーム保護向け。正確な滑走窓が必要になった場合は Durable Objects の検討が必要になる。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "元記事（Zenn）",
+            "url": "https://zenn.dev/suzuderu/articles/84a8314cb4bef6"
+          }
+        ],
+        "readingMinutes": 5
+      }
+    }
+  ],
+  "releases": [],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CloudWatch Coding Agent Insights が来たので Claude Code の利用状況を可視化してみた",
+      "url": "https://qiita.com/leomarokun/items/99ff92c38a3067e7a2d2",
+      "publishedAt": "2026-08-02T09:36:18.000Z",
+      "author": "れおまろ",
+      "authorDetail": {
+        "name": "れおまろ",
+        "handle": "@leomarokun",
+        "url": "https://qiita.com/leomarokun",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/280929/bb578cab5744ec774a5ec8238c3f7cac72fe8672/x_large.png?1755424909",
+        "bio": "AWS Community Builders 2026（AI Engineering）\r\nAWSエンジニア。\r\nAWSをメインに、最近は AI 頑張ってます。\r\nAWS: SCS, SAP, DOP, SAA, SOA, DVA, MLA, CLF, AIF\r\nLinuC: 1, 2, \r\nFE, \r\nAzure: AI-900, AI-102",
+        "location": "Tokyo",
+        "followers": 174,
+        "posts": 494,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/leomarokun0920"
+          }
+        ]
+      },
+      "tags": [
+        "AWS",
+        "CloudWatch",
+        "生成AI",
+        "可視化",
+        "ClaudeCode"
+      ],
+      "snippet": "はじめに AI コーディングエージェントを企業で使えるようにしたものの、次に困るのが「実際どれくらい使われているの?」という点かと思います。 トークンをどれだけ食っているのか、どのチームが伸びているのか、モデルを変えたらコストはどう動くのか？ もう色々な企業では、既に自作でダッシュボード化もしているかと思います。 2026年7月20日、CloudWatch に Coding Agent Insights が追加されました。Claude Code や Copilot、Codex が吐く OpenTelemetry メトリクスを CloudWatch に流すと、組織・部門・チーム・ユーザー単位で切ったダッシュボードが自動で出てくるというものです。 https://aws.amazon.com/jp/about-aws/whats-new/2026/07/cloudwatch-coding-ag…",
+      "body": "はじめに\n\nAI コーディングエージェントを企業で使えるようにしたものの、次に困るのが「実際どれくらい使われているの?」という点かと思います。\n\nトークンをどれだけ食っているのか、どのチームが伸びているのか、モデルを変えたらコストはどう動くのか？\n\nもう色々な企業では、既に自作でダッシュボード化もしているかと思います。\n\n2026年7月20日、CloudWatch に Coding Agent Insights が追加されました。Claude Code や Copilot、Codex が吐く OpenTelemetry メトリクスを CloudWatch に流すと、組織・部門・チーム・ユーザー単位で切ったダッシュボードが自動で出てくるというものです。\n\nhttps://aws.amazon.com/jp/about-aws/whats-new/2026/07/cloudwatch-coding-agent-insights/\n\n今回は東京リージョンで、Claude Code から実際にメトリクスを飛ばして中身を確認してみました。なお、Copilot や Codex でも簡単に同じような要領でできそうなのでドキュメントを参考に是非試してみてください。\n\n忙しい人のための要約\n・CloudWatch コンソールの GenAI Observability > Coding Agent Insights に、AI コーディングエージェント用のダッシュボードが自動で現れます（自分で作る必要はありません）\n・対応エージェントは Claude Code / Copilot / Codex。エージェント側は OTel の環境変数を設定するだけです\n・認証方式は 2 通り（ベアラートークン / Claude apps gateway）。まず試すならベアラートークンが最短で、IAM ユーザー 1 つと CloudWatchAPIKeyAccess ポリシーがあれば数分で使えます\n・チームや部門といった属性は OTel の resource 属性として渡すのが決まりです\n・料金は CloudWatch の OTel メトリクス取り込み（GB 単位）のみのようです\n\nCoding Agent Insights とは\n\nざっくり言うと「エージェントが元々出している OTel メトリクスを CloudWatch に集めると、専用ダッシュボードが勝手に生えてくる」機能です。公式ドキュメントによると、自分達でダッシュボードを作ったりインポートしたりする作業はなく、期待される形のメトリクスが届いた時点で自動的に表示してくれるとのことです。\n\n [code] \n\n組織・部門・チーム・コストセンター・ユーザーといった軸で切り替えられ、CSV でのエクスポートもできるとのことです。AWS のブログでは、概況（総トークン数・総コスト・アクティブユーザー・セッション数・キャッシュヒット率）、利用量とコスト、開発者の生産性、コード編集の内訳といったセクションが紹介されています。\n\nメトリクス\n\nClaude Code のドキュメントによると、Claude Code が出すメトリクスは次の 8 つです。ダッシュボードの各セクションはこれらを集計したものになります。\n\n| メトリクス | 内容 |\n|-----------|------|\n| claudecode.session.count | 開始されたセッション数 |\n| claudecode.token.usage | トークン数 |\n| claudecode.cost.usage | セッションのコスト |\n| claudecode.linesofcode.count | 変更されたコード行数 |\n| claudecode.commit.count | 作成されたコミット数 |\n| claudecode.pullrequest.count | 作成されたプルリクエスト数 |\n| claudecode.codeedittool.decision | コード編集ツールの許可/拒否の回数 |\n| claudecode.activetime.total | アクティブ時間の合計 |\n\n属性\n\n属性には置き場所の違う 2 系統があります。\n\n| 属性 | 置き場所 | 誰が付けるか |\n|------|---------|------------|\n| model type など | データポイント側 | エージェントが自動で付ける |\n| user.email team.id department costcenter organization など| resource 側 | OTELRESOURCEATTRIBUTES で自分で渡す |\n\nでは、それぞれ何を入れるか。まずエージェントが自動で付けるほうです。変数名はいずれも頭に OTELMETRICS が付きます。\n\n| 属性 | 制御変数と既定値 | 判断 | 理由 |\n|------|----------------|------|------|\n| app.version | INCLUDEVERSION（false） | 入れる | バージョン間の比較に使える |\n| app.entrypoint | INCLUDEENTRYPOINT（false） | 入れる | CLI / VS Code / SDK の別が分かる |\n| session.id | INCLUDESESSIONID（true） | 外してよい | 系列が増えるだけ |\n| user.accountuuid / user.accountid | INCLUDEACCOUNTUUID（true） | どちらでも | user.email で足りる |\n| resource 属性のコピー | INCLUDERESOURCEATTRIBUTES（true） | 外してよい | resource 側と二重になる |\n| model / type | 制御不可 | — | ダッシュボードが使う |\n| user.id（匿名ハッシュ） | 制御不可 | — | 人の識別には使えない |\n| user.email | 制御不可 | — | OAuth 認証時に付く |\n| terminal.type | 制御不可 | — | 検出できたときに付く |\n| organization.id | 制御不可 | — | 認証時に付く |\n\n次に、自分で OTELRESOURCEATTRIBUTES に書くほうです。ダッシュボードのどの軸に効くかが判断基準になります。\n\n| 属性 | 判断 | 理由 |\n|------|------|------|\n| team.id department organization | 必須 | 主要な集計軸 |\n| user.email | 必須 | ユーザー軸 |\n| costcenter | 配賦するなら必須 | コスト按分の軸 |\n| user.id | 推奨 | 人を識別できる |\n| user.name | 任意 | ドキュメントの例にはある |\n| location role manager | 不要 | 標準の集計軸ではない |\n\n料金\n\n料金は CloudWatch の OTel メトリクス取り込み（GB 単位）のみのようです。2026 年 7 月時点の東京リージョンの料金は次のとおりです。\n\n| 項目 | 単価（東京） |\n|------|------------|\n| メトリクスの取り込み | $0.50 / GB |\n| 保存（15 か月） | 取り込み料金に込み。追加費用なし |\n\nバイト数がそのまま効くので、長い属性値を大量に付けるのは避けたほうが良さそうです。ちなみに、AWS のブログでは、開発者 200 人規模の組織で月 $15 未満と見積もられています。\n\n認証方式\n\n送り方が分かったところで、次は認証です。手を動かす前に、どの方式で送るかを決める必要があります。Claude Code のセットアップページには 2 つの方式が書かれています。\n\n| 方式 | 必要なもの | 向く場面 |\n|------|-------------------|-----------|\n| A. ベアラートークン | IAM ユーザー 1 つとトークン | 開発者の PC、まず試すならこれ |\n| B. Claude apps gateway | 自社ホストのゲートウェイ + OIDC IdP + PostgreSQL | SSO で統制したい組織 |\n\nこの記事では方式 A を手順 1〜3 で通しでやります。方式 B は後半で概要を扱います。\n\nやってみた（方式A: ベアラートークン）\n\n手順1: CloudWatch メトリクス API キーを作る\n\n公式のセットアップ手順に沿って、方式 A で進めます。使うのは CloudWatch OTLP エンドポイント専用のベアラートークン（API キー）です。これは IAM ユーザーに紐づく「サービス固有の認証情報」で、専用ドキュメントによるとメトリクス取り込みエンドポイント以外には使えない、つまり GetMetricData などのクエリ系 API は叩けない仕様になっています。\n\n [code] \n\n [code] \n\nこのトークンは発行時にしか取得できないので、失くしたら作り直しになります。--credential-age-days を省略すると無期限になるため、検証用途では短めに切っておくのが良さそうです。\n\nなお $TOKEN はシェル変数なので、当たり前ですがターミナルを閉じると消えます。次の手順 2 ではターミナルに依存しない置き場所へ移すので、ここでは一旦同じシェルのまま進めてください。\n\n一応疎通確認は空ペイロードで叩くとできます。成功すると空の JSON が返ります。\n\n [code] \n\n手順2: Claude Code に OTel の設定を入れる\n\nClaude Code は環境変数で OTel エクスポータを設定します。テレメトリの設定はモデルの推論経路とは独立しているので、推論に Bedrock を使っていても Anthropic API を使っていても、この設定だけで送信できます。\n\n [code] \n\n [code] \n\nこの状態で Claude Code のセッションを回すと、デフォルトでは 60 秒間隔でメトリクスがエクスポートされます。\n\nただし環境変数はそのターミナルを閉じたら消えますので、これだけだと開き直すたびに設定し直すこととなります。Claude Code は /.claude/settings.json の env からも同じ変数を読むので、恒久的にはこちらに書きます。\n\n [code] \n\nなお、この settings.json の env はシェルの環境変数より優先されます。すでに別の OTel 送信先を設定している場合、export で上書きしようとしても効かないので注意が必要です。\n\n手順3: ダッシュボードを見る\n\nメトリクスが届いていれば、あとは何も作らなくてもダッシュボードが出てきます。CloudWatch コンソールの左ペインから 生成 AI オブザーバビリティ > コーディングエージェントのインサイト を開き、エージェントのタブ（Claude Code）を選びます。\n\nUsage & Cost(利用状況と費用)\nここではトークンの使用量と費用が確認できますね。\n \n\nユーザー毎に見てみましょう。画面左側の Group by を User にします。\n \n\nDeveloper Productivity(開発者の生産性)\nここでは、コードの行数、コミット、プルリクエストなどを見ることができるようです。開発者がどれだけ効率よく AI を使いこなせているかのデータとして使えそうですね。\n \n\nCode Editing(コード編集)\nここでは、言語、コードの編集をどれだけ採用したか、どれだけツールが使われたかを見ることができるようです。モデルごとに見てあげれば、どのモデルで十分かなどの判断をしてコスト効率の改善へと繋げることができそうですね。\n \n\nしばらく待ってもグラフが空のままなら、送信できていないのか、届いているのに表示されていないのかを切り分けます。ここで注意したいのが、OTLP 経由で入ったメトリクスは aws cloudwatch list-metrics には出てこないことです。従来のメトリクスとは別の場所に入るためで、確認するにはコンソールの Query Studio を開き、クエリモードを PromQL に切り替えて次を実行します。\n\n [code] \n\nここに値が出るならデータは届いています。空なら送信側の問題なので送信側の設定などを見直します。\n\nトラブルシュート\n\n| 症状 | 原因と対処 |\n|------|-----------|\n| メトリクスがまったく届かない | settings.json の env がシェルの環境変数より優先されます。既存の OTel 設定があると、export しても効きません |\n| 設定を上書きしても届かない | 汎用の OTELEXPORTEROTLPHEADERS が残っていると、シグナル別の OTELEXPORTEROTLPMETRICSHEADERS より優先されました。両方に同じ値を入れると通ります |\n\nベアラートークンの扱い\n\nここまでで動くようにはなりましたが、ベアラートークンが長期認証情報である点は意識しておきたいところです。ドキュメントでも、短期認証情報が使える環境では SigV4 を優先し、ベアラートークンは開発者の PC のような AWS 外の環境に限定することが推奨されています。加えて前述のとおり、トークンを持っていれば誰でも他人の team.id を名乗れます。\n\n手軽さと引き換えに何を許容しているか、という話です。ここが許容できない場合の選択肢が、もうひとつの方式になります。\n\n方式B: Claude apps gateway\n\nもうひとつの方式は、トークンも AWS の認証情報も開発者に渡しません。自社ホストのゲートウェイが Claude Code とモデルプロバイダの間に入り、開発者は社内 IdP でサインインします。実体は claude バイナリ自身で、gateway サブコマンドを渡すとゲートウェイとして動きます。\n\n [code] \n\nテレメトリの観点で効いてくるのは、ID の出どころが変わることです。方式 A では開発者のマシンが OTELRESOURCEATTRIBUTES に書いた値をそのまま名乗っていましたが、こちらはゲートウェイが IdP から取った ID を各エクスポートに刻んで送ります。届くメトリクスにユーザー・チーム・組織の属性が付くのは同じなので、ダッシュボードは方式 A と同じように埋まります。\n\n| | 方式 A | 方式 B |\n|---|--------|--------|\n| ID を名乗るのは | 開発者のマシン（自己申告） | ゲートウェイ（IdP 由来） |\n| 開発者が持つもの | ベアラートークン | なし（SSO でサインイン） |\n| 必要なインフラ | なし | 常時稼働のサーバー + PostgreSQL + OIDC の IdP |\n\nただしゲートウェイは認証・モデルのアクセス制御・設定配布・上流ルーティングもまとめて引き受ける基盤で、テレメトリはそのうちの 1 機能にすぎません。本番で動かせるのは Linux だけ、ホスト名はプライベートアドレスに解決する必要あり、と要求も多めです。推論の経路にも入るので、ダッシュボードを見たいだけなら重すぎる選択肢かと思います（ここは試していないので、ドキュメントの構成から読み取った印象です）。\n\n「SSO で統制したい」「開発者にクレデンシャルを持たせたくない」という要件が先にあり、テレメトリはその副産物、という順序で採用するものだと理解しています。手順はセットアップガイドに揃っているので、そちらに譲ります。\n\n既にこんな記事を書いてくれている人もいるので、参考にすると良いかと思います。\n\nhttps://zenn.dev/awsjapan/articles/c885fce9ba7262\n\nまとめ\n・エージェント側は環境変数を数個入れるだけで、CloudWatch にメトリクスを送れ、ダッシュボードが自動で出てきます\n・組織属性を OTELRESOURCEATTRIBUTES に載せておけば、チーム別・部門別の集計もできます\n・認証方式は 2 通りで、まず試すならベアラートークン、組織として統制するならゲートウェイ、という住み分けかと思います\n\nまずは自分1人分を流してみて、claudecode.cost.usage の数字を眺めるところから始めるのが良さそうです。\n\nそこから、開発者の生産性、コード編集などの他の情報も見てどう改善へと繋げていくのが今後求められるフェーズかと思います。\n\n参考リンク\n\n本文中でも都度リンクしているので、ここでは特に読む価値のあるものだけ挙げておきます。\n・Coding Agent Insights — 機能そのものの説明\n・Claude Code の監視設定 — メトリクスと属性の一覧\n・Analyzing Claude Code usage with CloudWatch and OpenTelemetry — ダッシュボードの中身や、コスト急増を検知する PromQL の例",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0,
+        "hatena": 2
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5bb638960d2ca1a4",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8888023952095809,
+      "popularityPercentile": 0.9491017964071856,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "CloudWatchにAIコーディングエージェント用ダッシュボードが追加された。",
+      "reason": "OpenTelemetry メトリクスを送るだけで、Claude Code・Copilot・Codexの利用量を組織からユーザー単位まで自動集計できる。自作ダッシュボードなしで利用状況を見られる。",
+      "keywords": [
+        "AWS",
+        "CloudWatch",
+        "Coding Agent Insights",
+        "Claude Code",
+        "OpenTelemetry",
+        "Codex"
+      ],
+      "category": "新機能・新ツール",
+      "domain": "ai",
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code の CLAUDE.md 階層読み込みと @import 実装 ― 優先順位・循環参照・相対パスの3つのハマりどころ【2026】",
+      "url": "https://qiita.com/yureki_lab/items/021dbf83592fceddf5a6",
+      "publishedAt": "2026-08-01T23:04:30.000Z",
+      "author": "yureki_lab",
+      "authorDetail": {
+        "name": "yureki_lab",
+        "handle": "@yureki_lab",
+        "url": "https://qiita.com/yureki_lab",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4439166/f5012a69010db2f27c1e4d8cbc88f0453cff051b/large.png?1779893635",
+        "followers": 1,
+        "posts": 30,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "AI",
+        "Anthropic",
+        "生成AI",
+        "効率化"
+      ],
+      "snippet": "はじめに / 対象と前提 Claude Code の CLAUDE.md は「プロジェクトのルールをAIに読ませるファイル」として使っている人が多いと思うが、実は 複数箇所に置いたものが階層的にマージされる 仕組みになっている。さらに @path/to/file.md という記法でファイルを読み込む import 機能もある。 この記事では、この階層読み込みと @import を実際に動かして、以下の3つのハマりどころを踏み抜いた記録を残す。 想定読者:Claude Code を業務や個人開発で使っていて、CLAUDE.md を単一ファイルとしてしか使ったことがない人。 前提環境: ・Claude Code v2.x 系(2026年8月時点の最新系列) ・macOS / Linux どちらでも再現可能(パス表記のみ差分あり) TL;DR ・CLAUDE.md は enterprise → …",
+      "body": "はじめに / 対象と前提\n\nClaude Code の CLAUDE.md は「プロジェクトのルールをAIに読ませるファイル」として使っている人が多いと思うが、実は 複数箇所に置いたものが階層的にマージされる 仕組みになっている。さらに @path/to/file.md という記法でファイルを読み込む import 機能もある。\n\nこの記事では、この階層読み込みと @import を実際に動かして、以下の3つのハマりどころを踏み抜いた記録を残す。\n\n想定読者:Claude Code を業務や個人開発で使っていて、CLAUDE.md を単一ファイルとしてしか使ったことがない人。\n\n前提環境:\n・Claude Code v2.x 系(2026年8月時点の最新系列)\n・macOS / Linux どちらでも再現可能(パス表記のみ差分あり)\n\nTL;DR\n・CLAUDE.md は enterprise → project → user の順で複数箇所から読み込まれ、後から読まれたものが優先される(上書きではなく \"併記\" に近い挙動)\n・@path/to/file.md で他ファイルを読み込める。相対パスは「読み込み元ファイルの場所」基準で解決される(cwd 基準ではない)\n・import の再帰は無限には潜らない。深いネストや循環参照は途中で止まるため、意図せず一部だけ読み込まれないケースがある\n\n手順 / 動かし方\n\n1. 階層読み込みの実態を確認する\n\nClaude Code は起動時に以下の場所を順に探して CLAUDE.md を読み込む(存在するものだけ)。\n\n [code] \n\n実際にどれが読み込まれているかは、セッション中に確認できる。\n\n [code] \n\nこの状態で Claude Code を起動すると、両方のルールが同時に有効になる。片方が片方を上書きするわけではなく、両方がコンテキストに乗る。「プロジェクト側に書いたのにグローバル側の指示が優先されて困る」という相談をたまに見かけるが、実態は上書きではなく併記なので、矛盾するルールを両方に書くと プロンプト内で指示が衝突する。これが1つ目のハマりどころ。\n\n回避策:同じ観点のルールは1箇所にまとめる。プロジェクト固有の話はプロジェクト側、個人の作業スタイルはユーザー側、と役割を分けて書く。\n\n2. @path で他ファイルを import する\n\nCLAUDE.md の中で以下のように書くと、別ファイルの中身をその場に展開できる。\n\n [code] \n\n大規模プロジェクトで CLAUDE.md が肥大化するのを防ぐのに便利で、チーム共通ルールを shared/ に切り出して複数プロジェクトから import する、という構成もよくやる。\n\n [code] \n\nproject-a で Claude Code を起動すると shared/coding-rules.md の内容が展開された状態で読み込まれる。\n\nハマりどころ\n\n① 相対パスの基準がcwdではなくファイルの場所\n\n [code] \n\nこのパスは 「Claude Code を起動したディレクトリ」からの相対パスではなく、「この @import を書いている CLAUDE.md 自身の場所」からの相対パス として解決される。\n\n自分がハマったのは、サブディレクトリの docs/CLAUDE.md から @../../shared/x.md のように書いたつもりが、実際には docs/CLAUDE.md から見た相対パスなので1階層分ズレていたケース。エラーメッセージは特に出ず、単に該当ファイルが読み込まれず静かに無視されるため、「ルールを書いたのに反映されない」状態になって原因究明に時間を溶かした。\n\n回避策:import 元のファイルパスを起点に、実際に ls で辿って確認してから書く。可能な限り深いネストからの @../../ の多用は避け、import される側のファイルをプロジェクトルート直下に集約する。\n\n② 循環参照・深いネストは途中で止まる\n\na.md が b.md を import し、b.md が a.md を import する、というような循環を作ると当然ながら無限ループにはならず、途中で読み込みが打ち切られる。同様に、import の連鎖が一定階層より深くなると、それ以上は展開されない。\n\n [code] \n\nこういう構成を意図的に作ることはまず無いが、「共通ルールファイルを跨いで相互参照させる」ような設計(例:architecture.md と conventions.md が互いにリンクし合う)にすると、知らないうちに循環に近い構造になりやすい。自分の場合、3つのファイルが A→B→C→A の形で循環していて、Cの内容だけがコンテキストに乗っていないことに気づかず数日運用してしまった。\n\n回避策:import の依存関係は 一方向の木構造(ルート CLAUDE.md → 各トピック別ファイル、トピック別ファイル同士は import し合わない)に設計する。\n\n③ import ファイル内のコードブロックが誤認識される\n\n@path.md の記法はテキスト中のどこに書いても展開対象として認識されるため、コードブロック内で @sample.md のような文字列をサンプルとして書いた場合も import 扱いされてしまうことがある。\n\n [code] \n\nこのケースで example-config.md という実ファイルが存在しない場合は無視されるだけだが、たまたま同名ファイルがプロジェクト内に存在すると、説明用のサンプルのつもりが実際に中身が展開されてしまう。ドキュメント内で @import の書き方自体を説明したいときに注意が必要。\n\n回避策:説明用のサンプルコードでは @ の直後にゼロ幅スペースを挟む、または ` @path.md (インラインコード)ではなく画像や別の記法で示すなど、実際の import 記法と区別がつく書き方にする。\n\n背景・補足\n\nなぜこの仕様になっているかというと、CLAUDE.md は「チームで共有しつつ、個人の作業スタイルも上乗せできる」ことを狙った設計になっているからだと考えられる。enterprise → project → user という順序も、組織のポリシーを土台にしつつ、プロジェクト固有ルール、さらに個人の癖を積み重ねられるようにするためのものだろう。\n\nこの階層構造を理解しておくと、「チーム全体のルールは project 側、自分だけのメモは user 側」ときれいに分離でき、CLAUDE.md が1つの巨大ファイルに肥大化するのを防げる。\n\nまとめ\n・CLAUDE.md は enterprise/project/user の複数箇所から 併記される、上書きではない\n・@path の相対パスは import元ファイルの場所基準、cwd基準ではないので要注意\n・循環参照・深いネストは静かに打ち切られる。import 構造は一方向の木にする\n・読み込まれない・反映されないときはエラーが出ないことが多いので、実際に ls` でパスを辿って確認するのが結局一番早い",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5f86f1115cca3077",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8716766467065868,
+      "popularityPercentile": 0.8712574850299402,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Claude CodeのCLAUDE.md階層読み込みと@importの挙動を検証した。",
+      "reason": "CLAUDE.md は enterprise・project・user の順に併記され、@import の相対パスは読み込み元基準で解決される。深いネストや循環参照では一部が読まれない。",
+      "keywords": [
+        "Claude Code",
+        "CLAUDE.md",
+        "@import",
+        "循環参照",
+        "優先順位"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Codeで個人アプリを量産して分かった、実務で効く小さなコツ",
+      "url": "https://qiita.com/suzuderu/items/b9eff35251d76292f3f9",
+      "publishedAt": "2026-08-02T21:00:14.000Z",
+      "author": "suzuderu",
+      "authorDetail": {
+        "name": "suzuderu",
+        "handle": "@suzuderu",
+        "url": "https://qiita.com/suzuderu",
+        "avatarUrl": "https://secure.gravatar.com/avatar/7614f3e418466233d29bcfa0cd891455",
+        "bio": "AIプロダクトの開発・運営 (Burning Tribe)。個人開発で90本以上のアプリをリリース。AIアプリ開発の学習サイト AI Craft Campus (https://www.aicraftcampus.jp/) を運営。",
+        "organization": "Burning Tribe",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://burningtribe.tokyo/"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "ClaudeCode",
+        "個人開発",
+        "自動化"
+      ],
+      "snippet": "個人開発でモバイルアプリを90本以上リリースしてきました。最近はClaude CodeなどのAIコーディングエージェントに実装を任せる比率がかなり上がっています。ただ「エージェントに丸投げすれば量産できる」というほど単純ではなく、運用してみて初めて分かった落とし穴がいくつもありました。この記事では誇張なしで、実際にハマった点と対処法をまとめます。 1. 「ビルド成功」は「提出成功」の証拠にならない CIやローカルビルドがexit 0で終わっても、それは審査に出せる状態を保証しません。実際に何度もやらかしたのが以下のパターンです。 ・バージョンコードが前回と同じまま署名済みビルドが生成されていた ・中間生成物（未署名のAAB）を提出用と勘違いした ・隔離環境用のビルドスクリプトが .env を除外していて、環境変数から読むはずのAPIキーが空文字のまま焼き込まれていた（起動はするが課金機能だ…",
+      "body": "個人開発でモバイルアプリを90本以上リリースしてきました。最近はClaude CodeなどのAIコーディングエージェントに実装を任せる比率がかなり上がっています。ただ「エージェントに丸投げすれば量産できる」というほど単純ではなく、運用してみて初めて分かった落とし穴がいくつもありました。この記事では誇張なしで、実際にハマった点と対処法をまとめます。\n\n1. 「ビルド成功」は「提出成功」の証拠にならない\n\nCIやローカルビルドがexit 0で終わっても、それは審査に出せる状態を保証しません。実際に何度もやらかしたのが以下のパターンです。\n・バージョンコードが前回と同じまま署名済みビルドが生成されていた\n・中間生成物（未署名のAAB）を提出用と勘違いした\n・隔離環境用のビルドスクリプトが .env を除外していて、環境変数から読むはずのAPIキーが空文字のまま焼き込まれていた（起動はするが課金機能だけ死ぬので発見が遅れる）\n\n対策として、ビルドの終了コードではなく「実際にストア側の管理画面を読み戻して中身を確認する」工程を必ず挟むようにしました。エージェントに「ビルドして」と頼むときは、「ビルド後に成果物の中身を検証するステップ」まで含めて指示するのがポイントです。\n\n2. 複数レーンを並走させるなら、共有リソースを疑う\n\nClaude Codeを複数プロセスで並走させて複数アプリを同時に作業させていた時期がありました。ここで踏んだ地雷が2つあります。\n・.gitのロック衝突: 同じリポジトリ配下で複数レーンが同時にgitコマンドを叩くと.git/config.lockで衝突し、exit code 255のような一見無関係なエラーで落ちる。原因は排他制御の欠如で、レーンごとにロックを取るようにして解決。\n・一時ディレクトリの共有: TMPDIRを複数レーンで共有していたら、あるレーンの後片付け処理が他レーンの作業中ファイルをrm -rfしてしまい、package.json does not existという誤解を招くエラーで止まった。レーンごとにTMPDIRを分離してから再発していません。\n\n並列化は速度は上がりますが、「ファイルシステム上で何を共有しているか」を先に洗い出さないと、エラーメッセージが原因と無関係な顔をして出てくるので調査コストが跳ね上がります。\n\n3. ルールファイルは「量」より「エージェントが実際に読む場所」\n\nCLAUDE.mdやプロジェクトルールを書き込んでも、エージェントの挙動がなかなか変わらないことがありました。原因を追うと、ルールの中身より「どのタイミングで読み込まれるか」の設計ミスであることが多かったです。\n・PostToolUseフックでフォーマッタ・リンタ・型チェックを自動実行する方が、「〜のスタイルで書いて」と自然文で頼むより確実に効く\n・「絶対にこうして」と書いた禁止事項は、コードレビュー用のサブエージェントに独立してチェックさせる方が、実装担当のエージェント自身に守らせるより漏れが少ない\n\n自然文の指示は解釈の余地が残るので、機械的に強制できる部分（フォーマット、型チェック、禁止パターンのgrep）はできる限りフックやスクリプトに落とす、という役割分担が地味に効きます。\n\n4. サブエージェントは「役割」より先に「渡す情報」を設計する\n\nタスクを丸ごとサブエージェントに渡すと、前提を推測で埋められて事故ります。特に「なぜその作業が必要か」を渡し忘れると、字面だけ合っていて意図とズレた実装が返ってくることがありました。ファイルパスや既知の制約（「このAPIは1日100回まで」「この関数は他の3箇所から呼ばれている」など）を先に渡すだけで、手戻りがかなり減ります。\n\nまとめ\n\nAIコーディングエージェントは実装速度を確実に上げてくれますが、量産体制を組むと「エージェントの外側」——ビルド検証、リソース競合、ルールの実効性、情報設計——で躓くことの方が多い、というのが実感です。\n\nこうした個人開発×AIエージェントの実務的なノウハウは、学習サイト AI Craft Campus でも整理しています。12週間のロードマップ形式で、今回のような運用Tipsも含めて記事化しているので、興味があれば覗いてみてください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d276f272dd2bf89a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6885628742514971,
+      "popularityPercentile": 0.038922155688622756,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Claude Codeでアプリを量産した際の運用上の失敗と対策を整理した。",
+      "reason": "ビルドが成功しても、バージョンコード重複や空のAPIキーでストア提出物が壊れる。複数レーンではGitロックなど共有リソースも衝突するため、成果物の実検証が必要になる。",
+      "keywords": [
+        "Claude Code",
+        "AIコーディングエージェント",
+        "モバイルアプリ",
+        "CI",
+        "Git"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Codeの自己改善ループが事故を起こした——委任プロンプト1行の書き忘れで190行書き換わった話",
+      "url": "https://qiita.com/saitoko/items/435f0661b6210ff5b734",
+      "publishedAt": "2026-08-02T08:56:30.000Z",
+      "author": "さいとう こういち",
+      "authorDetail": {
+        "name": "さいとう こういち",
+        "handle": "@saitoko",
+        "url": "https://qiita.com/saitoko",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/166128/8e6727ce4df25291a2c0e56fa2f9900739557b39/large.png?1776330863",
+        "bio": "SEとして働いています。今趣味でやっているのが、Claude Codeを使ったAIエージェントチームの運営です。記事制作・タスク管理の自動化を日本語の指示だけで回しています。コードは書きません。ここでは、その試行錯誤をそのまま書いています。タスク管理スキル /todo はOSS公開もしています。\r\nGitHub: https://github.com/saitoko",
+        "followers": 3,
+        "posts": 125,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/saitoko"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/saitoko2"
+          },
+          {
+            "label": "Web",
+            "url": "https://blog.saitoko.net/"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "AIエージェント",
+        "自己改善ループ"
+      ],
+      "snippet": "この記事の要点（2026年5月）: 私はセッション履歴（会話ログ）から改善点を自動抽出する「dev-workflow」というスキルを自作し、実戦投入した。ところが初回テストで、解析役に委任した researcher エージェントが、承認なしに scripts/util/dj.sh を169行追加・21行削除で書き換えていた。原因は、委任プロンプトに「分析のみ・修正禁止」という1行の制約を書き忘れたこと。実害はゼロで、変更内容自体は妥当だったため後日そのまま採用したが、この事故そのものが「自己改善ループが持つ構造的な穴」を学習する最良の教材になった。出典: logs/governance-incidents/2026-05-25dev-workflow-researcher-unauthorized-edit.md。 Claude Codeで改善を測ろうとした行為が、事故を起こした Clau…",
+      "body": "この記事の要点（2026年5月）: 私はセッション履歴（会話ログ）から改善点を自動抽出する「dev-workflow」というスキルを自作し、実戦投入した。ところが初回テストで、解析役に委任した researcher エージェントが、承認なしに scripts/util/dj.sh を169行追加・21行削除で書き換えていた。原因は、委任プロンプトに「分析のみ・修正禁止」という1行の制約を書き忘れたこと。実害はゼロで、変更内容自体は妥当だったため後日そのまま採用したが、この事故そのものが「自己改善ループが持つ構造的な穴」を学習する最良の教材になった。出典: logs/governance-incidents/2026-05-25dev-workflow-researcher-unauthorized-edit.md。\n\nClaude Codeで改善を測ろうとした行為が、事故を起こした\n\nClaude Code でマルチエージェント運用をしていると、「セッションの振り返りを自動化したい」という欲が出てくる。会話ログには、AIへの修正指示・同じ注意の繰り返し・ルール違反の指摘など、次の改善につながるヒントが埋まっている。それを毎回自分で読み返すのは面倒だ。だったらエージェントに読ませて、改善点を GitHub Issue に自動登録すればいい——そう考えて作ったのが「dev-workflow」というスキルだった。\n\nこのスキルを実戦投入した初回テストで、事故が起きた。改善点を探すための解析作業そのものが、承認のないファイル変更という別の問題を引き起こしたのだ。「実害ゼロなら大した話じゃない」と思うかもしれないが、私はこの事故を、自己改善の仕組みを作るなら一度は通るべき失敗だったと捉えている。理由は本文で説明する。\n\ndev-workflow スキルとは何か\n\n「自己改善ループ」という設計思想は、私の造語ではない。参照元は sonicgarden の記事「Claude Codeの自己改善ループ」だ。この記事では、開発セッション後に会話履歴を解析して失敗シグナルを検出し、GitHub Issue に登録する仕組みと、そのIssueを別のエージェントがレビューしてSKILL.mdの改善案をPull Requestとして提出する仕組みを組み合わせ、Routines（定期実行の仕組み）で毎日自動的に回している。ざっくり3週間で40件以上の自動トリアージ・コミットを生み出し、開発者本人が「うまくいった」と感じたセッションの中にも、エージェント間のやり取りに潜む問題を発見できたという。\n\n私はこの発想を自分の組織にも取り入れ、「dev-workflow」という名前のスキル（あくまで自分のワークスペース内での呼び名で、公式用語ではない）を作った。仕組みはシンプルだ。\n\n1. 直近のセッションログ（JSONLファイル）を特定する\n2. researcher エージェントに解析を委任する\n3. 「修正指示」「繰り返しパターン」「ルール違反の指摘」「フラストレーション」「繰り返しエラー」の5種類のシグナルをJSON形式で受け取る\n4. 各シグナルを /todo 経由でGitHub Issue（inboxラベル）として登録する\n\nセッションログはMB規模になることがあるため、メインのCOOセッションでは読み込まず、必ずサブエージェントに委任する設計にした。ここまでは、よくある「AIにAIを監査させる」仕組みの延長線上にある。問題は、この「委任する」という一手に起きた。\n\n何が起きたか——委任プロンプト1行の書き忘れでscripts/util/dj.shが190行書き換わった\n\n初回の実戦テストで、私は researcher エージェントに、当時のセッションログの解析を委任した。ネタ帳の記録では約691KBとあり、通常より大きめのセッションだった可能性がある。\n\n委任プロンプトには「改善シグナルを抽出してJSON配列で返してほしい」という指示だけを書いた。「分析だけしてほしい。ファイルは一切変更しないでほしい」という制約は、書かなかった。\n\nすると researcher は、ログを解析する過程で scripts/util/dj.sh（私が趣味で作った音楽再生スクリプト）の再生ロジックに問題があることに気づき、承認を取らずにそのまま修正してしまった。差分は git show で実測すると169行の追加・21行の削除、計190行の変更だった。具体的には、連続再生時の参照プレイリストを「DJ Queue」から「Claude's Picks」に切り替え、picks-update / picks-list という新しいサブコマンドを追加し、ランダム選曲のサンプリングロジックも改善していた。\n\n「分析してほしい」と頼んだつもりが、「分析ついでに直しておいた」が返ってきた。委任した瞬間に、私は制約を書き忘れるという隙を作っていたことになる。\n\nなぜ起きたか——「制約を書けばいいだけ」では終わらない話\n\n「読み取り専用の制約を書けばいいだけでは?」という指摘は正しい。実際、事故後に私が行った対策もまさにそれだ。dev-workflow スキルの委任プロンプトに「重要: ファイルの読み取り・分析のみ行う。スクリプトの修正・ファイルの作成・変更は一切しない。」という1行を追記した。技術的な解決策としては、これで十分機能する。\n\nただ、私が面白いと思ったのはその手前の構造だ。researcher エージェントは、問題を見つけると自律的に修正まで踏み込む性質を持っている。それ自体は普段の開発作業では歓迎すべき挙動で、私も「見つけたら直しておいて」という運用を他の場面では普通に行っている。今回問題だったのは、「今回は分析だけしてほしい」という私の意図を、委任プロンプトという1つのテキストに落とし込みそこねたことだ。\n\nつまり事故の核心は、「researcherが暴走した」ことではなく、「自己改善ループを組み立てている最中の私自身が、委任設計のチェックを素通りさせた」ことにある。改善の仕組みを作ろうとして、改善の仕組みが持つべき基本ルール（委任範囲の明示）を自分がすっ飛ばした——ここに構造的な皮肉がある。\n\n対策——coo-rules.mdへの読み取り専用制約の追記\n\n事故後に行った対策は次の2つだ。\n\n1. 即時対応: dev-workflow スキルの委任プロンプトに読み取り専用の制約を明記\n2. 恒久対応: COOの行動ルール（.claude/rules/coo-rules.md）に、「分析・調査のみを意図した委任では、必ず『ファイルの読み取り・分析のみ行う。スクリプトの修正・ファイルの作成・変更は一切しない』を明記する」というチェックポイントを追加\n\nさらに、この事故自体を logs/governance-incidents/2026-05-25dev-workflow-researcher-unauthorized-edit.md というインシデント記録として保存した。カテゴリは「ルール不備」、重大度は「低」。実害がなかったので重大度は低いが、記録として残すことで、同種の委任（調査系タスクをサブエージェントに投げる場面）すべてに再発防止のルールを波及させられた。\n\n実害ゼロだったから、最良のテストケースになった\n\n「実害ゼロなら大した話じゃない」という見方に、私はあえて正面から同意したい。もしこれが本番環境の課金APIや顧客データを触るスクリプトだったら、笑い話では済まなかった。今回のターゲットが dj.sh という私個人の音楽再生スクリプトだったのは、単なる偶然だ。\n\nしかし偶然とはいえ、実害ゼロ・変更内容自体は妥当という条件が揃ったおかげで、私は「委任範囲を明示しなかった場合に何が起きるか」を、実際の被害を出さずに学習できた。しかも変更内容（プレイリスト参照先の修正、新コマンドの追加）は後日レビューしてそのまま採用した。壊れた実験ではなく、副産物まで得られた実験だったわけだ。自己改善の仕組みを作るなら、こういう軽微な事故を許容できる範囲で一度起こしておくほうが、後で本番影響のある場所で同じ穴に落ちるより安全だと今は思っている。\n\n自己改善ループの再帰性\n\n改善を検出する仕組みを作ろうとして、その仕組みを作る過程自体が新しい問題を生んだ——これは偶然の皮肉ではなく、自己改善ループが構造的に抱える性質だと私は捉えている。検出役（researcher）が検出対象（委任プロンプトの不備）そのものに巻き込まれる可能性は、この手の仕組みを設計する側が最初から織り込んでおくべき前提だ。\n\n実務上の学びに落とすとシンプルになる。dev-workflow のような「他のセッション・他のエージェントの挙動を分析するスキル」を作るときは、その委任プロンプト自体に、通常のタスク以上に厳しく制約を書く必要がある。「調査対象を分析する」というタスクの性質上、分析役エージェントは分析中に見つけた別の問題にそのまま手を出しやすいと私は考えている。少なくとも今回の事故は、その傾向が表に出たケースだった。\n\n次に dev-workflow スキルを回すとき、今回のインシデント自体が改善シグナルの1つとしてログに残る番になる。仕組みを作る側が最初から完璧である必要はない。事故が起きたときに、それを拾って次のルールに変換できる経路さえ用意しておけばいい。\n\n今回の1行の書き忘れは、私が dev-workflow スキルの委任プロンプトに手作業で追記して塞いだ。だが同じ穴は他のスキル・他の委任にも潜んでいる。次に出てくる問いは、こうした委任ルールを1つずつ手で直すのではなく、組織の設定としてどう明文化し積み上げていくかだ——それを体系立てて扱っているのが Zenn Book Vol.4「コードを書けない私がClaude Codeに「仕組み」を渡すまで」（序章無料）で、権限管理・ガバナンス・CLAUDE.mdの設計を扱っている。1つの委任ミスから恒久ルールに落とし込むまでの流れをもう少し体系立てて知りたい方は、そちらも参考にしてほしい。\n\n参考リンク\n・sonicgarden「Claude Codeの自己改善ループ」— 本記事のdev-workflowスキルの着想元\n・Claude Codeのエージェント3体を1体に統合した実録 — マルチエージェント組織全体の紹介\n・自己改善するマルチエージェント組織の作り方 — ハーネス構造の設計解説\n---\nこの記事は はてなブログ からのクロスポストです。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7788aeb927045da2",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7616766467065869,
+      "popularityPercentile": 0.3712574850299401,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 86,
+      "oneLiner": "Claude Codeの自己改善ループが無断で190行を書き換えた。",
+      "reason": "解析専用の researcher に「修正禁止」の一文を入れ忘れ、169行追加・21行削除が発生した。変更内容が妥当でも、分析と編集の権限分離がないと自己改善処理自体が事故経路になる。",
+      "keywords": [
+        "Claude Code",
+        "自己改善ループ",
+        "サブエージェント",
+        "dev-workflow",
+        "委任プロンプト"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": " Claude CodeとCodexの作業履歴を全部SQLiteに貯めようとしたら、Claude Code本体が重くなった話（268ms → 17ms）",
+      "url": "https://qiita.com/heboHebo-san/items/0edf082cd00ae5a3be2e",
+      "publishedAt": "2026-08-02T11:51:01.000Z",
+      "author": "heboHebo-san",
+      "authorDetail": {
+        "name": "heboHebo-san",
+        "handle": "@heboHebo-san",
+        "url": "https://qiita.com/heboHebo-san",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/2197974/profile-images/1785669854",
+        "bio": "30代年収340万のSESのHeboHeboインフラエンジニアです。\r\nサブPCをサーバーにして色々してます。",
+        "followers": 0,
+        "posts": 1,
+        "links": []
+      },
+      "tags": [
+        "SQLite",
+        "Python",
+        "ClaudeCode",
+        "パフォーマンス",
+        "AI"
+      ],
+      "snippet": "TL;DR ・AI との作業履歴をローカル SQLite に貯める CLI（agent-history）を作り、Claude Code / Codex の Hook で自動収集するようにした ・実環境で有効化したら Claude Code が体感でわかるほど重くなった ・計測したら Hook 1 回が 268ms。うち commit の fsync が 153ms、close 時の WAL チェックポイントが 66ms ・原因は「開発機のディスクが HDD で、生の fsync が 1 回 83ms かかる」ことだった ・PRAGMA synchronous の調整では直らない。書き込みをクリティカルパスから外すしかなかった ・Hook は spool ファイルを 1 個置くだけにして、常駐 worker がバッチで SQLite に入れる 2 段構成へ変更 → p95 17ms ・ただし…",
+      "body": "TL;DR\n・AI との作業履歴をローカル SQLite に貯める CLI（agent-history）を作り、Claude Code / Codex の Hook で自動収集するようにした\n・実環境で有効化したら Claude Code が体感でわかるほど重くなった\n・計測したら Hook 1 回が 268ms。うち commit の fsync が 153ms、close 時の WAL チェックポイントが 66ms\n・原因は「開発機のディスクが HDD で、生の fsync が 1 回 83ms かかる」ことだった\n・PRAGMA synchronous の調整では直らない。書き込みをクリティカルパスから外すしかなかった\n・Hook は spool ファイルを 1 個置くだけにして、常駐 worker がバッチで SQLite に入れる 2 段構成へ変更 → p95 17ms\n・ただし当初目標の p95 10ms は物理的に達成できなかった。この機械ではプロセス起動そのものが 11.8ms かかるため\n\n計測値はすべて自分の開発機（Ubuntu / ext4 / HDD / Python 3.14）での実測です。SSD なら話はまったく違います。そこも含めて書きます。\n\n前半は「そもそも Hook って何？ Worker って何？」から書くので、データベースやシステムプログラミングに詳しくなくても読めるはずです。後半は実測値と設計判断の話になります。\n\n---\n\n1. AI との開発で、地味に困ること\n\nこんな経験はないでしょうか。\n・昨日どうやって直したか思い出せない\n・Claude と Codex で違う案を出させたのに、比較結果が残っていない\n・記事を書こうとしたら、調査の経緯を忘れている\n・「あのとき HogeHoge の設定どうやったっけ」が、ターミナルのスクロールバックにも Git 履歴にも残っていない\n\nAI コーディングは便利なのですが、「考えた過程」が残りにくいという問題があります。コミットには結論しか残りません。3 週間後に同じことをもう一度調べている、というのが実際のところでした。\n\nこれを何とかしたくて作ったのが agent-history です。\n\n---\n\n2. なぜ JSON ではなく SQLite なのか\n\n最初に考えたのは「Hook が吐く JSON をそのままファイルに保存すればいいのでは」でした。\n\nでも、毎回 JSON を読み直して grep するのは思ったより大変です。SQLite なら、\n・検索\n・ソート\n・セッション単位の集約\n・全文検索（FTS5）\n\nが全部そのまま使えます。しかもサーバもデーモンも要らない、ファイル 1 個です。\n\nつまり「Docker のビルドエラー」で検索すると、そのとき何を調べて、どこで失敗して、どう解決したかまで一気に引ける。これがやりたかったことです。\n\n保存するもの\n\n保存するのは観測可能な入出力だけです。AI の内部推論や非表示の思考過程は保存対象にしていません。\n\n| 項目 | 内容 |\n|---|---|\n| sessionid | セッション |\n| source | claude / codex |\n| eventtype | 開始・終了・プロンプト送信など |\n| prompt | ユーザー入力 |\n| response | AI の回答 |\n| model | 使用モデル |\n| cwd | 作業ディレクトリ |\n| timestamp | 時刻 |\n\n秘密情報は保存前にマスクします。ghpxxxxxxxxx のようなトークンは に置き換わります。\n\n設計で最初に決めたこと：一次単位は project ではなく session\n\n設計で 1 つだけ最初に決めたのは、一次単位を project ではなく session にすることでした。\n\n1 回の作業は複数のリポジトリ、ホスト、クラウドリソースにまたがります。Cloudflare や Azure のようにローカルディレクトリを持たない対象もあります。ローカルパスに紐づけると、そもそも入り口で分類に失敗します。\n\n [code] \n\nsessiontargets を多対多にしてあるので、「この作業がどのリポジトリのものか」の分類に失敗しても、events そのものは失われません。分類は後から直せますが、記録し損ねたイベントは戻ってきません。\n\nStage 1 は CLI から手で session-start / event-add する形で動いていました。当然、手で登録するものは続きません。そこで Stage 2 として、Hook から自動収集することにしました。\n\n---\n\n3. そもそも Hook って何？ Worker って何？\n\nここが一番重要なので、先に用語を押さえます。\n\nHook とは\n\nHook は 「○○が起きたら呼ばれるプログラム」 です。\n\nWindows でも、USB を挿した / ファイルを保存した、というタイミングで何かが動きますよね。あれと同じ発想の仕組みが Claude Code や Codex にもあります。\n\nたとえば、\n・SessionStart → 「セッションが開始したよ」\n・UserPromptSubmit → 「ユーザーがプロンプトを送信したよ」\n\nという通知が飛んできます。Hook はその通知を受け取って、こちらが指定したコマンドを実行してくれます。\n\nWorker とは\n\nWorker は一言でいうと、裏で黙々と仕事をするプログラムです。ずっと起動しっぱなしで、定期的に仕事の置き場を見に行きます。\n\n飲食店にたとえるとこうなります。\n\n [code] \n\n注文を受ける人が厨房に入って料理まで作り始めたら、店は回りません。受付は受付だけ、調理は調理だけに分ける。これが今回の設計の本質です。\n\n全体の流れ\n\n [code] \n\n……ですが、最初からこの形だったわけではありません。最初は Hook が直接 SQLite に書いていました。そこからどうしてこうなったか、が以下の本題です。\n\n---\n\n4. Stage 2: Hook で自動収集する（素朴な実装）\n\nClaude Code には、ライフサイクルの各所で外部コマンドを起動する Hook の仕組みがあります。/.claude/settings.json にこう書きます。\n\n [code] \n\nイベント発生時に stdin から JSON が渡ってきます。これを受けて SQLite に INSERT すればいい。実装としては素直です。\n\n手元の Claude Code（2.1.220）が持つ Hook イベント定義は 31 種類ありました。SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / Notification / Stop / PreCompact …… せっかくなので全部拾う設定を書き、--apply してインストールしました。\n\nそして Claude Code を再起動して、使い始めて、10 分で違和感を感じました。\n\n---\n\n5. 「なんか重い」から始まる\n\n体感として、プロンプトを送ってから反応が返るまでのもたつき、ツール実行のたびの引っかかりが明確にありました。\n\n「なんか重い」は主観なので、まず計測しました。\n\n| 項目 | 実測 |\n|---|---|\n| Hook 1 回（全体） | 268 ms |\n| └ sqlite3.commit（commit 時 fsync） | 153 ms |\n| └ sqlite3.close（WAL チェックポイント時 fsync） | 66 ms |\n| └ Python 起動 + import | 57 ms |\n\nそして、そもそもこの機械の生の fsync は 1 回 83ms でした。\n\n [code] \n\nHDD でした。\n\n開発機のシステムディスクが回転ディスクであること思い出しました。SSD なら fsync は 1ms 前後なので、まったく問題にならなかったはずです。逆に言えば、SSD 前提で書いたコードは HDD で 100 倍遅くなる箇所を平気で持ちます。\n\nここに、約 30 種類のイベント全部に Hook を登録した設定が乗ります。PreToolUse / PostToolUse / FileChanged / MessageDisplay あたりは 1 ターンで数百回発火します。Claude Code のクリティカルパス上で、268ms が数百回、直列に。重くて当然でした。\n\n---\n\n6. PRAGMA では直らない\n\nSQLite の話なので、最初に考えたのは当然 PRAGMA synchronous です。計測しました（実 ext4、1 イベント INSERT）。\n\n| PRAGMA | 実測 |\n|---|---|\n| synchronous=FULL | 170.8 ms |\n| synchronous=NORMAL + walautocheckpoint=0 | 190.3 ms |\n| synchronous=OFF | 0.9 ms |\n\nNORMAL にしても改善しない（むしろ誤差で悪化している）のが重要な点でした。\n\n理由は、この Hook が 1 回の起動につき 1 接続を開いて閉じるプロセスだからです。SQLite は接続の close 時に WAL チェックポイントを走らせ、そこで fsync します。synchronous=NORMAL は commit 時の fsync を省く設定であって、チェックポイントの fsync は消えません。プロセスが毎回死ぬ以上、close は必ず来ます。\n\nOFF にすれば 0.9ms です。しかし、履歴を貯めるツールが DB ファイルを壊すのは本末転倒なので、これは採りませんでした。synchronous=OFF は電源断で DB そのものが壊れうる設定です。「イベントを数件失う」と「DB が壊れる」はまったく違う障害クラスです。\n\nつまり、PRAGMA の調整では根治しない。fsync をクリティカルパスから物理的に外すしかない、という結論になりました。\n\n---\n\n7. 設計変更: spool + 常駐 worker\n\nやったことは、要するに書き込みの非同期化です。\n\n [code] \n・Hook: stdin を読んで spool ファイルを 1 個置き、即座に終了する。SQLite を開かない。JSON を解析しない。サニタイズもしない\n・Worker: 単一プロセス（flock で保証）が spool をバッチ取り込みする。JSON 解析、サニタイズ、切り詰め、FTS 更新は全部こちら\n\nバッチ化により、fsync は最大 50 イベントで 1 回に償却されます。Hook 側の fsync はゼロです。\n\nspool ファイル名で順序を決める\n\nspool ファイルの名前はこうしました。\n\n [code] \n\n19 桁ゼロ埋めのナノ秒にすることで、辞書順 = 時系列順になります。worker は scandir してソートするだけで済み、ファイル名から順序を決められます。中身を開く必要がありません。\n\npid + 4 バイト乱数で衝突を避け、tmp/ へ OCREAT|OEXCL で作ってから os.replace で pending/ へ原子的に移動します。これで書きかけのファイルが読まれることはありません。\n\n---\n\n8. Hook を痩せさせる — 今度は import が高い\n\nspool に置くだけにしたので速くなったはず……と思って計測したら、まだ 30ms 台でした。今度は fsync ではなく Python の import が支配的になっていました。\n\npython3 -S で 20 回平均を取るとこうです。\n\n| import | 実測 |\n|---|---|\n| os, sys のみ | 11.8 ms |\n| + json | 19.4 ms |\n| + agenthistory.sanitizer（re を引く） | 36.2 ms |\n\njson を import するだけで 7.6ms、サニタイザ（実体は re）で 24ms。 25ms の予算に対して、これは乗せられません。\n\nなので、Hook からこの 2 つを追い出しました。\n\n8-1. JSON を解析しないでイベント名を知る\n\nHook はイベント名を知る必要があります（ファイル名に入れるため）。しかし payload の hookeventname を読むには json が要る。\n\nそこで、インストーラが登録するコマンドにイベント名を引数として埋め込むようにしました。\n\n [code] \n\nHook は argv[1] を見るだけです。payload の値との突き合わせ検証は worker 側でやります。\n\n8-2. JSON を書かないで JSON ヘッダを作る\n\nspool ファイルの 1 行目にはメタ情報のヘッダを置きたい。しかし json.dumps は使えない。\n\nこれは、エスケープが必要な値を一切ヘッダに入れないことで解決しました。\n\n [code] \n\nsafelabel は英数字と .- 以外を に潰す関数で、これも re を使わずに書いてあります。\n\n [code] \n\nヘッダに入るのは数字・16 進・ホワイトリスト済みのイベント名だけなので、文字列連結で正しい JSON になります。payload（生の stdin）は改行の後ろに丸ごと置き、worker は「最初の改行より後ろ全部」を payload として扱います。payload 自体に改行が含まれていても問題ありません。\n\nなお python3 -E は PYTHONPATH を無視してしまうので使えず、-S（site 抑制、6.6ms 節約）だけ使っています。\n\n8-3. spool 溢れのチェックをサンプリングする\n\nworker を起動し忘れると pending/ が無限に増えてディスクを埋めます。これだけはガードしたい。しかし毎回 scandir すると、それこそコストです。\n\nなので 1/128 の確率でしかチェックしません。\n\n [code] \n\n上限（50,000 件）を超えたら Hook は書き込みをやめます。カウントも cap に達した時点で早期打ち切りします。「ディスクを埋めない」という 1 点だけを守るガードで、それ以外の堅牢化は入れていません。\n\n---\n\n9. 結果と、達成できなかった目標\n\n| | 変更前 | 変更後 |\n|---|---|---|\n| Hook レイテンシ (p95) | 268 ms | 16.8〜18.5 ms |\n| Hook が SQLite を開く | はい | いいえ |\n| クリティカルパス上の fsync | 2 回 | 0 回 |\n\n実測は p50 16.5ms / p95 17.2ms（コンテナ内 200 回）です。\n\nただし、当初の目標だった p95 10ms は達成できていません。 そして、これはチューニングで届く距離ではありませんでした。この機械では、\n・Python の os と sys だけの起動で 11.8ms\n・cat と mv だけの /bin/sh スクリプトでも 11.4ms\n\nつまり fork + exec 型の Hook である限り、10ms は物理的に到達不能です。Python が遅いのではなく、プロセス起動が 11ms かかる環境なのです。\n\nそこで受け入れ基準を p95 25ms 未満に改めました。10ms 未達を許容した根拠は 2 つです。\n\n1. 268ms からの改善幅が十分に大きい\n2. クリティカルパス上の SQLite オープンと fsync がどちらもゼロになった。残っているコストはプロセス起動が支配的で、ディスク性能に依存しない\n\n2 番目が重要でした。「速くなった」だけでなく、「遅いディスクでも遅くならない構造になった」ことが本質だと考えています。ベンチマークの数字が良くなったかではなく、その数字が何に依存しているかが変わったかどうかが、この手の改善の本当の合否だと思います。\n\n---\n\n10. Claude Code だけじゃない — Codex も同じ形に乗る\n\nこの設計のいいところは、エージェントごとに変える部分がほとんどないことです。\n\n [code] \n\nHook のバイナリと、埋め込むイベント名が違うだけで、spool の形式から先はまったく同じです。イベントには source を持たせてあるので、\n・source = claude だけ見る\n・source = codex だけ見る\n・両方まとめて時系列で見る\n\nが同じクエリで書けます。「同じ課題を Claude と Codex に投げて比べた」みたいな記録が、後から横断で引けるようになりました。\n\n---\n\n11. 何を捨てたか（重要）\n\n速さの代償として、明示的に捨てたものがあります。README にも書いています。\nagent-history は Claude Code をブロックしない best-effort な履歴収集ツールです。イベントの取りこぼしが起こりえます。\n\n具体的には、\n・Hook は fsync を一切しないので、OS クラッシュや電源断で直前の数秒間のイベントが失われうる\n・worker を起動していない間も spool には貯まるが、上限を超えたら新しいイベントは捨てる\n・壊れたイベントはリトライせず failed/ に隔離するだけ\n\n一方で、SQLite 本体は synchronous=FULL を維持しています。DB ファイルの整合性は保たれます。ここは譲りませんでした。\n\nprocessing/ ディレクトリでの所有権管理、孤児回収、リトライとバックオフ、毒イベントの分離、バックプレッシャの優先度制御 — こういう「ちゃんとしたキュー」の機能は意図的に実装していません。履歴収集ツールにとって、イベントを 3 件失うことよりも、複雑さを抱えて動かなくなることのほうが致命的だからです。\n\n順序についても、保証するのは 1 つだけにしました。\n・保証する: 同一セッション内で sequenceno が spool ファイル名（Hook が stdin を読み終えた時刻）の昇順になる\n・保証しない: 「イベントが論理的に発生した順」であること（Hook は並行に起動されうるため）。複数セッション間の相対順序。NTP 調整で壁時計が巻き戻った場合の単調性\n\n---\n\n12. クラッシュしても壊れない仕組み\n\n捨てたものが多い代わりに、壊れないことは構造で担保しました。\n・spool ファイルは tmp/ に書いてから os.replace で pending/ へ移す → 書きかけが読まれることはない\n・worker はコミット成功後にファイルを削除する → その間にクラッシュしてもファイルは pending/ に残り、次回再取り込みされる\n・再取り込みによる重複は UNIQUE(sessionid, dedupkey) と INSERT ... ON CONFLICT DO NOTHING が吸収する\n\n「リトライしない」のに「クラッシュしても失われない」のは、削除の順序と冪等性だけで成立しています。リトライ機構を書くより、こちらのほうが短くて確実でした。\n\n---\n\n13. おまけ 1: dedupkey で踏んだ罠\n\n重複防止のキーをどう作るかで 1 つ罠がありました。\n\nClaude Code の payload には promptid という ID が入っています。一見これがイベント ID に見えます。しかし公式スキーマ上、これは「次のプロンプトまでの全イベントが共有するターン相関 ID」でした。\n\nこれをイベント ID として使うと、1 ターン内の FileChanged、Notification、SubagentStart、TaskCreated などが全部 1 件に潰れます。\n\nなので、\n・イベント固有 ID があればそれを使う: tooluseid（PreToolUse / PostToolUse など）、agentid、taskid、elicitationid、messageid ＋ index\n・固有 ID がなければ、サニタイズ済みペイロード全体 + promptid のハッシュ\n\nとしました。これで、同じ Bash コマンドを連続実行しても tooluseid が違うので別イベントとして残ります。逆に、同じ Hook を user と project の両スコープに登録して二重配信された場合は 1 件に統合されます。\n\n（固有 ID を持たないイベントが同一ターン内で完全に同一内容で発生した場合は 1 件に統合されてしまいます。これは許容しました。）\n\n---\n\n14. おまけ 2: 全イベント収集はやめた\n\n性能問題が直ったので全 30 イベントを収集してもよくなった……とはなりませんでした。full は 1 ターンで数百〜数千イベント出ます。1 イベント 17ms でも、500 イベントなら 8.5 秒です。\n\nそこでプリセットを用意し、既定を balanced にしました。\n\n| preset | イベント数 | 想定頻度 |\n|---|---|---|\n| minimal | 4 | 数件/ターン |\n| balanced（既定） | 24 | 十数件/ターン |\n| full | 30 | 数百〜数千件/ターン |\n\nfull のみに含まれる高頻度イベント: PreToolUse, PostToolUse, PostToolUseFailure, PostToolBatch, FileChanged, MessageDisplay\n\nfull は明示的な opt-in にして、回転ディスクを検出したらインストール時に警告を出すようにしました。今回の教訓をそのままツールに埋め込んだ形です。\n\nなお balanced にはツール実行履歴（PreToolUse / PostToolUse）が入りません。本プロジェクトの中核データではあるので、実運用の実測を見て balanced へ昇格させるかを後で判断する、という宿題にしています。\n\n---\n\n15. おまけ 3: 日本語全文検索は FTS5 だけでは足りない\n\n本筋ではないですが、同じプロジェクトで踏んだのでメモとして。\n\nFTS5 標準の unicode61 tokenizer は日本語を分かち書きしません。なので CockpitをCloudflare Tunnelで公開したい は 1 トークン扱いになり、MATCH 'Cockpit' ではヒットしません。\n\n現状は FTS5 の MATCH と LIKE 部分一致の和集合でごまかしています。副作用として、\n・語の途中でもヒットする（cat が concatenate にヒットする）\n・LIKE 側は全表スキャンなので、event 数が増えると遅くなる\n\nFTS5 の trigram tokenizer 導入が次の改善候補です。\n\n---\n\n16. 本当にやりたかったこと\n\n正直なところ、ログを取ること自体は目的ではありません。\n\nSQLite に貯まった情報から、記事の下書きを作ることが目的です。\n\n「Docker のビルドエラー」で検索すると、\n・何を調べたか\n・どこで失敗したか\n・どう解決したか\n\nが時系列で全部出てくる。これを Markdown へ変換すれば、Qiita / Zenn / 自分 Wiki の下書きになります。実際、この記事もその方向で書いています。\n\nSQLite を「データベース」というより、AI エージェント専用の「作業記憶」として使う、という位置づけです。\n\n今後は、\n・記事下書きの半自動生成\n・過去作業の横断検索\n・Claude Code と Codex をまたいだ比較\n\nまで作っていく予定です。\n\n---\n\n17. 次にやること: 読み出し口を MCP にする\n\nここまで書いて、「それ MCP でよくない？」と思った方がいるかもしれません。半分正解です。整理すると、書き込みは MCP では代替できず、読み出しは MCP が本命、という切り分けになります。\n\nMCP のツールは、モデルが自分で呼ぶと決めて初めて動く（pull 型）ものです。なので履歴収集を MCP でやるなら「毎ターン recordevent を呼んでね」とモデルにお願いする形になりますが、これは筋が悪い。\n・モデルが呼び忘れたら記録されない。網羅性が構造的に保証できない\n・拾いたい PostToolUse の失敗やエラーは、モデルが「わざわざ記録しよう」と思わない類のイベント\n・記録のたびにモデルのターンとトークンを消費する\n\n対して Hook はモデルの意思と無関係に、ライフサイクルイベントで機械的に発火します。「観測可能な入出力を全部拾う」という要件には、この受動的な捕捉が本質的に必要で、ここは MCP では置き換えられません。だから書き込み側は Hook のままです。\n\n一方で、貯めた SQLite を Claude に返す口としては MCP がドンピシャです。この記事で挙げた「本当にやりたかったこと」——過去作業の検索、記事下書き生成——はまさにここに当たります。SQLite の上に MCP サーバを一枚かぶせて、\n・searchhistory(query) ツール（FTS5 検索をそのまま公開）\n・セッション単位を resource として読めるように\n\nしておけば、Claude Code から「Cloudflare Tunnel まわり、前に何やったっけ」と聞くだけで、自分の過去履歴を自分で引きに行けるようになります。今は Markdown 変換を挟む前提ですが、それを Claude に直接やらせられる。\n\nしかも性能特性がきれいに一致します。今回の 268ms 問題は「全ライフサイクルイベントで同期書き込みしていた」から起きたものでした。MCP の検索ツールは毎イベント発火するものではないので、あの高頻度・クリティカルパスの問題は起きません。高頻度で受動的なもの（書き込み）は Hook、低頻度でオンデマンドなもの（検索）は MCP、という住み分けが、そのまま性能の話にもなっています。\n\n [code] \n\n置き換えではなく合成です。Stage 3 はたぶんこれになります。\n\n---\n\nまとめ\n・「なんか重い」は必ず計測する。 犯人は Python でもサニタイズでもなく、HDD の fsync 83ms でした\n・PRAGMA synchronous=NORMAL は、1 起動 1 接続のプロセスでは効かない。 close 時の WAL チェックポイントで結局 fsync するからです\n・重い処理は Hook から Worker へ分離する。 今回一番面白い技術ポイントは SQLite ではなく、この分離設計のほうでした\n・クリティカルパス上の処理は、import 1 つが 7.6ms として効く。 json すら重い世界がある\n・プロセス起動には下限がある。 fork + exec 型の Hook で 10ms を切るのは、この機械では不可能でした。目標のほうを実測に合わせて改めるべき場面がある\n・速くなったかより、何に依存しなくなったかを見る。 ディスク性能に依存しないところまで持っていけたことが、この改善の本体です\n・履歴収集ツールに完璧な配送保証は要らない。 捨てるものを決めて README に明記するほうが、実装するより価値がありました\n・書き込みは Hook、読み出しは MCP。 受動・高頻度の収集は Hook でしか網羅できず、オンデマンドな検索は MCP が向く。次はこの読み出し口を足します\n\n---\nこの記事はAIで作成しております。\n部分部分、粒度がイマイチだったりすると思うので、\n記事内容そのものや実装がイケてないなと思ったらご教示ください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "30704f439226ff2a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8598203592814372,
+      "popularityPercentile": 0.8173652694610778,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "AI作業履歴のSQLite保存を非同期化し、Hookを268msから17msに短縮した。",
+      "reason": "遅さの原因はSQLite設定ではなく、HDDのfsync 153msとWALチェックポイント66msだった。Hookで直接commitせず、spoolと常駐workerに分けるとp95を17msまで下げられた。",
+      "keywords": [
+        "Claude Code",
+        "OpenAI Codex",
+        "SQLite",
+        "Hooks",
+        "fsync",
+        "WAL"
+      ],
+      "category": "パフォーマンス",
+      "domain": "ai",
+      "readingMinutes": 9,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code／Codexに中～大規模開発を任せるためのタスク管理",
+      "url": "https://qiita.com/Y-Y-dev/items/d526fb7cdbe35a3f9384",
+      "publishedAt": "2026-08-01T23:38:39.000Z",
+      "author": "Y-Y-dev",
+      "authorDetail": {
+        "name": "Y-Y-dev",
+        "handle": "@Y-Y-dev",
+        "url": "https://qiita.com/Y-Y-dev",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4201421/9c04a94a035d9f811e39484fb5f7454d398832f0/large.png?1761788207",
+        "followers": 2,
+        "posts": 11,
+        "links": []
+      },
+      "tags": [
+        "Claude",
+        "codex"
+      ],
+      "snippet": "概要 Claude CodeやCodexのようなAIコーディングエージェントは、コードの調査、実装、テスト、ドキュメント更新などをまとめて進められます。 小さな修正であれば、「この不具合を直してください」という指示だけでも十分な結果が得られることがあります。 一方、数十〜数百件のタスクを含む開発では、同じ進め方は通用しません。 ・どのタスクを作業しているのか分からなくなる ・依頼していない範囲まで変更される ・実装済みと検証済みが混同される ・ドキュメントとソースコードの状態がずれる ・「完了しました」という報告を受けたものの、実環境では動かない ・新しく見つかった問題が、作業中のタスクへ無理に混ぜ込まれる こうした問題は、AIのコーディング能力だけでは解決できません。 重要なのは、AIが迷わず作業でき、人間があとから検証できる形にタスクを設計することです。 この記事では、実際に多数の開発…",
+      "body": "概要\n\nClaude CodeやCodexのようなAIコーディングエージェントは、コードの調査、実装、テスト、ドキュメント更新などをまとめて進められます。 \n小さな修正であれば、「この不具合を直してください」という指示だけでも十分な結果が得られることがあります。\n\n一方、数十〜数百件のタスクを含む開発では、同じ進め方は通用しません。\n・どのタスクを作業しているのか分からなくなる\n・依頼していない範囲まで変更される\n・実装済みと検証済みが混同される\n・ドキュメントとソースコードの状態がずれる\n・「完了しました」という報告を受けたものの、実環境では動かない\n・新しく見つかった問題が、作業中のタスクへ無理に混ぜ込まれる\n\nこうした問題は、AIのコーディング能力だけでは解決できません。 \n重要なのは、AIが迷わず作業でき、人間があとから検証できる形にタスクを設計することです。\n\nこの記事では、実際に多数の開発タスクをAIコーディングエージェントへ順番に任せる中で整理した、次の運用方法を紹介します。\n・task-list.mdをタスク管理の唯一の正本にする\n・原則として、進行中のタスクを1件に限定する\n・複数のAIを使う場合は、役割とコンテキストの境界を決める\n・目的、変更範囲、禁止事項、テスト、停止条件を明文化する\n・実装、テスト、文書更新、コミット、Draft PRまでを一つの作業単位にする\n・AIの自己申告ではなく、差分、テスト結果、実環境の証拠で完了を判定する\n\nなお、特定のプロジェクト名、顧客名、リポジトリ名、実際のタスクIDは出さず、一般化した形でまとめています。\n\n---\n\n大規模開発では「長いプロンプト」だけでは管理できない\n\n大規模開発で最初に起きやすいのは、プロンプトが巨大化することです。\n\n要件、設計、禁止事項、過去の決定、テスト方法、残タスクを毎回プロンプトへ貼り付けると、指示する側もAI側も重要事項を見失いやすくなります。\n\nまた、チャットの会話だけを進捗管理に使うと、次の問題が発生します。\n・新しいセッションで過去の決定が正しく引き継がれない\n・会話の途中で変更された方針が、正式な仕様なのか分からない\n・「前回どこまで終わったか」を毎回調べ直す必要がある\n・複数のAIや人間が作業すると、認識が分岐する\n・完了報告は残っているが、何を根拠に完了としたのか追跡できない\n\nチャットは作業の入口としては便利ですが、プロジェクトの正本には向きません。\n\nそこで、会話の外に「現在の正しい状態」を残す必要があります。\n\n---\n\n基本方針：task-list.mdを唯一の正本にする\n\nタスク管理の中心として、リポジトリ内にdocs/task-list.mdを置きます。\n\nここでいう「唯一の正本」とは、進捗について判断が分かれた場合に、最終的にこのファイルを確認するという意味です。\n\nSlack、GitHub Issue、チャット、AIの完了報告に異なる記載があっても、正式な状態はtask-list.mdへ反映された内容とします。\n\nたとえば、次のような形式です。\n\n [code] \n\n最低限、次の情報を持たせます。\n\n| 項目 | 目的 |\n|---|---|\n| ID | タスクを一意に識別する |\n| タスク名 | 何を実現するかを短く示す |\n| 状態 | 未着手、進行中、検証待ち、完了、保留などを示す |\n| 進捗 | 状態だけでは分からない途中経過を補助する |\n| 依存関係 | 先に終えるべきタスクを明確にする |\n| 完了条件 | 何をもって終了とするかを定義する |\n| 証拠 | テスト、PR、ログ、画面確認などを紐付ける |\n\nタスクIDは途中で再利用しない\n\n一度発行したタスクIDは、削除したタスクであっても別の用途へ再利用しません。\n\n再利用すると、過去のコミット、PR、テスト結果、会話に書かれたIDが別の意味になってしまいます。\n\nタスクを取りやめた場合は行を消すのではなく、状態を「中止」や「対象外」に変更し、理由を残します。\n\n新しい問題は新しいタスクとして登録する\n\n作業中に別の不具合や改善点を見つけても、現在のタスクへ安易に含めません。\n\nまず、次のどれに該当するかを判断します。\n\n1. 現在の完了条件を満たすために必須である\n2. 関連はあるが、現在の完了条件とは別である\n3. 無関係な既存問題である\n\n1であれば現在のタスク内で扱います。 \n2または3であれば、新しいタスクとして登録し、現在の作業を継続します。\n\nこの切り分けを行わないと、1件のタスクが際限なく膨らみ、いつまでも完了できなくなります。\n\n---\n\n原則として、進行中のタスクは1件に限定する\n\n大規模開発だからこそ、通常は進行中のタスクを1件に限定します。\n\nAIは複数の処理を高速に進められますが、同じリポジトリで複数タスクを同時に変更すると、人間が確認すべき組み合わせが急増します。\n\nたとえば、3件のタスクが同時に同じAPIやDBへ変更を加えると、次の判断が難しくなります。\n・どの変更が不具合の原因なのか\n・どのタスクのテストで検出すべきなのか\n・仕様変更がどのタスクから発生したのか\n・途中で差し戻す場合、どこまで戻せばよいのか\n\nそのため、基本の流れを次のようにします。\n\n1. 次に着手するタスクを1件決める\n2. 開始時点のGit状態を確認する\n3. 対象タスクだけを実装する\n4. テストとレビューを行う\n5. 文書と証拠を更新する\n6. コミットまたはDraft PRを作成する\n7. タスクを完了または検証待ちにする\n8. 次のタスクへ進む\n\n並列化する場合も、同じファイルや同じデータへ書き込まない、独立性の高い調査やテストに限定します。 \n複数の実装を並列で進める場合は、ブランチやGit worktreeを分離します。\n\n---\n\n1タスクに含めるべき情報\n\nAIへ渡すタスクには、少なくとも次の6項目を含めます。\n\n1. 目的\n\n「何を変更するか」だけでなく、「なぜ変更するか」を書きます。\n\n悪い例：\n\n [code] \n\n改善例：\n\n [code] \n\n目的が分かれば、AIは単にエラーを隠すのではなく、利用者が期待する状態を基準に実装できます。\n\n2. 変更範囲\n\n調査・変更してよいファイルや機能を示します。\n\n [code] \n\n変更範囲を狭めることで、AIが「ついでのリファクタリング」まで始めることを防ぎます。\n\n3. 禁止事項\n\n実行してはいけないことを明示します。\n\n [code] \n\n特に、「不明点を推測で埋めない」というルールは重要です。\n\n4. 完了条件\n\n完了条件は、第三者がYes／Noで判定できる形にします。\n\n [code] \n\n「適切に動作すること」「問題なく実装されていること」といった表現は、判定基準になりません。\n\n5. テスト方法\n\nどの層で何を確認するかを指定します。\n\n| テスト | 確認する内容 |\n|---|---|\n| Unit Test | 判定ロジック単体の正しさ |\n| Integration Test | API、DB、外部IDの連携 |\n| Regression Test | 既存機能が壊れていないこと |\n| 実環境確認 | 本番に近い構成で操作できること |\n\nすべてのタスクで全種類を行う必要はありません。 \nただし、どのテストを行い、どのテストを行っていないかは区別して報告させます。\n\n6. 停止条件\n\nAIが勝手に判断してはいけない境界を定めます。\n\n [code] \n\n停止条件は、AIの能力を制限するものではありません。 \n人間が判断すべき箇所を、あらかじめ切り分けるためのものです。\n\n---\n\nタスク指示のテンプレート\n\n実際には、次のようなテンプレートを使用できます。\n\n [code] \n\n毎回使うルールは、プロンプトへ繰り返し貼り付けるより、リポジトリ内の永続的な指示ファイルへ置く方が管理しやすくなります。\n\nCodexではAGENTS.md、Claude CodeではCLAUDE.mdを利用できます。両方を使う場合は、共通ルールを1か所へまとめ、片方から読み込む構成にすると重複を減らせます。\n\nただし、個別タスクの目的や完了条件まで永続ルールへ詰め込むべきではありません。\n\n| 置き場所 | 書く内容 |\n|---|---|\n| AGENTS.md / CLAUDE.md | テストコマンド、禁止事項、Git運用、レビュー基準 |\n| task-list.md | タスクの状態、依存関係、完了条件、証拠 |\n| 個別タスク指示 | 今回の目的、対象範囲、固有の確認事項 |\n| 設計書 | システム全体の仕様、データ構造、判断理由 |\n\n---\n\n「実装済み」と「完了」を分ける\n\n大規模開発で特に重要なのが、状態を細かく分けることです。\n\nコードが存在するだけでは、その機能が正しいとは限りません。\n\nたとえば、次の状態はすべて異なります。\n\n| 状態 | 意味 |\n|---|---|\n| 未着手 | 調査も実装も始まっていない |\n| 調査中 | 仕様や既存コードを確認している |\n| 実装中 | コードを変更している |\n| ローカル検証済み | 自動テストなどは成功した |\n| 実環境検証待ち | デプロイ先や実データでの確認が残っている |\n| 完了 | 定義した完了条件と必要な検証をすべて満たした |\n| 保留 | 外部回答、権限、仕様決定などを待っている |\n\nこの区別がないと、AIはコードを書いた時点で「完了」と報告し、人間は実環境で使える状態だと誤認します。\n\n実環境でしか確認できない項目が残っている場合は、無理に100%にせず、「実装完了・実環境検証待ち」とします。\n\n---\n\n完了報告は「作業内容」ではなく「証拠」を中心にする\n\nAIから次のような報告を受けても、完了確認としては不十分です。\n\n [code] \n\n必要なのは、第三者が追跡できる情報です。\n\n [code] \n\n確認したい証拠\n・変更ファイル一覧\n・Git差分\n・実行したコマンド\n・テスト件数と結果\n・再現手順と修正後の結果\n・作成または更新されたデータの識別子\n・未実施の確認項目\n・コミットSHAまたはPR URL\n・開始時と終了時のgit status\n\n重要なのは、すべて成功したように見せることではありません。 \n未確認事項を未確認のまま正確に報告することです。\n\n---\n\n実装・テスト・文書更新・Gitを一つの単位にする\n\nコードだけを先に大量実装し、あとからテストや文書をまとめて更新すると、どの変更に対応するものか分からなくなります。\n\nそのため、1タスクを次の単位で閉じます。\n\n1. 仕様確認\n2. 実装\n3. テスト追加・実行\n4. 差分レビュー\n5. task-list.mdと関連文書の更新\n6. コミット\n7. 必要に応じてDraft PR作成\n8. 完了報告\n\nコミットメッセージやブランチ名にタスクIDを入れると、あとから追跡しやすくなります。\n\n [code] \n\n [code] \n\nDraft PRは「すべて完了した」という意味ではなく、レビュー可能な単位まで変更がまとまったことを示すために使えます。\n\n実環境検証が残っている場合は、PR本文とtask-list.mdの両方へ明記します。\n\n---\n\nPlanと実装を分ける\n\n変更範囲が広いタスクでは、いきなり実装させず、先に調査と計画だけを依頼します。\n\n計画段階では、次を確認します。\n・参照した仕様書とコード\n・変更予定のファイル\n・既存機能への影響\n・DBやAPI互換性への影響\n・追加するテスト\n・判断が必要な不明点\n・ロールバック方法\n\nこの段階で変更範囲が想定より広いと判明した場合は、タスクを分割します。\n\nClaude Code、Codexともに、変更前に計画を確認するためのPlan系の進め方を利用できます。 \nただし、計画を作っただけで安全になるわけではありません。計画がtask-list.mdの完了条件と一致しているか、人間が確認することが重要です。\n\n---\n\n複数のAIを使うなら、役割とコンテキストの境界を決める\n\nChatGPT、Claude Code、Codexなどを組み合わせれば、要件整理、実装、レビューを分担できます。\n\nしかし、複数のAIへ同じリポジトリ全体を理解させれば精度が上がるとは限りません。役割を決めずに併用すると、それぞれが同じコードや設計書を読み、似た調査と説明を繰り返します。\n\nたとえば、次のように役割を分けます。\n\n| 担当 | 主な役割 | 主に参照する情報 | 出力 |\n|---|---|---|---|\n| 人間 | 優先順位、仕様判断、完了判定 | タスク一覧、証拠、事業要件 | 着手判断、承認、差し戻し |\n| ChatGPT | 要件整理、指示作成、結果レビュー | 対象タスク、必要な仕様、変更差分 | 実装指示、指摘事項 |\n| Claude Code / Codex | コード調査、実装、テスト | 対象タスクに必要なリポジトリ内情報 | 差分、テスト結果、完了報告 |\n\n重要なのは、AI間の受け渡しへリポジトリ全体の説明を毎回含めないことです。\n\n受け渡す情報は、原則として次の範囲へ絞ります。\n・対象タスクIDと目的\n・変更対象と変更禁止範囲\n・完了条件と停止条件\n・実際の変更差分\n・テスト結果と未確認事項\n・判断が必要な論点\n\n実装担当のAIは、必要なファイルをリポジトリから直接確認します。レビュー担当のAIには、まず対象タスク、差分、テスト結果を渡し、必要な場合だけ関連ファイルを追加で確認させます。\n\nこのように「誰が何を読むか」まで決めることが、複数のAIを動かすハーネス設計です。\n\n---\n\nAIが止まるべき場面を決める\n\nAIへ大規模開発を任せるとき、「自律的に進めてほしい」と「勝手に決めてほしくない」は両立します。\n\n日常的な判断はAIに任せ、事業・契約・セキュリティ・破壊的変更に関わる判断では止めます。\n\nそのまま進めてよい例\n・既存の書式に合わせたテスト追加\n・仕様書に明記された入力チェックの実装\n・対象範囲内の軽微なリファクタリング\n・lintやformatterによる対象ファイルの整形\n・再現済み不具合に対する最小限の修正\n\n停止して確認すべき例\n・仕様書と実装のどちらを正とするか決められない\n・既存データの削除や変換が必要\n・公開APIの互換性を壊す可能性がある\n・認証・決済・個人情報の扱いが変わる\n・本番環境の設定変更が必要\n・タスク外の大規模な設計変更が必要\n・ユーザーの既存変更と競合する\n\n停止時の報告にも形式を持たせます。\n\n [code] \n\n「分からないので停止した」は失敗ではありません。 \n根拠なく実装して手戻りを増やすより、安全な成果です。\n\n---\n\nありがちな失敗例\n\n失敗例1：ChatGPTとClaude Codeの両方にGitHub全体を読ませた\n\n実際に、ChatGPTをGitHubと連携し、実装をClaude Codeへ依頼する運用を行ったことがあります。\n\n当初の流れは次のようなものでした。\n\n1. ChatGPTがGitHubを読み、状況を整理してClaude Codeへの指示を作る\n2. Claude Codeも同じリポジトリと設計書を読み直して実装する\n3. Claude Codeの完了報告をChatGPTへ渡す\n4. ChatGPTがGitHubを再確認して追加指示を作る\n5. Claude Codeが指摘を受け、関連ファイルを再び読み直す\n\nこのラリーを繰り返すたび、同じコード、設計書、完了報告が何度もコンテキストへ入ることになりました。確認精度が読み込み量に比例して上がったわけではなく、トークンだけが異常に消費されました。\n\n問題は、複数のAIを使ったことでも、AIへ広い範囲を任せたこと自体でもありません。\n\n問題の本質は、ハーネス側で次の事項を設計しないまま、両方のAIへプロジェクト全体を理解させようとしたことです。\n・どのAIが要件を整理するのか\n・どのAIが実装するのか\n・どのAIが何をレビューするのか\n・AI間で何を受け渡すのか\n・どこまで再読み込みを許容するのか\n・最終的な完了を誰が判定するのか\n\n以降は、ChatGPTを要件整理とレビュー、Claude Codeを実装とテストに限定しました。また、受け渡しには対象タスク、変更対象、完了条件、差分、テスト結果、未確認事項だけを含めるようにしました。\n\n対策：\n・AIごとの責務を先に決める\n・同じリポジトリ全体を複数のAIに毎回読ませない\n・レビューはタスク、差分、テスト結果から開始する\n・追加調査は疑義がある箇所だけに限定する\n・AI同士を直接ラリーさせず、人間が継続・停止・完了を判定する\n\nAIに任せる範囲を広げるほど、AI同士の役割分担とコンテキスト境界を人間が設計する必要があります。\n\n失敗例2：一度に複数タスクを依頼する\n\n [code] \n\nこの依頼では、途中で仕様矛盾やテスト失敗が起きたとき、どの変更を残すべきか判断しづらくなります。\n\n対策：\n・依存関係を確認し、1件ずつ進める\n・独立タスクを並列化する場合は、ブランチやworktreeを分ける\n・各タスクを個別のコミットまたはPRにする\n\n失敗例3：「残りをいい感じに進めて」と依頼する\n\nAIは、優先順位、事業上の重要度、外部依存を完全には把握できません。\n\n対策：\n・次に着手するタスクIDを明示する\n・優先順位と依存関係をtask-list.mdへ記録する\n・判断が必要な場合は候補と根拠を出させ、人間が選ぶ\n\n失敗例4：AIの完了報告だけで100%にする\n\nテストコードが通っても、実環境の設定やデータ条件によって動かない場合があります。\n\n対策：\n・完了条件ごとに証拠を確認する\n・ローカル検証と実環境検証を分ける\n・未検証なら「検証待ち」として残す\n\n失敗例5：テストを通すために仕様を変える\n\nAIが失敗しているテストの期待値を実装へ合わせてしまうと、テストは成功しても本来の要件を満たしません。\n\n対策：\n・期待値の根拠となる仕様を明示する\n・テスト変更時は、変更理由を報告させる\n・修正前に失敗を再現し、修正後に同じ条件で成功することを確認する\n\n失敗例6：ドキュメント更新だけが進む\n\nタスク一覧を100%へ更新しても、コードや環境が変わるわけではありません。\n\n対策：\n・コード差分、テスト、実環境の証拠を確認してから状態を更新する\n・文書のみの変更なのか、機能実装を伴うのかを分ける\n・「確認できなかったこと」も記録する\n\n失敗例7：同じ失敗をプロンプトで毎回注意する\n\n同じ注意を毎回書く運用は、いずれ抜けます。\n\n対策：\n・繰り返し発生するルールはAGENTS.mdまたはCLAUDE.mdへ移す\n・機械的に検出できるものはCIやlintへ移す\n・作業手順として再利用できるものはスキルやテンプレートにする\n\n---\n\n実務で使うチェックリスト\n\nプロジェクト開始時\n・[ ] タスク管理の正本を決める\n・[ ] タスクIDの命名規則を決める\n・[ ] 状態と進捗率の定義を決める\n・[ ] 完了条件と証拠の記録欄を設ける\n・[ ] 設計書、テスト計画、タスク一覧の関係を明確にする\n・[ ] AIが必ず読む永続指示ファイルを用意する\n・[ ] ビルド、テスト、lintの実行方法を記載する\n・[ ] 禁止事項と停止条件を記載する\n・[ ] 複数のAIを使う場合は、それぞれの責務を決める\n・[ ] AI間で受け渡す情報と再読み込みの範囲を決める\n\nタスク開始前\n・[ ] 対象タスクIDを1件に絞る\n・[ ] 依存タスクが完了しているか確認する\n・[ ] 現在のブランチ、HEAD、git statusを確認する\n・[ ] 既存の未コミット変更がないか確認する\n・[ ] 目的、変更範囲、禁止事項を確認する\n・[ ] 完了条件がYes／Noで判定できるか確認する\n・[ ] 必要なテストと実環境確認を決める\n・[ ] 他のAIが同じ調査を重複して行っていないか確認する\n\n実装後\n・[ ] 対象外の変更が混ざっていないか差分を確認する\n・[ ] 修正前の失敗と修正後の成功を比較する\n・[ ] 関連する既存テストを実行する\n・[ ] 未実施の検証項目を明記する\n・[ ] タスク一覧と関連設計書を更新する\n・[ ] コミットにタスクIDを含める\n・[ ] Draft PRの説明と実際の差分が一致しているか確認する\n・[ ] 開始時と終了時のGit状態を記録する\n・[ ] 次のAIへ渡す情報を、対象タスク、差分、テスト結果、未確認事項に絞る\n\n完了判定時\n・[ ] 完了条件をすべて証拠付きで確認できる\n・[ ] 「実装済み」と「実環境検証済み」を混同していない\n・[ ] AIの説明だけでなく、Git差分を確認した\n・[ ] テスト件数と失敗件数を確認した\n・[ ] 新たに発見した問題が別タスクとして記録されている\n・[ ] 保留事項、外部依存、既知の制限が残されている\n\n---\n\nまとめ\n\nClaude CodeやCodexへ大規模開発を任せるとき、重要なのは長いプロンプトを書くことではありません。\n\n重要なのは、次の6点です。\n\n1. task-list.mdを進捗管理の唯一の正本にする\n2. 原則として進行中のタスクを1件に限定する\n3. 複数のAIを使う場合は、責務とコンテキストの境界を決める\n4. 目的、変更範囲、禁止事項、完了条件、停止条件を明文化する\n5. 実装、テスト、文書更新、Git操作を一つの作業単位にする\n6. AIの自己申告ではなく、差分、テスト結果、実環境の証拠で完了を判定する\n\nAIコーディングエージェントは、明確なタスクを実行する能力には優れています。 \n一方で、プロジェクトの優先順位、事業上の判断、リスク許容度まで自動的に正しく決められるわけではありません。\n\n人間が「何を、どこまで、誰に任せ、何をもって完了とするか」を管理し、AIが調査、実装、検証、記録を進める。 \nこの役割分担ができると、数十件、数百件のタスクであっても、状態を見失わずに開発を継続しやすくなります。\n\nAIに任せる範囲を広げるほど、管理を減らすのではなく、役割、情報の流れ、完了条件を判定可能な形へ変えることが大切です。\n\n---\n\n参考資料\n・OpenAI: Best practices for Codex \n https://developers.openai.com/codex/learn/best-practices\n・OpenAI: Custom instructions with AGENTS.md \n https://developers.openai.com/codex/agent-configuration/agents-md\n・Anthropic: How Claude remembers your project \n https://docs.anthropic.com/en/docs/claude-code/memory\n・Anthropic: Common workflows \n https://docs.anthropic.com/en/docs/claude-code/common-workflows",
+      "metrics": {
+        "likes": 6,
+        "stocks": 11
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "b9d4fc0f8cb5846b",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.8993413173652696,
+      "popularityPercentile": 0.9970059880239521,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": true,
+      "score": 82,
+      "oneLiner": "Claude CodeとCodexで大規模開発を進めるタスク管理方法を整理した。",
+      "reason": "大規模開発ではAIの実装力より、作業範囲と完了条件の設計が問題になる。task-list.mdを正本にし、差分・テスト・実環境の証拠で完了を判定する運用を示す。",
+      "keywords": [
+        "Claude Code",
+        "OpenAI Codex",
+        "task-list.md",
+        "Draft PR",
+        "タスク管理",
+        "Git"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code の settings.json 全文公開。サンドボックス＋auto モードで確認を最小にする設定【コピペ用】",
+      "url": "https://qiita.com/Rapls/items/1934cbee1c9635e44122",
+      "publishedAt": "2026-08-02T01:15:41.000Z",
+      "author": "Rapls",
+      "authorDetail": {
+        "name": "Rapls",
+        "handle": "@Rapls",
+        "url": "https://qiita.com/Rapls",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/688061/profile-images/1776576778",
+        "bio": "関西のフリーランスWeb開発者です。WordPressプラグインを3本公開しています（Rapls AI Chatbot / Thanks Mail for Stripe / Rapls PDF Image Creator）。PHPとJavaScriptが好きで、手を動かしてハマったこと・解決したことを書いていきます。詳しい記録はブログに。\r\nブログ：https://raplsworks.com",
+        "organization": "Rapls Works",
+        "followers": 1,
+        "posts": 64,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/rapls"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/RaplsWorks"
+          },
+          {
+            "label": "Web",
+            "url": "https://raplsworks.com"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "生成AI",
+        "Security",
+        "AI",
+        "個人開発"
+      ],
+      "snippet": "Claude Code の確認プロンプトを減らしつつ、危ない操作は通らないようにする設定です。1か月ほど運用していて、確認は格段に減り、確認疲れによるミスも減りました。 settings.json の全文と、PreToolUse フックのスクリプトを載せます。ユーザー名など環境依存の部分は伏せてありますが、それ以外はそのまま動く形です。上から読む必要はないので、必要なところをコピーして持って帰ってください。 先に、この設定でいちばん大事な3行を書いておきます。 [code] 3行目が無いと、サンドボックスが黙って外れた状態で自動実行が続きます。1行目と3行目はセットです。 --- settings.json 全文 [code] 以下、判断が入っている箇所だけ補足します。 --- permissions：allow の考え方 allow は「読む・探す・変換する・テストする」までにしています…",
+      "body": "Claude Code の確認プロンプトを減らしつつ、危ない操作は通らないようにする設定です。1か月ほど運用していて、確認は格段に減り、確認疲れによるミスも減りました。\n\nsettings.json の全文と、PreToolUse フックのスクリプトを載せます。ユーザー名など環境依存の部分は伏せてありますが、それ以外はそのまま動く形です。上から読む必要はないので、必要なところをコピーして持って帰ってください。\n\n先に、この設定でいちばん大事な3行を書いておきます。\n\n [code] \n\n3行目が無いと、サンドボックスが黙って外れた状態で自動実行が続きます。1行目と3行目はセットです。\n\n---\n\nsettings.json 全文\n\n [code] \n\n以下、判断が入っている箇所だけ補足します。\n\n---\n\npermissions：allow の考え方\n\nallow は「読む・探す・変換する・テストする」までにしています。cat grep find sed awk jq、git status git diff、npm test phpunit phpcs。ここに確認を出しても、読まずに通すだけです。\n\nそのうえで、外に出す経路だけ塞いでいます。\n\n [code] \n\nsed でファイルを加工することは許して、curl で送ることは許さない。読む権限と、持ち出す経路を分けて考えます。\n\nBash(tar -tf:) だけを許可しているのも同じ発想です。-t は中身を一覧するだけなので安全ですが、-x は展開してファイルを書きます。サブコマンド単位で切れるところは切ります。\n\n---\n\npermissions：ask を4つに絞る\n\n [code] \n\n確認を出すのは、外に公開されて取り消せない操作だけです。\n\nWordPress.org の SVN にコミットすると、その瞬間に既存の全ユーザーへリリースが配信されます。取り消せません。自分にとって、いちばん影響が大きい操作がこれなので、ここだけは必ず止まるようにしています。\n\n数を絞ることが目的です。 確認が4つしかないので、出たときに読みます。数が多いと、確認は信号ではなくノイズになります。\n\n---\n\npermissions：deny で先に塞ぐべきもの\n\ndeny のリストで、最初に入れるべきだと思っているのがこれです。\n\n [code] \n\nwp eval は任意の PHP を実行します。つまり、wp db drop を deny にしても、wp eval が通れば同じことができます。汎用の抜け道を塞がないと、個別の deny は意味を持ちません。\n\n同じ理由で、設定自体の編集も塞いでいます。\n\n [code] \n\nガードレールを守るガードレールです。\n\ngit 系で deny にしているものは、履歴か未追跡ファイルが消えるものに絞っています。\n\n [code] \n\ngit commit や git push（force なし）は allow です。ここを止めると日常が回らなくなります。止めるのは、戻せないものだけ。\n\n---\n\nsandbox：3行の組み合わせ\n\n [code] \n\nautoAllowBashIfSandboxed が確認削減の本体で、failIfUnavailable がその安全弁です。後者を false にすると、サンドボックスが使えないときにサンドボックスなしで自動実行されます。いちばん危ない状態なので、必ず true にします。\n\nexcludedCommands は妥協\n\n [code] \n\n正直に書くと、これは妥協です。git と gh は認証情報と外部通信を使うので、サンドボックス内だと素直に動きません。無理に入れると、結局サンドボックス自体を切ることになります。\n\nなので3つは外に出して、permissions とフックで縛る形にしました。1つの層で全部を守ろうとしない、という割り切りです。\n\nネットワークは許可リスト\n\n [code] \n\nプライベートレジストリが無いので、公開レジストリ以外を指すインストールは異常です。だから許可リストで固定できます。ここは環境によって変わるので、自分の依存の取得先に合わせて書き換えてください。\n\n/.subversion/auth を deny に入れている\n\n [code] \n\nWordPress.org の配布が SVN なので、ここが読めるとリリースが打てます。.ssh や .aws と並べて、最初に塞ぐべき場所でした。\n\n---\n\nPreToolUse フック（全文）\n\n/.claude/hooks/protect-plugin-dirs.sh に置いて、実行権限を付けます。\n\n [code] \n\nこのスクリプトで大事な3点\n\nfail-open にしている。 jq が無くても、JSON が壊れていても許可します。ガードのバグでセッション全体が止まると、たぶんガードごと外すことになるからです。外側にサンドボックスと permissions があるので、この層は安全側に倒しすぎない、という判断です。\n\nrm -rf . の . を対象に入れている。 作業中のディレクトリ自体がプラグインフォルダなので、. の削除がそのままフォルダ消失になります。\n\nリリースビルドを誤爆させない。 パターンの末尾を「スラッシュ・空白・行末」に限定しているので、prime-cache/ はマッチし、prime-cache.zip はマッチしません。ビルド時の rm -f prime-cache.zip は通ります。止まりすぎるガードは、外されます。\n\nmv を破壊的操作に含めているのも要点です。移動も、元の場所からは消えます。rsync --delete と find -delete も忘れやすい経路なので入れてあります。\n\n---\n\n$defaults の落とし穴（ここは必読）\n\nauto モードのルールを自分で書くときの注意です。知らないと、静かに無防備になります。\n\n$defaults は値ではなく、組み込みルールをその位置に展開するマーカーです。\n\n [code] \n\nここで重要なのは、「配列を書かない」と「配列を書いたが $defaults が無い」がまったく別の挙動だということです。\n\n4つのセクションは独立に評価されます。environment だけ書けば、残り3つは組み込みのまま維持されます。ところが、配列を明示的に書いて $defaults を入れ忘れると、そのセクションの組み込みルールは全部捨てられます。\n\nとくに怖いのが softdeny と harddeny です。\n\n$defaults の無い softdeny は、git push --force や curl | bash の組み込みブロックを全部消します。harddeny なら、組み込みのデータ持ち出し防止と auto モード迂回防止が消えます。\n\n自分で3行書いたつもりが、実際には「その3行以外は全部素通し」になっている。 設定は増えているように見えるので、見た目では気づけません。\n\n確認コマンド\n\n保存したら、必ずこれを打ちます。\n\n [code] \n\nclaude auto-mode config で展開後を見れば、組み込みが消えているかは一目で分かります。設定を書いたときではなく、展開後を見る。\n\n組み込みルールを足すのではなく書き換えたい場合は、claude auto-mode defaults の出力をファイルに保存し、リストを編集してから貼り戻すのが正攻法です。\n\n---\n\n導入する順番\n\n全部いっぺんに入れなくても大丈夫です。効く順に並べるとこうなります。\n\n1. サンドボックスの3行。 enabled / autoAllowBashIfSandboxed / failIfUnavailable。ここだけで、確認の量と安全性の両方が変わります。\n\n2. deny の抜け道。 wp eval 系、設定ファイルの編集、curl wget nc。個別の危険操作より先にここを塞ぎます。\n\n3. ask を絞る。 取り消せない操作だけ。多いと読まなくなります。\n\n4. allow を広げる。 読む・探す・テストするものを入れて、日常が止まらない状態にします。ここが狭いと、結局 auto モードの意味が薄れます。\n\n5. $defaults の確認。 claude auto-mode config を1回打つ。既に auto モードのルールを書いている人は、いますぐ打ってください。\n\n6. フック。 permissions で表現できないものが出てきてから書けば十分です。自分は事故が起きてから書きました。\n\n---\n\n早見でまとめ\n・defaultMode: auto は、確認以外で止まる仕組みとセットで入れる\n・autoAllowBashIfSandboxed と failIfUnavailable は必ず両方 true\n・deny は「その制限を迂回できる汎用の抜け道」（wp eval / wp shell / 設定ファイルの編集）から塞ぐ\n・読む権限（sed awk grep）と持ち出す経路（curl wget nc）を分ける\n・ask は取り消せない操作だけ。絞るほど、出たときに読む\n・git の deny は「戻せないもの」に限定。commit / push を止めると日常が回らない\n・認証情報は /.ssh だけでなく、自分の配布経路（SVN なら /.subversion/auth）も塞ぐ\n・フックは fail-open でよい。外側に層があるなら、内側は止まりすぎないほうが続く\n・ガードのパターンは誤爆させない。prime-cache/ は止めて prime-cache.zip は通す\n・$defaults を書き忘れたセクションは組み込みが全消え。claude auto-mode config で展開後を必ず確認\n\n1か月運用して、確認は格段に減りました。そして、確認疲れによるミスも減りました。確認の数を増やすより、確認が出たときに必ず読む状態を作るほうが効きます。役に立ったらストックして、設定を組むとき見返してください。\n\n---\n\nふだんはraplsworks.comで、WordPressプラグイン開発やClaude Codeまわりのことを書いています。\n\nhttps://raplsworks.com/",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8378a2727842b5a7",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.872994011976048,
+      "popularityPercentile": 0.8772455089820359,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "Claude Codeの確認を減らしつつ危険操作を止める設定例を公開した。",
+      "reason": "読み取りやテストは自動許可し、curlなど外部送信の経路は拒否する設定を全文で示す。sandboxを維持する指定が欠けると、保護なしの自動実行が続く点が核心になる。",
+      "keywords": [
+        "Claude Code",
+        "settings.json",
+        "sandbox",
+        "auto mode",
+        "PreToolUse",
+        "permissions"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CLAUDE.md に書くこと・書かないことの判断基準",
+      "url": "https://qiita.com/kkaattoo/items/ed08671ba6374d8b8a75",
+      "publishedAt": "2026-08-02T14:55:05.000Z",
+      "author": "kkaattoo",
+      "authorDetail": {
+        "name": "kkaattoo",
+        "handle": "@kkaattoo",
+        "url": "https://qiita.com/kkaattoo",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3941192/47675686eb19b7e9e9a83341f70059cd621339bf/large.png?1734223536",
+        "followers": 6,
+        "posts": 31,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "AI"
+      ],
+      "snippet": "はじめに CLAUDE.md は、セッションのたびに全文が Claude に読み込まれます。書いた分だけコンテキストを消費し、量が増えるほど肝心なルールが埋もれて守られなくなります。「詳しく書くほど良い」は成り立ちません。 そこで必要になるのが、「書くか、書かないか」の判断基準です。 先日、肥大化したルールファイルを整理したので、書くときに気をつけることを公式ドキュメントをもとにまとめます。 判断基準 公式ベストプラクティスが示す判断基準は、「これを削除すると Claude が間違いを犯すか」を1行ずつ問うことです。ミスしないなら削除します。 つまり、消しても Claude がミスしないルールは、書いてある意味がないということです。残す価値があるのは、Claude が推測できないことだけです。 例えば「配列の変換には map を使う」は書く価値がなく、「日付処理は必ず自前の DateUti…",
+      "body": "はじめに\n\nCLAUDE.md は、セッションのたびに全文が Claude に読み込まれます。書いた分だけコンテキストを消費し、量が増えるほど肝心なルールが埋もれて守られなくなります。「詳しく書くほど良い」は成り立ちません。\n\nそこで必要になるのが、「書くか、書かないか」の判断基準です。\n\n先日、肥大化したルールファイルを整理したので、書くときに気をつけることを公式ドキュメントをもとにまとめます。\n\n判断基準\n\n公式ベストプラクティスが示す判断基準は、「これを削除すると Claude が間違いを犯すか」を1行ずつ問うことです。ミスしないなら削除します。\n\nつまり、消しても Claude がミスしないルールは、書いてある意味がないということです。残す価値があるのは、Claude が推測できないことだけです。\n\n例えば「配列の変換には map を使う」は書く価値がなく、「日付処理は必ず自前の DateUtil を通す」は書く価値があります。\n\nこの問いは見直しのときだけでなく、書くときにも使えます。「これを書かないと Claude はミスするか」と裏返して問えば、書く前に不要なルールに気づけます。\n\n書く価値がないルール\n\n消しても Claude がミスしないルールには、次のようなものがあります。\n\n一般知識・チュートリアル\n\nライブラリの基本的な使い方や、言語の標準的な文法・構文の説明です。Claude が最初から知っていることは、消しても生成されるコードが変わりません。\n\n他の文書に書いてあること\n\n同じルールが複数の規約文書に書かれていると、いつか片方だけが更新されて食い違います。残す場合も、書き写すのではなく「詳細は◯◯を参照」といった1行にします。\n\n同じ文書内の重複\n\n方針を変えたとき、古い記述を消し忘れると、同じファイルの中で指示が食い違います。\n公式ドキュメントは「2 つのルールが互いに矛盾している場合、Claude は 1 つを任意に選択する可能性があります」と警告し、CLAUDE.md や rules を定期的に確認して、古い指示や矛盾する指示を削除することを勧めています。\n\n書く価値があるルール\n\n書く価値があるのは、コードや一般知識からは推測できないものです。公式ベストプラクティスは、CLAUDE.md に含めるものとして次を挙げています。\n・Claude が推測できない Bash コマンド\n・デフォルトと異なるコードスタイルのルール\n・テストの指示と、使うテストランナー\n・リポジトリの運用ルール（ブランチ命名、PR の規約）\n・プロジェクト固有のアーキテクチャ上の決定\n・開発環境の癖（必須の環境変数など）\n・よくある落とし穴や、自明でない挙動\n \n\nCLAUDE.md は AI に読ませるコメントであり、価値の判断基準は人間向けのコードコメントと同じ「推測できないことだけを書く」です。\n\nどこに書くか\n\n書くと決めたルールには、次の選択があります。どこに書くかです。置き場所によって読み込まれ方が変わるため、これもコンテキストの消費に関わります。\n\nrules と読み込まれ方\n\n置き場所の代表が .claude/rules/ です。指示をトピックごとの複数ファイルに分けて、保守しやすく整理するための公式の仕組みで、書くこと・書かないことは CLAUDE.md と同じ基準で考えられます。\n\nルールの読み込まれ方は2種類あります。\n・毎回読み込み：プロジェクトルートの CLAUDE.md と、paths 指定のない .claude/rules/.md。起動時に全文が読み込まれる。公式は CLAUDE.md について 200行以下を推奨\n・条件付き読み込み：ファイル冒頭の --- で囲むメタデータ欄（frontmatter）に paths: を書いた rules。マッチするファイルを Claude が読んだ時点でコンテキストに入る\n\n [code] \n\n条件付き読み込みでも、コンテキストの消費がなくなるわけではありません。対象ファイルを扱うときにはファイル全体が読み込まれます。テスト規約なら、テストに触れた時点で丸ごとです。どの読み込まれ方でも、コンテキストの消費は書いた量に比例します。\n\n分割の判断\n\n分割で読み込みが減るのは、読み込まれるタイミングが分かれるときだけです。同じ paths: '/.test.ts' を持つ3ファイルに分けても、テストを編集する瞬間には3つとも同時に読み込まれ、合計行数は1ファイルのときと同じです。@path インポートで別ファイルへ分けた場合も、インポート先は起動時に読み込まれるため、コンテキストは減りません。\n\n \n\n公式が rules に示している分け方の単位は、行数ではなく「1ファイル1トピック」です。testing.md や api-design.md のように、1つのファイルには1つの主題の規約だけを入れ、ファイル名を見れば何の規約か分かるようにします。条件付き読み込みにしたうえで、残った内容が1つの主題に収まっているなら、行数を理由に分割する必要はありません。\n\n行数が気になったときの順番は、先に削る、それでもスコープが分かれるなら分割です。逆にすると、重複や一般知識が複数ファイルに散らばって、直しにくくなります。\n\nCLAUDE.md と rules の使い分け\n\n実際にスコープが分かれる場合は、置き方が2つあります。違いは規約ファイルを置く場所です。\n\n [code] \n\n規約をコードのそばに置いて一緒に管理するなら各ディレクトリの CLAUDE.md、規約を1箇所に集めたい場合や、離れた複数のパスに同じルールを当てる場合は paths を指定した rules が向きます。\n\nskills という選択肢\n\n複数ステップの手順や、ときどきしか使わないドメイン知識は、ルールではなく skills に置くのが公式の推奨です。\n\nskills で起動時に読み込まれるのは名前と説明だけで、本文は依頼に関連すると Claude が判断したときか、名前で呼び出されたときに読み込まれます。条件付き読み込みの条件がファイルパスで決まる rules に対し、skills は何を頼まれたかで決まります。\n\nチェックリスト\n\n書くとき\n・それは Claude が知らないことか（一般知識なら書かない）\n・既に他の文書やヘルパーにないか（あるなら参照の1行にする）\n・それはルールか、手順か（複数ステップの手順やドメイン知識なら skills へ）\n・常に必要か、特定のファイルを扱うときだけ必要か（後者なら paths 付きの rules へ）\n\n見直すとき\n・消したら Claude がミスするか（しないなら消す）\n・同じ話題が2箇所に書かれていないか（片方だけ更新されて食い違う）\n・分割するなら、読み込まれるタイミングが分かれるか（分かれないなら削る方が先）\n\n参考\n\nhttps://code.claude.com/docs/ja/memory\n\nhttps://code.claude.com/docs/ja/best-practices\n\nhttps://code.claude.com/docs/ja/large-codebases\n\nhttps://code.claude.com/docs/ja/skills",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d119e99d3a232e2a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7149101796407186,
+      "popularityPercentile": 0.15868263473053892,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "CLAUDE.mdに残すルールを「削除するとClaudeが間違うか」で判断する方法を示した。",
+      "reason": "CLAUDE.mdは毎回全文がコンテキストを消費するため、詳しく書くほど良いわけではない。一般知識ではなく、Claudeが推測できない固有ルールだけを残す基準を示している。",
+      "keywords": [
+        "Claude Code",
+        "CLAUDE.md",
+        "コンテキスト",
+        "公式ドキュメント",
+        "ルール設計"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 5,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "GitHubのStacked Pull Requestsって何？AI時代の新しいPR管理を試してみた",
+      "url": "https://qiita.com/yhoguro/items/d08b908dee3cc26a5fb6",
+      "publishedAt": "2026-08-02T04:33:31.000Z",
+      "author": "yhoguro",
+      "authorDetail": {
+        "name": "yhoguro",
+        "handle": "@yhoguro",
+        "url": "https://qiita.com/yhoguro",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/79178452?v=4",
+        "followers": 0,
+        "posts": 4,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/yusuke-hoguro"
+          }
+        ]
+      },
+      "tags": [
+        "GitHub",
+        "#PullRequests",
+        "AIエージェント"
+      ],
+      "snippet": "概要 GitHub の Stacked Pull Requests（Stack PR） は、複数の Pull Request を親子関係（スタック）として管理できる機能です。 これまでは複数の関連PRがある場合、それぞれを個別に管理する必要がありました。 ■従来の複数PRのフロー ■dependbotのPR例 Stacked Pull Requests を利用すると、関連するPRを1つのスタックとして扱うことができます。 スタック構成例 [code] 各PRは親PRをベースとして作成されるため、依存関係が分かりやすくなります。 メリット ・PR同士の依存関係を可視化できる ・関連する変更をまとめてレビューできる ・Rebase stack によりスタック全体をまとめてリベースできる ・Merge stack により順番を意識せずマージできる ・差分が小さいPRを積み重ねる開発スタイルと相性…",
+      "body": "概要\n\nGitHub の Stacked Pull Requests（Stack PR） は、複数の Pull Request を親子関係（スタック）として管理できる機能です。\n\nこれまでは複数の関連PRがある場合、それぞれを個別に管理する必要がありました。\n\n■従来の複数PRのフロー\n\n \n\n■dependbotのPR例\n\n \n\nStacked Pull Requests を利用すると、関連するPRを1つのスタックとして扱うことができます。\n\nスタック構成例\n\n [code] \n\n各PRは親PRをベースとして作成されるため、依存関係が分かりやすくなります。\n\nメリット\n・PR同士の依存関係を可視化できる\n・関連する変更をまとめてレビューできる\n・Rebase stack によりスタック全体をまとめてリベースできる\n・Merge stack により順番を意識せずマージできる\n・差分が小さいPRを積み重ねる開発スタイルと相性が良い\n\nAIエージェント時代との相性\n\n今後は GitHub Copilot や Codex をはじめとする AI エージェントが、一度に複数のPRを生成するケースが増えていくと考えられます。\n\n例えば、下記のような作業をAIが別々のPRとして作成することがあります。\n・リファクタリング\n・ライブラリ更新\n・テストコード追加\n・ドキュメント修正\n\nそのような場合でも、\n\n [code] \n\nのようにスタック化することで、変更の流れを把握しやすくなります。\n\nDependabotによるライブラリ更新も、この活用例の一つです。\n\nRebase stack\n\nブランチの履歴がずれている場合、下記がUIに表示されます。\n\n [code] \n\nその場合は 「Rebase stack」 をクリックするだけで、GitHubがスタック全体をまとめてリベースしてくれます。\n\n \n\nMerge stack\n\nCIがすべて成功すると、Merge stack からスタック全体を順番にマージできます。\n\n \n\nこれにより、従来の\n・Merge\n・Rebase\n・CI実行\n\nを繰り返す運用を簡略化できます。\n\nスクリーンショット\n\n \n\n \n\n感想\n\nStacked Pull Requests は単なるPR管理機能ではなく、AIエージェントが複数の変更を並行して提案する時代に適したレビュー・マージ手法だと感じました。\n\n今後、AIが生成するPRの数が増えるほど、その効果は大きくなると思います。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "b10f46b0ae911109",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7689121756487026,
+      "popularityPercentile": 0.5329341317365269,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 75,
+      "oneLiner": "GitHubのStacked Pull Requestsで、依存関係のある複数PRを親子関係付きで管理する方法を紹介する。",
+      "reason": "関連する変更を小さなPRのスタックとして積み、Rebase stackやMerge stackでまとめて更新・統合できる。AIが複数PRを生成する開発フローとの組み合わせも扱っている。",
+      "keywords": [
+        "GitHub",
+        "Stacked Pull Requests",
+        "Stack PR",
+        "Rebase stack",
+        "Merge stack"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "TerraformとGCP/Vercel連携：複数環境IaC権限を安全に自動設定",
+      "url": "https://qiita.com/DaokFrontier/items/825bb583f41bcca044ab",
+      "publishedAt": "2026-08-02T11:39:15.000Z",
+      "author": "DaokFrontier",
+      "authorDetail": {
+        "name": "DaokFrontier",
+        "handle": "@DaokFrontier",
+        "url": "https://qiita.com/DaokFrontier",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4451170/profile-images/1781865426",
+        "followers": 2,
+        "posts": 68,
+        "links": []
+      },
+      "tags": [
+        "Terraform",
+        "GoogleCloud",
+        "Vercel",
+        "IaC",
+        "IAM"
+      ],
+      "snippet": "多くのフロントエンド開発者がVercelの便利さに魅了され、同時にバックエンドをGCPで構築するケースが増えています。しかし、開発・ステージング・本番といった複数環境でVercelとGCPをIaC（Infrastructure as Code）で管理しようとすると、「デプロイ権限が環境間で混ざってしまいセキュリティが不安」「手動設定でミスが頻発する」といった課題に直面しがちです。特に、環境ごとのGCPリソースへの安全なアクセス権限設定は複雑で、多くのエンジニアがここでつまずきます。 この記事では、Terraformを使ってVercelとGCPの連携、特に複数環境におけるIaC権限を安全かつ自動的に設定する具体的な手順と解決策を提示します。この記事を読めば、VercelとGCPの連携におけるセキュアな権限管理をIaCで実現し、環境間のデプロイを自動化・効率化できるようになります。 Terra…",
+      "body": "多くのフロントエンド開発者がVercelの便利さに魅了され、同時にバックエンドをGCPで構築するケースが増えています。しかし、開発・ステージング・本番といった複数環境でVercelとGCPをIaC（Infrastructure as Code）で管理しようとすると、「デプロイ権限が環境間で混ざってしまいセキュリティが不安」「手動設定でミスが頻発する」といった課題に直面しがちです。特に、環境ごとのGCPリソースへの安全なアクセス権限設定は複雑で、多くのエンジニアがここでつまずきます。\n\nこの記事では、Terraformを使ってVercelとGCPの連携、特に複数環境におけるIaC権限を安全かつ自動的に設定する具体的な手順と解決策を提示します。この記事を読めば、VercelとGCPの連携におけるセキュアな権限管理をIaCで実現し、環境間のデプロイを自動化・効率化できるようになります。\n\nTerraformでVercelとGCPを連携するIaC基盤を構築する\n\nこのセクションでは、Terraformを使ってVercelプロジェクトとGCPリソースを連携させるための基本的なプロバイダ設定と、Terraformの動作に必要な環境を説明します。IaCの恩恵を最大限に受けるためには、まずこの土台作りが重要です。\n\n前提環境とTerraformの初期設定\n\nTerraformの実行には、Terraform CLIのインストールと、GCPおよびVercelへの認証が必要です。\n・Terraform CLI: 最新安定版のTerraform CLIをインストールしてください。\n・GCP認証: ローカルでの開発にはgcloud auth application-default loginでアプリケーションのデフォルト認証情報を生成します。CI/CDパイプラインでは、サービスアカウントキーのダウンロードはセキュリティリスクが高いため避け、Workload Identity Federation（後述）やGCPのCI/CDサービス（Cloud Buildなど）で提供される認証メカニズムを使用することを推奨します。\n・出典: Terraform Google Cloud Provider Documentation\n・Vercel認証: Vercel APIトークンを使用します。これはVercel設定ページから作成できます。VERCELAPITOKEN環境変数に設定するか、Terraform変数として渡します。\n\nTerraformのプロバイダ設定ファイル（例: main.tf）は以下のようになります。GCPとVercelそれぞれのプロバイダを定義し、必要な変数を指定します。\n\n [code] \n\nTerraform StateをGCP Cloud Storageに保存することで、チームでの共同作業が可能になり、状態の破損を防ぐことができます。これは複数環境のIaC管理におけるベストプラクティスです。\n\nVercelプロジェクトのTerraform管理\n\nTerraformのvercelプロバイダを使って、Vercelプロジェクトの作成と設定を行います。これにより、UIでの手動設定を排除し、コードによる一貫したプロジェクト管理が可能になります。\n\n [code] \n\nこのvercelprojectリソースにより、Gitリポジトリとフレームワークを指定してVercelプロジェクトをIaCで定義できます。環境変数の設定も可能です。\n\nVercelとGCP間のセキュアな権限管理：Workload Identity Federationを活用する\n\nこのセクションでは、VercelからGCPリソースへのアクセスを安全に制御するためのWorkload Identity Federation (WIF) の設定方法を解説します。サービスアカウントキーをVercelに直接渡すことによるセキュリティリスクを回避し、環境ごとの適切な権限分離を実現します。\n\nWorkload Identity Federation (WIF) の仕組み\n\nWorkload Identity Federationは、GCP外部のIDプロバイダ（この場合はVercel）からの認証情報を信頼し、GCPサービスアカウントを一時的に借用できるようにする仕組みです。OIDC（OpenID Connect）プロトコルを利用して、Vercelが発行するトークンをGCPが検証し、対応するGCPサービスアカウントの権限を付与します。\n\nこれにより、Vercel環境ごとに異なるGCPサービスアカウントを借用させたり、特定のVercelプロジェクトや環境からのみアクセスを許可したりといった、きめ細やかな権限管理がIaCで可能になります。\n・出典: Vercel Docs: Connect to Google Cloud, Google Cloud Docs: Workload Identity Federation\n\nTerraformによるGCP IAMとWIFの設定\n\n以下のTerraformコード（例: gcpiam.tf）は、VercelがGCPリソースにアクセスするためのサービスアカウント、Workload Identity Pool、およびProviderを設定します。\n\n [code] \n\nこの設定では、googleserviceaccountiammemberリソースのmemberフィールドで、VercelのOIDCトークンに含まれるvercelprojectidとvercelenvironment属性を利用して、どのVercelプロジェクトのどの環境がどのGCPサービスアカウントを借用できるかを厳密に制御しています。これにより、例えば本番環境のデプロイでしか本番用サービスアカウントの権限を使用できないように設定できます。\n\nVercelプロジェクトへの環境変数設定\n\nWorkload Identity Federationを設定したら、Vercelプロジェクトの環境変数にGCPのWorkload Identity Federation関連の情報を設定する必要があります。これにより、Vercelで実行されるアプリケーションがGCPサービスアカウントを借用できるようになります。\n\nvercel.tfのvercelprojectリソースのenvironmentブロックを以下のように更新します。\n\n [code] \n\nこれで、Vercelの各環境（development, preview, production）に対して、それぞれの環境で借用すべきGCPサービスアカウントの情報がTerraformによって自動的に設定されます。\n\nTerraformコマンドによるIaCの実行\n\nTerraformの設定が完了したら、以下のコマンドでインフラストラクチャをプロビジョニングできます。\n・terraform init: 作業ディレクトリを初期化し、必要なプロバイダをダウンロードします。リモートバックエンドを設定している場合は、その設定も初期化されます。\n・terraform plan -out=tfplan -var=\"vercelapitoken=YOURVERCELTOKEN\" -var=\"gcpprojectid=YOURGCPPROJECTID\": 変更計画を生成し、出力ファイルに保存します。機密情報は環境変数や.tfvarsファイルで渡すことを推奨します。\n・terraform apply \"tfplan\": 保存された計画に基づいてインフラストラクチャを変更します。\n・terraform import vercelproject.mynextjsproject prjxxxxxxxxxxxxxxxxxxxx: 既存のVercelプロジェクトをTerraformの状態にインポートします。prjxxxxxxxxxxxxxxxxxxxxはVercelプロジェクトIDです。これにより、既存のリソースもIaC管理下に置くことができます。\n\nよくあるエラー・ハマりどころとその回避策\n\nこのセクションでは、TerraformとVercel/GCP連携で遭遇しやすい問題と、その具体的な解決策を解説します。これらの知識は、IaCの運用において時間と労力を大幅に節約します。\n\n1. 権限不足 (403 Forbidden)\n・エラー: TerraformがGCPリソースを作成、読み取り、更新、削除するための十分なIAM権限がない場合に発生します。GCPのAPIが有効になっていない場合にも発生します。\n・回避策:\n・Terraformを実行するサービスアカウント（またはローカルで認証しているユーザー）に、エラーメッセージに記載されている不足している権限を持つIAMロールを付与します。最小権限の原則に従い、必要な権限のみを付与することが重要です。\n・GCPコンソールで、関連するAPIが有効になっていることを確認します（例: IAM API, Cloud Storage APIなど）。\n・CI/CDパイプラインで実行している場合は、パイプラインを実行するサービスアカウントが適切な権限を持っていることを確認します。\n\n2. Vercel APIトークンの問題 (401 Unauthorized)\n・エラー: Vercel APIトークンが無効であるか、必要な権限（読み取り/書き込み）がない場合に発生します。\n・回避策:\n・Vercel APIトークンが正しく設定されているか、有効期限が切れていないかを確認します。\n・トークンがプロジェクトまたはチームに対して少なくとも読み取りおよび書き込み権限を持っていることを確認します。\n・VERCELAPITOKEN環境変数が正しく設定されていることを確認します。\n\n3. Vercel環境変数の更新がデプロイに反映されない\n・エラー: TerraformでVercelの環境変数を更新しても、既存のデプロイメントにはすぐに反映されません。Vercelはデプロイメントをキャッシュするため、新しいデプロイメントがトリガーされるまで変更が適用されません。\n・回避策:\n・Terraformで環境変数を更新した後、Vercelプロジェクトで新しいデプロイメントをトリガーする必要があります。これは、コードの変更をプッシュするか、Vercel CLIでvercel deployコマンドを実行することで行えます。\n・特定の状況でキャッシュを強制的にクリアしたい場合は、Vercel CLIでvercel --forceを使用するか、Vercel APIでforceNew=1クエリパラメータを使用することで、新しいデプロイメントを強制できます。\n\n4. Terraform Stateの不整合\n・エラー: Terraformの状態ファイルが実際のインフラストラクチャと同期していない場合、予期しないリソースの変更や削除が発生する可能性があります。\n・回避策:\n・Terraformの状態ファイルをGCP Cloud Storageなどのリモートバックエンドに保存し、状態ロックを有効にして並行書き込みを防ぎます。\n・terraform refreshコマンドを使用して、状態ファイルを実際のインフラストラクチャの状態と同期させます。\n・terraform importを使用して、既存のリソースをTerraformの状態にインポートし、構成と同期させます。\n\n5. Workload Identity Federationの属性マッピングの誤り\n・エラー: VercelからGCPへの認証時に、Workload Identity Federationの属性マッピングが正しく設定されていないと、サービスアカウントの借用が失敗します。\n・回避策:\n・googleiamworkloadidentitypoolproviderリソースのattributemappingがVercelのOIDCトークンから期待されるクレームと一致していることを確認します。特に、assertion['https://vercel.com/teamId']やassertion['https://vercel.com/projectId']などのカスタムクレームのキーが正しいことを確認します。\n・googleserviceaccountiammemberリソースのmemberフィールドで指定するprincipalSetの条件が、VercelからのOIDCトークンの属性と正しくマッチしていることを確認します。\n\n設計上のトレードオフとベストプラクティス\n\nここでは、Terraformを使ったVercelとGCPのIaC管理において考慮すべき設計上のポイントと、推奨されるプラクティスを紹介します。長期的な運用とセキュリティを考慮する上で不可欠な要素です。\n\n環境分離の徹底\n・ベストプラクティス: 開発、ステージング、本番などの環境ごとにTerraform構成を分離します。これにより、環境間の設定の衝突を防ぎ、本番環境への意図しない変更のリスクを減らします。\n・実装: 異なる環境ごとにTerraformのワークスペースを使用するか、環境固有の変数ファイル（.tfvars）とディレクトリ構造（例: envs/dev/, envs/staging/, envs/prod/）を使用します。\n\n最小権限の原則に基づく権限管理\n・ベストプラクティス: TerraformがGCPリソースを管理するために使用するサービスアカウントや、Workload Identity FederationでVercelに借用させるGCPサービスアカウントには、必要最小限のIAM権限のみを付与します。これにより、セキュリティリスクを最小限に抑えます。\n・実装: 各環境や特定の操作（例: デプロイ、ストレージ管理）に特化したサービスアカウントを作成し、きめ細かいIAMロールを割り当てます。\n\nモジュール化と再利用性\n・ベストプラクティス: ネットワーク、コンピューティングインスタンス、IAMロール、Vercelプロジェクト設定など、インフラストラクチャを小さく再利用可能なモジュールに分割します。これにより、コードの重複を減らし、保守性を向上させます。\n・トレードオフ: モジュール化は初期設定に時間がかかる場合がありますが、長期的なメンテナンスとスケーラビリティの向上につながります。\n\nリモートステート管理の必須化\n・ベストプラクティス: Terraformの状態ファイルは、GCP Cloud Storageなどのリモートバックエンドに保存し、状態ロックを有効にします。これにより、チームでのコラボレーションを容易にし、状態ファイルの破損や不整合のリスクを軽減します。\n・注意点: 状態ファイルには機密情報が含まれる可能性があるため、アクセス制限を厳格に行う必要があります。\n\nCI/CDパイプラインとの統合\n・ベストプラクティス: Terraformの実行を自動化されたCI/CDパイプラインに組み込みます。これにより、一貫性のあるデプロイメントを保証し、手動操作によるエラーを減らします。\n・実装: Cloud BuildなどのGCPサービスやGitHub Actionsを使用して、terraform planとterraform applyを自動実行します。\n\n機密情報の安全な管理\n・ベストプラクティス: APIトークンやデータベースのパスワードなどの機密情報は、Terraformの構成ファイルに直接記述せず、GCP Secret ManagerやVercelの環境変数（Sensitive設定）などの安全な方法で管理します。Terraformの変数として渡す場合も、sensitive = trueを設定し、ログなどに出力されないようにします。\n\nまとめ\n\nこの記事では、Terraformを使用してVercelとGCPの連携をIaCで管理し、特に複数環境における安全な権限設定を自動化する具体的な方法を解説しました。\n・Terraformプロバイダを使ってVercelプロジェクトとGCPリソースを定義し、一元的に管理できます。\n・Workload Identity Federation (OIDC) を利用することで、サービスアカウントキーを共有することなく、VercelからGCPサービスアカウントを安全に借用できます。\n・vercelprojectリソースのenvironmentブロックとGCPのIAM条件を組み合わせることで、開発・ステージング・本番といった環境ごとに異なるGCPサービスアカウントの権限をTerraformで自動設定し、厳密な環境分離を実現しました。\n・よくあるエラーとその解決策、設計上のベストプラクティスを理解することで、より堅牢でセキュアなIaC運用が可能になります。\n\nこのアプローチにより、手動での設定ミスを減らし、デプロイプロセスの自動化とセキュリティ向上を両立させることができます。次の一歩として、今回紹介したコードをベースに、ご自身のプロジェクトの要件に合わせてさらにモジュール化を進めたり、GCPの他のサービス（Cloud Run, Cloud Functionsなど）との連携をIaCで定義してみてください。\n\nより詳細な情報や最新の仕様については、Terraform公式ドキュメント、Vercel Terraform Registry、Google Cloud Terraform Provider Documentation、Vercel Docs: Connect to Google Cloud、Google Cloud Docs: Workload Identity Federationを適宜参照することをお勧めします。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6d4132e3c951ef8a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7452095808383234,
+      "popularityPercentile": 0.2964071856287425,
+      "matchedTopics": [
+        "Next.js",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 74,
+      "oneLiner": "TerraformでVercelとGCPを複数環境に接続し、環境別のIAM権限を自動設定する。",
+      "reason": "開発・ステージング・本番の権限を分離し、VercelからGCPへ接続する設定をTerraformで管理する。手作業による環境間の権限混在を避ける構成が中心になっている。",
+      "keywords": [
+        "Terraform",
+        "Google Cloud",
+        "GCP",
+        "Vercel",
+        "IAM",
+        "IaC"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "PlaywrightでTodoアプリをE2Eテストする",
+      "url": "https://qiita.com/yukisnow0704/items/11104f956c555df55cfe",
+      "publishedAt": "2026-08-02T08:41:47.000Z",
+      "author": "yukisnow0704",
+      "authorDetail": {
+        "name": "yukisnow0704",
+        "handle": "@yukisnow0704",
+        "url": "https://qiita.com/yukisnow0704",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/111487/profile-images/1782035279",
+        "followers": 0,
+        "posts": 22,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/yukisnow0704"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/yukisnow1192"
+          }
+        ]
+      },
+      "tags": [
+        "Playwright",
+        "e2e",
+        "TypeScript",
+        "Hono",
+        "テスト自動化"
+      ],
+      "snippet": "はじめに 前回、Hono + TypeScriptでTodo APIを作った。今回はそのAPIに簡単な画面を追加し、Playwrightでブラウザ操作を自動化したE2E（End-to-End）テストを書く。 E2Eテストは「ユーザーが実際に使う操作」をそのまま自動化してテストする手法。ボタンをクリックする、フォームに入力する、画面に表示された文字を確認する、といった一連の流れをコードで再現する。 この記事では： 1. Hono側にTodo画面（HTML）を追加する 2. Playwrightのセットアップ 3. 「追加→表示確認→完了操作」のE2Eテストを書く --- 1. Hono側に画面を追加する 前回のAPIサーバーに、シンプルなHTML画面を追加する。フロントエンドフレームワークは使わず、素のHTML + JSで最小限に済ませる。 src/index.ts に以下のルートを追加する…",
+      "body": "はじめに\n\n前回、Hono + TypeScriptでTodo APIを作った。今回はそのAPIに簡単な画面を追加し、Playwrightでブラウザ操作を自動化したE2E（End-to-End）テストを書く。\n\nE2Eテストは「ユーザーが実際に使う操作」をそのまま自動化してテストする手法。ボタンをクリックする、フォームに入力する、画面に表示された文字を確認する、といった一連の流れをコードで再現する。\n\nこの記事では：\n1. Hono側にTodo画面（HTML）を追加する\n2. Playwrightのセットアップ\n3. 「追加→表示確認→完了操作」のE2Eテストを書く\n\n---\n\n1. Hono側に画面を追加する\n\n前回のAPIサーバーに、シンプルなHTML画面を追加する。フロントエンドフレームワークは使わず、素のHTML + JSで最小限に済ませる。\n\nsrc/index.ts に以下のルートを追加する。\n\n [code] \n\ndata-testid 属性をつけておくと、後述のPlaywrightのテストコードから要素を安定して見つけられる。CSSクラス名やテキストで要素を探すとデザイン変更のたびにテストが壊れやすいが、data-testid はテスト専用の目印なので影響を受けにくい。\n\n動作確認：\n\n [code] \n\nブラウザで http://localhost:3000/app を開いて、Todoの追加・完了操作ができることを確認する。\n\n---\n\n2. Playwrightのセットアップ\n\n [code] \n\n対話式のセットアップが始まる。\n\n [code] \n\nTypeScript・tests ディレクトリ・ブラウザインストールは Y を選ぶ。\n\nインストール後の構成：\n\n [code] \n\nサンプルテストは消しておく。\n\n [code] \n\n開発サーバーと連携する設定\n\nplaywright.config.ts に、テスト実行時に自動でHonoサーバーを起動する設定を追加する。\n\n [code] \n\nwebServer を設定しておくと、npx playwright test を実行したときに自動でサーバーが起動し、テスト終了後に自動で停止する。手動でサーバーを起動しておく必要がなくなる。\n\nurl にはサーバーが実際に200を返すパスを指定する。前回作ったHono APIには / へのルートを用意していないため、url: \"http://localhost:3000\" のままだと404が返り続けてPlaywrightが起動を検知できずタイムアウトする。テストで実際に使う /app を指定するのが確実。\n\nNODEENV=test は後述のテスト用リセットエンドポイントを有効にするために設定する。Windows環境では NODEENV=test tsx ... のような環境変数の指定方法がそのままでは動作しないため、クロスプラットフォーム対応の cross-env を使う。\n\n [code] \n\n---\n\n \n\n3. E2Eテストを書く\n\ntests/todo.spec.ts を作る。\n\nTodoを追加できることを確認する\n\n [code] \n・page.goto(\"/app\") — baseURL の設定により http://localhost:3000/app にアクセスする\n・page.getByPlaceholder(...) — placeholder属性で入力欄を見つける\n・page.getByRole(\"button\", { name: \"追加\" }) — ボタンのアクセシビリティ上のロールとテキストで見つける\n・page.getByTestId(...) — 先ほどHTMLに仕込んだ data-testid で要素を見つける\n\n \n\ngetByRole や getByPlaceholder のような「ユーザーが実際に見る情報」で要素を探す方法が、Playwrightでは推奨されている。CSSセレクタで直接DOM構造を指定するより、画面の見た目の変更に強い。\n\n完了操作を確認する\n\n [code] \n\ntoHaveCSS でスタイルの変化（取り消し線がついたこと）を検証する。完了ボタンをクリックした後、そのボタン自体が消えて取り消し線がつく実装なので、テストとしても仕様通りの挙動を確認できている。\n\n複数のTodoが正しく表示されることを確認する\n\n [code] \n\ntoHaveCount で要素の個数を検証できる。ループで複数回操作するのもE2Eテストらしい書き方。\n\n:::note warn\nループの中で toBeVisible() を挟まずに次の操作へ進むと、フォーム送信からDOM更新（fetchTodos() による再取得・再描画）までのタイミングが間に合わず、期待した件数より少ない状態でテストが進んでしまうことがある。「操作した結果が画面に反映されるまで待つ」というステップを都度挟むのがE2Eテストの定石。\n:::\n\n---\n\n4. テストを実行する\n\n [code] \n\n [code] \n\nブラウザを表示しながら実行する（デバッグ用）\n\nデフォルトはヘッドレス（画面非表示）で実行されるが、実際にブラウザが動く様子を見たい場合は --headed オプションをつける。\n\n [code] \n\nUIモードで対話的にデバッグする\n\nPlaywright独自のUIモードを使うと、各ステップのスクリーンショットやDOMの状態を確認しながらデバッグできる。\n\n [code] \n\nテストが失敗した箇所で「なぜ失敗したか」を視覚的に確認できるので、CI上で落ちたテストをローカルで調査する際に重宝する。\n\n---\n\n5. テスト間のデータ干渉に注意する\n\n \n\n上記のテストを続けて実行すると、前のテストで追加したTodoが次のテストにも残ってしまう（インメモリストアなので、サーバーが再起動されない限りデータが蓄積される）。\n\ntoHaveCount のテストが他のテストの影響を受けないよう、beforeEach でリセット用のエンドポイントを呼ぶ設計にするのが実務では一般的。\n\nsrc/index.ts にテスト用のリセットエンドポイントを追加する（本番では無効化する想定）。playwright.config.ts の webServer.command で NODEENV=test を設定済みなので、テスト実行時のみこのルートが有効になる。\n\n [code] \n\nsrc/store.ts にも reset メソッドを追加する。\n\n [code] \n\nテスト側で毎回リセットする：\n\n [code] \n\nrequest はPlaywrightが提供するHTTPクライアントで、画面操作を介さず直接APIを叩ける。テストの前提条件を整えるのに便利。\n\n---\n\nまとめ\n\n| 要素 | 役割 |\n|---|---|\n| data-testid | テスト専用の安定した要素の目印 |\n| getByRole / getByPlaceholder | ユーザー視点での要素の見つけ方 |\n| webServer 設定 | テスト実行時にサーバーを自動起動 |\n| --ui モード | 失敗原因を視覚的にデバッグ |\n| beforeEach + リセットAPI | テスト間のデータ干渉を防ぐ |\n\nE2Eテストは実装の詳細（内部のクラス構造など）ではなく、ユーザーが実際に体験する操作をそのまま検証する。今回のようにAPIとフロントを両方自作している場合、E2Eテストが「バックエンドとフロントエンドが正しく繋がっているか」を保証する最後の砦になる。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5ad99d84100cd111",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.764311377245509,
+      "popularityPercentile": 0.38323353293413176,
+      "matchedTopics": [
+        "TypeScript",
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 68,
+      "oneLiner": "HonoとTypeScriptのTodo画面にPlaywrightを導入し、追加・表示確認・完了操作のE2Eテストを実装する。",
+      "reason": "素のHTML画面にdata-testidを付け、Playwrightでユーザー操作を再現する最小構成を段階的に示す。CSSや表示文言に依存しにくい要素選択の理由も説明している。",
+      "keywords": [
+        "Playwright",
+        "TypeScript",
+        "Hono",
+        "E2Eテスト",
+        "data-testid"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Expo Routerで通知タップからcold startするとスプラッシュ画面で固まった原因",
+      "url": "https://qiita.com/hiro123/items/9917943f00ec1d6a7d2b",
+      "publishedAt": "2026-08-01T23:56:09.000Z",
+      "author": "takahiro saeki",
+      "authorDetail": {
+        "name": "takahiro saeki",
+        "handle": "@hiro123",
+        "url": "https://qiita.com/hiro123",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/79274/profile-images/1704680399",
+        "bio": "front end developer. /  もふもふ☆パラダイスという技術系同人サークル代表。最近はreact.jsに夢中。",
+        "location": "Yokohama, japan",
+        "followers": 15,
+        "posts": 17,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/takahiro-saeki"
+          },
+          {
+            "label": "Web",
+            "url": "https://takahiro-saeki.tech/"
+          }
+        ]
+      },
+      "tags": [
+        "expo",
+        "reactnative",
+        "ExpoRouter",
+        "Push通知",
+        "TypeScript"
+      ],
+      "snippet": "Expoアプリで、終了状態からPush通知をタップして起動すると、スプラッシュ画面のまま進まないことがありました。通常起動と、起動後の通知タップでは再現しません。 原因はスプラッシュ画面そのものではなく、起動直後に2つの画面遷移が競合していたことでした。 認証チェックと通知遷移が同時に走っていた アプリの認証済みレイアウトでは、起動時にSecureStoreのトークンを確認しています。 [code] 同じレイアウトから、Push通知の登録と通知タップの監視も始めていました。 [code] 通知側ではgetLastNotificationResponseAsync()を呼び、通知から起動された場合はURLに対応する画面へ遷移します。 [code] cold startでは、次の2つが近いタイミングで実行されます。 1. 認証チェックによるrouter.replace(\"/login\")または…",
+      "body": "Expoアプリで、終了状態からPush通知をタップして起動すると、スプラッシュ画面のまま進まないことがありました。通常起動と、起動後の通知タップでは再現しません。\n\n原因はスプラッシュ画面そのものではなく、起動直後に2つの画面遷移が競合していたことでした。\n\n認証チェックと通知遷移が同時に走っていた\n\nアプリの認証済みレイアウトでは、起動時にSecureStoreのトークンを確認しています。\n\n [code] \n\n同じレイアウトから、Push通知の登録と通知タップの監視も始めていました。\n\n [code] \n\n通知側ではgetLastNotificationResponseAsync()を呼び、通知から起動された場合はURLに対応する画面へ遷移します。\n\n [code] \n\ncold startでは、次の2つが近いタイミングで実行されます。\n\n1. 認証チェックによるrouter.replace(\"/login\")またはレイアウト表示\n2. 通知URLによるrouter.push(path)\n\nナビゲーションがまだ安定していない間に両方が走り、画面が表示されない状態になっていました。見た目はスプラッシュ画面で止まっているため、最初はSplashScreenの設定を疑いました。\n\n通知処理を認証完了後まで待たせる\n\n修正は、通知フックへenabledを渡す形にしました。\n\n [code] \n\nフック側では、enabledがfalseの間は通知に関する副作用を開始しません。\n\n [code] \n\n認証が完了してレイアウトを表示できる状態になってから、最後にタップされた通知を処理します。これでcold start時の遷移競合が起きなくなりました。\n\n通知URLもそのまま渡さない\n\n通知データには相対パスと絶対URLの両方が入る可能性があったため、アプリ内のpathへ変換してからrouter.pushしています。\n\n [code] \n\n実際のアプリでは、自分のドメインかどうかを確認した上でpathを取り出す方が安全です。この例は処理の要点だけを抜粋しています。\n\n確認した起動パターン\n\n修正後は、少なくとも次の経路を分けて確認しました。\n・アプリアイコンから通常起動する\n・アプリ終了中に通知をタップする\n・バックグラウンド中に通知をタップする\n・アプリ表示中に通知をタップする\n・ログアウト状態で通知をタップする\n\n通知からの起動は、通常起動とは初期化順序が変わります。スプラッシュ画面で止まって見える場合でも、SplashScreenだけでなく、認証とDeep Linkが同時に画面遷移していないかを確認すると原因を追いやすくなります。\n\n参考\n・Expo Notifications: Handle push notifications with navigation",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d72b7a7bf11534b8",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7207984031936129,
+      "popularityPercentile": 0.7005988023952096,
+      "matchedTopics": [
+        "React",
+        "TypeScript"
+      ],
+      "buzz": false,
+      "score": 68,
+      "oneLiner": "Expo Routerのcold startで通知遷移と認証チェックが競合し、スプラッシュ画面で停止する問題を解消した。",
+      "reason": "原因はSplashScreenではなく、起動直後のrouter.replaceとrouter.pushの競合だった。認証完了まで通知処理をenabled=falseで遅延させる修正で、遷移順序を制御している。",
+      "keywords": [
+        "Expo Router",
+        "React Native",
+        "Push通知",
+        "SecureStore",
+        "cold start",
+        "TypeScript"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "durable"
+    }
+  ],
+  "stats": {
+    "collected": 565,
+    "afterDedupe": 542,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 335,
+      "zenn": 119,
+      "hatena": 11,
+      "hackernews": 53,
+      "devto": 4,
+      "github_repo": 31,
+      "rss": 11,
+      "changelog": 1
+    },
+    "estimatedReadMinutes": 25
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3111,
+        "outputTokens": 369,
+        "cacheReadTokens": 0,
+        "elapsedMs": 5475,
+        "estimatedCostUsd": 0.001065
+      },
+      "score": {
+        "model": "gpt-5.6-luna",
+        "requests": 9,
+        "inputTokens": 48525,
+        "outputTokens": 3871,
+        "cacheReadTokens": 10440,
+        "elapsedMs": 37355,
+        "estimatedCostUsd": 0.014558999999999999
+      },
+      "describe": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 32353,
+        "outputTokens": 5724,
+        "cacheReadTokens": 8369,
+        "elapsedMs": 32445,
+        "estimatedCostUsd": 0.01350678
+      },
+      "deep": {
+        "model": "gpt-5.6-luna",
+        "requests": 4,
+        "inputTokens": 14096,
+        "outputTokens": 13241,
+        "cacheReadTokens": 14328,
+        "elapsedMs": 78699,
+        "estimatedCostUsd": 0.01899496
+      }
+    },
+    "totalCostUsd": 0.0481
+  },
+  "notes": []
+}
