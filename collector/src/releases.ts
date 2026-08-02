@@ -2,7 +2,14 @@ import type { LlmBackend } from './backend.js';
 import type { RuntimeConfig } from './config.js';
 import { complete } from './llm.js';
 import { ReleaseResultSchema } from './schemas.js';
-import type { RawItem, ReleaseAlso, ReleaseItem, ReleaseKind, TopicsConfig } from './types.js';
+import type {
+  RawItem,
+  ReleaseAlso,
+  ReleaseImpact,
+  ReleaseItem,
+  ReleaseKind,
+  TopicsConfig,
+} from './types.js';
 import { log, truncate } from './util.js';
 
 /**
@@ -13,14 +20,25 @@ import { log, truncate } from './util.js';
  */
 
 /**
- * 表示順。
+ * 表示順は impact（読者に何が起きるか）で決める。
  *
- * 「自分の手元を更新する判断が要るもの」を上に置く。
- * SaaS の機能追加（service）は数が多くなりがちで、実測では 19 件中 14 件を占めた。
- * 以前は minor と patch の間に置いていたが、それだとライブラリ関連が
- * 14 件の SaaS 告知で分断され、patch のライブラリ（実測では Playwright と
- * Claude Code）が埋もれた。ライブラリを連続させるため service を最後にする。
+ * 以前は kind（メジャー/マイナー/パッチ/サービス）で並べていたが、これは
+ * 仕様上の分類で読み手の関心と一致していなかった。実測 27 件では
+ * service 15 件の中に「1 サンドボックスで複数エージェント実行」と
+ * 「Server-Timing ヘッダーの通過」が同居し、minor のほうが
+ * 「できるようになる」打率が高かった（4 件中 3 件）。
+ *
+ * 脆弱性は埋もれさせたくないので unlocks の次に置く。chore（修正のみ）は
+ * 画面では畳む。
  */
+const IMPACT_ORDER: Record<ReleaseImpact, number> = {
+  unlocks: 0,
+  security: 1,
+  improves: 2,
+  chore: 3,
+};
+
+/** kind は表示には使わないが、同一製品のまとめ判定に残している */
 const KIND_ORDER: Record<ReleaseKind, number> = {
   'ai-model': 0,
   major: 1,
@@ -131,6 +149,38 @@ ${topics.profile}
 - 日本語で書く。1〜2 文、80字程度に収める。
 - 記事に書かれていない内容を推測で足さない。
 
+# impact（読者に何が起きるか）
+この読者が一番知りたいのは「これで何ができるようになるのか」です。
+バージョンの上げ幅ではなく、**中身の変化の大きさ**で選んでください。
+
+- unlocks — これまでできなかったことができるようになる。
+  新しい API・新しい対応環境・新しい自動化・制限の撤廃など。
+  パッチ番号の更新でも、中身が新機能なら unlocks です。
+- security — 脆弱性の修正が主題。
+- improves — できていたことが速い・安い・楽になる。性能改善・コスト削減・DX 改善。
+- chore — 不具合修正だけ。新しくできることが増えない。
+
+# unlock（何ができるようになるか）
+「〜できるようになる」の形で 1 文、50字以内。読者の側から見て書きます。
+
+- 良い例: 「インストールするだけでコードベースのナレッジグラフが生成され、コミットにも追従できる」
+- 良い例: 「iPhone からも同じ拡張機能が使えるようになる」
+- 悪い例: 「複数の回帰バグを修正」（できることが増えていない → null にして chore）
+- 悪い例: 「v4.12.33 をリリース」（バージョンは答えになっていない）
+
+**新しくできることが無ければ必ず null にしてください。** 埋めるために
+「安定性が向上する」のような当たり障りのない文を書かないこと。
+
+# changeBefore / changeAfter
+変化の大きさは形容詞では伝わりません。対になる 2 つの短文で書きます。
+- changeBefore: 「1 サンドボックスにエージェント 1 つ」
+- changeAfter: 「1 サンドボックスで複数エージェントを分離実行」
+記事から両方読み取れないときは、両方 null にしてください（片方だけは意味がない）。
+
+# scope（新たに対応した環境）
+対応範囲が広がったときだけ挙げます。例: iOS / Android / Web / CLI / セルフホスト / 無料プラン。
+広がっていなければ空配列。既に対応していたものを並べないこと。
+
 # 出力
 - 入力されたすべての ref に対して、必ず1件ずつ結果を返す。
 - isRelease が false のものも、product と summary は空文字でよいので ref を返す。`;
@@ -169,6 +219,9 @@ export async function extractReleases(
         product: c.item.sourceLabel.replace(/^GitHub Releases \/ /, ''),
         version: null,
         kind: 'minor',
+        // 判定できないので、畳まれる側に置く（あるように見せない）
+        impact: 'chore',
+        unlock: null,
         summary: truncate((c.item.body || c.item.snippet).replace(/\s+/g, ' ').trim(), 120),
       }));
   }
@@ -206,19 +259,82 @@ export async function extractReleases(
   }
 }
 
-function toReleaseItem(
-  c: Candidate,
-  r: { product: string; what?: string | null; version: string | null; kind: string; summary: string },
-): ReleaseItem {
+interface ReleaseFields {
+  product: string;
+  what?: string | null;
+  version: string | null;
+  kind: string;
+  impact?: string;
+  unlock?: string | null;
+  changeBefore?: string | null;
+  changeAfter?: string | null;
+  scope?: string[];
+  summary: string;
+}
+
+/**
+ * 中身の無い unlock を弾く。
+ *
+ * 「何ができるようになるか」を必須にすると、モデルは埋めるために
+ * 「安定性が向上する」のような当たり障りのない文を書きたがる。
+ * それが通ると chore が unlocks に混ざって、畳めなくなる。
+ */
+const EMPTY_UNLOCK = /^(なし|特になし|不明|null|-|—)$/i;
+const VAGUE_UNLOCK =
+  /(安定性が向上|信頼性が向上|品質が向上|より安定|バグが修正|不具合が修正|改善されている)/;
+
+function cleanUnlock(v: string | null | undefined): string | null {
+  const t = v?.trim();
+  if (!t || EMPTY_UNLOCK.test(t)) return null;
+  if (VAGUE_UNLOCK.test(t)) return null;
+  return t;
+}
+
+/**
+ * 分類（impact）と本文（unlock）を食い違わせない。
+ *
+ * モデルは「大きな変更です」と言いながら中身を書けないことがある。
+ * そのまま通すと unlocks の枠に空の項目が並び、畳む判断もできなくなる。
+ * テキストが無ければ分類を下げ、テキストがあるのに chore と言っていれば
+ * improves まで上げる（unlocks まで上げるのは踏み込みすぎ）。
+ */
+export function resolveImpact(
+  declared: string | undefined,
+  rawUnlock: string | null | undefined,
+): { impact: ReleaseImpact; unlock: string | null } {
+  const unlock = cleanUnlock(rawUnlock);
+  const known = (IMPACT_ORDER as Record<string, number>)[declared ?? ''] != null
+    ? (declared as ReleaseImpact)
+    : 'chore';
+
+  // 脆弱性は unlock の有無で判断しない（修正版の案内が unlock に入る）
+  if (known === 'security') return { impact: 'security', unlock };
+  if (known === 'unlocks' && !unlock) return { impact: 'chore', unlock: null };
+  if (known === 'chore' && unlock) return { impact: 'improves', unlock };
+  return { impact: known, unlock };
+}
+
+function toReleaseItem(c: Candidate, r: ReleaseFields): ReleaseItem {
   const kind = (KIND_ORDER as Record<string, number>)[r.kind] != null
     ? (r.kind as ReleaseKind)
     : 'minor';
+
+  const { impact, unlock } = resolveImpact(r.impact, r.unlock);
+
+  const before = r.changeBefore?.trim() || null;
+  const after = r.changeAfter?.trim() || null;
+
   return {
     id: c.item.id,
     product: r.product?.trim() || c.item.sourceLabel,
     what: r.what?.trim() || null,
     version: r.version?.trim() || null,
     kind,
+    impact,
+    unlock,
+    // 片方だけでは差分として読めないので、両方揃ったときだけ持つ
+    change: before && after ? { before, after } : null,
+    scope: (r.scope ?? []).map((v) => v.trim()).filter(Boolean).slice(0, 4),
     summary: r.summary?.trim() || '',
     title: c.item.title,
     url: c.item.url,
@@ -262,10 +378,18 @@ function mergeSameProduct(items: ReleaseItem[]): ReleaseItem[] {
   });
 }
 
-function sortReleases(items: ReleaseItem[]): ReleaseItem[] {
+/** 深刻度の高い脆弱性を security グループの先頭に出す */
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, moderate: 2, low: 3 };
+
+export function sortReleases(items: ReleaseItem[]): ReleaseItem[] {
   return [...items].sort((a, b) => {
-    const byKind = KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
-    if (byKind !== 0) return byKind;
+    const byImpact = IMPACT_ORDER[a.impact] - IMPACT_ORDER[b.impact];
+    if (byImpact !== 0) return byImpact;
+    if (a.advisory && b.advisory) {
+      const bySeverity =
+        (SEVERITY_ORDER[a.advisory.severity] ?? 9) - (SEVERITY_ORDER[b.advisory.severity] ?? 9);
+      if (bySeverity !== 0) return bySeverity;
+    }
     return b.publishedAt.localeCompare(a.publishedAt);
   });
 }

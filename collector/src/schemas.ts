@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CATEGORIES } from './categories.js';
-import { DURABILITIES, RELEASE_KINDS } from './types.js';
+import { DURABILITIES, RELEASE_IMPACTS, RELEASE_KINDS } from './types.js';
 
 /**
  * LLM に返させる構造の定義元。
@@ -103,6 +103,33 @@ export const ReleaseResultSchema = z.object({
         .catch('minor')
         .describe(
           'ai-model=新しいAIモデル / major=メジャー版・GA・新規公開 / minor=機能追加 / patch=修正のみ / service=SaaSの機能追加',
+        ),
+      impact: z
+        .enum(RELEASE_IMPACTS)
+        .catch('chore')
+        .describe(
+          'unlocks=これまでできなかったことができるようになる / security=脆弱性の修正 / improves=できていたことが速い・安い・楽になる / chore=修正のみ',
+        ),
+      unlock: z
+        .string()
+        .nullable()
+        .describe(
+          '何ができるようになるかを「〜できるようになる」の形で1文。50字以内。バージョン番号や修正件数ではなく、読者の側から見て何が可能になるかを書く。新しくできることが無ければ null。',
+        ),
+      changeBefore: z
+        .string()
+        .nullable()
+        .describe(
+          '今までどうだったか。20〜40字。「1サンドボックスにエージェント1つ」のように具体的に。記事から読み取れなければ null。',
+        ),
+      changeAfter: z
+        .string()
+        .nullable()
+        .describe('これからどうなるか。20〜40字。changeBefore と対になるように書く。無ければ null。'),
+      scope: z
+        .array(z.string())
+        .describe(
+          '新たに対応した環境や範囲だけを挙げる。例: iOS / Android / Web / CLI / セルフホスト / 無料プラン。対応範囲が広がっていなければ空配列。',
         ),
       summary: z
         .string()

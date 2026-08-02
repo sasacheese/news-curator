@@ -4,11 +4,12 @@ import { enrichBodies, enrichHatenaCounts } from './enrich.js';
 import { deepDive, getBackend, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
 import type { SlotRule } from './prescore.js';
 import { dedupe, pickByDomain, pickTopDiverse, preScore } from './prescore.js';
-import { collectReleaseCandidates, extractReleases } from './releases.js';
+import { collectReleaseCandidates, extractReleases, sortReleases } from './releases.js';
+import { collectAdvisories } from './advisories.js';
 import { collectAll } from './sources.js';
 import { loadSeenUrls, saveDigest } from './store.js';
-import type { Digest, RankedItem, RawItem, TopItem } from './types.js';
-import { formatJst, log, mapLimit, resolveWindow } from './util.js';
+import type { Digest, RankedItem, RawItem, ReleaseItem, TopItem } from './types.js';
+import { formatJst, log, mapLimit, resolveWindow, safe } from './util.js';
 
 interface Args {
   date?: string;
@@ -85,7 +86,20 @@ async function main(): Promise<void> {
   log.step('リリース情報');
   const releaseCandidates = collectReleaseCandidates(unique, { start, end });
   log.info(`  候補 ${releaseCandidates.length} 件`);
-  const releases = await extractReleases(backend, releaseCandidates, topics, runtime);
+  /*
+   * 脆弱性は別の入口から取る。リリースノートには載らない（実測 27 件中 0 件）ので、
+   * 監視対象を増やしても拾えない。LLM は通さない——GitHub が付けた深刻度と
+   * 修正版のほうが、要約より確かで有用。
+   */
+  const [described, advisories] = await Promise.all([
+    extractReleases(backend, releaseCandidates, topics, runtime),
+    safe('advisories', () =>
+      collectAdvisories(sources.advisories, sources.githubReleases.repos, { start, end },
+        process.env.GITHUB_TOKEN),
+      [] as ReleaseItem[],
+    ),
+  ]);
+  const releases = sortReleases([...described, ...advisories]);
   /**
    * URL で持つ。同一製品でまとめられた項目は代表の折りたたみに入って
    * id が releases から消えるので、id だけで突き合わせると一覧に再登場してしまう。

@@ -135,6 +135,19 @@ export interface TopItem extends RankedItem {
 
 export type ReleaseKind = 'ai-model' | 'major' | 'minor' | 'patch' | 'service';
 
+/** そのリリースで読者に何が起きるか。並べ替えと折りたたみはこの軸で行う */
+export type ReleaseImpact = 'unlocks' | 'security' | 'improves' | 'chore';
+
+/** 脆弱性の情報。GitHub Security Advisories 由来のときだけ入る */
+export interface ReleaseAdvisory {
+  cveId: string | null;
+  ghsaId: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  cvss: number | null;
+  packageName: string;
+  patchedVersion: string | null;
+}
+
 /** 代表にまとめた同じ製品の他の項目 */
 export interface ReleaseAlso {
   label: string;
@@ -147,6 +160,15 @@ export interface ReleaseItem {
   what?: string | null;
   version: string | null;
   kind: ReleaseKind;
+  /** この機能より前に生成した日は undefined。その場合は kind から寄せる */
+  impact?: ReleaseImpact;
+  /** 「〜できるようになる」の1文。無ければ null */
+  unlock?: string | null;
+  /** 変化の大きさを差分で見せる */
+  change?: { before: string; after: string } | null;
+  /** 新たに対応した環境 */
+  scope?: string[];
+  advisory?: ReleaseAdvisory;
   summary: string;
   title: string;
   url: string;
