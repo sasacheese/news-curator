@@ -207,7 +207,7 @@ export function SearchView({ manifest, initialQuery }: Props) {
           <p>検索語を減らすか、フィルタを外してみてください。</p>
           {month !== ALL_MONTHS && (
             <p>
-              いま探しているのは {formatMonthLabel(month)} ぶんだけです。
+              いま探しているのは {formatMonthLabel(month)} 分だけです。
               <br />
               <button
                 type="button"

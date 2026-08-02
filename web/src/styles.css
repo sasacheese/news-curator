@@ -23,6 +23,8 @@
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.12);
   /* カードを持ち上げたとき用。影を足すだけでなく少し濃くして距離を出す */
   --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.06), 0 14px 32px -14px rgb(0 0 0 / 0.22);
+  /* select の三角。background-image には currentColor が使えないので色を焼き込む */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236b6b64' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', Meiryo,
     sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
@@ -80,6 +82,8 @@
     --code-text: #dfe3e8;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
     --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 32px -14px rgb(0 0 0 / 0.75);
+    /* select の三角。background-image には currentColor が使えないので色を焼き込む */
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa0a8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 }
 
@@ -106,6 +110,8 @@
   --code-text: #e6e6e3;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.12);
   --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.06), 0 14px 32px -14px rgb(0 0 0 / 0.22);
+  /* select の三角。background-image には currentColor が使えないので色を焼き込む */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236b6b64' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 :root[data-theme='dark'] {
@@ -129,6 +135,8 @@
   --code-text: #dfe3e8;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
   --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 32px -14px rgb(0 0 0 / 0.75);
+  /* select の三角。background-image には currentColor が使えないので色を焼き込む */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa0a8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 * {
@@ -244,7 +252,69 @@ pre {
 }
 
 .brand__mark {
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  /* baseline 揃えの brand の中で、図形だけ光学的に少し下げる */
+  transform: translateY(3px);
+}
+
+/* ---------------- ロゴ ---------------- */
+
+.logo {
+  display: block;
+  overflow: visible;
+}
+
+.logo__face {
+  /* 集めた側は本命より一段引く。同じ濃さだと 4 枚が等価に見える */
+  fill: color-mix(in srgb, var(--text-faint) 72%, var(--bg));
+  /* 面ごとに違う方向から入ってくる。原点は各面の中心 */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-assemble 30s var(--ease) infinite;
+}
+
+/* 本命の面だけアクセント色。主従がないと 4 枚が等価に見えて意味が伝わらない */
+.logo__face--lead {
+  fill: var(--accent);
+}
+
+.logo__face:nth-child(2) {
+  animation-delay: 0.07s;
+}
+
+.logo__face:nth-child(3) {
+  animation-delay: 0.14s;
+}
+
+.logo__face:nth-child(4) {
+  animation-delay: 0.21s;
+}
+
+/*
+ * 組み上がる動き。
+ *
+ * 30 秒周期のうち最初の 1.2 秒（4%）だけ動いて、あとは組んだまま止まっている。
+ * 表示直後に一度動いて、以降 30 秒ごとに繰り返す、という要望をこれ 1 本で満たす。
+ */
+@keyframes logo-assemble {
+  0% {
+    opacity: 0;
+    transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg)) scale(0.6);
+  }
+  4% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ロゴにカーソルを載せたら、次の周回を待たずに組み直す */
+.brand:hover .logo__face {
+  animation: logo-assemble 1.2s var(--ease);
 }
 
 .brand__sub {
@@ -434,6 +504,28 @@ select {
   padding: 8px 11px;
 }
 
+/*
+ * セレクトの三角を自前で描く。
+ *
+ * ブラウザ標準の三角は右の枠線に近すぎて詰まって見えるうえ、位置を指定できない。
+ * appearance: none で消して背景画像として置き、右側だけ余白を広く取る。
+ * currentColor は background-image に使えないので、線の色は変数から流し込む。
+ */
+select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  /* 枠線から 12px 離す。矢印そのものは 10px 幅 */
+  background-position: right 12px center;
+  background-size: 10px 6px;
+  transition: border-color var(--dur-1) var(--ease);
+}
+
+select:hover {
+  border-color: var(--text-faint);
+}
+
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
@@ -541,70 +633,91 @@ textarea {
   border-radius: var(--radius);
   padding: var(--sp-4) var(--sp-5);
   margin-bottom: var(--sp-6);
-  display: flex;
-  gap: var(--sp-4) var(--sp-6);
-  flex-wrap: wrap;
-  align-items: center;
   box-shadow: var(--shadow);
 }
 
 .hero__lead {
-  font-size: 13.5px;
+  font-size: 14.5px;
   line-height: 1.9;
   color: var(--text-muted);
   margin: 0;
-  flex: 1 1 300px;
 }
 
-/* 「約 20 分」のような数量は途中で折り返させない */
+/* 「約 25 分」のような数量は途中で折り返させない */
 .hero__lead strong {
   color: var(--text);
   white-space: nowrap;
 }
 
-.hero__stats {
+/*
+ * その結果に至った経緯。数値タイルの代わり。
+ *
+ * 件数は上の文と重複させない。以前は「収集した 509 件」と「509 / 収集」を
+ * 並べて出していて、同じ数字が 2 回見えていた。
+ */
+.hero__pipeline {
   display: flex;
-  gap: 20px;
   flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 9px;
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
 }
 
-.hero__stats {
-  position: relative;
+.hero__pipeline span[aria-hidden] {
+  color: var(--border-strong);
+}
+
+/* ---------------- 読み込み中の骨組み ---------------- */
+
+/*
+ * 実際の中身と同じ形にしておく。汎用のカード列だと、差し替わった瞬間に
+ * 高さが飛んでかえって目立つ。
+ */
+.skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.skel__hero,
+.skel__toc,
+.skel__card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.skel__hero,
+.skel__card {
+  background: var(--bg-elevated);
+}
+
+/* 目次と同じく沈んだ面 */
+.skel__toc {
+  background: var(--bg-sunken);
+}
+
+.skel__card {
+  gap: 11px;
 }
 
 /*
- * 本文と統計の境目。折り返して縦に積まれたときは罫線が宙に浮くので出さない。
+ * 日付バー右端の「読み込み中…」。
+ * 幅を確保しないと、対象期間の文字列に戻った瞬間に日付バーが横に伸びて跳ねる。
  */
-@media (min-width: 700px) {
-  .hero__stats::before {
-    content: '';
-    position: absolute;
-    left: calc(var(--sp-6) / -2);
-    top: 2px;
-    bottom: 2px;
-    width: 1px;
-    background: var(--border);
-  }
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-
-.stat__value {
-  font-size: 18px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-.stat__label {
-  font-size: 10.5px;
+.datebar__meta-hold {
+  display: inline-block;
+  min-width: 20ch;
+  text-align: right;
   color: var(--text-faint);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 /* ---------------- article card ---------------- */
@@ -1493,12 +1606,37 @@ textarea {
  * 目次はテキストリンクの縦並びにする（タグの列にしない）。
  * 第2階層にベストNの見出しが並ぶので、字面が読み物として通ることを優先する。
  */
+/*
+ * 目次は沈めた面に載せる。
+ *
+ * 地の色に直接テキストを並べると「置いただけ」に見えるので、
+ * 一段沈めて枠で囲み、ページの他の塊（hero・カード）と同じ扱いにする。
+ * 左の縦罫は階層のある目次であることの手がかり。
+ */
 .toc {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
   margin: 0 0 var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-sunken) 70%, var(--bg-elevated)),
+    var(--bg-sunken)
+  );
+}
+
+.toc::before {
+  content: '目次';
+  align-self: stretch;
+  margin-bottom: var(--sp-1);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
 }
 
 /* 目次の直後の見出しは、目次側の余白と足して 46px に収める */
@@ -1970,7 +2108,6 @@ textarea {
   width: auto;
   min-width: 130px;
   font-size: 13px;
-  padding: 6px 10px;
 }
 
 .result-count {
@@ -2373,10 +2510,13 @@ a.btn {
 /* ---------------- 歩く猫 ---------------- */
 
 /*
- * 画面下端を往復する。
+ * 画面下端を往復する。1 周 = 読了目安（--walk-duration、既定 20 分）。
  *
- * 動かすのは transform だけ。left を動かすとフレームごとに
- * レイアウトが走り、backdrop-filter を持つ追従ヘッダーの再描画まで巻き込む。
+ * 動かすのは transform だけ。left を動かすとフレームごとにレイアウトが走り、
+ * backdrop-filter を持つ追従ヘッダーの再描画まで巻き込む。
+ *
+ * 移動（.walker）と反転（.walker__flip）を別の層に分けている。同じ層でやると
+ * 折り返しで吹き出しの文字まで鏡文字になる。
  */
 .walker {
   position: fixed;
@@ -2387,8 +2527,19 @@ a.btn {
   height: 18px;
   color: var(--text-faint);
   opacity: 0.55;
-  animation: walker-tour 80s linear infinite;
+  /*
+   * walker-half は見た目に何もしない。半周ごとに animationiteration を出して
+   * 折り返しの合図にするためだけに重ねている（Walker.tsx の useTurnCue）。
+   * 同じ要素に載せておけば hover の一時停止も一緒に効く。
+   */
+  animation: walker-tour var(--walk-duration, 1200s) linear infinite,
+    walker-half calc(var(--walk-duration, 1200s) / 2) linear infinite;
   will-change: transform;
+}
+
+.walker__flip {
+  display: block;
+  animation: walker-face var(--walk-duration, 1200s) linear infinite;
 }
 
 .walker__cat {
@@ -2398,7 +2549,7 @@ a.btn {
   background: transparent;
   color: inherit;
   line-height: 0;
-  /* 歩く上下動。往復のアニメーションと transform がぶつからないよう層を分ける */
+  /* 歩く上下動。往復と反転の transform とぶつからないよう層を分ける */
   animation: walker-bob 0.52s ease-in-out infinite;
 }
 
@@ -2435,9 +2586,10 @@ a.btn {
 }
 
 /*
- * 止めるのは歩き（往復・上下動・足）だけ。
+ * 止めるのは歩き（往復・向き・上下動・足）だけ。
  * しっぽは止めない——立ち止まった猫のしっぽが固まると、生きていないものに見える。
  */
+.walker:hover .walker__flip,
 .walker:hover .walker__cat,
 .walker:hover .walker__leg {
   animation-play-state: paused;
@@ -2450,27 +2602,102 @@ a.btn {
 }
 
 /*
+ * 折り返しの吹き出し。
+ *
+ * 右端で出るので、猫の右ではなく左へ伸ばす（右だと画面外に出る）。
+ * 出ている時間は JS 側が実時間で決める（往復が 3 分の日と 90 分の日で
+ * キーフレームの % が 1 秒と 30 秒になってしまうため）。
+ */
+.walker__say {
+  position: absolute;
+  right: -2px;
+  bottom: 22px;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateY(4px) scale(0.9);
+  transform-origin: 88% 120%;
+  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease-bounce);
+  pointer-events: none;
+}
+
+/* しっぽ側の小さな三角。吹き出しらしさはこれだけで足りる */
+.walker__say::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: -4px;
+  width: 6px;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  transform: rotate(45deg);
+}
+
+.walker--saying {
+  /* 喋っているあいだは薄いままだと読めない */
+  opacity: 0.95;
+}
+
+.walker--saying .walker__say {
+  opacity: 1;
+  transform: none;
+}
+
+/*
  * 往復。
  *
- * 端に着いたら scaleX を反転させて向きを変える。反転は 0.6% ぶんの幅を取って
- * ほぼ瞬間に切り替える（間を取ると猫が薄くつぶれて通り過ぎる）。
- * 100vw を使うので、ウィンドウ幅が変わっても端まで歩く。
+ * 左端から出発して、半分で右端に着く。100vw を使うのでウィンドウ幅が
+ * 変わっても端まで歩く。
  */
 @keyframes walker-tour {
   0% {
-    transform: translateX(8px) scaleX(1);
+    transform: translateX(8px);
   }
-  49.4% {
-    transform: translateX(calc(100vw - 36px)) scaleX(1);
-  }
-  50% {
-    transform: translateX(calc(100vw - 36px)) scaleX(-1);
-  }
-  99.4% {
-    transform: translateX(8px) scaleX(-1);
+  49.7% {
+    transform: translateX(calc(100vw - 36px));
   }
   100% {
-    transform: translateX(8px) scaleX(1);
+    transform: translateX(8px);
+  }
+}
+
+/*
+ * 向き。折り返しでほぼ瞬間に反転させる（間を取ると猫が薄くつぶれて通り過ぎる）。
+ * 反転の位置は walker-tour の 49.7% と Walker.tsx の TURN_AT と揃えること。
+ */
+@keyframes walker-face {
+  0%,
+  49.6% {
+    transform: scaleX(1);
+  }
+  49.8%,
+  99.8% {
+    transform: scaleX(-1);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/*
+ * 折り返しの合図を出すためだけの動き。transform とは別枠の rotate を
+ * 同じ値で置いているので、見た目には何も起きない。
+ */
+@keyframes walker-half {
+  from {
+    rotate: 0deg;
+  }
+  to {
+    rotate: 0deg;
   }
 }
 
