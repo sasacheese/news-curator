@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { isHttpUrl, jstDateString, normalizeUrl, resolveWindow, titleKey } from './util.js';
+import {
+  decodeEntities,
+  isHttpUrl,
+  jstDateString,
+  normalizeUrl,
+  resolveWindow,
+  stripHtml,
+  titleKey,
+} from './util.js';
 
 /*
  * 時刻まわりは JST 固定・07:00 区切りという前提が全体に効いているので、
@@ -90,6 +98,56 @@ describe('isHttpUrl', () => {
     assert.equal(isHttpUrl('data:text/html,<script>'), false);
     assert.equal(isHttpUrl('file:///etc/passwd'), false);
     assert.equal(isHttpUrl(''), false);
+  });
+});
+
+describe('decodeEntities', () => {
+  it('数値文字参照（16進）をほどく', () => {
+    // はてなブックマークの RSS は日本語を全部この形で書いてくる
+    assert.equal(decodeEntities('&#x306F;&#x3066;&#x306A;'), 'はてな');
+  });
+
+  it('数値文字参照（10進）をほどく', () => {
+    assert.equal(decodeEntities('&#12354;&#12356;'), 'あい');
+  });
+
+  it('BMP 外（絵文字）も1文字として扱う', () => {
+    // String.fromCharCode ではなく fromCodePoint でないと壊れる
+    assert.equal(decodeEntities('&#x1F431;'), '🐱');
+  });
+
+  it('名前付きもほどく', () => {
+    assert.equal(decodeEntities('a&lt;b&gt;c&quot;d&apos;e&nbsp;f'), 'a<b>c"d\'e f');
+  });
+
+  it('&amp; は最後にほどく（二重解除しない）', () => {
+    // 先に & を戻すと「&amp;lt;」が「<」まで戻ってしまう
+    assert.equal(decodeEntities('&amp;lt;'), '&lt;');
+    assert.equal(decodeEntities('A&amp;B'), 'A&B');
+  });
+
+  it('壊れた参照は落とさずそのまま残す', () => {
+    assert.equal(decodeEntities('&nope; &# &#x;'), '&nope; &# &#x;');
+  });
+
+  it('サロゲート単体・範囲外は捨てる', () => {
+    assert.equal(decodeEntities('&#xD800;'), '');
+    assert.equal(decodeEntities('&#x110000;'), '');
+  });
+});
+
+describe('stripHtml', () => {
+  it('タグを落として実体参照をほどく', () => {
+    assert.equal(stripHtml('<p>&#x3053;&#x3093;&#x306B;&#x3061;&#x306F;</p>'), 'こんにちは');
+  });
+
+  it('文字列として書かれたタグはタグとして除去しない', () => {
+    // 先に実体参照をほどくと <script> がタグ扱いされて中身が消える
+    assert.equal(stripHtml('<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>'), '<script>alert(1)</script>');
+  });
+
+  it('script の中身は落とす', () => {
+    assert.equal(stripHtml('a<script>bad()</script>b'), 'a b');
   });
 });
 

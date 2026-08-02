@@ -18,6 +18,14 @@ const parser = new XMLParser({
   trimValues: true,
   parseTagValue: false,
   processEntities: true,
+  /*
+   * 数値文字参照（&#x306F; / &#12354;）を解くのはこの指定。
+   *
+   * processEntities だけでは &amp; &lt; &gt; &quot; しか解かない。はてなブックマークの
+   * RSS は日本語を全部 &#x306F; 形式で書いてくるので（実測で 1 フィードに 16,253 箇所）、
+   * これが無いとタイトルとタグが実体参照のまま画面に出る。
+   */
+  htmlEntities: true,
   removeNSPrefix: false,
 });
 
