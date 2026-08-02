@@ -3,6 +3,7 @@ import { loadManifest } from './api';
 import { Notice } from './components';
 import { RETIRED_TOKEN_KEY, purgeRetiredKeys } from './settings';
 import type { Manifest } from './types';
+import { Walker } from './Walker';
 import { ArchiveView } from './views/ArchiveView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
@@ -194,6 +195,8 @@ export function App() {
           <p>キーボード: / で検索、t で今日のダイジェスト。</p>
         </div>
       </footer>
+
+      <Walker />
     </div>
   );
 }

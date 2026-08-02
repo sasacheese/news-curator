@@ -21,14 +21,46 @@
   --radius: 12px;
   --radius-sm: 7px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.12);
+  /* カードを持ち上げたとき用。影を足すだけでなく少し濃くして距離を出す */
+  --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.06), 0 14px 32px -14px rgb(0 0 0 / 0.22);
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', Meiryo,
     sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   --maxw: 860px;
+
+  /*
+   * 余白の段階。これまで px を都度書いていて 3px 刻みの差が散っていたので、
+   * 4px 基準の段階に寄せる。隣り合う値の差が見て分かる程度に離してある。
+   */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 22px;
+  --sp-6: 30px;
+  --sp-7: 42px;
+
+  /*
+   * 動きの速さと曲線。
+   *
+   * ease-out 系に統一する。UI の動きは「出るのは速く、止まるのはゆっくり」が
+   * 自然に見えるため。bounce は開閉のような「実体のあるもの」だけに使う。
+   */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
+    /*
+     * OS 追従でダークにしているときも color-scheme を宣言する。
+     * これが無いと <select> のドロップダウン・スクロールバー・検索欄の ✕ など
+     * ブラウザが描く部品だけライトのまま残る（data-theme のときだけ書いていた）。
+     */
+    color-scheme: dark;
     --bg: #0e1013;
     --bg-elevated: #171a1f;
     --bg-sunken: #101216;
@@ -47,6 +79,7 @@
     --code-bg: #0a0c0f;
     --code-text: #dfe3e8;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 32px -14px rgb(0 0 0 / 0.75);
   }
 }
 
@@ -72,6 +105,7 @@
   --code-bg: #1e1f22;
   --code-text: #e6e6e3;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.12);
+  --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.06), 0 14px 32px -14px rgb(0 0 0 / 0.22);
 }
 
 :root[data-theme='dark'] {
@@ -94,6 +128,7 @@
   --code-bg: #0a0c0f;
   --code-text: #dfe3e8;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 32px -14px rgb(0 0 0 / 0.75);
 }
 
 * {
@@ -114,6 +149,34 @@ body {
   line-height: 1.75;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/*
+ * 見出しは詰め組みにする。
+ *
+ * 日本語の約物（「」（）：・など）は全角幅を持っているので、そのままだと
+ * 見出しの中に不自然な空白ができる。palt でプロポーショナルにすると詰まる。
+ * 本文には効かせない——読み物としては約物のアキが行の呼吸になるため。
+ */
+.datebar__date,
+.card__headline,
+.section-title,
+.archive-day__date,
+.rel__product,
+.author__name,
+.metric__value,
+.stat__value {
+  font-feature-settings: 'palt' 1;
+}
+
+/* 英数と日本語が混ざる本文で、和欧間のアキをブラウザに入れさせる */
+.card__summary,
+.card__lens,
+.row__lens,
+.rel__summary,
+.hero__lead,
+.prereq__item dd {
+  text-autospace: normal;
 }
 
 a {
@@ -208,11 +271,12 @@ pre {
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
 .tabs button:hover {
   color: var(--text);
+  background: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
 }
 
 .tabs button[aria-current='true'] {
@@ -277,6 +341,21 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * 押せるチップ（キーワードなど）だけホバーで反応する。
+ * 見た目が同じまま押せる／押せないが混ざっているので、触れたときに差が出るようにする。
+ */
+button.chip {
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+button.chip:hover {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--accent);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -295,12 +374,18 @@ main {
   padding: 7px 14px;
   font-size: 13px;
   font-weight: 600;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
 .btn:hover:not(:disabled) {
   background: var(--bg-sunken);
   border-color: var(--text-faint);
+}
+
+/* 押し込む手応え。1px でも「反応した」と分かる */
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .btn:disabled {
@@ -423,7 +508,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 22px;
+  margin-bottom: var(--sp-5);
   flex-wrap: wrap;
 }
 
@@ -454,10 +539,10 @@ textarea {
   border: 1px solid var(--border);
   background: var(--bg-elevated);
   border-radius: var(--radius);
-  padding: 14px 18px;
-  margin-bottom: 26px;
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-6);
   display: flex;
-  gap: 18px 26px;
+  gap: var(--sp-4) var(--sp-6);
   flex-wrap: wrap;
   align-items: center;
   box-shadow: var(--shadow);
@@ -465,19 +550,41 @@ textarea {
 
 .hero__lead {
   font-size: 13.5px;
+  line-height: 1.9;
   color: var(--text-muted);
   margin: 0;
-  flex: 1 1 260px;
+  flex: 1 1 300px;
 }
 
+/* 「約 20 分」のような数量は途中で折り返させない */
 .hero__lead strong {
   color: var(--text);
+  white-space: nowrap;
 }
 
 .hero__stats {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
+}
+
+.hero__stats {
+  position: relative;
+}
+
+/*
+ * 本文と統計の境目。折り返して縦に積まれたときは罫線が宙に浮くので出さない。
+ */
+@media (min-width: 700px) {
+  .hero__stats::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--sp-6) / -2);
+    top: 2px;
+    bottom: 2px;
+    width: 1px;
+    background: var(--border);
+  }
 }
 
 .stat {
@@ -877,7 +984,7 @@ textarea {
   border-left: 5px solid var(--text-faint);
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
-  transition: transform 0.15s;
+  transition: transform var(--dur-2) var(--ease-bounce);
 }
 
 .prereq[open] .prereq__marker {
@@ -1201,6 +1308,10 @@ textarea {
   border-bottom: 0;
 }
 
+.rel {
+  transition: background var(--dur-1) var(--ease);
+}
+
 .rel:hover {
   background: var(--bg-sunken);
 }
@@ -1387,7 +1498,12 @@ textarea {
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
-  margin: 0 0 34px;
+  margin: 0 0 var(--sp-4);
+}
+
+/* 目次の直後の見出しは、目次側の余白と足して 46px に収める */
+.toc + .section-title {
+  margin-top: var(--sp-6);
 }
 
 .toc__item {
@@ -1417,15 +1533,29 @@ textarea {
   display: inline;
 }
 
+/*
+ * 下線は既定では出さない。全項目に引くと目次が下線の縞になって読みにくく、
+ * Notion の目次もホバーで初めて出る。位置だけ先に確保して字が動かないようにする。
+ */
 .toc__label {
   text-decoration: underline;
-  text-decoration-color: var(--border-strong);
+  text-decoration-color: transparent;
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
+  transition: text-decoration-color var(--dur-1) var(--ease);
+}
+
+.toc__item {
+  transition: color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
 
 .toc__item:hover {
   color: var(--text);
+}
+
+/* ぶら下がりの階層に、なぞる指の代わりの手がかりを出す */
+.toc__item--nested:hover {
+  transform: translateX(2px);
 }
 
 .toc__item:hover .toc__label {
@@ -1462,8 +1592,39 @@ textarea {
   display: none;
 }
 
+.card {
+  transition: border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease),
+    transform var(--dur-2) var(--ease);
+}
+
+/*
+ * 浮かせるのは畳んでいるときだけ。
+ * 開いた状態のカードは「いま読んでいる面」なので、触れるたびに動くと邪魔になる。
+ */
+.card:not([open]):hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-2px);
+}
+
+.card__headline {
+  transition: color var(--dur-1) var(--ease);
+}
+
 .card > summary.card__head:hover .card__headline {
   color: var(--accent);
+}
+
+/* 開いた瞬間に中身が下から出てくる。畳むときは即座に消す（待たされたくない） */
+.card[open] > .card__body {
+  animation: card-open var(--dur-3) var(--ease);
+}
+
+@keyframes card-open {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 /* 開閉の向きを示す山形。色だけに頼らない */
@@ -1476,7 +1637,7 @@ textarea {
   border-right: 2px solid var(--text-faint);
   border-bottom: 2px solid var(--text-faint);
   transform: rotate(45deg);
-  transition: transform 0.18s;
+  transition: transform var(--dur-3) var(--ease-bounce);
 }
 
 .card[open] .card__toggle {
@@ -1561,8 +1722,32 @@ textarea {
   text-align: left;
 }
 
+/*
+ * 出入りをアニメーションさせる。
+ *
+ * display は :popover-open にしか書かない（上のコメントの不具合を再発させない）。
+ * 閉じるときに即消えないよう、display と overlay を allow-discrete で遷移させて
+ * 透明になり終わるまで表示を保たせる。
+ */
+.anno__pop {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease),
+    display var(--dur-2) allow-discrete, overlay var(--dur-2) allow-discrete;
+}
+
 .anno__pop:popover-open {
   display: block;
+  opacity: 1;
+  transform: none;
+}
+
+/* 開き始めの状態。これが無いと初回だけアニメーションしない */
+@starting-style {
+  .anno__pop:popover-open {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
 }
 
 .anno__pop::backdrop {
@@ -1704,6 +1889,10 @@ textarea {
   border-bottom: 0;
 }
 
+.row {
+  transition: background var(--dur-1) var(--ease);
+}
+
 .row:hover {
   background: var(--bg-sunken);
 }
@@ -1806,14 +1995,23 @@ mark {
   padding: 14px 18px;
   margin-bottom: 12px;
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color var(--dur-2) var(--ease), transform var(--dur-2) var(--ease),
+    box-shadow var(--dur-2) var(--ease);
   width: 100%;
   text-align: left;
   color: inherit;
 }
 
+/* transform を transition に並べておきながら、どこでも動かしていなかった */
 .archive-day:hover {
   border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+.archive-day:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow);
 }
 
 .archive-day__date {
@@ -2169,5 +2367,170 @@ a.btn {
   }
   .site-header__inner {
     padding-block: 8px;
+  }
+}
+
+/* ---------------- 歩く猫 ---------------- */
+
+/*
+ * 画面下端を往復する。
+ *
+ * 動かすのは transform だけ。left を動かすとフレームごとに
+ * レイアウトが走り、backdrop-filter を持つ追従ヘッダーの再描画まで巻き込む。
+ */
+.walker {
+  position: fixed;
+  left: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
+  z-index: 15;
+  width: 28px;
+  height: 18px;
+  color: var(--text-faint);
+  opacity: 0.55;
+  animation: walker-tour 80s linear infinite;
+  will-change: transform;
+}
+
+.walker__cat {
+  display: block;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  line-height: 0;
+  /* 歩く上下動。往復のアニメーションと transform がぶつからないよう層を分ける */
+  animation: walker-bob 0.52s ease-in-out infinite;
+}
+
+.walker svg {
+  fill: currentColor;
+  overflow: visible;
+}
+
+/* 目だけ地の色で抜く。白を塗るとダークで浮く */
+.walker__eye {
+  fill: var(--bg);
+}
+
+.walker__leg {
+  fill: currentColor;
+  transform-origin: 50% 0;
+  animation: walker-step 0.52s ease-in-out infinite;
+}
+
+/* 前足と後ろ足は半周ずらす */
+.walker__leg--front {
+  animation-delay: -0.26s;
+}
+
+.walker__tail {
+  transform-origin: 100% 100%;
+  animation: walker-tail 1.6s ease-in-out infinite;
+}
+
+/* 触ると立ち止まる */
+.walker:hover {
+  opacity: 0.95;
+  animation-play-state: paused;
+}
+
+/*
+ * 止めるのは歩き（往復・上下動・足）だけ。
+ * しっぽは止めない——立ち止まった猫のしっぽが固まると、生きていないものに見える。
+ */
+.walker:hover .walker__cat,
+.walker:hover .walker__leg {
+  animation-play-state: paused;
+}
+
+.walker__cat:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/*
+ * 往復。
+ *
+ * 端に着いたら scaleX を反転させて向きを変える。反転は 0.6% ぶんの幅を取って
+ * ほぼ瞬間に切り替える（間を取ると猫が薄くつぶれて通り過ぎる）。
+ * 100vw を使うので、ウィンドウ幅が変わっても端まで歩く。
+ */
+@keyframes walker-tour {
+  0% {
+    transform: translateX(8px) scaleX(1);
+  }
+  49.4% {
+    transform: translateX(calc(100vw - 36px)) scaleX(1);
+  }
+  50% {
+    transform: translateX(calc(100vw - 36px)) scaleX(-1);
+  }
+  99.4% {
+    transform: translateX(8px) scaleX(-1);
+  }
+  100% {
+    transform: translateX(8px) scaleX(1);
+  }
+}
+
+@keyframes walker-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.2px);
+  }
+}
+
+@keyframes walker-step {
+  0%,
+  100% {
+    transform: rotate(15deg);
+  }
+  50% {
+    transform: rotate(-15deg);
+  }
+}
+
+@keyframes walker-tail {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(9deg);
+  }
+}
+
+/* クリックしたときの跳ね。着地で少しつぶれる */
+.walker--hop .walker__cat {
+  animation: walker-hop 0.62s var(--ease-bounce);
+}
+
+@keyframes walker-hop {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  22% {
+    transform: translateY(-13px) scale(0.94, 1.08);
+  }
+  62% {
+    transform: translateY(0) scale(1.1, 0.9);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+/*
+ * 動きを減らす設定のときは出さない。
+ * 全体の reduced-motion 指定で duration が 0.01ms になるため、
+ * 残すと猫が右端に張り付いたまま動かない置物になる。
+ */
+@media (prefers-reduced-motion: reduce) {
+  .walker {
+    display: none;
   }
 }
