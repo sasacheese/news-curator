@@ -5,8 +5,12 @@
  * このツールの中身をそのまま形にしている。大きい面だけアクセント色にして、
  * 残りは地の色に近づけて主従をつけた。
  *
- * 表示時に組み上がるアニメーションをして、そのあとは 30 秒ごとに繰り返す。
- * 各面が別方向から少し回りながら入ってくる（方向は --dx / --dy / --rot）。
+ * 組み上がる順番は時計回り（左上 → 右上 → 右下 → 下）。DOM の順番が
+ * そのまま時計回りになっているので、遅延を 1 枚ずつずらすだけで済む。
+ *
+ * 動きは昔のセルアニメの物理法則に寄せている。回りながら飛んできて、
+ * 行き過ぎてから枠にぶつかり、一瞬ぺしゃんと潰れて、揺り返しながら収まる。
+ * 各面の飛んでくる方向と回転量は --dx / --dy / --rot で個別に持つ。
  */
 export function Logo() {
   return (
@@ -18,7 +22,7 @@ export function Logo() {
       aria-hidden="true"
       focusable="false"
     >
-      {/* 深掘りした本命 */}
+      {/* ① 深掘りした本命。左上へ、左手から回り込んで入る */}
       <rect
         className="logo__face logo__face--lead"
         x="0.5"
@@ -26,9 +30,9 @@ export function Logo() {
         width="11.5"
         height="11.5"
         rx="2"
-        style={{ '--dx': '-4px', '--dy': '-4px', '--rot': '-18deg' } as React.CSSProperties}
+        style={{ '--dx': '-7px', '--dy': '-4px', '--rot': '-38deg' } as React.CSSProperties}
       />
-      {/* 集めたもの */}
+      {/* ② 右上。真上から落ちてくる */}
       <rect
         className="logo__face"
         x="13.5"
@@ -36,8 +40,9 @@ export function Logo() {
         width="6"
         height="5.5"
         rx="1.4"
-        style={{ '--dx': '5px', '--dy': '-4px', '--rot': '16deg' } as React.CSSProperties}
+        style={{ '--dx': '3px', '--dy': '-8px', '--rot': '44deg' } as React.CSSProperties}
       />
+      {/* ③ 右下。右手から入る */}
       <rect
         className="logo__face"
         x="13.5"
@@ -45,8 +50,9 @@ export function Logo() {
         width="6"
         height="4.5"
         rx="1.4"
-        style={{ '--dx': '6px', '--dy': '2px', '--rot': '12deg' } as React.CSSProperties}
+        style={{ '--dx': '8px', '--dy': '2px', '--rot': '34deg' } as React.CSSProperties}
       />
+      {/* ④ 下の帯。下から突き上げて最後に蓋をする */}
       <rect
         className="logo__face"
         x="0.5"
@@ -54,7 +60,7 @@ export function Logo() {
         width="19"
         height="6"
         rx="1.8"
-        style={{ '--dx': '0px', '--dy': '6px', '--rot': '-6deg' } as React.CSSProperties}
+        style={{ '--dx': '-2px', '--dy': '9px', '--rot': '-16deg' } as React.CSSProperties}
       />
     </svg>
   );

@@ -263,15 +263,22 @@ pre {
 .logo {
   display: block;
   overflow: visible;
+  /* 4 枚が収まった瞬間、マーク全体が衝撃を受け止めて一度だけ震える */
+  animation: logo-settle 30s linear infinite;
+  transform-origin: center;
 }
 
 .logo__face {
   /* 集めた側は本命より一段引く。同じ濃さだと 4 枚が等価に見える */
   fill: color-mix(in srgb, var(--text-faint) 72%, var(--bg));
-  /* 面ごとに違う方向から入ってくる。原点は各面の中心 */
   transform-box: fill-box;
   transform-origin: center;
-  animation: logo-assemble 30s var(--ease) infinite;
+  animation: logo-assemble 30s linear infinite;
+  /*
+   * backwards が無いと、遅延中の面が「素の状態」= 完成形のまま見えてしまう。
+   * 3 枚目と 4 枚目が最初から置かれていて、時計回りに組み上がって見えなかった。
+   */
+  animation-fill-mode: backwards;
 }
 
 /* 本命の面だけアクセント色。主従がないと 4 枚が等価に見えて意味が伝わらない */
@@ -279,30 +286,67 @@ pre {
   fill: var(--accent);
 }
 
+/*
+ * 時計回りに 1 枚ずつ。0.16 秒ずつずらすと、前の面が潰れている最中に
+ * 次が飛び込んでくるので、動きが途切れずに繋がる。
+ */
 .logo__face:nth-child(2) {
-  animation-delay: 0.07s;
+  animation-delay: 0.16s;
 }
 
 .logo__face:nth-child(3) {
-  animation-delay: 0.14s;
+  animation-delay: 0.32s;
 }
 
 .logo__face:nth-child(4) {
-  animation-delay: 0.21s;
+  animation-delay: 0.48s;
 }
 
 /*
- * 組み上がる動き。
+ * 組み上がる動き。30 秒周期のうち最初の 1.8 秒（6%）だけ動く。
  *
- * 30 秒周期のうち最初の 1.2 秒（4%）だけ動いて、あとは組んだまま止まっている。
- * 表示直後に一度動いて、以降 30 秒ごとに繰り返す、という要望をこれ 1 本で満たす。
+ * 昔のセルアニメの作りに寄せている。
+ * - 回りながら飛んでくる（現実の落下ではなく、絵として気持ちのいい弧）
+ * - 目標を通り過ぎてから戻る（オーバーシュート）
+ * - 着地でぺしゃんと横に潰れる（スクワッシュ）
+ * - 潰れた反動で縦に伸びる（ストレッチ）
+ * - 小さく揺り返して収まる
+ *
+ * キーフレームごとに timing-function を変えている。飛来は勢いよく減速、
+ * 潰れる瞬間だけ急峻にして「ぶつかった」感じを出す。
  */
 @keyframes logo-assemble {
   0% {
     opacity: 0;
-    transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg)) scale(0.6);
+    transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg)) scale(0.45);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
   }
-  4% {
+  /* 行き過ぎる。ここが一番大きい */
+  2.2% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(calc(var(--rot, 0deg) * 0.1)) scale(1.32);
+    animation-timing-function: cubic-bezier(0.7, 0, 0.9, 0.2);
+  }
+  /* ぶつかって潰れる */
+  3.1% {
+    transform: rotate(0deg) scale(1.26, 0.7);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  /* 反動で伸びる */
+  3.9% {
+    transform: rotate(0deg) scale(0.86, 1.18);
+    animation-timing-function: ease-in-out;
+  }
+  /* 揺り返し */
+  4.7% {
+    transform: rotate(0deg) scale(1.08, 0.94);
+    animation-timing-function: ease-in-out;
+  }
+  5.4% {
+    transform: rotate(0deg) scale(0.97, 1.03);
+    animation-timing-function: ease-out;
+  }
+  6% {
     opacity: 1;
     transform: none;
   }
@@ -312,17 +356,47 @@ pre {
   }
 }
 
-/* ロゴにカーソルを載せたら、次の周回を待たずに組み直す */
-.brand:hover .logo__face {
-  animation: logo-assemble 1.2s var(--ease);
+/*
+ * 最後の面が収まる頃（約 2.3 秒 = 7.6%）に、マーク全体が一度だけ沈んで戻る。
+ * 個々の面の揺れとは別に「全体で衝撃を受け止めた」ことを見せる。
+ */
+@keyframes logo-settle {
+  0%,
+  6.6% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.7, 0, 0.9, 0.2);
+  }
+  7.3% {
+    transform: scale(1.1, 0.86) translateY(1px);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  8.2% {
+    transform: scale(0.95, 1.06) translateY(-0.5px);
+    animation-timing-function: ease-in-out;
+  }
+  9.2% {
+    transform: scale(1.02, 0.98);
+    animation-timing-function: ease-out;
+  }
+  10%,
+  100% {
+    transform: none;
+  }
 }
 
-.brand__sub {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-faint);
-  letter-spacing: 0.02em;
-}
+/*
+ * hover での再生は入れない。
+ *
+ * duration を 1.8 秒に詰めると、動きが入っている 0〜6% の区間も一緒に
+ * 16.7 倍速になって 0.1 秒で終わってしまう（同じキーフレームを使い回せない）。
+ * 30 秒ごとに勝手に組み直すので、これで足りる。
+ */
+
+/*
+ * 動きを減らす設定では組み立てを見せない。
+ * 全体の reduced-motion 指定で duration が 0.01ms になり、
+ * 一瞬で最終状態に飛ぶので、組んだ形だけが残る。
+ */
 
 .tabs {
   display: flex;
