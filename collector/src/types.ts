@@ -194,6 +194,17 @@ export const RELEASE_KINDS = ['ai-model', 'major', 'minor', 'patch', 'service'] 
 export type ReleaseKind = (typeof RELEASE_KINDS)[number];
 
 /**
+ * そのリリースで読者に何が起きるか。
+ *
+ * kind（メジャー/マイナー/パッチ）は仕様上の分類で、読み手の関心とずれる。
+ * 実測 27 件では service 15 件の中に「1 サンドボックスで複数エージェント実行」と
+ * 「Server-Timing ヘッダーの通過」が同居し、minor のほうが「できるようになる」
+ * 打率が高かった（4 件中 3 件）。並べる軸はこちらにする。
+ */
+export const RELEASE_IMPACTS = ['unlocks', 'security', 'improves', 'chore'] as const;
+export type ReleaseImpact = (typeof RELEASE_IMPACTS)[number];
+
+/**
  * 代表にまとめられた、同じ製品の他の項目。
  *
  * 2 種類が入る。どちらも「1 行に畳んで、開けば個別に辿れる」で足りるので同じ形にした。
@@ -205,6 +216,21 @@ export interface ReleaseAlso {
   url: string;
 }
 
+/** 脆弱性の情報。GitHub Security Advisories 由来のときだけ入る */
+export interface ReleaseAdvisory {
+  /** CVE-2026-53609 など。割り当て前は null */
+  cveId: string | null;
+  /** GHSA-xxxx-xxxx-xxxx */
+  ghsaId: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  /** CVSS スコア。取れなければ null */
+  cvss: number | null;
+  /** 影響を受けるパッケージ名 */
+  packageName: string;
+  /** 修正が入った最初のバージョン。未修正なら null */
+  patchedVersion: string | null;
+}
+
 export interface ReleaseItem {
   id: string;
   /** 製品・ライブラリ名 */
@@ -213,6 +239,19 @@ export interface ReleaseItem {
   what: string | null;
   version: string | null;
   kind: ReleaseKind;
+  /** 読者に何が起きるか。並べ替えと折りたたみの判断はこれで行う */
+  impact: ReleaseImpact;
+  /**
+   * 「〜できるようになる」の1文。新しくできることが無ければ null。
+   * null のときは impact を chore に落とす（分類とテキストを食い違わせない）。
+   */
+  unlock: string | null;
+  /** 変化の大きさを差分で見せる。どちらも取れたときだけ出す */
+  change: { before: string; after: string } | null;
+  /** 新たに対応した環境。「スマホでも使えるようになった」を一目で分かるようにする */
+  scope: string[];
+  /** 脆弱性情報。impact が security のときだけ入る */
+  advisory?: ReleaseAdvisory;
   /** 何が入ったか。1〜2文 */
   summary: string;
   title: string;

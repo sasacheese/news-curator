@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { AdvisoryConfig } from './advisories.js';
 import type { TopicsConfig, Watchlist } from './types.js';
 import { log } from './util.js';
 
@@ -19,13 +20,19 @@ export interface SourcesConfig {
   githubTrending: { enabled: boolean; minStars: number; perPage: number; queries: string[] };
   rss: { enabled: boolean; feeds: { label: string; url: string; weight: number }[] };
   changelogs: { enabled: boolean; entries: { label: string; url: string; homepage: string }[] };
+  advisories: AdvisoryConfig;
 }
 
 /** sources.json の「監視対象リスト抜き」の形。リストは watchlist.json から合流させる。 */
-type SourcesFile = Omit<SourcesConfig, 'githubReleases' | 'rss' | 'changelogs'> & {
+type SourcesFile = Omit<
+  SourcesConfig,
+  'githubReleases' | 'rss' | 'changelogs' | 'advisories'
+> & {
   githubReleases: Omit<SourcesConfig['githubReleases'], 'repos'>;
   rss: Omit<SourcesConfig['rss'], 'feeds'>;
   changelogs: Omit<SourcesConfig['changelogs'], 'entries'>;
+  /** この機能より前に書かれた sources.json には無いので任意にする */
+  advisories?: Partial<SourcesConfig['advisories']>;
 };
 
 /** 実行時のチューニング項目。すべて環境変数で上書きできる。 */
@@ -185,6 +192,14 @@ export async function loadSources(): Promise<SourcesConfig> {
     githubReleases: { ...file.githubReleases, repos: watchlist.repos },
     rss: { ...file.rss, feeds: watchlist.feeds },
     changelogs: { ...file.changelogs, entries: watchlist.changelogs },
+    // この機能より前の sources.json には advisories が無いので既定値で埋める
+    advisories: {
+      enabled: file.advisories?.enabled ?? false,
+      severities: asArray(file.advisories?.severities).filter((v) => typeof v === 'string'),
+      ecosystems: asArray(file.advisories?.ecosystems).filter((v) => typeof v === 'string'),
+      extraPackages: asArray(file.advisories?.extraPackages).filter((v) => typeof v === 'string'),
+      perPage: clamp(file.advisories?.perPage ?? 100, 1, 100),
+    },
   };
 }
 

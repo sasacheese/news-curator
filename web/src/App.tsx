@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { loadManifest } from './api';
 import { Notice } from './components';
 import { RETIRED_TOKEN_KEY, purgeRetiredKeys } from './settings';
+import { Logo } from './Logo';
 import type { Manifest } from './types';
+import { Walker } from './Walker';
 import { ArchiveView } from './views/ArchiveView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
@@ -122,10 +124,12 @@ export function App() {
       <header className="site-header">
         <div className="container site-header__inner">
           <a className="brand" href="#/today">
-            <span className="brand__mark">☕</span>
+            <span className="brand__mark">
+              <Logo />
+            </span>
             <span>
               Tech Digest
-              <span className="brand__sub"> ／ 毎朝7:00・30分</span>
+              <span className="brand__sub"> ／ 毎朝8:00・30分</span>
             </span>
           </a>
           <nav className="tabs" aria-label="メインナビゲーション">
@@ -186,7 +190,12 @@ export function App() {
       <footer className="site-footer">
         <div className="container">
           <p>
-            毎朝 7:00 JST に、前日 7:00 からの 24 時間ぶんを収集・要約しています。
+            {/*
+              cron は 7:00 JST に起動するが、GitHub Actions の cron は数分〜十数分
+              遅れることがあり、収集と要約にも数分かかる。実際に読めるようになるのは
+              8:00 までなので、そう書いている。
+            */}
+            毎朝 8:00 JST までに、前日 7:00 からの 24 時間分を収集・要約しています。
             {manifest?.updatedAt && (
               <> 最終更新 {new Date(manifest.updatedAt).toLocaleString('ja-JP')}。</>
             )}
@@ -194,6 +203,8 @@ export function App() {
           <p>キーボード: / で検索、t で今日のダイジェスト。</p>
         </div>
       </footer>
+
+      <Walker />
     </div>
   );
 }

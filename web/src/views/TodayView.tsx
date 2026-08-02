@@ -8,9 +8,41 @@ import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
 import { Annotated } from '../Annotated';
 import { BuzzChip } from '../components';
-import { Chip, CopyButton, Empty, LoadingCards, Notice } from '../components';
+import { Chip, CopyButton, Empty, Notice } from '../components';
 import type { Digest, Manifest, RankedItem, TopItem } from '../types';
 import { formatDateLabel, formatPublished, metricSummary, safeUrl } from '../format';
+import { setWalkMinutes } from '../walkerClock';
+
+/**
+ * 読み込み中の骨組み。
+ *
+ * 汎用のカード列ではなく、この画面に出るもの（hero・目次・ベストN カード）と
+ * 同じ形にしてある。形が違うと、実際の中身に差し替わった瞬間に高さが飛んで
+ * かえって目立つ。
+ */
+function TodaySkeleton() {
+  return (
+    <div className="skel" aria-hidden="true">
+      <div className="skel__hero">
+        <div className="skeleton" style={{ height: 15, width: '62%' }} />
+        <div className="skeleton" style={{ height: 12, width: '44%' }} />
+      </div>
+      <div className="skel__toc">
+        {['52%', '68%', '64%', '46%'].map((w, i) => (
+          <div key={i} className="skeleton" style={{ height: 12, width: w }} />
+        ))}
+      </div>
+      {[0, 1].map((i) => (
+        <div key={i} className="skel__card">
+          <div className="skeleton" style={{ height: 13, width: '38%' }} />
+          <div className="skeleton" style={{ height: 21, width: '74%' }} />
+          <div className="skeleton" style={{ height: 12, width: '90%' }} />
+          <div className="skeleton" style={{ height: 12, width: '66%' }} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface Props {
   manifest: Manifest | null;
@@ -22,6 +54,13 @@ export function TodayView({ manifest, date }: Props) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /*
+   * スケルトンは読み込みが長引いたときだけ出す。
+   *
+   * 過去日のダイジェストは force-cache で即返るので、読み込み中かどうかで
+   * 素直に出し分けると一瞬だけ差し替わってチラつく。少し待ってから出す。
+   */
+  const [showSkeleton, setShowSkeleton] = useState(false);
 
   useEffect(() => {
     if (!targetDate) {
@@ -51,7 +90,21 @@ export function TodayView({ manifest, date }: Props) {
     };
   }, [targetDate, manifest]);
 
-  if (!manifest || loading) return <LoadingCards />;
+  useEffect(() => {
+    if (!loading) {
+      setShowSkeleton(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowSkeleton(true), 160);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
+
+  // 読了目安を猫に渡す。猫はこの時間でちょうど画面を往復する
+  useEffect(() => {
+    if (digest) setWalkMinutes(digest.stats.estimatedReadMinutes);
+  }, [digest]);
+
+  if (!manifest) return <TodaySkeleton />;
 
   if (!targetDate || manifest.dates.length === 0) {
     return (
@@ -64,89 +117,111 @@ export function TodayView({ manifest, date }: Props) {
     );
   }
 
-  if (error || !digest) {
+  /*
+   * 前後の日付は targetDate から出す（digest ではなく）。
+   * 読み込み中も日付バーを出しっぱなしにして、ボタンが消えて戻るチラつきを防ぐ。
+   */
+  const idx = manifest.dates.indexOf(targetDate);
+  const newer = idx > 0 ? manifest.dates[idx - 1] : undefined;
+  const older = idx >= 0 && idx < manifest.dates.length - 1 ? manifest.dates[idx + 1] : undefined;
+  const shown = !loading && digest?.date === targetDate ? digest : null;
+
+  const dateBar = (
+    <div className="datebar">
+      <h1 className="datebar__date">{formatDateLabel(targetDate)}</h1>
+      <div className="datebar__nav">
+        <button
+          type="button"
+          className="btn btn--sm"
+          disabled={!older || loading}
+          onClick={() => older && navigate(`/today/${older}`)}
+        >
+          ← 前日
+        </button>
+        <button
+          type="button"
+          className="btn btn--sm"
+          disabled={!newer || loading}
+          onClick={() => newer && navigate(`/today/${newer}`)}
+        >
+          翌日 →
+        </button>
+      </div>
+      <div className="datebar__meta">
+        {/* 読み込み中は幅だけ確保して、右側の文字が出入りして揺れないようにする */}
+        <span className={shown ? undefined : 'datebar__meta-hold'}>
+          {shown ? (
+            <>
+              対象: {new Date(shown.window.start).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+              {' 〜 '}
+              {new Date(shown.window.end).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+            </>
+          ) : (
+            '読み込み中…'
+          )}
+        </span>
+      </div>
+    </div>
+  );
+
+  if (loading) {
     return (
-      <Notice kind="error">
-        {targetDate} のダイジェストを読み込めませんでした{error ? `: ${error}` : ''}
-      </Notice>
+      <>
+        {dateBar}
+        {showSkeleton && <TodaySkeleton />}
+      </>
     );
   }
 
-  const idx = manifest.dates.indexOf(digest.date);
-  const newer = idx > 0 ? manifest.dates[idx - 1] : undefined;
-  const older = idx >= 0 && idx < manifest.dates.length - 1 ? manifest.dates[idx + 1] : undefined;
+  if (error || !shown) {
+    return (
+      <>
+        {dateBar}
+        <Notice kind="error">
+          {targetDate} のダイジェストを読み込めませんでした{error ? `: ${error}` : ''}
+        </Notice>
+      </>
+    );
+  }
 
   const topGroups = TOP_GROUPS.map((g) => ({
     ...g,
-    items: digest.top.filter((t) => (t.domain === 'ai') === (g.id === 'top-ai')),
+    items: shown.top.filter((t) => (t.domain === 'ai') === (g.id === 'top-ai')),
   })).filter((g) => g.items.length > 0);
+
+  const digestShown = shown;
 
   return (
     <>
-      <div className="datebar">
-        <h1 className="datebar__date">{formatDateLabel(digest.date)}</h1>
-        <div className="datebar__nav">
-          <button
-            type="button"
-            className="btn btn--sm"
-            disabled={!older}
-            onClick={() => older && navigate(`/today/${older}`)}
-          >
-            ← 前日
-          </button>
-          <button
-            type="button"
-            className="btn btn--sm"
-            disabled={!newer}
-            onClick={() => newer && navigate(`/today/${newer}`)}
-          >
-            翌日 →
-          </button>
-        </div>
-        <div className="datebar__meta">
-          <span>
-            対象: {new Date(digest.window.start).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-            {' 〜 '}
-            {new Date(digest.window.end).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-          </span>
-        </div>
-      </div>
+      {dateBar}
 
-      {digest.notes.map((note, i) => (
+      {digestShown.notes.map((note, i) => (
         <div key={i} style={{ marginBottom: 14 }}>
           <Notice>{note}</Notice>
         </div>
       ))}
 
+      {/*
+        同じ数字を文章と数値タイルで二度出していたので、タイルをやめて 1 つの塊にした。
+        上段が「結果」、下段が「その結果に至った経緯」。件数はどちらか一方にしか出ない。
+      */}
       <section className="hero">
         <p className="hero__lead">
-          収集した <strong>{digest.stats.collected.toLocaleString()}</strong> 件から、
-          あなたの関心に近い <strong>{digest.top.length}</strong> 本を深掘りしました。
-          読了目安 <strong>約 {digest.stats.estimatedReadMinutes} 分</strong>。
+          あなたの関心に近い <strong>{digestShown.top.length}</strong> 本を深掘りしました。
+          読了目安 <strong>約 {digestShown.stats.estimatedReadMinutes} 分</strong>。
         </p>
-        <div className="hero__stats">
-          <div className="stat">
-            <span className="stat__value">{digest.stats.collected.toLocaleString()}</span>
-            <span className="stat__label">収集</span>
-          </div>
-          <div className="stat">
-            <span className="stat__value">{digest.stats.afterDedupe.toLocaleString()}</span>
-            <span className="stat__label">重複除去後</span>
-          </div>
-          <div className="stat">
-            <span className="stat__value">{digest.stats.ranked.toLocaleString()}</span>
-            <span className="stat__label">AI採点</span>
-          </div>
-          <div className="stat">
-            <span className="stat__value">{digest.stats.estimatedReadMinutes}</span>
-            <span className="stat__label">読了目安 (分)</span>
-          </div>
-        </div>
+        <p className="hero__pipeline">
+          <span>{digestShown.stats.collected.toLocaleString()} 件を収集</span>
+          <span aria-hidden="true">→</span>
+          <span>{digestShown.stats.afterDedupe.toLocaleString()} 件に重複整理</span>
+          <span aria-hidden="true">→</span>
+          <span>{digestShown.stats.ranked.toLocaleString()} 件を AI 採点</span>
+        </p>
       </section>
 
-      <Toc digest={digest} />
+      <Toc digest={digestShown} />
 
-      {digest.top.length === 0 ? (
+      {digestShown.top.length === 0 ? (
         <Empty title="この日は該当する記事がありませんでした" />
       ) : (
         topGroups.map((g) => (
@@ -163,12 +238,12 @@ export function TodayView({ manifest, date }: Props) {
       )}
 
       {/* releases が undefined なのはこの機能より前に生成した日。0 件の日とは区別する */}
-      {digest.releases && (
+      {digestShown.releases && (
         <>
           <h2 className="section-title" id="releases">
-            リリース情報 ({digest.releases.length})
+            リリース情報 ({digestShown.releases.length})
           </h2>
-          {digest.releases.length === 0 ? (
+          {digestShown.releases.length === 0 ? (
             <p className="section-lead">
               この日は監視対象からのリリースがありませんでした。見落としが気になる場合は、
               下の監視対象に追加してください。
@@ -180,8 +255,8 @@ export function TodayView({ manifest, date }: Props) {
                 上から流し読みして気になったものだけ開いてください。
               </p>
               <ReleaseList
-                releases={digest.releases}
-                highlightIds={new Set(digest.top.map((t) => t.id))}
+                releases={digestShown.releases}
+                highlightIds={new Set(digestShown.top.map((t) => t.id))}
               />
             </>
           )}
@@ -189,28 +264,28 @@ export function TodayView({ manifest, date }: Props) {
         </>
       )}
 
-      {digest.others.length > 0 && (
+      {digestShown.others.length > 0 && (
         <>
           <h2 className="section-title" id="others">
-            その他の注目記事 ({digest.others.length})
+            その他の注目記事 ({digestShown.others.length})
           </h2>
-          <OtherArticles items={digest.others} />
+          <OtherArticles items={digestShown.others} />
         </>
       )}
 
       <p className="faint" style={{ fontSize: 12, marginTop: 26 }}>
-        採点 {digest.models.rank} / 要約 {digest.models.summary} ・ 生成{' '}
-        {new Date(digest.generatedAt).toLocaleString('ja-JP')}
-        {digest.usage && (
+        採点 {digestShown.models.rank} / 要約 {digestShown.models.summary} ・ 生成{' '}
+        {new Date(digestShown.generatedAt).toLocaleString('ja-JP')}
+        {digestShown.usage && (
           <>
             {' ・ '}
-            <span title={Object.entries(digest.usage.stages)
+            <span title={Object.entries(digestShown.usage.stages)
               .map(
                 ([stage, s]) =>
                   `${stage}: ${s.requests}req / in ${s.inputTokens.toLocaleString()} / out ${s.outputTokens.toLocaleString()} = $${s.estimatedCostUsd.toFixed(4)}`,
               )
               .join('\n')}>
-              API 費用 ${digest.usage.totalCostUsd.toFixed(3)}
+              API 費用 ${digestShown.usage.totalCostUsd.toFixed(3)}
             </span>
           </>
         )}
