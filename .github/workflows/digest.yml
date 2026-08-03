@@ -54,6 +54,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+          # 未登録なら読者フィードバックは反映されず、今までと同じ動作になる。
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           RANK_MODEL: ${{ vars.RANK_MODEL }}
           SUMMARY_MODEL: ${{ vars.SUMMARY_MODEL }}
           SUMMARY_EFFORT: ${{ vars.SUMMARY_EFFORT }}
@@ -114,6 +116,12 @@ jobs:
       - name: ビルド
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+          # apiKey/projectId/appId は秘密情報ではない（アクセス制御は Firestore の
+          # Security Rules 側で行う）。未登録ならフィードバック機能は表示されない。
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_FEEDBACK_TOKEN: ${{ secrets.VITE_FEEDBACK_TOKEN }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

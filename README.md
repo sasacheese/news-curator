@@ -384,6 +384,100 @@ GitHub の Web エディタへ飛ばせば、ログイン済みで権限があ�
 その旨が画面に出ます。ただし削除しても失効はしないので、
 [GitHub の設定](https://github.com/settings/personal-access-tokens)から revoke してください。
 
+## 読者フィードバック（Good/Bad）で精度を上げる
+
+ベスト3・その他の注目記事・リリース情報のすべての項目に Good/Bad を付けられます。
+直近 14 日ぶんの投票をトピックの重みと LLM への読者コンテキストに反映し、
+翌朝以降の採点に効かせます。**ボタンは通常は表示されません。** 認証は追加せず、
+URL に秘密のパラメータを渡した本人のブラウザだけで表示を切り替えます。
+
+- スマホでも同じ URL パラメータ方式で動きます（ブラウザは選びません）
+- 一度開けば `localStorage` にフラグが残るので、以降は毎回パラメータ不要です
+- 投票データは Firestore に保存し、**TTL で 14 日後に自動削除**されます。興味関心が
+  変わっても古い投票が残り続けません
+- ボタンを押していない大多数の訪問者は、フィードバック機能のコード（Firebase SDK）を
+  一切ダウンロードしません（動的 import）
+
+セットアップしなくてもツールは今まで通り動きます。未設定時は完全に無効化されます。
+
+### セットアップ
+
+1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成し、
+   Firestore を **Native mode** で有効化する
+2. プロジェクト設定 → アプリを追加 → ウェブアプリを登録し、`apiKey` / `projectId` / `appId` を控える
+3. Firestore → ルール で以下を貼り付けて公開する
+
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /feedback/{articleId} {
+         allow read, list, delete: if false;
+         allow create, update: if isValidFeedback(articleId);
+
+         function isValidFeedback(articleId) {
+           let d = request.resource.data;
+           return d.keys().hasOnly([
+               'articleId','vote','votedAt','expireAt','digestDate','tier',
+               'source','sourceLabel','category','domain','matchedTopics','score','title','url'
+             ])
+             && d.articleId is string && d.articleId == articleId
+             && d.vote in ['good', 'bad']
+             && d.votedAt == request.time
+             && d.expireAt is timestamp
+             && d.expireAt > request.time
+             && d.expireAt < request.time + duration.value(15, 'd')
+             && d.digestDate is string && d.digestDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+             && d.tier in ['top', 'other', 'release']
+             && d.source is string && d.source.size() < 40
+             && d.sourceLabel is string && d.sourceLabel.size() < 80
+             && d.category is string && d.category.size() < 40
+             && (d.domain == null || d.domain in ['ai', 'general'])
+             && d.matchedTopics is list && d.matchedTopics.size() <= 20
+             && (d.score == null || (d.score is number && d.score >= 0 && d.score <= 100))
+             && d.title is string && d.title.size() <= 300
+             && d.url is string && d.url.size() <= 2000 && d.url.matches('^https?://.*');
+         }
+       }
+     }
+   }
+   ```
+
+   書き込みは投票本人のブラウザから直接行いますが、上のルールで
+   `feedback` コレクションへの `create`/`update` 以外（読み取り・一覧・削除）を
+   すべて拒否しています。`apiKey` などはこの設計では秘密情報ではありません
+   （Firebase のアクセス制御はクライアントの鍵ではなくこのルール側で行います）。
+   万一 URL の秘密パラメータが漏れても、実害はスパム投稿程度で、
+   しかも 14 日で自動的に消えます。
+
+4. Firestore → TTL で `feedback` コレクションの `expireAt` フィールドに
+   TTL ポリシーを設定する（削除の反映まで最大 24 時間ほどかかります）
+5. プロジェクト設定 → サービスアカウント → 新しい秘密鍵を生成し、JSON をダウンロードする
+   （collector が読み取り専用でサーバー側から集計するために使います）
+6. リポジトリの **Settings → Secrets and variables → Actions** に登録する
+
+   | 種類 | Name | Value |
+   | --- | --- | --- |
+   | Secret | `FIREBASE_SERVICE_ACCOUNT_JSON` | ダウンロードしたサービスアカウント JSON の中身そのまま |
+   | Secret | `VITE_FEEDBACK_TOKEN` | 自分だけが知る秘密の文字列 |
+   | Variable | `VITE_FIREBASE_API_KEY` | Firebase の apiKey |
+   | Variable | `VITE_FIREBASE_PROJECT_ID` | Firebase の projectId |
+   | Variable | `VITE_FIREBASE_APP_ID` | Firebase の appId |
+
+7. `https://<ユーザー名>.github.io/news-curator/?fb=<VITE_FEEDBACK_TOKEN の値>` を
+   使うブラウザで一度開く。以降そのブラウザでは毎回 Good/Bad ボタンが表示されます
+
+### 反映のされ方
+
+`collector/src/feedback.ts` が直近 14 日ぶんの投票をトピック名（`matchedTopics`）ごとに
+集計し、少数の投票で重みが暴れないよう平滑化した上で
+
+- `config/topics.json` の各トピックの重みに 0.75〜1.25 倍の乗数をかけて事前スコアリングに反映
+- 変化の大きいトピック上位 3 件を一文にまとめ、LLM の採点・要約プロンプトに追記
+
+します。Firebase を未設定のままにしておけば、この処理は丸ごとスキップされ、
+今まで通りの動作になります（LLM バックエンド未設定時にルールベースへフォールバックするのと同じ考え方です）。
+
 ---
 
 ## ローカルで動かす

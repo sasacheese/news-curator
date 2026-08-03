@@ -2,10 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { greetConsole } from './greeting';
-import { applyTheme } from './settings';
+import { applyTheme, unlockFeedbackFromUrl } from './settings';
 import './styles.css';
 
 applyTheme();
+unlockFeedbackFromUrl();
 greetConsole();
 
 const root = document.getElementById('root');

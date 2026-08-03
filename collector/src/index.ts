@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
+import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
 import { deepDive, getBackend, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
 import type { SlotRule } from './prescore.js';
 import { dedupe, pickByDomain, pickTopDiverse, preScore } from './prescore.js';
@@ -108,10 +109,20 @@ async function main(): Promise<void> {
     releases.flatMap((r) => [r.url, ...r.alsoReleased.map((a) => a.url)]),
   );
 
+  /* 読者フィードバック ------------------------------------------------ */
+  /*
+   * 直近 2 週間の Good/Bad をトピック重みへ反映する。Firebase 未設定なら
+   * signal は null になり、以降は今までと完全に同じ動作になる。
+   */
+  const feedbackSignal = await safe('feedback', () => loadFeedbackSignal(), null);
+  const effectiveTopics = feedbackSignal ? applyFeedbackToTopics(topics, feedbackSignal) : topics;
+  const feedbackNote = feedbackSignal ? renderFeedbackNote(feedbackSignal) : null;
+  if (feedbackSignal) log.info(`  フィードバック ${feedbackSignal.totalVotes} 件を反映`);
+
   /* 3. 事前スコアリング --------------------------------------------- */
   log.step('3/6 事前スコアリング');
   const withHatena = await enrichHatenaCounts(unique);
-  const preScored = preScore(withHatena, topics).sort((a, b) => b.preScore - a.preScore);
+  const preScored = preScore(withHatena, effectiveTopics).sort((a, b) => b.preScore - a.preScore);
   const candidates = preScored.slice(0, runtime.rankCandidates);
   log.info(
     `LLM 採点対象 ${candidates.length} 件（最高 ${(candidates[0]?.preScore ?? 0).toFixed(2)} / 最低 ${(candidates.at(-1)?.preScore ?? 0).toFixed(2)}）`,
@@ -119,7 +130,9 @@ async function main(): Promise<void> {
 
   /* 4. LLM ランキング ----------------------------------------------- */
   log.step('4/6 LLM ランキング');
-  const ranked = (await rankItems(candidates, topics, runtime)).sort((a, b) => b.score - a.score);
+  const ranked = (
+    await rankItems(candidates, effectiveTopics, runtime, feedbackNote)
+  ).sort((a, b) => b.score - a.score);
   for (const item of ranked.slice(0, 8)) {
     log.info(`  ${String(item.score).padStart(3)} | ${item.sourceLabel} | ${item.title.slice(0, 60)}`);
   }

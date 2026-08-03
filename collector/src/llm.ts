@@ -151,18 +151,19 @@ export async function complete<T>(
  * 2 段目で生き残った十数件にだけ文章を書かせる。
  * ------------------------------------------------------------------ */
 
-function readerContext(topics: TopicsConfig): string {
+function readerContext(topics: TopicsConfig, feedbackNote?: string | null): string {
   const topicList = topics.topics
     .map((t) => `- ${t.name}（重要度 ${t.weight}/5）: ${t.keywords.slice(0, 8).join(', ')}`)
     .join('\n');
-  return `# 読者プロフィール\n${topics.profile}\n\n# 関心トピック\n${topicList}`;
+  const feedback = feedbackNote ? `\n\n# 読者の最近の反応\n${feedbackNote}` : '';
+  return `# 読者プロフィール\n${topics.profile}\n\n# 関心トピック\n${topicList}${feedback}`;
 }
 
-function scoreSystemPrompt(topics: TopicsConfig): string {
+function scoreSystemPrompt(topics: TopicsConfig, feedbackNote?: string | null): string {
   return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
 渡された記事を、この読者にとっての「今日読む価値」で 0〜100 点に採点してください。
 
-${readerContext(topics)}
+${readerContext(topics, feedbackNote)}
 
 # 採点基準
 - 90-100: 読者が日常的に使う技術の重大な変更・新機能。今日知らないと損をするレベル。
@@ -183,11 +184,11 @@ ${readerContext(topics)}
 - 入力されたすべての ref に対して、必ず1件ずつ結果を返す。`;
 }
 
-function describeSystemPrompt(topics: TopicsConfig): string {
+function describeSystemPrompt(topics: TopicsConfig, feedbackNote?: string | null): string {
   return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
 選抜済みの記事について、一覧に載せる要約とキーワードを書いてください。
 
-${readerContext(topics)}
+${readerContext(topics, feedbackNote)}
 
 # 出力
 - すべて日本語で書く。
@@ -471,13 +472,14 @@ async function scorePass(
   items: PreScoredItem[],
   topics: TopicsConfig,
   cfg: RuntimeConfig,
+  feedbackNote?: string | null,
 ): Promise<Map<string, number>> {
   const batches: PreScoredItem[][] = [];
   for (let i = 0; i < items.length; i += cfg.rankBatchSize) {
     batches.push(items.slice(i, i + cfg.rankBatchSize));
   }
 
-  const system = scoreSystemPrompt(topics);
+  const system = scoreSystemPrompt(topics, feedbackNote);
   const scores = new Map<string, number>();
 
   await mapLimit(batches, 3, async (batch, batchIndex) => {
@@ -517,6 +519,7 @@ async function describePass(
   shortlist: PreScoredItem[],
   topics: TopicsConfig,
   cfg: RuntimeConfig,
+  feedbackNote?: string | null,
 ): Promise<Map<string, DescribeResult['items'][number]>> {
   const described = new Map<string, DescribeResult['items'][number]>();
   if (shortlist.length === 0) return described;
@@ -535,7 +538,7 @@ async function describePass(
     batches.push(shortlist.slice(i, i + DESCRIBE_BATCH_SIZE));
   }
 
-  const system = describeSystemPrompt(topics);
+  const system = describeSystemPrompt(topics, feedbackNote);
   await mapLimit(batches, 3, async (batch, batchIndex) => {
     // ref は採点段と同じく通し番号で振る（実装が食い違うと取り違えの温床になる）
     const offset = batchIndex * DESCRIBE_BATCH_SIZE;
@@ -565,6 +568,7 @@ export async function rankItems(
   items: PreScoredItem[],
   topics: TopicsConfig,
   cfg: RuntimeConfig,
+  feedbackNote?: string | null,
 ): Promise<RankedItem[]> {
   const b = await getBackend();
   if (!b) {
@@ -577,7 +581,7 @@ export async function rankItems(
   }
 
   // 1 段目
-  const scores = await scorePass(b, items, topics, cfg);
+  const scores = await scorePass(b, items, topics, cfg, feedbackNote);
   log.info(`  スコアリング: ${scores.size}/${items.length} 件`);
 
   const scoreOf = (item: PreScoredItem) =>
@@ -605,7 +609,7 @@ export async function rankItems(
   ];
   const shortlist = [...base, ...new Map(extra.map((i) => [i.id, i])).values()];
 
-  const described = await describePass(b, shortlist, topics, cfg);
+  const described = await describePass(b, shortlist, topics, cfg, feedbackNote);
   log.info(`  要約: ${described.size}/${shortlist.length} 件`);
 
   return items.map((item) => {

@@ -1,3 +1,4 @@
+import { FeedbackButtons } from './FeedbackButtons';
 import { safeUrl } from './format';
 import type { ReleaseAlso, ReleaseImpact, ReleaseItem, ReleaseKind } from './types';
 
@@ -63,7 +64,15 @@ const KIND_LABELS: Record<ReleaseKind, string> = {
   patch: 'パッチ',
 };
 
-function Row({ r, highlighted }: { r: ReleaseItem; highlighted: boolean }) {
+function Row({
+  r,
+  highlighted,
+  digestDate,
+}: {
+  r: ReleaseItem;
+  highlighted: boolean;
+  digestDate: string;
+}) {
   const advisory = r.advisory;
   return (
     <li className="rel">
@@ -157,6 +166,19 @@ function Row({ r, highlighted }: { r: ReleaseItem; highlighted: boolean }) {
           </ul>
         </details>
       )}
+
+      <FeedbackButtons
+        target={{
+          id: r.id,
+          tier: 'release',
+          digestDate,
+          source: '(release)',
+          sourceLabel: r.sourceLabel,
+          title: r.product,
+          url: r.url,
+          category: KIND_LABELS[r.kind],
+        }}
+      />
     </li>
   );
 }
@@ -164,10 +186,12 @@ function Row({ r, highlighted }: { r: ReleaseItem; highlighted: boolean }) {
 export function ReleaseList({
   releases,
   highlightIds,
+  digestDate,
 }: {
   releases: ReleaseItem[];
   /** ベスト3にも入っているもの。重複に見えないよう印をつける */
   highlightIds: ReadonlySet<string>;
+  digestDate: string;
 }) {
   const groups = IMPACT_ORDER.map((impact) => ({
     impact,
@@ -180,7 +204,7 @@ export function ReleaseList({
         const rows = (
           <ul className="rel-list">
             {group.items.map((r) => (
-              <Row key={r.id} r={r} highlighted={highlightIds.has(r.id)} />
+              <Row key={r.id} r={r} highlighted={highlightIds.has(r.id)} digestDate={digestDate} />
             ))}
           </ul>
         );
