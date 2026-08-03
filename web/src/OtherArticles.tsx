@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { navigate } from './App';
 import { BuzzChip, Chip } from './components';
+import { FeedbackButtons } from './FeedbackButtons';
 import { metricSummary, safeUrl } from './format';
 import type { Payoff, RankedItem } from './types';
 
@@ -22,7 +23,7 @@ const PAYOFF_LABELS: Record<Payoff, string> = {
 
 type DomainTab = 'ai' | 'general';
 
-function Row({ item }: { item: RankedItem }) {
+function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
   return (
     <div className="row">
       <div className="row__score">{item.score}</div>
@@ -62,13 +63,28 @@ function Row({ item }: { item: RankedItem }) {
               #{k}
             </button>
           ))}
+          <FeedbackButtons
+            target={{
+              id: item.id,
+              tier: 'other',
+              digestDate,
+              source: item.source,
+              sourceLabel: item.sourceLabel,
+              title: item.title,
+              url: item.url,
+              category: item.category,
+              domain: item.domain,
+              matchedTopics: item.matchedTopics,
+              score: item.score,
+            }}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-export function OtherArticles({ items }: { items: RankedItem[] }) {
+export function OtherArticles({ items, digestDate }: { items: RankedItem[]; digestDate: string }) {
   const groups = useMemo(
     () => ({
       ai: items.filter((i) => i.domain === 'ai'),
@@ -107,7 +123,7 @@ export function OtherArticles({ items }: { items: RankedItem[] }) {
       ) : (
         <div className="list">
           {shown.map((item) => (
-            <Row key={item.id} item={item} />
+            <Row key={item.id} item={item} digestDate={digestDate} />
           ))}
         </div>
       )}

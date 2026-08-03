@@ -9,6 +9,7 @@ import { loadDigest } from '../api';
 import { Annotated } from '../Annotated';
 import { BuzzChip } from '../components';
 import { Chip, CopyButton, Empty, Notice } from '../components';
+import { FeedbackButtons } from '../FeedbackButtons';
 import type { Digest, Manifest, RankedItem, TopItem } from '../types';
 import { formatDateLabel, formatPublished, metricSummary, safeUrl } from '../format';
 import { setWalkMinutes } from '../walkerClock';
@@ -231,7 +232,7 @@ export function TodayView({ manifest, date }: Props) {
               {g.items.length}
             </h2>
             {g.items.map((item) => (
-              <TopCard key={item.id} item={item} />
+              <TopCard key={item.id} item={item} digestDate={digestShown.date} />
             ))}
           </section>
         ))
@@ -257,6 +258,7 @@ export function TodayView({ manifest, date }: Props) {
               <ReleaseList
                 releases={digestShown.releases}
                 highlightIds={new Set(digestShown.top.map((t) => t.id))}
+                digestDate={digestShown.date}
               />
             </>
           )}
@@ -269,7 +271,7 @@ export function TodayView({ manifest, date }: Props) {
           <h2 className="section-title" id="others">
             その他の注目記事 ({digestShown.others.length})
           </h2>
-          <OtherArticles items={digestShown.others} />
+          <OtherArticles items={digestShown.others} digestDate={digestShown.date} />
         </>
       )}
 
@@ -357,7 +359,7 @@ function Toc({ digest }: { digest: Digest }) {
   );
 }
 
-function TopCard({ item }: { item: TopItem }) {
+function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
   const d = item.deep;
   const pr = d.prerequisites ?? [];
   return (
@@ -528,6 +530,21 @@ function TopCard({ item }: { item: TopItem }) {
         <a className="btn btn--sm" href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
           元記事を読む ↗
         </a>
+        <FeedbackButtons
+          target={{
+            id: item.id,
+            tier: 'top',
+            digestDate,
+            source: item.source,
+            sourceLabel: item.sourceLabel,
+            title: item.title,
+            url: item.url,
+            category: item.category,
+            domain: item.domain,
+            matchedTopics: item.matchedTopics,
+            score: item.score,
+          }}
+        />
       </div>
     </details>
   );

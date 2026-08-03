@@ -72,3 +72,29 @@ export function saveLocalTopics(config: TopicsConfig): void {
 export function clearLocalTopics(): void {
   localStorage.removeItem(TOPICS_KEY);
 }
+
+/* ---------- フィードバック機能の解除 ---------- */
+
+const FEEDBACK_UNLOCK_KEY = 'news-curator:feedback-unlocked';
+
+/**
+ * URL の ?fb=<token> が VITE_FEEDBACK_TOKEN と一致したら解除フラグを立てる。
+ *
+ * 認証ではなく「偶然見つからない」程度の目隠し。トークン自体はビルド済み JS に
+ * 平文で入るので、本気で探せば見つかる。実害はスパム投稿程度で、
+ * フィードバックデータは Firestore の TTL で数週間後に消える前提。
+ */
+export function unlockFeedbackFromUrl(): void {
+  const token = new URLSearchParams(location.search).get('fb');
+  const expected = import.meta.env.VITE_FEEDBACK_TOKEN;
+  if (!token || !expected || token !== expected) return;
+
+  localStorage.setItem(FEEDBACK_UNLOCK_KEY, '1');
+  const url = new URL(location.href);
+  url.searchParams.delete('fb');
+  history.replaceState(null, '', url);
+}
+
+export function isFeedbackUnlocked(): boolean {
+  return localStorage.getItem(FEEDBACK_UNLOCK_KEY) === '1';
+}
