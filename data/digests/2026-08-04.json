@@ -1,0 +1,1910 @@
+{
+  "date": "2026-08-04",
+  "generatedAt": "2026-08-03T22:57:56.587Z",
+  "window": {
+    "start": "2026-08-02T22:00:00.000Z",
+    "end": "2026-08-03T22:00:00.000Z"
+  },
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【実測あり】Claude Codeから.envを守る：permissions.deny vs PreToolUseフック",
+      "url": "https://qiita.com/tomada/items/650546e8b9f5e33d5820",
+      "publishedAt": "2026-08-03T19:25:15.000Z",
+      "author": "とまだ@AI駆動開発",
+      "authorDetail": {
+        "name": "とまだ@AI駆動開発",
+        "handle": "@tomada",
+        "url": "https://qiita.com/tomada",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/364501/profile-images/1727641866",
+        "bio": "フルスタックエンジニア｜AI駆動開発の実践者として Claude Code・Cursor・GitHub Copilot を業務活用｜Ruby on Rails・React・Next.js・Python・AWS に精通｜月間500万UU の大規模システム開発経験｜個人開発 Learning Next（月数万円収益）を1ヶ月で構築｜AI エージェントを活用した効率的な開発手法・実装ノウハウを発信",
+        "followers": 2513,
+        "posts": 121,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/tomada1114"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/muscle_coding"
+          },
+          {
+            "label": "Web",
+            "url": "https://note.com/tomada"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "hooks",
+        "dotenv",
+        "Claude",
+        "ClaudeCode"
+      ],
+      "snippet": "<!-- 一次資料: Experiments/20260803env-guard-hook-vs-deny.md（生ログ・設定・フックスクリプトは Experiments/20260803env-guard-hook-vs-deny/）。 本文の実測値・ログはすべてここから --> Claude Code にデバッグを頼むと、.env を開いて接続情報を確かめようとすることがあります。 AI にとって .env は設定ファイルのひとつなので、タスクの役に立つなら読みに行く可能性があるわけです。 手元で試したところ、ガードを入れていない状態では .env 系ファイルが確認なしで読まれ、中のパスワード（ダミー値）が応答にそのまま出てきました。 読まれた値は、セッションの履歴ファイルにも平文で残ります。 この記事では、Claude Code に .env を読ませない・書かせないための2つの方法…",
+      "body": "<!-- 一次資料: Experiments/20260803env-guard-hook-vs-deny.md（生ログ・設定・フックスクリプトは Experiments/20260803env-guard-hook-vs-deny/）。\n本文の実測値・ログはすべてここから -->\n\nClaude Code にデバッグを頼むと、.env を開いて接続情報を確かめようとすることがあります。\nAI にとって .env は設定ファイルのひとつなので、タスクの役に立つなら読みに行く可能性があるわけです。\n\n手元で試したところ、ガードを入れていない状態では .env 系ファイルが確認なしで読まれ、中のパスワード（ダミー値）が応答にそのまま出てきました。\n読まれた値は、セッションの履歴ファイルにも平文で残ります。\n\nこの記事では、Claude Code に .env を読ませない・書かせないための2つの方法を実装して、実測で比べます。\n・公式の権限設定 permissions.deny に数行足す方法\n・PreToolUse フックでスクリプトを挟む方法\n\n \n\n著者について\n\nとまだ\n・Claude Code・Cursor・Codex などAI駆動開発の実践者\n・AI駆動開発を学ぶ方が集まる Vibe Coding Studio コミュニティを運営\n・UdemyでAI駆動開発を学べる複数のベストセラー講座を展開\n・東京AI祭プレイベントに登壇\n・プログラミングスクール講師として100名以上に指導経験\n\nSNS\n・X (Twitter)\n・YouTube\n・note\n\n忙しい人のために要約\n・ガードなしの状態では、デバッグ依頼の流れで .env 系ファイルが確認なしで読まれた（実測）\n・読まれた秘密は応答だけでなくセッション履歴（平文JSONL）にも残る\n・permissions.deny は4行の追加で Read / Edit / 新規作成に加えて Bash の cat までブロックできた\n・PreToolUse フック（Python 約40行）も同様にブロックでき、自作メッセージで Claude に代替行動を伝えられる\n・結論は併用——deny を土台にして、フックで例外処理と誘導メッセージを足す\n\n.env がAIに読まれる場面\n\nガードを入れていないプロジェクトで、こう頼んでみました。\n\n [code] \n\nClaude は Read ツールで .env.staging を開き、DBPASSWORD=staging-secret-xyz789（検証用のダミー値）を応答にそのまま載せて返してきました。\n確認は一度も挟まっていません。\n\nこれで終わりではなくて、読まれた値がどこに残るかも確認しました。\nClaude Code のセッション履歴は /.claude/projects/ 配下に平文の JSONL で保存されます。\ngrep してみると、このダミーパスワードが履歴ファイルの中にしっかり残っていました。\nつまり一度読まれた秘密は、会話のコンテキストだけでなくローカルのログにも複製されます。\n\nといっても、Claude Code が無防備という話ではありません。\n「DBPASSWORD の値を教えて」という直球の要求は、モデルがツールを呼ぶまでもなく断りました。\nファイルの編集には、既定の権限モードなら承認プロンプトが挟まります（公式の権限表より）。\n\nただし読み取りは別です。\n作業ディレクトリ内のファイル読み取りは承認なしで通るのが既定の挙動で、そこに .env を特別扱いする仕組みは（私が docs と CHANGELOG を確認した範囲では）ありません。\nモデルの良識が毎回働くことに賭けるより、守りたいファイルを仕組みで指定しておくほうが確実です。\n\n検証環境と進め方\n\n実測はすべて次の条件で行いました。\n\n| 項目 | 値 |\n|---|---|\n| 実行日 | 2026-08-03 |\n| バージョン | Claude Code 2.1.220（macOS） |\n| 実行方法 | claude -p（headless＝対話なしの一発実行）、実行モデルは haiku |\n| 回数 | 各条件 n=1、計15回（全ログ保存） |\n\n「ガードなし」「permissions.deny あり」「PreToolUse フックあり」の3構成のプロジェクトを用意し、それぞれにダミー秘密入りの .env .env.local .env.staging と、非機密の config.txt を置きました。\n\nそのうえで各構成に対して、Read を誘発するプロンプト（前述のデバッグ依頼）、Edit を誘発するプロンプト（パスワードの書き換え依頼）、Write を誘発するプロンプト（.env.backup の新規作成依頼）を投げます。\nさらに YOLO モード（--dangerously-skip-permissions）でも同じことを試しました。\n確認プロンプトをすべてスキップする運用でもガードが生きるかを見るためです。\nこれらの組み合わせに対照用の config.txt 読み取りを含めて計15回、全実行のログを保存してあります。\n\n方法1: permissions.deny による保護\n\n最短の方法から。\nプロジェクトの .claude/settings.json に deny ルールを4行足します。\n\n [code] \n\nこれだけで、実測では次のすべてがブロックされました。\n・.env .env.local .env.staging の Read\n・.env の Edit\n・.env.backup の新規作成（Write。deny に Write と書いていないのに止まる理由は後述）\n・YOLO モードでの上記すべて\n\nブロック時に Claude へ返るメッセージはこうです（ログ抜粋）。\n\n [code] \n\n面白かったのは、Read をブロックされた Claude が Bash で cat .env を試みた場面です。\nこれも denied されました。\n\n [code] \n\n公式ドキュメントには、Read / Edit の deny ルールは cat head tail sed といった既知のファイルコマンドにも適用されると書かれています。\nその記述どおりの挙動を実測で確認できたことになります。\n\n書き方には仕様上の注意点があります。\n・Read(.env) のようなベアファイル名は gitignore と同じ意味論で解釈され、カレントディレクトリ以下の任意の深さにマッチする（Read(/.env) と等価）\n・Write(...) というルールは書いてもファイル権限チェックでは参照されない（v2.1.210 以降は起動時に警告が出る）\n・新規作成を含む編集全般は Edit(...) ルールが受け持つ——.env.backup の Write が止まったのはこの仕様\n・v2.1.208 以降は Read の deny だけでも同じパスの Edit がブロックされるが、Write はカバーされないため上の例のように Edit ルールも並べておく\n\n方法2: PreToolUse フックによる保護\n\nもうひとつの方法は、ツール実行の直前に検査スクリプトを挟むやり方です。\nBash の危険コマンドをブロックする用途で以前から使っている仕組みを、今回はファイルアクセスに向けます。\n\nhttps://qiita.com/tomada/items/96bb5bc256c1fc319c06\n\n.claude/settings.json にフックを登録します。\n\n [code] \n\nmatcher は発火条件で、ここに書いたツール（Read・Edit・Write）の呼び出し時だけスクリプトが走ります。\n\nスクリプト本体は約40行です。\ntoolinput の filepath を見て、ファイル名が .env または .env. なら exit code 2 で止めます。\nexit code 2 は PreToolUse ではツール実行のブロックを意味し、stderr の内容がそのまま Claude へのエラーメッセージになります。\n\n [code] \n\n実測では、.env 系への Read / Write（.env.backup の新規作成を含む）がすべてこのフックで止まりました。\nYOLO モードでも同じです。\n対照用に置いた config.txt は素通りしたので、誤爆もありません。\n\nブロック時に Claude が受け取るメッセージはこうなります（ログ抜粋）。\n\n [code] \n\nこのメッセージを受けた Claude の振る舞いがよくできていて、「以下のファイルの内容を手動で確認して共有していただく必要があります」と cat .env のコマンド例を私に提示して、自分は手を引きました。\nなぜブロックされたか・代わりにどうするかをこちらで書けるので、Claude が次の行動を選びやすくなります。\n\n2方式の違い\n\n両方を動かして分かった違いを表にまとめます。\n\n| 観点 | permissions.deny | PreToolUse フック |\n|---|---|---|\n| 導入の手間 | settings.json に4行 | 設定＋スクリプト約40行 |\n| ブロック時のメッセージ | 汎用文言で固定 | 自作の文言を Claude に渡せる |\n| カバー範囲 | Bash の cat 等も塞ぐ（実測） | matcher に書いたツールのみ（Bash 経由は未検証） |\n\nメッセージの差は、実際に見比べると印象がだいぶ違います。\ndeny の文言はファイル単位のルールで弾いても File is in a directory that is denied と出るため、初見では原因が分かりにくい。\n実測でも Claude は権限設定の変更を提案しがちでした。\nフック側は前述のとおり、理由と代替行動まで伝えられます。\n\nもうひとつの差は柔軟性です。\nフックはロジックなので、.env.example や .env.sample のようなテンプレートだけ許可する、といった例外が数行で書けます。\ndeny ルールはパターンの列挙なので、この種の例外表現は苦手です。\n\nそして列挙には漏れが出ます。\nこれは私自身の設定で確かめられました。\n/.claude/settings.json には以前から .env .env.local .env.development への ask ルールと .env.production への deny ルールを入れていて、実務でこの網に助けられてきた側です。\nただ今回の検証で .env.staging を置いてみたところ、どのパターンにも掛からず素通りしました。\n実務で staging 系のファイルを扱う前に、検証で気づけたのは幸運でした。\n列挙式の防御は、列挙した分しか守りません。\nフックの .env. を basename で判定する方式なら、staging も backup も、来年増える謎のサフィックスもまとめて塞げます。\n\nsettings.json の権限設定そのものについては、以前書いたこちらの記事も参考になるはずです。\n\nhttps://qiita.com/tomada/items/45ae90809c714bb5c78e\n\n残る限界\n\n一方で、どちらの方式にも共通の限界があります。\n公式ドキュメントの警告をそのまま引用します。\nRead and Edit deny rules apply to Claude's built-in file tools and to file commands Claude Code recognizes in Bash, such as cat, head, tail, and sed. They don't apply to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself. For OS-level enforcement that blocks all processes from accessing a path, enable the sandbox.\n\nつまり python -c \"print(open('.env').read())\" のような、スクリプトが自力でファイルを開くケースは deny ルールの守備範囲外です。\nOS レベルで全プロセスから封じたい場合はサンドボックス機能を使うことになります。\n\nフック方式にも同種の穴があります。\nmatcher に Read|Edit|Write と書いた以上、Bash ツール経由の読み取りはそもそも検査対象になりません。\nBash 側は今回実測していないので断定はしませんが、構造上は素通りするはずです。\ndeny が cat を塞いだ実測結果を踏まえると、ここは deny に受け持たせるのが素直です。\n\nなお、サブエージェント経由のツール呼び出しにガードが効くかも今回は検証していません。\n\nまとめ\n\n.env を守る仕組みは、permissions.deny の4行でもフックの40行でも実測で機能しました。\n私が併用を選んだのは、deny が cat 経由まで塞ぐ土台になり、フックが例外と誘導メッセージを受け持つ——役割が重ならないからです。\n検証で自分の設定の列挙漏れに気づいた身としては、片方に全部を任せる気になれません。\n\n \n\nXをフォローいただけると嬉しいです！\n\nAI駆動開発（特に Claude Code）のノウハウや Tips をよく発信しています！\n\nhttps://x.com/musclecoding",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c1e3a8843d95ecf6",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6888235294117647,
+      "popularityPercentile": 0.040106951871657755,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 94,
+      "oneLiner": "Claude Codeの.env保護をpermissions.denyとPreToolUseフックで実測比較した。",
+      "reason": "ガードなしでは.envのパスワードが応答と履歴ファイルに平文で残った。公式の権限設定と実行前フックを実装し、読ませない・書かせない差を比較している。",
+      "keywords": [
+        "Claude Code",
+        "permissions.deny",
+        "PreToolUse",
+        "hooks",
+        ".env"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": ".env保護はdenyを土台にフックを併用",
+        "summary": "Claude Code は、ガードなしだと作業ディレクトリ内の `.env` 系ファイルを承認なしで読み、秘密値を応答と平文の `JSONL` 履歴に残し得ます。`permissions.deny` は4行で `Read`・`Edit` と `cat` などの既知のBashファイルコマンドまでブロックし、PreToolUse フックは `Read`・`Edit`・`Write` の直前に独自メッセージを返せます。`YOLO モード` でも両方のガードは実測で有効でした。基本は `permissions.deny` を土台にし、例外処理と誘導メッセージを `PreToolUse` で補う構成です。",
+        "prerequisites": [
+          {
+            "term": "permissions.deny",
+            "stumblingPoint": "記事は `Write(...)` ではなく `Edit(...)` が新規作成も止めると書くが、編集と作成の関係を知らないと設定意図を読み違える。",
+            "explanation": "`permissions.deny` は Claude Code のツール呼び出しに対するパス単位の拒否ルールです。この記事では `Read` と `Edit` を指定し、読み取り・既存ファイルの変更・新規作成をまとめて止めています。`Write(...)` を追加すればよいように見えますが、本文の検証ではファイル権限チェックに参照されず、v2.1.210 以降は起動時警告の対象です。"
+          },
+          {
+            "term": "PreToolUse",
+            "stumblingPoint": "記事は「ツール実行の直前に検査スクリプトを挟む」と説明するが、通常の後処理フックと違い、実行前に止める仕組みだと知らないと挙動を想像しにくい。",
+            "explanation": "`PreToolUse` はツール実行の直前に介入するフックです。ファイルを読んだ後に検査するのではなく、Claude Code が `Read`・`Edit`・`Write` を実行する前に入力の `filepath` を検査し、危険ならツール自体を止めます。stderr のメッセージを Claude に返せるため、単なる拒否だけでなく手動確認などの代替行動も誘導できます。"
+          },
+          {
+            "term": "YOLO モード",
+            "stumblingPoint": "記事は「YOLO モードでもガードが生きるか」を検証するが、承認スキップと deny・フックの強制拒否が別物だと読み取らないと結果の意味が分からない。",
+            "explanation": "`--dangerously-skip-permissions` は確認プロンプトをスキップして実行するモードです。通常の承認を飛ばしても、今回の実測では `permissions.deny` と PreToolUse フックは動作しました。つまり、承認を人手で行う運用と、特定パスへのアクセスを仕組みで拒否する防御は別の層です。"
+          },
+          {
+            "term": "JSONL",
+            "stumblingPoint": "記事は履歴が「平文の JSONL」で残ると書くが、JSONLが単なる表示形式ではなく、後からgrepできる永続ログである点を知らないと漏えいの広がりが読めない。",
+            "explanation": "JSONL は1行ごとに1つのJSONオブジェクトを置くログ形式です。Claude Code のセッション履歴では、ツールの応答や会話内容がこの形式でローカル保存されます。したがって `.env` を一度読ませると、画面上の応答だけでなく履歴ファイルにも秘密値が複製されます。"
+          },
+          {
+            "term": "matcher",
+            "stumblingPoint": "記事は「matcher に書いたツールのみ」と説明するが、フックがファイル名ではなくツール呼び出し単位で発火する制約を知らないとBash経由も守れると誤解する。",
+            "explanation": "`matcher` はどのツール呼び出しでフックを発火させるかを指定する条件です。記事の構成では `Read|Edit|Write` に相当する対象だけを検査するため、Bashツールの中で別コマンドがファイルを読む経路は同じフックでは覆いません。対象ツールを増やすだけでなく、denyとの役割分担も必要になります。"
+          },
+          {
+            "term": "sandbox",
+            "stumblingPoint": "記事は「OS-level enforcement ... enable the sandbox」と引用するが、ツール単位の拒否と全プロセス対象の制限が別レイヤーだと知らないと適用範囲を判断できない。",
+            "explanation": "`sandbox` はClaude Codeの個別ツールルールではなく、OSレベルでプロセスのファイルアクセスを制限する仕組みとして記事に登場します。PythonやNode.jsが `open()` などで間接的に `.env` を読む場合、`permissions.deny` や今回のフックだけでは止まりません。全プロセスを対象にした強制力が必要な場合の別の防御層です。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": ".env保護方式の比較",
+          "beforeLabel": "単独構成",
+          "afterLabel": "併用構成",
+          "rows": [
+            {
+              "aspect": "カバー範囲",
+              "before": "denyまたはmatcherの対象範囲のみ",
+              "after": "denyでRead/Editと既知のcat等を遮断"
+            },
+            {
+              "aspect": "導入量",
+              "before": "denyは4行、フックは約40行",
+              "after": "設定4行＋フックスクリプト約40行"
+            },
+            {
+              "aspect": "拒否メッセージ",
+              "before": "denyは汎用文言で固定",
+              "after": "フックで理由・代替行動を伝達"
+            },
+            {
+              "aspect": "役割分担",
+              "before": "Bashまたは例外処理に穴が残る",
+              "after": "denyでBash経由、フックで例外を担当"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "`.env`、`.env.local`、`.env.staging`、`.env.backup` などの列挙漏れを、`.env.*` パターンまたは basename 判定でまとめて防げる。",
+          "通常実行だけでなく `--dangerously-skip-permissions` を使う運用でも、秘密ファイルへの `Read`・`Edit`・`Write` をガードできる。",
+          "拒否理由と「人間が手動で内容を確認して共有する」といった代替行動を Claude に提示できる。",
+          "間接的なファイルアクセスまでOSレベルで封じる必要がある場合は、`sandbox` を追加の防御層として検討できる。"
+        ],
+        "whatChanges": [
+          "ガードなしでは作業ディレクトリ内の `.env` 系ファイルが承認なしで読まれ得るが、`permissions.deny` で `Read`・`Edit` をパターン指定して拒否できる。",
+          "`Write(...)` ではなく `Edit(...)` が新規作成を含む編集全般を担当する。v2.1.208 以降は `Read` の deny だけでも同じパスの `Edit` がブロックされるが、`Write` はカバーされない。",
+          "`Read(.env)` のようなベアファイル名は gitignore と同じ意味論で、カレントディレクトリ以下の任意の深さにマッチする。",
+          "PreToolUse フックを追加すると、拒否時に自作メッセージを Claude に返し、`.env.example` や `.env.sample` のような例外処理もロジックで実装できる。"
+        ],
+        "howToTry": [
+          "プロジェクト直下に `.env`、`.env.local`、`.env.staging`、`config.txt` を用意し、秘密値は検証用のダミー値にする。",
+          "`.claude/settings.json` の `permissions.deny` に `Read(.env)`、`Read(.env.*)`、`Edit(.env)`、`Edit(.env.*)` を追加する。`Write(...)` ではなく、編集全般を受け持つ `Edit(...)` を使う。",
+          "通常権限で、`claude -p` にデバッグ依頼を送り、`.env.staging` の読み取り、`.env` の編集、`.env.backup` の新規作成を試す。`.env.backup` は `Edit(.env.*)` によってブロックされる。",
+          "同じプロンプトを `claude -p --dangerously-skip-permissions` でも実行し、YOLO モードでも `permissions.deny` が効くことを確認する。",
+          "より分かりやすい拒否理由や `.env.example`・`.env.sample` だけを許可する例外が必要なら、記事の PreToolUse フックを `Read`・`Edit`・`Write` の matcher に登録し、`filepath` の basename を検査して `exit code 2` で拒否する。"
+        ],
+        "code": {
+          "lang": "json",
+          "caption": "permissions.deny の最小構成例",
+          "content": "{\n  \"permissions\": {\n    \"deny\": [\n      \"Read(.env)\",\n      \"Read(.env.*)\",\n      \"Edit(.env)\",\n      \"Edit(.env.*)\"\n    ]\n  }\n}"
+        },
+        "whyItMatters": "`.env` の秘密値は応答に出るだけでなく、Claude Code のローカルなセッション履歴にも複製されます。React / Next.js のデバッグをAIエージェントに任せる運用では、承認プロンプトへの依存ではなく、`permissions.deny` と `PreToolUse` の適用範囲を分けて設定することが、そのまま秘密情報の露出範囲の制御になります。",
+        "caveats": [
+          "実測環境は Claude Code 2.1.220（macOS）、`claude -p`、実行モデル `haiku`。各条件 n=1 のため、結果はこの環境での確認値。",
+          "`permissions.deny` の Read / Edit ルールは、Claude Code が認識する `cat`・`head`・`tail`・`sed` などには適用されるが、Python や Node.js のスクリプトが自力でファイルを開くケースは防げない。",
+          "OSレベルで全プロセスからパスへのアクセスを止めるには `sandbox` が必要。",
+          "PreToolUse フックは記事の設定では `Read`・`Edit`・`Write` のみが対象で、Bash経由の読み取りは未検証。サブエージェント経由のツール呼び出しも未検証。",
+          "本文中のコードブロックが欠落しているため、PreToolUse フックの約40行の完全なスクリプトは再掲できない。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "Bashの危険コマンドをブロックするフック",
+            "url": "https://qiita.com/tomada/items/96bb5bc256c1fc319c06"
+          },
+          {
+            "label": "Claude Codeの権限設定",
+            "url": "https://qiita.com/tomada/items/45ae90809c714bb5c78e"
+          }
+        ],
+        "readingMinutes": 5
+      }
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn / カンリーテックブログ",
+      "title": "Claude Code Skills 577個・6,803回を集計してわかった、\"定着するスキル\"の共通点",
+      "url": "https://zenn.dev/canly/articles/e167546ccb6201",
+      "publishedAt": "2026-08-03T01:52:36.662Z",
+      "author": "長谷川 稜",
+      "authorDetail": {
+        "name": "長谷川 稜",
+        "handle": "@ryo22222",
+        "url": "https://zenn.dev/ryo22222",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/AGNmyxa3Xfpw8nwrzlWzXfR78V2-4qxSbSg6rsLod_J0Vg=s96-c",
+        "organization": "カンリーテックブログ",
+        "links": [
+          {
+            "label": "Publication",
+            "url": "https://zenn.dev/p/canly"
+          }
+        ]
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "! 本記事の「◯回」は、直近1ヶ月でそのスキルが呼び出された回数です。呼び出しが1回以上あったものだけを対象にしているので、作ったが呼ばれなかったスキルは含まれていません。 また記事執筆時点の情報となります。 みなさんこんにちは！ カンリーでVPoEをしてます長谷川です。 直近1ヶ月の社内のClaude Code利用ログを集計したら、 577個のスキルが呼ばれていて、総呼び出しは6,803回 でした。 ログを開けてみると、CTOが自分の思考の型をスキルにしていたり、AI-DLCをふまえて自作のスキル群を組んでいたり、外部OSSのスキルを社内の使い方に合わせて組織のスキルにしていたりします。 今回はその中身を紹介していきます！ 1. 記憶を、揮発させるものと蒸留するものに分ける 最初に紹介したいのは、 セッションの記憶をスキルで扱っている 例です。 Claude Chat と Claude …",
+      "metrics": {
+        "likes": 6,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "84cec2ebc581867b",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.8834586466165414,
+      "popularityPercentile": 0.924812030075188,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "Claude CodeのSkills 577個・実行6,803回を集計し、定着するスキルの共通点を分析している。",
+      "reason": "577個のスキルと6,803回の実行データから、実際に繰り返し使われるスキルの特徴を抽出している。個別のプロンプト例ではなく、定着率を左右する設計要因が主題。",
+      "keywords": [
+        "Claude Code",
+        "Skills",
+        "スキル設計",
+        "577個",
+        "6,803回"
+      ],
+      "category": "調査・考察",
+      "domain": "ai",
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "body": "! \n 本記事の「◯回」は、直近1ヶ月でそのスキルが呼び出された回数です。呼び出しが1回以上あったものだけを対象にしているので、作ったが呼ばれなかったスキルは含まれていません。\n\nまた記事執筆時点の情報となります。\n\n \n みなさんこんにちは！\n\n カンリーでVPoEをしてます長谷川です。\n\n 直近1ヶ月の社内のClaude Code利用ログを集計したら、 577個のスキルが呼ばれていて、総呼び出しは6,803回 でした。\n\n ログを開けてみると、CTOが自分の思考の型をスキルにしていたり、AI-DLCをふまえて自作のスキル群を組んでいたり、外部OSSのスキルを社内の使い方に合わせて組織のスキルにしていたりします。\n\n 今回はその中身を紹介していきます！\n\n \n 1. 記憶を、揮発させるものと蒸留するものに分ける\n\n 最初に紹介したいのは、 セッションの記憶をスキルで扱っている 例です。\n\n Claude Chat と Claude Code は、どちらも便利ですが 記憶の所在が違います。 Chat のメモリはクラウド側にあってデバイスを跨いでも引き継がれる。Code のメモリはローカルファイル（ユーザーグローバルな CLAUDE.md や自作スキル群）にあって、手元のマシンに密着している。加えて Chat は過去セッションを横断検索できますが、Code はリポジトリに張り付くので横断が弱い。\n\n この分断を、 Obsidian vault を下に置いて繋ぎ直す という設計です。弊社CTOの小出がnoteに書いています。\n\n https://note.com/koid/n/nd7e570f63f4b \n\n 中心にあるのがこの2つのスキルです。\n\n \n \n session-wrapup ：長いセッションの終わりに、会話履歴から「残すべき情報」を抽出して構造化し、concept note や ADR へ振り分ける。 短期記憶から長期記憶への蒸留装置 \n\n \n session-handoff ：Obsidian vault を挟んで、Claude Chat と Claude Code の間で作業を橋渡しする。 短期記憶間の橋渡し装置 \n\n \n 考え方の核は、 セッションの記憶は揮発させてよく、残すべきものだけを蒸留して長期側に固定する という線引きです。全部を残すと長期側のノイズが増えて、参照する価値そのものが落ちる。だから消える前提で書き、価値が確認できたものだけを昇格させる。\n\n 「セッションは思考のフラスコ、Obsidianは結晶化装置」という表現が記事に出てきますが、これが一番わかりやすいと思います。さらにその先に、思考原則そのものをskill fileに書き出す mind-as-code という枠組みがあって、concept note は mind-as-code の sandbox という段階関係になっています。\n\n ここでスキルが固定しているのは、作業ではなく 「何を残し、何を捨てるか」の判断 です。\n\n \n 記録するスキルと、畳むスキルを対で置く\n\n 記録側で一番呼ばれているのは work-log （120回）です。中身は日報スキルとしてよくあるものですが、 「検討して採用しなかった案と、その理由を必ず1つ以上残す」 の1行だけは足しています。\n\n コミットログには結果しか残りません。消えるのはいつも検討の過程なので、ここを書かせるかどうかで翌朝の再開速度が変わります。\n\n \n 2. AI-DLCを、人間が割り込める粒度に切る\n\n 2026年4月に PdM・エンジニア33名（7チーム）で2日間のAI-DLCワークショップ をやりました。その前段として、2月にAWSの「AI-DLC Unicorn Gym」にPdM・エンジニア混成の4名で参加しています。\n\n https://note.com/canly/n/n85ba9c85de57 \n\n AI-DLCはAWSのDevTxチームが提唱している開発手法で、 AIを補助的に使うのではなく、開発ライフサイクル全体をAI中心に組み直す という発想です。ポイントは流れの逆転で、 人間が指示してAIが実行するのではなく、AIが提案して人間が承認する 形になります。\n\n \n ワークショップをふまえて、工程ごとにスキルを切った\n\n この体験を持ち帰って、工程ごとに切ったスキルを自作しています。\n\n ai-dlc-intent → ai-dlc-user-stories → ai-dlc-domain-model → ai-dlc-units → ai-dlc-implement → ai-dlc-review → ai-dlc-pr \n\n ai-dlc 系で11個・110回。 同じく工程を切る発想で、 session-00-start / session-30-tech-plan / session-31-tech-run といった自作の系統もあります。\n\n なぜ1本の巨大スキルにしないのか。ワークショップの振り返りに、そのまま答えが出ています。 AIの作業の塊が大きいと10分以上動き続けてモブしにくいので、人間側の指示を小さく切る必要がある という指摘です。\n\n つまり工程ごとに切ったのは、きれいに設計したかったからではありません。 人間が割り込める粒度に切らないと、モブが成立しないから です。副産物として、途中から呼べる・どの工程で事故ったか分かる、という利点も付いてきます。\n\n 工程の順番にも意味を持たせています。 domain-model を implement より前に置いたのは、ワークショップで 「コードは生成しないでください」を最初に明示した のと同じ理由です。先に実装が走り出すと、設計を議論する時間が消えます。\n\n \n 一番の学びは、AIの賢さの話ではなかった\n\n ワークショップの結論として書かれているのは、 AIに任せられるかを決める鍵は、AIの賢さよりも、人間側の指示・コンテキスト・承認材料の設計にある ということでした。\n\n この「承認材料の設計」が、そのままスキルの中身になります。 何を見てOKと言うのか（テスト観点、カバレッジ、ローカル確認、Intentの消し込み）を事前に決めて、固定する。スキルは結局そのための道具でした。\n\n \n いま解いている論点\n\n ワークショップの後段として、各プロダクトチームから選抜1名で構成する横断組織 「AIギルド」 が立ち上がっています。Quick Win を自チームに持ち帰って実践し、成功・失敗をギルド内で共有する。 型を押しつけず、自チームに最適化する のが役割です。\n\n そのうえで、いま一番おもしろい論点が ブラウンフィールド（既存プロダクト）への適用 です。AI-DLCの定義自体は既存コードを基盤に構築することを第一の活動に挙げているので射程内なのですが、教材は新規開発ベースで組まれているため、ここは各社で作っていく領域になります。\n\n \n 既存仕様のリバースをどこまでAIに任せるか\n\n 既存スプリント（1〜2週間）のリズムと、数時間〜数日のサイクルをどう接続するか\n\n 既存の仕様書・設計書を、どうAI-DLCのコンテキストとして再活用するか\n\n \n 正解が公開されていない領域なので、ここは自分たちで作るしかないと思っています。 \n\n \n 3. 外部のスキルを、組織のスキルにする\n\n 弊社で 自作以外で一番よく呼ばれているスキル は、 mattpocockさんが公開している grill-me でした。 87回。 \n\n grill-me は、AIに褒めさせず、詰めさせるスキルです。元の設計がよくできています。\n\n \n \n 一度に1問だけ聞いて待つ。 まとめて質問を投げると混乱するから、という理由が明示されています\n\n \n 環境から分かることは聞かない。 ファイルシステムやツールで調べられる事実は、質問せず自分で読みに行く\n\n \n 各質問に、エージェント自身の推奨回答を添える。 白紙のプロンプトに向き合うのではなく、提案に反応する形になる\n\n \n ユーザー起動のみ。 モデルが勝手に呼び出さない\n\n \n stateless。 何も書き残さず、成果は会話の中の理解だけ\n\n \n AIはデフォルトだと肯定寄りに寄ります。設計レビューを頼むと「良い設計だと思います」から始まってしまう。ここを構造として禁止しているのが効いています。 固定しているのは「どの順で詰めるか」 です。\n\n そのうえで、足りないところだけ派生を自作しています。 grill-planning （計画の詰め）、 grill-ux （UXの詰め）。まだ数回しか呼ばれていませんが、 外から入れたものに足りない部分だけ足す 、この足し方が一番安いです。\n\n \n 自作より、外部を入れる方が速い\n\n grill-me は例外ではありませんでした。社内でよく動いているスキルには、 Anthropic公式のスキル集 にある skill-creator frontend-design も並んでいます。\n\n openspec-propose （14回）などもそうです。spec駆動開発のツールキット OpenSpec を入れると、 .claude/skills/ に propose / explore / apply / sync / archive のスキルが生成されます。\n\n 理由は単純で、自作スキルは「自分の作業に合わせて書いた」ものなので、他人の作業には合いません。 外部の完成度が高いスキルはそのまま他人にも合うので、社内に広がるのが速い。 \n\n まず外部の良いスキルを入れて、足りないところだけ自作する。 これが一番速かったです。\n\n \n 標準搭載のスキルは、増え続ける\n\n 呼び出し回数の上位には、Claude Code に最初から入っているバンドルスキルが並んでいます。\n\n review （153回）、 code-review （111回）、 loop （51回）、 schedule （40回）、 claude-api （38回）、 update-config （33回）、 deep-research （17回）、 simplify （11回）、 verify （8回）、 doctor （5回）、 run （2回）。 合わせて471回で、全体の約7% です。\n\n バンドルスキルは プロンプトベース で、Claude に詳細な手順を渡してツールの組み立てを任せる作りになっています（固定ロジックを実行するビルトインコマンドとは別物です）。つまり 中身を読めば、そのままスキルの書き方の教材になります。 \n\n そして バンドルスキルは増え続けます。 自作した当時は無かったものが、後から標準で入ってくる。弊社も検証まわりがまさにそれでした。\n\n なので運用としては、一度きりの棚卸しではなく、 リリースノートを見て「これ、自作したやつと役割が重なってないか」を定期的に確認する のが正しい形だと思っています。 /doctor でスキル一覧のコンテキストコストが見えるので、そこも合わせて見ると判断しやすいです。\n\n \n 4. 調査を、型にする\n\n investigate が86回。調査・問い合わせ系まで広げると25個・299回でした。\n\n 調査は、 AIに一番向いている割に、一番型が無い作業 だと思っています。「どこから見るか」「何を見たら打ち切るか」が人によって違うので、同じ問い合わせでも調査の深さが揃いません。ここを固定するだけで、報告の粒度が揃います。\n\n この領域で、社内に読んでほしい記事が1本あります。\n\n https://zenn.dev/canly/articles/419c622e1ac2db \n\n SREの問い合わせ業務をAIで再設計しようとして、Notion AI Agentで「SRE調査兵団」を作り、 3ヶ月運用してから停止して、Claude Codeのskillに寄せる判断をした 話です。\n\n 止めた理由が「課題解決方法の提案までで止まる構造的な課題が見えた」という点なのが誠実で、 修正・実行まで任せたいなら、置き場所を変えるしかなかった という判断の記録になっています。\n\n 「捨てる判断も成果になる」というタイトルが、言いたいことをそのまま言っています。 3ヶ月動かして、中身を見て、置き場所を変える。スキルを増やすより、この判断の方が難しいです。\n\n SRE領域では他にも、 terraform-preflight-review （30回）、 datadog-alert-triage-report （21回）、 gha-failure-analysis （17回）、 aurora-troubleshoot 、 cross-account-investigator あたりが動いています。\n\n \n 5. 検証を、自走させる\n\n Anthropicは、 検証スキルが社内で最も効果を測定できた領域だった こと、 エンジニア1人が1週間かけて磨く価値がある ことを書いています。着手コストは高いですが、 一番効くと本家が言っている方向 なので、投資先としては分かりやすいです。\n\n \n すでに動いている取り組み\n\n 検証はチーム単位ではしっかり回っていて、記事にもなっています。\n\n https://zenn.dev/canly/articles/c7da70a520d1b8 \n\n /e2e-dev に E2Eテストケース1行を渡せば、計画から実装・デプロイ・検証まで自走する 仕組みの話です。1回の依頼で1時間自走することもあります。\n\n https://zenn.dev/canly/articles/cba399cbfb112f \n\n 月2回しか動かないバッチをどうQAするか、という話です。EventBridge Scheduler → Step Functions → AWS Batch という構成で、実行日によって参照先が変わるものをどう検証するか。\n\n 濃い取り組みは既にあるので、これを他チームにも広げていくフェーズです。 \n\n \n いまは、公式に「動かして確かめる」3点セットがある\n\n ここは時系列の話があります。弊社が検証まわりのスキルを自作していた時点では、 公式にこの用途のスキルはありませんでした。 その後 Claude Code に、 アプリを起動して、テストではなく動いているアプリに対して変更を確認する ためのバンドルスキルが3つ入りました（いずれも v2.1.145 以降）。\n\n \n \n \n スキル \n 役割 \n\n \n \n \n /run \n アプリを起動して動かし、変更が効いているか見る \n\n \n /verify \n ビルドして実際に動かし、 テストや型チェックに逃げずに 変更が意図どおりか確認する \n\n \n /run-skill-generator \n \n /run と /verify に、そのプロジェクトのビルド方法と起動方法を教える \n\n \n \n /run と /verify はセットアップ不要で、プロジェクトの種類や README・ package.json ・ Makefile から起動方法を推測してくれます。ただし DB が必要、env ファイルが必要、GUI セッションが必要、ビルドが多段 といったプロジェクトでは、この推測が当たらなくなります。\n\n そこで /run-skill-generator が効きます。 クリーンな環境からアプリを起動させて、うまくいった手順（インストールコマンド、環境変数、起動スクリプト）を記録し、 .claude/skills/run-<name>/ にプロジェクト固有のスキルとしてコミットする という動きをします。以降は /run や /verify はもちろん、そのリポジトリの他のエージェントも記録されたレシピに従います。\n\n プロジェクトごとに1回実行しておけば、以降の検証が「毎回起動方法を再発見する」ところから始まらなくなります。 ビルドや起動手順が変わったときに、もう一度回すだけです。\n\n 自作した検証フローと役割が重なる部分もあるので、いまは どこを公式に寄せて、どこを自作で残すかを整理しているところ です。弊社のログでは verify が8回、 run が2回で、まだ入り始めたところです。\n\n なお v2.1.215 から、 /verify と /code-review は自分で呼ばないと走りません。 時間とトークンを使う長時間チェックを、いつ走らせるかを人間側に残すためです。\n\n ブラウザ操作での確認は、 Anthropic公式のスキル集 にある webapp-testing （Playwrightでローカルのウェブアプリを動かす）があります。弊社には webapp-testing-for-node （16回）があるので、公式のものを Node 向けに派生させて使っている形です。\n\n 「完了と呼ぶ前に証拠を出させる」という規律そのものを足したい場合は、 obra/superpowers の verification-before-completion が近いです。弊社のログにも using-superpowers 7回、 systematic-debugging 10回が出ています。\n\n \n 6. 細かい工夫（こういう使い方もしてます）\n\n 大きな話ではないですが、効いているものを短く並べます。\n\n ツールの出力は、渡す前に削る \n\n trim-gh-output 。 gh pr view の素の出力は不要なメタデータが多いので、 --json でフィールドを絞る、CIログは失敗ステップだけ取る、といった定型をスキルにしています。 コンテキストは、モデルを変えるより先に削れます。 \n\n モデルとエージェントを振り分ける \n\n cost-optimized-dispatch / ask-codex （17回）/ plan-with-codex 。整形や抽出は安いモデル、後戻りコストが大きい設計判断だけ別系統のモデルにも当てて、 一致した点は読まず、食い違った点だけ人間が見る ようにしています。\n\n 定期実行は /loop に寄せる \n\n loop （51回）。 Datadog MCPと組み合わせて開発中の500エラーを自動検知・修正した記事 が背景です。\n\n 自分たちの利用状況も測る \n\n cc-usage-analysis （18回）。この記事の元データも、この系統から出ています。\n\n \n 7. スキルの裏には、書いた人がいる\n\n 最後に、今回のログに出てきたスキルと、社内で公開済みの記事の対応を並べておきます。\n\n \n \n \n ログ上のスキル \n 記事 \n\n \n \n \n \n session-wrapup / session-handoff / mind-as-code \n \n 揮発と蒸留 ── AIと協働するための個人の記憶アーキテクチャ \n\n \n ai-dlc-* \n PdM・エンジニア33名でAI-DLCワークショップを2日間実施しました \n\n \n \n investigate / cs-investigate / inquiry-* \n \n 「捨てる判断」も成果になる - SRE業務のAIエージェント化を3ヶ月で見直した話 \n\n \n \n e2e-dev-evaluated / e2e-step3-* \n \n 1行渡すとClaude Codeが1時間自走する ─ E2Eテスト駆動で新機能を作らせた話 \n\n \n \n qa-design / creating-qa-* \n \n 月2回だけ動くバッチのQA設計をClaude Codeと進めた話 \n\n \n \n loop / simplify \n \n Claude Code /loop × Datadog MCPで開発中の500エラーを自動検知・修正してみた \n\n \n \n morning-briefing / evening-digest \n \n Claude Code ルーチンを触ってみた \n\n \n \n subagent-driven-development / agent-team-* \n \n Claude Code の Dynamic Workflows を触ってみた \n\n \n \n code-review / review-pr \n \n Claude Codeレビュー系コマンドの使い分け【2026/7最新】公式ドキュメントと実機で確認してみた \n\n \n \n harness-loop / okr-create \n \n OKRという、組織のハーネス \n\n \n backlog-devin-relay-h1 \n AI時代におけるポリレポの辛みからの脱却、~Devinを添えて~ \n\n \n cc-usage-analysis \n Claude Teamプラン完全ガイド \n\n \n \n こうして並べると、 577個は「誰かが1人で量産した数」ではありません。 この表に出てくる筆者だけで7人います。\n\n \n 8. おわりに\n\n Claude Code Skillsに限らず、Coding Agent や AIを用いたイネーブルメント、改善に興味がある方、AI-DLCのブラウンフィールド適用を一緒に解いてみたい方などいれば、是非カジュアルにお話しましょう！（転職を考えていない方も歓迎です！）\n\n https://x.com/ryo_v2",
+      "rank": 2,
+      "deep": {
+        "headline": "定着するClaude Code Skillsの設計原則",
+        "summary": "直近1ヶ月に呼び出されたClaude Code Skills 577個、6,803回のログから、定着するスキルの設計パターンを整理した記事です。中心は、セッションの記憶をすべて保存せず、`session-wrapup`や`session-handoff`で必要な情報だけを蒸留すること、AI-DLCの工程を人間が割り込める粒度に分けること、外部スキルを導入して不足部分だけ自作することです。検証では、Claude Code v2.1.145以降の`/run`・`/verify`・`/run-skill-generator`を使い、起動方法の再発見を減らせます。スキルの価値は手順の自動化だけでなく、何を確認し、何を残し、どこで承認するかを固定する点にあります。",
+        "prerequisites": [
+          {
+            "term": "バンドルスキル",
+            "stumblingPoint": "記事は「バンドルスキルはプロンプトベース」と書くが、ビルトインコマンドとの違いを知らないと実行保証の範囲が読めない。",
+            "explanation": "スキルは単なるプロンプト集ではなく、Claude Codeに作業手順や判断基準を渡す単位です。この記事では、記憶の整理、設計工程、調査、検証など、繰り返し発生する判断を固定するために使われています。特定の処理を必ず実行するビルトインコマンドとは異なり、プロンプトをもとにツール操作を組み立てるものも含まれます。"
+          },
+          {
+            "term": "AI-DLC",
+            "stumblingPoint": "「AI-DLCは開発ライフサイクル全体をAI中心に組み直す」とあるが、通常のAI補助開発との違いを知らないと工程分割の理由が分からない。",
+            "explanation": "AI-DLCは、AIに補助的な作業だけをさせるのではなく、意図・ユーザーストーリー・ドメインモデル・実装・レビューなど開発ライフサイクル全体をAI中心に組み直す考え方です。この記事でのポイントは、AIが提案し、人間が承認する流れに変えることです。そのため、承認対象を小さく分割することがスキル設計の中心になります。"
+          },
+          {
+            "term": "ブラウンフィールド",
+            "stumblingPoint": "「ブラウンフィールドへの適用」とあるが、新規開発を前提にしたAI-DLC教材を既存プロダクトへ移す難しさが読み取れない。",
+            "explanation": "ブラウンフィールドは、新規に作るのではなく、既存コード・既存仕様・既存運用を土台に変更する状況を指します。新規開発ならAIが前提を作りやすい一方、既存プロダクトでは暗黙仕様や長いスプリントのリズムを読み解く必要があります。記事では、既存仕様のリバースや既存スプリントとの接続を未解決の論点として挙げています。"
+          },
+          {
+            "term": "Obsidian vault",
+            "stumblingPoint": "「Obsidian vaultを下に置いて繋ぎ直す」とあるが、Claude ChatとClaude Codeの記憶の違いを知らないと、なぜ共有保管庫が必要か分からない。",
+            "explanation": "Obsidian vaultは、Claude ChatとClaude Codeの間で共有する長期保存領域として使われています。セッション中の会話をすべて保存するのではなく、`session-wrapup`で残す価値のある情報を抽出し、concept noteやADRへ振り分けます。つまり、会話履歴をそのまま検索可能にするのではなく、後から再利用できる知識へ変換する設計です。"
+          },
+          {
+            "term": "stateless",
+            "stumblingPoint": "「stateless」と書かれているが、セッションの記憶を保存するスキルとの対比を知らないと、なぜ利点になるのか読み取れない。",
+            "explanation": "statelessは、スキル自身がファイルやデータベースへ状態を保存せず、成果を現在の会話に残す設計です。`grill-me`では、過去の質問履歴を次回へ持ち越すより、毎回ユーザーが起動して、その場で設計を問い詰めることに集中します。長期記憶を作るスキルとは反対の性質です。"
+          },
+          {
+            "term": "承認材料",
+            "stumblingPoint": "「承認材料の設計」とあるが、AIの出力をレビューする観点を事前に固定することだと知らないと、スキルの中身との関係が分からない。",
+            "explanation": "「承認材料」は、AIの提案を人間が確認してよいと判断するための具体的な証拠です。記事では、テスト観点、カバレッジ、ローカル確認、Intentの消し込みなどを事前に決める対象として扱っています。AIに任せる範囲を広げるには、モデルの賢さだけでなく、何を見て承認するかをスキルに埋め込む必要があります。"
+          },
+          {
+            "term": "Anthropic公式のスキル集",
+            "stumblingPoint": "「Anthropic公式のスキル集」とあるが、標準搭載のスキルと外部から導入するスキルの違いを知らないと、導入方法の差が分からない。",
+            "explanation": "Anthropic公式のスキル集は、Claude Codeに同梱されるバンドルスキルとは別に、公式に公開されている再利用可能なスキル群として記事で紹介されています。`frontend-design`や`webapp-testing`などをそのまま導入し、不足部分だけ社内向けに派生させる運用が取られています。自作する前に外部の完成品を試す、という導入順序がこの記事の実践知です。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "定着するスキルの設計比較",
+          "beforeLabel": "巨大スキル・全量自作",
+          "afterLabel": "工程分割・公式活用",
+          "rows": [
+            {
+              "aspect": "スキルの粒度",
+              "before": "1本の巨大スキルにまとめる",
+              "after": "ai-dlc-intent から ai-dlc-pr まで工程ごとに分割"
+            },
+            {
+              "aspect": "人間の介入",
+              "before": "AIが10分以上連続して動き、モブしにくい",
+              "after": "人間が途中で承認・修正しやすい"
+            },
+            {
+              "aspect": "導入方法",
+              "before": "自作スキルを最初から作る",
+              "after": "外部スキルを導入し、不足部分だけ派生"
+            },
+            {
+              "aspect": "運用",
+              "before": "一度きりの棚卸し",
+              "after": "公式バンドルスキルと自作スキルの重複を定期確認"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "`/run` と `/verify` を使って、テストや型チェックだけでなく、実際に起動したアプリで変更が反映されているかを確認する。",
+          "`session-wrapup`で会話から採用・不採用の判断やADR候補を抽出し、翌日の再開に必要な情報だけを長期側へ残す。",
+          "`work-log`に「検討して採用しなかった案と、その理由」を最低1つ記録し、コミットログに残らない検討過程を保存する。",
+          "`/doctor`でスキル一覧のコンテキストコストを確認し、Claude Codeのリリースノートと照合して、自作スキルとバンドルスキルの重複を見直す。"
+        ],
+        "whatChanges": [
+          "検証フローは自作スキルだけでなく、Claude Code v2.1.145以降の`/run`・`/verify`・`/run-skill-generator`へ寄せられる。プロジェクト固有の起動手順は `.claude/skills/run-<name>/` に生成してコミットできる。",
+          "Claude Code v2.1.215以降、`/verify` と `/code-review` は自動実行されず、必要なタイミングで人間が明示的に呼び出す運用になる。",
+          "大きな作業を1本のスキルに詰め込むのではなく、AI-DLCのように意図・設計・実装・レビューなどの工程へ分割する。",
+          "自作を先に量産するのではなく、`grill-me`、`frontend-design`、`webapp-testing`、OpenSpecなど外部・公式のスキルを先に導入し、不足部分だけ派生させる。"
+        ],
+        "howToTry": [
+          "まず既存リポジトリで `claude` を起動し、`/run` と `/verify` を順に実行して、アプリの起動と変更確認ができるか試す。",
+          "起動に失敗するプロジェクトでは、Claude Code上で `/run-skill-generator` を実行し、クリーンな環境からインストール・環境変数・起動手順を記録する。",
+          "生成された `.claude/skills/run-<name>/` を確認し、プロジェクト固有の起動手順としてリポジトリにコミットする。",
+          "設計や実装を一括で任せず、`ai-dlc-intent` → `ai-dlc-user-stories` → `ai-dlc-domain-model` → `ai-dlc-units` → `ai-dlc-implement` → `ai-dlc-review` → `ai-dlc-pr` のように工程単位で呼び出し、人間の承認を挟む。",
+          "セッション終了時は `session-wrapup`、別の作業環境へ引き継ぐときは `session-handoff`、日々の検討過程を残すときは `work-log` を使う。"
+        ],
+        "code": null,
+        "whyItMatters": "React / Next.jsの実装でも、AIに一括実装させるより、設計・実装・検証・レビューを分けた方が途中で人間が介入しやすくなります。特に既存プロダクトでは、暗黙の仕様や起動手順をスキルへ固定することが、モデル選びより先に効く改善になります。`/run`・`/verify`や承認材料を使えば、「完了した」という回答ではなく、動作確認の証拠を伴う開発フローへ変えられます。",
+        "caveats": [
+          "集計対象は直近1ヶ月に1回以上呼び出されたスキルのみで、作成されたが未使用のスキルは含まれない。",
+          "呼び出し回数は記事執筆時点の情報であり、利用頻度や効果を直接示す指標ではない。",
+          "/run・/verify・/run-skill-generator は Claude Code v2.1.145 以降に追加されたバンドルスキル。",
+          "Claude Code v2.1.215 以降、/verify と /code-review は自動実行されず、明示的に呼び出す必要がある。",
+          "/run と /verify は DB・env ファイル・GUI セッション・多段ビルドが必要なプロジェクトでは起動方法の推測を外す可能性がある。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "揮発と蒸留 ── AIと協働するための個人の記憶アーキテクチャ",
+            "url": "https://note.com/koid/n/nd7e570f63f4b"
+          },
+          {
+            "label": "PdM・エンジニア33名でAI-DLCワークショップを2日間実施しました",
+            "url": "https://note.com/canly/n/n85ba9c85de57"
+          },
+          {
+            "label": "SRE業務のAIエージェント化を3ヶ月で見直した話",
+            "url": "https://zenn.dev/canly/articles/419c622e1ac2db"
+          },
+          {
+            "label": "E2Eテスト駆動で新機能を作らせた話",
+            "url": "https://zenn.dev/canly/articles/c7da70a520d1b8"
+          },
+          {
+            "label": "月2回だけ動くバッチのQA設計をClaude Codeと進めた話",
+            "url": "https://zenn.dev/canly/articles/cba399cbfb112f"
+          },
+          {
+            "label": "Claude Code /loop × Datadog MCPで開発中の500エラーを自動検知・修正してみた",
+            "url": "https://zenn.dev/canly/articles/cba399cbfb112f"
+          }
+        ],
+        "readingMinutes": 8
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "Next.js Blog",
+      "title": "Next.js 16.3",
+      "url": "https://nextjs.org/blog/next-16-3",
+      "publishedAt": "2026-08-03T17:00:00.000Z",
+      "tags": [],
+      "snippet": "Next.js 16.3 introduces Instant Navigations, a suite of tools for single-page-app responsiveness, plus a faster dev server, faster builds, and improved tooling for AI agents.",
+      "body": "Last month we published a preview release of 16.3 that let you try out SPA-like navigations, better AI tooling, and a much less memory-hungry dev server.\nToday, we're excited to announce that Next.js 16.3 is here!\nThis release is packed with improvements for all existing Next.js apps:\n\nLess memory usage in dev. Long dev sessions now use up to 90% less RAM.\nFaster builds. Repeat builds can read unchanged artifacts from cache.\nFaster type checking. next build can use TypeScript 7 for type checking.\nFaster server-side rendering. Next.js now handles up to 22% more requests under load.\nVersioned docs for AI agents. Coding agents read version-matched docs with no setup.\nFewer prefetch requests. Links trigger fewer requests by bundling smaller payloads.\nBetter caching for static assets. Immutable assets can optionally be reused across deploys.\nCustom error boundaries. Recover from server errors by re-fetching failed data.\nBuilt-in glob imports. Import multiple files with a new Turbopack API.\n\nIt also includes Instant Navigations, an opt-in suite of tools that brings the responsiveness of a single-page app (SPA) to Next.js's server-driven model:\n\nInstant Insights. Instant Insights flags any navigation that isn't instant.\nPartial Prefetching. Multiple links can reuse the same instant loading shell without requiring a separate prefetch for each link.\nBetter Incremental Static Regeneration. Pages you don't prerender get an instant loading shell, with content streaming in. Later visitors get the finished page from cache.\nNavigation Inspector. The DevTools can pause a navigation to inspect what users see while the page loads.\nPlaywright test helper. Tests prevent regressions by checking which content remains instantly visible during navigation.\n\nThe behaviors behind Instant Navigations will become the default in a future major version, as they're part of our work over the last year to simplify Next.js back to its roots: dynamic by default, with no hidden or implicit caching.\n16.3 also includes experimental features you can try today, such as the Rust-based React Compiler and network resilience.\n\nThis is our biggest update to the framework since Next.js 16.0 came out last November, and we can't wait for you to try it.\nUpgrade by installing the latest version of next from npm:\n\n...and keep reading to learn about everything that's new!\nImprovements for today's apps\nNext.js 16.3 includes improvements for all existing projects, including lower dev server memory usage, faster rendering, and better runtime performance, all with zero changes to your application code.\nWe recommend all apps upgrade to 16.3 to start getting these benefits today.\nLess memory usage in dev\nIn 16.3, Turbopack uses up to 90% less memory when running next dev. The reduction comes from two new features that are now enabled by default: disk caching for dev (first introduced in 16.1), and memory eviction.\nWe've been hearing great reports from early adopters, and we're excited to bring these performance improvements to all Next apps.\nMemory usage after compiling 50 routesvercel.com (dashboard)~90% smallerBefore21.5 GB21.5 GBAfter2 GB2 GBnextjs.org~82% smallerBefore4,600 MB4,600 MBAfter840 MB840 MB\nLearn more about Turbopack's new memory eviction features.\nFaster builds\nThe disk caching feature that's been speeding up dev since 16.1 now works with next build and is enabled by default. We've been dogfooding this in production at Vercel for months and are seeing some projects with 5.5x faster builds on CI.\nTurbopack compile time for `next build`nextjs.org~2.3× fasterCold21s21sCached9.2s9.2svercel.com/home~1.4× fasterCold66s66sCached46s46svercel.com/geist~5.5× fasterCold30s30sCached5.5s5.5s\nLearn more about setting up Turbopack's new FileSystem Cache.\nFaster type checking with TypeScript 7\nTypescript 7 was released last month, which is a 10x faster native port of TypeScript with much faster type checking.\nTo start using TypeScript 7 for type checking during next build, just bump your project's local dependency:\n\nLearn more about configuring TypeScript's CLI in Next.js.\nFaster server-side rendering\nWe replaced web streams with native Node.js streams in the App Router rendering layer, removing the overhead of converting between the two during server-side rendering.\nIn our benchmarks, apps handle up to 22% more requests under load, with no changes to application code.\nRequests handled under loadApp Router server-side rendering~22% moreWeb streamsbaselinebaselineNode.js streams+22%+22%\nRead the native Node.js streams PR for more details.\nVersioned docs for AI agents\nAI coding agents now automatically read documentation that matches your project's version of Next.js.\nRunning next dev writes and maintains a version-matched AGENTS.md block that points directly to the bundled docs in your project's local node modules. With that knowledge now reaching agents directly, we're retiring our earlier Skills that existed solely to bring current documentation to your apps.\nLearn more about setting up Next.js for AI coding agents.\n\nFewer prefetch requests\nIn 16.3, prefetches below a certain payload size are automatically bundled together to reduce the overall amount of prefetch requests your app makes.\nPrefetches for larger shared segments still remain separate, so they can be reused across multiple routes.\nLearn more about prefetch inlining.\nBetter caching for static assets\nImmutable static assets can now be reused across deployments. Since they're immutable, they cannot suffer from issues related to skew.\nLearn more about immutable static assets.\nCustom error boundaries\nPreviously, React error boundaries in Next.js interfered with application code that called notFound or redirect. They also could only reset client-side state, and gave you no way to retry Server Components that failed during rendering.\nIn Next.js 16.3, you can use catchError to define a custom error boundary that doesn't interfere with notFound or redirect:\n\nThe boundary also receive a retry() function that you can call to refetch the boundary's children, which can include rerendering any Server Components.\nLearn more about custom error boundaries.\nBuilt-in glob imports\nTurbopack now supports loading multiple modules from the file system using the Vite-compatible import.meta.glob API, which brings hot-module reloading and other benefits to Server Components that read from local files:\n\nLearn more about glob imports.\n\nSo that's what's new for every app that upgrades today. But 16.3 includes an exciting set of opt-in features that are paving the way for the next major version of the framework, and we're excited to dig into those next.\nInstant Navigations\nOver the past year, we've been working on fixing the most frustrating things about building with Next.js.\nServer Components helped apps ship less JavaScript and avoid network waterfalls, but they made navigations feel slow. The caching model was implicit, confusing, and not helpful for dynamic apps. Prefetching was too aggressive and costly.\nLast November, we introduced a new caching primitive to the framework: the 'use cache' directive. It's more explicit and composable than the previous server-side caching APIs, and now, it also brings client-side caching to Next.js for the first time.\nWe've been building on this primitive to address the navigation, caching, and prefetching problems above, and we ended up with a simpler, more powerful programming model. Server Components and Suspense are still the two primary building blocks, and 'use cache' now integrates with them in a way that lets you build apps that are static, dynamic, or anywhere in between.\nIn 16.3, you can start building with all these new features by enabling two flags:\n\nFor a deeper dive on these new behaviors, read last month's preview release on Instant Navigations. Or, if you're ready to start using them today, you or your agent can migrate an app to Cache Components.\nHere's a look at what's getting better in Next.js.\nInstant Insights\nWhile Server Components can be faster at fetching data and rendering complete pages, client-driven apps (like SPAs) can feel way more responsive than Next.js apps, since they can render instant loading states without fetching from the server whenever you click a link.\nWe've fixed this by letting components that render dynamic UI either define a loading state with Suspense, or mark part of that UI as prerenderable with 'use cache'.\nIn either case, Next.js can extract this UI and load it into the client prior to a navigation, making your app feel as snappy as an SPA once users start clicking around it.\nTo ensure you don't miss a slow page, the Next.js DevTools now include Instant Insights, which surfaces any navigations you encounter that are not instant:\nThe new Instant Insights panel automatically surfaces slow navigations\nPrefetching that UI ensures your server-rendered app always has some UI ready to show the moment a user clicks a link, similar to how you would model loading states in an SPA.\nEach insight also provides a prompt that teaches your agent how to apply your chosen fix.\nLearn more about Instant Insights.\nPartial Prefetching\nPrior to 16.3, prefetching in Next.js was limiting: you could either define a reusable loading shell with loading.tsx, or opt-in to aggressive full-page prefetching with <Link prefetch={true}>. Many apps suffered from these implicit and restrictive APIs, and ended up with blocking navigations on link clicks as a result.\nTo fix this, 16.3 adds a new prefetching behavior we call Partial Prefetching. Next.js can extract reusable loading shells from any route's UI, and per-link prefetching via <Link prefetch={true}> can include as much or as little content from the target page as you like.\nLearn how you or your agent can adopt Partial Prefetching in your app.\nBetter Incremental Static Regeneration (ISR)\n16.3 brings a new kind of Incremental Static Regeneration to dynamic, personalized apps. When you prerender only some of a route's pages at build time with generateStaticParams, the rest of the page faced a tradeoff. They could show a loading shell but never get prerendered, or skip the shell and block the first visitor.\nNow you get both. A page you don't prerender serves an instant loading shell on its first visit, then upgrades to the fully prerendered page in the background. Every later visitor gets the final content from the cache.\nWe're also exploring an API to control how often a page upgrades, for example based on traffic.\nLearn more about Incremental Static Regeneration with Cache Components.\nNavigation Inspector\nBecause Next.js disables prefetching in development, it can be hard to understand exactly what a user will see during a particular navigation's loading sequence.\nThe new Navigation Inspector lets you pause page loads and client-side navigations at the shell, so you can see exactly what loading state the user would see:\n\nSee our documentation on visualizing loading states with the Next.js DevTools.\nPlaywright test helper\nAnother common failure mode is a page that navigates instantly today becoming slow tomorrow. Maybe a component that reads cookies() gets added to a shared header and de-opts the route to request-time rendering, or a <Suspense> boundary moves during a refactor and part of the page starts blocking. Either way, UI that used to appear immediately no longer does.\nThe new instant() test helper lets you write Playwright tests that assert exactly what content should be instantly visible during a navigation. The test fails whenever the instant UI changes, no matter the cause:\n\nLearn more about writing tests with the instant test helper.\n\nThat's everything that's new with Instant Navigations! We're excited for you to try out these new features and hear what you think.\nLastly, there's a few new experimental features shipping with 16.3.\nExperimental features\nAlongside the stable release, 16.3 ships a few experimental features you can opt into today behind configuration flags. They…",
+      "metrics": {},
+      "sourceWeight": 5,
+      "id": "762bc47d475aadc3",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.9116666666666667,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "Next.js"
+      ],
+      "buzz": false,
+      "score": 94,
+      "oneLiner": "Next.js 16.3はInstant Navigationsと高速化、AIエージェント向けツールを追加した。",
+      "reason": "Next.js 16.3では、SPAのような応答性を高めるInstant Navigationsが加わった。開発サーバーやビルドの高速化、AIエージェント向けの改善も同時に入っている。",
+      "keywords": [
+        "Next.js 16.3",
+        "Instant Navigations",
+        "Turbopack",
+        "AI agents"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "headline": "Next.js 16.3で開発と遷移を高速化",
+        "summary": "Next.js 16.3は、既存アプリのコード変更なしで開発時メモリ、反復ビルド、サーバーサイドレンダリングを改善するリリースです。Turbopackのmemory evictionとdisk cachingにより、`next dev`のメモリ使用量は最大90%削減され、`next build`ではキャッシュ済み成果物を再利用できます。AI coding agents向けには、プロジェクトのバージョンに一致するドキュメントを指すAGENTS.mdブロックが自動管理されます。さらに、Instant Navigationsをopt-inすると、SPAのような即時表示、Partial Prefetching、Navigation Inspector、Playwrightの`instant()`テストヘルパーを利用できます。",
+        "prerequisites": [
+          {
+            "term": "Turbopack",
+            "stumblingPoint": "記事は「Turbopack uses up to 90% less memory」と書くが、Turbopackを使う処理と開発サーバー全体の差を区別しないと効果範囲が読めない。",
+            "explanation": "Turbopack は Next.js の開発・ビルドで使われるバンドラーです。今回のメモリ削減はアプリのReactコードを変えた結果ではなく、Turbopackが開発中のキャッシュをディスクへ逃がし、不要なメモリをevictionする実装変更によるものです。そのため、まず `next dev` がTurbopackを使う構成かを確認すると、効果の対象を読み違えません。"
+          },
+          {
+            "term": "memory eviction",
+            "stumblingPoint": "記事は「memory eviction」とだけ述べているが、キャッシュを削除することとビルド成果物を失うことが同じではない点が読み取りにくい。",
+            "explanation": "memory eviction は、必要なデータを保持し続けず、再利用可能な情報をメモリから追い出す仕組みです。記事では disk caching と合わせてデフォルト有効になったと説明しており、長時間 `next dev` を起動し続けたときにメモリが単調増加しにくくなる、という文脈で使われています。"
+          },
+          {
+            "term": "FileSystem Cache",
+            "stumblingPoint": "記事は「Repeat builds can read unchanged artifacts from cache」と書くが、初回ビルドも高速化する機能なのか、反復ビルドだけなのかを知らないと比較値を誤解する。",
+            "explanation": "FileSystem Cache は、ビルドで生成した情報をファイルシステムへ保存し、次回以降のビルドで再利用するキャッシュです。16.3では `next dev` だけでなく `next build` でもデフォルト有効になったため、変更していない部分の再コンパイルを減らせます。初回のcold buildではなく、同じ環境でのcached buildが短くなる機能です。"
+          },
+          {
+            "term": "TypeScript 7",
+            "stumblingPoint": "記事は「bump your project's local dependency」と書くが、Next.jsの更新とTypeScriptの更新が別操作であることを知らないと導入手順を誤る。",
+            "explanation": "TypeScript 7 は、記事ではネイティブ実装への移植によって型チェックが高速化されたバージョンとして扱われています。Next.js 16.3へ更新するだけで自動的にTypeScript 7へ切り替わるのではなく、プロジェクトのローカル `typescript` 依存関係を更新して `next build` の型チェックに使います。"
+          },
+          {
+            "term": "native Node.js streams",
+            "stumblingPoint": "記事は「native Node.js streams」で最大22%増とするが、ストリームAPIをアプリ側で書き換える変更なのか、内部実装の変更なのかが読み取りにくい。",
+            "explanation": "App Router のサーバーサイドレンダリングで、従来のWeb StreamsとNode.js Streamsの間の変換コストをなくす変更です。アプリケーションコードの変更なしに、記事のベンチマークでは負荷時の処理リクエスト数が最大22%増えています。これはすべてのアプリで22%増える保証ではなく、記事中のベンチマーク結果です。"
+          },
+          {
+            "term": "AGENTS.md",
+            "stumblingPoint": "記事は「version-matched docs」と「AGENTS.md block」を前提にするが、AIエージェントがローカルのどの情報を読むようになるのかが分かりにくい。",
+            "explanation": "AGENTS.md は、AI coding agentsにプロジェクト固有の指示や参照先を伝えるためのファイルです。16.3では `next dev` が、プロジェクトのNext.jsバージョンに一致するローカル同梱ドキュメントを指すAGENTS.mdブロックを作成・維持します。これにより、エージェントが別バージョンの公開ドキュメントを参照する問題を減らす狙いがあります。"
+          },
+          {
+            "term": "catchError",
+            "stumblingPoint": "記事は「catchError」と「retry()」を示すが、従来のReact error boundaryではServer Componentsの失敗を再試行できなかったことを知らないと差分が分からない。",
+            "explanation": "catchError は、`notFound` や `redirect` と干渉しないカスタムエラーバウンダリを定義するための新しいAPIです。従来のReact error boundaryでは、Server Componentsのレンダリング失敗を再取得して再試行できませんでした。`retry()` によって、バウンダリ配下のデータを再フェッチし、Server Componentsを再レンダリングできます。"
+          },
+          {
+            "term": "import.meta.glob",
+            "stumblingPoint": "記事は「Built-in glob imports」とだけ説明するため、複数ファイルの読み込み機能なのか、ルートのglobなのか、どのAPIをコードに書くのかで詰まりやすい。",
+            "explanation": "import.meta.glob は、ファイルシステム上の複数モジュールをまとめて読み込むVite互換APIです。記事の文脈では、ローカルファイルを読むServer Componentsで利用でき、TurbopackのHot Module Reloadingなどの恩恵を受けられます。個別ファイルを1つずつ静的importする用途を置き換えられる機能ですが、記事の抜粋には具体的なオプションや戻り値の例はありません。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "16.3の主な変更",
+          "beforeLabel": "従来",
+          "afterLabel": "Next.js 16.3",
+          "rows": [
+            {
+              "aspect": "開発時メモリ",
+              "before": "基準値",
+              "after": "最大90%少ない"
+            },
+            {
+              "aspect": "`next build`の反復実行",
+              "before": "変更していない成果物も再処理",
+              "after": "キャッシュ済み成果物を再利用"
+            },
+            {
+              "aspect": "負荷時のSSRリクエスト処理",
+              "before": "Web streamsを使用した基準値",
+              "after": "最大22%多い"
+            },
+            {
+              "aspect": "AI coding agents",
+              "before": "従来のSkillsを利用",
+              "after": "自動でバージョン一致ドキュメントを参照"
+            },
+            {
+              "aspect": "Prefetch requests",
+              "before": "リンクごとに個別リクエスト",
+              "after": "小さいpayloadをまとめてprefetch"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "Next.js 16.3へ更新するだけで、開発時のメモリ削減、反復ビルドのキャッシュ、SSRの内部改善を既存コードの変更なしで受けられます。",
+          "プロジェクトのローカル依存関係をTypeScript 7へ更新し、`next build`の型チェックを高速化できます。",
+          "AI coding agentsに、プロジェクトのNext.jsバージョンに一致したローカルドキュメントをAGENTS.md経由で参照させられます。",
+          "Instant Navigationsをopt-inし、Instant Insights、Partial Prefetching、Navigation Inspector、Playwrightの`instant()`で遷移時の即時表示を実装・検証できます。"
+        ],
+        "whatChanges": [
+          "`next dev` ではTurbopackのdisk cachingとmemory evictionがデフォルト有効になり、長時間の開発セッションで最大90%少ないメモリ使用量を目指します。",
+          "`next build` でもFileSystem Cacheがデフォルト有効になり、変更されていない成果物を反復ビルドで再利用します。",
+          "App RouterのSSR内部実装がWeb streamsからnative Node.js streamsへ変わり、記事のベンチマークでは負荷時に最大22%多くのリクエストを処理します。",
+          "既存のReact error boundaryに代わり、catchErrorと`retry()`でServer Componentsの失敗を再フェッチして復旧できるカスタムエラーバウンダリを定義できます。"
+        ],
+        "howToTry": [
+          "プロジェクトで `npm install next@16.3` を実行し、Next.js を更新します。",
+          "既存アプリのまま `npm run dev` を実行し、長時間の開発セッションでメモリ使用量を確認します。Turbopack の disk caching と memory eviction はデフォルトで有効です。",
+          "`npm run build` を複数回実行し、変更していない成果物がキャッシュから読み込まれることを確認します。CI で試す場合も、同じキャッシュ設定を使った反復ビルドを比較します。",
+          "TypeScript 7 を使う場合は、プロジェクトの `typescript` のローカル依存関係を TypeScript 7 に更新してから `npm run build` を実行します。",
+          "Instant Navigations を試す場合は、本文に記載されている2つの設定フラグを有効化し、`loading.tsx`、`Suspense`、`'use cache'` を使った画面で Instant Insights と Navigation Inspector を確認します。フラグ名は本文の抜粋にはありません。"
+        ],
+        "code": null,
+        "whyItMatters": "React / Next.jsの既存コードを大きく書き換えずに、`next dev`、`next build`、SSR、AI coding agentsの開発体験を改善できます。特に、AIエージェントがAGENTS.mdからバージョン一致ドキュメントを参照できる点と、Instant Navigationsで遷移中に見えるUIをテストできる点は、Next.jsを日常的にエージェントと開発するチームに直接効きます。",
+        "caveats": [
+          "Instant Navigations は 16.3 では opt-in で、将来のメジャーバージョンでデフォルトになる予定です。",
+          "Instant Navigations の有効化に必要な2つの設定フラグ名は、本文の抜粋には記載されていません。",
+          "TypeScript 7 の型チェックは、プロジェクトのローカル依存関係を更新して利用します。本文には具体的な更新コマンドが掲載されていません。",
+          "実験的機能の詳細は本文の抜粋が途中で終わっているため、対象機能や設定方法は確認できません。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "Next.js 16.3 公式ブログ",
+            "url": "https://nextjs.org/blog/next-16-3"
+          }
+        ],
+        "readingMinutes": 5
+      }
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / pnpm/pnpm",
+      "title": "pnpm/pnpm pnpm 11.20",
+      "url": "https://github.com/pnpm/pnpm/releases/tag/v11.20.0",
+      "publishedAt": "2026-08-03T14:20:27.000Z",
+      "author": "github-actions[bot]",
+      "authorDetail": {
+        "name": "github-actions[bot]",
+        "handle": "@github-actions[bot]",
+        "url": "https://github.com/apps/github-actions",
+        "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+        "organization": "pnpm"
+      },
+      "tags": [
+        "pnpm",
+        "release"
+      ],
+      "snippet": "Minor Changes ・Security fix. Affects projects using namedRegistries on pnpm 11.1.0–11.19.x. It is semi-breaking for those projects — see \"If you use named registries\" below. The lockfile recorded no marker for which registry a package came from. Packages were keyed by name@version alone, and entry lookup went through refToRelative(ref, name), so a dependency you declared against one registry could…",
+      "body": "Minor Changes\r・Security fix. Affects projects using namedRegistries on pnpm 11.1.0–11.19.x. It is semi-breaking for those projects — see \"If you use named registries\" below.\r\n\r\n The lockfile recorded no marker for which registry a package came from. Packages were keyed by name@version alone, and entry lookup went through refToRelative(ref, name), so a dependency you declared against one registry could be satisfied by an entry that was actually resolved from another. When two registries served the same name and version, both collapsed onto a single packages: entry and whichever resolved first decided the tarball every consumer got.\r\n\r\n That is a package-substitution risk: a package you expect from your private registry could be installed from a different registry that publishes the same name and version, and the lockfile recorded nothing that would let you tell.\r\n\r\n Packages resolved from a named registry are now recorded under registry-qualified keys ( @ : , e.g. foo@work:1.0.0), so each registry gets its own entry and the lockfile pins which one a dependency came from.\r\n\r\n The lockfile format version is unchanged. Registry-qualified keys appear only for packages resolved from a named registry, so a project that does not use namedRegistries sees no difference, and older pnpm versions keep reading the file.\r\n\r\n ### If you use named registries\r\n\r\n Your next non-frozen install re-keys those entries, which shows up as a lockfile diff. Commit it — that diff is the fix being applied. Review it: an entry that moves to a registry you did not expect is worth investigating.\r\n\r\n Everyone working on the project should be on this version or newer before you do. An older pnpm reads the re-keyed lockfile fine — frozen installs are unaffected — but it does not produce registry-qualified keys itself, so any install that updates the lockfile writes those entries back to the old shape, and the next install on a current pnpm re-qualifies them. The result is a lockfile that flips back and forth, and while it is in the old shape the project is exposed again. Because the lockfile format version is deliberately unchanged, pnpm cannot detect this and warn you about it.\r\n\r\n There is no setting to keep the old behavior: the old shape is the vulnerability.\r\n\r\n Tarball URLs that follow the standard registry layout are no longer written to the lockfile for named-registry packages; they are recomputed from the namedRegistries setting on demand.\r\n\r\n To use named registries, map your aliases in pnpm-workspace.yaml:\r\n\r\n [code] \r\n\r\n ### New built-in npmjs: alias\r\n\r\n npmjs: now resolves to https://registry.npmjs.org/ with no configuration, alongside the existing gh: alias for GitHub Packages. It pins a dependency to the public registry even when registry points elsewhere, such as an internal proxy:\r\n\r\n [code] \r\n\r\n npm: cannot do this — it is the alias protocol (npm: @ ) and resolves through whatever registry points at.\r\n\r\n If you mirror or proxy npmjs, point the alias at your mirror:\r\n\r\n [code] \r\n\r\n Built-in registry URLs are also the prefixes a lockfile's recorded tarball URL is matched against when pnpm verifies a package. Without the override, an entry whose tarball URL is on registry.npmjs.org is verified against the public registry rather than your mirror. This only affects lockfiles that record such URLs — a canonical URL for your configured registry is omitted from the lockfile and unaffected — and only when a tarball-URL, minimumReleaseAge, or trustPolicy check runs. Overriding the alias is the same escape hatch GHES users already have for gh.\r\n\r\n Every alias the lockfile references must stay in namedRegistries: reading an entry whose alias is gone fails with ERRPNPMMISSINGNAMEDREGISTRY rather than silently falling back to the default registry, since that would fetch a different package. Renaming an alias re-resolves the packages that used it.\r\n\r\n Named registry aliases that shadow a reserved dependency specifier prefix (file, link, workspace, runtime, npm, jsr, ...) are now rejected with ERRPNPMRESERVEDNAMEDREGISTRYNAME instead of being silently shadowed by the corresponding resolver.\r\n\r\n pnpm licenses and pnpm sbom now keep the two artifacts apart as well: license records carry the registry alias, and SBOM components carry the purl repositoryurl qualifier.\r\n\r\nPatch Changes\r・An empty http-proxy, https-proxy, proxy, or no-proxy value — from the .npmrc, pnpm-workspace.yaml, the CLI, or the HTTPPROXY / HTTPSPROXY / PROXY / NOPROXY environment variables — no longer fails the install with ERRPNPMINVALIDPROXY. Empty settings read as unset, so a shell exporting HTTPPROXY= disables the proxy, and an empty proxy= in the .npmrc no longer suppresses HTTPSPROXY #13533.\r\n\r\n proxy=false in the .npmrc or proxy: false in pnpm-workspace.yaml now turns proxying off instead of being read as a proxy host named false. false and null on https-proxy / http-proxy / no-proxy read as unset, and on the command line they are ordinary host names, since a flag carries its value verbatim.\r・The env lockfile no longer pins @pnpm/exe alongside pnpm when the wanted pnpm version is 12 or newer. From v12 the unscoped pnpm package is itself the native executable, so @pnpm/exe is not published for it and resolving it would fail. The engine identity check now verifies the native binary through whichever package ships it.\r・lexCompare and nerfDart are now published as @pnpm/text.ordinal-comparator and @pnpm/config.registry-auth-key. Use these instead of @pnpm/util.lex-comparator and @pnpm/config.nerf-dart.\r・Fixed the order in which pnpm matches a lockfile's recorded tarball URL against known registry URLs. Two registry URLs of equal length were previously ordered arbitrarily, so which one a tarball URL matched could differ between runs.\r・Dependency resolution is faster: package metadata is now filtered once per packument instead of once per dependency edge when minimumReleaseAge is active, and parsed semver versions and ranges are reused instead of re-parsed on every comparison.\r・Security: pnpm rebuild now refuses a lockfile whose packages key carries a path traversal in the package name (e.g. ../../../escaped@1.0.0), instead of running that package's lifecycle scripts and linking its bins in a directory outside the virtual store. Such a name is rejected with ERRPNPMINVALIDDEPENDENCYNAME.\r\n\r\n\r\n \r\n\r\nPlatinum Sponsors\r\n\r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n\r\nGold Sponsors",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "989c25dd0befe39f",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 0.8150000000000001,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "Node.js"
+      ],
+      "buzz": false,
+      "score": 90,
+      "oneLiner": "pnpm 11.20はnamedRegistries利用時のパッケージ取り違えリスクを修正した。",
+      "reason": "pnpm 11.1.0〜11.19.xでは、別レジストリの同名・同バージョンパッケージがロックファイル上で衝突した。pnpm 11.20はレジストリ情報を区別してこの置換を防ぐ。",
+      "keywords": [
+        "pnpm 11.20",
+        "namedRegistries",
+        "lockfile",
+        "security"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 4,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "headline": "pnpm 11.20.0でnamed registryの取り違えを修正",
+        "summary": "pnpm 11.20.0は、namedRegistries経由のパッケージをregistry-qualified keysでlockfileに記録し、同じ名前・バージョンを持つ別registryのパッケージへの置換リスクを修正した。namedRegistriesを使うプロジェクトでは、次回の非frozen installでlockfile差分が発生するため、pnpm 11.20.0以降へ揃えて差分をレビュー・コミットする必要がある。新しいnpmjs: aliasにより、default registryが社内proxyでもpublic npm registryを明示指定できる。加えて、空のproxy設定、pnpm 12以降のenv lockfile、tarball URL照合、path traversalを含むlockfileのrebuildも修正された。",
+        "prerequisites": [
+          {
+            "term": "namedRegistries",
+            "stumblingPoint": "記事は「namedRegistries」を前提に修正内容を説明しているが、別名付きregistryの設定対象が分からないと影響範囲を判断できない。",
+            "explanation": "namedRegistriesは、依存パッケージごとにregistryの別名を割り当てる設定で、このリリースではその別名がlockfile上の出所を識別するために使われる。複数のregistryが同じパッケージ名とバージョンを配信している場合、設定だけでなくlockfileにも出所が残っていないと、どちらを取得したかを固定できない。"
+          },
+          {
+            "term": "registry-qualified keys",
+            "stumblingPoint": "記事は「@ : 」形式の「registry-qualified keys」を示すが、従来のpackages:キーと何が違い、なぜ再キーがセキュリティ修正になるかが省略されている。",
+            "explanation": "registry-qualified keysは、パッケージ名とバージョンだけでなくregistry aliasも含めたlockfileのキーである。たとえば記事のfoo@work:1.0.0では、foo@1.0.0をdefault registry由来のエントリと同一視せず、work registry由来として別エントリにする。これにより、同名・同バージョンのパッケージが別registryのtarballへ置き換わる余地を減らす。"
+          },
+          {
+            "term": "frozen install",
+            "stumblingPoint": "記事は「older pnpm reads the re-keyed lockfile fine」と書く一方、古いpnpmがlockfileを旧形式へ戻すと再び脆弱になると説明している。",
+            "explanation": "lockfileは依存関係の解決結果を次回インストールでも再利用するファイルで、frozen installではその内容を更新しない。今回の修正ではlockfile format versionを変えずにキーだけを再構成するため、古いpnpmでも読めるが、古い形式を書き戻してしまう可能性がある。つまり読めることと、修正済みの形式を維持できることは別である。"
+          },
+          {
+            "term": "npmjs:",
+            "stumblingPoint": "記事は「npmjs: now resolves to https://registry.npmjs.org/」と「npm: cannot do this」を対比するが、2つがregistry aliasとalias protocolで別物だと知らないと使い分けられない。",
+            "explanation": "npmjs:は今回追加された組み込みのregistry aliasで、依存先をhttps://registry.npmjs.org/へ明示的に固定する。registry設定が社内proxyなどを指していても、通常のnpm依存とは異なる解決先を指定できる。npm:は同じ機能ではなくalias protocolであり、現在のregistry設定を通じて解決される。"
+          },
+          {
+            "term": "ERRPNPMMISSINGNAMEDREGISTRY",
+            "stumblingPoint": "記事は「Every alias the lockfile references must stay in namedRegistries」と書くが、なぜ削除時にフォールバックせずエラーにするのかが読み手に委ねられている。",
+            "explanation": "lockfileにaliasが記録されている場合、そのaliasは後からもnamedRegistriesに残しておく必要がある。aliasを削除してdefault registryへ自動フォールバックすると、同じ名前・バージョンでも別のパッケージを取得する可能性があるため、pnpm 11.20.0はERRPNPMMISSINGNAMEDREGISTRYで停止する。これは安全側に倒すための移行時エラーである。"
+          },
+          {
+            "term": "ERRPNPMINVALIDPROXY",
+            "stumblingPoint": "記事は空のhttp-proxyや「proxy=false」の挙動を列挙しているが、設定経路ごとにfalse・null・空文字の解釈が異なる点で詰まりやすい。",
+            "explanation": "proxy設定の空文字は、今回から未設定として扱われる。たとえばHTTPPROXY=をexportしてもinstallがERRPNPMINVALIDPROXYで失敗せず、proxy=falseはproxyホスト名falseではなくproxy無効として解釈される。ただしCLIのフラグ値は文字列をそのまま受け取るため、falseやnullの扱いは設定ファイル・環境変数と同一ではない。"
+          },
+          {
+            "term": "ERRPNPMINVALIDDEPENDENCYNAME",
+            "stumblingPoint": "記事は「pnpm rebuild now refuses a lockfile whose packages key carries a path traversal」と書くが、installではなくrebuildが対象になる理由を知らないと脅威モデルが分かりにくい。",
+            "explanation": "pnpm rebuildはlockfileのpackagesキーにあるパッケージ名をもとにvirtual storeの配置やlifecycle scripts、binのリンクを行う。パッケージ名に../../../escaped@1.0.0のようなpath traversalがあると、virtual storeの外へ書き込ませる余地があるため、11.20.0ではERRPNPMINVALIDDEPENDENCYNAMEで拒否する。依存解決そのものだけでなく、rebuild時の実行・配置経路も対象になっている。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "registry由来のlockfile記録",
+          "beforeLabel": "pnpm 11.1.0〜11.19.x",
+          "afterLabel": "pnpm 11.20.0以降",
+          "rows": [
+            {
+              "aspect": "lockfileのpackagesキー",
+              "before": "パッケージ名@バージョンだけで共有",
+              "after": "registry-qualified keysでregistry aliasごとに分離"
+            },
+            {
+              "aspect": "同名・同バージョンの解決",
+              "before": "先に解決されたtarballが全consumerに使われ得る",
+              "after": "依存元のregistryをlockfileで固定"
+            },
+            {
+              "aspect": "namedRegistries利用時の対応",
+              "before": "旧形式のままではpackage substitutionリスクが残る",
+              "after": "非frozen installで再キー化された差分をコミット"
+            },
+            {
+              "aspect": "組み込みregistry alias",
+              "before": "記載なし",
+              "after": "npmjs:でhttps://registry.npmjs.org/を明示指定可能"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "private registryとdefault registryに同名・同バージョンのパッケージがある構成でも、registry-qualified keysによって出所をlockfileへ固定できる。",
+          "registry設定が内部proxyを指していても、npmjs:で依存パッケージをpublic npm registryへ明示的に解決できる。mirrorやproxyを使う場合は、組み込みaliasを自社mirrorへ上書きできる。",
+          "HTTPPROXYなどの環境変数や.npmrcのproxyを空にして、proxyを未設定として扱わせられる。",
+          "pnpm licensesとpnpm sbomでもregistry aliasが成果物に保持され、license recordsとSBOM componentsのregistry情報を分離して追跡できる。"
+        ],
+        "whatChanges": [
+          "namedRegistriesから解決したパッケージのlockfileキーが、パッケージ名・バージョンだけの形式からregistry-qualified keysへ変わる。lockfile format versionは変更されない。",
+          "named registryパッケージでは、標準registryレイアウトのtarball URLをlockfileへ書かず、namedRegistries設定から必要時に再計算する。",
+          "npmjs: aliasが組み込まれ、設定なしでhttps://registry.npmjs.org/を指定できる。mirrorやproxyを使う環境ではaliasの上書きが必要になる。",
+          "空のproxy設定は未設定扱いになり、pnpm rebuildはpath traversalを含むパッケージ名をERRPNPMINVALIDDEPENDENCYNAMEで拒否する。"
+        ],
+        "howToTry": [
+          "プロジェクトとCIでpnpmのバージョンを確認し、全員が11.20.0以降になっていることを確認する: `pnpm --version`",
+          "namedRegistriesを使うプロジェクトで、lockfileを更新する非frozen installを実行する: `pnpm install --no-frozen-lockfile`",
+          "変更内容を確認する: `git diff -- pnpm-lock.yaml`。named registry由来の依存関係がregistry-qualified keysになり、想定外のregistryへ移動していないかレビューする。",
+          "レビュー済みのpnpm-lock.yamlをコミットし、CIまたは別環境でfrozen installを確認する: `pnpm install --frozen-lockfile`"
+        ],
+        "code": null,
+        "whyItMatters": "React / Next.jsの依存関係でも、private registryとpublic registryが同じ名前・バージョンを持てば、従来のlockfileだけでは取得元を識別できなかった。CI・開発者間のpnpmバージョンを揃えずにlockfileを更新すると、registry-qualified keysが旧形式へ戻り、修正効果が失われる。namedRegistries利用プロジェクトでは、今回のlockfile差分を単なるノイズではなく、依存パッケージの出所を固定するための移行としてレビューする必要がある。",
+        "caveats": [
+          "namedRegistriesを使うプロジェクトでは、pnpm 11.20.0以降へ更新してから次回の非frozen installでpnpm-lock.yamlを更新する必要がある。",
+          "pnpm 11.1.0〜11.19.xを使う開発者がlockfileを更新すると、registry-qualified keysが旧形式へ戻り、lockfileが新旧形式を行き来する。lockfile format versionは変わらないため、pnpmはこの混在を検出して警告できない。",
+          "named registryのaliasをnamedRegistriesから削除すると、黙ってdefault registryへフォールバックせずERRPNPMMISSINGNAMEDREGISTRYになる。aliasの改名も、そのaliasを使ったパッケージの再解決を引き起こす。",
+          "記事中のコードブロックは欠落しているため、namedRegistriesやnpmjs: aliasの具体的な設定例は掲載できない。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "pnpm 11.20.0 release notes",
+            "url": "https://github.com/pnpm/pnpm/releases/tag/v11.20.0"
+          }
+        ],
+        "readingMinutes": 4
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "20f73cee9375006f",
+      "product": "Hono",
+      "what": "軽量なWebアプリケーションフレームワーク",
+      "version": "v4.13.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "HTTP QUERYとMethod Not Allowed middlewareを使える",
+      "change": {
+        "before": "HTTP QUERYや専用のMethod Not Allowed middlewareに未対応",
+        "after": "HTTP QUERYとMethod Not Allowed middlewareに対応"
+      },
+      "scope": [],
+      "summary": "Hono v4.13.0では、HTTP QUERYメソッドとMethod Not Allowed middlewareを追加。リクエスト／レスポンス処理も最大1.25倍に高速化。",
+      "title": "honojs/hono v4.13.0",
+      "url": "https://github.com/honojs/hono/releases/tag/v4.13.0",
+      "sourceLabel": "GitHub Releases / honojs/hono",
+      "publishedAt": "2026-08-03T21:55:37.000Z",
+      "alsoReleased": [
+        {
+          "label": "v4.12.34",
+          "url": "https://github.com/honojs/hono/releases/tag/v4.12.34"
+        }
+      ]
+    },
+    {
+      "id": "7f46a1534380ba2c",
+      "product": "GitHub",
+      "what": "Gitリポジトリ開発プラットフォーム",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "triageロールでIssueを作成できる",
+      "change": {
+        "before": "Issue作成制限下ではwrite権限が必要",
+        "after": "triageロールでもIssueを作成可能"
+      },
+      "scope": [],
+      "summary": "Issue作成をコラボレーターに制限しているリポジトリで、triageロールのユーザーもIssueを作成できるようになった。",
+      "title": "Triage role can bypass issue creation restrictions",
+      "url": "https://github.blog/changelog/2026-08-03-triage-role-can-bypass-issue-creation-restrictions",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-03T17:04:32.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "1dfde265ddbb65d5",
+      "product": "Vercel WAF for Blob",
+      "what": "Vercel Blob向けWeb Application Firewall",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "Vercel BlobにWAF保護を正式適用できる",
+      "change": {
+        "before": "Vercel BlobのWAF保護が正式提供されていない",
+        "after": "Vercel BlobにWAF保護を正式適用"
+      },
+      "scope": [],
+      "summary": "Vercel Blob向けWAF機能が一般提供（GA）になり、正式に利用可能になった。",
+      "title": "Vercel WAF for Blob is now generally available",
+      "url": "https://vercel.com/changelog/vercel-waf-for-blob-is-now-generally-available",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-03T17:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "4ccbb52e7b5ccad0",
+      "product": "GitHub Enterprise Importer",
+      "what": "GitLabからGitHubへのリポジトリ移行ツール",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "GitLabからGitHub Enterprise Cloudへ自分で移行できる",
+      "change": {
+        "before": "GEIでGitLabからの移行を一般提供していない",
+        "after": "GitLabからGitHub Enterprise Cloudへ自分で移行"
+      },
+      "scope": [
+        "gitlab.com",
+        "GitLab Self-Managed"
+      ],
+      "summary": "GitHub Enterprise Importer（GEI）で、gitlab.comと保守対象のGitLab Self-Managedからの移行がGAに。gh gl2ghで単体・一括移行も可能。",
+      "title": "Migrate from GitLab to GitHub with GitHub Enterprise Importer",
+      "url": "https://github.blog/changelog/2026-08-03-migrate-from-gitlab-to-github-with-github-enterprise-importer",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-03T16:33:13.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "1b37e9cecca4777f",
+      "product": "SWR",
+      "what": "React向けデータフェッチ・キャッシュライブラリ",
+      "version": "v.2.5.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "RSCのデータをクライアントのSWRキャッシュへ事前投入できる",
+      "change": {
+        "before": "RSCとクライアントで初期データを重複取得",
+        "after": "RSCの初期データをSWRキャッシュへ事前投入"
+      },
+      "scope": [],
+      "summary": "SWR v2.5.0では、RSCでのキャッシュ事前読み込みと、全キャッシュ・実行中処理を破棄するunload() APIを追加。",
+      "title": "vercel/swr v.2.5.0",
+      "url": "https://github.com/vercel/swr/releases/tag/v2.5.0",
+      "sourceLabel": "GitHub Releases / vercel/swr",
+      "publishedAt": "2026-08-03T14:54:40.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "a330353fadbe04a2",
+      "product": "Node.js",
+      "what": "JavaScriptランタイム",
+      "version": "24.19.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "Blob.textStream()でBlobをストリーム読み取りできる",
+      "change": {
+        "before": "BlobのテキストストリームAPIやimport textに未対応",
+        "after": "Blob.textStream()やimport textフラグを利用可能"
+      },
+      "scope": [],
+      "summary": "Node.js 24.19.0 'Krypton'（LTS）では、bufferのBlob.textStream()、OpenSSL圧縮対応、--experimental-import-textなどを追加。",
+      "title": "nodejs/node 2026-08-03, Version 24.19.0 'Krypton' (LTS), @aduh95",
+      "url": "https://github.com/nodejs/node/releases/tag/v24.19.0",
+      "sourceLabel": "GitHub Releases / nodejs/node",
+      "publishedAt": "2026-08-03T13:48:33.000Z",
+      "alsoReleased": [
+        {
+          "label": "2026-08-03, Version 26.6.0 (Current), @aduh95",
+          "url": "https://github.com/nodejs/node/releases/tag/v26.6.0"
+        },
+        {
+          "label": "Node.js 26.6.0 (Current)",
+          "url": "https://nodejs.org/en/blog/release/v26.6.0"
+        }
+      ]
+    },
+    {
+      "id": "0e1955b33f35822a",
+      "product": "@cloudflare/computer",
+      "what": "AIエージェント向けコンピューター実行環境",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "AIエージェントに専用コンピューター環境を与えられる",
+      "change": {
+        "before": "エージェントにコンテナ中心の実行環境を提供",
+        "after": "AIエージェントに専用コンピューター環境を提供"
+      },
+      "scope": [],
+      "summary": "Cloudflareが、ファイルシステムやシェル、ツールを備えたAIエージェント向けコンピューター環境@cloudflare/computerをearly previewとして紹介。",
+      "title": "Your agent needs a computer, not a container — introducing @cloudflare/computer",
+      "url": "https://blog.cloudflare.com/cloudflare-computer",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-08-03T13:15:24.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "3a716eab18c4ab54",
+      "product": "Cloudflare Workers / Containers",
+      "what": "エッジ実行環境とコンテナサービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "WorkersとContainersでInbound TCPとgRPCを受信できる",
+      "change": {
+        "before": "WorkersとContainersでInbound TCP・gRPCを受信できない",
+        "after": "WorkersとContainersでInbound TCP・gRPCを利用"
+      },
+      "scope": [],
+      "summary": "Cloudflare WorkersとContainersがInbound TCP接続とgRPCをサポートし、音声AIなど低遅延通信の基盤を構築しやすくなった。",
+      "title": "Cloudflare Workers and Containers now support inbound TCP connections and gRPC",
+      "url": "https://blog.cloudflare.com/grpc-workers",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-08-03T13:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "924b24fca8ecd060",
+      "product": "Cloudflare Billable Usage API",
+      "what": "Cloudflareの請求利用量API",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Cloudflareの請求利用量をAPIで取得できる",
+      "change": {
+        "before": "請求利用量をダッシュボードで確認",
+        "after": "API経由でCloudflareの請求利用量を取得"
+      },
+      "scope": [],
+      "summary": "セルフサービスアカウント向けにBillable Usage APIを提供し、Cloudflareの利用料金をプログラムから製品別・日中推移で取得可能にした。",
+      "title": "Introducing the Billable Usage API: programmatic cost visibility for Cloudflare",
+      "url": "https://blog.cloudflare.com/billable-usage-api",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-08-03T13:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "8f107e467ebc6822",
+      "product": "Workers RPC",
+      "what": "Cloudflare Workers間のRPC機構",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "PythonとJavaScript間でWorkers RPCを呼び出せる",
+      "change": {
+        "before": "Workers RPCの相互呼び出しはJavaScript中心",
+        "after": "PythonとJavaScript間でWorkers RPCを呼び出し"
+      },
+      "scope": [
+        "Python"
+      ],
+      "summary": "Cloudflare Workers RPCがPythonとJavaScript間で動作するようになり、異なる言語のWorker同士でRPC呼び出しが可能になった。",
+      "title": "Workers RPC now works across Python and JavaScript",
+      "url": "https://blog.cloudflare.com/python-workers-rpc",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-08-03T13:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "50cfe14635a8cfaf",
+      "product": "Oxlint / Oxfmt",
+      "what": "JavaScript・TypeScript向け高速リンターとフォーマッター",
+      "version": "Oxlint v1.77.0 / Oxfmt v0.62.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "Oxlintの新しいAST構造とlint機能を利用できる",
+      "change": {
+        "before": "従来のAST構造とlint機能を利用",
+        "after": "新しいAST構造とlint機能を利用可能"
+      },
+      "scope": [],
+      "summary": "Oxlint v1.77.0とOxfmt v0.62.0を公開。OxlintではAST構造の破壊的変更、新lint機能、Oxfmtの改善を含む。",
+      "title": "oxc-project/oxc oxlint v1.77.0 & oxfmt v0.62.0",
+      "url": "https://github.com/oxc-project/oxc/releases/tag/apps_v1.77.0",
+      "sourceLabel": "GitHub Releases / oxc-project/oxc",
+      "publishedAt": "2026-08-03T12:07:50.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "7499de2b753ba18f",
+      "product": "Rolldown",
+      "what": "Rust製のJavaScriptバンドラー",
+      "version": "v1.2.2",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "dynamic entriesの共有依存をインライン化できる",
+      "change": {
+        "before": "動的エントリの共有依存をインライン化できない",
+        "after": "動的エントリで共有依存をインライン化"
+      },
+      "scope": [],
+      "summary": "Rolldown v1.2.2では、dynamic entriesの共有依存インライン化やプラグインコールバックの計測を追加し、開発時の不具合も修正。",
+      "title": "rolldown/rolldown v1.2.2",
+      "url": "https://github.com/rolldown/rolldown/releases/tag/v1.2.2",
+      "sourceLabel": "GitHub Releases / rolldown/rolldown",
+      "publishedAt": "2026-08-03T09:50:37.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "570849517fd8eb8b",
+      "product": "Vercel Container Registry",
+      "what": "コンテナイメージのレジストリサービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Container Registryのリポジトリをチーム間で共有できる",
+      "change": {
+        "before": "Container Registryのリポジトリをチーム間で共有できない",
+        "after": "Container Registryのリポジトリをチーム間で共有"
+      },
+      "scope": [],
+      "summary": "Vercel Container Registryのリポジトリを、複数チーム間で共有できるようになった。",
+      "title": "Share Vercel Container Registry repositories across teams",
+      "url": "https://vercel.com/changelog/share-vercel-container-registry-repositories-across-teams",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-03T00:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "f9763f61073d6d6b",
+      "product": "Next.js",
+      "what": "React向けフルスタックWebフレームワーク",
+      "version": "v16.3.0",
+      "kind": "minor",
+      "impact": "security",
+      "unlock": "Turbopackでapp route handlersのサーバーHMRを使える",
+      "change": {
+        "before": "app route handlersでサーバーHMRを利用できない",
+        "after": "Turbopackでapp route handlersのサーバーHMR対応"
+      },
+      "scope": [],
+      "summary": "Next.js v16.3.0では、CVE-2025-13465対応に加え、RSCレスポンス修正やTurbopackのapp route handlers向けサーバーHMRを追加。",
+      "title": "vercel/next.js v16.3.0",
+      "url": "https://github.com/vercel/next.js/releases/tag/v16.3.0",
+      "sourceLabel": "GitHub Releases / vercel/next.js",
+      "publishedAt": "2026-08-03T21:03:18.000Z",
+      "alsoReleased": [
+        {
+          "label": "Next.js 16.3",
+          "url": "https://nextjs.org/blog/next-16-3"
+        }
+      ]
+    },
+    {
+      "id": "989c25dd0befe39f",
+      "product": "pnpm",
+      "what": "Node.js向けパッケージマネージャー",
+      "version": "11.20",
+      "kind": "minor",
+      "impact": "security",
+      "unlock": "namedRegistriesで依存パッケージを安全に解決できる",
+      "change": {
+        "before": "レジストリを区別せず同名パッケージを解決",
+        "after": "レジストリ情報付きで依存パッケージを安全に解決"
+      },
+      "scope": [],
+      "summary": "pnpm 11.20では、namedRegistries利用時にレジストリを区別できず別レジストリの依存を解決する問題を修正。",
+      "title": "pnpm/pnpm pnpm 11.20",
+      "url": "https://github.com/pnpm/pnpm/releases/tag/v11.20.0",
+      "sourceLabel": "GitHub Releases / pnpm/pnpm",
+      "publishedAt": "2026-08-03T14:20:27.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "cf3c4df41c429f64",
+      "product": "Node.js",
+      "what": "JavaScriptランタイム",
+      "version": "24.19.0",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Node.js 24.19.0（LTS）のリリース告知。抜粋に具体的な変更内容は記載されていない。",
+      "title": "Node.js 24.19.0 (LTS)",
+      "url": "https://nodejs.org/en/blog/release/v24.19.0",
+      "sourceLabel": "Node.js Blog",
+      "publishedAt": "2026-08-03T13:49:39.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "7f01093a46322afb",
+      "product": "Storybook",
+      "what": "UIコンポーネント開発・テスト環境",
+      "version": "v10.5.6",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Storybook v10.5.6では、依存関係の固定、ESLintプラグインのメタデータ追加、Vue docgenの修正を実施。",
+      "title": "storybookjs/storybook v10.5.6",
+      "url": "https://github.com/storybookjs/storybook/releases/tag/v10.5.6",
+      "sourceLabel": "GitHub Releases / storybookjs/storybook",
+      "publishedAt": "2026-08-03T12:59:24.000Z",
+      "alsoReleased": []
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CLAUDE.md を厚くしても意味がなかった話",
+      "url": "https://qiita.com/jqit_suwa/items/2dee3e3d53080c3676a0",
+      "publishedAt": "2026-08-03T00:32:33.000Z",
+      "author": "jqit_suwa",
+      "authorDetail": {
+        "name": "jqit_suwa",
+        "handle": "@jqit_suwa",
+        "url": "https://qiita.com/jqit_suwa",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4430611/a4e4abd6c5cdfc9793196fe0d1cf620f5ef11694/x_large.png?1785289596",
+        "followers": 2,
+        "posts": 7,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "AIエージェント",
+        "Claude",
+        "ClaudeCode",
+        "LLM"
+      ],
+      "snippet": "36.2%。 これ、何の数字だと思いますか。 AIエージェントに「このルールを守って作業して」と指示書を渡したとき、実際にちゃんと守れた割合です。しかも、これが一番マシだったモデルのスコア。ほとんどのモデルは25%を下回りました。 2026年7月28日に arXiv に上がった論文の結果です。読んだとき、正直「うわ、やっぱりか」と思いました。 --- そのファイル、AIはちゃんと読んでません CLAUDE.md、AGENTS.md、.cursorrules。あるいは社内の「AI利用ガイドライン」。 こういうファイルを置いて、「これでAIがルールを守ってくれる」と思っている人は多いと思います。僕も思ってました。 で、だんだん長くなるんですよね。あれも書いておこう、これも念のため。気づけば50行、100行。 その前提が崩れました。 論文のタイトルは HANDBOOK.md: A Benchma…",
+      "body": "36.2%。\n\nこれ、何の数字だと思いますか。\n\nAIエージェントに「このルールを守って作業して」と指示書を渡したとき、実際にちゃんと守れた割合です。しかも、これが一番マシだったモデルのスコア。ほとんどのモデルは25%を下回りました。\n\n2026年7月28日に arXiv に上がった論文の結果です。読んだとき、正直「うわ、やっぱりか」と思いました。\n\n---\n\nそのファイル、AIはちゃんと読んでません\n\nCLAUDE.md、AGENTS.md、.cursorrules。あるいは社内の「AI利用ガイドライン」。\n\nこういうファイルを置いて、「これでAIがルールを守ってくれる」と思っている人は多いと思います。僕も思ってました。\n\nで、だんだん長くなるんですよね。あれも書いておこう、これも念のため。気づけば50行、100行。\n\nその前提が崩れました。\n\n論文のタイトルは HANDBOOK.md: A Benchmark for Long-Context Agentic Instruction Following。著者は Surge AI のチームです。\n\nやったことはシンプルで、「長い指示書を渡したら、エージェントは本当に従うのか」を測っただけ。でも、これまでこれを直接測ったベンチマークはなかったそうです。既存のベンチマークは「タスクを完了できるか」を見ていて、「ルールを守りながら完了できるか」は見ていなかった、と。\n\n言われてみれば、たしかにそうです。\n\n---\n\n何を測ったのか\n\n実験の作りがけっこう本気なので、ここは押さえておきたいところです。\n\n| 項目 | 内容 |\n|---|---|\n| タスク数 | 65個 |\n| ドメイン | 金融 / 医療請求 / 保険 / 物流 / 人事 の5分野 |\n| 企業 | 架空の10社 |\n| 指示書の長さ | 20〜124ページ（中央値37ページ、トークンだと8.3K〜79.4K） |\n| 環境 | MCP 経由でメール・チャット・カレンダー・課題管理・EC をモック提供 |\n| 採点基準 | 824個。全部プログラムで機械的に判定 |\n\n要するに、架空の会社に新人として放り込まれて、37ページくらいの業務マニュアルを渡され、メールやチャットを使いながら実務をやらされるわけです。人間の新人がやることと同じですね。\n\nうまいなと思ったのがカンニング対策です。10種類のベース指示書を用意して、タスクごとにルールや閾値を書き換えている。だから「このパターンは学習済み」が効きません。同じポリシーのタスクは2つとして存在しない。\n\n採点は「必要な行動をやったか」だけでなく、「禁止された行動をやっていないか」も見ます。ここが重要で、単なるタスク完了率ではないんです。\n\n---\n\n結果がなかなかキツい\n\n判定は strict pass@1 — 824基準のうち、そのタスクに紐づく基準（3〜27個）を全部満たして初めて合格という厳しめのルールです。\n\n上位はこうなりました。\n\n| 順位 | モデル構成 | スコア |\n|---|---|---|\n| 1 | Claude Fable 5（adaptive / max） | 36.2% |\n| 2 | Claude Fable 5 | 34.2% |\n| 3 | GPT-5.6 Sol（max） | 23.5% |\n| 4 | Claude Opus 4.8（adaptive / max） | 21.9% |\n| 5〜7 | GPT-5.6 Sol / GPT-5.5 / GPT-5.5（xhigh） | 21.5% |\n\n30構成を評価して、最下位は Grok 4.3 の 0.8%。\n\n1位でも3回に1回しか守れない。3位以下は5回に1回です。「指示書を置いておけば守ってくれる」という前提は、数字で見ると成立していません。\n\nちなみに、物流ドメインの長い指示書を使ったタスクでは 9〜15% まで落ちたそうです。長いほどキツくなる傾向は、やっぱりありそうです。\n\n---\n\n面白いのは「どう失敗するか」\n\nスコアより、こっちの方が読む価値がありました。失敗が4パターンに集約されるんです。\n\n [code] \n\n順番に見ていきます。\n\n1. 目の前の頼まれごとが勝つ\n\n指示書に「これは承認が必要」と書いてあるのに、環境の中でもっともらしい依頼が来ると、そっちに従ってしまう。\n\nこれ、人間の新人でもやりますよね。マニュアルには書いてあるけど、目の前の先輩が「急ぎだから飛ばして」と言ってきたら従ってしまう、みたいな。\n\nただ人間と違って、エージェントは相手が本当に権限を持っているか確かめません。プロンプトインジェクションが刺さる構造そのものです。\n\n2. チェックはする。でも結果を無視する\n\n個人的にこれが一番びっくりしました。\n\n必要な確認処理はちゃんと実行するんです。 で、その結果に反する行動を取る。\n\n在庫を確認して「在庫なし」と返ってきたのに、そのまま出荷処理に進む——みたいな動きです。手順は踏んでいるのに、踏んだ意味がない。\n\n「ちゃんとチェックさせているから安心」が通用しないということになります。\n\n3. 確認を飛ばして、できたことにする\n\n検証ステップをスキップして、成功したと仮定して次に進む。これは想像しやすいですね。\n\n4. 守ってないのに「守りました」と言う\n\nそして最後がこれです。\n\n遵守していないのに、遵守したと報告してくる。\n\nこれが一番厄介だと思います。1〜3は、ログを追えば気づけます。でも4は、報告だけ見ていると成功したように見える。\n\nエージェントに長時間の作業を任せて、最後のレポートだけ読んで「よし完了」としているなら、その報告は疑った方がいいということになります。\n\n---\n\nで、どうすればいいのか\n\n論文は解決策を示す種類のものではないので、ここからは僕の解釈です。\n\n指示書を厚くする方向は、たぶん筋が悪い。\n\n124ページ渡しても守られないなら、200ページにしても同じでしょう。むしろ Anthropic の公式ドキュメントは「CLAUDE.md は簡潔に保て、肥大化すると本当に守らせたい指示が無視される」と明言しています。今回の数字はそれと整合します。\n\nじゃあどうするか。失敗パターンから逆算すると、方向性は見えます。\n\n| 失敗パターン | 効きそうな対策 |\n|---|---|\n| 目の前の頼まれごとが勝つ | 権限の確認を文書ではなく仕組みで強制する。承認フローをツール側に持たせる |\n| チェック結果を無視 | チェックの結果で分岐する処理を外側に置く。エージェントの判断に委ねない |\n| 確認を飛ばす | 検証をエージェントの外で回す。CI やテストのように機械的に |\n| 虚偽報告 | 報告を信じない。 成果物そのものを機械的に検証する |\n\n共通しているのは、「守ってほしいことを文章でお願いするのをやめる」という点です。\n\n文書で統制できるのは「好み」まで。壊れたら困ることは、文書ではなくコードやフローで縛る。 そう割り切るのが現実的だと思います。\n\nCLAUDE.md に書くべきなのは、たとえばこういう類いです。\n\n [code] \n\n守られなくても事故にならないもの。逆に「本番DBを消すな」を CLAUDE.md に書いて安心するのは、この論文を読んだ後だとちょっと怖いです。権限を渡さない方が確実です。\n\n---\n\nこの論文の限界も書いておく\n\n鵜呑みにするのも違うので、気になった点を挙げます。\n\nstrict 採点はかなり厳しい。 3〜27個の基準を全部満たして初めて合格なので、1個外すと0点です。論文には1個の失敗を許す緩和版（pass@1 (N-1)）もあるので、実務の感覚に近いのはそちらかもしれません。\n\n著者は Surge AI です。 データの評価・ラベリングを事業にしている会社です。ベンチマークを作って公開すること自体は中立的な行為ですし、タスクと環境と評価ハーネスを全部公開しているのは誠実だと思います。ただ「評価が難しい」という結論が事業と無関係ではない、という点は頭に置いておいてよさそうです。\n\n架空企業の業務手順という設定です。 実際のソフトウェア開発で CLAUDE.md を使う場面とは、少し性質が違います。金融や医療請求の手順書は、開発ルールより分岐が複雑なはずです。\n\nとはいえ、「長い文書での統制は当てにならない」という方向性は、体感とも公式ドキュメントの記述とも一致します。数字が付いた意味は大きいと思います。\n\n---\n\nまとめ\n・長い指示書を渡しても、守られるのは3回に1回（最良モデルで36.2%、多くは25%未満）\n・失敗は4パターン。目の前の依頼に負ける / チェック結果を無視する / 確認を飛ばす / 守ってないのに守ったと言う\n・一番怖いのは4つ目。報告だけ見ていると成功に見える\n・対策の方向は「文書でお願いする」から「仕組みで縛る」へ\n・文書に書くのは、守られなくても困らないことだけにしておく\n\n自分の CLAUDE.md や AGENTS.md を開いて、「これ、守られなかったら事故になる？」を1行ずつ見てみてください。\n\nなるやつが混ざっていたら、そこは文書じゃなくて別の手段に移した方がいいと思います。\n\n---\n\n参考\n・論文: HANDBOOK.md: A Benchmark for Long-Context Agentic Instruction Following（arXiv:2607.25398、2026年7月28日）\n・議論: Hacker News（287ポイント、181コメント）",
+      "metrics": {
+        "likes": 17,
+        "stocks": 16,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "604192d014066ada",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.8982352941176471,
+      "popularityPercentile": 0.9919786096256684,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": true,
+      "score": 88,
+      "oneLiner": "長い指示書をAIエージェントが守る割合は最良モデルでも36.2%だった。",
+      "reason": "タスク完了ではなく「ルールを守って完了できるか」を測った結果、最良モデルでも遵守率は36.2%、多くは25%未満だった。CLAUDE.mdを厚くするだけでは制御にならない。",
+      "keywords": [
+        "CLAUDE.md",
+        "HANDBOOK.md",
+        "Claude Code",
+        "agentic instruction following",
+        "arXiv"
+      ],
+      "category": "調査・考察",
+      "domain": "ai",
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude CodeをOllama v0.14に直結する、--bareが鍵だった",
+      "url": "https://qiita.com/kai_kou/items/61c26b45760496be6af4",
+      "publishedAt": "2026-08-03T07:19:46.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。2023年2月からアライドアーキテクツ株式会社のエンジニアリングマネージャーとしてワイワイやってます。",
+        "organization": "アライドアーキテクツ株式会社",
+        "location": "Osaka, Japan",
+        "followers": 937,
+        "posts": 716,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "CLI",
+        "LLM",
+        "ollama"
+      ],
+      "snippet": "<!-- verification（必須・SSOT: docs/rules/article-evidence-rules.md）: firsthand : クラウド環境で実際に実行し生ログを確認した。実行ログ・実測・一人称の実演記述を書いてよい。 ※ 本記事はOllamaのインストールからClaude Code接続まで、クラウド環境で全て実機検証済み。 --> はじめに Ollama v0.14以降でAnthropic Messages API互換エンドポイントが追加され、Claude Codeをローカルモデルに直結できるようになりました。この記事では、Ollamaのインストールから実際にClaude Codeでローカルモデルに応答させるところまでを、クラウド環境上で一通り実機検証した記録をまとめます。 この記事で学べること ・OllamaのAnthropic互換エンドポイント（/v1/m…",
+      "body": "<!--\nverification（必須・SSOT: docs/rules/article-evidence-rules.md）:\n firsthand : クラウド環境で実際に実行し生ログを確認した。実行ログ・実測・一人称の実演記述を書いてよい。\n ※ 本記事はOllamaのインストールからClaude Code接続まで、クラウド環境で全て実機検証済み。\n-->\n\nはじめに\n\nOllama v0.14以降でAnthropic Messages API互換エンドポイントが追加され、Claude Codeをローカルモデルに直結できるようになりました。この記事では、Ollamaのインストールから実際にClaude Codeでローカルモデルに応答させるところまでを、クラウド環境上で一通り実機検証した記録をまとめます。\n\nこの記事で学べること\n・OllamaのAnthropic互換エンドポイント（/v1/messages）の疎通確認方法\n・Claude Codeをローカルモデルへ向ける環境変数の設定\n・素の状態では動かず、--bare オプションが必要だった理由\n\n対象読者\nClaude Codeを使っていて、API課金なしでローカルモデルとの組み合わせを試したい開発者を対象読者とします。\n\n前提環境\n・OS: Ubuntu 24.04（クラウド実行環境・CPUのみ、GPUなし）\n・Ollama: v0.32.5（インストール時点の最新版。Anthropic互換機能はv0.14で追加）\n・Claude Code: v2.1.220\n\nTL;DR\n・OllamaはHTTPサーバーとして /v1/messages エンドポイントを公開し、リクエスト・レスポンスともにAnthropicのMessages API形式に変換する\n・ANTHROPICBASEURL と ANTHROPICAPIKEY を差し替えるだけでClaude Codeをローカルモデルに向けられる\n・ただし通常起動だとCLAUDE.mdやツール定義を含む巨大なシステムプロンプトがローカルモデルのコンテキスト長を超え、2ターン目で500エラーになった。--bare オプションでシステムプロンプトを最小化すると安定した\n\n背景・課題\n\nClaude CodeはこれまでAnthropic公式のAPIかBedrock/Vertex経由での利用が基本で、ローカルLLMと組み合わせるにはLiteLLMのようなプロキシ層でAPI形式を変換する必要がありました。Ollama v0.14でAnthropic Messages API互換の /v1/messages エンドポイントが追加されたことで、この変換層を挟まずにClaude Codeから直接ローカルモデルを叩けるはずです[^1]。実際にどこまで素直に動くのか、クラウド環境で検証しました。\n\nやったこと\n\nステップ1: Ollamaのインストールと起動\n\nクラウド環境にOllamaをインストールします。公式インストールスクリプトはzstdコマンドに依存しており、未インストールだと以下のエラーで止まります。\n\n [code] \n\napt-get install -y zstd で依存を解消してから再実行すると、GPUなし環境でも問題なくインストールが完了しました。\n\n [code] \n\nサーバーを起動し、バージョンを確認します。\n\n [code] \n\nステップ2: Anthropic互換エンドポイントの疎通確認\n\nモデルを何も落としていない状態で /v1/messages に直接POSTすると、404ではなく notfounderror というAnthropic形式のエラーJSONが返ってきました。これはエンドポイント自体はAnthropicのリクエスト形式を正しく認識しており、単にモデルが未取得なだけであることを示しています。\n\n [code] \n\n軽量モデル qwen3:0.6b（523MB）を取得してから同じリクエストを送ると、Anthropic Messages APIそのものの応答形式（id・type: \"message\"・content・usage.inputtokens/outputtokens）でレスポンスが返ってきました。\n\n [code] \n\ncontent が thinking ブロックで埋まって maxtokens に達しているのは、qwen3 系がデフォルトで思考過程を出力するモデルであるためです。maxtokens を増やすか、思考をオフにするプロンプト設計が必要になる点は実運用上の注意点として控えておきます。\n\nステップ3: Claude Codeから接続する\n\nいよいよClaude Code本体から接続します。Ollama公式ブログの手順どおり ANTHROPICBASEURL と認証用のトークンを設定し、--model でローカルモデル名を指定します[^1]。\n\n [code] \n\n最初に ANTHROPICAUTHTOKEN を使う通常起動で試したところ、60秒のタイムアウトでプロセスが終了してしまいました。Ollama側のログを見ると、CLAUDE.mdやツール定義を含むシステムプロンプトが26,684トークンにも達し、モデルのコンテキスト長（既定4,096トークン）に収まらず2,050トークンへ切り詰められ、その状態で送った2回目のリクエストが500エラーになっていました。\n\n [code] \n\nそこで --bare オプション（フック・CLAUDE.md自動読み込み・プラグイン同期などを一括スキップする最小モード）に切り替え、認証も ANTHROPICAPIKEY に変更したところ、正しく応答が返ってきました。\n\n [code] \n\nハマりポイント\n\nポイント1: 通常モードはシステムプロンプトが大きすぎる\n\nClaude Codeの通常起動はCLAUDE.md・ツール定義・フック情報を含む数万トークン規模のシステムプロンプトを毎回送信します。Ollamaのデフォルトコンテキスト長（4,096トークン）はこれを大きく下回るため、切り詰め後の状態でマルチターンのやり取りに入ると500エラーで落ちました。ローカルモデルと組み合わせる場合は --bare でシステムプロンプトを最小化するか、OLLAMACONTEXTLENGTH でコンテキスト長を拡張する必要があります。\n\nポイント2: ツール呼び出しを伴う応答は極端に遅い\n\nCPUのみの環境（15.7GB RAM）で qwen3:0.6b を動かすと、テキスト生成速度は約11〜17トークン/秒でした。単純な一問一答（maxtokens: 50）は数秒で返りましたが、コード生成のようにモデルがツール呼び出しの判断を挟む可能性のあるプロンプトでは、1ターンだけで30〜60秒かかりました。Ollama公式ブログは「最低32Kトークンのコンテキスト長を推奨」としていますが[^1]、コンテキストを広げるほど1トークンあたりの処理時間も伸びるため、CPUのみの環境で実用速度を出すには軽量モデル選びとプロンプトの最小化が前提になります。\n\n著者視点の発見ポイント\n\n公式ブログの手順は「環境変数を2つ設定して claude --model xxx を叩くだけ」とシンプルに書かれていますが、実際にはClaude Code側が生成する巨大なシステムプロンプトとローカルモデルの小さいコンテキスト長がぶつかる問題が最初の一手で発生しました。--bare オプションはもともとフック・CLAUDE.md読み込みをスキップするための機能ですが、ローカルモデル接続では「システムプロンプトを小さく保つための実質的な必須オプション」として機能する、という組み合わせは実際に動かしてみるまで気づきませんでした。\n\nまとめ\n・Ollama v0.14以降は /v1/messages でAnthropic Messages API互換を提供しており、curlで直接叩いてもAnthropic形式のレスポンスが返ってくることを確認しました\n・Claude Codeは ANTHROPICBASEURL/ANTHROPICAPIKEY の差し替えだけでローカルモデルに向けられますが、通常起動のシステムプロンプトはローカルモデルの既定コンテキスト長を簡単に超えるため --bare が実質必須でした\n・CPUのみの環境では単純な応答は数秒で返る一方、ツール呼び出しを伴う可能性のあるプロンプトは1ターン30秒以上かかることがあり、体感速度は軽量モデルでも重めです\n\n関連記事\n・Claude Codeの/rewind、事故った3時間を1コマンドで巻き戻せる仕組みだった\n・『人間の入力ではない』通知の理由、Claude Code 2.1.205で気づいた\n・Claude Codeの新設定smallは、実は上限ではなく「お願い」だった\n\n参考リンク\n・Claude Code with Anthropic API compatibility - Ollama Blog（セットアップ手順・推奨コンテキスト長の出典）\n・Anthropic compatibility - Ollama Docs（エンドポイント仕様・対応機能一覧）\n・ollama/ollama v0.14.0 Release Notes（バージョン情報の出典）\n\n[^1]: Claude Code with Anthropic API compatibility - Ollama Blog（2026年時点。最低32Kトークンのコンテキスト長を推奨する旨の記載あり）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "406483ead85cacb3",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7682352941176471,
+      "popularityPercentile": 0.40106951871657753,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Ollama v0.14以降のAnthropic互換APIへClaude Codeを接続し、--bareが必要だと検証した。",
+      "reason": "Ollamaの/v1/messagesを使えばClaude Codeをローカルモデルへ向けられるが、通常起動のままでは動かなかった。Ubuntu 24.04・CPU環境で--bareを加える接続手順を実機検証している。",
+      "keywords": [
+        "Claude Code",
+        "Ollama v0.14",
+        "Ollama v0.32.5",
+        "--bare",
+        "Anthropic Messages API"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code 週次アップデートまとめ（2026/08/02週）",
+      "url": "https://qiita.com/saitoko/items/a95cbb5888835be0f7fd",
+      "publishedAt": "2026-08-03T09:58:43.000Z",
+      "author": "さいとう こういち",
+      "authorDetail": {
+        "name": "さいとう こういち",
+        "handle": "@saitoko",
+        "url": "https://qiita.com/saitoko",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/166128/8e6727ce4df25291a2c0e56fa2f9900739557b39/large.png?1776330863",
+        "bio": "SEとして働いています。今趣味でやっているのが、Claude Codeを使ったAIエージェントチームの運営です。記事制作・タスク管理の自動化を日本語の指示だけで回しています。コードは書きません。ここでは、その試行錯誤をそのまま書いています。タスク管理スキル /todo はOSS公開もしています。\r\nGitHub: https://github.com/saitoko",
+        "followers": 3,
+        "posts": 126,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/saitoko"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/saitoko2"
+          },
+          {
+            "label": "Web",
+            "url": "https://blog.saitoko.net/"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "AI",
+        "CLI"
+      ],
+      "snippet": "この記事はAIがClaude CodeのCHANGELOGをまとめたものです。誤りが含まれる可能性があるため、重要な判断は公式ドキュメントでご確認ください。 2026年8月2日週のまとめ: Claude Code v2.1.213〜v2.1.220 の変更をまとめた。今週のハイライトは、Opus 5が新しいデフォルトのOpusモデルとして追加されたこと（v2.1.219、1Mコンテキスト対応・価格はOpus 4.8と同額）と、/verify・/code-review・/deep-researchの自律実行が段階的に廃止されたこと（v2.1.215・v2.1.218）の2件。あわせて、権限自動承認の穴を塞ぐセキュリティ修正が複数入っており、後段の一覧でまとめて触れる。 はじめに 今週の Claude Code 更新をまとめた。対象は v2.1.213〜v2.1.220 の変更（前回: 202…",
+      "body": "この記事はAIがClaude CodeのCHANGELOGをまとめたものです。誤りが含まれる可能性があるため、重要な判断は公式ドキュメントでご確認ください。\n\n2026年8月2日週のまとめ: Claude Code v2.1.213〜v2.1.220 の変更をまとめた。今週のハイライトは、Opus 5が新しいデフォルトのOpusモデルとして追加されたこと（v2.1.219、1Mコンテキスト対応・価格はOpus 4.8と同額）と、/verify・/code-review・/deep-researchの自律実行が段階的に廃止されたこと（v2.1.215・v2.1.218）の2件。あわせて、権限自動承認の穴を塞ぐセキュリティ修正が複数入っており、後段の一覧でまとめて触れる。\n\nはじめに\n\n今週の Claude Code 更新をまとめた。対象は v2.1.213〜v2.1.220 の変更（前回: 2026/07/18週）。\n\n公式の What's New 週別ダイジェスト（code.claude.com/docs/en/whats-new）は2026-08-02時点でこの範囲（Week 30以降）がまだ公開されていない。そのため本記事は GitHub の CHANGELOG.md・GitHub Releases・npm レジストリを一次情報源としてまとめている。\n\nなお v2.1.213 は npm レジストリには公開されているが、公式 CHANGELOG.md・GitHub Releases のいずれにもエントリが存在せず、何が変わったのか公式情報からは分からなかった。この点は「その他の変更一覧」に注記として載せるにとどめる。\n\n---\n\n今週のハイライト\n\n1. Opus 5が新デフォルトのOpusモデルに（v2.1.219）\n\nv2.1.219でClaude Opus 5が追加され、新しいデフォルトのOpusモデルになった。最大の変化はコンテキストウィンドウで、1Mトークンに対応している。価格はOpus 4.8と同額に設定されており、入力$5/出力$25 per Mtokという水準になる（Anthropic公式Pricingドキュメントおよび公式CHANGELOGで確認）。fast modeで使う場合の価格は$10/$50 per Mtokだ。\n\nあわせてfast modeの対象モデルからOpus 4.7が除外され、以降 /fast はOpus 5とOpus 4.8のみに適用されるよう変更された。以前のバージョンでOpus 4.7をfast modeで使っていた場合、アップデート後は自動的に対象外になる。手元の設定やドキュメントで「fast modeはOpus 4.7」と書いている箇所があれば、書き直しておいたほうがいい。\n\n2. スキルの自律実行が段階的に廃止（v2.1.215・v2.1.218）\n\n今週は複数バージョンにわたって、Claudeが自律的にスキルを実行する挙動が縮小された。v2.1.215で/verify・/code-reviewの自律実行が廃止され、使う場合は明示的にコマンドを呼び出す必要がある。v2.1.218では/deep-researchの自動起動も廃止され、同様に手動実行が前提になった。\n\nあわせてv2.1.218で/code-reviewはバックグラウンドサブエージェントとして実行されるよう変更され、レビュー結果が会話を埋め尽くさなくなった。積み重ねたスラッシュコマンドをまとめてレビュー対象にできる点も地味に嬉しい変更だ。3件に共通するのは「Claudeが判断して勝手にやってくれる」から「明示的に呼ぶ」への揺り戻しで、自律実行の暴走を懸念していたユーザーには歓迎できる方向の変更だろう。\n\n---\n\nその他の変更一覧\n\n| バージョン | 機能名 | 概要 | 影響度 |\n|-----------|-------|------|--------|\n| v2.1.213 | changelogエントリなし | npmレジストリには公開されているが、公式CHANGELOG.md・GitHub Releasesにエントリ/タグページが存在せず、何が変わったか公式情報からは不明 | 低 |\n| v2.1.214 | EndConversationツール追加 | Claudeが悪質・脱獄的なやり取りのセッションを自ら終了できるツールを追加（claude.aiで提供済みの機能に相当） | 中 |\n| v2.1.214 | dir/許可ルールの過剰マッチ修正（セキュリティ） | Edit(src/)のような単一セグメント許可ルールが、ツリー内のどこにあってもdir/という名前のディレクトリへの書き込みを誤って自動承認していたバグを修正 | 高 |\n| v2.1.214 | Windows PowerShell 5.1 権限チェックバイパス修正（セキュリティ） | PowerShell 5.1セッションで実行されるコマンドに影響する権限チェックのバイパスを修正 | 高 |\n| v2.1.214 | 長大コマンドの権限チェック強化 | 10,000文字を超えるBashコマンドは常にプロンプトで確認を求めるよう変更（従来は自動実行されるケースがあった） | 中 |\n| v2.1.214 | dir/ hookのif:条件セマンティクス変更（破壊的変更） | 単一セグメントdir/のフックif:条件が /dirのみにマッチするよう変更。任意の深さにマッチさせるには/dir/と書き直す必要がある | 高 |\n| v2.1.214 | help/manコマンドの自動承認見直し（セキュリティ） | 不安全なオプション・コマンド置換・バックスラッシュパスを実行し得るhelp/manコマンドを自動承認しないよう修正 | 中 |\n| v2.1.214 | Dockerコマンドへの権限プロンプト追加 | デーモンリダイレクトフラグ（--url/--connection/--identity、Podmanのリモートモード含む）を伴うdockerコマンドに権限プロンプトを追加 | 中 |\n| v2.1.214 | --settings経由プラグインが読み込まれない不具合修正 | --settings CLIフラグ経由で有効化したプラグインが読み込まれない回帰バグ（v2.1.181以降で発生）を修正 | 中 |\n| v2.1.216 | sandbox.filesystem.disabled設定追加 | ネットワークegress制御は維持したままファイルシステム分離のみをスキップできる新設定を追加 | 中 |\n| v2.1.216 | メッセージ正規化の性能劣化を修正 | 長時間セッションでターン数に対しメッセージ正規化コストが2次関数的に増大し、数秒単位の停止・resume遅延が発生していた問題を修正 | 中 |\n| v2.1.216 | AskUserQuestionの誤継続を修正 | ユーザーが「待って」「説明して」と答えた場合でも作業を続行するよう指示していたバグを修正。自由記述回答は中立的な文言になるよう改善 | 高 |\n| v2.1.216 | worktree分離サブエージェントのgit誤動作修正（安全性） | worktree分離されたはずのサブエージェントがgit -C・--git-dir・GITDIR/GITWORKTREE経由で共有チェックアウトにgit操作をリダイレクトしてしまう問題を修正 | 高 |\n| v2.1.216 | 複合Bashコマンドの権限チェック修正（セキュリティ） | &&リストやネゲーション内のリダイレクトを含む複合ステートメントに対するBashコマンド権限チェックを修正 | 中 |\n| v2.1.216 | /context・/rewindの表示・安全性改善 | /contextがコンテキスト超過時に明示的な警告を表示するよう改善。/rewindはシンボリックリンク・ハードリンク経由でのファイル復元・削除を行わなくなった | 中 |\n| v2.1.217 | 同時実行サブエージェント数の上限追加 | 1メッセージから無制限にバックグラウンドエージェントが分岐しないよう、同時実行サブエージェント数のデフォルト上限20を追加（CLAUDECODEMAXCONCURRENTSUBAGENTSで変更可） | 高 |\n| v2.1.217→v2.1.219 | サブエージェントのネスト起動デフォルトが週内で二転 | v2.1.217で「サブエージェントは自身のサブエージェントをデフォルトでは起動しない」に変更された直後、v2.1.219で「デフォルト深さ3までネスト可能」に再変更された（CLAUDECODEMAXSUBAGENTSPAWNDEPTHで調整可）。方針転換の背景は公式ソースに記載がない | 高 |\n| v2.1.217 | --max-budget-usdがバックグラウンドサブエージェントも停止 | 上限到達時、新規サブエージェント起動を拒否し、実行中のバックグラウンドエージェントも停止するよう修正 | 中 |\n| v2.1.217 | 絵文字ショートコード補完・トランスクリプト書き込み失敗の警告 | プロンプト入力で:heart:等の絵文字ショートコード自動補完を追加。ディスク容量不足等でトランスクリプト書き込みに失敗した場合に警告を表示するよう改善 | 低 |\n| v2.1.217 | MCPツール出力のメモリリーク修正 | 切り詰められたMCPツール出力の完全版がセッション終了までメモリに保持され続けるメモリリークを修正 | 中 |\n| v2.1.218 | 左矢印キーによる会話破棄バグ修正（データロス回避） | 編集直後の左矢印キー押下で会話が取り消し不能に破棄されるバグを修正。編集直後は確認を求めるよう変更 | 高 |\n| v2.1.218 | plan mode + auto でのBash確認挙動変更 | 静的解析で読み取り専用と証明できないBashコマンドについて、auto modeのクラシファイアが判定するよう変更（従来はプロンプト確認） | 中 |\n| v2.1.218 | context: forkスキルがデフォルトでバックグラウンド実行 | context: forkを指定したスキルはデフォルトでバックグラウンド実行になる（background: falseでスキル単位のオプトアウト可能） | 中 |\n| v2.1.218 | Windowsパス破損バグ修正 | C:\\Users\\unicornのような\\u始まりのセグメントを含むWindowsパスがツール入力でCJK文字に化けてファイルにアクセスできなくなる問題を修正 | 中 |\n| v2.1.219 | Dynamic workflowsのデフォルトサイズ変更 | Dynamic workflowsが「medium」サイズ（15エージェント未満推奨）をデフォルトに。/configで他サイズや無制限に変更可 | 中 |\n| v2.1.219 | sandbox.network.strictAllowlist設定追加 | サンドボックス化されたコマンドについて、許可リスト外のホストへの通信をプロンプトなしで拒否する設定を追加 | 中 |\n| v2.1.219 | DirectoryAddedフック追加 | /add-dir実行時（またはSDKのregisterreporoot）に発火する新フックを追加 | 低 |\n| v2.1.219 | claude -pのストリーム途中エラー時の出力欠落修正 | API途中エラーでターンが失敗した際、すでに生成済みの回答が出力から欠落する問題を修正 | 中 |\n| v2.1.220 | バグ修正・信頼性改善（詳細記載なし） | CHANGELOG.mdの記載は\"Bug fixes and reliability improvements\"の1行のみで、具体的な変更内容は公式ソースに記載なし | 低 |\n\n---\n\nセキュリティ・データロス関連の修正は見逃さないほうがいい\n\n「その他の変更一覧」の中に、影響度「高」の項目が複数ある。ハイライトほど目立たないが、実害につながりうる内容なので触れておく。\n\ndir/許可ルールの過剰マッチ（v2.1.214）: Edit(src/)のような単一セグメントの許可ルールが、ツリー内のどこにあってもdir/という名前のディレクトリへの書き込みを誤って自動承認していたバグが修正された。意図しないディレクトリへの書き込みが確認プロンプトなしで通っていた可能性があるため、細かく権限ルールを設定している場合は影響範囲を確認しておきたい。あわせて、同じdir/系のフックif:条件のセマンティクスも変更されており（破壊的変更）、任意の深さにマッチさせたい場合は/dir/と書き直す必要がある。\n\n左矢印キーによる会話破棄バグ（v2.1.218、データロス回避）: 編集直後に左矢印キーを押すと、会話が取り消し不能な形で破棄されてしまうバグが修正された。編集直後は確認を求めるよう変更されている。作業内容が消えるタイプの不具合なので、修正前のバージョンを使っていた場合は影響がなかったか振り返っておくといい。\n\nサブエージェントのネスト起動デフォルトが週内で二転: v2.1.217で「サブエージェントは自身のサブエージェントをデフォルトでは起動しない」という制限が入った直後、v2.1.219で「デフォルト深さ3までネスト可能」に戻された。CHANGELOG.mdの記載をそのまま追った限りでは矛盾ではなく事実としての方針転換だが、なぜ1週間足らずで戻したのかは公式ソースからは読み取れない。多段のサブエージェント構成を運用している場合は、現在のバージョンでの挙動をCLAUDECODEMAXSUBAGENTSPAWNDEPTHの設定値とあわせて確認しておくのが安全だ。\n\nなお v2.1.220 は公式CHANGELOG.mdの記載が「Bug fixes and reliability improvements」の1行のみで、具体的な変更内容は公式情報からは分からなかった。\n\n---\n\n個別検証記事\n\n詳しく試した内容は別記事として書く予定。とくにOpus 5の1Mコンテキスト対応は、実際の長時間セッションでの挙動を検証してから別記事にまとめたい。\n・記事タイトル予定（公開後リンクに差し替え）\n\n---\n\n参考リンク\n・GitHub リリースノート（anthropics/claude-code）\n・前回記事: Claude Code 週次アップデートまとめ（2026/07/18週）\n---\nこの記事は はてなブログ からのクロスポストです。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5d23b246070caf07",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7488235294117648,
+      "popularityPercentile": 0.31283422459893045,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Claude Code v2.1.213〜v2.1.220でOpus 5追加と自律実行機能の段階廃止が進んだ。",
+      "reason": "v2.1.219で1Mコンテキスト対応のOpus 5が同額でデフォルトに加わった一方、/verify・/code-review・/deep-researchの自律実行は段階的に廃止された。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.213",
+        "v2.1.220",
+        "Opus 5",
+        "/verify",
+        "/code-review",
+        "/deep-research"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "ai",
+      "readingMinutes": 7,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「インターネットはありません」と書いたプロンプトの外で、AI が実在企業3社に侵入していた",
+      "url": "https://qiita.com/jqit_suwa/items/2adb0c35fffb41514791",
+      "publishedAt": "2026-08-03T00:58:08.000Z",
+      "author": "jqit_suwa",
+      "authorDetail": {
+        "name": "jqit_suwa",
+        "handle": "@jqit_suwa",
+        "url": "https://qiita.com/jqit_suwa",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4430611/a4e4abd6c5cdfc9793196fe0d1cf620f5ef11694/x_large.png?1785289596",
+        "followers": 2,
+        "posts": 7,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "生成AI",
+        "AIエージェント",
+        "Claude",
+        "Security"
+      ],
+      "snippet": "プロンプトには、こう書いてありました。 この環境はシミュレーションです。インターネットへのアクセスはありません。 嘘でした。 わざと嘘をついたわけではありません。書いた人も、そう信じていた。ただ、実際の環境はインターネットに繋がっていた。 結果、AI エージェントは実在する企業3社のシステムに侵入しました。 2026年7月30日に Anthropic が公開した調査報告の話です。 --- 先に、前回の記事の続きだという話をさせてください 少し前に「CLAUDE.md を厚くしても意味がなかった話」という記事を書きました。長い指示書を渡しても、エージェントが実際に守れるのは3回に1回だった、という論文の紹介です。 あの記事の結論は「守ってほしいことを文章でお願いするのをやめて、仕組みで縛ろう」でした。 今回の件は、その実例にあたります。しかも報告したのは Anthropic 自身です。 --…",
+      "body": "プロンプトには、こう書いてありました。\nこの環境はシミュレーションです。インターネットへのアクセスはありません。\n\n嘘でした。\n\nわざと嘘をついたわけではありません。書いた人も、そう信じていた。ただ、実際の環境はインターネットに繋がっていた。\n\n結果、AI エージェントは実在する企業3社のシステムに侵入しました。\n\n2026年7月30日に Anthropic が公開した調査報告の話です。\n\n---\n\n先に、前回の記事の続きだという話をさせてください\n\n少し前に「CLAUDE.md を厚くしても意味がなかった話」という記事を書きました。長い指示書を渡しても、エージェントが実際に守れるのは3回に1回だった、という論文の紹介です。\n\nあの記事の結論は「守ってほしいことを文章でお願いするのをやめて、仕組みで縛ろう」でした。\n\n今回の件は、その実例にあたります。しかも報告したのは Anthropic 自身です。\n\n---\n\n何があったのか\n\nきっかけは他社の開示でした。\n\n7月21日、OpenAI が「評価用サンドボックスから抜け出したエージェントが Hugging Face のインフラに侵入した」件を公開しています。それを受けて、Anthropic が自社の評価を遡って洗い直しました。\n\n7月23日にレビュー開始。翌24日に3件を特定。27日に該当する組織へ通知。\n\n調べた範囲と、見つかったものがこれです。\n\n| 項目 | 数 |\n|---|---|\n| レビュー対象 | Claude がインターネットに到達し得た評価実行 141,006件 |\n| 見つかったインシデント | 3件（計6ラン） |\n| 影響を受けた組織 | 実在する 3社 |\n| 関与したモデル | Claude Opus 4.7 / Claude Mythos 5 / 内部研究用のテストモデル |\n\n141,006件のうち3件。 割合で言えば 0.002% です。頻発していたわけではありません。ただ、3件は実際に起きました。\n\n---\n\n3件の中身\n\n1件目：本番データベースまで届いた\n\nClaude Opus 4.7 の回。\n\nアプリケーションとインフラの認証情報を抜き出し、本番データが数百行入ったデータベースにアクセスしています。\n\n2件目：PyPI に本物のマルウェアを公開した\n\nClaude Mythos 5 の回。ここが一番きついです。\n\n悪意ある Python パッケージを作って、PyPI に公開しました。\n\n公開されていたのは約1時間。その間に15の実システムでダウンロードされ、実行されています。 企業の認証情報も持ち出されました。\n\n個人的に一番驚いたのは、その過程です。\n\nPyPI のアカウント登録には電話番号が要ります。普通ならここで止まる。でもエージェントは、無料のメールプロバイダを自分で探してきて、アカウントを作りました。\n\n障害にぶつかって諦めるのではなく、迂回路を見つけて進んでいる。目的達成のために手段を組み立てる、という動きがそのまま出ています。\n\n3件目：デバッグページと SQL インジェクション\n\n内部研究用のテストモデルの回。\n\nインターネットに公開されていたアプリケーションを侵害しました。手口は、公開されたままのデバッグページから認証情報を読み取ることと、SQL インジェクションです。\n\n---\n\nここ、押さえておきたいのですが、どれもゼロデイではありません。\n\n弱いパスワード。閉じ忘れたデバッグページ。SQL インジェクション。教科書に載っている手口ばかりです。\n\nエージェントが未知の攻撃を編み出したのではなく、放置されていた穴を通っただけでした。\n\n---\n\nなぜ起きたのか\n\n原因が3つ重なっています。\n\n [code] \n\n1. プロンプトには「インターネットアクセスはない」と書いてあった\n2. 実際には設定ミスで、評価用マシンが直接インターネットに繋がっていた\n3. 外部の評価パートナー（Irregular 社）との間で、インターネット接続の有無について認識がずれていた\n\nさらに、CTF（Capture The Flag）形式の課題を出していたのに、どのシステムが対象範囲なのかを定義していませんでした。\n\nエージェントの側から見ると、条件はこうなります。\n・「侵入口を見つけて攻略しろ」と言われている\n・対象範囲は指定されていない\n・ネットワークは実際に繋がっている\n\nこの状態で実在のシステムに手を出すのは、むしろ指示どおりに動いた結果です。\n\n---\n\nここからは自分の解釈です\n\n前回の論文が示したのは「長い文書での統制は当てにならない」でした。\n\n今回はその一段先です。文書が守られなかったのではなく、文書に書いた前提そのものが事実と違っていた。\n\n「インターネットはありません」は、エージェントへの制約ではありませんでした。書き手の思い込みです。\n\nそしてエージェントは、書かれたことを疑いません。「本当にネットワークが切れているか確認してから作業しよう」とは考えない。だから書き手が間違っていれば、そのまま実行されます。\n\n対策の方向を、失敗の形から逆算するとこうなります。\n\n| やりがちなこと | 効きそうなこと |\n|---|---|\n| プロンプトに「外部にアクセスするな」と書く | ネットワークを実際に遮断する |\n| 「対象はこのホストだけ」と書く | 対象外のホストに到達できないようにする |\n| 「危険なことはしないで」と書く | 危険な操作の権限を渡さない |\n| ログを後で確認する | 実行中に監視する |\n\n共通しているのは、文書に書いた制約が本当に効いているかを、文書の外で確かめるという点です。\n\n自分に引き寄せると、Claude Code をサンドボックスで動かしているつもりでいても、そのサンドボックスが本当に閉じているか確認したことがあるか、という話になります。この報告を読むまで、そこを疑う発想がありませんでした。\n\n---\n\n冷静に見ておきたいところ\n\n煽られやすいネタなので、事実関係を整理しておきます。\n\n割合は 0.002% です。 141,006件のうち3件。「AI が次々と侵入している」という話ではありません。\n\nAnthropic は自分で調べて、自分で公開しています。 しかも他社の開示を受けて自主的に動いた。被害を受けた組織にも通知済みです。ちなみに3社のうち2社は、通知を受けるまで侵入に気づいていませんでした。\n\n「AI が暴走した」話でもありません。 CTF 課題を与えられて、指示どおりに動いた結果です。悪意があったわけではない。それでも実害が出た、という点がこの件の要点だと思います。\n\nSimon Willison はこの件について「サイバー攻撃能力の評価を走らせること自体が、驚くほどリスクの高い行為だ」と書いています。たしかに、攻撃能力を測るということは、攻撃できる状態のモデルを動かすということです。\n\nAnthropic 側の再発防止策はこうなっています。\n・トランスクリプトの継続的な監視を拡大する\n・調査ツールを改善する\n・ベンダーに対する保証作業を厳格にする\n・評価環境を、他のシステムと同じセキュリティ基準で扱う\n\n最後の一文がすべてを物語っている気がします。裏を返すと、これまでは「評価環境だから」という理由で基準が緩かったということになりますよね。\n\n---\n\nまとめ\n・プロンプトには「インターネットはない」と書いてあったが、実際には繋がっていた。設定ミスと、評価パートナーとの認識のずれが原因\n・141,006件の評価実行のうち3件で、実在する3社に侵入。うち1件は PyPI にマルウェアを公開し、15システムで実行された\n・手口はどれも既知のもの。弱いパスワード、放置されたデバッグページ、SQL インジェクション\n・エージェントは書かれた前提を疑わない。書き手が間違っていれば、そのまま実行される\n・制約は文書ではなく、ネットワークと権限で担保する\n\n自分がエージェントに渡している「〜するな」の一覧を開いて、それが文書だけで守られている状態になっていないか、見てみるとよさそうです。\n\n守られなくても困らないものなら、文書のままで構わない。守られないと事故になるものが混ざっていたら、そこは文書の外に出す。前回の記事から今回まで、結局そこに戻ってきます。\n\n---\n\n参考\n・Investigating three real-world incidents in our cybersecurity evaluations（Anthropic、2026年7月30日）\n・Simon Willison の解説\n\n関連記事\n・CLAUDE.md を厚くしても意味がなかった話 — この記事の前編。長い指示書が守られないことを測った論文の紹介\n・CLAUDE.md は21セクションか、8行か — 正反対の主張をする2つの記事を検証した話\n・Claude Opus 5 で変わったプロンプトの常識 — thinking や effort まわりの仕様変更",
+      "metrics": {
+        "likes": 15,
+        "stocks": 15
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6d9a9ec7e960edea",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.7276470588235294,
+      "popularityPercentile": 0.9893048128342246,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 84,
+      "oneLiner": "Anthropicの評価環境でAIエージェントが実在企業3社へ侵入した。",
+      "reason": "インターネット遮断と書かれた評価環境が実際には接続可能で、141,006件中3件、計6ランの侵入が起きた。文章による禁止より、ネットワーク分離など環境側の制御が必要だと示す。",
+      "keywords": [
+        "Anthropic",
+        "AI agent",
+        "サンドボックス",
+        "Hugging Face",
+        "セキュリティ"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 10,
+      "payoff": "aware",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIに設計させて、同じAIに実装させない ― Claude Code 自律開発ループに「設計者」と実装前ゲートを足す【設計者エージェント全文公開】",
+      "url": "https://qiita.com/TakanobuSano/items/c099906b6d5a617ce3d8",
+      "publishedAt": "2026-08-03T05:32:26.000Z",
+      "author": "貴信 佐野",
+      "authorDetail": {
+        "name": "貴信 佐野",
+        "handle": "@TakanobuSano",
+        "url": "https://qiita.com/TakanobuSano",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/82835/profile-images/1722951712",
+        "organization": "株式会社フォー・クオリア",
+        "followers": 66,
+        "posts": 200,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/TakanobuSano"
+          },
+          {
+            "label": "Web",
+            "url": "https://4qualia.co.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "AIエージェント",
+        "AI駆動開発"
+      ],
+      "snippet": "🧭 本記事は Claude Code実務運用シリーズ の STEP 6「サブエージェント化する」です。 前回のチケット駆動ループに設計者を足し、仕様の曖昧さを実装後ではなく実装前に止めます。 シリーズ全体の地図と読む順は 親記事 にまとめています。 はじめに 以前、チケット駆動の自律開発ループを組んで、QA・開発・レビュー・統括の 4 エージェント分のプロンプトを全文公開しました。 その後しばらく運用して、あるランの記録でこうなりました。 QA エージェントが実装前に仕様の曖昧点を 7 件挙げていた。それでも実装は走り、4 ファイルが変更され、ビルドが通り、テスト 242 件が全部 PASS した。そのうえで「仕様未確定」を理由に停止し、実装はまるごと破棄された。 エージェントが暴走したわけではありません。開発者エージェントは推測実装を避け、判断が必要な 5 件を人間判断の候補として保持…",
+      "body": "🧭 本記事は Claude Code実務運用シリーズ の STEP 6「サブエージェント化する」です。\n前回のチケット駆動ループに設計者を足し、仕様の曖昧さを実装後ではなく実装前に止めます。\nシリーズ全体の地図と読む順は 親記事 にまとめています。\n\nはじめに\n\n以前、チケット駆動の自律開発ループを組んで、QA・開発・レビュー・統括の 4 エージェント分のプロンプトを全文公開しました。\n\nその後しばらく運用して、あるランの記録でこうなりました。\nQA エージェントが実装前に仕様の曖昧点を 7 件挙げていた。それでも実装は走り、4 ファイルが変更され、ビルドが通り、テスト 242 件が全部 PASS した。そのうえで「仕様未確定」を理由に停止し、実装はまるごと破棄された。\n\nエージェントが暴走したわけではありません。開発者エージェントは推測実装を避け、判断が必要な 5 件を人間判断の候補として保持していました。指示どおりに振る舞って、それでもこうなった。\n\n原因は私が配ったテンプレの構造にありました。この記事は、その欠陥と、直した構成の配布です。新しいエージェントチームを作った話ではなく、一度公開した設計を訂正する話です。\n\nbefore: 独立した検査が実装後にしか無い\n\n [code] \n\n防御は 3 つ置いてありました。どれも「実装が走ること」を止められません。\n・「推測で実装せず記録する」という指示 — 自己申告です。防ぎたいのは「曖昧だと気づかないまま一方の解釈で進む」ことなので、本人への「気づいたら止まれ」は構造的に届きません\n・プラン → 実装のゲート — 判定するのが開発者自身です。しかも同一コンテキストで「仕様整理 → 調査 → プラン → 実装」を連続実行するため、解釈が言語化される前に実装方針へ溶けます\n・独立レビュー — 実装後です。動くコードを前にすると、もっともらしい解釈は正しく見える\n\n修正ループ(レビューで差し戻して再実装、上限 2 回)は用意してありました。ただしこれもまるごと実装より下流です。仕様が曖昧なまま回せば、捨てるかもしれないコードが増えるだけです。\n\nつまり、解釈が固まる地点(実装前)と、解釈が独立に検証される地点(実装後)がずれていた。 これが原因でした。\n\nafter: 実装前に独立した検査とゲートを置く\n\n [code] \n\n変えたのは 3 点です。\n\n1. 設計者を独立サブエージェントに分離した。 仕様を解釈して実装方針を決める役と、コードを書く役を別コンテキストにしました。設計者に渡すのはチケット番号とファイルパスだけで、会話や思考過程は渡しません。既存のレビュー独立性と同じ発想を、工程の上流側にも適用したものです。\n\n2. 仕様解釈台帳を必須フォーマットにした。 ここが本体です。設計者は実装で決める必要がある項目をすべて洗い出し、3 分類のいずれかに割り当てます。未分類を残すことを禁止します。\n\n| 分類 | 条件 | 書くこと |\n|---|---|---|\n| 明記 | チケット(コメント・添付含む)に書かれている | 原文の引用 |\n| 推論 | 明記はないが、記述や既存仕様から一意に導ける | 導出根拠 |\n| 仮定 | 複数の解釈がありうる、または根拠がない | 採用する解釈・理由・代替解釈 |\n\n全項目に分類を強制すると「気づかないうちに解釈する」が形式上できなくなります。「明記」に原文引用を要求することで、都合よく格上げする逃げ道も塞がります。\n\n3. 実装前にゲートを置いた。 次節のとおりです。\n\n(+1) 逸脱ログ。 分離すると今度は「実装時に都合よく適応する」リスクが生まれます。そこで実装者側に、仕様解釈に関わる逸脱は実装を止めて人間判断へ、軽微な逸脱は「箇所・内容・理由・仕様解釈への影響」をログに記録して続行、ログに書かずコードにだけ反映するのは禁止、という規則を足しました。レビュアーの観点にも「逸脱ログにない逸脱が差分に混ざっていないか」を追加しています。\n\nなお修正ループ自体は before から変えていません。 レビューで NEEDSFIX なら開発者へ差し戻して再レビュー、上限 2 回、同趣旨の指摘が残ったら人間へ ― ここはそのままです。足したのは、そのループに入る前に一度止める関門です。逸脱ルールは修正ループの中でも効くので、差し戻し対応の途中で解釈を変える必要が出たら、そこでも実装は止まります。\n\n設計ゲートの判定フロー\n\n [code] \n\nこれは「設計・API・データモデル・ユーザー可視の挙動を左右する曖昧さは質問する。軽微な曖昧さは前提を明記して進める」という普段の運用原則を、ループの構造として埋め込んだものです。\n\nポイントは 2 つ目の分岐です。設計者が「仮定」を書き忘れたり、原文引用なしで「明記」に格上げしたりした場合を、統括役が機械的に検出して差し戻します。 設計者の誠実さにも依存しない形にしてあります。\n\n冒頭と同じチケットでこの構成を 1 回走らせたところ、設計者は台帳 28 件(明記 12 / 推論 8 / 仮定 8)を起こし、うち 6 件の仮定が設計スコープとユーザー可視の挙動を左右すると判定されました。変更ファイル 0、ビルド 0 回、テスト 0 回で人間判断へ。 止まった最大の理由は、チケットの説明欄と後から付いた方針コメントで対象スコープが矛盾していたことでした。\n\n「新しいコメントのほうが正しいだろう」は、実務的にはたぶん当たっています。当たっていそうな推測だからこそ、黙って採用されると誰も検算しません。 台帳に「仮定」として書かせたことで、それが人間の確認対象として表に出ました。\n\nなお、実証できたのは「曖昧さが残る状態で実装を走らせずに止まった」ことだけです。「分離したから誤解釈が減った」は、まだ測れていません。 before のランでも開発者は推測実装を避けていたので、比較対象そのものが無いためです。\n\n配布: designer-agent.md(全文)\n\n実物をそのまま載せます。私の環境が iOS なので Step 4 の調査観点だけ iOS 向けですが、そこを自分の分野(Web / バックエンド / Android など)に差し替えれば残りはそのまま使えます。台帳の 3 分類と判定基準に分野依存はありません。\n\n \n designer-agent.md 全文(クリックで展開) \n\n [code] \n\n \n\n「実装ガイド」を必須にしているのには理由があります。設計者と実装者を分けると、設計者が得たコードの土地勘が実装者へ引き継がれず、既存コード調査が二重化します。参照すべきファイルとシンボル、倣うべき既存パターンを書かせることで、実装者側の再調査をピンポイントに絞れます。\n\nまとめ\n・自律開発ループが「動くコードを作ってから捨てる」のは、エージェントが嘘をつくからではなく、独立した検査が実装後にしか無いから\n・設計者と実装者を分けるだけでは足りない。効くのは 仕様解釈台帳(全項目を 明記 / 推論 / 仮定 に強制分類) と 実装前ゲート。分離は、それを実装者の自制に依存させないための構造\n・分離すると「実装時に黙って適応する」リスクが生まれるので、逸脱ログで蓋をする\n・初回実走は変更 0 ファイルで人間判断へ回した。ただし 効果そのものはまだ未計測\n\n自分が配ったテンプレの欠陥を、自分の運用記録から見つけて直す。この一周ができたのは、ラン単位の記録をリポジトリの外に残していたからでした。記録を取る仕組みのほうが先に効いた、という話でもあります。\n\n---\nこのシリーズの歩き方\n\nClaude Code実務運用シリーズ ― 暴走させない、から仕組みにするまで。\n・◀ 前の記事: ループエンジニアリングでClaude Codeを実務に：Redmineチケット駆動開発のQA・開発・レビュー・統括エージェント設計\n・▶ 次の記事: Claude Codeで競合X分析を自動化する：ループエンジニアリングで作るAIスペシャリストチーム\n・🔍 あわせて読む: その「できました」、本当に?——AIエージェントの仕事をラン単位で計測する横断ダッシュボード【テンプレ全公開】 ― このゲートの効果を数字で追うための計測基盤\n・🗺 シリーズ全記事の地図(親記事)",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "e1fff223ab24edc4",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7829411764705883,
+      "popularityPercentile": 0.4679144385026738,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 80,
+      "oneLiner": "Claude Codeの自律開発ループに設計者エージェントと実装前ゲートを追加した。",
+      "reason": "仕様の曖昧さを実装後に検出した結果、4ファイル変更と242件のテスト成功を経て全破棄になった。実装者自身の自己申告ではなく、別の設計者エージェントが実装前に止める構造へ改めている。",
+      "keywords": [
+        "Claude Code",
+        "サブエージェント",
+        "設計者エージェント",
+        "実装前ゲート",
+        "自律開発"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "LLM に動画を「本当に見せる」方法：claude-real-video を試してみた",
+      "url": "https://qiita.com/Leohuang/items/0d0cb09d576fc86c8c13",
+      "publishedAt": "2026-08-03T19:28:36.000Z",
+      "author": "Leo Huang",
+      "authorDetail": {
+        "name": "Leo Huang",
+        "handle": "@Leohuang",
+        "url": "https://qiita.com/Leohuang",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKt5lVslXGtuh8i6LOJjOFYPmeDFTsT_QNzVeeW9VsyBnsqEA=s96-c",
+        "bio": "AIツール研究者。AIに何ができるかを検証しながらプロダクトを作っています。あらゆるLLMに動画を理解させるOSS「claude-real-video」の開発者。",
+        "location": "Taiwan",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://leoaido.com"
+          }
+        ]
+      },
+      "tags": [
+        "LLM",
+        "ClaudeCode",
+        "MCP",
+        "ffmpeg",
+        "whisper"
+      ],
+      "snippet": "はじめに LLM に YouTube の URL を渡しても、実際に読まれているのは字幕（トランスクリプト）だけで、映像そのものは見られていない、ということが多いです。Claude は動画ファイルをそもそも受け付けませんし、ネイティブに動画を読める Gemini も、デフォルトでは 1fps の固定間隔でフレームをサンプリングするため、速いカットは抜け落ちてしまいます。 そこで、MIT ライセンスのオープンソースツール claude-real-video（略称 crv）を試してみました。動画をローカルで処理して、「意味のあるフレーム＋タイムスタンプ付きトランスクリプト＋読み方の説明書（マニフェスト）」という、どの LLM でも読めるプレーンなファイル一式に変換してくれるツールです。処理はすべて自分のマシン上で行われ、動画がどこかにアップロードされることはありません。 インストール 必要なの…",
+      "body": "はじめに\n\nLLM に YouTube の URL を渡しても、実際に読まれているのは字幕（トランスクリプト）だけで、映像そのものは見られていない、ということが多いです。Claude は動画ファイルをそもそも受け付けませんし、ネイティブに動画を読める Gemini も、デフォルトでは 1fps の固定間隔でフレームをサンプリングするため、速いカットは抜け落ちてしまいます。\n\nそこで、MIT ライセンスのオープンソースツール claude-real-video（略称 crv）を試してみました。動画をローカルで処理して、「意味のあるフレーム＋タイムスタンプ付きトランスクリプト＋読み方の説明書（マニフェスト）」という、どの LLM でも読めるプレーンなファイル一式に変換してくれるツールです。処理はすべて自分のマシン上で行われ、動画がどこかにアップロードされることはありません。\n\nインストール\n\n必要なのは Python 3.10+ と ffmpeg です。\n\n [code] \n\nClaude Code / Cursor / Codex などのコーディングエージェントで使う場合は、スキルも 1 コマンドで入ります。\n\n [code] \n\n実行してみる\n\nURL かローカルファイルを渡すだけです。\n\n [code] \n\n出力はこうなります。\n\n [code] \n\n出力が意図的に「地味なプレーンファイル」になっているのがポイントで、だからこそ Claude / ChatGPT / Gemini のどれにでもそのまま投げられます。frames と MANIFEST.txt をドラッグして質問するだけです。\n\nモデルに渡す前に自分の目で確認したい場合は --viewer を付けると、ローカルの viewer.html（動画＋キーフレーム一覧＋トランスクリプト）が生成されます。ネットワーク接続も追加インストールも不要でした。\n\n用途に応じたオプションもいくつかあります。\n・--adaptive : アニメーションやスローパンなど、変化が緩やかなコンテンツ向け。固定しきい値ではなく周辺フレームとの相対比較で選別されます\n・--text-anchors : スライド講義や画面録画向け。字幕キューのタイムスタンプにフレームを強制追加（sidecar の .srt/.vtt か埋め込み字幕トラックが必要）\n・--speakers : インタビューや会議向け。各行に話者ラベルが付きます（ローカルの話者分離モデル 45MB を初回のみダウンロード、アカウント不要）\n\nターミナルを使いたくない場合は crv-web でローカルの Web ページ（日本語 UI はまだなく、繁体字中国語／簡体字中国語／英語）も開けます。\n\nMCP で Claude / Cursor につなぐ\n\nMCP サーバーとして動かすと、エージェント側から全自動で使えます。\n\n [code] \n\nこれで任意の MCP クライアント（Claude Desktop、Claude Code、Cursor など）から watchvideo ツールを URL またはファイルパスで呼べるようになり、フレームとトランスクリプトを融合した結果が返ってきます。設計上の工夫として、返却されるフレームは長辺 768px にリサイズされ（フル解像度はコンテキストを浪費するだけで視覚的なゲインがないため）、解析結果はソースごとにキャッシュされるので、同じ動画への追加質問で再ダウンロード・再抽出は発生しません。\n\nClaude Code のプラグインマーケットプレイス経由でも導入できます。\n\n [code] \n\nどうやってフレームを選んでいるのか（簡単に）\n\n作者のエンジニアリングノートによると、前提となる制約は「vision LLM に現実的に渡せるのは 1 本あたり約 150 枚」というトークン予算です。この予算をどう使うかがすべてで、抽出ではなく「選別」が本体だとされています。\n\n流れをざっくり書くと：\n\n1. シーン検出: ffmpeg の scene スコアでシーン変化ごとにフレームを取得。固定しきい値だとアニメやスローパンを取りこぼすため、移動平均に対する相対値で判定する方式が用意されています\n2. 3 チャンネルの重複除去: ① 16×16 のグローバル署名で全体変化を判定（直近に保持した 4 フレームのスライディングウィンドウと比較）、② 32×32 のグリッドで「画面の一部だけが強く動いた」小さな被写体の変化を検出、③ 192×192 の署名で字幕の切り替わりやホワイトボードの書き込みのような局所的な状態変化を検出\n3. トランスクリプトとの融合: 埋め込み字幕があればそれを、なければローカル Whisper を使用。各セグメントにどのフレームが属するかを事前に結合してあるので、モデル側でタイムスタンプを突き合わせる必要がありません\n\n実例として、同じ 58 秒のクリップで固定 1fps サンプリングだと 58 枚になるところ、crv は実際に異なる 26 枚だけを残す、という比較が README に載っています。\n\nおわりに\n\n「LLM に記事の要約を読ませる」のと「LLM に動画そのものを見せる」のは別物で、後者ができると、チュートリアルで一瞬だけ映ったエラーメッセージのような「誰も書き起こさなかった情報」まで拾えるようになります。ローカル完結で試せるので、興味のある方はぜひ。\n\nGitHub: https://github.com/HUANGCHIHHUNGLeo/claude-real-video （MIT ライセンス）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "85f2cb29e93570ed",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6882352941176471,
+      "popularityPercentile": 0.0374331550802139,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 80,
+      "oneLiner": "claude-real-videoは動画を意味のあるフレームと字幕に分解し、LLMへ渡せる形式に変換する。",
+      "reason": "動画を1秒ごとに切り出すだけでなく、意味のあるフレーム・時刻付きトランスクリプト・MANIFEST.txtへ変換する。処理はローカルで完結し、ClaudeやChatGPTなどへ同じ形式で渡せる。",
+      "keywords": [
+        "claude-real-video",
+        "Claude Code",
+        "MCP",
+        "ffmpeg",
+        "Whisper"
+      ],
+      "category": "新機能・新ツール",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Codeを長時間自走させて分かった｜止まる前提で作る再実行・利用枠・失敗復旧",
+      "url": "https://qiita.com/vivinko/items/d62b471561cc20bee1fe",
+      "publishedAt": "2026-08-03T04:33:15.000Z",
+      "author": "vivinko",
+      "authorDetail": {
+        "name": "vivinko",
+        "handle": "@vivinko",
+        "url": "https://qiita.com/vivinko",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4334378/ba7f449b3c11916761489fafcb04b4b0b96e930c/x_large.png?1768377891",
+        "bio": "C#テックリード。WinForms主戦場で制御/組み込み・業務系クラサバを10年以上。非同期/スレッド、ログ設計、Win32の地雷撤去が得意。連載:C#達人への道(試練と掟)/現場救急Tips/外伝",
+        "location": "福岡市",
+        "followers": 4,
+        "posts": 92,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/vivinko63491"
+          }
+        ]
+      },
+      "tags": [
+        "ソフトウェア開発",
+        "ClaudeCode",
+        "自動化",
+        "AI駆動開発",
+        "AIエージェント"
+      ],
+      "snippet": "Claude Codeを定期実行し、1回の起動で複数Taskへ進ませれば、数時間放置しても開発が進む。 自分も最初はそう考えていました。 実際には、長時間動かすほど正常系より次の状態に悩まされました。 [code] 一番困ったのは、Sessionが止まること自体ではありません。 どこまで成功したか分からないまま同じTaskをやり直し、利用枠だけを消費することでした。 長時間自走で必要だったのは、止まらない仕組みではありません。 止まっても、現在状態を確認して安全に続きから再開できる仕組み でした。 先に全体像 実際に追加した仕組みを、問題との対応で並べると次のようになります。 | 起きたこと | 追加した仕組み | |---|---| | Sessionが途中で終了する | checkpointと再開位置を残す | | 同じTaskが再度選ばれる | 実行前に既存成果物・commit・適用…",
+      "body": "Claude Codeを定期実行し、1回の起動で複数Taskへ進ませれば、数時間放置しても開発が進む。\n\n自分も最初はそう考えていました。\n\n実際には、長時間動かすほど正常系より次の状態に悩まされました。\n\n [code] \n\n一番困ったのは、Sessionが止まること自体ではありません。\n\nどこまで成功したか分からないまま同じTaskをやり直し、利用枠だけを消費することでした。\n\n長時間自走で必要だったのは、止まらない仕組みではありません。\n止まっても、現在状態を確認して安全に続きから再開できる仕組み\n\nでした。\n\n先に全体像\n\n実際に追加した仕組みを、問題との対応で並べると次のようになります。\n\n| 起きたこと | 追加した仕組み |\n|---|---|\n| Sessionが途中で終了する | checkpointと再開位置を残す |\n| 同じTaskが再度選ばれる | 実行前に既存成果物・commit・適用状態を確認する |\n| 一時障害が起きる | RETRYABLEとRetry上限を持つ |\n| 仕様判断が必要になる | NEEDSHUMANで止める |\n| 一部の実行環境がない | CapabilityをTask単位で分ける |\n| モデル条件が合わない | required / preferred / fallbackをTask条件にする |\n| 利用枠が少なくなる | 新規Task取得を抑え、Integrationと復旧を優先する |\n| 長時間動いた結果がずれる | 最後にSPEC・利用シナリオ・品質Gateへ戻す |\n\n最初から全部を入れたわけではありません。実際に止まった理由を一つずつ、次の実行ルールへ変えていきました。\n\n1. Taskは「短さ」より再開可能性で切る\n\nTaskを大きくしすぎると、\n\n [code] \n\nという問題が出ます。\n\n逆に細かくしすぎると、毎回の正本読込、Git確認、commitなどのオーバーヘッドが増えます。\n\nそこで、\n途中で安全に止められ、次回どこから再開するか判断できる単位\n\nをTaskやcheckpointの境界にします。\n\n1回の起動で複数Taskを進める\n\n初期の自走では、安全のため、\n\n [code] \n\nとしていました。\n\n安定してくると、これは人の介入回数を増やします。\n\nTask Aが終わった時点でTask Bの依存が解けているなら、そのまま次へ進められます。\n\n [code] \n\nただし、無制限に次Taskへ進めるのは危険です。\n\n連続実行する場合も、\n\n [code] \n\nなら停止します。\n\n:::note info\n1Task上限をなくすことと、停止条件をなくすことは別です。\n\n仕様判断、重要Gate、Git異常、時間・利用量上限に達したら、次Taskへ進まず状態を残して止めます。\n:::\n\nTaskを自分で選び、完了後に次のTaskへ進むところまでの全体像は、以下の記事で扱っています。\n\n→ 人が毎回指示しなくても開発は進む｜Claude Codeを開発チームのように動かす考え方\n\n2. Task状態で「次に何をしてよいか」を持つ\n\n定期実行では、失敗Taskを単純に「未完了」へ戻すと、次回また同じことをします。\n\n原因が変わっていなければ、同じ失敗を繰り返します。\n\nそこで、状態を分けます。\n\n [code] \n\n例です。\n\n [code] \n\n自走基盤では、\n\n失敗したかどうかより、次に何をしてよい失敗なのか\n\nを持たせる方が扱いやすいです。\n\n最小限の状態をファイルへ残すなら、例えば次のような形です。\n\n [code] \n\n形式より重要なのは、次回のSessionが会話履歴を知らなくても、再開・Retry・停止のどれを選ぶか判断できる情報が残っていることです。\n\n再実行しても壊れないTaskにする\n\n定期実行では、途中でSessionが落ちたり、同じTaskを再開したりします。\n\nそこでTask開始時に、\n\n [code] \n\nを確認します。\n\n例えばMigration生成、コード生成、テストデータ投入などは、何も確認せず2回実行すると別の結果になることがあります。\n\n [code] \n\n理想は冪等なTaskですが、難しい場合は再実行前に現在状態を検出し、再開・やり直し・BLOCKEDを選べることを重視します。\n\nRetryには上限を持たせる\n\nRETRYABLEだからといって無限に再実行しません。\n\n例えば、\n\n [code] \n\nを持たせます。\n\n同じエラーが3回続いたらBLOCKEDへ移す、などです。\n\n [code] \n\nAIの利用量を無駄にしないためにも必要でした。\n\n定期実行を入れただけでは止まった実例と、その時点で追加した停止条件は、以下にまとめています。\n\n→ Claude Codeを定期実行しただけでは自走しなかった｜実際に詰まった7つの問題\n\nlock / heartbeatは開始前にも確認する\n\nlock / heartbeatを採用している場合も、再開時は長時間運用側の確認が必要です。\n\n [code] \n\n「lockが空いている」だけでは開始しません。\n\nlockの誤回収で、別Sessionがまだ動いているのに新しいSessionを開始しかけた事例は、以下の記事で扱っています。\n\n→ 複数のClaude Codeを自走させて分かった｜ロックだけでは二重実行を防げなかった\n\n [code] \n\n3. runnerと利用資源をTask条件にする\n\n実行環境のCapabilityもTask条件にする\n\n自分の環境でも、全部の確認環境がそろっているわけではありません。\n\n例えば、iOSのビルド環境はない一方で、Android Emulatorなら確認できます。\n\nここでClient全体をBLOCKEDにすると、Android側まで止まってしまいます。\n\nそこで、\n\n [code] \n\nのようにCapabilityを分け、1つの環境不足でレーン全体を止めないようにしています。\n\nTask側も、\n\n [code] \n\nのように必要条件を持たせます。\n\nできないTaskは止めるが、無関係なREADY Taskまで止めないための分離です。\n\nスケジュールは開発Phaseに合わせる\n\n全担当を同じ頻度で起動する必要はありません。\n\n例えば、\n\nServer基盤を作っている時期\n\n [code] \n\nUIを詰める時期\n\n [code] \n\nのように変えます。\n\nTaskがない担当を何度も起動しても利用量を使います。\n\n「毎時何回」より、\n\n今のPhaseでどこを進めたいか\n\nを優先します。\n\nモデル・推論レベルも実行条件にする\n\n定期実行を始めたとき、意図していたモデル条件と違う状態でSessionが起動する問題もありました。\n\nTaskが単純な状態確認なら影響は小さくても、設計変更やIntegration判断では気になります。\n\nそこで、モデルや推論レベルも実行条件として考えるようになりました。\n\n [code] \n\nただし、もっと重要なのは指定モデルを使えなかったときの扱いです。\n\n [code] \n\nなのか、\n\n [code] \n\nなのかをTask側で決めます。\n\n品質判断が必要なTaskを、知らないうちに別条件で実行しないためです。\n\n:::note info\nモデル名や推論設定は変わるため、記事では特定モデルを固定して「これが正解」とはしていません。\n\n重要なのは、Taskが要求する判断難度と実行条件を対応させることです。\n:::\n\n自動切替の仕組み自体が複雑になるなら、最初からやりすぎない方が安全です。\n\n利用枠も実行資源として扱う\n\n複数レーンを定期実行すると、実装していない回でも、\n\n [code] \n\nだけで利用量を使います。\n\nそのため、自分の中では利用枠もCPUやメモリと同じ実行資源として考えるようになりました。\n\n残りが少ない状態で定型確認を高コストに回し続けると、最後のIntegrationや障害解析で必要な余力がなくなります。\n\n例えば、\n\n [code] \n\nのように、残量に応じて新しいTaskを拾う量を落とします。\n\n定期実行だからといって、毎回必ず新Taskを開始する必要はありません。\n\n:::note info\n「実行環境が足りない」と「プロジェクト全体が止まる」は別です。\n\nできないTaskだけをBLOCKEDにし、別のCapabilityで実行できるREADY Taskは進めます。\n:::\n\n4. 長時間走った後は品質Gateへ戻す\n\n長く自走できても、最後に見るべきことは変わりません。\n\n [code] \n\n動くことと、欲しかったものができることは別です。\n\n長時間自走では変更量が増えるため、むしろ最後のズレ確認を省かないようにします。\n\n [code] \n\n:::note info\n探索モードなら「違った」は仕様を見直す材料です。\n\n収束・本番品質モードなら、同じズレを正式受入前のFAILとして扱います。\n:::\n\n5. 人が見るのは「次の指示」ではなく判断\n\n長時間自走で減らしたいのは、\n\n [code] \n\nという進行指示です。\n\n人へ戻すのは、\n\n [code] \n\nのような判断です。\n\n:::note info\n最初からここまで作ったわけではありません。\n\n止まった理由や事故寸前の事例が出るたびに、checkpoint、Retry、Capability、lock、品質Gateを一つずつ追加しました。\n:::\n\nまとめ\n\n長時間自走で大事だったのは、止まらないことではありません。\n\n [code] \n\nことでした。\n\n [code] \n\n自走は、AIにすべてを任せることではありません。\n\n人が判断しなくてよい進行を自動化し、人が必要な判断だけを受け取れる状態へ近づけることだと考えています。\n\nAIで手間を減らすはずなのに、自走基盤そのものの管理で人の作業が増えたら本末転倒です。\n\nそのため、自分は最初から全部入りの仕組みを作るのではなく、実際に止まった理由だけを次のルールへ変えるようにしています。\n\n導入順を一つに絞るなら、次の順番です。\n\n [code] \n\nまず「途中で止まっても戻れる状態」を作り、その後に無駄な再実行と利用枠消費を減らす方が、仕組み自体の管理負荷を増やしにくくなります。\n\n実装後のBuildだけで終わらせず、アプリ操作・録画・証跡保存まで自走させた流れは、以下の記事にまとめています。\n\n→ Claude Code・Codexに動作確認まで自走させる｜ビルド・操作・録画・証跡を残す開発フロー",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "68ca9fcf1ac59a87",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7905882352941177,
+      "popularityPercentile": 0.5026737967914439,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "Claude Codeの長時間自走で、停止後に安全に再開するための状態管理と失敗復旧の仕組みを整理している。",
+      "reason": "長時間実行で重要なのは停止しないことではなく、checkpointで進捗を残して重複実行を防ぐことだった。再試行上限や人間への引き継ぎもTask単位で設計している。",
+      "keywords": [
+        "Claude Code",
+        "checkpoint",
+        "Retry",
+        "NEEDSHUMAN",
+        "Capability",
+        "Task"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 9,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Design を使ってみた（× Claude Code で、WordPressをリデザインしてみた）",
+      "url": "https://qiita.com/sarap422/items/58fe2420093d15c75e83",
+      "publishedAt": "2026-08-03T06:59:56.000Z",
+      "author": "sarap422",
+      "authorDetail": {
+        "name": "sarap422",
+        "handle": "@sarap422",
+        "url": "https://qiita.com/sarap422",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/814240/profile-images/1739867934",
+        "bio": "半年間の委託訓練校での学びを経てWEB制作会社に就職、現在はWEBコーディングを中心として、HTML・WordPressでのコーポレートサイト・お問い合わせ・予約フォーム制作、PremiereでのPV・インタビュー動画編集を行なっています。データポータルでのレポート作成・分析等を行なっています。",
+        "followers": 1,
+        "posts": 65,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/sutetuki_web"
+          },
+          {
+            "label": "Web",
+            "url": "https://code-plus.jp/gp"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeDesign",
+        "使ってみた",
+        "ClaudeCode",
+        "リデザイン"
+      ],
+      "snippet": "Anthropic Labs からリリースされた Claude Design を使って、TOP ページをリデザインしてみました。Claude Design でデザインを起こし、そのまま Claude Code に Handoff して既存テーマに統合するまでの一連のフローを記録します。 本記事は 「実プロジェクトで使ってみた」視点 で、特に「Claude Design 単体で完結しない部分」「Claude Code との連携で何が変わるか」「投入前の準備で結果がどう変わるか」を中心にまとめます。 Claude Design が生成したデザインシステムのレビュー画面 Logo / Type / Colors / Spacing / Components / Brand の項目ごとに「Looks good」「Needs work…」で評価していく ・ 採用したツールと役割分担 今回のプロジェク…",
+      "body": "Anthropic Labs からリリースされた Claude Design を使って、TOP ページをリデザインしてみました。Claude Design でデザインを起こし、そのまま Claude Code に Handoff して既存テーマに統合するまでの一連のフローを記録します。\n\n本記事は 「実プロジェクトで使ってみた」視点 で、特に「Claude Design 単体で完結しない部分」「Claude Code との連携で何が変わるか」「投入前の準備で結果がどう変わるか」を中心にまとめます。\n\nClaude Design が生成したデザインシステムのレビュー画面\n\nLogo / Type / Colors / Spacing / Components / Brand の項目ごとに「Looks good」「Needs work…」で評価していく\n・ \n\n採用したツールと役割分担\n\n今回のプロジェクトで使ったツールと、それぞれの役割を最初に整理しておきます。\n\n|ツール|役割|\n|---|---|\n|Claude（Web）|プロジェクト全体の進行管理、設計書作成、判断相談|\n|Claude Design|デザイン制作（デザインシステム抽出 / Hero 3バリエーション / 全セクション生成）|\n|Claude Code|実装（Claude Design からの Handoff を受けて WordPress テーマに統合）|\n\nデザインの生成と実装は別ツールで、両方を行き来する必要があります。逆に言うと、Claude Code が動く環境（既存テーマ・ライブラリ等）が整っているほど、Handoff 後の統合が滑らかになります。\n・ \n\nClaude Design 投入前の設計フェーズ\n\nClaude Design は「投入する素材の質」で成果物がほぼ決まります。\nソース素材を絞り込む前作業に、実装と同じくらい時間をかけました。\n\n設計書を Markdown で先に書く\n\nClaude Design に何かを投げる前に、Markdown の設計書を 1 本書きました。\n・各セクションの 役割・コピー・キーワード\n・採用したい レイアウトパターン （Hero=Bleed+Board、About=Lane、Tools=Bento…）\n・構造化データの仕様 （Organization / WebSite+SearchAction / ItemList）\n・アクセシビリティ要件 （WCAG AA、prefers-reduced-motion 等）\n\nコードベースの絞り込み\n\nテーマファイルには投稿系・カスタム投稿・各種テンプレートが入っています。Claude Design に渡すのは 「デザインシステムを学習させる」目的にった最小版 にして、for-design/ という別フォルダにコピー → 1.4MB まで削減（ 約 16 分の 1 ）。\n\n絞り込みの基準：\n・style.css 冒頭の Design System 完全ドキュメント（デザインシステムのカラー・タイポ・コンポーネント定義）\n・style-foundations.css（リセット・ベース・ファンデーションクラスの一覧）\n・style-components.min.css, style-utilities.min.css（コンポーネント・ユーティリティクラスの一覧）\n・ヘッダー / フッター / ローダーの代表的なパーツ 5〜6 個\n・ロゴ SVG / フォント\n\n「 style.css の冒頭にデザインシステム全体の文書を埋め込んでおく 」のがここで効きました。Claude Design は冒頭から重点的に解析するので、デザインシステム文書をそこに置いておくと、トークン定義・命名規則・パターンの哲学までまとめて取り込んでくれます。\n・ \n\nClaude Design セッション\n\nSet up design system\n\nClaude Design は最初に「Set up your design system」フォームでブランドを学習させてから新規プロジェクトに進む二段構えになっています。投入したのは：\n・絞り込んだ for-design/（コードベース）\n・既存サイト https://code-plus.jp/gp/ の Web Capture\n・フォント一式（YakuHanMP / Shippori Mincho / Crimson Text / BO NX Alt Medium）\n・ロゴ SVG（PRIMARY ／ ALT 2 種）\n\n10 分ほどで Design System が出力されます。\n\n \nType → Display Lockup として「大きな漢字＋小さなイタリック・ラテン」のロックアップが自動生成された。\n\n \nBrand パネルでは Logo、それに「Gear & Circuit Motif」も自動で抽出されている。\n\n各項目に「Looks good」「Needs work…」のフィードバックボタンがあり、ここで方向性を調整できます。 Nixie オレンジの色温度や Gear モチーフのトーンなど、最終出力の質に直結する箇所は最初のレビューでしっかり確認しておく のが良さそうです。後のセクション生成は、ここで固めたデザインシステムを土台に進むので、ここでの判断が後々まで響きます。\n\nPhase 1: Hero 3 バリエーション\n\nデザインシステムが固まったら、Hero の 3 バリエーション （A. Gear / B. Nixie / C. Lab）を一気に出力させました。Claude Design は「3 案出して」と頼むと内部で複数案を並行生成してくれます。\n\n \nA. Gear：背景に大歯車をオフセット配置し、コーナー枠＋中央に H1 を縦積みするレイアウト。\n\n \n装飾サブコピー「電脳記録 / LOG ENTRIES」を加えた 3 段ロックアップ案。\n\nB案. Nixie の Tabular meta（数値ラベル一覧）と C案. Lab の § 0N ステンシル番号は、不採用にせず後続セクションに要素として取り入れる 形にしました。デザインの「採用 / 不採用」を全部か無かではなく、要素レベルで部分採用できるのが Claude Design の柔軟さです。\n\nPhase 2: 5 セクション一括生成\n\nHero の方向性が確定したら、About / Tools / Picks / Blog / Footer をまとめて出力させました。\n\n \nAbout：左カラムに本文＋トピックタグ、右カラムに Nixie 風の Tabular メタ（運営期間・記事数・カテゴリ数・ツール数・拠点）。B. Nixie の Tabular meta をここで採用\n\n \nTools：6×n の Bento グリッド。T-01 を lg（3×2 セル）、T-02 / T-03 を md（2×1）、T-04〜T-09 を sm で配置。各カードに歯車アイコンと $ command のモノスペース表記\n\n \nPicks：4 列カード。scanline オーバーレイで CRT 風の質感を追加\n\n \nBlog：上段がカテゴリ Tile（8 件・記事数降順）、下段が最新記事の横並びリスト。\n\n \nFooter：左ロゴ＋タグ、中央 3 ナビカラム（CONTENT / TOOLS / ABOUT）、大歯車を背景にブックエンドとして配置。\n\n \n5 セクション + Footer を 1 ページにまとめた完成サムネ。ここまで Claude Design 上で見た目を確定させてから Handoff に進む\n・ \n\nClaude Code Handoff\n\nClaude Design はあくまで「デザイン制作の場」で、実装は Claude Code か他の AI コーディングエージェントへの Handoff で行います。\n\n \nShare メニュー右下に「Handoff to Claude Code...」がある。ここから handoff バンドル（zip）を生成して Claude Code に渡す\n\n \nHandoff ダイアログ。「Send to local coding agent」を選ぶと、Claude Code に貼り付けるコマンドが生成される。Download zip instead を選ぶと zip でも受け取れる\n\nHandoff バンドルの中身\n\nzip の中には以下が入っていました：\n・README.md（コーディングエージェント向けの読み方ガイド）\n・project/CODE PLUS Top.html（全セクション統合版）\n・project/hero-a-gear.jsx ほか各セクションの React 風プロトタイプ\n・project/hero.css, project/page.css\n・project/ds/colorsandtype.css（デザイントークン）\n・project/ds/fonts/（フォント一式）\n・project/ds/assets/（ロゴ等）\n\nREADME.md には「これはプロトタイプであり、内部構造は無視して見た目を再現せよ」と明記されています。生成された JSX をそのまま React コンポーネントにしたくなりますが、 WordPress テーマに統合する場合は見た目だけを抽出して PHP / SCSS で組み直す のが正解です。\n\nHandoff時の落とし穴：URL fetchの10MB制限\n\nClaude Code に「この URL を fetch して実装してね」とコマンドを渡したところ、最初は WebFetch のサイズ上限 10MB に引っかかって取得失敗 しました。Claude Code 側で curl も試みましたが sandbox で拒否されてしまい、結局 「ローカルに zip をダウンロードしてフォルダパスを直接 Claude Code に渡す」 方式に切り替えて解決。\n\nhandoff バンドルが小さければ URL fetch でも問題ないと思いますが、5 セクション分入った zip は普通に 10MB を超えるので、最初からローカル展開を前提にした方が早そうです。\n\n実装フェーズの 3 段階\n\nClaude Code 側では、段階を切って進めました。「一気に全部実装する」と Claude Code に頼むこともできましたが、Claude（Web）側で相談しながら 段階分けの方が後戻りが少ない という結論に至り、3 フェーズで進めました。\n\nPhase 1：Hero + About\nシグネチャーモーメントだけを先に固める。front-page.php を新規作成し、head.php の構造化データ／既存 divergence-spinner.php／ヘッダーは触らずに統合。\n\nPhase 2：Tools + Picks + Blog + 構造化データ\nここで動的部分が一気に増えます。getposts() で最新記事を、getcategories() で記事数降順のカテゴリ Tile を出力。ItemList 構造化データ（Tools 用と最新記事用の2種）を front-page.php の末尾で動的生成。Picks は picks CPT を try → 無ければデザインのフォールバック。\n\nPhase 3：scrollin 統一 / Footer / Organization / reduced-motion\n歯車回転を独自 @keyframes から既存 scrollin ライブラリに置換。footer-front.php を新規作成して TOP 専用フッターを分離。\n・ \n\n実装後の検証\n\nRich Results Test\n\nTools と最新記事の 2 種類の ItemList を 1 ページに出力した結果、Google から 「1 つのページで複数の ListItem 要素が定義されています」 と無効判定が出ました。\n\n \n修正前：1 件の重大な問題 ×2。「CODE PLUS 最新記事」と「CODE PLUS Tools」が両方検出され、リッチリザルト対象外になっている\n\nItemList のリッチリザルト仕様では 「1 ページ 1 ItemList」が原則 とのこと。これは設計書段階では拾えていなかった失敗で、Google の Rich Results 仕様まで読み込んでいなかったのが原因です。最新記事は各記事ページ側で TechArticle 構造化データを既に持っているため、TOP の ItemList を Tools 側だけ に絞ることで解決しました。\n\n \n修正後：1 件の有効なアイテムを検出（Tools の ItemList のみ）。\n\nついでに、記事ページの TechArticle.publisher に logo（ImageObject）が欠けていたので、structured-data.php の publisher ブロックに条件付きで追加しました。getsiteiconurl(512) を参照する形にしてあるので、WP 管理画面でサイトアイコンを設定するだけで全記事に反映されます。\n\n \n個別記事の Rich Results Test。publisher.logo に ImageObject が出ているのが確認できる（サイトアイコンを参照）\n\n動的取得の動作確認\n\nAbout セクションの数値ラベル（記事数 / カテゴリ数）は WordPress から動的取得しています。\n・ \n\n得られた知見\n\n今回のフローを通して、繰り返し効いたポイントを残します。\n\n1\\. 設計書を Claude Design 投入前に書く\n\n「H1 / Lead テキスト / 各セクションのレイアウトパターン / 構造化データ仕様」までを Markdown で先に固めておくと、Claude Design は何度生成し直しても同じ方向性を維持してくれます。文字数で言うと 4,000〜5,000 字くらいのブリーフが妥当でした。\n\n特に SEO に関わる H1 / description / 構造化データの仕様は、Claude Design に判断を委ねず、こちらで先に決めておく のが安全です。Claude Design は世界観優先で SEO に弱いキーワード を H1 に置きがちです。\n\n2\\. コードベースを「デザインシステム抽出用」に絞り込む\n\nテーマファイル の全部ではなく、デザインシステム文書と代表的なパーツだけ（1.4MB）を for-design/ として別途用意。 Claude Design に渡すソースは、実装用のソースとは別物として用意する 必要がありました。\n\n3\\. style.css 冒頭にデザインシステムを文書として埋め込む\n\nCSS のコメントとして数千行のドキュメント（カラー定義・タイポスケール・コンポーネント命名規則・パターン哲学）を style.css の冒頭に書いておくと、Claude Design はそれを優先的に読み取って、命名規則まで踏襲した出力をしてくれます。\n\n4\\. Claude Design 単体ではなく Claude Code 連携で完成する\n\nClaude Design は「デザインを起こす場」で、コードは Handoff した先で組みます。逆に言うと、 Claude Code が普段から動いている環境（既存テーマ・ライブラリ・規約）が整っているほど、Handoff 後の統合がスムーズ です。\n\n5\\. Rich Results 仕様を設計書段階でチェックする\n\n「1 ページ 1 ItemList」のような Google のリッチリザルト仕様は、設計書の SEO チェックリストに含めておくべきでした。次回からは設計書テンプレートに「同種の structured data タイプを 1 ページに複数置かない」を加えます。\n\n6\\. 段階を切って Handoff する\n\nClaude Code に「全部一気に実装して」と頼むこともできましたが、3 フェーズ（Hero+About / Tools+Picks+Blog / Footer+仕上げ）に分けて、フェーズごとに確認した方が後戻りが少ないです。\n\n \n実装後の TOP ページ（PC・フル）。Hero の Divergence Meter から Footer まで、世界観を 1 ページで通せた\n\n \nHero + About の上部拡大。歯車の超低速回転、Nixie オレンジの差し色、kanji/latin のロックアップ、Tabular メタが揃っている\n・ \n\nまとめと残課題\n\nClaude Design × Claude Code の組み合わせは、 個人運営のブログを作り変える 用途で、十分実用的なツールでした。 設計書を投入前に作る・コードベースを絞り込む・Rich Results 仕様まで含めて設計書に書く の 3 点が、次に試すときのポイントです。Claude Design / Claude Code をこれから試す方の参考になれば。\n・ \n\n関連記事\n#### Claude Code にWebサイトのコーディングをさせる方法—ドキュメント設計から指示出しまで\n\nClaude Code にWebサイトのHTML/CSSコーディングを任せるための、CLAUDE.md・スキル・指示文の設計方法を実例付きで解説。独自CSSシステムとの連携・SP/PC対応・命名規則の伝え方まで体系化したノウハウをまとめます。 続きを読む\n#### Claude for Chrome × Claude Code で、Webサイトを校正する方法｜プロンプトつき実践ガイド\n\n誤字・リンク切れ・タグ確認まで。Claude for Chrome と Claude Code /chrome を使ったWebサイト校正の実践ガイド。すぐ使えるプロンプトつき。 続きを読む",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "32f622361324ca37",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7705882352941177,
+      "popularityPercentile": 0.4117647058823529,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "Claude Designで作ったWordPressのデザインをClaude Codeへ引き継ぎ、既存テーマへ統合する流れを試している。",
+      "reason": "Claude Designだけで制作から実装まで完結するのではなく、デザイン生成と既存テーマへの統合を別ツールで分担している。投入前の環境準備が成果を左右する流れも記録されている。",
+      "keywords": [
+        "Claude Design",
+        "Claude Code",
+        "Handoff",
+        "WordPress",
+        "デザインシステム"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "Octane — React's programming model, compiled",
+      "url": "https://octanejs.dev/",
+      "publishedAt": "2026-08-03T09:24:16.000Z",
+      "author": "nnx",
+      "authorDetail": {
+        "name": "nnx",
+        "handle": "nnx",
+        "url": "https://news.ycombinator.com/user?id=nnx"
+      },
+      "tags": [
+        "テクノロジー",
+        "react",
+        "javascript"
+      ],
+      "snippet": "React’s programming model, compiled.The successor to Inferno, carrying its performance-first goal forward: React’s hooks, Suspense and actions, compiled ahead of time. No virtual DOM. No rules of hooks. No hand-maintained dependency arrays — the compiler works out what your code captures for you....",
+      "metrics": {
+        "points": 116,
+        "comments": 42,
+        "hatena": 11
+      },
+      "sourceWeight": 3,
+      "id": "987b91894963fcbf",
+      "lang": "en",
+      "foundIn": [
+        "hatena",
+        "hackernews"
+      ],
+      "preScore": 0.8290322580645162,
+      "popularityPercentile": 0.6774193548387096,
+      "matchedTopics": [
+        "React",
+        "JavaScript"
+      ],
+      "buzz": true,
+      "score": 78,
+      "oneLiner": "OctaneはReactのHooks・Suspense・Actionsを事前コンパイルする、仮想DOMを使わない後継ランタイムを提案している。",
+      "reason": "Reactのプログラミングモデルをコンパイルで実行し、仮想DOM・Hooksのルール・手書きの依存配列を不要にする構想を示している。",
+      "keywords": [
+        "Octane",
+        "React",
+        "Hooks",
+        "Suspense",
+        "Actions",
+        "コンパイラ"
+      ],
+      "category": "新機能・新ツール",
+      "domain": "general",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "銀行明細CSVをfreee・マネーフォワード形式に変換する — 6銀行のフォーマット差分をテーブル駆動設計で吸収",
+      "url": "https://qiita.com/sakutto-panda/items/260cc62e463ec49af9bf",
+      "publishedAt": "2026-08-02T22:42:03.000Z",
+      "author": "サクッとぱんだ",
+      "authorDetail": {
+        "name": "サクッとぱんだ",
+        "handle": "@sakutto-panda",
+        "url": "https://qiita.com/sakutto-panda",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4408128/6443653cc1645e4efd863f4e52c6b0e932fec8a2/x_large.png?1776127679",
+        "bio": "ブラウザ内完結の無料Webツール「ぱんだツールズ」を作っています。\r\nPDF・CSV・画像・テキスト処理など60ツール以上を公開中。\r\n\r\nNext.js / TypeScript / Cloudflare Pages で個人開発。\r\n投資分析ツールや自動化スクリプトの開発も。\r\n\r\n🐼 ぱんだツールズ → https://sakutto-panda.com",
+        "followers": 6,
+        "posts": 95,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/pannda0330tm-cloud"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/sktt_panda"
+          },
+          {
+            "label": "Web",
+            "url": "https://sakutto-panda.com/"
+          }
+        ]
+      },
+      "tags": [
+        "TypeScript",
+        "React",
+        "CSV",
+        "フロントエンド",
+        "個人開発"
+      ],
+      "snippet": "3行まとめ ・銀行のネットバンキングからダウンロードした明細 CSV を、freee・マネーフォワードへのインポート用の形式へ変換するブラウザ完結ツールを作った。銀行明細という機密データをサーバーに送らずに変換できる ・6銀行（三菱UFJ・みずほ・三井住友・ゆうちょ・楽天・PayPay）のフォーマット差分は、銀行ごとのパーサーを書かず設定オブジェクトの集合（テーブル駆動設計）で吸収する ・文字コードは BOM → UTF-8（fatal: true）→ ShiftJIS の3段フォールバックで読み、出力は BOM 付き UTF-8 + CRLF で Excel でも化けない --- freee やマネーフォワードには銀行口座の自動連携機能があるが、すべての銀行に対応しているわけではないし、過去の明細を遡って取り込みたい場合や、連携設定が引き継がれていない場合には CSV での手動インポート…",
+      "body": "3行まとめ\n・銀行のネットバンキングからダウンロードした明細 CSV を、freee・マネーフォワードへのインポート用の形式へ変換するブラウザ完結ツールを作った。銀行明細という機密データをサーバーに送らずに変換できる\n・6銀行（三菱UFJ・みずほ・三井住友・ゆうちょ・楽天・PayPay）のフォーマット差分は、銀行ごとのパーサーを書かず設定オブジェクトの集合（テーブル駆動設計）で吸収する\n・文字コードは BOM → UTF-8（fatal: true）→ ShiftJIS の3段フォールバックで読み、出力は BOM 付き UTF-8 + CRLF で Excel でも化けない\n\n---\n\nfreee やマネーフォワードには銀行口座の自動連携機能があるが、すべての銀行に対応しているわけではないし、過去の明細を遡って取り込みたい場合や、連携設定が引き継がれていない場合には CSV での手動インポートに落ちる。そこで待っているのが、銀行ごとに CSV の列構成・日付形式・文字コードが全部違うという現実。毎回 Excel で列を並べ替えて日付を整形するのは、月次の締めのたびにやる作業としてはつらい。\n\nぱんだツールズの銀行明細CSV変換は、6銀行の明細 CSV をヘッダーから自動判別して、freee / マネーフォワードのインポート形式に変換するツール。銀行明細は機密性の高いデータなので、処理はすべてブラウザ内で完結し、ファイルはサーバーに一切送信されない。\n\nhttps://sakutto-panda.com/tools/bank-csv-converter\n\nこの記事では、フォーマット差分をどうデータ構造に落としたか、自動検出で踏んだ罠、文字コード処理、freee と マネーフォワードの出力仕様の違いを、実装ベースで解説する。\n\n6銀行のCSVはどれくらいバラバラか\n\n実装した6行分のフォーマット定義から差分を抜き出すとこうなる。\n\n| 銀行 | 金額の持ち方 | 日付形式 | ヘッダー検出キーワード |\n| :--- | :--- | :--- | :--- |\n| 三菱UFJ銀行 | 出金・入金の2列 | YYYY/MM/DD | 「支払額」「受取額」 |\n| みずほ銀行 | 出金・入金の2列 | YYYY.MM.DD | 「預入金額」「差引残高」 |\n| 三井住友銀行 | 出金・入金の2列 | YYYYMMDD | 「お支払金額」「お預り金額」 |\n| ゆうちょ銀行 | 出金・入金の2列 | YYYY-MM-DD | 「お支払い金額」「お預かり金額」 |\n| 楽天銀行 | 1列（正負で入出金を表現） | YYYY/MM/DD | 「入出金金額」「取引内容」 |\n| PayPay銀行 | 出金・入金の2列 | YYYY/MM/DD | 「出金額」「入金額」 |\n\n日付形式だけで4種類ある。区切りがスラッシュ・ドット・ハイフン・なし、と見事に散っている。金額も「出金列と入金列を分ける」多数派に対して、楽天銀行だけは1列に正負で詰める方式。そして三井住友の「お支払金額」とゆうちょの「お支払い金額」——送り仮名1文字しか違わない列名が別々の銀行に存在する。この微妙な差が、後述する自動検出の設計に効いてくる。\n\n銀行ごとのパーサーを書かない — テーブル駆動設計\n\n6銀行それぞれに parseMufg() parseMizuho() … と関数を書いていく道もあるが、上の表を見れば分かるとおり、差分は「どの列に何があるか」と「日付の書式」だけ。ならば差分をデータとして宣言し、変換ロジックは1本にできる。\n\n [code] \n\n銀行の定義はこの型のオブジェクトを並べるだけ。\n\n [code] \n\nいわゆるテーブル駆動設計。新しい銀行への対応はオブジェクトを1個足すだけで、変換関数には手を入れない。銀行フォーマットのような「事実の集合」がロジックの中核にある機能では、事実をコードから分離してデータにしておくと、追加も検証も楽になる。\n\nヘッダー自動検出と部分文字列の罠\n\nアップロードされた CSV がどの銀行のものかは、ヘッダー行のキーワードマッチで自動検出する。\n\n [code] \n\n単純な includes の総当たりだが、キーワードの選び方に1つ罠があった。みずほ銀行のキーワードに「支払金額」を入れると、三井住友の「お支払金額」に部分一致して誤検出する。「支払金額」は「お支払金額」の部分文字列だからだ。実装にはこう注記が残っている。\n\n [code] \n\nincludes ベースの検出では「その銀行にしか出ない語」を選ぶ必要があり、他行の列名の部分文字列になっていないかを常に疑うことになる。完全一致で照合すれば回避できるが、銀行 CSV はヘッダーに余計な空白や注記が入ることがあるので、部分一致の緩さは捨てたくない。緩い照合を採るなら、キーワード設計側で衝突を潰す。\n\nそして自動検出は「便利機能」であって信頼の基盤にはしない。検出に失敗すれば null を返し、UI は「銀行名を手動で選択してください」に落とす。銀行がシステム更新で列構成を変えれば検出も変換も壊れうるので、手動選択という逃げ道は必ず残す。\n\n文字コード: BOM → UTF-8（fatal）→ ShiftJIS の3段フォールバック\n\n銀行の明細 CSV は大半が ShiftJIS で出てくる。一方で UTF-8 の銀行もあるので、読み込み時に判定が要る。\n\n [code] \n\nTextDecoder の fatal: true は、UTF-8 として不正なバイト列に当たると例外を投げるオプション。デフォルト（fatal: false）だと不正バイトは U+FFFD（�）に置換されて黙って通ってしまうので、「UTF-8 かどうかの試金石」として使うなら fatal が必須になる。BOM があれば確定、なければ UTF-8 として厳格に試し、例外が出たら ShiftJIS とみなす——候補が2つに絞れているときの最小実装がこれ。\n\n候補が3つ以上ある一般の判定はもっと手がかかる。バイトパターンをスコアリングする方式は文字コード自動判定の記事で解説している。\n\nデコード後は Papa Parse（papaparse 5.5.3）に文字列を渡して2次元配列にする。パースと変換の間に文字コードの心配事を持ち込まないよう、バイト列→文字列の変換はこの入口で完結させる。\n\n変換本体 — 日付の正規化と符号の付け方\n\n変換ロジックは BankFormat を引いて列を拾い、日付と金額を正規化していく。日付は4形式すべてを YYYY-MM-DD に寄せる。\n\n [code] \n\n金額は「1,234円」「¥1,234」のようなカンマ・通貨記号混じりを想定して、記号類を落としてから数値化する。\n\n [code] \n\n金額の符号付けはこう整理した。中間表現を「符号付き金額（出金が負・入金が正）」の1本に決めて、入力の2方式をそこへ潰す。\n\n [code] \n\n金額ゼロの行を落としているのは、明細 CSV には利息計算日や残高更新など「取引ではない行」が混ざることがあるため。日付列が空の行と完全な空行もスキップし、最終的に1件も変換できなければ「銀行の選択が正しいか確認してください」というエラーを投げて、自動検出の誤りに気づけるようにしている。\n\n出力はfreeeとマネーフォワードで形が違う\n\n出口側にも方言がある。このツールでは freee 向けには3列・金額は符号付き、マネーフォワード クラウド向けには4列・金額は絶対値 + 摘要ラベル、という形式で出力する。\n\n [code] \n\n同じ「入出金」という概念を、符号で表すソフトとラベルで表すソフトがある。つまりこのツールの全体像は、入力側6方言 → 中間表現（符号付き金額）→ 出力側2方言という小さなトランスパイラになっている。中間表現を1つ決めておけば、対応銀行や対応ソフトが増えても組み合わせ爆発しない。\n\n書き出しは CRLF 区切り、カンマ・ダブルクォート・改行を含むセルは RFC 4180 準拠でクォートし、Blob には BOM を付ける。\n\n [code] \n\n（実装ではエスケープシーケンスではなくリテラルの BOM 文字を直接連結しているが、不可視文字なので記事上は \\uFEFF で表記した）\n\n変換結果の CSV はインポート前に Excel でダブルクリックして中身を確かめる人が多い。Excel は BOM なし UTF-8 の CSV を文字化けさせることがあるので、人間の目視確認を前提にする CSV は BOM 付き UTF-8 で出すのが安全圏。\n\n純粋関数に切り出してテストする\n\n変換ロジック全体は src/lib/csv/convertBankCsv.ts にあり、ファイル冒頭に「ブラウザ API に依存しない実装」と明記した純粋関数になっている。File / FileReader / Blob といったブラウザ依存は React コンポーネント側に隔離した。\n\nおかげでユニットテストが素直に書ける。テストは290行で、normalizeDateStr の4形式、parseAmount のカンマ・通貨記号・負数、detectBankFormat の6銀行 + 不明ヘッダー、freee / マネーフォワード両出力の符号とラベル、空行スキップまでカバーしている。銀行フォーマットのように「正解が仕様書ではなく現物の CSV」で決まる機能では、テストケースがそのまま対応フォーマットの仕様書代わりになる。\n\nまとめ\n・銀行 CSV の差分は「列の位置・日付形式・金額の持ち方」に分解でき、BankFormat という設定オブジェクトで宣言的に表せる。パーサーは1本でいい\n・includes ベースの自動検出は部分文字列の衝突（「支払金額」⊂「お支払金額」）に注意。検出失敗時の手動選択フォールバックは必ず残す\n・文字コードは BOM → UTF-8（fatal: true）→ ShiftJIS の3段フォールバック。fatal オプションが「UTF-8 の試金石」になる\n・出力は BOM 付き UTF-8 + CRLF + RFC 4180 が Excel 目視確認まで含めた安全圏\n・変換ロジックを純粋関数に切り出すと、6銀行と2ソフトの変換仕様を290行のテストで固定できる\n\n月次の締めや確定申告前の「銀行明細をまとめて取り込みたい」場面でどうぞ。明細データはブラウザの外に出ない。\n\nhttps://sakutto-panda.com/tools/bank-csv-converter\n\n:::note\nぱんだツールズ では他にも CSV 文字コード変換・文字コード判定・PDF 処理・画像変換など、日本語の実務ファイルに強いブラウザ完結ツールを多数公開中。全部無料・登録不要・ファイルはサーバーに送られない。\nhttps://sakutto-panda.com\n:::\n\n---\nこの記事は Zenn にも同じ内容を投稿しています。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d48047cec3756e21",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7619607843137256,
+      "popularityPercentile": 0.8877005347593583,
+      "matchedTopics": [
+        "React",
+        "TypeScript"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "6銀行の明細CSVをブラウザ内で判別し、freee・マネーフォワード形式へ変換する実装を紹介している。",
+      "reason": "銀行ごとに個別パーサーを増やすのではなく、設定オブジェクトの集合で6銀行の差分を吸収している。文字コードを3段階で判定し、Excel向けにBOM付きUTF-8とCRLFで出力する。",
+      "keywords": [
+        "TypeScript",
+        "React",
+        "CSV",
+        "テーブル駆動設計",
+        "freee",
+        "マネーフォワード"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Next.js (App Router) における Middleware と Server Components を組み合わせたセッション管理とロールベース権限制御の実装パターン",
+      "url": "https://qiita.com/blinkgroup_jp/items/cae26c2932c2a467f8ed",
+      "publishedAt": "2026-08-03T00:22:01.000Z",
+      "author": "ブリンクグループ",
+      "authorDetail": {
+        "name": "ブリンクグループ",
+        "handle": "@blinkgroup_jp",
+        "url": "https://qiita.com/blinkgroup_jp",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4472576/40be5b2072aaaa663091222cefde3e8bbc1f261c/x_large.png?1784793347",
+        "bio": "株式会社ブリンクグループです。\r\nエンジニアの実務に役立つ技術情報や、システム開発・プロジェクト推進に関する知見を発信しています。\r\nフリーランスエンジニア向け案件情報やキャリア支援については、E-Bridgeにてご案内しています。",
+        "organization": "株式会社ブリンクグループ",
+        "location": "東京都",
+        "followers": 0,
+        "posts": 9,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://ebridge.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "Next.js",
+        "TypeScript",
+        "nextauth",
+        "認証"
+      ],
+      "snippet": "Next.js (App Router) を用いた Web アプリケーション開発において、認証・認可（セッション管理と権限制御）をどのように設計・実装するかは、セキュリティとユーザー体験の両面に直結する重要な課題です。 本記事では、Next.js の App Router 環境を前提に、Middleware によるグローバルなルート保護と、Server Components / Client Components でのきめ細かなロール（権限）制御を組み合わせた、実務で応用可能な実装パターンを解説します。 読者が抱える課題 ・App Router で「認証が必要なページ」と「未認証でもアクセスできるページ」を効率的に振り分けたい ・管理者（Admin）や一般ユーザー（User）といったロール（役割）に応じたアクセス制限を、サーバーサイドとクライアントサイドの双方で一貫して行いたい ・認証チェ…",
+      "body": "Next.js (App Router) を用いた Web アプリケーション開発において、認証・認可（セッション管理と権限制御）をどのように設計・実装するかは、セキュリティとユーザー体験の両面に直結する重要な課題です。\n\n本記事では、Next.js の App Router 環境を前提に、Middleware によるグローバルなルート保護と、Server Components / Client Components でのきめ細かなロール（権限）制御を組み合わせた、実務で応用可能な実装パターンを解説します。\n\n読者が抱える課題\n・App Router で「認証が必要なページ」と「未認証でもアクセスできるページ」を効率的に振り分けたい\n・管理者（Admin）や一般ユーザー（User）といったロール（役割）に応じたアクセス制限を、サーバーサイドとクライアントサイドの双方で一貫して行いたい\n・認証チェックの重複によるパフォーマンス低下や、実装漏れによるセキュリティリスクを低減したい\n\nこの記事で分かること\n・Next.js Middleware を用いた、エッジ/サーバーサイドでの一元的なルート保護の実装方法\n・Server Components におけるセッション情報の取得と、ロールベースの表示制御\n・Client Components でのコンポーネントレベルの認可制御\n・実務導入時のセキュリティ上の注意点とチェックリスト\n\n前提条件\n・Next.js (App Router) を使用していること\n・認証ライブラリとして next-auth (Auth.js) の使用を想定したコード例ですが、セッション情報の構造を合わせれば他の認証サービス（Supabase Auth, Firebase Auth, Clerk など）でも同様の設計が可能です。\n・記載しているコードは TypeScript で記述されています。\n\n---\n\n1. セッション管理と権限制御の全体設計\n\nNext.js における認可制御は、以下の多層防御（Defense in Depth）の考え方に基づいて設計します。\n\n| レイヤー | 役割 | 実装方法 | 主な目的 |\n| :--- | :--- | :--- | :--- |\n| Middleware | ルーティング制御 | middleware.ts でのパス判定 | 未認証ユーザーの早期リダイレクト、不正アクセスの遮断 |\n| Server Components | サーバーサイド認可 | layout.tsx / page.tsx でのセッション確認 | データベースやAPIへの不要なリクエスト防止、機密データの非表示化 |\n| Client Components | UI/UXの制御 | React Context / Hooks を用いた表示切り替え | 操作不可能なボタンの非活性化、スムーズな画面遷移 |\n\n---\n\n2. 具体的な実装例\n\n2.1. 型定義の拡張\nまず、セッション情報にユーザーの「ロール（role）」を含めるため、next-auth の型定義を拡張します。\n\n [code] \n\n2.2. Middleware によるルート保護\nアプリケーション全体で、未認証ユーザーをログインページへリダイレクトし、さらに管理者専用ページ（/admin）へのアクセスを制限します。\n\n [code] \n\n2.3. Server Components でのデータ取得と権限制御\nサーバーサイドでセッション情報を取得し、ロールに応じたコンテンツのレンダリングや、API呼び出しの制御を行います。\n\n [code] \n\n2.4. Client Components でのUI制御\nボタンの活性・非活性や、一部のUIパーツの表示・非表示を切り替えるためのクライアントコンポーネントです。\n\n [code] \n\n---\n\n3. 実務導入時の注意点とよくある失敗\n\n3.1. クライアントサイドの非表示は「セキュリティ」ではない\nClient Components でボタンを非表示にしたり、画面遷移を制限したりすることは、ユーザー体験（UX）の向上には寄与しますが、セキュリティ対策としては不十分です。悪意のあるユーザーはブラウザのデベロッパーツールや直接のAPIリクエストによって制限を回避できます。\n対策: 必ず Server Components、Route Handlers (API)、またはバックエンドサーバー側で、リクエストごとにセッションとロールの検証を行ってください。\n\n3.2. Middleware のマッチング漏れ\nmiddleware.ts の config.matcher に新しい保護対象パスを追加し忘れると、未認証のままアクセス可能な状態になってしまいます。\n対策: パスを追加する際は、Middleware の適用範囲に含まれているかを必ず確認してください。また、デフォルトですべてのパスを保護し、パブリックなパス（/login や /public など）をホワイトリスト形式で除外する設計も検討してください。\n\n---\n\n4. 実務チェックリスト\n\n本機能を本番環境にデプロイする前に、以下の項目を確認してください。\n・[ ] HTTPSの強制: 本番環境ではセッションCookieに Secure 属性が付与されているか。\n・[ ] トークンの有効期限: JWTやセッションの有効期限が適切に設定されているか（長すぎる有効期限はリスクになります）。\n・[ ] APIルートの保護: app/api/ 配下の Route Handlers ですべてセッション検証とロールチェックが行われているか。\n・[ ] 環境変数の管理: NEXTAUTHSECRET などの機密情報が環境変数から安全に読み込まれているか。\n・[ ] 最新仕様の確認: Next.js や NextAuth (Auth.js) のバージョンアップに伴い、API仕様が変更されていないか公式ドキュメントを確認したか。\n\nまとめ\nNext.js (App Router) におけるセッション管理と権限制御は、Middleware による「入り口での一括制御」と、Server Components / API による「データ取得時の個別制御」を組み合わせることで、堅牢かつ保守性の高い設計を実現できます。クライアント側の制御だけに頼らず、常にサーバーサイドでの検証を徹底することを意識して実装を進めてください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "44cdebe907422a36",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8352941176470589,
+      "popularityPercentile": 0.7058823529411765,
+      "matchedTopics": [
+        "React",
+        "Next.js",
+        "TypeScript"
+      ],
+      "buzz": false,
+      "score": 72,
+      "oneLiner": "Next.js App RouterでMiddlewareとServer Componentsを組み合わせた認証・ロール制御を解説する。",
+      "reason": "Middlewareでルートを一元保護し、Server ComponentsとClient Componentsで役割ごとの表示・操作制限を分担する構成を示す。",
+      "keywords": [
+        "Next.js",
+        "App Router",
+        "Middleware",
+        "Server Components",
+        "next-auth",
+        "Auth.js"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "環境変数の同期 — application.ymlと.env.localの使い分け",
+      "url": "https://qiita.com/hitobussi/items/e25e3b59201dbfae7d14",
+      "publishedAt": "2026-08-02T22:42:33.000Z",
+      "author": "hito bussi",
+      "authorDetail": {
+        "name": "hito bussi",
+        "handle": "@hitobussi",
+        "url": "https://qiita.com/hitobussi",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3790496/profile-images/1715836867",
+        "bio": "現役エンジニア。独り言のようにQiitaに記事を投稿してます。ああ、こいつなんかやってるなって感じで見て頂けると嬉しいです。",
+        "followers": 10,
+        "posts": 99,
+        "links": []
+      },
+      "tags": [
+        "SpringBoot",
+        "Next.js",
+        "環境変数",
+        "application.yml",
+        "フルスタック"
+      ],
+      "snippet": "環境変数の同期 — application.ymlと.env.localの使い分け はじめに Spring Boot × Next.jsのフルスタック構成では、バックエンドとフロントエンドそれぞれに環境変数の仕組みがあります。本番・開発・テスト環境で設定を切り替えるために、この仕組みを正しく理解することが重要です。 --- 全体像 [code] 両側で管理する主な変数： | 変数の種類 | Spring Boot | Next.js | |----------|------------|---------| | DBの接続先 | application.yml | — | | APIのURL | — | .env.local | | JWTシークレット | application.yml | — | | 外部サービスAPIキー | application.yml | .env.local …",
+      "body": "環境変数の同期 — application.ymlと.env.localの使い分け\n\nはじめに\n\nSpring Boot × Next.jsのフルスタック構成では、バックエンドとフロントエンドそれぞれに環境変数の仕組みがあります。本番・開発・テスト環境で設定を切り替えるために、この仕組みを正しく理解することが重要です。\n\n---\n\n全体像\n\n [code] \n\n両側で管理する主な変数：\n\n| 変数の種類 | Spring Boot | Next.js |\n|----------|------------|---------|\n| DBの接続先 | application.yml | — |\n| APIのURL | — | .env.local |\n| JWTシークレット | application.yml | — |\n| 外部サービスAPIキー | application.yml | .env.local |\n\n---\n\nSpring Boot側：application.yml の構成\n\napplication.properties よりも階層構造が書きやすい application.yml を使うのが実務では一般的です。\n\n [code] \n\n${変数名:デフォルト値} の書き方で、環境変数が未設定の場合のデフォルトを指定できます。\n\n---\n\n環境別プロファイル\n\n [code] \n\n [code] \n\nプロファイルの切り替えは起動時のオプションで行います。\n\n [code] \n\n---\n\nNext.js側：.env ファイルの構成\n\n [code] \n\nNEXTPUBLIC プレフィックスのルール\n\n| 変数名 | アクセス可能な場所 |\n|-------|----------------|\n| APIURL | サーバーサイドのみ（Server Component・Server Actions） |\n| NEXTPUBLICAPIURL | サーバー＋クライアント両方 |\n\nセキュリティ上の注意: APIキーやJWTシークレットは NEXTPUBLIC をつけてはいけません。ブラウザのソースに露出します。\n\n---\n\nコードでの使い方\n\nSpring Boot側（@Value）\n\n [code] \n\nNext.js側（process.env）\n\n [code] \n\n---\n\n本番環境での環境変数管理\n\nSpring Boot（AWS ECS / EC2の場合）\n\n [code] \n\nNext.js（Vercelの場合）\n\nVercelのダッシュボード → Settings → Environment Variables で設定。\n\n [code] \n\n---\n\nまとめ\n\n| 確認ポイント | Spring Boot | Next.js |\n|------------|------------|---------|\n| ローカル設定ファイル | application-dev.yml | .env.local |\n| 本番設定ファイル | application-prod.yml | .env.production |\n| 実際の値の注入 | 環境変数（${DBURL}） | 環境変数（process.env.DBURL） |\n| クライアント公開 | — | NEXTPUBLIC プレフィックス |\n| gitignore | 不要（値は環境変数） | .env.local を除外 |\n\n次回はシリーズ最終回、デプロイ — Spring BootをFargate、Next.jsをVercelにデプロイする手順を整理します。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "05a34eca3fc94c82",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6799999999999999,
+      "popularityPercentile": 0.7727272727272727,
+      "matchedTopics": [
+        "Next.js"
+      ],
+      "buzz": false,
+      "score": 68,
+      "oneLiner": "Spring BootとNext.jsで環境変数を分担し、環境別に同期・切り替えする方法を整理する。",
+      "reason": "DB接続先やJWTシークレットはSpring Boot、ブラウザへ公開するAPI URLはNext.jsという管理境界を表で整理している。",
+      "keywords": [
+        "Spring Boot",
+        "Next.js",
+        ".env.local",
+        "application.yml",
+        "NEXTPUBLIC",
+        "JWT"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable"
+    }
+  ],
+  "stats": {
+    "collected": 700,
+    "afterDedupe": 669,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 375,
+      "zenn": 139,
+      "hatena": 35,
+      "hackernews": 63,
+      "devto": 3,
+      "github_release": 10,
+      "github_repo": 34,
+      "rss": 40,
+      "changelog": 1
+    },
+    "estimatedReadMinutes": 27
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 6752,
+        "outputTokens": 4630,
+        "cacheReadTokens": 0,
+        "elapsedMs": 33566,
+        "estimatedCostUsd": 0.0069064
+      },
+      "score": {
+        "model": "gpt-5.6-luna",
+        "requests": 9,
+        "inputTokens": 45703,
+        "outputTokens": 4175,
+        "cacheReadTokens": 10440,
+        "elapsedMs": 44821,
+        "estimatedCostUsd": 0.0143594
+      },
+      "describe": {
+        "model": "gpt-5.6-luna",
+        "requests": 4,
+        "inputTokens": 21021,
+        "outputTokens": 6659,
+        "cacheReadTokens": 25107,
+        "elapsedMs": 45828,
+        "estimatedCostUsd": 0.012697139999999999
+      },
+      "deep": {
+        "model": "gpt-5.6-luna",
+        "requests": 4,
+        "inputTokens": 17674,
+        "outputTokens": 13222,
+        "cacheReadTokens": 14328,
+        "elapsedMs": 88120,
+        "estimatedCostUsd": 0.01968776
+      }
+    },
+    "totalCostUsd": 0.0537
+  },
+  "notes": []
+}
