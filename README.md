@@ -460,9 +460,14 @@ URL に秘密のパラメータを渡した本人のブラウザだけで表示�
    | --- | --- | --- |
    | Secret | `FIREBASE_SERVICE_ACCOUNT_JSON` | ダウンロードしたサービスアカウント JSON の中身そのまま |
    | Secret | `VITE_FEEDBACK_TOKEN` | 自分だけが知る秘密の文字列 |
-   | Variable | `VITE_FIREBASE_API_KEY` | Firebase の apiKey |
-   | Variable | `VITE_FIREBASE_PROJECT_ID` | Firebase の projectId |
-   | Variable | `VITE_FIREBASE_APP_ID` | Firebase の appId |
+   | Variable | `VITE_FIREBASE_PUBLIC_API_KEY` | Firebase の apiKey |
+   | Variable | `VITE_FIREBASE_PUBLIC_PROJECT_ID` | Firebase の projectId |
+   | Variable | `VITE_FIREBASE_PUBLIC_APP_ID` | Firebase の appId |
+
+   `PUBLIC` が付いている3つは名前の通り秘密にしなくてよい値です。Firebase の
+   apiKey はアクセス制御に使われず（アクセス制御は前述の Firestore Security Rules
+   が担う）、ビルド済み JS にそのまま入って誰でも見られる前提の値だからです。
+   Secrets に入れても動作は変わりませんが、Variables の方が実態と一致します。
 
 7. `https://<ユーザー名>.github.io/news-curator/?fb=<VITE_FEEDBACK_TOKEN の値>` を
    使うブラウザで一度開く。以降そのブラウザでは毎回 Good/Bad ボタンが表示されます
