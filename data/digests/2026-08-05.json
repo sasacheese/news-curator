@@ -1,0 +1,1841 @@
+{
+  "date": "2026-08-05",
+  "generatedAt": "2026-08-04T22:59:27.736Z",
+  "window": {
+    "start": "2026-08-03T22:00:00.000Z",
+    "end": "2026-08-04T22:00:00.000Z"
+  },
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.219 の変更点",
+      "url": "https://qiita.com/takeshishimada/items/cd33bd0dcf8317edafca",
+      "publishedAt": "2026-08-04T08:14:40.000Z",
+      "author": "Takeshi Shimada",
+      "authorDetail": {
+        "name": "Takeshi Shimada",
+        "handle": "@takeshishimada",
+        "url": "https://qiita.com/takeshishimada",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/9169/profile-images/1782791541",
+        "location": "Tokyo, Japan",
+        "followers": 0,
+        "posts": 25,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/takeshishimada"
+          },
+          {
+            "label": "Web",
+            "url": "https://github.com/expensivegasprices"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "Anthropic",
+        "AI",
+        "CLI"
+      ],
+      "snippet": "本記事は Claude Code v2.1.219 のリリースノート（7月24日公開）を素材に、変更点をテーマ別に整理したものです。記載の根拠はリリースノートの本文のみで、それ以外の挙動は確認していません。 変更の内訳 v2.1.219 の変更は27項目あります。追加が9項目、修正が10項目、既存の挙動の変更が8項目です。 目立つのは Claude Opus 5 の追加ですが、それ以外にも、1回の指示で何体のエージェントが動くかに関わる変更が2つ入っています。サブエージェントの入れ子が既定で許されるようになり、動的ワークフローの既定サイズは medium になりました。上限が広がる変更と、目安を置く変更が同時に入った形です。 Claude Opus 5 とモデル選択 Claude Opus 5（claude-opus-5）が追加され、既定の Opus モデルになりました。コンテキストは10…",
+      "body": "本記事は Claude Code v2.1.219 のリリースノート（7月24日公開）を素材に、変更点をテーマ別に整理したものです。記載の根拠はリリースノートの本文のみで、それ以外の挙動は確認していません。\n\n変更の内訳\n\nv2.1.219 の変更は27項目あります。追加が9項目、修正が10項目、既存の挙動の変更が8項目です。\n\n目立つのは Claude Opus 5 の追加ですが、それ以外にも、1回の指示で何体のエージェントが動くかに関わる変更が2つ入っています。サブエージェントの入れ子が既定で許されるようになり、動的ワークフローの既定サイズは medium になりました。上限が広がる変更と、目安を置く変更が同時に入った形です。\n\nClaude Opus 5 とモデル選択\n\nClaude Opus 5（claude-opus-5）が追加され、既定の Opus モデルになりました。コンテキストは100万トークン、fast mode の価格は100万トークンあたり $10 / $50 です。あわせて Opus 4.7 が fast mode から外れ、/fast の対象は Opus 5 と Opus 4.8 になりました。claude-api スキルも既定が Opus 5 に更新され、Opus 4.8 からの移行の道筋も示されています。\n\n/model のモデル選択画面（ピッカー）では、統合された Opus の行が「Opus (1M context)」ではなく「Opus」とだけ表示される問題が直りました。ハイライトも最も新しいモデルの名前だけに付くようになり、リストの一部が意味なく強調されることがなくなりました。\n\nモデルの行の表示では、プランに含まれているのに Fable に「Requires usage credits」と出る問題も直っています。古いキャッシュにラベルが残っていたことが原因です。\n\nサブエージェントの入れ子\n\nサブエージェントは、既定で深さ3まで入れ子にできるようになりました。従来の既定は1で、サブエージェントがさらにサブエージェントを起動することはできませんでした。入れ子を無効にするには CLAUDECODEMAXSUBAGENTSPAWNDEPTH=1 を設定します。\n\n出力をプログラムで扱っている場合は、stream-json 出力も入れ子のサブエージェントに対応しました。--forward-subagent-text を指定すると、深さ2以降で起動したサブエージェントも出力に現れます。どのエージェントのものかは、起動元の Agent ツールの tooluse id で見分けます。\n\n動的ワークフローのサイズ\n\n動的ワークフローの既定が medium になりました。エージェント数の目安を15未満とするサイズです。別のサイズや無制限を選ぶには、/config の Dynamic workflow size を使います。\n\nこのサイズは、どの設定ファイルからでも workflowSizeGuideline というキーで指定できるようになりました。設定ファイルで指定している間は、/config の該当行が表示されなくなります。\n\n実行中のワークフローのステータス行には、現在の既定サイズが表示されます。変更するには /config を使う、という案内も添えられます。\n\nMCP・サンドボックス・フックの設定\n\nMCP に関わる変更が3件あります。出力をプログラムで受け取っている場合、ヘッドレス実行の stream-json init イベントに mcpservererrors が追加されました。ここには、設定の検証で読み飛ばされた --mcp-config の項目が並びます。端末での実行では、起動時に警告が出ます。\n\nサーバーへの接続に失敗したとき、claude mcp list と /mcp に HTTP ステータスとエラー本文が出るようになりました。MCP の設定値の先頭や末尾に見えない空白があるときも警告が出ます。\n\nmanaged MCP の許可リストと拒否リストでは、${VAR} の解決元が変わりました。設定ファイルの env ではなく、起動時の環境と managed-settings の env から解決します。これらのリストで ${VAR} を使っているなら、解決される値が変わる可能性があります。\n\nサンドボックスとフックにも追加があります。sandbox.network.strictAllowlist が追加されました。サンドボックスで実行するコマンドについて、許可リストにないホストへの接続を確認なしで拒否できます。\n\nDirectoryAdded フックも追加されました。セッションの途中で /add-dir や SDK の registerreporoot 制御リクエストが作業ディレクトリを登録したあと、このフックが発火します。\n\nセルフホストランナーの安定化\n\nここはセルフホストランナーを使っている場合の変更です。\n\nセルフホストランナーの再起動中に承認した権限は、セッションを再開しても失われなくなり、承認した操作が実行されます。起動中に SIGTERM を受け取ったときは、リース（登録の有効期限）が切れるまでランナーの古い行が残っていました。いまは正しく登録を解除します。\n\nあわせて、ランナーの起動とセッションの失敗を、構造化した分類で区別できるようになりました。フックのエラー、ランナーのクラッシュ、設定のエラーを見分けられます。\n\n端末での入出力とリモート操作\n\n最後は、端末での入出力とリモート操作に関わる修正です。\n\nclaude -p のテキスト出力では、ターンの途中で API エラーが起きると、すでに生成されていた回答が失われていました。修正後は生成済みの分が残ります。\n\nGNU screen の中で選択時コピー（copy-on-select）を使うと、選択範囲がコピーされず端末に base64 が出力される問題が直りました。Windows では、CLAUDECODEGITBASHPATH が bash や sh 以外を指しているときの扱いも直りました。従来は Claude Code が終了したり、その値がそのまま bash として使われたりしていました。いまは警告を出して無視します。\n\nVim モードでは、空のプロンプトで ← を押したときに、INSERT だけでなく NORMAL からもエージェントビューに戻れるようになりました。スクリーンリーダーモードでは、キーを打つたびに入力行の全体が書き直されていましたが、いまは打った文字だけを出力します。\n\nリモート操作は3件です。モデルの切り替え、再接続、組織チェックの失敗のあとに、Remote Control のクライアントに古い fast mode の状態が残る問題が直りました。「Remote Control is only available via api.anthropic.com」というエラーは、どの設定が原因かを示すようになりました。claude --teleport は、いまのチェックアウトがセッションのリポジトリと一致しないとき、どのリポジトリを指しているかを表示します。\n\nまとめ\n\n最も大きい変更は Claude Opus 5 の追加です。既定の Opus モデルが入れ替わり、/fast の対象からも Opus 4.7 が外れました。\n\n更新したら、/model で選んでいるモデルと、/config の Dynamic workflow size を確認しておくとよいでしょう。多数のエージェントを走らせているなら、入れ子の解禁と既定サイズの変更がどちらも効いてきます。\n\n各項目の原文はリリースノートで確認できます。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "00b1d5c5613f7a78",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7670388349514563,
+      "popularityPercentile": 0.39563106796116504,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 92,
+      "oneLiner": "Claude Code v2.1.219でClaude Opus 5が追加され、サブエージェントの既定動作も変わった。",
+      "reason": "既定のOpusがClaude Opus 5になり、コンテキスト長は100万トークンになった。サブエージェントの入れ子も既定で許可され、並列処理の前提が変わる。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.219",
+        "Claude Opus 5",
+        "サブエージェント",
+        "fast mode"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "ai",
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": "Opus 5とエージェント実行既定値が変更",
+        "summary": "Claude Code v2.1.219 では、Claude Opus 5（claude-opus-5）が既定の Opus モデルとして追加され、100万トークンのコンテキストと fast mode の価格 $10 / $50（100万トークンあたり）が設定されました。サブエージェントは既定で深さ3まで入れ子にでき、動的ワークフローの既定サイズは medium（エージェント数の目安は15未満）に変更されています。MCP では stream-json の init イベントに mcpservererrors が追加され、サンドボックスには sandbox.network.strictAllowlist、フックには DirectoryAdded が追加されました。更新後は /model と /config の Dynamic workflow size、さらにエージェント出力を処理するコードを確認してください。",
+        "prerequisites": [
+          {
+            "term": "サブエージェント",
+            "stumblingPoint": "記事は「サブエージェントは、既定で深さ3まで入れ子にできる」と書いているが、深さが何を数えるかを知らないと変更範囲が読み取れない。",
+            "explanation": "Claude Code は、タスクを委譲して実行する別のエージェントをサブエージェントとして起動できます。今回の変更は単に同時実行数を増やすものではなく、サブエージェント自身がさらにサブエージェントを起動できる深さを、既定で1から3へ広げるものです。複数段の委譲を使うワークフローでは、1回の指示から動くエージェントの総数や出力の構造が変わります。"
+          },
+          {
+            "term": "stream-json",
+            "stumblingPoint": "記事は「stream-json 出力も入れ子のサブエージェントに対応」と書いているが、既存の JSON パーサーがどの出力を追加で扱う必要があるかを知らないと読み取れない。",
+            "explanation": "stream-json は、Claude Code の実行イベントを JSON のストリームとして受け取る形式です。通常の画面表示では見えにくいエージェント単位のイベントをプログラムで処理できます。今回、`--forward-subagent-text` を指定すると、深さ2以降のサブエージェントのテキストもストリームに流れ、起動元の Agent ツールの tooluse id で出所を区別します。"
+          },
+          {
+            "term": "Dynamic workflow size",
+            "stumblingPoint": "記事は「動的ワークフローの既定が medium になりました」と書いているが、入れ子の深さと同じ上限変更なのかを知らないと影響範囲を誤解する。",
+            "explanation": "動的ワークフローは、Claude Code がタスクに応じてエージェント構成を決める実行方式です。`medium` はその構成に対する既定の規模ガイドラインで、記事ではエージェント数の目安を15未満としています。サブエージェントの入れ子の上限とは別の設定なので、入れ子を許可していても、動的ワークフロー側にはmediumの目安が適用されます。"
+          },
+          {
+            "term": "mcpservererrors",
+            "stumblingPoint": "記事は「init イベントに mcpservererrors が追加」と書いているが、MCP 設定のどの段階のエラーを示す項目かを知らないと扱い方がわからない。",
+            "explanation": "MCP は Claude Code から外部ツールや外部サーバーへ接続するための仕組みです。`--mcp-config` で渡した設定は検証時に読み飛ばされることがあり、今回その内容がヘッドレス実行の `stream-json` の init イベントに `mcpservererrors` として載るようになりました。端末操作では起動時の警告として現れるため、設定不備をプログラム実行と対話実行の両方で検知しやすくなります。"
+          },
+          {
+            "term": "managed MCP",
+            "stumblingPoint": "記事は「${VAR} の解決元が変わりました」と書いているが、許可リストの判定前に参照される環境が変わることを知らないと移行要否を判断できない。",
+            "explanation": "managed MCP は、組織や管理設定によって利用可能な MCP サーバーを制御する構成です。許可リスト・拒否リスト内の `${VAR}` は、従来の設定ファイルの `env` ではなく、起動時の環境と `managed-settings` の `env` から解決されます。設定ファイルの環境変数を前提にしていた場合、同じ文字列でも実際に比較される値が変わり得ます。"
+          },
+          {
+            "term": "sandbox.network.strictAllowlist",
+            "stumblingPoint": "記事は「許可リストにないホストへの接続を確認なしで拒否」と書いているが、通常の権限確認を厳格化する設定なのか、通信自体を遮断する設定なのかを知らないと影響を読めない。",
+            "explanation": "サンドボックスは、Claude Code が実行するコマンドのアクセス範囲を制限する実行環境です。`sandbox.network.strictAllowlist` を有効にすると、許可リストにないホストへのネットワーク接続を確認プロンプトなしで拒否できます。従来の確認を経て実行できていた通信も止まる設定なので、依存パッケージ取得や社内 API 呼び出しなどの接続先確認が必要です。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "主な既定値とモデルの変更",
+          "beforeLabel": "従来",
+          "afterLabel": "v2.1.219",
+          "rows": [
+            {
+              "aspect": "既定の Opus",
+              "before": "Opus 4.8 が既定の Opus",
+              "after": "Claude Opus 5（claude-opus-5）が既定の Opus モデル"
+            },
+            {
+              "aspect": "/fast 対象",
+              "before": "Opus 4.7 を含む",
+              "after": "Opus 5 と Opus 4.8"
+            },
+            {
+              "aspect": "サブエージェントの入れ子",
+              "before": "既定は深さ1",
+              "after": "深さ3まで"
+            },
+            {
+              "aspect": "動的ワークフロー",
+              "before": "既定サイズの記載なし",
+              "after": "medium、エージェント数の目安は15未満"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "`/model` で現在のモデルを確認し、Claude Opus 5 を選択する。",
+          "`/config` の Dynamic workflow size で、動的ワークフローのサイズを確認・変更する。設定ファイルで `workflowSizeGuideline` を指定している場合は、そちらを優先する。",
+          "サブエージェントを多段委譲するワークフローでは、`--forward-subagent-text` と tooluse id を使って、入れ子のエージェント出力をプログラム上で識別する。",
+          "MCP を使うヘッドレス処理では、init イベントの `mcpservererrors` を監視し、`--mcp-config` から読み飛ばされた設定をエラーとして扱う。"
+        ],
+        "whatChanges": [
+          "Claude Opus 5（claude-opus-5）が追加され、既定の Opus モデルになります。Opus 4.7 は fast mode から外れ、`/fast` の対象は Opus 5 と Opus 4.8 になります。",
+          "サブエージェントの入れ子の既定深度が1から3に変更されます。無効化する場合は `CLAUDECODEMAXSUBAGENTSPAWNDEPTH=1` を設定します。",
+          "動的ワークフローの既定サイズが `medium` になり、エージェント数の目安は15未満になります。設定ファイルでは `workflowSizeGuideline` キーでも指定できます。",
+          "ヘッドレス実行の `stream-json` に `mcpservererrors` が追加され、`sandbox.network.strictAllowlist`、`DirectoryAdded` フックなどが利用可能になります。"
+        ],
+        "howToTry": [
+          "Claude Code を v2.1.219 に更新し、起動後に /model を実行して、選択中のモデルが意図したものか確認する。",
+          "設定画面で /config を実行し、Dynamic workflow size を確認する。既定の medium はエージェント数の目安を15未満とする。",
+          "サブエージェントの入れ子を従来どおり無効化して動作を比較する場合は、`export CLAUDECODEMAXSUBAGENTSPAWNDEPTH=1` を設定してから `claude` を起動する。",
+          "ヘッドレス実行の JSON を処理している場合は、`--output-format stream-json --forward-subagent-text` を付けて、入れ子のサブエージェント出力と init イベントの `mcpservererrors` を確認する。"
+        ],
+        "code": {
+          "lang": "bash",
+          "caption": "入れ子の深さを従来の既定値に戻す",
+          "content": "export CLAUDECODEMAXSUBAGENTSPAWNDEPTH=1\nclaude"
+        },
+        "whyItMatters": "AI コーディングエージェントを自動化している場合、モデルの既定値、サブエージェントの実行階層、Dynamic workflow size が同時に変わるため、同じ指示でも使われるモデルやエージェント構成が変わります。特に stream-json や MCP の出力をパーサーで処理しているコードは、mcpservererrors と入れ子のサブエージェント出力を追加で扱う必要があります。",
+        "caveats": [
+          "本記事は Claude Code v2.1.219 のリリースノート本文に記載された変更のみを扱っており、記載外の挙動は確認されていません。",
+          "既定の Opus モデルが Claude Opus 5（claude-opus-5）に変更され、Opus 4.7 は fast mode の対象外になりました。",
+          "サブエージェントの入れ子は既定で深さ3まで許可されます。既存の実行コストやエージェント数に影響する可能性があるため、必要に応じて CLAUDECODEMAXSUBAGENTSPAWNDEPTH=1 で従来相当に戻します。",
+          "managed MCP の許可リスト・拒否リストで ${VAR} を使っている場合、環境変数の解決元が変わるため、解決結果が変わる可能性があります。",
+          "sandbox.network.strictAllowlist は、許可リストにないホストへの接続を確認なしで拒否します。既存のサンドボックス実行で必要な接続先を許可リストに含める必要があります。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "元記事：Claude Code v2.1.219 の変更点",
+            "url": "https://qiita.com/takeshishimada/items/cd33bd0dcf8317edafca"
+          }
+        ],
+        "readingMinutes": 4
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "Vercel Changelog",
+      "title": "Skill packs are now available on skills.sh",
+      "url": "https://vercel.com/changelog/skill-packs-are-now-available",
+      "publishedAt": "2026-08-04T04:00:00.000Z",
+      "tags": [],
+      "snippet": "",
+      "metrics": {},
+      "sourceWeight": 4,
+      "id": "33f32fcfab62752a",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.7501785714285714,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "skills.shでSkill packsが利用可能になった。",
+      "reason": "Vercelのskills.shで、AIコーディングエージェント向けのSkill packsを利用できるようになった。本文の詳細や利用条件は示されていない。",
+      "keywords": [
+        "skills.sh",
+        "Skill packs",
+        "Vercel",
+        "Claude Code"
+      ],
+      "category": "新機能・新ツール",
+      "domain": "ai",
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 2,
+      "deep": {
+        "headline": "skills.shにSkill packsが登場",
+        "summary": "Vercel Changelogのタイトルでは、skills.shでSkill packsが利用可能になったと告知されている。関連トピックはClaude Code。提供された本文が空のため、Skill packsの具体的な機能や導入手順までは把握できない。",
+        "prerequisites": [],
+        "visual": null,
+        "whatYouCanDo": [],
+        "whatChanges": [
+          "skills.shでSkill packsが利用可能になったとタイトルに記載されている。",
+          "本文が提供されていないため、バージョン変更、破壊的変更、移行手順の有無は確認できない。"
+        ],
+        "howToTry": [],
+        "code": null,
+        "whyItMatters": "Claude Codeを使う開発者に関係する変更だが、本文がないため実務で何を設定・導入できるのかは判断できない。詳細はVercel Changelogの原文確認が必要。",
+        "caveats": [
+          "提供された本文が空のため、Skill packsの内容、対象ツール、導入方法、利用条件、既存設定への影響は確認できない。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "Vercel Changelog: Skill packs are now available on skills.sh",
+            "url": "https://vercel.com/changelog/skill-packs-are-now-available"
+          }
+        ],
+        "readingMinutes": 1
+      }
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / TanStack/table",
+      "title": "TanStack/table @tanstack/alpine-table@9.0.0",
+      "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/alpine-table%409.0.0",
+      "publishedAt": "2026-08-04T06:30:00.000Z",
+      "author": "KevinVandy",
+      "authorDetail": {
+        "name": "KevinVandy",
+        "handle": "@KevinVandy",
+        "url": "https://github.com/KevinVandy",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/28243511?v=4",
+        "organization": "TanStack"
+      },
+      "tags": [
+        "table",
+        "release"
+      ],
+      "snippet": "Major Changes ・#6512 2327f80 - TanStack Table v9 stable release. See the \"Migrating to V9\" guide for your framework (e.g. React) for upgrade instructions. Patch Changes ・Updated dependencies [2327f80]: ・@tanstack/table-core@9.0.0",
+      "body": "Major Changes\n・#6512 2327f80 - TanStack Table v9 stable release. See the \"Migrating to V9\" guide for your framework (e.g. React) for upgrade instructions.\n\nPatch Changes\n・Updated dependencies [2327f80]:\n・@tanstack/table-core@9.0.0",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "9c3dcfa6adddaa9b",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 0.8716666666666668,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 92,
+      "oneLiner": "TanStack Table v9.0.0が安定版としてリリースされた。",
+      "reason": "TanStack Table v9が安定版になり、Reactなど各フレームワーク向けの移行ガイドに沿って更新する段階へ進んだ。",
+      "keywords": [
+        "TanStack Table",
+        "@tanstack/table-core",
+        "v9.0.0",
+        "Migrating to V9"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "headline": "TanStack Table v9がstable release",
+        "summary": "TanStack Table v9 の @tanstack/alpine-table@9.0.0 が stable release として公開されました。依存する @tanstack/table-core も 9.0.0 に更新されています。v8 など既存バージョンから更新する場合は、利用中の framework 向け「Migrating to V9」guide に従って移行確認が必要です。",
+        "prerequisites": [
+          {
+            "term": "@tanstack/table-core",
+            "stumblingPoint": "「Updated dependencies」として @tanstack/table-core@9.0.0 が出てくるが、これが利用側の実装にどう関係するか読み取りにくい。",
+            "explanation": "TanStack Table は framework 固有の UI 実装と、共通ロジックを担う @tanstack/table-core に分かれています。今回のリリースでは @tanstack/alpine-table だけでなく @tanstack/table-core も 9.0.0 に更新されるため、直接 core を利用しているコードも影響範囲に含まれます。"
+          },
+          {
+            "term": "stable release",
+            "stumblingPoint": "「TanStack Table v9 stable release」と書かれているが、stable が v8 利用者にとって何を意味するか判断しにくい。",
+            "explanation": "stable release は、開発中の preview や beta ではなく、v9 系の正式版として提供されたことを示します。ただし stable であることは、v8 からの自動互換性を保証する意味ではありません。今回のような major release では、移行ガイドの確認が必要です。"
+          },
+          {
+            "term": "Major Changes",
+            "stumblingPoint": "リリース名が 9.0.0 で「Major Changes」と書かれているが、移行が必要な規模なのか具体的に読み取れない。",
+            "explanation": "major release は、通常の patch 更新ではなく、API や挙動の変更が入り得るバージョン境界です。本文には具体的な破壊的変更一覧がないため、既存の table 実装をそのまま更新できるとは判断せず、移行手順とテスト結果で確認します。"
+          },
+          {
+            "term": "framework",
+            "stumblingPoint": "「for your framework (e.g. React)」とあるが、framework ごとに移行内容が分かれる理由が省略されている。",
+            "explanation": "framework 向けの移行ガイドは、共通の table-core 変更だけでなく、各 integration の API や設定方法に合わせて確認するための資料です。React 利用者なら React 向け、Alpine 利用者なら Alpine 向けの guide を選ぶ必要があります。"
+          },
+          {
+            "term": "Updated dependencies",
+            "stumblingPoint": "「Patch Changes」の下にある「Updated dependencies」が、メジャーリリース本体とどう違うのか分かりにくい。",
+            "explanation": "Updated dependencies は、今回のパッケージ自身のコード変更とは別に、依存パッケージのバージョンも更新されたことを示します。@tanstack/alpine-table を更新する場合、同梱または参照される @tanstack/table-core との組み合わせも v9.0.0 になります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "v9移行前後",
+          "beforeLabel": "既存バージョン",
+          "afterLabel": "v9.0.0",
+          "rows": [
+            {
+              "aspect": "パッケージ",
+              "before": "既存の @tanstack/alpine-table",
+              "after": "@tanstack/alpine-table@9.0.0"
+            },
+            {
+              "aspect": "依存関係",
+              "before": "既存の @tanstack/table-core",
+              "after": "@tanstack/table-core@9.0.0"
+            },
+            {
+              "aspect": "移行",
+              "before": "現行コードを利用",
+              "after": "framework 向け「Migrating to V9」guide を確認"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "@tanstack/alpine-table を `9.0.0` に更新し、v9 の正式版を利用できます。",
+          "依存関係も含めて v9 に揃えたうえで、既存の table 実装をビルド・テストできます。"
+        ],
+        "whatChanges": [
+          "@tanstack/alpine-table が 9.0.0 の stable release になります。",
+          "依存パッケージの @tanstack/table-core が 9.0.0 に更新されます。",
+          "メジャーリリースのため、既存コードを更新する前に framework 向け「Migrating to V9」guide の確認が必要です。"
+        ],
+        "howToTry": [
+          "現在の依存関係を確認する: `npm ls @tanstack/alpine-table @tanstack/table-core`",
+          "`@tanstack/alpine-table` を v9.0.0 に更新する: `npm install @tanstack/alpine-table@9.0.0`",
+          "アプリケーションのビルドとテストを実行し、既存の table 実装に互換性問題がないか確認する: `npm run build && npm test`",
+          "利用している framework 向けの「Migrating to V9」guide を参照し、必要なコード変更を適用する。"
+        ],
+        "code": null,
+        "whyItMatters": "フロントエンドの table 実装を @tanstack/alpine-table で管理している場合、v9 の正式版へ移行するタイミングです。stable release ですが、メジャー更新なので framework ごとの移行確認を省略せず、既存画面のビルドとテストまで実施する必要があります。",
+        "caveats": [
+          "メジャーリリースのため、既存コードとの互換性や破壊的変更の有無は、利用している framework 向けの「Migrating to V9」guide で確認が必要です。",
+          "リリース本文には、React など各 framework の具体的な移行手順や API 差分は記載されていません。"
+        ],
+        "relatedLinks": [],
+        "readingMinutes": 2
+      }
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "title": "TanStack/router @tanstack/router-core@1.171.16",
+      "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.16",
+      "publishedAt": "2026-08-04T20:35:02.000Z",
+      "author": "github-actions[bot]",
+      "authorDetail": {
+        "name": "github-actions[bot]",
+        "handle": "@github-actions[bot]",
+        "url": "https://github.com/apps/github-actions",
+        "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+        "organization": "TanStack"
+      },
+      "tags": [
+        "router",
+        "release"
+      ],
+      "snippet": "Patch Changes ・#7805 45c4ad8 - Rewrite match loading around a lane-based scheduler that tracks each navigation, preload, and background reload as an ordered unit of work. This fixes pending/redirect/retry state leaking between overlapping navigations, restores correct SSR status codes for redirects, errors, and not-found responses, and closes hydration gaps where the client re-ran work the server …",
+      "body": "Patch Changes\n・#7805 45c4ad8 - Rewrite match loading around a lane-based scheduler that tracks each navigation, preload, and background reload as an ordered unit of work. This fixes pending/redirect/retry state leaking between overlapping navigations, restores correct SSR status codes for redirects, errors, and not-found responses, and closes hydration gaps where the client re-ran work the server had already completed.\n・Invalidation now retires matching active preloads so older speculative loader results cannot become fresh cache data after invalidation.\n・Route headers() now only runs on the server, matching the documented behavior — it is no longer invoked during client-side asset projection.\n・The documented default gcTime and preloadGcTime now match the existing runtime default of 5 minutes (300000).\n\n Removed / changed exported internals\n・RouterState no longer includes loadedAt, isTransitioning, statusCode, or redirect. Use match.updatedAt in place of loadedAt; subscribe to router.state.status / router.state.isLoading in place of isTransitioning; server response status and redirect handling are now internal to the server loader and are no longer exposed on router.state.\n・RouteMatch.fetchCount has been removed, with no replacement — it was purely informational.\n・RouteMatch.status no longer includes 'redirected' (it remains 'pending' | 'success' | 'error' | 'notFound') — redirected matches are dropped from the match list instead of being rendered.\n・RouteMatch.globalNotFound has been renamed and privatized to the internal notFound field. Use match.status === 'notFound' instead.\n・The exported React, Solid, and Vue Match components now accept routeId instead of matchId.\n・The exported RouterStores adapter contract now uses route-keyed presentation stores: matchesId is replaced by ids, matchStores by byRoute, and getRouteMatchStore() by getMatchStore(). The separate loadedAt, isLoading, isTransitioning, statusCode, and redirect stores have been removed, along with the pending/cache stores and their setters. StoreConfig.init has also been removed. Read application-facing state from router.state; preload and cache coordination are now internal.\n・Removed RouterCore members getMatch(), updateMatch(), cancelMatch(), and cancelMatches() — read matches from router.state.matches (e.g. router.state.matches.find((m) => m.id === id)); there is no replacement for mutating or cancelling an individual in-flight match from outside the router.\n・Removed RouterCore.hasNotFoundMatch() — use router.state.matches.some((m) => m.status === 'notFound').\n・Removed RouterCore.looseRoutesById — use routesById.\n・Removed RouterCore.isPrerendering(), RouterCore.isViewTransitionTypesSupported, and RouterCore.viewTransitionPromise, with no replacement.\n・Removed RouterCore.getParsedLocationHref() and RouterCore.clearExpiredCache(), with no replacement — expired cache entries are now reconciled automatically as part of match commit.\n・Removed RouterCore.latestLoadPromise and RouterCore.beforeLoad(), with no replacement.\n・RouterCore.commitLocationPromise and RouterCore.pendingBuiltLocation have been replaced by the internal commitPromise and pendingLocation fields.\n・Removed the exported GetMatchFn and UpdateMatchFn types, along with the methods they typed.\n・Removed the standalone getMatchedRoutes() export from @tanstack/router-core — use the router.getMatchedRoutes() instance method instead.\n・RouterCore.loadRouteChunk() no longer accepts an array of component types as its second argument. One-argument usage is unchanged; the optional second argument is now 'errorComponent', 'notFoundComponent', or false for internal boundary loading.\n・Removed Redirect.redirectHandled, which was internal redirect bookkeeping.\n・MatchRoutesOpts.preload and MatchRoutesOpts.dest have been removed.\n・StartTransitionFn is now (fn, expected) => Promise (previously (fn) => void). This only affects custom framework adapters that implement startTransition.",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "a1fb0009eaad1d4e",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 0.8716666666666668,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 86,
+      "oneLiner": "TanStack Router Core v1.171.16でナビゲーション処理が再設計され、SSRと再検証の不具合が修正された。",
+      "reason": "ナビゲーション単位で処理を追跡するスケジューラに変わり、競合時の状態漏れ、SSRのリダイレクト結果、不要な再実行が修正された。",
+      "keywords": [
+        "TanStack Router",
+        "@tanstack/router-core",
+        "v1.171.16",
+        "lane-based scheduler",
+        "SSR",
+        "hydration"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "headline": "TanStack Router 1.171.16の破壊的変更",
+        "summary": "@tanstack/router-core@1.171.16 は、navigation・preload・background reload を `lane-based scheduler` で管理するよう match loading を再設計し、重複ナビゲーションの状態漏れ、SSR の redirect status、hydration gaps を修正した。無効化時には active preload を破棄し、古い loader 結果がキャッシュへ戻ることも防ぐ。移行面では `RouterState` と `RouterCore` の公開 internals が大幅に整理され、`router.state.matches`、`match.updatedAt`、`routeId`、新しい `RouterStores adapter` 契約を使う形になる。",
+        "prerequisites": [
+          {
+            "term": "lane-based scheduler",
+            "stumblingPoint": "記事は「lane-based scheduler」に書き換えたとするが、lane が何を分離し、重複ナビゲーションの何を防ぐのか読み取りにくい。",
+            "explanation": "lane-based scheduler は、ナビゲーションや preload などを独立した順序付きの仕事単位として追跡する仕組みを指す。従来は重複するナビゲーション間で pending・redirect・retry の状態が混ざることがあったが、この変更では各 navigation、preload、background reload を別の単位として扱う。React の transition を単に追加する話ではなく、Router のローディング状態管理そのものの再設計である。"
+          },
+          {
+            "term": "hydration gaps",
+            "stumblingPoint": "記事は「closes hydration gaps where the client re-ran work the server had already completed」と書くが、hydration 後の再実行がなぜ問題になるのか前提が省略されている。",
+            "explanation": "SSR ではサーバーが実行した loader の結果やリダイレクトをクライアントが hydration 後に再実行しないことが重要になる。hydration gap があると、サーバーとクライアントで処理済み範囲がずれ、不要な再実行や表示状態の不整合につながる。今回の修正は、サーバーが完了した仕事をクライアントがもう一度実行する隙間を閉じるもの。"
+          },
+          {
+            "term": "RouterState",
+            "stumblingPoint": "記事は「RouterState no longer includes loadedAt, isTransitioning, statusCode, or redirect」と列挙するが、どれが代替可能でどれが内部化されたかを整理しないと移行先を誤る。",
+            "explanation": "RouterState はアプリケーションから読むルーター状態で、今回そこから内部実装寄りの値が削除された。`loadedAt` は `match.updatedAt`、`isTransitioning` は `router.state.status` / `router.state.isLoading` で代替する。一方、サーバーの HTTP status や redirect は router.state から読ませず、server loader 内部の責務になったため、クライアント側で同じ情報を取得する代替 API は示されていない。"
+          },
+          {
+            "term": "RouteMatch.status",
+            "stumblingPoint": "記事は「RouteMatch.status no longer includes 'redirected'」と「globalNotFound ... internal notFound field」を別々に書くため、match list と not-found 判定の扱いが変わったことを把握しづらい。",
+            "explanation": "`redirected` は、リダイレクトされた match を match list に残して描画状態として扱うための status 値だった。今回からリダイレクト済みの match はリストから削除されるため、`RouteMatch.status` は `pending`、`success`、`error`、`notFound` の4値になる。not-found 判定は公開されていた `globalNotFound` ではなく、`match.status === 'notFound'` を使う。"
+          },
+          {
+            "term": "RouterStores adapter",
+            "stumblingPoint": "記事は「route-keyed presentation stores」と store 名の置換を一気に列挙するが、既存の adapter 実装者以外には何を移行する契約なのか判断しにくい。",
+            "explanation": "RouterStores adapter は、ルーター内部状態をフレームワーク側の store に投影するための契約。今回、`matchesId` は `ids`、`matchStores` は `byRoute`、`getRouteMatchStore()` は `getMatchStore()` に変わり、個別の loadedAt などの store と pending/cache store は削除された。preload と cache の調整は adapter の外から行うのではなく、router.state と Router 内部に任せる設計になっている。"
+          },
+          {
+            "term": "router.state.matches",
+            "stumblingPoint": "記事は `getMatch()`、`updateMatch()`、`cancelMatch()`、`cancelMatches()` を削除すると書くが、参照の移行と操作 API の消滅を分けて理解する必要がある。",
+            "explanation": "`router.state.matches` は現在の match 一覧を公開状態として読む場所になった。以前の `getMatch()` のような個別取得 API は削除され、`updateMatch()` やキャンセル API も外部からの個別操作手段として残っていない。したがって、参照だけなら配列検索へ移行できるが、in-flight match の変更・キャンセルを同じ形で置き換える方法は記事に記載されていない。"
+          },
+          {
+            "term": "loadRouteChunk()",
+            "stumblingPoint": "記事は「no longer accepts an array of component types as its second argument」と書くが、1引数呼び出しと boundary 用の新しい許容値の違いを確認しないと過剰に修正してしまう。",
+            "explanation": "`loadRouteChunk()` の第2引数は、従来の component types の配列ではなく、内部 boundary 用の `'errorComponent'`、`'notFoundComponent'`、または `false` になった。引数1つの呼び出しは変更されないため、通常の利用箇所すべてが壊れるわけではない。第2引数に配列を渡すコードだけが、今回の許可された値に合わせた見直し対象になる。"
+          },
+          {
+            "term": "StartTransitionFn",
+            "stumblingPoint": "記事は「StartTransitionFn is now (fn, expected) => Promise」とだけ書くため、通常のアプリコードではなく custom framework adapter が移行対象だと補足が必要。",
+            "explanation": "`StartTransitionFn` はフレームワーク adapter が Router の遷移処理を包むための関数型。従来は `fn` だけを受け取り `void` を返したが、今回から `expected` も受け取り `Promise` を返す契約になった。通常の React / Solid / Vue アプリ利用者ではなく、独自 adapter の型実装が対象になる。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "公開 API と内部処理の変更",
+          "beforeLabel": "従来",
+          "afterLabel": "1.171.16",
+          "rows": [
+            {
+              "aspect": "match loading",
+              "before": "重複する仕事間で pending・redirect・retry 状態が漏れる問題",
+              "after": "lane-based scheduler で navigation / preload / background reload を順序付き管理"
+            },
+            {
+              "aspect": "時刻情報",
+              "before": "RouterState.loadedAt",
+              "after": "`loadedAt` は削除。`match.updatedAt` を使用"
+            },
+            {
+              "aspect": "遷移状態",
+              "before": "RouterState.isTransitioning",
+              "after": "`router.state.status` / `router.state.isLoading` を購読"
+            },
+            {
+              "aspect": "not-found / redirect",
+              "before": "globalNotFound と RouteMatch.status = 'redirected'",
+              "after": "`match.status === 'notFound'` を使用。redirected は match list から除去"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "重複する navigation と preload が走るアプリで、pending・redirect・retry 状態の漏れや hydration 後の不要な再実行を減らせる。",
+          "無効化後に古い speculative loader 結果が fresh cache data として復活することを防げる。",
+          "not-found 判定を `router.state.matches.some((m) => m.status === 'notFound')` に統一し、match の参照を `router.state.matches.find((m) => m.id === id)` に移行できる。",
+          "`Route headers()` をサーバー専用処理として扱い、クライアント側 asset projection での実行を前提にしない構成へ整理できる。"
+        ],
+        "whatChanges": [
+          "match loading が lane-based scheduler に置き換わり、各 navigation、preload、background reload を ordered unit of work として扱う。これにより pending / redirect / retry の状態漏れ、SSR の redirect・error・not-found status、hydration gaps が修正される。",
+          "`RouterState` から `loadedAt`、`isTransitioning`、`statusCode`、`redirect` が削除される。`loadedAt` は `match.updatedAt`、遷移状態は `router.state.status` / `router.state.isLoading` を使うが、サーバー status と redirect は内部化される。",
+          "`RouteMatch.fetchCount`、`RouteMatch.globalNotFound`、`RouterCore` の複数の取得・更新・キャンセル・cache 操作用メンバー、`getMatchedRoutes()` の standalone export などが削除または変更される。`RouteMatch.status` から `redirected` も削除される。",
+          "React、Solid、Vue の Match コンポーネントは `matchId` ではなく `routeId` を受け取る。RouterStores adapter は `ids` / `byRoute` / `getMatchStore()` を使う契約へ変更される。"
+        ],
+        "howToTry": [
+          "依存バージョンを更新し、型エラーを洗い出す。例: `npm install @tanstack/router-core@1.171.16` の後に `npx tsc --noEmit` を実行する。",
+          "`loadedAt`、`isTransitioning`、`statusCode`、`redirect`、`fetchCount`、`globalNotFound` への参照を検索し、`match.updatedAt`、`router.state.isLoading`、`router.state.status`、`match.status === 'notFound'` などへ置き換える。",
+          "`getMatch()`、`updateMatch()`、`cancelMatch()`、`cancelMatches()`、`hasNotFoundMatch()` を使っている箇所を検索する。個別 match の参照は `router.state.matches.find((m) => m.id === id)`、not-found 判定は `router.state.matches.some((m) => m.status === 'notFound')` に移行する。",
+          "React、Solid、Vue の Match コンポーネントに `matchId` を渡している場合は、同じ値を `routeId` に変更する。",
+          "独自の framework adapter が `StartTransitionFn` を実装している場合は、`(fn) => void` から `(fn, expected) => Promise` に変更し、返却値を Promise にする。"
+        ],
+        "code": {
+          "lang": "ts",
+          "caption": "削除・変更された状態 API の移行例",
+          "content": "const match = router.state.matches.find((m) => m.id === id)\nconst hasNotFound = router.state.matches.some((m) => m.status === 'notFound')\n\nconst updatedAt = match?.updatedAt\nconst isLoading = router.state.isLoading\nconst status = router.state.status"
+        },
+        "whyItMatters": "React / Next.js 系のアプリで TanStack Router の内部状態や独自 adapter に依存している場合、単なる patch 更新ではなく型エラーと実装変更が発生する。特に `RouterStores adapter`、`routeId`、`router.state.matches`、`StartTransitionFn` の利用箇所を先に確認すると、公開 API の整理と内部化の影響範囲を短時間で特定できる。",
+        "caveats": [
+          "RouterState からサーバー応答の statusCode と redirect が削除され、サーバーローダー内部で処理される。",
+          "RouterCore の個別 match の取得・更新・キャンセル用 API は削除され、外部から個別の in-flight match を変更・キャンセルする代替 API はない。",
+          "RouterStores adapter を実装している場合は、route-keyed presentation stores への契約変更が必要。",
+          "StartTransitionFn の変更は、独自の framework adapter を実装している場合だけ影響する。",
+          "Route headers() はサーバー上でのみ実行され、クライアント側の asset projection では呼ばれなくなった。",
+          "gcTime と preloadGcTime のドキュメント上のデフォルト値が、実行時の既存値である 300000（5分）に揃えられた。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "TanStack/router v1.171.16 Release",
+            "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.16"
+          }
+        ],
+        "readingMinutes": 5
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "a57f94e16544b22c",
+      "product": "GitHub Code Scanning",
+      "what": "コード脆弱性スキャンサービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "CodeQLのスキャン設定をリポジトリや組織単位でカスタマイズできるようになる",
+      "change": {
+        "before": "Code scanning default setupの固定設定",
+        "after": "リポジトリまたは組織で設定ファイルを適用"
+      },
+      "scope": [
+        "リポジトリ",
+        "組織"
+      ],
+      "summary": "Code scanning default setupで、github-codeql-config-fileリポジトリプロパティから独自設定ファイルを適用できるようになりました。",
+      "title": "Customize code scanning default setup at scale",
+      "url": "https://github.blog/changelog/2026-08-04-customize-code-scanning-default-setup-at-scale",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-04T19:15:23.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "7549af57c4dd5cbf",
+      "product": "Prisma",
+      "what": "型安全なデータベースORM",
+      "version": "v0.17.0",
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "@prismaの単一DBファサードへ移行できるようになる",
+      "change": {
+        "before": "@prisma-next配下の複数パッケージを利用",
+        "after": "@prisma配下の単一DBファサードへ移行"
+      },
+      "scope": [],
+      "summary": "Prisma Nextを@prisma配下の17パッケージとして再編し、アプリごとに単一のDBファサードへ移行しました。構造化エラーコード、数値・日時のロスレスなリレーション読込、SQLインデックスとRLSポリシーの移行可能な命名も追加されています。",
+      "title": "prisma/prisma v0.17.0",
+      "url": "https://github.com/prisma/prisma/releases/tag/v0.17.0",
+      "sourceLabel": "GitHub Releases / prisma/prisma",
+      "publishedAt": "2026-08-04T13:31:06.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "7d6ef6884b56883f",
+      "product": "Biome",
+      "what": "JavaScript・TypeScript向け formatter/linter",
+      "version": "2.5.7",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "新しいBiomeの検査ルールと設定を使えるようになる",
+      "change": {
+        "before": "該当するnull合体代入や組み込みprototypeを検出できない",
+        "after": "useNullishCoalescingの新オプションとnurseryルールを利用"
+      },
+      "scope": [],
+      "summary": "Biome CLI 2.5.7で、useNullishCoalescingのignoreIfStatementsオプションとnurseryルールnoExtendNativeなどを追加しました。",
+      "title": "biomejs/biome Biome CLI v2.5.7",
+      "url": "https://github.com/biomejs/biome/releases/tag/%40biomejs/biome%402.5.7",
+      "sourceLabel": "GitHub Releases / biomejs/biome",
+      "publishedAt": "2026-08-04T13:24:41.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "25fd1026f02067fd",
+      "product": "Cloudflare CI SDK",
+      "what": "Cloudflare上でCI/CDを構築するSDK",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Cloudflare上でCI/CDパイプラインを実行できるようになる",
+      "change": {
+        "before": "Cloudflare外のCI/CD基盤を利用",
+        "after": "Cloudflare上でCI/CDの保存・ビルド・テスト・デプロイを実行"
+      },
+      "scope": [
+        "セルフホスト"
+      ],
+      "summary": "Cloudflare Workflowsを基盤にしたCI SDKで、Artifactsによるコード保存からビルド、テスト、デプロイまでをCloudflare上で実行できる構成を発表しました。",
+      "title": "Run CI/CD for millions of repos — on your platform, on Cloudflare",
+      "url": "https://blog.cloudflare.com/ci-workflows",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-08-04T13:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "c8fab5630e15cb87",
+      "product": "Cloudflare Agents",
+      "what": "ホステッドAIエージェントの開発・運用基盤",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "Cloudflare上でホステッドエージェントをデプロイ・管理できるようになる",
+      "change": {
+        "before": "エージェントの実行基盤や管理機能を個別に構築",
+        "after": "Cloudflare上でホステッドエージェントをデプロイ・管理"
+      },
+      "scope": [],
+      "summary": "Cloudflare Agentsを導入し、ホステッドエージェントのデプロイと管理を一元化します。モデルアクセス、永続ランタイム、オーケストレーション、サンドボックス実行、永続ストレージを組み合わせて提供します。",
+      "title": "Introducing: Cloudflare Agents",
+      "url": "https://blog.cloudflare.com/agents-on-cloudflare",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-08-04T13:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "7b45fa2825f340a1",
+      "product": "Cloudflare Workers",
+      "what": "サーバーレスアプリ向け開発・実行基盤",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "ローカルのWorker traceをエージェントから調査できるようになる",
+      "change": {
+        "before": "ローカルtraceのSDK導入・設定を手動実施",
+        "after": "wrangler devやvite devがローカルtraceを自動収集"
+      },
+      "scope": [
+        "ローカル開発"
+      ],
+      "summary": "wrangler devとvite devがWorker呼び出しのOpenTelemetry traceを自動収集し、エージェントセッションにはLocal Explorer APIを案内するようになりました。",
+      "title": "Your agent can now debug Workers with local tracing",
+      "url": "https://blog.cloudflare.com/local-tracing",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-08-04T13:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "ff6bcacf5ed90cb3",
+      "product": "Dependabot",
+      "what": "依存関係更新ボット",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "DependabotのPRブランチ名をカスタマイズできるようになる",
+      "change": {
+        "before": "DependabotのPRブランチ名を固定形式で生成",
+        "after": "DependabotのPRブランチ名を設定で生成"
+      },
+      "scope": [],
+      "summary": "`.github/dependabot.yml`にpull-request-branch-nameオプションを追加し、DependabotのPRブランチ名のprefix、長さ、区切り、大小文字、テンプレートを設定できるようにしました。",
+      "title": "Customize Dependabot pull request branch names",
+      "url": "https://github.blog/changelog/2026-08-04-customize-dependabot-pull-request-branch-names",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-04T12:57:18.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "f2760fd726be5670",
+      "product": "GitHub Code Quality",
+      "what": "GitHubのコード品質管理機能",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "設定画面からカバレッジworkflowを自動生成できるようになる",
+      "change": {
+        "before": "コードカバレッジworkflowを手動で構築",
+        "after": "設定画面からAI生成のcoverage workflowをPR作成"
+      },
+      "scope": [],
+      "summary": "Code Quality設定に、AIでコードカバレッジworkflowを自動生成する項目を追加しました。生成内容はPRとして確認してからマージできます。",
+      "title": "Code coverage automatic enablement in Code Quality settings",
+      "url": "https://github.blog/changelog/2026-08-04-code-coverage-automatic-enablement-in-code-quality-settings",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-04T12:36:32.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "63b3af6bc6f7d20a",
+      "product": "CodeQL",
+      "what": "コード脆弱性を検出する静的解析エンジン",
+      "version": "2.26.2",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "Swift 6.3.3とKotlin 2.4.10をCodeQLで解析できるようになる",
+      "change": {
+        "before": "Swift 6.3.3とKotlin 2.4.10を解析対象にできない",
+        "after": "Swift 6.3.3とKotlin 2.4.10を解析"
+      },
+      "scope": [
+        "Swift 6.3.3",
+        "Kotlin 2.4.10"
+      ],
+      "summary": "CodeQL 2.26.2でSwift 6.3.3とKotlin 2.4.10の解析をサポートしました。path injection、URL redirection、GitHub Actions向けクエリの精度も改善しています。",
+      "title": "CodeQL 2.26.2 adds Swift 6.3.3 and Kotlin 2.4.10 support",
+      "url": "https://github.blog/changelog/2026-08-04-codeql-2-26-2-adds-swift-6-3-3-and-kotlin-2-4-10-support",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-04T10:57:39.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "0a44fc3a2eaecb0b",
+      "product": "TanStack Table",
+      "what": "ヘッドレスなテーブルUIライブラリ",
+      "version": "9.0.0",
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "TanStack Table v9の安定版へ移行できるようになる",
+      "change": {
+        "before": "TanStack Table v8以前を利用",
+        "after": "TanStack Table v9を安定版として利用"
+      },
+      "scope": [],
+      "summary": "TanStack Table v9のstable releaseです。Reactなど各フレームワーク向けに、v9への移行ガイドと関連パッケージのv9.0.0が提供されています。",
+      "title": "TanStack/table @tanstack/angular-table-devtools@9.0.0",
+      "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/angular-table-devtools%409.0.0",
+      "sourceLabel": "GitHub Releases / TanStack/table",
+      "publishedAt": "2026-08-04T06:30:00.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/vue-table-devtools@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/vue-table-devtools%409.0.0"
+        },
+        {
+          "label": "@tanstack/solid-table-devtools@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/solid-table-devtools%409.0.0"
+        },
+        {
+          "label": "@tanstack/react-table-devtools@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/react-table-devtools%409.0.0"
+        },
+        {
+          "label": "@tanstack/preact-table-devtools@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/preact-table-devtools%409.0.0"
+        },
+        {
+          "label": "@tanstack/vue-table@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/vue-table%409.0.0"
+        },
+        {
+          "label": "@tanstack/svelte-table@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/svelte-table%409.0.0"
+        },
+        {
+          "label": "@tanstack/solid-table@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/solid-table%409.0.0"
+        },
+        {
+          "label": "@tanstack/react-table@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/react-table%409.0.0"
+        },
+        {
+          "label": "@tanstack/preact-table@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/preact-table%409.0.0"
+        },
+        {
+          "label": "@tanstack/octane-table@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/octane-table%409.0.0"
+        },
+        {
+          "label": "@tanstack/lit-table@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/lit-table%409.0.0"
+        },
+        {
+          "label": "@tanstack/ember-table@9.0.0",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/ember-table%409.0.0"
+        }
+      ]
+    },
+    {
+      "id": "33f32fcfab62752a",
+      "product": "skills.sh",
+      "what": "AIエージェント向けスキル配布サービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "skills.shでSkill packsを利用できるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "skills.shでSkill packsが利用可能になりました。",
+      "title": "Skill packs are now available on skills.sh",
+      "url": "https://vercel.com/changelog/skill-packs-are-now-available",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-04T04:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "7f97947029e98ec8",
+      "product": "Claude Code",
+      "what": "AIコーディングエージェント",
+      "version": "v2.1.221",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "VS Codeでツール活動を要約表示できるようになる",
+      "change": {
+        "before": "VS Codeでツール活動を常時表示",
+        "after": "VS Codeでツール活動を折りたたむFocus viewを利用"
+      },
+      "scope": [
+        "VS Code",
+        "Linux",
+        "WSL"
+      ],
+      "summary": "VS Codeに、ツール活動をターン単位の要約へ折りたたむFocus viewを追加しました。LinuxとWSLでは、サンドボックス内の認証情報ファイルをmaskするモードも利用できます。",
+      "title": "anthropics/claude-code v2.1.221",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.221",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-08-04T00:14:23.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "3a0b2f90f4fc0c31",
+      "product": "ChatGPT Work / Codex",
+      "what": "AIチャット・コーディング支援サービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "ChatGPT WorkとCodexで教育向けプラグインを使えるようになる",
+      "change": {
+        "before": "教育向けの専用プラグインを利用できない",
+        "after": "ChatGPT WorkとCodexで教育向けプラグインを利用"
+      },
+      "scope": [],
+      "summary": "ChatGPT WorkとCodexに、K–12の教員・大学教育者・学生向けの新しい教育プラグインを追加しました。学習、授業、調査、開発を支援します。",
+      "title": "New ways to learn and teach with ChatGPT Work and Codex",
+      "url": "https://openai.com/index/learn-teach-chatgpt-work-codex",
+      "sourceLabel": "OpenAI News",
+      "publishedAt": "2026-08-04T00:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "5716437ea451ced1",
+      "product": "GitHub Copilot cloud agent",
+      "what": "GitHubのクラウド型AIコーディングエージェント",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Copilot cloud agentの推論レベルを選択できるようになる",
+      "change": {
+        "before": "Copilot cloud agentの推論量を指定できない",
+        "after": "タスク開始時にモデルのreasoning levelを選択"
+      },
+      "scope": [],
+      "summary": "Copilot cloud agentで、対応モデルのreasoning levelをタスク開始時に設定できるようになりました。高いレベルほど複雑なタスクに有効ですが、トークンとクレジットを多く消費します。",
+      "title": "Customize the reasoning level for Copilot cloud agent",
+      "url": "https://github.blog/changelog/2026-08-03-customize-the-reasoning-level-for-copilot-cloud-agent",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-03T23:27:35.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "edaf3b8ecc52cb99",
+      "product": "GitHub Copilot",
+      "what": "AIコーディング支援サービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Copilotのmanaged settingsをチーム単位で管理できるようになる",
+      "change": {
+        "before": "中央管理者や一律ポリシーでのみ設定",
+        "after": "enterprise team単位でmanaged settingsを適用"
+      },
+      "scope": [
+        "Enterprise"
+      ],
+      "summary": "Enterprise administratorsが、itemized configuration filesでenterprise teamを対象にmanaged settingsをカスタマイズできるようになりました。",
+      "title": "Enterprise team specialization for managed settings",
+      "url": "https://github.blog/changelog/2026-08-03-enterprise-team-specialization-for-managed-settings",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-03T22:55:29.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "32d3cce191b51d89",
+      "product": "TanStack Router",
+      "what": "SPA・SSR向けルーティングライブラリ",
+      "version": "@tanstack/vue-router@1.170.18",
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "並行ナビゲーション間でpending状態が漏れる",
+        "after": "ナビゲーション単位のlane-based schedulerで状態を分離"
+      },
+      "scope": [],
+      "summary": "ナビゲーション・プリロード・バックグラウンド再読込を追跡するlane-based schedulerに刷新しました。並行処理時の状態漏れ、SSRリダイレクトのステータスコード、既処理内容の再実行によるhydration gapを修正しています。",
+      "title": "TanStack/router @tanstack/vue-router@1.170.18",
+      "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-router%401.170.18",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "publishedAt": "2026-08-04T20:36:08.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/solid-router@1.170.19",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-router%401.170.19"
+        },
+        {
+          "label": "@tanstack/router-devtools-core@1.168.1",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-devtools-core%401.168.1"
+        },
+        {
+          "label": "@tanstack/react-router@1.170.19",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-router%401.170.19"
+        },
+        {
+          "label": "@tanstack/router-core@1.171.16",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.16"
+        },
+        {
+          "label": "Release 2026-08-04 20:36",
+          "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-04-2036"
+        },
+        {
+          "label": "Release 2026-08-03 22:16",
+          "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-03-2216"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.36",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.36"
+        },
+        {
+          "label": "@tanstack/solid-start@1.168.35",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.168.35"
+        },
+        {
+          "label": "@tanstack/vue-start@1.168.34",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.168.34"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.34",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.34"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.35",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.35"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.35",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.35"
+        }
+      ]
+    },
+    {
+      "id": "239db57eba02c3ee",
+      "product": "Vercel",
+      "what": "フロントエンド向けホスティング・開発プラットフォーム",
+      "version": null,
+      "kind": "service",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "ISRページ数に応じてデプロイ時間が増加",
+        "after": "ISRページが多いアプリのデプロイを最大33%高速化"
+      },
+      "scope": [],
+      "summary": "ISRページが多いアプリで、デプロイが最大33%高速になりました。",
+      "title": "Deploys are now up to 33% faster for apps with many ISR pages",
+      "url": "https://vercel.com/changelog/deploys-are-now-up-to-33-faster-for-apps-with-many-isr-pages",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-04T04:00:00.000Z",
+      "alsoReleased": [
+        {
+          "label": "Give your eve agent a browser",
+          "url": "https://vercel.com/changelog/give-your-eve-agent-a-browser"
+        },
+        {
+          "label": "Vercel supports Next.js 16.3",
+          "url": "https://vercel.com/blog/vercel-supports-next-js-16-3"
+        }
+      ]
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ThinkStation PGX (GB10) 2台でDeepSeek-V4-Flashを1Mコンテキスト運用し、Claude Code CLIから使う",
+      "url": "https://qiita.com/kiyotaman/items/7bd16d5dad5c381618db",
+      "publishedAt": "2026-08-04T00:20:45.000Z",
+      "author": "清田 史和 Fumikazu Kiyota",
+      "authorDetail": {
+        "name": "清田 史和 Fumikazu Kiyota",
+        "handle": "@kiyotaman",
+        "url": "https://qiita.com/kiyotaman",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/18766/profile-images/1473682521",
+        "bio": "2014 CTO of the yearノミネート、学校法人北部学園理事長、株式会社ナチュラルコーヒー代表取締役、スナップディッシュ株式会社取締役CTO、WHITECOFFEE取締役、現役ITエンジニア、スタートアップアクセラレーター、IT、政治、経済、AI、保育教育、金魚、コーヒー、酒、英語、思想",
+        "organization": "Snapdish Inc.",
+        "location": "Kumamoto, Japan",
+        "followers": 126,
+        "posts": 112,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/JFK"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/kiyotaman"
+          },
+          {
+            "label": "Web",
+            "url": "https://snapdish.jp"
+          }
+        ]
+      },
+      "tags": [
+        "vLLM,",
+        "DeepSeek,",
+        "ClaudeCode,",
+        "nvidia,",
+        "LLM"
+      ],
+      "snippet": "TL;DR ・Lenovo ThinkStation PGX(NVIDIA GB10、統合メモリ119GiB)を2台、ConnectX-7 200GbEで直結し、vLLMのマルチノードTP=2でDeepSeek-V4-Flash(FP8 150GB、MIT)を稼働させた ・コミュニティのdual-Spark 1Mレシピで コンテキスト1M(KVキャッシュ実測284万トークン) を実現 ・LiteLLMのAnthropic互換エンドポイント経由で Claude Codeのバックエンド として使えるようにした ・Claude Code CLIは未知モデルを一律200Kコンテキスト扱いする。モデル名に[1m]サフィックスを付けると1M扱いになる(実測28.6万トークンのリクエストで検証済み) ・実測値: デコード32.3 tok/s(単一ストリーム)、プリフィル1,850 tok/s、NCCL間…",
+      "body": "TL;DR\n・Lenovo ThinkStation PGX(NVIDIA GB10、統合メモリ119GiB)を2台、ConnectX-7 200GbEで直結し、vLLMのマルチノードTP=2でDeepSeek-V4-Flash(FP8 150GB、MIT)を稼働させた\n・コミュニティのdual-Spark 1Mレシピで コンテキスト1M(KVキャッシュ実測284万トークン) を実現\n・LiteLLMのAnthropic互換エンドポイント経由で Claude Codeのバックエンド として使えるようにした\n・Claude Code CLIは未知モデルを一律200Kコンテキスト扱いする。モデル名に[1m]サフィックスを付けると1M扱いになる(実測28.6万トークンのリクエストで検証済み)\n・実測値: デコード32.3 tok/s(単一ストリーム)、プリフィル1,850 tok/s、NCCL間帯域110 Gbit/s\n\n構成\n\n [code] \n\n各ノードは以下の構成です。\n\n| 項目 | 値 |\n|---|---|\n| 筐体 | Lenovo ThinkStation PGX |\n| SoC | NVIDIA GB10(Grace Blackwell、sm121) |\n| CPU | 20コア Arm |\n| メモリ | 119GiB 統合メモリ(CPU/GPU共有、VRAM区別なし) |\n| ストレージ | NVMe 3.6TB |\n| OS | Ubuntu 24.04 arm64 |\n| インターコネクト | ConnectX-7 200GbE ×2ポート(直結) |\n\nGB10はDGX Sparkと同系のチップなので、DGX Spark 2台構成のレシピがほぼそのまま流用できます。本記事も以下の2つのコミュニティレシピをサイト事情に合わせて改変したものです。\n・tonyd2wild氏のDeepSeek-V4-Flash dual-Sparkレシピ(基本構成)\n・MiaAI-Labのdual-Spark 1Mコンテキストレシピ(1M化)\n\n下準備\n\nカーネル・ドライバの完全一致\n\nマルチノードのvLLM(TP=2)では、2台のカーネルとドライバのバージョンをビット単位で一致させるのが前提条件です。今回は片方が 6.17.0-1021、もう片方が 1026 とズレていたため、先に両機を揃えました。\n\n [code] \n\nメモリの確保\n\n統合メモリ機なので「GPUメモリ」はそのままシステムメモリと取り合いになります。既存で動かしていたサービス(embedding/reranker/評価用モデル)の --gpu-memory-utilization を削り、モデル本体+KVキャッシュの領地を確保しました。\n・pgx01: 使用100GiB → 17GiB(embed/rerankを0.6Bに縮小、4B/8B級を停止)\n・pgx02: 使用84GiB → 36GiB(常駐judgeモデルを停止)\n\n200GbE直結リンクの設定\n\nConnectX-7は物理的に直結済み・RoCE ACTIVEでしたが、IPv4が未設定でした。NCCLをRoCEv2で使うにはケーブルが刺さっているポートにIPv4アドレスが必要です。netplanで固定します。\n\n [code] \n\nポイント:\n・MTU 9000は両端で一致させる\n・NCCLに渡すGIDは NCCLIBGIDINDEX=3(RoCEv2/IPv4)。showgids で確認できる\n・レシピはf0ポート前提だったが、うちはf1側にケーブルが刺さっていたので rocep1s0f1 / enp1s0f1np1 に読み替え\n\n疎通確認の実測値:\n\n| テスト | 結果 |\n|---|---|\n| iperf3(TCP×4本) | 92 Gbps |\n| NCCL allreduce(PyTorch distributed) | 110.5 Gbit/s |\n\nTCPより速いのはRDMAが効いている証拠です。ここで帯域が1桁Gbpsしか出ない場合は、GID index(RoCEv1を掴んでいる)かMTU不一致を疑ってください。\n\nvLLMマルチノード起動\n\n2ノードTP=2の起動スクリプトです(長いので要点のみ。全文は末尾の補足に)。\n\n [code] \n\n最大のハマりどころ: 起動順序\n\nworkerを先に起動し、その後10分以内にheadを起動します。逆にすると、workerがrendezvous(--master-port 29501)に600秒で接続できず DistNetworkError で死にます。実際に一度この順序を間違えてworkerを看取りました。\n\n [code] \n\n1Mコンテキストが載る理由\n\n最初は --max-model-len 300000 の保守的な構成で組みました。素朴なMLA KVキャッシュの計算では、重み150GB(TP=2で各ノード75GB)を引いた残りにKVが644Kトークン分しか入らず、1Mは物理的に不可能に見えたためです。\n\nその後MiaAI-Labの1Mレシピに更新したところ、DeepSeek-V4-Flashのsparse attention(sparse indexer)によりKVの単価が激減し、起動ログで以下が確認できました。\n\n [code] \n\n1Mトークンのリクエストを2.84並列まで受けられる計算です。300K時代の644Kトークンから4倍以上の改善で、モデルのアーキテクチャ(sparse attention前提)にランタイム設定を合わせることの重要性を痛感しました。\n\n性能実測\n\n| 項目 | 実測値 |\n|---|---|\n| デコード(単一ストリーム、MTP 2トークン投機) | 32.3 tok/s |\n| プリフィル(28.6万トークン入力時) | 1,850 tok/s |\n| 28.6万トークン入力→応答完了 | 156秒 |\n\nLiteLLMでAnthropic互換にする\n\nClaude Codeは ANTHROPICBASEURL の差し替えに対応していますが、話す相手は Anthropic Messages API(/v1/messages) である必要があります。vLLMはOpenAI互換なので、間にLiteLLMを挟んで変換します。\n\n [code] \n\n [code] \n\nClaude Code CLIから使う\n\nラッパースクリプトを1本書けば、普段の claude と共存できます。\n\n [code] \n\n[1m]サフィックス — 200K問題の解法\n\n素直に ANTHROPICMODEL=\"deepseek-v4-flash\" とすると、statuslineのコンテキスト表示が ctx:154.0k/200.0k のようになります。Claude Codeはモデル名からコンテキスト長を判定しており、未知のモデル名は一律200K扱いです。せっかくサーバが1M対応でも、200K付近でauto-compactが発火してしまいます。2026年8月時点で、これを直接上書きする環境変数や設定は存在しません。\n\n解法がモデル名への[1m]サフィックスです。deepseek-v4-flash[1m] と指定すると、\n\n1. Claude Codeは1Mコンテキストモデルとして扱う(auto-compactは967Kまで発火しない)\n2. 送信時にサフィックスは剥がされ、バックエンドには deepseek-v4-flash が渡る(LiteLLM側の設定変更は不要)\n\n検証: 28.6万トークンを本当に食えるか\n\n「表示が1Mになった」だけでは信用できないので、200Kの壁を実際に越えるリクエストで検証しました。約92万文字のテキストの最終行にだけマーカーを仕込み、それを取り出させるNeedle-in-a-Haystackです。\n\n [code] \n\n結果:\n\n [code] \n・286,381トークンの入力が拒否されずに通り(200Kの壁の突破を確認)\n・末尾のマーカーを正答(コンテキスト全体がモデルに届いている)\n・156秒で完了(プリフィル1,850 tok/s)\n・Claude Code側も contextWindow: 1000000 として認識\n\nハマりどころまとめ\n\n| 症状 | 原因と対処 |\n|---|---|\n| worker が DistNetworkError で死ぬ | 起動順序。worker先行→10分以内にhead(rendezvous 600秒タイムアウト) |\n| NCCL帯域が出ない | NCCLIBGIDINDEX=3(RoCEv2/IPv4)を明示。IPv4アドレスとMTU 9000を両端に設定 |\n| そもそもTP=2が組めない | 2台のカーネル・ドライバをビット単位で一致させる |\n| 1Mが載らない(ように見える) | 素朴なKV計算で諦めない。sparse attention対応の起動フラグ込みで実測する |\n| Claude Codeが200Kでcompactする | モデル名に[1m]サフィックス。バックエンドには剥がした名前が届く |\n| 応答に が混ざる | LiteLLMのreasoningcontent変換の境界の問題。実害は少ないが未解決 |\n| リクエストがAnthropic固有フィールドで蹴られる | CLAUDECODEDISABLEADAPTIVETHINKING=1 と CLAUDECODEDISABLEEXPERIMENTALBETAS=1 |\n\nまとめ\n・GB10 2台 + 200GbE直結で、150GBクラスのMoEモデルがTP=2で普通に動く。DGX Spark向けコミュニティレシピが流用できるのが強い\n・sparse attention世代のモデルはKV単価の常識が変わっており、1Mコンテキストがローカル2台で現実に運用できる\n・Claude Code CLI連携は「LiteLLMでAnthropic互換化」+「[1m]サフィックス」の2点で完結する\n・デコード32 tok/sはクラウドのClaude比で体感1/5〜1/10。日常のペアプロ用途というより、巨大なコードベースやログをまるごと食わせる長コンテキスト特化の相棒として使うのが現実的\n\n社内のクローズドな環境でも、コード資産を外に出さずに1Mコンテキストのエージェントが持てる時代になりました。同型機をお持ちの方の参考になれば幸いです。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c3127af099a56169",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8332524271844661,
+      "popularityPercentile": 0.6966019417475728,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "ThinkStation PGX 2台でDeepSeek-V4-Flashを1Mコンテキスト対応のClaude Codeバックエンドとして動かした。",
+      "reason": "GB10搭載機を200GbEで直結し、vLLMのマルチノード推論で1Mコンテキストを実現した。Claude Codeはモデル名に[1m]を付けると未知モデルを1M扱いする。",
+      "keywords": [
+        "ThinkStation PGX",
+        "NVIDIA GB10",
+        "DeepSeek-V4-Flash",
+        "vLLM",
+        "LiteLLM",
+        "Claude Code"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【実測】Claude Codeのフック機能（PreToolUse/PostToolUse）で自動品質ゲートを組んだら、手戻りが7割減った",
+      "url": "https://qiita.com/hikariclaude01/items/d2d7ea5f5d210b15e7da",
+      "publishedAt": "2026-08-04T01:01:33.000Z",
+      "author": "光 久朗土",
+      "authorDetail": {
+        "name": "光 久朗土",
+        "handle": "@hikariclaude01",
+        "url": "https://qiita.com/hikariclaude01",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocLi5iQ8Ozb19TzY9CtZTkZVJnzvWlQ1jdhvQ4cL3GNv3KEn1Q=s96-c",
+        "bio": "ClaudeCodeやAI開発ツールの使い方を体験ベースで記事にしています！\r\n■主な発信テーマ\r\n・ClaudeCodeの機能・スキル・活用パターン\r\n・Cursor/Notion/MCP等のツール連携\r\n・「ここで詰まった」実験・検証レポート\r\n公式ドキュメントへのリンクを必ず添えて、正確な情報をお届けすることを心がけています。\r\nThreads→ @hikari.claude01",
+        "followers": 26,
+        "posts": 70,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://www.threads.com/@hikari.claude01"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "Anthropic",
+        "CI",
+        "コードレビュー"
+      ],
+      "snippet": "結論：「書き込み前に自動チェック」を挟むだけで、手戻りが7割減る Claude Codeが勝手にファイルを書き換える不安、フック機能で「書き込み前に自動チェック」を挟むだけで劇的に解消できます。 私は1週間の実測で、手戻り回数が週23回 → 7回（約70%減） になりました。やったことはシンプルで、Claude Codeの フック機能（Hooks） を使い、ファイル書き込みの前後に品質チェックと通知を自動で差し込んだだけです。 この記事では、フック機能の仕組みから実装テンプレート、そして実測データまでを一気に共有します。 --- 環境・前提条件 | 項目 | バージョン / 条件 | |---|---| | Claude Code | 最新安定版（2025年6月時点） | | Node.js | v20 LTS | | TypeScript | 5.x | | ESLint | 9.x（F…",
+      "body": "結論：「書き込み前に自動チェック」を挟むだけで、手戻りが7割減る\n\nClaude Codeが勝手にファイルを書き換える不安、フック機能で「書き込み前に自動チェック」を挟むだけで劇的に解消できます。\n\n私は1週間の実測で、手戻り回数が週23回 → 7回（約70%減） になりました。やったことはシンプルで、Claude Codeの フック機能（Hooks） を使い、ファイル書き込みの前後に品質チェックと通知を自動で差し込んだだけです。\n\nこの記事では、フック機能の仕組みから実装テンプレート、そして実測データまでを一気に共有します。\n\n---\n\n環境・前提条件\n\n| 項目 | バージョン / 条件 |\n|---|---|\n| Claude Code | 最新安定版（2025年6月時点） |\n| Node.js | v20 LTS |\n| TypeScript | 5.x |\n| ESLint | 9.x（Flat Config） |\n| OS | macOS Sonoma / Ubuntu 24.04 で動作確認 |\n| Slack通知 | Incoming Webhooks 使用 |\n\n---\n\n1. フック機能（PreToolUse / PostToolUse）とは何か\n\n公式ドキュメントの要点\n\nClaude Codeの Hooks は、AIエージェントのツール呼び出しの 前後にユーザー定義のシェルコマンドを実行 できる仕組みです。設定ファイル（.claude/settings.json など）に宣言的に記述します。\n\n公式ドキュメントでは、以下の4つのフックポイントが定義されています。\n\n| フックポイント | 発火タイミング | 主な用途 |\n|---|---|---|\n| PreToolUse | ツール実行の 直前 | 入力のバリデーション、実行のブロック |\n| PostToolUse | ツール実行の 直後 | 結果の検証、外部通知 |\n| Notification | Claude Codeが通知を送るとき | カスタム通知連携 |\n| Stop | エージェントがターン終了時 | 後処理、サマリー生成 |\n\nフックのシェルコマンドには stdin経由でJSON が渡され、stdout に返すJSONの内容で 処理の続行・ブロック・フィードバック を制御できます。\n\n [code] \n\n重要なのは、PreToolUseフックが \"decision\": \"block\" を返すと、ツール自体が実行されない点です。これにより「壊れたコードがファイルに書き込まれる前に止める」という品質ゲートが実現できます。\n\n---\n\n2. 実装：Write系ツール発火前にESLint + 型チェックを自動実行するPreToolUseフック\n\n考え方\n\nClaude Codeの Write / Edit ツールが発火する前に、書き込み予定の内容を一時ファイルに書き出し、ESLintとtsc --noEmitを走らせます。エラーがあればブロックし、Claude Codeにフィードバックします。\n\nフック設定（.claude/settings.json）\n\n [code] \n\nmatcher にはツール名の正規表現を指定します。Write と Edit の両方にマッチさせています。\n\nフックスクリプト（.claude/hooks/pre-write-check.sh）\n\n [code] \n\nポイント\n・一時ファイル方式により、既存のプロジェクトファイルを一切汚さない\n・ESLintは 最小限のルールセット（構文エラー＋致命的パターンのみ）に絞る（理由は後述）\n・jq でJSONを組み立てて stdout に返すだけというシンプルさ\n\n---\n\n3. 実装：PostToolUseでdiff要約をSlackに自動通知する仕組み\n\nファイルが書き換わった後に、変更内容の要約をSlackに飛ばします。チームで使う場合、「AIが何を変えたか」の透明性が信頼構築に直結します。\n\n [code] \n\nフック設定の追加\n\n [code] \n\n通知スクリプト（.claude/hooks/post-notify-slack.sh）\n\n [code] \n\nポイント\n・curl をバックグラウンド実行（&）して、通知のレイテンシがClaude Codeの体験に影響しないようにする\n・Webhook URLは環境変数で管理し、設定ファイルにシークレットを書かない\n・head -50 で差分の先頭50行に制限（巨大diffがSlackを埋め尽くすのを防止）\n\n---\n\n4. 実測データ：フック導入前後での手戻り回数・所要時間の比較\n\n私のチーム（3名）で、1週間ずつ フックなし / フックあり の期間を設けて計測しました。\n\n計測条件\n・対象プロジェクト：TypeScript + React のWebアプリ（約200ファイル）\n・「手戻り」の定義：Claude Codeの出力に対して「これ間違ってるからやり直して」と再指示した回数\n・各メンバーが日報で手戻り回数と所要時間を記録\n\n結果\n\n| 指標 | フックなし（Week 1） | フックあり（Week 2） | 改善率 |\n|---|---|---|---|\n| 手戻り回数（週合計） | 23回 | 7回 | ▲ 69.6% |\n| 手戻り1回あたりの平均修正時間 | 8.2分 | 5.1分 | ▲ 37.8% |\n| 週あたりの手戻り総時間 | 188.6分 | 35.7分 | ▲ 81.1% |\n| フックによるブロック回数 | — | 31回 | — |\n\n [code] \n\n考察\n・フックがブロックした31回のうち、大半がTypeScriptの型エラー（22回）でした。Claude Codeは文脈を理解して正しいロジックを書くものの、型定義の不一致を見落とすケースが多い傾向です\n・残りのESLintブロック（9回）は、未使用importやセミコロン漏れなど軽微なものが中心\n・フックありでも発生した7回の手戻りは、ロジックの要件認識ミス（型やlintでは検出できない）が原因でした\n\n---\n\n5. 落とし穴：フックが重すぎると体験が崩壊する\n\n実行時間の閾値設計が最重要\n\nフックの最大の落とし穴は、チェックが遅いとClaude Codeの対話テンポが致命的に崩れることです。\n\n私の実験では、以下の感覚的な閾値が見えました。\n\n| フック実行時間 | 体感 |\n|---|---|\n| 〜500ms | ほぼ気にならない ✅ |\n| 500ms〜2s | 「少し待たされるな」と感じる ⚠️ |\n| 2s〜 | ストレスで使い続けられない ❌ |\n\n [code] \n\n高速化のために実践したこと\n\n1. ESLintルールを6個に厳選（全ルール適用だと3秒超 → 厳選後200ms）\n2. tsc --skipLibCheck でnodemodules内の型チェックをスキップ\n3. 対象ファイル拡張子でのフィルタリング（markdownやJSONは即スキップ）\n4. PostToolUseの外部通信はバックグラウンド実行（待たない）\n\n---\n\n6. すぐ使えるフック設定ファイルのテンプレート\n\n以下のディレクトリ構成をプロジェクトにコピーすれば、すぐに使い始められます。\n\n [code] \n\n軽量ESLint設定（eslint.quick.config.mjs）\n\n [code] \n\n設定の全体像（.claude/settings.json）\n\n [code] \nTip: プロジェクトルートの .claude/settings.json に書けばプロジェクトスコープ、/.claude/settings.json に書けばグローバルスコープで適用されます。\n\n---\n\nまとめ\n・PreToolUseフックで「書き込み前の品質ゲート」を設置すれば、型エラーやlint違反がファイルに書き込まれる前にブロックでき、手戻りが約7割減る\n・PostToolUseフックで変更通知を自動化すれば、AIの変更がチームに対して透明になり、レビュー負荷が下がる\n・フックの実行時間は500ms以内に抑えるのが鉄則。ESLintルールの厳選とtsc --skipLibCheckが効果的\n\n---\n\n参考リンク\n・Claude Code Hooks 公式ドキュメント\n・Claude Code 公式概要\n・ESLint 公式ドキュメント\n・TypeScript Compiler Options（--noEmit, --skipLibCheck）\n・Slack Incoming Webhooks",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0821078d47403918",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8268446601941748,
+      "popularityPercentile": 0.6674757281553398,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Claude Codeのフックで書き込み前後の品質チェックを自動化し、手戻りを23回から7回に減らした。",
+      "reason": "Claude Codeのツール実行前後にシェルコマンドを差し込むと、書き込み前の検査と通知を自動化できる。1週間の実測で手戻りは約70%減った。",
+      "keywords": [
+        "Claude Code",
+        "Hooks",
+        "PreToolUse",
+        "PostToolUse",
+        "品質ゲート",
+        "Slack"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude CodeからAgentCore GatewayでSlack公式MCPにユーザー単位で接続する",
+      "url": "https://qiita.com/har1101/items/377e48fe845c2aef80e2",
+      "publishedAt": "2026-08-04T10:01:10.000Z",
+      "author": "har1101",
+      "authorDetail": {
+        "name": "har1101",
+        "handle": "@har1101",
+        "url": "https://qiita.com/har1101",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3616210/217ad0db7e88db3a236e69952ac5067c408fe349/large.png?1767258439",
+        "bio": "AWS Community Builder(AI Engineering)",
+        "followers": 64,
+        "posts": 92,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/har1101mony"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "AgentCore",
+        "Slack",
+        "MCP",
+        "OAuth"
+      ],
+      "snippet": "はじめに こんにちは、ふくちと申します。 皆様、AIエージェントとチャットアプリを連携していらっしゃいますでしょうか。 私はチーム運営の作業をAIエージェントにどんどん寄せていく実験をしていて、その一環で「メンバー各自のClaude CodeからSlackを読み書きできるようにしたい」という要望が出てきました。 そこでAgentCore Gatewayを使ってやってみた結果、SlackのOAuth同意画面で「Allow」を押すところまでは全部順調だったのに、API呼び出しが [code] で失敗するという問題にぶつかりました。 エラーメッセージ的にはセッションが無効か期限切れなのですが、同意した直後にAPIコールしてもこれが返ってきます。恐らく無効でも期限切れではないはず。ということでこれについて色々調査し、ついでに認証認可周りのお勉強もしてみました。 本記事は、エラーの調査過程・最終的な…",
+      "body": "はじめに\nこんにちは、ふくちと申します。\n皆様、AIエージェントとチャットアプリを連携していらっしゃいますでしょうか。\n\n私はチーム運営の作業をAIエージェントにどんどん寄せていく実験をしていて、その一環で「メンバー各自のClaude CodeからSlackを読み書きできるようにしたい」という要望が出てきました。\n\nそこでAgentCore Gatewayを使ってやってみた結果、SlackのOAuth同意画面で「Allow」を押すところまでは全部順調だったのに、API呼び出しが\n\n [code] \n\nで失敗するという問題にぶつかりました。\n\nエラーメッセージ的にはセッションが無効か期限切れなのですが、同意した直後にAPIコールしてもこれが返ってきます。恐らく無効でも期限切れではないはず。ということでこれについて色々調査し、ついでに認証認可周りのお勉強もしてみました。\n\n本記事は、エラーの調査過程・最終的なアーキテクチャと解決策・調査の過程で学んだOAuth 3LO(3-legged OAuth)とセッションバインディングの解説記事です。\n\nなお、AgentCore Gatewayのインバウンド認証で用いるSSOやOAuth 2.0・OIDCの基礎は前回の記事で詳しめに書いたので、今回はアウトバウンド認証、つまりエージェントが外部サービスへアクセスする際に利用者本人の権限でアクセスする部分がメインです。\n\nhttps://qiita.com/har1101/items/bfc2701ff74d89ec9dd2\n\n今回やりたかったこと\n\nやりたいことを整理すると、こんな感じです。\n・チームメンバー各自が、自分のローカルのClaude CodeからSlackのチャンネル(プライベートチャンネル含む)を読めるようにしたい\n・ただし見えてよいのは、その人自身がSlack上で見えるものだけ\n・認証の手間は最小限にしたい(デプロイのたびに再認証みたいな運用は避けたい)\n\nSlackには公式のMCPサーバーがあり、これはSlackのユーザートークン、つまり利用者本人として振る舞うトークンで動く設計です。\n本人のトークンで動くので、権限の境界はSlack側で管理してくれます。つまりプライベートチャンネルが見えるかどうかも、Slack上の本人の権限次第です。要件にはかなり合致してそうですね。\n\nhttps://docs.slack.dev/ai/slack-mcp-server/\n\nただ、各自のMCPクライアントからSlack MCPへ直接つなぐ構成にはしませんでした。\n\n理由は2つあります。1つは接続設定やトークンの管理が完全に個人任せになること。\nもう1つは、今後Slack以外のMCPサーバーも増やしたときに、入口の認証を毎回別々に作りたくないことです。\n\n各メンバーが必要なMCPサーバーそれぞれに接続設定をすると、こんな感じで矢印が大量に生えてしまいます。\n \n\nそこでAgentCore Gatewayに複数のMCPサーバーを集約し、入口の認証は組織のIAM Identity Center(以下IIC)によるSSOに統一する構成を選びました。\nちなみにIICとAgentCore Gatewayの間にはCognitoを挟みます。なぜ挟むのかは後述します。\n\nこうすると、各メンバーはAgentCore Gatewayだけ接続すれば良くなるので非常にシンプルかつわかりやすく効率的です。\n \n\n結論と最終アーキテクチャ\n全体のアーキテクチャはこうなります。\n\n \n\n普段の利用時は図の実線、初回だけ図の点線のフローが必要です。\n\n普段、利用者はClaude CodeをAgentCore Gatewayに繋いで利用します。\nGatewayがCognitoのJWTを検証したうえで、その利用者のSlackトークンをAgentCore Identityのトークンボールトから取り出し、Slack公式MCPへリクエストを転送します。\n\nただし初回だけは、SlackのOAuth同意とその完了処理が必要です。\n完了処理においては開始時と同一のトークン文字列が必要というという制約があるため、ログイン・AgentCore Gateway呼び出し・Slack同意・完了処理を1つのプロセス内で通して行うCLIを作り、各メンバーは初回に1回だけそれを実行すれば良い形にしました。\n\n2回目以降は何もしなくてよく、デプロイしても再認証は発生しません。\n\nそして今回の構成では認証が3つ登場し、それぞれに対応するトークンも3つ登場します。この辺りの仕組みと、AgentCoreでどう実装していけばよいかについて着目していければと思います。\n\n| # | 認証 | 発行されるもの | 用途 |\n|---|------|--------------|------|\n| 1 | IICへのSSOログイン | SAML assertion | MCPサーバー利用者が組織の本物のメンバーであることをCognitoに伝える |\n| 2 | Cognitoによるトークン発行 | アクセストークン(JWT) | AgentCore Gatewayの入口で確認 |\n| 3 | SlackのOAuth同意 | Slackユーザートークン | Slack APIを本人の権限で呼ぶ |\n\n用語の整理\nフローの詳細解説へ入る前に、今回登場する概念を整理します。OAuth 2.0、OIDC、SAML、PKCEといった標準仕様そのものの説明は前回の記事に書いたので、ここでは今回の構成の理解に必要な範囲に絞ります。\n\nhttps://qiita.com/har1101/items/bfc2701ff74d89ec9dd2\n\n大きく2つのカテゴリにわけて解説します。\n\n1. 一般的な概念や規格など\n1. AWSに関するもの\n\n1. 一般的な概念や規格など\nこちらはAWSに限らない、認証認可で用いられる一般的な用語を解説します。\n\nIICとCognitoでのフェデレーション\n前回記事で解説しているので簡単に。\n\nフェデレーションというのは、あるシステムでの認証結果を、別のシステムが信頼する仕組みです。\nこの信頼関係があることで、一度のログインで複数のサービスへアクセスできるようになります。\n\nフェデレーションには以下2つの用語が登場します。\n・IdP(Identity Provider): 認証基盤側、本人確認して\"認証済み\"のステータスを発行する\n・SP(Service Provider): サービス提供側、IdPの結果を受け取り検証してサービスを提供する\n\nそしてSAMLは、IdPからSPへ「認証済み」という結果を渡すためのルールです。\nSPは、IdPでのログイン完了を示すデータを受け取って検証し、ユーザーがサービスへアクセスできるようにします。\n\n今回はIICがIdP、CognitoがSPなので下記の感じになります。\n\n [code] \n\nJWT(JASON Web Token)とクレーム\nJWTは署名付きのJSONだと思ってください。\n構成要素はトークンの種類や署名方式を示すヘッダー、クレームを格納するペイロード、改ざんを検知する署名の3部分です。\n\nクレーム(claim)はJWTのペイロードに入る1項目です。実体はkey-valueの集まりで、代表的なものに iss(誰が発行したか)、 sub(どのユーザーのトークンか）、 aud(誰に宛てたトークンか）、 exp(いつまで有効か)などがあります。\n\nJWTには署名が付いているので、受け取った側は発行者の公開鍵を使って改ざんされていないかを検証でき、これによってセキュアなエージェント呼び出しやMCPサーバー呼び出しができるようになるという寸法です。\n\nhttps://www.jwt.io/ja/introduction\n\n2LOと3LO\nOAuth 2.0におけるトークンの取得方法には、大きく2つあります。\n\n2LO(2-legged OAuth)はClient Credentials Grantのことで、利用者を介さずアプリ自身の資格情報でトークンを取ります。登場人物がアプリと認可サーバーの2者なので2-leggedですね。\n [code] \n\nCognitoではMachine to Machine(M2M)と表現されたりするものです。\n \n\nAgentCore RuntimeでAIエージェントをホスティングしており、そこからAgentCore GatewayをMCP接続する際などに使ったりします。詳しくは下記ブログをご参照ください。\n\nhttps://qiita.com/har1101/items/aae967fa157b01e414a9\n\n一方、3LO(3-legged OAuth)はAuthorization Code grantのことで、利用者本人が同意画面でこのアプリに私の権限を渡して良いかを確認し、利用者に委譲されたトークンをアプリが受け取ります。\n\n利用者、アプリ、認可サーバーの3者が登場するので3-leggedです。\n今回の要件的には、各ユーザーの権限によって見られるSlackチャンネルが変化してほしいのでこちらが必須です。\n\nつまり、ログインしてきた人の権限に基づいてAIエージェントに作業させたりMCPサーバーを使いたいときはこちらを採用するのが良いでしょう。\n\n \n\nMCPとエリシテーション\nMCP(Model Context Protocol)は皆さんご存知、AIエージェントとツール群をつなぐプロトコルです。\n\nその中で今回関係するのはエリシテーションです。直訳すると引き出す・誘い出すという意味。\nMCPの文脈では、MCPサーバーがユーザーに対し追加情報を要求できる方法です。\n\nhttps://modelcontextprotocol.io/specification/2025-11-25/client/elicitation\n\nエリシテーションは大きく2種類あり、フォームモードとURLモードの2つがあります。\n・フォームモード：JSONスキーマを使用して応答を検証する構造化データをユーザーに要求できる\n・URLモード：MCPクライアントを経由させてはならない機密性の高いやり取りのために、ユーザーを外部URLに誘導できる\n\nということで、使い分けとしては機密情報を扱うかどうかが1つになるようです。\nつまり、パスワード・アクセストークン・支払い情報などの機密情報をやり取りする際はURLモードを使う必要があります。\n\n例えば今回のケースでいくと、AgentCore GatewayはSlackのトークンが無いとき、ツール呼び出しへの応答としてエラーコード -32042 と認可用URLを返してきます。\nこれを受けてブラウザを開き、ユーザーに同意してもらう形になるんですが、これの裏側で使われているのがURLモードのエリシテーションというやつです。\n\nhttps://docs.aws.amazon.com/jajp/bedrock-agentcore/latest/devguide/gateway-mcp-elicitation.html\n\nセッションバインディング\n3LOでは、「認可フローを開始した人」と「同意して完了させた人」が同一であることを保証する必要があります。\n\n実例で考えてみると理解が進むと思うので少し例を挙げると、こんな感じです。\n・攻撃者が認可フローを開始し、認可URLを正規ユーザーに送り、正規ユーザーが同意する\n・正規ユーザーの権限に紐づくトークンが攻撃者の元に渡る\n・不正アクセスや不正利用に繋がる\n・認可URLが細工されている可能性もある\n\nということで、認可フローを始めた人と同意した人は一緒でないとだめです。代行申請は許さないということですね。\n\nそこでセッションバインディングを行います。\n\nOAuth 2.0/OIDCの認可フローでは、受け取ったコールバックが自分で開始したものによるものかをアプリ自身で確認できるように、フロー途中の値をアプリのセッションや認可イベントに結び付け、後で一致を検証するという形を取ります。\n\n下記参考記事でも、特定のパラメータ名ではなく、値をどのセッションに紐付け、どこで検証するかという観点で整理されています。\n\nhttps://ritou.hatenablog.com/entry/2019/12/02/060000\n\nセッションバインディングにおける一般的なフローを簡潔にまとめると次のようになります。\n※Sはログイン済みセッション、rは今回のOAuth認可処理のために生成するランダムな値、nはOIDCを使う場合だけ生成するランダムな値です。\n\n [code] \n\nいくつか概念を解説しておきます。\nstateは、アプリクライアントが認可を始めるときに生成するランダム値です。\nアプリクライアントはこれを自分のセッションSと結び付けて保存し、認可リクエストにstate=rとして含めます。\n\n認可サーバーはその値をコールバックするので、アプリクライアントは自分のセッションSに保存したrと戻ってきたrが同じかどうか検証します。\nこれがstateの役割です。認可の最初と最後をチェックするような形になっていますよね。\n\n続いてnonce。これはOIDCでIDトークンを使う場合の値です。\n\nアプリクライアントが認証リクエストでnonce=nを渡し、認可サーバーがIDトークンのnonceクレームに同じ値を入れて返します。それを受け取ったアプリクライアントはIDトークンの署名や発行者などを検証した上で、nonceがnと一致するかも確認します。\n\nこちらも認可の最初ごと最後をチェックしています。\n\nではこの2つは何が違うのか。\nstateは認可リクエストとコールバックの対応を確認するのに対して、nonceは認証リクエストとIDトークンの対応を確認します。\nつまり、OAuthだけでOIDC(IDトークン)を使わない場合、nonce は登場しないのです。\n\nひとまずそれぞれstateはOAuth、nonceはOIDC、と紐づけておけば良いのではないでしょうか。\n\nちなみに、AgentCore Identityでも同じようなことを行います。\n認可フローを開始したときの利用者のトークンとセッションを結び付けておき、完了時に同じトークンを提示させることで同一性を検証します。詳しくは後述。\n\nhttps://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/oauth2-authorization-url-session-binding.html\n\n2. AWSに関するもの\nこちらはAWSで用いられる用語や概念を解説します。\n\nCognitoユーザープール\n皆さんご存知、利用者向けの認証基盤サービスです。\n今回の構成におけるCognitoの役割は、IICでの認証結果をJWTに変換することです。\n\nなぜ変換する必要があるのか。IICの認証結果をAgentCore Gatewayにそのまま渡すことができないからです。\n\nAgentCore GatewayはOAuth 2.0のJWTでインバウンド認証をします。一方IICはSAMLなので、そのまま繋げようとするとプロトコルが合いません。\n\nそこでCognitoが間に入り、IICとはSAMLで連携して認証結果を受け取り、MCPクライアントに対してはOAuth 2.0のアクセストークン(JWT)を発行します。\n\nもう少し具体的に整理します。\nCognitoにはIICをSAML IdPとして登録します。これは前述した通り認証結果をIICから受け取る形にするためです。\n \n\nそこで、属性マッピングとメタデータドキュメントというのを設定します。\n \n\n属性マッピングとはSAML assertion(IICでの認証結果)に含まれるメールアドレス・氏名などの属性情報をCognitoのユーザー属性へ対応付けるを設定します。\n\nちなみにメタデータドキュメントのエンドポイントURLは、IIC側でSAMLカスタムアプリケーションを作成した際に取得できます。\n \n\nこうしておくと、IICで認証されたユーザーが初めてログインすると、Cognito側に外部プロバイダー由来のユーザーとして自動的に作成されます。Cognitoへユーザーを個別に1人ずつ登録する必要はないので楽ちんですね。\n\nここで1つ注意する点としては、こうして作られたCognitoユーザーの sub はCognitoが採番したもので、IIC側のユーザーIDとは別物です。\n同じ人間を指す識別子が複数の名前空間に存在するので、どの識別子の話をしているのかは整理しておくと良いと思います。\n\nAgentCore Gateway\nAgentCore Gatewayは複数のツールやMCPサーバーを1つのMCPエンドポイントに束ねるサービスです。\nAgentCore Gatewayにおける認証はインバウンドとアウトバウンドの2つがあります。\n\nインバウンド認証は文字通り入口の認証で、誰がAgentCore Gatewayへアクセスするかを確認します。\n選択肢としてはIAM認証とJWT認証の2通りありますが、今回はCognitoを使ってJWTを検証します。\n\nアウトバウンド認証は出口の認証で、AgentCore Gatewayが接続先にどの資格情報でアクセスするかを扱います。今回はSlackのユーザートークンを使ってSlackへアクセスします。というか基本的にはリソースサーバー(SaaSなどのサービス提供側)で必要な資格方法を用います。\n\nつまり、CognitoのログインができたからといってSlackへアクセスできるわけではありません。インバウンド認証とアウトバウンド認証はそれぞれ完全に別物であることを頭に入れておきましょう。\n\nAgentCore Identityとトークンボールト\nAgentCore Identityは、外部サービスのOAuth設定やAPIキー、そして取得したトークンの保管を引き受けるサービスです。今回はAPI KeyではなくOAuthを用います。\n \n\nOAuthクレデンシャルプロバイダーという設定単位で、どのサービスにどのOAuthクライアントとして繋ぐかを登録します。プロバイダー自体は色んな種類がありますが、自分が繋げたりものが用意されているかは事前に確認しておきましょう。\n\nhttps://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/identity-idps.html\n\nまた、このフローの中で取得されたトークンはトークンボールトというところに保存されます。特に3LOの場合、トークンは利用者単位で分離して保管されます。\n\nつまり、ユーザーAの同意したSlackトークンが、ユーザーBの呼び出しに使われることは無いということです。当たり前ですがセキュアですね。この利用者単位のキーがJWTのissとsubの組です。\n\nより詳しく知りたい方は下記ご参照ください。\n\nhttps://dev.classmethod.jp/articles/amazon-bedrock-agentcore-identity-3lo-google-drive/\n\n詳細な処理フロー\nいよいよここからが本題です。インバウンド認証とアウトバウンド認証の2つに分けて、実際に何が起きているのかを一緒に理解していきましょう。\n\nインバウンド認証のフロー\nまず利用者がIICからCognitoを経てAgentCore Gatewayを呼べるようになるまでです。\n\n [code] \n\nポイントを順に見ていきましょう。こちらは以前の記事で解説しているので軽くにしておきます。詳しく知りたい方は以下をどうぞ。\n\nhttps://qiita.com/har1101/items/bfc2701ff74d89ec9dd2\n\nまずCognitoとIICの間はSAMLで連携します。CognitoがSP、IICがIdPです。\n利用者から見るとMCPクライアント(Claude Code)でMCPの認証をしようとしたら、IICにログインを求められる体験になります。Entra IDとIICを連携しておくと、さらにもう一段SAML連携ができるので、Entra IDだけでMCPへの認証を通すことができるようになります。\n\n次にCognitoとMCPクライアントの間はOAuth 2.0のAuthorization Code grant + PKCEです。\nClaude CodeのようなローカルのCLIツールはクライアントシークレットを安全に保持できないので、PKCEでよりセキュアに認可コード交換を行います。\n\nそしてトークン要求時に渡しているresourceについては前回解説していなかったので少し補足します。\n\nリソースサーバーとは\nOAuth 2.0の登場人物を復習すると、次の4者です。\n\n| 役割 | 意味 | 今回の構成では |\n|---|---|---|\n| リソースオーナー | 権限を持つユーザー本人 | チームメンバー |\n| クライアント | トークンを使ってAPIを呼ぶアプリ | Claude Code |\n| 認可サーバー | トークンを発行する側 | Cognito+IIC |\n| リソースサーバー | トークンを受け取り、保護対象のAPIを提供する側 | AgentCore Gateway |\n\n今回の構成ではAgentCore Gateway自身がリソースサーバーにあたります。\nリソースサーバーは提示されたトークンを検証し、これは自分宛てに発行されたものか・必要な権限を持っているかを確認してからAPIを提供します。\n\nこれを踏まえて、Cognitoのリソースサーバーを今回は追加で設定しています。\nこれは、このCognitoユーザープールが発行するトークンをどのAPIに対して使うつもりかを登録しておくためのものです。\n\n今回はリソースサーバー識別子としてAgentCore GatewayのURLを登録しています。必要に応じてカスタムスコープを登録することもでき、ここで実行可能な操作の権限を絞ることができます。\n\n \n\nCognitoのリソースサーバーにAgentCore GatewayのURLを登録しておくと、発行されるJWTのaudにAgentCore GatewayのURLが入ります。\n\nこれを使うと、AgentCore Gatewayは自分宛てのトークンだけを受け入れるので、よそのAPI用に発行されたトークンの使い回しを防げます。\nちなみに、これは/oauth2/authorizeと/oauth2/tokenの両方のリクエストに付ける必要があることに注意が必要です。\n\nなぜリソースサーバーの登録が必要なのかというと、Cognitoの仕様上、Cognitoのアクセストークンにはデフォルトでaud(誰宛てのトークンか)クレームが入らないためです。入るのはclientid(どのアプリクライアントが取得したか)だけです。\n\nhttps://docs.aws.amazon.com/jajp/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html\n\naudを入れるには、次に説明するresourceパラメータ(Cognitoではリソースバインディングと呼ばれる機能)を使う必要があり、その前提として宛先のURLをリソースサーバー識別子として登録しておく、という関係になっています。\n\nresourceパラメータとは何か\n\nresourceは、RFC 8707(Resource Indicators for OAuth 2.0)で定義されたパラメータで、これから取得するトークンをどのリソースサーバーで使うつもりかを認可サーバーに事前申告するためのもののようです。\n\nhttps://www.rfc-editor.org/rfc/rfc8707.html\n\n似た概念にscopeとaudがあるので、3つの関係をここで整理しておきます。\n・scope: そのトークンで何ができるか(権利の内容)を表す\n・resource: そのトークンをどこで使うか(宛先のリソースサーバー)を表す\n・aud: このトークンは誰宛てに発行されたものかを表す\n・認可サーバーがresourceで申告された宛先を、発行するトークンのペイロードに書き込んだクレーム\n\nつまりresourceとaudは同じ宛先情報を表すのですが立場が対称的なもので、resourceはリクエスト側、audは発行されたトークン側に現れるという関係になっています。\n\n [code] \n\nもしaudがないと、AgentCore Gatewayはclientid(どのクライアントが取得したトークンか)でしか検証できなくなります。\nすると、同じCognitoユーザープールを複数のAgentCore Gatewayや別のAPIで共有した場合に、AgentCore Gateway①向けに取得したトークンをAgentCore Gateway②に提示しても通ってしまうというトークンの使い回しを防げません。\n\nこういった脆弱性や穴を作らないため、このJWTがどこで誰に使われるものなのかを情報として含めておくことは非常に重要なんだそうです。\n\nちなみにこのresource、実は急に出てきた独自概念ではなく、MCPの認可仕様がRFC 8707の実装をMCPクライアントに必須レベルで要求しています。\n\n仕様上、MCPクライアントは認可リクエストとトークンリクエストの両方にresourceを含め、値には接続先MCPサーバーの正規URIを渡すことになっています。\n/oauth2/authorizeと/oauth2/tokenの両方に付けるのはこのためです。\n\nhttps://modelcontextprotocol.io/specification/2025-06-18/basic/authorization\n\nまとめると、次の4ステップがセットで機能してはじめて、「このJWTは確かにこのリソース(AgentCore Gateway)向けに発行されたもの」というaudience単位の用途限定を実現できます。\n\n1. CognitoのリソースサーバーにAgentCore GatewayのURLを識別子として登録する\n2. MCPクライアントがresource= を付けてトークンを要求する\n3. Cognitoが発行するJWTのaudにそのURLをセットする(リソースバインディング)\n4. AgentCore Gatewayが受け取ったJWTのaudと自分のURL(=allowed audienceに自分のURLを設定したもの)を照合する\n\n:::note\nただし、最後の照合のところは複数AgentCore Gatewayを1つのCognitoユーザープールなどで見る場合に有効ですが、単一AgentCore Gatewayの場合そこまで気にしなくても良いのかもしれません。\n:::\n\n最後にAgentCore GatewayのJWT検証です。\nAgentCore Gatewayには、このOIDC発行者のこのクライアントIDが発行したトークンだけを許可するという設定をしておきます。\n \n\nAgentCore GatewayはJWTの署名を発行者の公開鍵で検証し、改ざんされていないこと、期限内であること、想定したクライアント経由であることを確認します。\n\nここまでがインバウンド認証の流れです。この時点で利用者はAgentCore Gatewayのツール一覧を見られますが、まだSlackにはアクセスできません。\n\nアウトバウンド認証のフロー\n続いて、3LOでSlackトークンをトークンボールトに入れる出口のフローです。\n初回、つまりボールトにまだその利用者のSlackトークンが無い状態でツールを呼ぶと、次のフローが始まります。\n\n [code] \n\nこちらが本記事のメインなので、きちんと解説していきます。\n\nシーケンス図が長いので、まず全体を4つのフェーズに分けて俯瞰しておきます。この後の解説もこのフェーズ順に進みます。\n\n1. 認可URLの発行\n・ツールを呼ぶ→ボールトにトークンが無い→AgentCore Identityが認可URLを発行しセッションと開始時のJWTを結び付ける\n1. Slack同意とトークン交換\n・利用者がブラウザでAllowを押す→認可コード→Slackユーザートークンの交換は AWS側が実施(トークンはまだ保存されない)\n1. 完了処理(セッションバインディング)\n・CLIがCompleteResourceTokenAuth APIを呼ぶ→開始時と同一のJWTを提示できたらトークンボールトへ保存\n1. 通常利用(2回目以降)\n・AgentCore Gatewayがボールトから本人のトークンを取り出してSlackへアクセス\n---\n最初のツール呼び出しでAgentCore GatewayはAgentCore Identityのトークンボールトを確認しますが、この段階では保存されているトークンはありません。なのでAgentCore Identityは認可URLを作って返します。\n\nこのときAgentCore Gatewayは、インバウンド認証で受け取ったJWTをそのままAgentCore Identityに渡してセッションを開始しています。セッションはこの瞬間の、このトークン文字列と結び付きます。\nつまりユーザーのJWTを渡すことで、誰のトークンなのかを結びつけられるようになるというわけです。\n\nその後、利用者がブラウザで認可URLを開き、Slackの同意画面でAllowを押すと、SlackはまずAgentCore Identityのcallbackに認可コードを返します。ここでユーザーが同意をしているところが2LOにはない、3LO特有の操作になります。\n\nそして認可コードをSlackユーザートークンに交換するのですが、ここの処理はAWS側がやってくれます。\n交換が終わると、AgentCore Identityは事前に登録しておいたreturn URL(今回はローカルの http://localhost:3000/callback)へ、 sessionidというクエリパラメータを付けてブラウザをリダイレクトします。\n\nこの時点でSlackユーザートークンはもうAgentCore Identityにあります。ところが、まだトークンボールトに保存はされていません。保存させるために使うのが、CompleteResourceTokenAuthというAPIです。\n\nこのAPIでは引数にsessionidとユーザー識別子(userId か userToken)を渡します。\n今回のようにAgentCore GatewayがJWTでフローを開始した場合は、userTokenに開始時とバイト単位で同一のアクセストークン文字列を渡す必要があります。\n\nこのアクセストークンが同一であると確認されて初めて、トークンボールトにSlackユーザートークンが保存されます。難しい〜〜〜\n\n文章だと分かりづらいので、この開始時と完了時の照合を図にするとこうなります。\nAgentCore Identityの中にあるセッションでJWTのチェックを行い、開始時に預けたJWTと完了時に持ってきたJWTがバイト単位で一致したときだけ、トークンボールトへの保存が実行されるイメージです。\n\n [code] \n\nつまりセッションバインディングの節で見たstateの照合と発想は同じで、「認可フローの最初と最後で同じものを持っているか」を確認しているわけです。stateの代わりに、開始時のJWT文字列そのものが照合キーになっていると考えると理解しやすいと思います。\n\nここまで厳密にやる理由は、先に少し話した通り、3LOでは「認可フローを開始した人」と「同意して完了させた人」が同一であることを保証する必要があるからです。\n\nもし同じユーザーなら何でもOKみたいな感じにしてしまうと開始者の確認が甘くなり、細工した認可URLを他人に踏ませる攻撃への耐性が下がります。\nそこでトークン文字列を照合することで、開始したプロセスと同じ文脈にいることを強く保証しているらしいです。\n\n逆に言うと、完了処理をする側は開始時のトークンを手元に持っていなければならず、これがアーキテクチャ上の制約になります。今回はClaude Code CLIを用いているので、完了処理までCLI上で行う形を取る必要がありました。\nログイン→AgentCore Gateway呼び出し→完了処理までを1つのプロセスに閉じ込めれば、同一のトークンをメモリ上で持ち回るだけで済むためです。\n\n完了処理が通ると、Slackのトークンがトークンボールトに利用者単位で保存されます。\n以降のツール呼び出しでは、AgentCore Gatewayが毎回AgentCore Identity経由でその利用者のトークンを取り出してSlackと接続します。\n\n:::note\nちなみに一度トークンボールトに保存完了したあとは、そこまで厳密なチェックは行われません。つまり登録時と同一のユーザー識別子(userToken)が常に必要になるわけではないということです。\n\n利用時はJWTのissとsubが同じであればOKで、ある程度緩いチェックになります。\n厳密なチェックが行われるのはトークンボールトに保存するときだけのようです。\n\nあと、一度保存したトークンボールトはAgentCore Identityのリソースを削除しない限り削除されないようです。\n:::\n\n冒頭のInvalid or expired sessionの原因調査\nここまででフローの解説は一段落という感じですが、冒頭のエラーについて振り返りしておきます。まず状況を整理するとこんな感じです。\n・Slackの同意もAWS側コールバックへの遷移も成功し、sessionidはローカルで受信できている\n・しかしCompleteResourceTokenAuthを呼ぶとAccessDeniedException: Invalid or expired sessionのエラーが返ってくる\n・ユーザー識別子として、Cognitoのsubを渡してもusernameを渡しても同じ結果\n\nこれの原因調査として、まずドキュメントを確認しました。\n先程のセッションバインディングのページには「開始時にフローを起動するのに使った、元のIdPのOAuthトークンまたはユーザーIDを渡す」とあります。\n\nつまり、↓ここの/oauth2/tokenで取得していたトークンをそのまま渡す必要があるということです。\n\n [code] \n\n続いて、どんなフローでどんなAPIがコールされているのかをCloudTrailにて確認しました。\nここでAgentCore Gatewayが3LOを開始するとき、AgentCore Identityに対してGetWorkloadAccessTokenForJWTというAPIを呼んでいました。\n\nhttps://docs.aws.amazon.com/jajp/bedrock-agentcore/latest/APIReference/APIGetWorkloadAccessTokenForJWT.html\n\nhttps://docs.aws.amazon.com/jajp/bedrock-agentcore/latest/devguide/runtime-oauth.html#oauth-outbound-access\n\nこれは受け取ったJWTを検証して、AgentCore内部の処理で使う利用者単位の作業用トークン(ワークロードアクセストークン)に引き換えるAPIです。\n\nこのAPIに渡っているのが利用者のJWTということは、セッションと結び付いているのはJWTであって、subのような識別子ではないわけです。\nつまり照合するものを誤っていたため、先のエラーが出ていたということになります。\n\n(余談：ワークロードアクセストークンに関しては、実は相当前の記事で解説していました。裏側ではAPIが動いていたようです。)\n\nhttps://docs.aws.amazon.com/jajp/bedrock-agentcore/latest/devguide/runtime-oauth.html#oauth-outbound-access\n\nすなわち、3LO開始時にAgentCore Gatewayへ提示したアクセストークンの文字列そのものを、完了時にはuserTokenとして渡す必要がある、ということです。\n\n:::note warn\nちなみに、存在しないデタラメなセッションIDを渡しても、識別子が不一致でも、返ってくるエラーは全く同じ Invalid or expired session でした。\n\nつまりこのエラーメッセージはセッションの照合に失敗したことを指す多義的なもので、メッセージの字面から原因を特定することはできません。\n\nエラーメッセージが多義的かどうかを疑って、わざと壊した入力で挙動を見るのは、切り分けの手として覚えておいて損がないと思います。\n:::\n\n参考実装\n今回作成したセットアップCLIから一部抜粋します。\n\n [code] \n\n実装する際は下記3点などに注意が必要そうです。\n・アクセストークンはメモリ上でだけ管理する\n・callbackで受けたsessionidはURLデコードした上で、urn:ietf:params:oauth:requesturi:プレフィックスが付いた完全な形にして渡す\n・完了処理を呼ぶには、実行者のAWS資格情報にbedrock-agentcore:CompleteResourceTokenAuthの許可が必要\n\nまとめ\nこれでClaude CodeとSaaSや社内APIを一纏めにしつつ、セキュアに使うことができるようになりました。\n巷ではMCP is dead等と言われますが、組織で利用する際・クラウド上のエージェントを使う際にAgentCore Gatewayは非常にありがたい存在です。私はこれからも推していきたいと思います。\n\nその際、認証認可周りは避けて通れないのでこれからもしっかりとキャッチアップしていきたいですね。\n学ぶ際は、今自分はどの識別子・どのトークンの話をしているのかを理解してから動くことが大事そうです。\n\n今回の構成にはSAML assertion、CognitoのJWT、Slackのユーザートークンという3種類のトークンが登場し、さらにユーザー識別子もIICのIDとCognitoのsubという別の名前空間に分かれていました。\nこれを雑に整理したまま・理解が浅いまま進めるとかなり難しかったですが、Claudeなどの力も借りて理解を進めていくと徐々にわかってくるようになりました。\n\n引き続きAgentCore Gatewayの使い方を探求していきます！\n\n私自身まだまだ認証認可を勉強中の身なので、間違いなどあればご指摘いただけるとありがたいです。",
+      "metrics": {
+        "likes": 2,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "e1e8056a1819986b",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8898543689320388,
+      "popularityPercentile": 0.9538834951456311,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 86,
+      "oneLiner": "AgentCore Gateway経由でClaude CodeからSlack MCPへユーザー単位で接続し、OAuth認証エラーを解決した。",
+      "reason": "Slackの同意直後でもセッション無効エラーが起きた原因を追い、利用者ごとの権限で外部サービスへ接続する構成と解決策を示している。",
+      "keywords": [
+        "Claude Code",
+        "AgentCore Gateway",
+        "Slack MCP",
+        "OAuth 3LO",
+        "OIDC",
+        "セッションバインディング"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code + Chrome拡張で『見た目のズレ』を直す実践",
+      "url": "https://qiita.com/maccotaro/items/0b42a4abc127a3e33cee",
+      "publishedAt": "2026-08-04T00:07:23.000Z",
+      "author": "maccotaro",
+      "authorDetail": {
+        "name": "maccotaro",
+        "handle": "@maccotaro",
+        "url": "https://qiita.com/maccotaro",
+        "avatarUrl": "https://lh3.googleusercontent.com/-XdUIqdMkCWA/AAAAAAAAAAI/AAAAAAAAAAA/4252rscbv5M/photo.jpg?sz=50",
+        "followers": 0,
+        "posts": 12,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "UIレビュー",
+        "ブラウザ自動化",
+        "Design",
+        "ワークフロー"
+      ],
+      "snippet": "📝 この記事は forge.workstyle.tech に掲載した記事の転載です。 コードを読む限りは正しそうなのに、ブラウザで開くとmockupと微妙に違う——UI開発でいちばん厄介なのが、この「見た目のズレ」です。CSSのわずかな指定、要素のネスト、フレックスの折り返し。コードの静的な読み合わせでは気づけないズレが、実際にレンダリングして初めて姿を現します。 これまでは、人間がブラウザで画面を開き、mockup画像と見比べて、違いを言葉にしてAIに伝える必要がありました。この「人間が目で見て言語化する」工程を、AIエージェント自身にブラウザ経由で画面を見せることで置き換えるのが、この記事のワークフローです。Claude Code とブラウザ自動化拡張（Chrome拡張）を組み合わせ、localhost で実際にレンダリングされた画面を\"見て\"、mockupと突き合わせ、レイアウトの…",
+      "body": "📝 この記事は forge.workstyle.tech に掲載した記事の転載です。\n\nコードを読む限りは正しそうなのに、ブラウザで開くとmockupと微妙に違う——UI開発でいちばん厄介なのが、この「見た目のズレ」です。CSSのわずかな指定、要素のネスト、フレックスの折り返し。コードの静的な読み合わせでは気づけないズレが、実際にレンダリングして初めて姿を現します。\n\nこれまでは、人間がブラウザで画面を開き、mockup画像と見比べて、違いを言葉にしてAIに伝える必要がありました。この「人間が目で見て言語化する」工程を、AIエージェント自身にブラウザ経由で画面を見せることで置き換えるのが、この記事のワークフローです。Claude Code とブラウザ自動化拡張（Chrome拡張）を組み合わせ、localhost で実際にレンダリングされた画面を\"見て\"、mockupと突き合わせ、レイアウトのズレを特定して直すところまでを回します。\n\nなぜ「実画面を見せる」必要があるのか\n\nコードだけを渡してUIレビューさせると、限界があります。コードから最終的なレンダリング結果を頭の中で完全に再現するのは、人間にもAIにも難しい。特にこういうズレは、コードを見るだけでは検出しづらいものです。\n・レイアウト骨格のズレ — 2カラムのつもりが片方の領域が潰れている、上下分割の比率がmockupと違う、といった構造レベルの乖離\n・要素の配置ミス — 本来は右カラム上部にあるべきプレビューが、下部に回り込んでいる\n・想定外の折り返し・はみ出し — 幅が足りずコンポーネントが折り返り、mockupと印象が変わる\n\nこうしたズレは「レンダリング結果」という事実を見なければ判定できません。だから、AIに実際の画面を見せます。\n\nワークフロー：見せて、突き合わせて、直す\n\n1. mockupを基準として渡す\n\nまず、目標となるmockup画像をAIに渡し、「これが正解の見た目」と基準を共有します。特にレイアウトの骨格を言語化しておくと、後の突き合わせが正確になります。たとえば「全体は2カラム。左カラムは調整UI。右カラムは上下に分割し、上部にレーダーチャートとプレビュー、下部に声のサンプルと高度な調整」といった構造の記述です。\n\n2. 実画面をローカルで立ち上げ、AIに\"見せる\"\n\n開発サーバを localhost で起動し、ブラウザ自動化拡張を通じて Claude Code にその画面を開かせます。ここで拡張が果たす役割は、実際にレンダリングされたDOMとスクリーンショットをAIの目に届けることです。AIはもはやコードを想像するのではなく、描画された現物を見て判断します。\n\n必要なら、特定の状態（音声を録音した後、スライダーを動かした後など）まで操作させてからスクリーンショットを撮らせます。動的に変わるUIは、静止した初期画面だけ見てもズレを拾いきれないためです。\n\n3. mockupと実画面を突き合わせてズレを特定する\n\n基準（mockup）と現物（スクリーンショット）が揃ったので、AIに差分を挙げさせます。ここで効くのが、ステップ1で骨格を言語化しておいたことです。「右カラム上部にあるべきプレビューが下部に来ている」「右カラムが上下分割されず一列になっている」といった、構造レベルのズレを具体的に指摘させます。\n\n抽象的に「なんか違う」で終わらせず、「どの領域の、どの要素が、mockupではどこにあり、実画面ではどこにあるか」まで落とし込むのがコツです。これがそのまま修正指示になります。\n\n4. 直して、もう一度見せる\n\n指摘をもとに Claude Code にコードを修正させ、再びブラウザで開いて突き合わせる。修正が本当にレンダリング結果に反映されたか、そして新たなズレを生んでいないかを、また現物で確認します。実際、2カラム＋右カラム上下分割のようなレイアウト再構成は、一発で決まらないことが多く、この「見せて直して、また見せる」ループが要になります。コードを直しただけで確認を省くと、直ったつもりのズレが残ります。\n\n落とし穴と学び\n\nこのループを回して見えてきた注意点です。\n・スクリーンショットは修正のたびに撮り直す — 一度撮った画面を使い回すと、直したはずの状態を評価できない。毎回、現物を撮り直す。\n・状態を再現してから見せる — 初期表示だけでなく、録音後・スライダー操作後など、mockupが想定している状態まで操作してからスクリーンショットを撮る。\n・ビューポート幅を合わせる — 表示幅が違えば折り返しも変わる。mockupが想定する幅にブラウザを合わせてから比較する。\n・骨格を先に言語化する — 「2カラム／右カラム上下分割」のような構造記述があると、AIの指摘が抽象論に流れず、修正可能な粒度になる。\n・コードレビューと画面レビューは別物 — コード上の整合と、レンダリング結果の整合は一致しない。最終判定は必ず実画面で行う。\n\nまとめ\n・コードの静的な読み合わせでは、レイアウト骨格のズレや折り返し・はみ出しといった「見た目のズレ」は検出しきれない\n・ブラウザ自動化拡張で localhost の実画面を Claude Code に\"見せ\"、mockup画像と突き合わせてズレを特定する\n・ズレは「どの領域のどの要素が、mockupと実画面でどう違うか」まで具体化し、そのまま修正指示にする\n・修正したら再びブラウザで開いて突き合わせる。見せて直して、また見せるループが要\n・スクリーンショットは毎回撮り直し、状態とビューポート幅を揃えてから比較する\n・最終判定はコードではなく実画面で——AIに画面を見せて直させる、が新しい実践\n\n---\n\n元記事: https://forge.workstyle.tech/blog/fixing-ui-with-claude-code-chrome/?utmsource=qiita&utmmedium=crosspost&utmcampaign=fixing-ui-with-claude-code-chrome",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "ed0a5dbc16457a68",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8353883495145632,
+      "popularityPercentile": 0.7063106796116505,
+      "matchedTopics": [
+        "ブラウザ / Web標準",
+        "AI / LLM",
+        "Claude Code",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "Claude CodeにChrome拡張で実画面を見せ、mockupとの差分特定から修正まで自動化した。",
+      "reason": "コードだけでは分からない折り返しや配置ずれを、ブラウザで描画した画面とmockupの比較から検出する。人間の目視と言語化をエージェントの操作に置き換える。",
+      "keywords": [
+        "Claude Code",
+        "Chrome拡張",
+        "ブラウザ自動化",
+        "UIレビュー",
+        "CSS",
+        "mockup"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code から Connected Sheets のデータコネクタを繋ぐ",
+      "url": "https://qiita.com/shoheiii/items/34389a92309c5bc9ccbd",
+      "publishedAt": "2026-08-04T09:53:39.000Z",
+      "author": "ショウヘイ マジマ",
+      "authorDetail": {
+        "name": "ショウヘイ マジマ",
+        "handle": "@shoheiii",
+        "url": "https://qiita.com/shoheiii",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/875092/33374d4b34e007b3dc35a86153dfefd4f39c7d2b/large.png?1642741805",
+        "followers": 0,
+        "posts": 7,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/mj_yakkyk"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "GoogleCloud"
+      ],
+      "snippet": "はじめに Claude Codeに「このBigQueryクエリを、スプレッドシートにConnected Sheetsのデータソースとして挿して」と頼めるようにしたい。そう思って自動化を試みたところ、API自体は単純な一方で、認証まわりに引っかかりどころが多くありました。 本記事では、Connected SheetsのデータソースをAPIで追加する手順と、前提となるADC（Application Default Credentials）の仕組みを紹介します。 やりたかったこと Connected Sheetsは、スプレッドシートからBigQueryを直接参照できる機能です。データソースの追加は普段UIで行いますが、これをClaude Codeから一言で実行できるようにしたい。 記事執筆時点（2026年8月）では、Google Workspace系のCLI（gogcli / Google Wo…",
+      "body": "はじめに\n\nClaude Codeに「このBigQueryクエリを、スプレッドシートにConnected Sheetsのデータソースとして挿して」と頼めるようにしたい。そう思って自動化を試みたところ、API自体は単純な一方で、認証まわりに引っかかりどころが多くありました。\n\n本記事では、Connected SheetsのデータソースをAPIで追加する手順と、前提となるADC（Application Default Credentials）の仕組みを紹介します。\n\nやりたかったこと\n\nConnected Sheetsは、スプレッドシートからBigQueryを直接参照できる機能です。データソースの追加は普段UIで行いますが、これをClaude Codeから一言で実行できるようにしたい。\n\n記事執筆時点（2026年8月）では、Google Workspace系のCLI（gogcli / Google Workspace CLI）はデータコネクタの追加に対応しておらず、生のSheets API（spreadsheets.batchUpdateのaddDataSource）を叩く必要があります。\n\nそしてこのAPIは、spreadsheetsとbigquery.readonlyの両スコープを持ったトークンを要求します。この「トークンを用意する」が本記事の本題です。\n\n前提知識：gcloudのcredentialは2セットある\n\n手順に入る前に、前提を整理します。gcloudにはloginコマンドが2つあります。\n\n| | gcloud CLI認証 | ADC (Application Default Credentials) |\n|---|---|---|\n| コマンド | gcloud auth login | gcloud auth application-default login |\n| 保存先 | /.config/gcloud/credentials.db | /.config/gcloud/applicationdefaultcredentials.json |\n| 使うのは誰 | gcloudコマンド自身 | ライブラリ経由の自作コード |\n| スコープ | GCP管理系で固定 | --scopesで変更可能 |\n\nこの2つは完全に独立したファイルです。片方を再発行しても、もう片方には一切触れません。\n\n「gcloudは通ってるのにスクリプトが401」「スクリプトは動くのにgcloudがReauthentication required」という一見矛盾した状態は、この分離のせいで普通に起きます。\n\n今回Sheets APIを叩くのは自作コード側なので、必要なのはADCの方です。\n\nライブラリはADCをどう見つけるか\n\nPythonのgoogle.auth.default()は次の順でcredentialを探します。\n\n [code] \n\n①が設定されていると②は無視されます。「loginし直したのに古いサービスアカウントで動く」ときは、まず①の環境変数を疑ってください。\n\n認可は3つの軸で決まる\n\nもう1つ、トラブルシューティングに効く知識です。OAuthの認可は独立した3層で決まります。\n・clientid — どのアプリとして頼むか\n・scope — 何の権限を頼むか\n・account — 誰のデータに対してか\n\nそして重要なのがこれです。\nrefreshtokenは「account × client × scope」の組に対して発行される\n\nスコープを1つ足しただけでも、クライアントを差し替えただけでも、ブラウザでの再認可が必要になります。「前にログインしたのになぜまた認可画面？」の答えは常にここです。\n\n手順\n\n1. 自前のOAuthクライアントを作る\n\nADCのデフォルトはgcloud標準のOAuthクライアントですが、このクライアントでSheets系のスコープを要求すると、Googleが「このアプリはブロックされます」で拒否します。\n\ngcloudは全世界に配布されるCLIなので、client secretも中身を見れば取り出せます。つまり誰でも「gcloudです」と名乗って認可画面を出せる状態です。もしこのclientidにSheetsやGmailのスコープが許されると、Google Cloud SDKを装ったアプリがWorkspaceデータへの同意画面を正規の見た目で出せてしまいます。そのためGoogleは、このclientidに対してGCP外のスコープをブロックしています。\n\nなので自前のOAuthクライアントを作ります。作成にはGCPプロジェクトが必要です（個人アカウントの無料プロジェクトでも可）。\n・GCP Console →「APIとサービス」→「認証情報」→「OAuthクライアントIDを作成」\n・アプリケーションの種類はデスクトップアプリ\n・作成したらJSONをダウンロード（以下clientsecret.json）\n\nOAuth同意画面が未設定なら先に設定が必要です。注意点として、公開ステータスが「テスト中」のままだとrefreshtokenが7日で強制失効します。Google Workspace組織なら「内部」タイプにしておくのが楽です。\n\nまた、対象プロジェクトでSheets APIとBigQuery APIの有効化も忘れずに。\n\n2. ADCを発行する\n\n [code] \n\nポイントはスコープです。前述の通りaddDataSourceはspreadsheetsとbigquery.readonlyの両方を持ったトークンを要求します。cloud-platformスコープでは代替されず、bigquery.readonlyの明示が必要です。\n\nブラウザが開くので認可すれば、applicationdefaultcredentials.jsonが書き換わって完了です。\n\n3. quota projectを設定する\n\nユーザーcredentialのADCは「APIのクォータをどのプロジェクトに付けるか」が曖昧になりがちで、Cannot find a quota project系の警告が出ることがあります。出たらこれで解消します。\n\n [code] \n\n4. addDataSourceを叩く\n\nPythonだとこうなります。\n\n [code] \n\n実行すると、スプレッドシートにDATASOURCEタブが自動で作られ、Connected SheetsのデータソースとしてBigQueryクエリが追加されます。UIから追加した場合と同じ状態です。\n\n \n\n5. Claude Codeに覚えさせる\n\nここまでの知見をCLAUDE.mdに書いておくと、以降は「このクエリをスプシにConnected Sheetsで挿して」の一言でClaude Codeが再現してくれます。\n\n [code] \n\n認証は一度セットアップすればrefreshtokenが生き続けるので、日常運用でやることはありません。\n\nできないこと\n\nAPIでできないことも書いておきます。\n・定期更新スケジュールの設定はAPI不可。ここだけUIで設定する必要があります\n・DATASOURCEタブはvalues APIで参照不可（Unable to parse rangeになります）。他タブの数式からも参照できないので、通常タブとして使いたい場合はUIで「抽出」タブ化が必要です\n\nさいごに\n\nいかがだったでしょうか。\n\nスコープの揃ったADCさえ用意できれば、Connected Sheetsのデータソース追加はaddDataSource一発です。ぜひ試してみてください！",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "fc9dda3853939c16",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7536893203883496,
+      "popularityPercentile": 0.33495145631067963,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 80,
+      "oneLiner": "Claude CodeからConnected Sheetsのデータソースを追加する手順を、Sheets APIとADCで実装した。",
+      "reason": "Google Workspace系CLIは未対応のため、BigQueryとスプレッドシートの両スコープを持つトークンでaddDataSourceを直接呼ぶ構成になる。gcloud認証とADCの違いが落とし穴。",
+      "keywords": [
+        "Claude Code",
+        "Connected Sheets",
+        "Google Sheets API",
+        "spreadsheets.batchUpdate",
+        "BigQuery",
+        "ADC"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / TanStack/table",
+      "title": "TanStack/table @tanstack/table-core@9.0.0",
+      "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/table-core%409.0.0",
+      "publishedAt": "2026-08-04T06:30:12.000Z",
+      "author": "KevinVandy",
+      "authorDetail": {
+        "name": "KevinVandy",
+        "handle": "@KevinVandy",
+        "url": "https://github.com/KevinVandy",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/28243511?v=4",
+        "organization": "TanStack"
+      },
+      "tags": [
+        "table",
+        "release"
+      ],
+      "snippet": "Major Changes ・#6512 2327f80 - TanStack Table v9 stable release. See the \"Migrating to V9\" guide for your framework (e.g. React) for upgrade instructions.",
+      "body": "Major Changes\n・#6512 2327f80 - TanStack Table v9 stable release. See the \"Migrating to V9\" guide for your framework (e.g. React) for upgrade instructions.",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "67608c7ee7a6c3f7",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 0.8716666666666668,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 80,
+      "oneLiner": "TanStack Table v9が安定版としてリリースされ、各フレームワーク向けの移行ガイドが公開された。",
+      "reason": "v9は安定版として確定し、Reactなど各フレームワークからの移行手順が分けて案内されている。細かな変更点より、メジャーアップデートの移行計画が主題。",
+      "keywords": [
+        "TanStack Table",
+        "v9.0.0",
+        "@tanstack/table-core",
+        "Migrating to V9"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 2,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【AIエージェント on Claude Code】問い合わせ対応の一次処理部分をAgent Skillsで全自動化｜業務データの利用",
+      "url": "https://qiita.com/wing_man/items/ae2240dbf6f3bef5ca91",
+      "publishedAt": "2026-08-04T10:55:46.000Z",
+      "author": "wing_man",
+      "authorDetail": {
+        "name": "wing_man",
+        "handle": "@wing_man",
+        "url": "https://qiita.com/wing_man",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/613026/0e87f62b9a1dd0e30ad8c62f2f87a6224edb40a8/x_large.png?1706293260",
+        "bio": "「既存のシステム資産を生成AIで活かすこと」が私の脳内の主要なテーマです。\r\nERP上流工程を10年ばかりやっていました。その前は開発者でした。\r\n強化学習からAIに入り、今では生成AIにドップリ浸かってます。\r\nJDLA G検定、JDLA E資格\r\nUSCPA試験合格、IFRS Certificate",
+        "followers": 8,
+        "posts": 13,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://github.com/Atsuo-Shoji"
+          }
+        ]
+      },
+      "tags": [
+        "AIエージェント",
+        "AgentSkills",
+        "ClaudeCode",
+        "MCP",
+        "生成AI"
+      ],
+      "snippet": "はじめに Claude Code上で、業務の一部をAIエージェントによって自動化する取り組みが広がっています。 こうしたAIエージェントは、自然言語で記述するAgent Skillsを使用することで、非エンジニアでも構築しやすくなります。 AIの民主化という観点では、とても良いことだと思います。 ただ、業務データを利用する例は、あまり見かけない気がします。 そこで、業務データを利用するAIエージェントを、スキルを組み合わせて作りました。 今回やったこと 架空の健康食品販売会社を想定しました。 顧客からのWebフォームでの問い合わせ対応業務の一次処理部分を担うAIエージェントを作りました。 Claude Code上で動きます。 このAIエージェントは、3つのスキルで構成されます。 そして、様々な業務データを選択・収集し、読み込み、次々と答えを出していきます。 「Webフォームでの問い合わせ」…",
+      "body": "はじめに\n\nClaude Code上で、業務の一部をAIエージェントによって自動化する取り組みが広がっています。\n\nこうしたAIエージェントは、自然言語で記述するAgent Skillsを使用することで、非エンジニアでも構築しやすくなります。\nAIの民主化という観点では、とても良いことだと思います。\n\nただ、業務データを利用する例は、あまり見かけない気がします。\n\nそこで、業務データを利用するAIエージェントを、スキルを組み合わせて作りました。\n\n今回やったこと\n\n架空の健康食品販売会社を想定しました。\n\n顧客からのWebフォームでの問い合わせ対応業務の一次処理部分を担うAIエージェントを作りました。\nClaude Code上で動きます。\nこのAIエージェントは、3つのスキルで構成されます。\nそして、様々な業務データを選択・収集し、読み込み、次々と答えを出していきます。\n\n「Webフォームでの問い合わせ」の内容は、この会社の顧客からのクレーム・質問・依頼です。\nここで言う「問い合わせ対応業務の一次処理部分」とは、\n①まだ対応未着手の問い合わせを1つずつ見て、どう対応すべきか、という対応案を策定\n②そのうち、緊急を要する問い合わせは、直ちに社内に通知\nを指します。\n\n上記2つを、AIエージェントが定期的に自動で行います。\n\n \n\n想定している読者\n非エンジニアの方でも十分理解可能です。\n・業務データを利用するAIエージェントを業務フローに組み込む簡単な例が知りたい人\n・Agent SkillsやMCPについて、概念レベルで知っている人\n・Claude Codeを普段から使用している人\n\n本稿の立ち位置\n\n本稿は「AIエージェントが既存の業務データをどう使って、何をもたらすか」「そのために、どんな作りにしてあるか」を見せて、今後のヒントにしてもらうことを目的にしています。\nハンズオン記事ではありませんので、具体的な手の動かし方や細かいHow to、技術論はほとんどありません。 \n\n※本稿における「AIエージェント」の意味\n\n本稿で作った「AIエージェント」では、\n・実行の手順自体はこちらが決めている\nこちらが決めた通りに実行すれば目的が達成でき、わざわざ手順までAIに考えさせる必要がないため。\n・ただし、その手順の一つ一つの中で、AIが必要と思われるデータを集めて結論を下す、ということを繰り返す\n\n本稿では、これを「AIエージェント」と呼んでいます。\n\nAIエージェントの概要\n\n目指すもの\n\nWebフォームでの問い合わせに対応する一次処理とは、どういうものでしょうか。\nざっと挙げていくと、こんな感じでしょう。\n・どんな類の問い合わせか、判別する。\nクレームか、質問か、依頼か。\n・問い合わせしてきたこの顧客の”重み”を判断する。\n当社との関係性はどうか。この顧客は手厚く扱うべきか。注意して対応すべきか。\n・機械的に回答できるか、人間が対応すべきか、判断する。\nFAQや規約等を読めば機械的に回答できる簡単な質問か、それとも人間が対応する必要があるものか。\n・機械的に回答可能 → 回答文を作成する。\n・人間が対応 → 対応方針を立てる。\n・過去の類似事案を調べる。\n過去、類似の事案にどう対応したか、参考にするため。\n・緊急で対応すべきか、判断する。\n緊急なら、しかるべき人員に急いで通知する。\n\n結局、どんな問い合わせでも、一次処理では、やることは大体同じです。\nであれば、\n随時、AIエージェントにこれらを全部やらせて、省力化を図ろう\nというのが、目指すところです。\n\n[目指すもの ～ 人力対応からAIエージェントへ]\n \n\nAIエージェント担当部分＆仕事の内容\n\nそのAIエージェントが担当するのは、下図の 赤枠点線 の部分です。\n定期実行されます。\n・対応未着手の各問い合わせに対して、様々な観点から、対応案を策定\n策定された対応案は、その問い合わせデータに記録される\n・緊急性有りと判断された問い合わせは、一括して、社内にSlackで通知\n\n[AIエージェント担当部分＆仕事の内容]\n \n\n対顧客なので、責任は人間が持ちます。\nAIは、「案」を出すだけです。\n最終決定は、人間が行います。\n従って、メール自動送信で回答する場合でも、AI作成の回答文案は、必ず人間が送信前にチェックする、という想定です。\n（回答メール自動送信は、AIエージェントの仕事ではありません）\n\n全体の論理構成と役割分担\n\nAIエージェントは、まず、対応未着手の問い合わせデータをDBから取得します。\nそして、その問い合わせへの対応を考えるために、DB内の各情報ソースにアクセスします。\n最後に、考えた対応案を、当該問い合わせデータに記録します。\nそのため、AIエージェントとDBの間に、MCPサーバーを嚙ませます。\n\n \n\n＜ AIエージェント ＞\n\n問い合わせ対応を策定する頭脳部分です。\n加えて、緊急性のある問い合わせを社内に通知することも担います。\n\n中身は、各々やるべき仕事を持つ「サブエージェント」2つの直列実行パイプラインです。\n\nメインエージェント（我々の要求を直接受け付けるAI）は、\nサブエージェント1：問い合わせの対応案の策定\n↓\nサブエージェント2：緊急性の有る問い合わせの社内通知\nと、直列実行します。\n\nメインエージェントは、1個の専用のスキルの指示に従います。\nその専用スキル内で、明示的にサブエージェント1と2を直列実行する、という指示がなされています。\n\n:::note info\n「サブエージェント」とは、メインエージェントが呼び出す別の下請けAIです。\n呼び出されると、独立した作業領域で仕事をこなし、結果だけをメインエージェントに返します。\n:::\n\n各サブエージェントにも、1個だけ専用スキルが設定されています。\nその専用スキルに、そのサブエージェントがすべき仕事が書かれています。\n各サブエージェントは、その専用スキルに書いてある通りに仕事をします。\n\n \n\n|実行順序|エージェント|やるべき仕事|\n|:-:|:--|:--|\n|-|メインエージェント|専用スキル「スキル0」の指示： サブエージェント1→サブエージェント2と、直列実行する。|\n|1|サブエージェント1|専用スキル「スキル1」の指示： 未着手の問い合わせに対して、対応案を策定する。|\n|2|サブエージェント2|専用スキル「スキル2」の指示： 緊急性有りと判断された問い合わせ全件を、社内に通知する。|\n\n＜ MCPサーバー群 ＞\n\n \n\n各MCPサーバーの機能と用途は、以下の通りです。\n|MCPサーバー|機能|用途|\n|:-:|:--|:--|\n|MCPサーバー1|販売データの統計を返す。| [この客は手厚く対応すべき上客か、の判断に使用] サブエージェント1が対応案を策定する際、 「この顧客は今までどれほど買ってくれた客か、手厚く対応すべき上客か」 を判断するために使用される。|\n|MCPサーバー2|問い合わせ関連データの読み書き。| ・[問い合わせデータの準備と更新に使用] サブエージェント1は、対応案を策定する際、対応未着手の問い合わせデータをごそっと読み込む。 そして対応案策定後、当該問い合わせデータに、対応案やその他の情報を書き込む。 このように、問い合わせデータの準備と更新に使用される。 ・[この客はケアすべき客か、の判断に使用] サブエージェント1が対応案を策定する際、 「この顧客との間に、今までどのようなやり取りがあり、どういう結果になったのか、ケアすべき（注意して扱うべき）客か」 を、問い合わせ対応データから判断するために使用される。 ・[参考にすべき先行対応事例の収集に使用] サブエージェント1が対応案を策定する際、 類似事案の対応事例を調べて、対応案の参考にする。 そのために問い合わせ対応データを読むのに使用される。|\n|MCPサーバー3|緊急性の有る問い合わせをSlackチャンネルに一括送信。| [社内Slackチャンネルへの送信ツールとして使用] サブエージェント2は、緊急性の有る問い合わせ全件を社内のSlackチャンネルに一括送信して、迅速な対応を促す。そのためのSlack送信ツールとして使用される。|\n\n＜ DB ＞\n\n問い合わせ関連データ（注文データ、問い合わせデータ、問い合わせ対応データ）と、\n販売データ\nがあります。\n\n \n\n注文データ1件には、\n顧客、注文した商品やその価格、配送に関する情報（いつ発送する（した）か、いつ到着する（した）か、など）、\nなどがあります。\n\n問い合わせ1件は、注文1件に対してなされます。\nつまり、問い合わせデータ1件は、必ず注文データ1件に紐づきます。\n問い合わせの内容は、クレーム／質問／依頼です。\n・クレームの例）注文したXXが、到着予定日を過ぎても届かない！\n・クレームの例）今日届いたXXのパッケージが破損している！\n・質問の例）おととい注文したXXは、キャンセルできますか？\n・質問の例）昨日注文したXXは、いつ届く予定ですか？\n\n問い合わせデータ1件には、\n問い合わせした顧客、紐づく注文の注文番号、問い合わせ本文、対応着手済みフラグ、\n 問い合わせ本文要約、対応ルート案（人間が対応or自動送信メールで回答、のどちらがいいのか）、緊急性の有無フラグ、対応のヒント、自動送信メール回答文案、 \nなど多数の情報があります。\n この色 は、サブエージェント1が、「対応案策定」として決定するものです。\n\n問い合わせ対応データ1件は、\n問い合わせに対する実対応が完了した時点で生成されます（本稿のAIエージェント範囲外）。\nつまり、問い合わせ対応データ1件は、必ず問い合わせデータ1件に紐づきます。\n問い合わせ対応データ1件には、\n紐づく問い合わせの問い合わせ番号、実際の対応内容、\nなどがあります。\n\n \n\n販売データ１件には、\n販売先の顧客に、いつ、何をどのくらい、いくらで売ったか、\nなどがあります。\n\nAIエージェントの構成と各部のはたらき\n\n【前提】\n・DBとMCPサーバー群は別の場所に存在し、MCPサーバー群は常時稼働中である、とします。\n\n[全体の論理構成と役割分担]\n \n\n[AIエージェント内のエージェントとスキルの構成]\n \n\n \n 【参考】AIエージェントPJのディレクトリ構成（クリックで開閉） \n\n [code] \n\n \n\n---\nメインエージェント\n\n我々の要求を直接受け付けるAIです。\n2つのサブエージェントを、直列実行します。\n\nメインエージェントが実行すること\n\n \n\nメインエージェントは、「スキル0」（正式名称「skill-main-inquiries-res」）を実行します。\n\nスキル0の指示は、\nサブエージェント1：問い合わせ対応案の策定\nサブエージェント2：緊急性の有る問い合わせを社内に通知\nを、直列実行することだけです。\nそれ以外には、基本的に何もしません。\n\n※AIエージェントを定期実行する際、このスキル0（「skill-main-inquiries-res」）を名指しで実行します。自然言語による発火ではありません。\n\nスキル0の中身\n\nステージ1：サブエージェント1（問い合わせ対応案の策定）の起動\nステージ2：サブエージェント2（緊急性の有る問い合わせを社内に通知）の起動\nを、直列実行します。\n\n [code] \n\nskill-main-inquiries-res：スキル0の名前です。\nsub-res-plan：サブエージェント1（問い合わせ対応案の策定）の名前です。\nsub-inquiry-urg-ntf：サブエージェント2（緊急性の有る問い合わせを社内に通知）の名前です。\n\n---\nサブエージェント1\n\nここは、このAIエージェントの「核」となる部分です。\n問い合わせの対応案を策定します。\n\nサブエージェント1が実行すること\n\n \n\n「スキル1」（正式名称「skill-res-plan」）の指示に従って、以下を実行します。\n・対応未着手の問い合わせデータを最大15件取得する。\n・問い合わせデータ1件ごとに、いろんな情報を参照しつつ、対応案を策定し、その対応案を当該問い合わせデータに書き込む。→対応着手済みとなる。\n\n \n\nサブエージェント1が決めること\n\n問い合わせデータ1件ごとの、対応案の「策定」の中身は、以下のものです。\n\nまず最初に、サブエージェント1は、\n「問い合わせ本文の要約」と、\n「対応ルート」（人間が対応 or 自動送信メールで回答）\nの決定を行います。\n\n|AI決定項目|内容・意味|\n|:-:|:--|\n|問い合わせ本文の要約|問い合わせ本文の要約。|\n|対応ルート| 「人間が対応」 or 「自動送信メールで回答」 のどちらのルートで対応するか。 以下の基準で決定。 １．回答が自明であり、誰が回答しても、本質的に同じである ・ショッピングガイド（ルールや規約）に、この問い合わせに対する答えがある ・問い合わせの対象である注文データに、問い合わせに対する答えがある ⇒ 「自動送信メールで回答」 と決定。 ２．その他全て ⇒ 「人間が対応」 と決定。|\n\n以降は、対応ルートによって、サブエージェント1が決める項目は異なります。\n\n|AI決定項目|内容・意味|対応ルート= 「人間が対応」|対応ルート= 「自動送信メールで回答」|\n|:-:|:--|:-:|:-:|\n| 対応のヒント (核となる項目) | 対応方針。 加えて、その根拠として、以下の情報がまとめられている。 ・この顧客に対する販売実績 →この客は手厚く対応すべき客か？ ・この顧客との過去のやり取り →この客はケアすべき客か？ ・類似事案の対応履歴 →参考にすべき先行対応事例 | 決定される | 決定されない (null) |\n|緊急性の有無|緊急で対応しなければいけない問い合わせか。 以下のいずれかに該当した場合、緊急性有り、と判断される。 ・顧客が怒っている、または強い不満を示している ・商品の破損・欠陥を訴えている ・誤配送・納期遅延を訴えている ・安全に関わる問題である ・過去、この顧客に多大な迷惑をかけている ・この顧客はかなりの上客である|決定される|決定されない (null)|\n|自動送信メールの回答の本文案|自動送信メールで回答する場合、その回答の本文案。|決定されない (null)|決定される|\n\n[サブエージェント1が実行するスキル1の流れ図]\n※下記のスキル1は、全て自然言語のみで記述されている。\n \n\nサブエージェント1が参照する情報とその用途\n\n対応案策定に際し、サブエージェント1は、以下の情報を収集します。\n\n|情報|用途|介在するMCPサーバー|\n|:-:|:--|:-:|\n|販売データ|この客は手厚く対応すべき上客か、の判定に使用。|MCPサーバー1 販売統計収集|\n|問い合わせ対応データ （この顧客の問い合わせ対応履歴）|この客はケアすべき客か、の判定に使用。|MCPサーバー2 問い合わせ関連データ管理|\n|問い合わせ対応データ （類似事案の対応履歴）|参考にすべき先行対応事例として使用。|MCPサーバー2 問い合わせ関連データ管理|\n|ショッピングガイド （ルールや規約）|対応ルートの決定と、自動返信メールの回答の本文案作成に使用。|（なし）|\n\n[サブエージェント1が参照する情報とその用途]\n \n\nサブエージェント1の中身\n\nスキル1（「skill-res-plan」）を実行することが書いてあります。\nそれ以外、大したことは書いていません。\n\n [code] \n\nsub-res-planは、サブエージェント1の名前です。\nskill-res-planは、スキル1の名前です。\n\nスキル1の中身\n\n問い合わせ対応案の策定処理の詳細が書かれています。\n問い合わせ対応案の策定を実際に行う中心部です。\n\n [code] \n\n※スキル1のSKILL.md内で、MCPサーバーへの言及がないことについて\n\nこのスキル1では、DBアクセスを要求する処理を頻繁に行います（未着手の問い合わせデータ取得、顧客の販売実績収集、問い合わせデータ更新など）。\nにもかかわらず、SKILL.mdでは、DBアクセスを担当するMCPサーバー1と2に関することや、MCPツール名などは、一切書かれていません。\n\nClaudeは、PJ起動時に既にMCPサーバーの情報を取得済みなので、自然言語での指示だけで適切なMCPサーバーとそのツールを自力で選択できます。\nなので、書く必要がないのです。\n\n例を挙げます。\n\nスキルのSKILL.md内の\n [code] \nを実際に行うのは、\nMCPサーバー2inquirydatamngの、\nツールgetinquiries\nです。\nこのMCPサーバーとこのツールの機能説明文は、Claude Codeに事前に登録されています。\n [code] \nClaudeは、AIエージェント実行時には既にこの登録内容を知っているので、\n「未着手の問い合わせデータを取得する。」\nという自然言語での指示だけで、このツールを選択し、実行することができます。\n\n:::note warn\nこれは、このスキルの処理が比較的シンプルであり、MCPサーバーの内部構成もまたシンプルだから成り立っているものです。\n複雑な処理の場合や、MCPサーバーの役割分担が曖昧になる場合（複数の似た役割のMCPサーバー群、似た役割のツール群など）は、SKILL.md内での明示的な言及が必要になるでしょう。\n:::\n\n（サブエージェント1が参照する情報）ショッピングガイドの中身\n\nサブエージェント1は、対応案策定に際し、ショッピングガイドも参照します。\n規約やルールが記載されています。\nといっても、わずか数行のmdファイルです。\n\n [code] \n\n---\nサブエージェント2\n\nサブエージェント1の実行が完了後に、サブエージェント2の実行がなされます。\nサブエージェント2は、緊急性が有る問い合わせをまとめて一括して社内に通知します。\n\nサブエージェント2が実行すること\n\n \n\n「スキル2」（正式名称「skill-inquiry-urg-ntf」）の指示に従って、以下を実行します。\n・サブエージェント1により緊急性有りと判断された問い合わせの全てを、一括してSlackの専用チャンネルに送信する。\n実際にそれを行うのは、MCPサーバー3である。\n\n \n\nサブエージェント2の中身\n\nスキル2（「skill-inquiry-urg-ntf」）を実行することが書いてあります。\nそれ以外、大したことは書いていません。\n\n [code] \n\nsub-inquiry-urg-ntfは、サブエージェント2の名前です。\nskill-inquiry-urg-ntfは、スキル2の名前です。\n\nスキル2の中身\n\n緊急性の有る問い合わせを社内通知する手順が書かれています。\n\n [code] \n※スキル2のSKILL.md内でも、MCPサーバーへの言及がないことについて\n\nスキル1と同様、スキル2のSKILL.mdの中でも、MCPサーバーについての言及は全くありません。\n\nこのスキル2では、DBアクセスとSlack送信を行います。\nにもかかわらず、SKILL.mdでは、両者を担当するMCPサーバー3に関することや、MCPツール名などは、一切書かれていません。\n\nスキル1でも書きましたが、Claudeは、PJ起動時に既にMCPサーバーの情報を取得済みなので、自然言語での指示だけで適切なMCPサーバーとそのツールを自力で選択できるのです。\n\nこのスキル2での処理は非常にシンプルで、MCPサーバー3の内部構成もシンプルなので、Claudeがその選択に迷うことはないはずです。\n\n例を挙げます。\n\nスキルのSKILL.md内の\n [code] \nを実際に行うのは、\nMCPサーバー3inquiry-urgntfの、\nツールnotifyunnotifiedurgentinquiries\nです。\nこのMCPサーバーとこのツールの機能説明文は、Claude Codeに事前に登録されています。\n [code] \nClaudeは、AIエージェント実行時には既にこの登録内容を知っているので、\n「緊急性が有る問い合わせのうち、社内未通知のものを、社内に通知する。」\nという自然言語での指示だけで、このツールを選択し、実行することができます。\n\n:::note warn\nこれが成り立つのは、スキル1の場合と同じ理由です。\nしかもスキル2は、処理もMCPサーバーの内部構成も、スキル1よりさらに単純です。\n複雑な処理の場合や、MCPサーバーの役割分担が曖昧になる場合（複数の似た役割のMCPサーバー群、似た役割のツール群など）は、SKILL.md内での明示的な言及が必要になるでしょう。\n:::\n---\n\nAIエージェントを働かせてみる\n\n作ったAIエージェントを働かせてみます。\n実際に何回か定期実行させて、\nどのような問い合わせに、どのような”対応案”が付加されたのかを、\n問い合わせを何件かピックアップして、見てみます。\n\n \n\nケース1：ルール通りの回答をするだけの平易な質問\n\n問い合わせの内容\n|問い合わせ・注文項目|内容|\n|:-:|:--|\n|問い合わせ番号|I000059|\n|問い合わせ日|2026/3/31|\n|問い合わせした顧客|山本 彩|\n|注文したもの|低糖質プロテインパン|\n|発送状態|未発送|\n|問い合わせ本文|（下記）|\n\n [code] \n\nAIの対応案\n\n対応案策定で、AI（サブエージェント1）は、まず以下の2項目\n・問い合わせ本文の要約\n・対応ルート（人間が対応 or 自動送信メールで回答）\nを他に先んじて決定するのでした。\n\n本件は、注文したものがまだキャンセルできるか？という問い合わせです。\nこの問い合わせに対する答えは、ショッピングガイドに、そのまま載っています。\n [code] \nこの問い合わせの対象である注文データ上では、まだ発送前です。\nなので、ルール上、キャンセル可能、ということになります。\nとてもシンプルな話で、それ以上は何もありません。\nよって、\nAIが回答文案を作成し、後に自動送信メールでの回答がなされる、\nという流れになります。\n\nですので、上記2項目のAIの決定は、\n|AI決定項目|AI決定内容|\n|:-:|:--|\n|問い合わせ本文の要約|注文した低糖質プロテインパン（注文番号O000343）のキャンセル可否を確認する問い合わせ。|\n|対応ルート|自動送信メールで回答|　\n\nとなりました。\n\n対応ルートが「自動送信メールで回答」の場合、以降AIが決定する項目は「自動送信メールの回答の本文案」のみです。\n\nAIは、以下のような回答文案を創出しました。\n [code] \n対応ルートが「自動送信メールで回答」の場合、緊急性の有無の決定はされません。\n\n＜ AIが策定した対応案　全項目 ＞\n\n \n \n \n AI決定項目 \n AI決定内容 \n \n \n \n \n 問い合わせ本文の要約 \n 注文した低糖質プロテインパン（注文番号O000343）のキャンセル可否を確認する問い合わせ。 \n \n \n 対応ルート \n 自動送信メールで回答 \n \n \n 自動送信メールの回答の本文案 \n \n お問い合わせいただきました「低糖質プロテインパン」（ご注文番号：O000343、数量4個）につきまして、 \n ご案内いたします。 \n \n 本ご注文は現時点で発送前のため、キャンセルが可能でございます。キャンセル料は一切かかりません。 \n \n なお、キャンセルは発送前に限り承っており、発送後はお受けできませんのでご了承ください。 \n 本ご注文はお届け予定日が2026年4月3日で、まもなく発送手配に入りますので、 \n キャンセルをご希望の場合はお早めにお申し付けください。 \n \n また、商品や数量の変更をご希望の場合も、 \n いったんキャンセルいただいたうえで改めてご注文いただく形となります。\n \n \n \n \n\n★AIの効用\nFAQや本稿PJのショッピングガイドのような公開情報に「まんま」載っていることを、わざわざていねいな文章を綴って回答するのは、人的リソースのムダです。\nまた、必須ではないが有用な周辺情報（本件で言うなら注文内容やお届け予定日）を回答に盛り込む場合、それらをいちいち調べなければなりません。\n本件において、AIはそこらへんを丸ごと面倒を見てくれており、地味ですが確実に省力化されました。\n\n---\nケース2：平易な質問ではあるが人間が対応すべきもの\n\n問い合わせの内容\n|問い合わせ・注文項目|内容|\n|:-:|:--|\n|問い合わせ番号|I000051|\n|問い合わせ日|2026/3/26|\n|問い合わせした顧客|小林 恒一|\n|注文したもの|マルチビタミン＆ミネラル|\n|問い合わせ本文|（下記）|\n\n [code] \n\nAIの対応案\n\n対応案策定で、AI（サブエージェント1）は、まず以下の2項目\n・問い合わせ本文の要約\n・対応ルート（人間が対応 or 自動送信メールで回答）\nを他に先んじて決定します。\n\n本件は、商品の使用法についての問い合わせです。\nこの問い合わせに対する答えは、商品マスタにも、その他のどこにもありません。\nよって、AIが回答文案を作成し、後に自動送信メールで回答、という流れは不可能です。\n人間が対応するほかはないはずです。\n\nですので、上記2項目のAIの決定は、\n|AI決定項目|AI決定内容|\n|:-:|:--|\n|問い合わせ本文の要約|届いたマルチビタミン&ミネラルの服用タイミング（朝か夜か）を知りたい。|\n|対応ルート|人間が対応|　\n\nとなりました。\n\n対応ルートが「人間が対応」の場合、以降AIが決定する項目は\n「対応のヒント」「緊急性の有無」\nの2つです。\n\n 「対応のヒント」は、問い合わせ対応案の全項目の中で核となる項目 です。\n対応方針と、その根拠となる様々な情報が盛り込まれます。\n\nAIが本件に対して示した「対応のヒント」は、以下の通りです。\n [code] \n【問い合わせ種別】\n商品の使用法の質問であり、クレームではない。\n→\n後の「緊急性の有無」の決定要素の1つになります。\n\n【顧客情報】\nこの顧客との関係性の1つである「手厚く扱うべき上客か」を、販売統計を見て判断しています。\nこの顧客への販売実績は、全顧客平均の1.35倍であり、”やや上客”にすぎない。\n→\n対応に際し、特別扱い不要、ということです。\n\n【顧客情報】\nこの顧客との関係性のもう1つである「ケアすべき客か」を、過去のこの顧客とのやりとりを収集して、判断しています。\n解決済みではあるものの、過去に2回ほど迷惑をかけている。\n→\nケアすべき客、という判断がされたようです。\n\n【同商品の類似問い合わせ先例】\n同商品に対する同じ問い合わせが過去に2回あり、先行事例として利用可能。\n→\nそれらと同じ回答をする、という判断がされました。\n\n⇒\nこれらを盛り込んで\n【対応方針】\n先例に倣い、飲むタイミングの一般的な案内（食後等）を回答すれば完了。\n過去にトラブルが2件あった顧客のため、丁寧な対応を心がけること。\n－\nという対応方針をAIが決定しました。\n\n次は、「緊急性の有無」の決定です。\n上記「対応のヒント」で明らかにしたことが、決定要素として使用されています。\n・単なる商品の使用法の質問である（上記「対応のヒント」参照）\n・特急対応すべき上客ではない（上記「対応のヒント」参照）\n・過去、多大な迷惑をかけた客ではない（上記「対応のヒント」参照）\n⇒\nAIは、緊急性無し、と決定しました。\n\n＜ AIが策定した対応案　全項目 ＞\n\n \n \n \n AI決定項目 \n AI決定内容 \n \n \n \n \n 問い合わせ本文の要約 \n 届いたマルチビタミン&ミネラルの服用タイミング（朝か夜か）を知りたい。 \n \n \n 対応ルート \n 人間が対応 \n \n \n 対応のヒント \n \n 【問い合わせ種別】 \n 商品の使用方法（服用タイミング）に関する質問。 クレームではない。 \n \n 【顧客情報】 \n 小林恒一様（C007）。 \n 購入額45,100円は全顧客平均33,517円の約1.35倍でやや上客。 \n 過去に誤配送（I000010, 2026-01-23, 無添加アーモンドミルク）と \n 配送遅延（I000025, 2026-02-11, コラーゲンペプチドパウダー） \n のクレームが各1件あり、いずれも解決済み。 \n 直近はキャンセル確認（I000043）や保存方法の質問（I000048）など軽微な問い合わせのみ。 \n \n 【同商品の類似問い合わせ先例】 \n マルチビタミン&ミネラルの飲むタイミングに関する問い合わせは \n I000027（Emily Johnson, 2026-02-19）および \n I000040（吉田翔, 2026-03-02）で先例があり、 \n いずれも「食後の服用」を一般的に案内する対応で完了している。 \n \n 【対応方針】 \n 先例に倣い、飲むタイミングの一般的な案内（食後等）を回答すれば完了。 \n 過去にトラブルが2件あった顧客のため、丁寧な対応を心がけること。\n \n \n \n 緊急性の有無 \n 無し \n \n \n \n\n★AIの効用\n\n本件は、軽微な質問です。\nもしAIでなく人力で対応した場合、コスパ意識から、AIほどにはデータ収集をしなかったんじゃないか、とも思います。\nその結果、過去に2回迷惑をかけた顧客である、という認識がないまま、フツーの対応をしてしまった可能性があります。\nそういう意味では、省力化だけでなく品質向上の効用もありました。\n\n---\nケース3：普通のクレーム\n\n問い合わせの内容\n|問い合わせ・注文項目|内容|\n|:-:|:--|\n|問い合わせ番号|I000053|\n|問い合わせ日|2026/3/26|\n|問い合わせした顧客|伊藤 健|\n|注文したもの|無添加アーモンドミルク|\n|問い合わせ本文|（下記）|\n\n [code] \n\nAIの対応案\n\n対応案策定で、AI（サブエージェント1）は、まず以下の2項目\n・問い合わせ本文の要約\n・対応ルート（人間が対応 or 自動送信メールで回答）\nを他に先んじて決定します。\n\n本件は、「商品が破損して被害が出ている。交換せよ！」というクレームです。\n当然、人間が対応しなければならないはずです。\n\nですので、上記2項目のAIの決定は、\n|AI決定項目|AI決定内容|\n|:-:|:--|\n|問い合わせ本文の要約|届いた無添加アーモンドミルクの容器がへこんでおり、液漏れが発生。交換を要求。|\n|対応ルート|人間が対応|　\n\nとなりました。\n\n対応ルートが「人間が対応」の場合、以降AIが決定する項目は\n「対応のヒント」「緊急性の有無」\nの2つです。\n\n 「対応のヒント」は、問い合わせ対応案の全項目の中で核となる項目 です。\n対応方針と、その根拠となる様々な情報が盛り込まれます。\n\nAIが本件に対して示した「対応のヒント」は、以下の通りです。\n [code] \n\n【問い合わせ種別】\n商品破損と被害の発生のクレーム。\n→\n対応全般に影響するとともに、後の「緊急性の有無」の決定要素の1つになります。\n\n【顧客情報】\nこの顧客との関係性の1つである「手厚く扱うべき上客か」を、販売統計を見て判断しています。\nこの顧客への販売実績は、全顧客平均の約0.84倍でしかない。\n→\n対応に際し、特別扱い不要、ということです。\n\n【顧客情報】\nこの顧客との関係性のもう1つである「ケアすべき客か」を、過去のこの顧客とのやりとりを収集して、判断しています。\n迷惑をかけたのは、解決済みの配送遅延が1回だけ\n→\n特にケア不要の客、という判断がされたようです。\n\n【同商品の過去トラブル】\nこの商品では、過去の誤配送2件 + 今回の破損1件で、トラブルが計3件\n→\n出荷・梱包工程に構造的な問題がある可能性を指摘。\n\n⇒\nこれらを盛り込んで\n【対応方針】\n交換対応を実施すること。\n同商品で複数種類のトラブル（誤配送2件＋容器破損1件）が繰り返されている状況を踏まえ、\n梱包品質および出荷工程の確認を商品担当・物流担当に共有し、改善策の検討を依頼すべき。\n－\nという対応方針をAIが決定しました。\n\n次は、「緊急性の有無」の決定です。\n商品破損・被害発生というクレームである\n⇒\nAIは、緊急性有り、と決定しました。\n\n＜ AIが策定した対応案　全項目 ＞\n\n \n \n \n AI決定項目 \n AI決定内容 \n \n \n \n \n 問い合わせ本文の要約 \n 届いた無添加アーモンドミルクの容器がへこんでおり、液漏れが発生。交換を要求。 \n \n \n 対応ルート \n 人間が対応 \n \n \n 対応のヒント \n \n 【問い合わせ種別】 \n 商品破損の訴え。 届いた無添加アーモンドミルクの容器がへこみ、液漏れが発生している。 交換要求。 \n \n 【顧客情報】 \n 伊藤健様（C005）。 \n 購入額28,030円は全顧客平均33,517円の約0.84倍で平均以下。 \n 過去のクレームは肝機能サポートサプリの配送遅延（I000016, 2026-01-28）1件のみで解決済み。 \n その他は到着予定日確認やキャンセルの軽微な問い合わせ（I000019, I000039, I000045）のみ。 \n \n 【同商品の過去トラブル】 \n 無添加アーモンドミルクでは過去に誤配送が2件 \n （I000010 小林恒一 2026-01-23、I000020 Michael Brown 2026-02-07）報告済み。 \n 容器破損は今回が初報告だが、同商品で3件目のトラブルであり、 \n 出荷・梱包工程に構造的な問題がある可能性がある。 \n \n 【対応方針】 \n 交換対応を実施すること。 \n 同商品で複数種類のトラブル（誤配送2件＋容器破損1件）が繰り返されている状況を踏まえ、 \n 梱包品質および出荷工程の確認を商品担当・物流担当に共有し、改善策の検討を依頼すべき。\n \n \n \n 緊急性の有無 \n 有り \n \n \n \n\nSlackによる社内通知\n\n緊急性有り、と決定されたので、Slackによる社内通知の対象となります。\nサブエージェント2が、本件を含め、緊急性が有る全ての問い合わせを一括してSlackの社内専用チャンネルに送信します。\n\n[緊急性有り → Slackの社内専用チャンネルに一括送信]\n \n\n★AIの効用\n「この商品で過去3件のトラブルが有り、出荷・梱包工程に構造的な問題がありそうだから、商品担当・物流担当に共有し、改善策の検討を依頼すべき」というAIの「社内」対応方針が示されました。\n人間にとって、問い合わせ対応は、問い合わせてきた顧客に対する「社外」対応、が1番に来ます。\nもしAIでなく人間が本件に対応したとしたら、上記の「社内」対応という発想をしなかった可能性があります。\nこれも1つの品質向上と言えます。\n\n---\nケース4：重篤なクレーム\n\n問い合わせの内容\n|問い合わせ・注文項目|内容|\n|:-:|:--|\n|問い合わせ番号|I000062|\n|問い合わせ日|2026/4/2|\n|問い合わせした顧客|田中 裕二|\n|注文したもの|発酵黒にんにく粒|\n|問い合わせ本文|（下記）|\n\n [code] \n\nAIの対応案\n\n対応案策定で、AI（サブエージェント1）は、まず以下の2項目\n・問い合わせ本文の要約\n・対応ルート（人間が対応 or 自動送信メールで回答）\nを他に先んじて決定します。\n\n本件は、納期遅れに対するクレームです。\nが、度重なる納期遅れに怒り心頭、「責任者出てこい！」、という状態です。\n当然、人間が対応しなければならないはずです。\n\nですので、上記2項目のAIの決定は、\n|AI決定項目|AI決定内容|\n|:-:|:--|\n|問い合わせ本文の要約|発酵黒にんにく粒が4月2日の納品予定日を過ぎても届かない。 過去に何度も納期遅れがあり我慢の限界と表明。 至急の状況説明を要求。|\n|対応ルート|人間が対応|　\n\nとなりました。\n\n対応ルートが「人間が対応」の場合、以降AIが決定する項目は\n「対応のヒント」「緊急性の有無」\nの2つです。\n\n 「対応のヒント」は、問い合わせ対応案の全項目の中で核となる項目 です。\n対応方針と、その根拠となる様々な情報が盛り込まれます。\n\nAIが本件に対して示した「対応のヒント」は、以下の通りです。\n [code] \n【問い合わせ種別 - 最重要案件】\n納期遅延。強い怒りを表明。\n→\n最重要案件。\n\n【顧客情報 - 最大級の注意】\nこの顧客への販売実績は全顧客平均の約1.21倍で、”やや上客”である。しかし本件ではそれよりも重要なことがある。\nこの顧客に対して、過去4回も同じ納期遅延を発生させており、多大な迷惑をかけている。\nしかも、直近4回目では、配送業者にエスカレーションして対策したのにもかかわらず、効果なし。\n→\n最大級の注意を払うべき顧客。\n\n【同商品の過去トラブル】\nこの商品は、過去、配送遅延2回と誤配送2回の計4回の配送トラブルが生じている。\n→\n具体的かつ実効性のある再発防止策の提示が不可欠。\n\n⇒\nこれらを盛り込んで\n【対応方針 - 最優先】\n5回目の配送遅延であり、前回のエスカレーション後も改善されていない最悪の状況。\n定型対応は絶対に避け、上位管理者も含めた対応が必要。\n配送状況の即時確認、電話での直接のお詫び、具体的かつ実効性のある再発防止策の提示が不可欠。\n顧客離反のリスクが極めて高い。\n－\nという最優先の対応方針をAIが決定しました。\n\n次は、「緊急性の有無」の決定です。\n5回目の納期遅延で、顧客が正当に怒っている。\n⇒\nAIは、緊急性有り、と決定しました。\n\n＜ AIが策定した対応案　全項目 ＞\n\n \n \n \n AI決定項目 \n AI決定内容 \n \n \n \n \n 問い合わせ本文の要約 \n \n 発酵黒にんにく粒が4月2日の納品予定日を過ぎても届かない。 \n 過去に何度も納期遅れがあり我慢の限界と表明。 \n 至急の状況説明を要求。\n \n \n \n 対応ルート \n 人間が対応 \n \n \n 対応のヒント \n \n 【問い合わせ種別 - 最重要案件】 \n 納期遅延の訴え。 \n 発酵黒にんにく粒が4月2日の予定を過ぎても届かず、「さすがに我慢できません」と強い怒りを表明。 \n 至急の説明を要求。 注文データ上、2026-03-31に発送済みだが未納品。 \n \n 【顧客情報 - 最大級の注意】 \n 田中裕二様（C011）。 \n 購入額42,510円は全顧客平均35,195円の約1.21倍でやや上客。 \n この顧客は過去に配送遅延のクレームを4回出しており、すべて実際の遅延が確認されている： \n (1) I000002（2026-01-05, 乳酸菌ドリンクEX, 4日遅延）、 \n (2) I000008（2026-01-22, 発酵黒にんにく粒, 4日遅延, 怒りの表明）、 \n (3) I000023（2026-02-10, オーガニック玄米ブレンド, 4日遅延）、 \n (4) I000044（2026-03-13, 発酵黒にんにく粒, 4日遅延, エスカレーション対応済み）。 \n 本件で5回目。 \n 前回I000044ではエスカレーションし配送業者との調整を行ったにもかかわらず、再び同じ問題が発生している。 \n \n 【同商品の過去トラブル】 \n 発酵黒にんにく粒では \n 配送遅延（I000008 田中裕二、I000044 田中裕二）、 \n 誤配送（I000030 加藤優子、I000047 Emily Johnson） \n と複数のトラブルが報告されている。 \n \n 【対応方針 - 最優先】 \n 5回目の配送遅延であり、前回のエスカレーション後も改善されていない最悪の状況。 \n 定型対応は絶対に避け、上位管理者も含めた対応が必要。 \n 配送状況の即時確認、電話での直接のお詫び、具体的かつ実効性のある再発防止策の提示が不可欠。 \n 顧客離反のリスクが極めて高い。\n \n \n \n 緊急性の有無 \n 有り \n \n \n \n\nSlackによる社内通知\n\n緊急性有り、と決定されたので、Slackによる社内通知の対象となります。\nサブエージェント2が、本件を含め、緊急性が有る全ての問い合わせを一括してSlackの社内専用チャンネルに送信します。\n\n[緊急性有り → Slackの社内専用チャンネルに一括送信]\n \n\n★AIの効用\nクレームを送ってきたこの顧客「田中 裕二」氏がカンカンに怒っているのは文面を見て分かるのですが、そこに至るまでの諸々の経緯、この商品自体のトラブルの多さといった、対応に際し価値のある情報を揃えておいてくれるのは、AIならでは、でしょう。\n\n---\nケース5：平易な質問なのに緊急対応\n\n問い合わせの内容\n|問い合わせ・注文項目|内容|\n|:-:|:--|\n|問い合わせ番号|I000055|\n|問い合わせ日|2026/3/30|\n|問い合わせした顧客|田中 裕二|\n|注文したもの|高カカオポリフェノールチョコ|\n|問い合わせ本文|（下記）|\n\n [code] \n\nAIの対応案\n\n対応案策定で、AI（サブエージェント1）は、まず以下の2項目\n・問い合わせ本文の要約\n・対応ルート（人間が対応 or 自動送信メールで回答）\nを他に先んじて決定します。\n\n本件は、商品の使用法についての問い合わせです。\nこの問い合わせに対する答えは、商品マスタにも、その他のどこにもありません。\nよって、AIが回答文案を作成し、後に自動送信メールで回答、という流れは不可能です。\nが、それ以上に大事なのは、\n問い合わせした顧客が、\n過去に納期遅延を4回も発生させて多大な迷惑をかけている「田中 裕二」氏である、\nということです（ケース4参照）。\nこれは、人間が対応する必要があるはずです。\n\nですので、上記2項目のAIの決定は、\n|AI決定項目|AI決定内容|\n|:-:|:--|\n|問い合わせ本文の要約|届いた高カカオポリフェノールチョコの1日あたりの適量（摂取量の目安）を知りたい。|\n|対応ルート|人間が対応|　\n\nとなりました。\n\n対応ルートが「人間が対応」の場合、以降AIが決定する項目は\n「対応のヒント」「緊急性の有無」\nの2つです。\n\n 「対応のヒント」は、問い合わせ対応案の全項目の中で核となる項目 です。\n対応方針と、その根拠となる様々な情報が盛り込まれます。\n\nAIが本件に対して示した「対応のヒント」は、以下の通りです。\n [code] \n【問い合わせ種別】\n単なる商品の使用法についての質問であり、クレームではない。\n\n【顧客情報 - 要注意】\nこの顧客への販売実績は全顧客平均の約1.22倍で、”やや上客”だが、そこは今重要ではない。\nこの顧客に対して、過去4回も納期遅延を発生させており、多大な迷惑をかけている。\n→\n対応に際し要注意となる顧客。\n\n【同商品の先例】\n過去事例が無く、参考になる先例無し。\n\n⇒\nこれらを盛り込んで\n【対応方針】\n1日の摂取量の目安を回答すること。\nクレームではないが、過去に配送遅延で多大な迷惑をかけている顧客であるため、\n丁寧かつ 迅速に 対応し、顧客満足度の回復につなげること。\n好印象を与える対応を心がけるべき。\n－\nという対応方針をAIが決定しました。\n\n次は、「緊急性の有無」の決定です。\n単なる商品の使用法の質問ではあるが、多大な迷惑をかけている顧客である。\n⇒\nAIは、緊急性有り、と決定しました。\n\n＜ AIが策定した対応案　全項目 ＞\n\n \n \n \n AI決定項目 \n AI決定内容 \n \n \n \n \n 問い合わせ本文の要約 \n 届いた高カカオポリフェノールチョコの1日あたりの適量（摂取量の目安）を知りたい。 \n \n \n 対応ルート \n 人間が対応 \n \n \n 対応のヒント \n \n 【問い合わせ種別】 \n 商品の使用方法（1日の摂取量の目安）に関する質問。 \n クレームではない。 \n \n 【顧客情報 - 要注意】 \n 田中裕二様（C011）。 \n 購入額42,510円は全顧客平均34,947円の約1.22倍でやや上客。 \n 過去に配送遅延のクレームを4回出しており、すべて実際の遅延が確認されている： \n (1) I000002（2026-01-05, 乳酸菌ドリンクEX）、 \n (2) I000008（2026-01-22, 発酵黒にんにく粒, 怒りの表明あり）、 \n (3) I000023（2026-02-10, オーガニック玄米ブレンド, 度重なる遅延への不満）、 \n (4) I000044（2026-03-13, 発酵黒にんにく粒, 4度目の遅延、エスカレーション対応済み）。 \n 当社がこの顧客に多大な迷惑をかけ続けている。 \n \n 【同商品の先例】 \n 高カカオポリフェノールチョコへの問い合わせは今回が初。類似の先例なし。 \n \n 【対応方針】 \n 1日の摂取量の目安を回答すること。 \n クレームではないが、過去に配送遅延で多大な迷惑をかけている顧客であるため、 \n 丁寧かつ迅速に対応し、顧客満足度の回復につなげること。 \n 好印象を与える対応を心がけるべき。\n \n \n \n 緊急性の有無 \n 有り \n \n \n \n\nSlackによる社内通知\n\n緊急性有り、と決定されたので、Slackによる社内通知の対象となります。\nサブエージェント2が、本件を含め、緊急性が有る全ての問い合わせを一括してSlackの社内専用チャンネルに送信します。\n\n[緊急性有り → Slackの社内専用チャンネルに一括送信]\n \n\n★AIの効用\n本件は、外面上は、商品の使用法の質問という単純な問い合わせです。\n本件に対し、AIではなく人力で対応した場合、「田中 裕二」氏は最もケアすべき顧客である、と知っている人間ではない限り、フツーのスピードで対応した可能性があります。\nそれは、きっとダメージは生じなかったでしょうが、同時に、顧客満足度の回復につながることもなかったでしょう。\nAIが、過去データをもとに、「田中 裕二」氏は最もケアすべき顧客であるから緊急性の有る問い合わせとして扱う、という判断をしたからこそ、迅速な対応ができました。\n顧客満足度の回復につながる芽は摘まれなかった、ということです。\n\n---\n\nおわりに\n\n本稿のAIエージェントは、大したことをしていません。\n\n適切と思われるデータを取ってきて、読んで、答えを考え、それを書き込む。\n急ぐべき、と思ったら「急げ！」と叫ぶ。\nただそれを繰り返しているだけです。\n\nそして、そこでAIが読んだデータは、AIのために用意したものではありません。\n販売実績も、問い合わせ対応履歴も、業務のために元々あったシステム資産です。\nそれらをAIが読める状態にしただけです。\n\nそれでも、対応の省力化と品質向上につながりました。\n同じことは、他の業務でも成り立つはずです。\n\nまた、既存のシステム資産は、データだけではありません。\n長年動かしてきたシステムには、多様な業務ルールを実行する機能が積み上がっています。\nそれらをMCPサーバー化するなどしてAIから使えるようにすれば、できることはもっと増えるはずです。\n\n---\n\n \n\n【参考】DBとMCPサーバー\n\nここからは、本稿で使用したDBとMCPサーバー群の中身についての参考情報です。\n技術的な内容なので、興味のない方は読み飛ばして構いません。\n\nDB\n\nSupabase上で構築しました。\n\nマスタ（顧客、商品、社員）と、業務データのテーブルがあります。\nまた、それらのデータを取得・集計・更新するFunction群があります。\nDB外部からテーブルへのアクセスは、全てそれらFunction経由で行われます。\n\n \n クリックして表示 \n\n構成\n\n以下のテーブルとFunctionによって構成されています。\n\n|種類|名称|内容・機能| \n|:-----------:|:-----------:|:------------|\n|Table|CUTOMER|顧客マスタ。| \n|Table|ITEM|商品マスタ。| \n|Table|ITEMCATEGORY|商品カテゴリーマスタ。商品のカテゴリーを定義。| \n|Table|MEMBER|社員マスタ。|\n|Table|SALES|販売データ。|\n|Table|ORDERS|注文データ。|\n|Table|INQUIRY|問い合わせデータ。|\n|Table|INQUIRYRES|問い合わせ対応データ。|\n|Function|getcustomers|顧客マスタのデータを検索して返す。|\n|Function|getitems|商品マスタと商品カテゴリーマスタのデータを検索して返す。|\n|Function|getmembers|社員マスタのデータを検索して返す。|\n|Function|getsales|販売データを検索して返す。集計無し。販売データ1個＝戻り値1行。|\n|Function|getsalessumbycustomeritemmember|販売データを検索し、顧客・商品・社員で集計して返す。|\n|Function|getsalessumbycustomeritemcatmember|販売データを検索し、顧客・商品カテゴリー・社員で集計して返す。|\n|Function|getsalessumbycustomer|販売データを検索し、顧客で集計して返す。 同時に、全顧客間平均販売額も返す。|\n|Function|getorders|注文データを検索して返す。注文データ1個＝戻り値1行。|\n|Function|getinquiries|問い合わせデータを検索して返す。 戻り値1行は、 「1件の問い合わせ」＋「その問い合わせの対象である1件の注文」 という構成である。 どんな注文に対するどんな問い合わせなのか、戻り値の1行を見ればわかる。|\n|Function|getinquiryresponses|問い合わせ対応データを検索して返す。 戻り値1行は、 「1件の問い合わせ対応」＋「その対応をした1件の問い合わせ」＋「その問い合わせの対象である1件の注文」 という構成である。 どんな注文に対するどんな問い合わせで、それに対してどんな対応をしたのか、戻り値の1行を見ればわかる。|\n|Function|updateinquiry|問い合わせデータ1個を更新する。 限られたフィールドのみ更新可。|\n|Function|getunnotifiedurgentinquiries|緊急性有りで社内未通知の問い合わせデータ全件を返す。|\n|Function|markunnotifiedurgentinquiriesasnotified|緊急性有りで社内未通知の問い合わせデータ全件を、社内通知済みに一括更新する。|\n\n[テーブル]\n \n\n \n\n---\n\nMCPサーバー「salesstat」\n\n本稿の「MCPサーバー1」です。\n\n主に、販売データの統計を返します。\nまた、マスタデータの取得も行います。\nFastMCPを使用しています。\n\n \n クリックして表示 \n\n|項目|内容| \n|:-----------:|:------------|\n|サーバー名|salesstat|\n|ファイル名|mcpserversalesstat.py|\n|Transport|Streamable HTTP|\n|認証|静的Bearer Token|\n\n認証に静的Bearer Tokenを用いています。\nトークンが平文でHTTPリクエストに含まれるため、本来はHTTPSで通信すべきですが、閉じられた宅内LANで使用しているだけなので、そこまではしませんでした。\n\nツール\n\n各ツール内部で、適したDBのFunctionを使用しています。\n\n|名称|機能| \n|:-----------:|:------------|\n|getcustomers|DBから顧客情報を検索して返す。|\n|getitems|DBから商品情報を検索して返す。|\n|getmembers|DBから社員情報を検索して返す。|\n|getsales|DBから販売データを検索して返す。集計無し。販売データ1個＝戻り値1行。|\n|getsalessumbycustomeritemmember|DBから顧客・商品・社員で集計された販売データを取得して返す。|\n|getsalessumbycustomeritemcatmember|DBから顧客・商品カテゴリー・社員で集計された販売データを取得して返す。|\n|getsalessumbycustomer|DBから顧客で集計された販売データを取得して返す。 同時に、全顧客間平均販売額も返す。|\n\nコード\n\n [code] \n\n:::note info\nFastMCPは、「@tool」が付加された関数をMCPツールと判断し、その中身を見て、MCPサーバーの全ツールのSchemaを自動生成します。\ninputSchemaだけでなく、実のあるoutputSchemaを生成させるために、各MCPツールの戻り値をBaseModelの派生クラスで詳細に定義しました。\n:::\n\n \n\n---\n\nMCPサーバー「inquirydatamng」\n\n本稿の「MCPサーバー2」です。\n\n問い合わせ関連データ（注文・問い合わせ・問い合わせ対応データ）の取得や更新をします。\nFastMCPを使用しています。\n\n \n クリックして表示 \n\n|項目|内容| \n|:-----------:|:------------|\n|サーバー名|inquirydatamng|\n|ファイル名|mcpserverinquirydatamng.py|\n|Transport|Streamable HTTP|\n|認証|静的Bearer Token|\n\nMCPサーバー「salesstat」と同じで、認証に静的Bearer Tokenを用いています。\nトークンが平文でHTTPリクエストに含まれるため、本来はHTTPSで通信すべきですが、閉じられた宅内LANで使用しているだけなので、そこまではしませんでした。\n\nツール\n\n各ツール内部で、適したDBのFunctionを使用しています。\n\n|名称|機能| \n|:-----------:|:------------|\n|getorders|DBから注文データを検索して返す。集計無し。販売データ1個＝戻り値1行。|\n|getinquiries|DBから問い合わせデータを取得して返す。 戻り値1行は、 「1件の問い合わせ」＋「その問い合わせの対象である1件の注文」 という構成である。 どんな注文に対するどんな問い合わせなのか、戻り値の1行を見ればわかる。|\n|getinquiryresponses|DBから問い合わせ対応データを取得して返す。 戻り値1行は、 「1件の問い合わせ対応」＋「その対応をした1件の問い合わせ」＋「その問い合わせの対象である1件の注文」 という構成である。 どんな注文に対するどんな問い合わせで、それに対してどんな対応をしたのか、戻り値の1行を見ればわかる。|\n|updateinquiry|DBの問い合わせデータ1件を更新する。 限られたフィールドのみ更新可。|\n\nコード\n\n [code] \n\n:::note info\nMCPサーバー「salesstat」のところでも書きましたが、 FastMCPは、「@tool」が付加された関数をMCPツールと判断し、その中身を見て、MCPサーバーの全ツールのSchemaを自動生成します。\ninputSchemaだけでなく、実のあるoutputSchemaを生成させるために、各MCPツールの戻り値をBaseModelの派生クラスで詳細に定義しました。\n:::\n\n \n\n---\n\nMCPサーバー「inquiry-urgntf」\n\n本稿の「MCPサーバー3」です。\n\n緊急性の有る問い合わせ全件を、社内に通知します。\nFastMCPを使用しています。\n\n \n クリックして表示 \n\n|項目|内容| \n|:-----------:|:------------|\n|サーバー名|inquiry-urgntf|\n|ファイル名|mcpserverinquiryurgntf.py|\n|Transport|Streamable HTTP|\n|認証|静的Bearer Token|\n\nMCPサーバー「salesstat」と同じで、認証に静的Bearer Tokenを用いています。\nトークンが平文でHTTPリクエストに含まれるため、本来はHTTPSで通信すべきですが、閉じられた宅内LANで使用しているだけなので、そこまではしませんでした。\n\nツール\n\nツール内部で、適したDBのFunctionを使用しています。\n\n|名称|機能| \n|:-----------:|:------------|\n|notifyunnotifiedurgentinquiries|緊急性の有る問い合わせデータのうち、社内未通知のもの全件を社内に通知し、社内通知済とする。 対象となった問い合わせデータの問い合わせ番号一覧を返す。|\n\nコード\n\n [code] \n\n:::note info\nMCPサーバー「salesstat」のところでも書きましたが、 FastMCPは、「@tool」が付加された関数をMCPツールと判断し、その中身を見て、MCPサーバーの全ツールのSchemaを自動生成します。\ninputSchemaだけでなく、実のあるoutputSchemaを生成させるために、MCPツールの戻り値をBaseModelの派生クラスで詳細に定義しました。\n:::",
+      "metrics": {
+        "likes": 2,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6051b2bb56e4137e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8914563106796117,
+      "popularityPercentile": 0.9611650485436893,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "Claude CodeのAgent Skillsが業務データを読み込み、問い合わせの一次対応案作成と緊急通知を自動化した。",
+      "reason": "3つのスキルを組み合わせ、未処理の問い合わせを分類・回答案化し、緊急案件だけ社内通知する流れを構築している。業務データを扱うエージェントの具体例。",
+      "keywords": [
+        "Claude Code",
+        "Agent Skills",
+        "MCP",
+        "AIエージェント",
+        "問い合わせ対応"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Headroom完全ガイド：AIエージェントのトークン消費を60〜95%削減するコンテキスト圧縮ミドルウェア【2026年版】",
+      "url": "https://qiita.com/agdexai/items/a75d8a151d6f6f7f54ba",
+      "publishedAt": "2026-08-04T12:21:56.000Z",
+      "author": "agdexai",
+      "authorDetail": {
+        "name": "agdexai",
+        "handle": "@agdexai",
+        "url": "https://qiita.com/agdexai",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocJkz9inxX8pPymZN1DpJL8D3FSnkcpZY4hNKxconh16A-Zy3A=s96-c",
+        "followers": 3,
+        "posts": 54,
+        "links": []
+      },
+      "tags": [
+        "AIAgent",
+        "LLM",
+        "Python",
+        "Claude",
+        "MCP"
+      ],
+      "snippet": "Headroom完全ガイド：AIエージェントのトークン消費を60〜95%削減するコンテキスト圧縮ミドルウェア なぜ今、コンテキスト圧縮が必要なのか Claude Code を週末放置したら $400 の API 請求書が届いた。RAG パイプラインが月 $2,000 を消費していたが、そのうち 80% は「構造的なノイズ」——JSON の冗長なキー、テストログの合格行、git diff の未変更部分——だった。 LLM のコンテキストウィンドウが 100 万トークンに拡大した 2025〜2026 年、開発者が直面する最大の課題は コンテキスト膨張（Context Inflation） です。マルチターン会話では毎回全履歴が再送信され、コストは O(n²) で増大します。 Headroom は、この問題を解決するオープンソースのコンテキスト圧縮ミドルウェアです。ツール出力、ログ、RAGチャン…",
+      "body": "Headroom完全ガイド：AIエージェントのトークン消費を60〜95%削減するコンテキスト圧縮ミドルウェア\n\nなぜ今、コンテキスト圧縮が必要なのか\n\nClaude Code を週末放置したら $400 の API 請求書が届いた。RAG パイプラインが月 $2,000 を消費していたが、そのうち 80% は「構造的なノイズ」——JSON の冗長なキー、テストログの合格行、git diff の未変更部分——だった。\n\nLLM のコンテキストウィンドウが 100 万トークンに拡大した 2025〜2026 年、開発者が直面する最大の課題は コンテキスト膨張（Context Inflation） です。マルチターン会話では毎回全履歴が再送信され、コストは O(n²) で増大します。\n\nHeadroom は、この問題を解決するオープンソースのコンテキスト圧縮ミドルウェアです。ツール出力、ログ、RAGチャンク、ファイル、会話履歴——AIエージェントが読むすべてを、LLM に届く前にローカルで圧縮します。\n\n実証デモでは 10,144 → 1,260 トークン（同じ FATAL エラーを検出）。\n\n---\n\nHeadroom の全体像\n\n| 項目 | 内容 |\n|------|------|\n| リポジトリ | headroomlabs-ai/headroom |\n| インストール | pip install \"headroom-ai[all]\" / npm install headroom-ai |\n| 対応言語 | Python, TypeScript, プロキシ経由で全言語 |\n| 圧縮率 | 60〜95%（コンテンツタイプにより変動） |\n| ライセンス | オープンソース |\n\n4つのデプロイモード\n\n [code] \n\n---\n\n6つの圧縮エンジン詳解\n\nHeadroom は単一の圧縮アルゴリズムではなく、6つの専門エンジンをコンテンツタイプに応じて自動ルーティングします。\n\n1. SmartCrusher — JSON 圧縮\n\nエージェントが最も頻繁に扱う JSON（APIレスポンス、ツール出力の辞書配列）を対象に、冗長キーの除去・空白の正規化・繰り返し構造の折りたたみを行います。\n\n2. CodeCompressor — AST ベースのコード圧縮\n\nPython、JavaScript、Go、Rust、Java、C++ のコードを抽象構文木（AST）レベルで解析。コメントの除去、クエリと無関係な関数本体の折りたたみ、インターフェースと型シグネチャの保持を実行します。\n\n3. Kompress-base — MLモデルによる圧縮\n\nエージェントのトレースデータで学習した HuggingFace モデル。汎用テキスト要約と異なり、ツールコールパターン・エラースタックトレース・エージェント推論チェインの構造を理解しています。\n\n4. 画像圧縮\n\n学習済み ML ルーターにより、ビジョン対応モデルに渡される画像を 40〜90% 削減。LLM の推論に必要な情報は劣化させません。\n\n5. CacheAligner — キャッシュ対応プレフィックス安定化\n\n最も見落とされがちな機能。プロンプトを圧縮するとテキストが変わるため、Anthropic/OpenAI の KV キャッシュ（プロンプトキャッシュ）がヒットしなくなります。CacheAligner は圧縮後もプレフィックスを安定させ、圧縮による節約 + キャッシュヒット割引の二重節約を実現します。\n\n6. IntelligentContext — スコアベースのコンテキスト最適化\n\n会話がコンテキストウィンドウを超えた場合、学習済みの重要度スコアで各メッセージを評価し、利用可能なトークン予算内に最高価値のコンテンツを収めます。\n\nCCR（可逆圧縮）\n\n従来のプロンプト圧縮は不可逆でした。Headroom の CCR（Compressed Context Recovery） はオリジナルをローカルストアに保持。LLM がより詳細な情報を必要とした場合、headroomretrieve ツールを呼び出してオンデマンドで特定セクションを復元できます。\n\n---\n\n統合ガイド（コード例付き）\n\n方法1：ゼロコード・プロキシ（最も簡単）\n\n [code] \n\n方法2：1コマンド・エージェントラップ\n\n [code] \n\n方法3：SDK統合（Python）\n\n [code] \n\n方法4：MCPサーバー\n\n [code] \n\nフレームワーク別統合一覧\n\n| フレームワーク | 統合方法 |\n|---|---|\n| Anthropic / OpenAI SDK | withHeadroom(client) |\n| LangChain | HeadroomChatModel(yourllm) |\n| Vercel AI SDK | wrapLanguageModel({ middleware: headroomMiddleware() }) |\n| LiteLLM | litellm.callbacks = [HeadroomCallback()] |\n| Agno | HeadroomAgnoModel(yourmodel) |\n\n---\n\n競合ツールとの比較\n\n| 機能 | Headroom | RTK | lean-ctx | 手動トリミング |\n|------|----------|-----|----------|----------------|\n| 対象範囲 | 全コンテキスト | CLI出力のみ | CLI+MCPルール | 会話のみ |\n| デプロイ | プロキシ/ライブラリ/MCP | CLIラッパー | CLIラッパー | コード変更 |\n| ローカル実行 | ✅ | ✅ | ✅ | N/A |\n| 可逆圧縮 | ✅（CCR） | ❌ | ❌ | ❌ |\n| ML圧縮 | ✅（Kompress） | ❌ | ❌ | ❌ |\n| キャッシュ対応 | ✅（CacheAligner） | ❌ | ❌ | ❌ |\n\n---\n\n導入すべきケース・見送るべきケース\n\nこんな場合は導入推奨\n・AI コーディングエージェント（Claude Code, Cursor, Aider）を日常的に使用\n・RAG パイプラインで大量のチャンクを検索・送信している\n・複数エージェント間で共有メモリが必要\n・圧縮しても元データを復元できる安全性が欲しい\n\nこんな場合はスキップ\n・短いプロンプトの単一ターン完了のみ\n・ローカルプロセスが実行できないサンドボックス環境\n・月額 API 支出が $20 未満\n\n---\n\nまとめ\n\nコンテキスト圧縮は、HTTP における gzip のように、2026 年の AI エージェントスタックにおける標準レイヤーになりつつあります。Headroom はその最も包括的なオープンソース実装です。月額 $50 以上の LLM API を使用しているなら、導入の ROI は即座に現れるでしょう。\n\n---\n\nHeadroom を含む 710 以上の AI エージェントツール・MCP サーバー・インフラストラクチャを AgDex.ai でチェックしてみてください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8c500ea746655488",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8690291262135923,
+      "popularityPercentile": 0.8592233009708737,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "HeadroomはAIエージェントへの入力を圧縮し、同じFATALエラーを10,144トークンから1,260トークンで検出した。",
+      "reason": "JSONやログなどの構造的なノイズをモデル投入前に削り、実証では10,144→1,260トークンに減らした。Python・TypeScript・プロキシ経由の導入方法も扱う。",
+      "keywords": [
+        "Headroom",
+        "headroom-ai",
+        "Claude Code",
+        "MCP",
+        "コンテキスト圧縮",
+        "トークン"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 15,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude CodeのPreToolUseフック活用ガイド——AIの操作を「実行される前に」検査する",
+      "url": "https://qiita.com/tri-ponte/items/72c7159c639011ccdf86",
+      "publishedAt": "2026-08-04T02:53:09.000Z",
+      "author": "ぴろゆき",
+      "authorDetail": {
+        "name": "ぴろゆき",
+        "handle": "@tri-ponte",
+        "url": "https://qiita.com/tri-ponte",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4478150/23d72059c4c9173666efd6ef36a321c69566eb03/large.png?1785653741",
+        "followers": 0,
+        "posts": 2,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/wakana19811111-source"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "Hook",
+        "AI",
+        "生成AI"
+      ],
+      "snippet": "Claude Code は本当によく働いてくれます。ファイルを直し、コマンドを叩き、テストまで回してくれる。頼もしい相棒です。 ただ、一緒に働いているとこう思う瞬間があります。 「その操作、実行する前に一回見せてほしかった」 人間なら一瞬手が止まる操作——rm -rf、git push --force、大事な記録ファイルへの直接編集——を、AIは良かれと思って、ためらいなく実行します。「このファイルは触らないでね」とお願いしても、会話が長くなると忘れます。悪気はないんです。ただ、口約束はAI相手には長持ちしません。 そこで使えるのが Claude Code の PreToolUse フックです。フックというのは、決まったタイミングに自作の処理を差し込める仕組みのこと。名前は Pre（〜の前）＋ Tool Use（ツールの使用） で、Claude Code の AI はすべての操作を「ツール…",
+      "body": "Claude Code は本当によく働いてくれます。ファイルを直し、コマンドを叩き、テストまで回してくれる。頼もしい相棒です。\n\nただ、一緒に働いているとこう思う瞬間があります。\n\n「その操作、実行する前に一回見せてほしかった」\n\n人間なら一瞬手が止まる操作——rm -rf、git push --force、大事な記録ファイルへの直接編集——を、AIは良かれと思って、ためらいなく実行します。「このファイルは触らないでね」とお願いしても、会話が長くなると忘れます。悪気はないんです。ただ、口約束はAI相手には長持ちしません。\n\nそこで使えるのが Claude Code の PreToolUse フックです。フックというのは、決まったタイミングに自作の処理を差し込める仕組みのこと。名前は Pre（〜の前）＋ Tool Use（ツールの使用） で、Claude Code の AI はすべての操作を「ツール」経由で実行するため、「ツールを使う前」＝操作が実行される直前を指します。ここに自作スクリプトを割り込ませて、「通す・止める・人間に確認を回す」を機械的に判定できるわけです。\n\nこの記事では、私が実際に運用しているフックを元に、\n\n1. 危ないコマンドを実行前に止める\n2. 「直接編集禁止」のファイルを守る\n3. 状況によってガードのON/OFFを切り替える\n\nという3つの実例と、実運用して分かった設計のコツをまとめます。明日、あなたの Claude Code に1本目のガードを仕込めるのがゴールです。\n\nPreToolUseフックの仕組み（30秒で）\n\nClaude Code は、ファイル編集もコマンド実行も、すべて「ツール」と呼ばれる部品を通して行います（Bash・Write・Edit・Read など）。\n\nPreToolUse フックは、そのツールが実行される直前に発火します。\n\n [code] \n\nポイントは★の行です。拒否理由は Claude 本人に届きます。 Claude はそれを読んで、別のやり方を考え直します。つまり単なる通行止めではなく、「この先は工事中です。迂回路はこちら」という看板として機能します。\n\n最小構成で動かす\n\n設定は settings.json（プロジェクトなら .claude/settings.json、全プロジェクト共通なら /.claude/settings.json）に書きます。\n\n [code] \n・matcher：どのツールで発火させるか。ツール名の完全一致で、\"Edit|Write\" のように複数指定もできます\n・command：起動するスクリプト（あなたが書く判定係です）\n・timeout：秒指定。⚠ 省略すると既定は600秒（後述します）\n\nフックが発火すると、Claude Code は「これから実行しようとしている操作の中身」を JSON にまとめて、あなたのスクリプトの標準入力へ送り込んできます。差出人が Claude Code、受取人があなたのスクリプト、という向きです。届く JSON はこんな形です（抜粋）。\n\n [code] \n\ntoolinput の中身はツールごとに変わります（Bash なら command、Write なら filepath と content、といった具合です）。\n\nJSON を受け取ったスクリプトの仕事は、中身を検査して「実行してよいか」の判定を Claude Code へ返すことです。「実行させない」と返せば、Claude Code はそのツール実行（コマンド実行やファイル編集）を取りやめます。これがこの記事で言う「止める」です。\n\nその判定の返し方が2通りあります。\n\n| 方式 | やり方 | 向いている場面 |\n|---|---|---|\n| 手軽 | exit 2 で終了し、理由を stderr へ | とにかく止めたい |\n| 丁寧 | exit 0 で終了し、判定を JSON で stdout へ | 理由や代替手段まで伝えたい |\n\n順に実例で見ていきます。\n\n事例1：危ないコマンドを実行前に止める（exit 2方式）\n\nまずは一番シンプルな形から。rm -rf と git push --force を含むコマンドを拒否します。\n\n.claude/hooks/bashguard.sh：\n\n [code] \n\nexit 2 で終了すると、そのツール実行はブロックされ、stderr に書いた文がそのまま Claude へのフィードバックになります。 Claude 側から見ると「実行しようとしたら断られて、理由が返ってきた」状態です。すると「では rm -rf をやめて、対象を確認しながら1つずつ削除します」のように出直してきます。\n\nたった十数行ですが、「事故が起きませんように」という祈りが「起きない仕組み」に変わる瞬間です。\n\n事例2：「直接編集禁止」のファイルを守る（JSON方式）\n\n私の環境には「AIが直接編集してはいけないファイル」があります。作業記録のファイルで、決められたスクリプトを通してだけ追記してほしい。口頭で「直接書かないでね」と頼んでいた頃は、忘れた頃にやらかしてくれました。\n\nこういう「止めたうえで、正しい道も教えたい」場面では JSON 方式が向いています。事例1の bashguard.sh とは別の独立したフックとして作ります。settings.json の PreToolUse の配列に、もう1エントリ追加してください（フックは何本でも並べられます）。\n\n [code] \n\n判定スクリプト本体の .claude/hooks/writeguard.py：\n\n [code] \n\npermissionDecision に指定できる主な値は3つです。\n\n| 値 | 意味 |\n|---|---|\n| \"deny\" | 実行させない。理由が Claude に返る |\n| \"allow\" | 許可の確認プロンプトを省略して通す |\n| \"ask\" | 通常の確認プロンプトを出して、人間に判断を回す |\n\nここで実運用上いちばん効くのが additionalContext です。この欄に書いた文は Claude の文脈に確実に入ります。 「止める」だけだと Claude は途方に暮れるか、別の抜け道を探し始めますが、「代わりにこのスクリプトを使って」と書いておくと、素直にそちらへ回ってくれます。通行止めの看板には、迂回路の地図を添える。 これだけで、拒否されたあとのAIの動きが見違えます。\n\n事例3：状況によってガードのON/OFFを切り替える\n\n3つ目は少し応用です。私は外出先から iPhone で Claude Code を操作することがあるのですが、小さい画面では誤操作が怖い。外出先モードのときだけ、特定の操作を止めたり確認に回したりしたいわけです。\n\nフック自体は常設のまま、フラグファイルの有無で挙動を切り替えます。これも事例1・2とは別の独立したフックです。settings.json には、守りたいツールを matcher に並べたエントリ（例：\"Bash|Write|Edit\"）をもう1つ足して、次の .claude/hooks/remotefilter.sh を登録します。\n\n [code] \n\nモードの切り替えはコマンド1つです。settings.json を書き換える必要はありません。\n\n [code] \n\n「フックは常に同じ判定しかできない」と思い込みがちですが、環境の状態を見て判定を変える設計にすると、適用範囲がぐっと広がります。\"deny\" ではなく \"ask\"（人間に確認を回す）と組み合わせれば、「外出先では確認多め、家では通常運転」のような運用もできます。\n\n実運用で効いた設計のコツ4つ\n\n3つの実例に共通して、実際に回してみて分かったことがあります。\n\n1. 前段はシェル組み込みだけで即抜けする\n\nmatcher で絞れるのはツール名までです。つまり \"Write|Edit\" のフックはすべてのファイル編集で発火します。対象外の編集のたびに Python や jq を起動していると、確実に体感が重くなります（私は一度、この重さが理由で同型の仕組みを廃止したことがあります）。\n\n対策は、前段をシェルスクリプトにして、外部コマンドを1つも呼ばずに対象かどうかを絞ることです。\n\n [code] \n\ncase はシェルの組み込み機能なのでプロセスが1本も立ちません。この形にしてから、対象外の編集は1桁ミリ秒で通過するようになりました。\n\nなお最近のバージョンには if というフィールドがあり、\"if\": \"Edit(.md)\" のように引数レベルの絞り込みを設定側に書くこともできます。新しめの環境ならこちらも検討してください。\n\n2. timeout は必ず明示する\n\n省略時の既定は 600秒です。判定スクリプトが固まると、ファイル編集そのものが10分止まります。私は一律10秒にしています。\n\n3. 迷ったら通す（フェイルオープン）\n\n判定スクリプト自身にバグがあって「対象かどうか分からない」状態になったとき、拒否側に倒すと何も編集できなくなります。判定できないときは通す・ただしログには残す、が安全です。ルールを守らせる仕組みが本業を止めるのが、いちばん悲しい事故です。\n\n4. 「AIに届く文」と「人間に届く文」を書き分ける\n\nJSON 出力には似た欄がいくつもあって、届く先が違います。\n\n| 欄 | 届く先 |\n|---|---|\n| additionalContext | Claude の文脈（行動を変えさせたい文はここ） |\n| permissionDecisionReason | 拒否理由として画面や記録に出る |\n| systemMessage | 人間の画面に出る警告 |\n\n私は最初ここを取り違えて、丁寧に理由を書いたのにAIが同じ失敗を繰り返す状態を作りました。AIの行動を変えたい文は additionalContext に入れる、と覚えておくと迷いません。\n\nちなみに、フックは Claude Code が裏で動かすサブエージェント（並行して働く、もう1人の小さなAI）の操作にも同じように効きます。「本体は止めたのに部下が素通り」という抜け道はありませんでした。\n\nまとめ——「お願い」から「仕組み」へ\n・PreToolUse フックを使うと、AIの操作を実行される前に検査できる\n・手軽に止めるなら exit 2 ＋ stderr、丁寧に導くなら JSON ＋ additionalContext\n・前段はシェル組み込みで即抜け・timeout は明示・迷ったら通す、が実運用の三種の神器\n\nAIに「気をつけてね」と言い続ける生活から、「気をつけなくても事故らない」環境づくりへ。1本目のガードは、この記事の事例1をコピーすれば10分で動きます。ぜひお手元の Claude Code に仕込んでみてください。\n\n参考リンク\n・公式ドキュメント（Hooks ガイド）: https://code.claude.com/docs/en/hooks-guide\n・公式ドキュメント（Hooks リファレンス）: https://code.claude.com/docs/en/hooks\n・そもそもなぜ「口で言って守らせる」のをやめたのか、という顛末は Zenn に書きました: https://zenn.dev/triponte/articles/claude-code-hook-enforce-rules",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0321e966d671d534",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8070873786407767,
+      "popularityPercentile": 0.5776699029126213,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "Claude CodeのPreToolUseフックで、危険な操作を実行前に停止・確認できるようにした。",
+      "reason": "AIのツール実行直前に自作スクリプトを挟み、危険なコマンドの停止や編集禁止ファイルの保護を機械的に判定する。口頭指示ではなく実行前制御に置き換える設計。",
+      "keywords": [
+        "Claude Code",
+        "PreToolUse",
+        "Hooks",
+        "Claude",
+        "rm -rf",
+        "git push --force"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "月額ほぼ0円でIPA資格学習Webアプリを運用する：Next.js＋Hono＋Cloudflareで詰まった3つの罠",
+      "url": "https://qiita.com/taro-lab/items/da36806964ce4720ff02",
+      "publishedAt": "2026-08-04T05:01:30.000Z",
+      "author": "taro-lab",
+      "authorDetail": {
+        "name": "taro-lab",
+        "handle": "@taro-lab",
+        "url": "https://qiita.com/taro-lab",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4479113/254bb7fbe203fe34542dad012c5df2da0627be93/large.png?1785818112",
+        "bio": "エンジニアをしながら、趣味でWebアプリを制作しています。",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://it-shikaku-lab.com"
+          }
+        ]
+      },
+      "tags": [
+        "個人開発",
+        "cloudflare",
+        "Next.js",
+        "Hono",
+        "資格試験"
+      ],
+      "snippet": "はじめに IPA資格の過去問、教科書、学習履歴、実力分析、音声学習を一つにまとめたWebアプリ「IT資格ラボ」を個人開発しました。 https://it-shikaku-lab.com 以前はVercelやSupabaseを使った構成も試していましたが、今回は次の2点を検証するため、インフラをCloudflareへ寄せています。 ・個人開発でも固定費を抑えたまま、実用的なサービスを運用できるか ・Pages、Workers、D1、KV、R2を同じエコシステムに置くことで、構成と運用をどこまで単純化できるか 結論から言うと、小〜中規模の個人開発とCloudflareの相性はかなり良いと感じました。一方で、「SQLiteが動くから普通のRDBと同じ」「Hono RPCなら型共有は自動で解決」「Cookieはログイン時に設定すれば終わり」と考えると、しっかり詰まります。 この記事では完成した機能…",
+      "body": "はじめに\n\nIPA資格の過去問、教科書、学習履歴、実力分析、音声学習を一つにまとめたWebアプリ「IT資格ラボ」を個人開発しました。\n\nhttps://it-shikaku-lab.com\n\n以前はVercelやSupabaseを使った構成も試していましたが、今回は次の2点を検証するため、インフラをCloudflareへ寄せています。\n・個人開発でも固定費を抑えたまま、実用的なサービスを運用できるか\n・Pages、Workers、D1、KV、R2を同じエコシステムに置くことで、構成と運用をどこまで単純化できるか\n\n結論から言うと、小〜中規模の個人開発とCloudflareの相性はかなり良いと感じました。一方で、「SQLiteが動くから普通のRDBと同じ」「Hono RPCなら型共有は自動で解決」「Cookieはログイン時に設定すれば終わり」と考えると、しっかり詰まります。\n\nこの記事では完成した機能の紹介よりも、実装で特に工夫した点と、実際に遭遇した次の問題を中心にまとめます。\n\n1. 約800件の一括インポートでD1 APIが500になった\n2. Next.jsとHono Workerを分けたら、ログイン後のAPIが401になった\n3. Honoのサーバー型をWebへ直接共有したら、モノレポの型チェックが重くなった\n\n:::message\nCloudflareの制限・無料枠は2026年8月時点の公式ドキュメントを確認して記載しています。最新値は記事末尾の公式リンクも確認してください。\n:::\n\n作ったもの\n\n対象は、ITパスポート、基本情報技術者、情報処理安全確保支援士などのIPA試験を学習するWebアプリです。\n\n主な機能は以下です。\n・年度別・分野別の過去問演習\n・解答履歴、お気に入り、連続正解数の保存\n・資格・分野ごとの教科書／用語集\n・定着度、カバー率、分野別レーダーによる学習分析\n・長文・記述式問題の演習\n・R2に保存した用語音声の連続再生\n・パスキー／Google認証\n・管理画面からの問題、教科書、階層データのインポート\n\n「問題を表示するだけ」ならもっと小さな構成にできます。しかし、公開問題の大量読み込みと、ユーザーごとの細かな学習履歴を同時に扱うため、データの性質に応じた分離が必要になりました。\n\nシステム構成\n\nフロントエンドとAPIはTypeScriptで統一し、pnpm＋Turborepoのモノレポで管理しています。\n\n [code] \n\n主な技術スタックです。\n\n| レイヤー | 技術 |\n| --- | --- |\n| フロントエンド | Next.js 14 App Router、React、Tailwind CSS、TanStack Query |\n| API | Hono、@hono/zod-openapi、Zod |\n| DB | Cloudflare D1、Drizzle ORM |\n| 認証 | WebAuthn（パスキー）、Google OAuth、JWT、Workers KV |\n| オブジェクトストレージ | Cloudflare R2 |\n| 非同期処理 | Cloudflare Queues |\n| モノレポ | pnpm Workspace、Turborepo |\n| 品質保証 | ESLint、TypeScript、Vitest、Playwright、Storybook、Sentry |\n\nモノレポは「実行単位」と「共有契約」を分けた\n\nディレクトリは、大きくappsとpackagesに分けています。\n\n [code] \n\n特に意識したのは、Zodを「フォームの入力チェック」だけで終わらせず、API境界の契約として扱うことです。\n\nたとえば内部テーブルのIDは、D1では一貫してintegerにしています。URLでは文字列として届きますが、境界でz.coerce.number()に変換し、サービス層へ文字列IDを持ち込まない方針です。\n\n [code] \n\nこれは地味ですが、AIエージェントに実装を任せた際、モック由来の\"q-1\"やUUIDが内部IDへ入り込むのを防ぐ重要なガードレールになりました。\n\nD1は1個に詰め込まず、データの性質で3分割した\n\nD1は無料プランの場合、1データベースあたり500MB、アカウント全体で5GB、最大10データベースです。そこで、単純に容量だけで分割するのではなく、変更頻度とアクセス範囲で3つに分けました。\n\n| DB | 主なデータ | 性質 |\n| --- | --- | --- |\n| Master DB | 資格、問題、分野、シリーズ、教科書 | 全ユーザー共通。読み取り中心 |\n| User DB | ユーザー、認証情報、設定、契約 | 個人情報・権限。整合性重視 |\n| History DB | 解答履歴、お気に入り、しおり、論述状態 | ユーザーごとに書き込みが増える |\n\n分割の代償：DBをまたぐJOINはできない\n\n分割すると、Master DBの問題とHistory DBの解答履歴をSQLで直接JOINできません。\n\nそのためAPIでは、次の順序で必要な情報だけを取得し、サービス層で合成しています。\n\n1. Master DBから公開問題と資格情報を取得\n2. History DBから対象ユーザーの資格別進捗を取得\n3. Map へ変換してアプリケーション層で結合\n\nこれは単一DBより実装量が増えます。一方で、公開データのキャッシュをユーザー履歴から切り離せること、履歴DBだけを将来水平分割できることは大きな利点でした。\n\n学習履歴は「ユーザー×資格」で1行に集約\n\n1問解くたびに1行追加する設計は分かりやすいものの、長期運用では行数と書き込み回数が増えます。そこで現在は、ユーザーと資格の組み合わせを複合主キーにし、問題別状態をJSONへ集約しています。\n\n [code] \n\nこの方式は、資格画面を開く際に1行読めば状態マップを復元できる点が便利です。\n\nただし、現在の実装はJSONを読み、アプリケーションで変更し、UPSERTするread-modify-writeです。同時更新が多くなると、後から保存した内容で先の更新を上書きする可能性があります。今後アクセスが増えた場合は、SQLiteのJSON関数による部分更新、書き込みの直列化、またはイベントログ方式を検討します。\n\n「JSON集約＝常に正解」ではなく、無料枠と現在の書き込み頻度に合わせた選択です。\n\n失敗1：約800件の一括インポートで500エラー\n\n管理画面には、教科書用語をExcel／JSONからまとめて取り込む機能があります。\n\n小さなデータでは動いていたため、そのまま約800件の用語を一つのdb.batch()へ渡したところ、Worker側で500エラーになりました。\n\n最初は入力データやDrizzleの型変換を疑いましたが、件数を減らすと成功します。そこで処理を「検証」と「反映」に分け、書き込みを50ステートメントずつ実行するよう変更しました。\n\n [code] \n\nCloudflareの公式仕様では、個々のSQLだけでなく、batch全体にも実行時間などの制限が適用されます。巨大なbatchを一度に投げるより、失敗時の範囲が分かるサイズへ分けた方が運用しやすくなります。\n\nIN (...)にも100バインド変数の上限がある\n\nD1には、1クエリあたりのバインドパラメータが最大100個という制限があります。\n\n関連する教科書用語や階層リンクをまとめて取得する処理で、ID数が100を超えると同じ問題が起きます。上限ちょうどでは、ほかの条件が追加された際に余裕がないため、読み取りは80件ずつに分割しました。\n\n [code] \n\nここでの学びは、上限値を定数にして一か所へ閉じ込めることです。各機能でslice(0, 100)を個別に書くと、後から条件が増えたときに再び壊れます。\n\n:::message\nbatch()を分割すると、分割したすべてのbatchをまたぐ原子性は失われます。インポート処理では事前検証を完了してから反映し、途中失敗時にどこまで反映されたか追跡できる結果を返す設計が必要です。\n:::\n\nキャッシュは「公開データ」と「個人データ」を混ぜない\n\nD1はクエリ数ではなく、実際に読み取った行数・書き込んだ行数が課金や無料枠の指標になります。インデックスのない全件走査を繰り返すと、レスポンスだけでなくrowsreadも増えます。\n\nそこで、APIを大きく2種類に分けました。\n\n [code] \n\n公開APIは資格、問題、教科書など、誰が取得しても同じレスポンスだけを返します。ユーザーの正答数などは別APIに分けました。\n\nHonoのroute定義にはキャッシュポリシーをメタデータとして持たせ、共通ラッパーがCache-Controlと共有キャッシュを適用します。\n\n [code] \n\nミドルウェア側では、次のルールを統一しています。\n・本番以外では共有キャッシュを使わない\n・CookieまたはAuthorizationがあるリクエストは原則バイパス\n・公開データにはstale-while-revalidateを付ける\n・ブラウザ内ではTanStack QueryのstaleTimeも用途別に設定\n\n認証チャレンジやシステム設定のような小さなKey-ValueデータはWorkers KVへ置き、画像・PDF・音声はR2へ逃がしています。D1を万能ストレージとして使わないことも、行読み取りを抑えるポイントでした。\n\nR2の音声配信はRange Requestまで対応した\n\n音声ファイルをR2に置くだけなら簡単ですが、ブラウザのシークやモバイル再生ではRangeリクエストが送られます。常にMP3全体を200 OKで返すと、途中再生やシークの挙動が不安定になります。\n\nそこで公開メディアルートでは、Rangeヘッダーを解釈してR2の該当範囲だけを取得し、206 Partial Contentを返しています。\n\n [code] \n\n音声プレイリストでは、既存MP3を再エンコードせず、HLSのマニフェストとタイムスタンプ付きセグメントをWorkerで組み立てています。重い音声変換をリクエスト時に行わず、R2のオブジェクトをストリームする設計です。\n\n失敗2：ログイン成功後のAPIが401になる\n\n開発途中で、ログインAPIは200を返すのに、その直後のユーザーAPIが401になる問題が発生しました。\n\n原因は認証ロジックそのものではなく、Next.jsとHono Workerを別オリジンで動かした際の境界でした。\n・環境変数に/apiが付く場合と付かない場合があった\n・相対URLのfetch(\"/api/...\")が、意図しないホストへ送られた\n・クロスオリジンのリクエストにCookieが付いていなかった\n・CORS側も資格情報付きリクエストを明示的に許可する必要があった\n\nAPIベースURLは、ブラウザとSSRで参照順を分け、/apiを一度だけ付けるよう正規化しました。\n\n [code] \n\nHonoクライアントは、すべてのリクエストでCookieを送ります。\n\n [code] \n\nWorker側では、許可するOriginを列挙し、credentials: trueを設定します。\n\n [code] \n\nこの問題で重要だったのは、401を見てすぐJWT検証を疑わないことでした。ブラウザのNetworkタブで、実際の送信先、Cookie、Set-Cookie、Access-Control-Allow-Originを順番に確認すると、認証処理へ到達する前にCookieが消えていると分かります。\n\n失敗3：Honoの型を直接共有したら型チェックが肥大化した\n\nHono RPCの魅力は、サーバーのroute型をhc ()へ渡し、フロントでパスや入出力の補完を得られることです。\n\n当初はAPI全体の型をNext.jsへ直接importしていました。しかし、この規模になるとWeb側の型チェックがserver実装、D1 binding、Cloudflare固有型までたどり、依存グラフが重くなりました。型の循環や、Webには不要なサーバー型の解決エラーも増えます。\n\n現在は、Honoクライアントには呼び出し形だけを持つ軽量な型を渡し、レスポンスの具体型は各featureのAPI層でZodスキーマまたは明示型へ正規化しています。\n\n [code] \n\nこれは「Hono RPCの完全なend-to-end型推論」を一部手放す判断です。その代わり、次を得ました。\n・Webの型チェックがserver実装全体を巻き込まない\n・feature単位でAPIレスポンスの正規化場所が明確になる\n・Cloudflare固有型をWebへ持ち込まずに済む\n\n理想は、route契約だけを独立packageへ抽出し、そこからサーバーとクライアントの両方を生成することです。現在の軽量RpcNodeは最終形ではなく、開発速度と型チェック安定性を優先した中間解です。\n\n成功した構成だけでなく、どの型安全性を残し、どこを境界で切ったかを明示しておくことが、モノレポでは重要だと感じました。\n\nAIエージェント開発で速くなったこと、壊れたこと\n\nこのプロジェクトでは、Codexを含むAIエージェントを実装、リファクタリング、テスト作成、データ整備に利用しました。画面数と管理機能が多いため、開発速度への効果は大きかったです。\n\n一方、指示が弱いと次の問題も実際に起きました。\n・似たZodスキーマを画面ごとに再定義する\n・HonoのhandlerへDB処理とレスポンス整形が集中する\n・同じデータを取得するAPIを検索条件ごとに増やす\n・モックの文字列IDを本番スキーマへ持ち込む\n・UIが必要とする以上の列・関連データを取得する\n\nそこで、「AIに任せる」ではなく、変更可能な範囲を機械的に狭めるガードレールを追加しました。\n・内部IDはD1のintegerで統一し、UUID／textへ変えない\n・packages/schemaをAPI境界のSSOTにする\n・route、service、schemaの責務を分ける\n・feature境界をESLintのカスタムルールで検査する\n・TanStack Queryのquery keyをfactory化する\n・new Date()の直書きを禁止し、JST処理を共通utilityへ寄せる\n・TypeScript、Vitest、Playwright、Storybookで変更を検証する\n・D1マイグレーションでテーブル再作成が発生しないか確認する\n\nAIエージェントは実装量を増やすのが得意です。だからこそ、採用するコード量より、削除・統合・境界の検査に人間の判断を使う必要がありました。\n\n月額ほぼ0円の実態\n\n現在の利用量は無料枠内に収まっているため、インフラの固定費はほぼ0円で、主な固定費は独自ドメインです。\n\n2026年8月時点の主な無料枠は以下です。\n\n| サービス | 主な無料枠 | このアプリでの用途 |\n| --- | --- | --- |\n| Cloudflare Pages | 静的アセットのリクエストは無料・無制限、Freeは月500ビルド | Next.jsフロントエンド |\n| Workers | 1日10万リクエスト、1リクエスト10ms CPU | Hono API |\n| D1 | 1日500万行read、10万行write、合計5GB | Master／User／History DB |\n| Workers KV | 1日10万read、1,000 write、1GB | 認証チャレンジ、設定キャッシュ |\n| R2 Standard | 月10GB-month、Class A 100万回、Class B 1,000万回 | 画像、PDF、MP3 |\n\n注意点は、無料枠の「リクエスト数」だけを見ないことです。\n・D1は返却行数ではなく、スキャンしたrowsreadが効く\n・Workers FreeはCPU時間が短いため、重い変換処理をリクエスト内で行わない\n・R2は転送料が無料でも、保存量と操作回数は計測される\n・Pages FunctionsはWorkersの割り当てとして数えられる\n\nこのため、インデックス、共有キャッシュ、R2への分離、非同期Queueがコスト設計と性能設計の両方に効いてきます。\n\n「ずっと必ず0円」ではなく、現在のアクセス規模なら固定費を抑えられ、成長時にはどの指標が先に上限へ届くか把握できる構成と考えています。\n\n今後改善したい点\n\n実運用を始めて、次の課題も見えています。\n・JSON集約した学習履歴の同時更新対策\n・route契約だけを切り出した、軽量で厳密なRPC型共有\n・D1のrowsreadを使ったクエリ・インデックスの継続監視\n・分割batchが途中失敗した場合の再開可能なインポート\n・Queue処理の冪等性と重複実行ガード\n・Preview環境でのCloudflare実環境E2E\n\n個人開発では、最初から巨大なスケールへ最適化するより、「どこが限界になり、どう拡張するか」をコードとドキュメントに残す方が現実的でした。\n\nまとめ\n\nCloudflare中心の構成で特に効果があったのは、単に無料枠が大きいことではありません。\n・公開データ、ユーザーデータ、履歴データを用途で分けられる\n・D1、KV、R2、QueuesをWorker bindingとして扱える\n・API、キャッシュ、ストレージの責務を一つのエコシステムで整理できる\n・小さく始め、必要な部分だけを分割・拡張できる\n\n一方で、D1のバインド変数上限、batchの大きさ、クロスオリジンCookie、モノレポの型依存など、ローカルの小さなデータでは見えない問題もありました。\n\n今回一番大きかった学びは、サービスを速く作ることと、制限を無視して作ることは別だという点です。プラットフォームの制約を定数・境界・テストへ落とし込むことで、個人開発でも運用可能な形に近づけられました。\n\n実際のサービスはこちらです。\n\nhttps://it-shikaku-lab.com\n\n公式ドキュメント\n・Cloudflare D1 Limits\n・Cloudflare D1 Pricing\n・Cloudflare Workers Limits\n・Cloudflare Pages Limits\n・Cloudflare Pages Functions Pricing\n・Cloudflare Workers KV Pricing\n・Cloudflare R2 Pricing\n・ZennのMarkdown記法一覧（Mermaid）",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "eb124651447032d9",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8818446601941748,
+      "popularityPercentile": 0.9174757281553398,
+      "matchedTopics": [
+        "Next.js",
+        "周辺ライブラリ",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "Next.jsとHonoをCloudflareに分けて運用し、D1の500、認証の401、型チェック肥大化に対処した。",
+      "reason": "約800件のD1一括投入、別Worker間のCookie認証、Hono RPC型共有でそれぞれ異なる問題が起きた。CloudflareをSQLiteや自動型共有と同一視できない点が本題。",
+      "keywords": [
+        "Next.js",
+        "Hono",
+        "Cloudflare",
+        "D1",
+        "KV",
+        "R2"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "レーダーチャートの頂点ドラッグ編集をスライダーと双方向同期する",
+      "url": "https://qiita.com/maccotaro/items/7b1e538fd286428fdbda",
+      "publishedAt": "2026-08-04T00:07:21.000Z",
+      "author": "maccotaro",
+      "authorDetail": {
+        "name": "maccotaro",
+        "handle": "@maccotaro",
+        "url": "https://qiita.com/maccotaro",
+        "avatarUrl": "https://lh3.googleusercontent.com/-XdUIqdMkCWA/AAAAAAAAAAI/AAAAAAAAAAA/4252rscbv5M/photo.jpg?sz=50",
+        "followers": 0,
+        "posts": 12,
+        "links": []
+      },
+      "tags": [
+        "フロントエンド",
+        "React",
+        "SVG",
+        "UIデザイン",
+        "TypeScript"
+      ],
+      "snippet": "📝 この記事は forge.workstyle.tech に掲載した記事の転載です。 多次元のパラメータを調整する UI で、レーダーチャート（クモの巣グラフ）はとても直感的です。8本のスライダーがずらりと並ぶより、8角形の面積と形で「今どんなバランスか」が一目でわかる。 でも多くの実装では、レーダーチャートは表示専用です。値はスライダーで入力し、レーダーはその結果を描くだけ。ここで一歩踏み込んで、「レーダーの頂点を直接つまんで動かせたら」を実現すると、操作の気持ちよさが段違いになります。しかもスライダーとレーダーが双方向に同期していれば、ユーザーは好きな方で操作できます。 この記事は、SVG レーダーの頂点ドラッグ編集と、N 本のスライダーとの双方向同期を、React で実装するパターンの記録です。座標変換とポインタイベントの扱いが要点になります。 設計方針：状態は1つ、UIは2つ 双…",
+      "body": "📝 この記事は forge.workstyle.tech に掲載した記事の転載です。\n\n多次元のパラメータを調整する UI で、レーダーチャート（クモの巣グラフ）はとても直感的です。8本のスライダーがずらりと並ぶより、8角形の面積と形で「今どんなバランスか」が一目でわかる。\n\nでも多くの実装では、レーダーチャートは表示専用です。値はスライダーで入力し、レーダーはその結果を描くだけ。ここで一歩踏み込んで、「レーダーの頂点を直接つまんで動かせたら」を実現すると、操作の気持ちよさが段違いになります。しかもスライダーとレーダーが双方向に同期していれば、ユーザーは好きな方で操作できます。\n\nこの記事は、SVG レーダーの頂点ドラッグ編集と、N 本のスライダーとの双方向同期を、React で実装するパターンの記録です。座標変換とポインタイベントの扱いが要点になります。\n\n設計方針：状態は1つ、UIは2つ\n\n双方向同期と聞くと「レーダーの状態」と「スライダーの状態」を互いに反映し合う、という複雑な絵を想像しがちです。が、それは罠です。2つの状態を持つと、どちらが正か（source of truth）が曖昧になり、無限ループや不整合の温床になります。\n\n正解はシンプルで、状態は1つだけ持つ。レーダーもスライダーも、その唯一の状態を読んで描画し、操作したら同じ更新関数を呼ぶ。ここでは軸キーごとの値を持つストア（sliders）と、更新関数（setSlider）を単一の真実とします。\n\n [code] \n\nこうすると「双方向同期」は自動的に達成されます。スライダーを動かせば sliders が更新されてレーダーが再描画され、レーダーをドラッグすれば同じ setSlider を呼ぶのでスライダーも即座に追従する。同期ロジックは実質ゼロです。同期を頑張るのではなく、同期が要らない構造にする、というのがこの設計の肝です。\n\n値から頂点座標へ（描画方向）\n\nまず順方向、sliders の値から各頂点の座標を求めます。軸は等角に配置します。i 番目の軸の角度は、真上（-π/2）を起点に円周を N 等分した位置です。\n\n [code] \n\n値（0〜100）は中心からの距離に対応させます。値を 0〜1 に正規化し、半径 R を掛けて、その角度方向の点を極座標→直交座標で求めます。\n\n [code] \n\nこの pts を useMemo で sliders に依存させておけば、値が変わるたびに頂点が再計算され、ポリゴンとラベルが更新されます。値が未定義なら 50（中央）にフォールバックしておくと安全です。軸数 n は axes.length から取るので、6軸でも8軸でも同じコードで動きます。\n\n頂点座標から値へ（ドラッグ方向）\n\n難しいのは逆方向、ポインタの位置から「その軸の値」を求める部分です。ここで2つの座標変換が必要になります。\n\n(1) スクリーン座標 → SVG 座標。 SVG は viewBox で内部座標系を持ち、実際の描画サイズは CSS で変わります。ポインタの clientX/Y は画面ピクセルなので、要素の矩形（getBoundingClientRect）で割って viewBox のスケールに戻します。\n\n(2) SVG 座標 → 軸方向の値。 ユーザーは必ずしも軸の直線上をなぞりません。斜めにずれた位置にポインタが来ます。そこで、中心からポインタへのベクトルを、その軸の方向ベクトルに射影します。内積を取れば軸方向の成分（符号付きの距離）が得られ、それを R で割れば 0〜1 の値になります。\n\n [code] \n\n射影を使うことで、ユーザーは「だいたいその軸の方へ引っ張る」だけでよく、軸線ちょうどをなぞる必要がありません。値は 0〜1 にクランプして範囲外を防ぎます。そして最後に setSlider を呼ぶ——ここで唯一の状態が更新され、レーダーもスライダーも同時に追従します。\n\nポインタイベント：capture と当たり判定\n\nドラッグ操作を破綻なく成立させるには、2つの細工が要ります。\n\nPointer Capture。 頂点でドラッグを始めた後、ポインタが素早く動いて頂点や SVG の外へ出ても、イベントを取り続けたい。setPointerCapture を使うと、指定した要素がそのポインタのイベントを独占できます。ドラッグ開始時に SVG 要素へキャプチャを設定し、どの軸をつかんでいるかを dragRef に記録します。\n\n [code] \n\n移動は SVG 全体の onPointerMove で受け、dragRef が立っているときだけ updateFromEvent を回します。終了時は dragRef をクリアし、キャプチャを解放します。マウスの mousedown/move/up を個別に扱うより、Pointer Events に一本化するとタッチ・ペンも同じコードでカバーできます。\n\n当たり判定の拡大。 頂点の見た目の丸（半径5px 程度）は、指でつまむには小さすぎます。そこで各頂点に、見た目の丸とは別に透明な大きい円（半径16px）を重ねて、そちらにポインタダウンを付けます。見た目は繊細なまま、掴める範囲だけ広げるテクニックです。\n\n [code] \n\n見た目の丸には pointerEvents=\"none\" を付けて、当たり判定を透明円だけに集約するのを忘れずに。\n\n落とし穴・学び\n・タッチのスクロールを止める。SVG に touchAction: 'none' を指定しないと、モバイルでドラッグしたつもりがページがスクロールしてしまいます。ドラッグ UI には必須です。\n・状態を2つ持たない。レーダー用とスライダー用に別々の state を持つと同期地獄になります。単一の真実を両方が読む構造にすれば、同期コードそのものが消えます。\n・射影で「軸線ちょうど」を要求しない。頂点の x,y をそのまま値に使うのではなく、軸方向への内積射影に落とすことで、多少ずれた操作でも自然に効きます。\n・capture 解放は防御的に。releasePointerCapture は状況によって例外を投げることがあるので try/catch で包み、ドラッグ状態のクリア自体は必ず行うようにします。\n・見た目と当たり判定を分離する。小さな見た目の頂点と、大きな透明ヒットエリアを分けることで、精度と操作性を両立できます。\n\nまとめ\n・レーダーチャートを表示専用から編集可能にすると、多次元パラメータ調整の操作感が大きく向上する\n・双方向同期は単一の状態を両 UI が共有することで、同期ロジックなしに達成する\n・順方向は極座標で値→頂点、逆方向は中心→ポインタのベクトルを軸方向へ内積射影して頂点→値に変換する\n・ドラッグは Pointer Events + setPointerCapture で一本化し、touchAction: 'none' でスクロールを抑止する\n・透明な大きい当たり判定を見た目の頂点に重ね、繊細な見た目と掴みやすさを両立する\n\n---\n\n元記事: https://forge.workstyle.tech/blog/draggable-radar-chart-slider-sync/?utmsource=qiita&utmmedium=crosspost&utmcampaign=draggable-radar-chart-slider-sync",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "58a887677cca15ef",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8359223300970875,
+      "popularityPercentile": 0.7087378640776699,
+      "matchedTopics": [
+        "React",
+        "TypeScript"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "ReactでSVGレーダーチャートの頂点ドラッグとN本のスライダーを単一状態で双方向同期した。",
+      "reason": "レーダーとスライダーに別々の状態を持たせず、同じ値と更新関数を共有することで不整合や無限ループを避けている。座標変換とポインターイベントが実装の要点。",
+      "keywords": [
+        "React",
+        "TypeScript",
+        "SVG",
+        "レーダーチャート",
+        "Pointer Events"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ブラウザ多言語TTSが86%で止まる原因と、WebGPU・WASM・キャッシュ設計で解決した話",
+      "url": "https://qiita.com/MartinDelophy/items/f46c806e74e605fb982b",
+      "publishedAt": "2026-08-04T03:30:41.000Z",
+      "author": "MartinDelophy",
+      "authorDetail": {
+        "name": "MartinDelophy",
+        "handle": "@MartinDelophy",
+        "url": "https://qiita.com/MartinDelophy",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/11086785?v=4",
+        "followers": 1,
+        "posts": 14,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/MartinDelophy"
+          }
+        ]
+      },
+      "tags": [
+        "WebGPU",
+        "WebAssembly",
+        "TypeScript",
+        "ONNX",
+        "AI"
+      ],
+      "snippet": "はじめに ブラウザ上でAI音声合成を完結できれば、ユーザーの文章や編集素材をサーバーへ送信せずに済み、推論サーバーの運用コストも抑えられます。 しかし、実際に多言語TTSをプロダクトへ組み込むと、単にONNXモデルを読み込むだけでは安定しません。 オープンソースのブラウザ動画編集ツール Timeline Studio で多言語音声合成を実装した際、モデルの読み込み表示が 86%で停止する 問題に遭遇しました。生成ボタンは「生成中」のままになり、中国語では動く場合があっても、英語・ドイツ語・韓国語・タイ語・日本語へ切り替えると失敗しやすくなっていました。 コンソールに出ていた重要なエラーは次のものです。 [code] 86%という数字は原因ではなく、ブラウザストレージ、複数の音声ランタイム、Service Worker、WebGPU初期化、地域別モデルミラーが組み合わさった結果でした。 本記…",
+      "body": "はじめに\n\nブラウザ上でAI音声合成を完結できれば、ユーザーの文章や編集素材をサーバーへ送信せずに済み、推論サーバーの運用コストも抑えられます。\n\nしかし、実際に多言語TTSをプロダクトへ組み込むと、単にONNXモデルを読み込むだけでは安定しません。\n\nオープンソースのブラウザ動画編集ツール Timeline Studio で多言語音声合成を実装した際、モデルの読み込み表示が 86%で停止する 問題に遭遇しました。生成ボタンは「生成中」のままになり、中国語では動く場合があっても、英語・ドイツ語・韓国語・タイ語・日本語へ切り替えると失敗しやすくなっていました。\n\nコンソールに出ていた重要なエラーは次のものです。\n\n [code] \n\n86%という数字は原因ではなく、ブラウザストレージ、複数の音声ランタイム、Service Worker、WebGPU初期化、地域別モデルミラーが組み合わさった結果でした。\n\n本記事では、この問題をどのように切り分け、再発しにくい構成へ変更したかを紹介します。\n・GitHub: https://github.com/MartinDelophy/ai-video-editor\n・デモ: https://video-editor.ai-creator.top/\n\n「86%」はダウンロード残量ではなかった\n\nブラウザでTTSモデルを利用するまでには、少なくとも次の処理があります。\n\n1. 設定、辞書、トークナイザーなどを取得する\n2. ONNXモデルをダウンロードする\n3. Cache Storageへ保存する\n4. ONNX Runtimeのセッションを生成する\n5. WebGPUのグラフをコンパイル、またはWASMを初期化する\n6. ウォームアップ推論を実行する\n7. 入力文章から音声を生成する\n\n当初の進捗率は、主にネットワークダウンロードだけを表していました。\n\nモデルの取得が終わっていても、その後のキャッシュ書き込みや推論セッション作成で例外が発生すると、UIには最後に受け取った進捗値だけが残ります。それがたまたま86%でした。\n\nつまり、画面上は「残り14%をダウンロード中」に見えても、実際には別のフェーズへ進んだ後に失敗していたのです。\n\nそこで処理状態を以下のように分離しました。\n・ローカルキャッシュを確認中\n・モデルをダウンロード中\n・ローカル推論エンジンを初期化中\n・選択した音声を準備中\n・音声を生成中\n\nダウンロード終了後は、不自然な進捗率を維持せず、初期化フェーズとして正しいメッセージを表示します。\n\n複数のTTSランタイムが同じストレージを使っていた\n\nTimeline Studioでは、言語ごとの品質とブラウザ互換性を考慮し、複数のTTSランタイムを使用しています。\n\n| 言語 | 主なランタイム | 実行方式 |\n| --- | --- | --- |\n| 中国語 | Piper | WebGPU優先、WASMフォールバック |\n| 英語 | Kokoro Q8 | WASM |\n| 一部の欧州言語 | Piper | WASM |\n| 韓国語・タイ語・ベトナム語・ロシア語 | MMS | WASM |\n| 日本語 | Supertonic | WASM |\n\nこれらはすべて同じオリジン上で動作します。\n\nCache Storage、IndexedDB、Service Workerのキャッシュは、実質的に同じサイトストレージ容量を奪い合います。ユーザーが複数言語を試すと、次のデータが蓄積していました。\n・現在使用中のモデル\n・古いリビジョン\n・FP32や量子化モデルなどの別バージョン\n・国内外ミラーから取得した同一ファイル\n・Service Workerが保存したレスポンス\n・ランタイムごとに作られた独立キャッシュ\n\n個々のキャッシュは正常でも、合計するとブラウザのクォータを超えてしまいます。\n\nダウンロードURLとモデルの識別子を分離する\n\n大きな改善点は、URLをそのままキャッシュキーにしないことでした。\n\n次のような設計では、同じファイルでも配信元が違えば別のキャッシュになります。\n\n [code] \n\n中国向けにはModelScope、海外向けにはHugging Faceを利用しています。両方に同一モデルを配置しても、URLが違うためブラウザは別ファイルとして保存します。\n\nそこで、配信元に依存しない論理IDを作りました。\n\n [code] \n\n例えば英語のKokoro Q8なら、次のようなIDになります。\n\n [code] \n\nModelScopeから取得してもHugging Faceから取得しても、同じ論理IDへ保存します。\n\nこれにより、ネットワーク状況に応じて配信元を切り替えても再ダウンロードが発生せず、同一モデルの二重保存も防げます。\n\nまた、本番で利用するモデルはすべて変更不能なリビジョンへ固定しました。mainを直接参照すると、配信元の更新によってモデル内容が変化し、ある日突然ブラウザ側の実装と互換性がなくなる可能性があるためです。\n\n国内外ミラーを切り替えてもキャッシュは共有する\n\n初回利用時にはモデルファイルをネットワークから取得する必要があります。\n\n実装では、中国語UIおよび国内向けセッションではModelScopeミラーを優先し、それ以外ではHugging Faceを優先します。優先配信元が失敗した場合は、自動的にもう一方を試します。\n\n [code] \n\nユーザーにはブラウザ由来の Failed to fetch をそのまま見せません。\n\n「モデルを取得できなかった」「代替配信元も試行した」「ネットワークを確認して再実行できる」といった、次の行動が分かるローカライズ済みメッセージへ変換します。\n\n325MBのFP32より92MBのQ8を選んだ理由\n\n英語音声では、当初およそ325MBのKokoro FP32モデルをWebGPU優先で利用していました。\n\nベンチマーク上は魅力的でも、実際のブラウザでは次の問題がありました。\n・初回ダウンロードが長い\n・Cache Storageを大きく消費する\n・WebGPUグラフのコンパイル時間が予測しにくい\n・GPUやドライバごとの差が大きい\n・他言語モデルを保存する余裕が減る\n\nそこで、英語はおよそ92MBのQ8量子化モデルとWASM実行へ切り替えました。\n\n [code] \n\n動画編集ツールにおける音声生成は、常時GPUを使い切る処理ではありません。\n\n理論上の最高速度よりも、次の性質を優先しました。\n・初回生成が成功する\n・2回目以降はキャッシュを再利用する\n・言語を切り替えても既存モデルを壊さない\n・中程度の端末でも動作する\n・WebGPUが利用できない場合にWASMへフォールバックできる\n\n量子化モデルは、速度だけでなく「プロダクトとして成功する確率」を上げる選択でした。\n\n全キャッシュ削除ではなく、古い音声モデルだけを退避する\n\n容量不足時にすべてのキャッシュを削除すれば、一時的には直ります。しかし、ユーザーが直前に取得したモデルまで再ダウンロードすることになります。\n\nそこで、現在使用している音声モデルを保護し、古い音声モデルから削除する方式にしました。\n\n1. 現在選択中の音声が必要とする論理IDを取得する\n2. そのIDを保護対象にする\n3. 古いモデルリビジョンを削除する\n4. 最近使われていない他言語モデルを削除する\n5. アプリ本体の静的リソースは保持する\n6. キャッシュ書き込みを再試行する\n7. 保存に失敗しても、可能ならメモリ上のモデルで今回の推論を続ける\n\n [code] \n\nこれにより、QuotaExceededErrorを回復不能なエラーではなく、リソース整理で復旧可能な状態として扱えるようになりました。\n\n大きなモデルファイルのキャッシュ担当を一つにする\n\nService Workerは、JavaScript、CSS、アイコンなどの静的リソースには適しています。\n\n一方、モデルローダーがすでに管理している巨大なONNXレスポンスをService Worker側でも複製すると、同じファイルを二重に保存する可能性があります。\n\nそのため責任範囲を次のように整理しました。\n・大きな音声モデルはモデルマネージャーだけが管理する\n・Service Workerは巨大なONNXファイルを重複保存しない\n・通常のアプリ静的リソースは引き続きService Workerが管理する\n・すべてのTTSランタイムが共通のモデルマニフェストを使う\n\n保存場所と削除担当が明確になり、クォータ使用量を予測しやすくなりました。\n\n進捗率はファイル数ではなくバイト数で計算する\n\n5KBの設定ファイルと92MBのONNXモデルを、同じ1ファイルとして扱うと進捗率は実態と一致しません。\n\nダウンロード進捗は実バイト数を基準に計算します。\n\n [code] \n\nネットワーク取得が終わった後は、同じ進捗バーを「推論エンジン初期化」の段階へ切り替えます。\n\nすべてのランタイムが同じ内部進捗を返せるわけではありません。そのため、共通の上位ステージと、各アダプターが提供できる詳細進捗を分けています。\n\n重要なのは、取得できない進捗を架空の数字で補わないことです。\n\n重いWASM処理の前にブラウザへ1フレーム渡す\n\nReactで「生成中」へ状態を変更しても、その直後に重いWASM処理を開始すると、ブラウザが画面を再描画できないことがあります。\n\nユーザーから見ると、状態表示が変わらないまま画面がフリーズしたように見えます。\n\nそこで、推論開始前に1フレームだけ描画タイミングを渡します。\n\n [code] \n\n推論そのものが速くなるわけではありませんが、重い処理へ入る前に正しいUI状態を表示できるため、体感品質が大きく改善します。\n\nランタイムの違いを共通インターフェースで隠す\n\nPiper、Kokoro、MMS、Supertonicでは、モデル構造や前処理が異なります。\n\nしかし、動画編集UIやタイムラインがそれぞれの実装詳細を知る必要はありません。\n\n各ランタイムを共通インターフェースへ適合させました。\n\n [code] \n\n上位レイヤーは生成された音声だけを扱います。\n\nこれにより、量子化方式、実行プロバイダー、ミラー優先順位を変更しても、タイムラインや素材ライブラリを修正する必要がありません。\n\n検証したケース\n\n修正後は、次のケースを重点的に確認しました。\n・英語モデルの初回セットアップと再生成\n・ドイツ語の連続生成\n・韓国語のローカル推論\n・タイ語モデルの取得と音声合成\n・日本語Supertonicの初期化\n・中国語モデルの配信元切り替え\n・ストレージ上限に近い状態での自動整理\n・ページ再読み込み後のキャッシュ再利用\n\n2回目の生成でモデルダウンロード表示が繰り返されることはなくなり、クォータ不足によってUIが86%のまま残る問題も解消しました。\n\nまとめ\n\n「86%で止まる」という症状は、単純なプログレスバーの不具合ではありませんでした。\n\n根本には次の問題がありました。\n・大きなモデルの重複キャッシュ\n・ブラウザストレージのクォータ超過\n・国内外ミラーで異なるキャッシュキー\n・WebGPU初期化失敗時の回復経路不足\n・ダウンロードと初期化を混同した進捗表示\n・重い処理によってUI描画が遅れる問題\n\n量子化モデル、配信元に依存しないキャッシュID、国内外ミラーのフォールバック、古いモデルの自動削除、ステージ別進捗、WASMへの回復経路を導入したことで、多言語音声合成をブラウザ内で安定して利用できるようになりました。\n\nブラウザAIでは「一度推論できる」ことはスタート地点にすぎません。\n\nモデル配信、バージョン固定、キャッシュ、容量不足からの回復、UI状態までを一つのシステムとして設計することが、実際のユーザー環境で動く機能につながります。\n\n---\n・GitHub: https://github.com/MartinDelophy/ai-video-editor\n・オンラインデモ: https://video-editor.ai-creator.top/",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "34a55e3cb5704578",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7996116504854369,
+      "popularityPercentile": 0.5436893203883495,
+      "matchedTopics": [
+        "TypeScript",
+        "ブラウザ / Web標準"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "ブラウザ多言語TTSの86%停止を、キャッシュ、Service Worker、WebGPU、モデル配信の分離で解消した。",
+      "reason": "86%はダウンロード進捗ではなく、モデル取得後のキャッシュ保存やランタイム初期化を含む複合処理の位置だった。言語ごとの失敗差を構成要素ごとに切り分けている。",
+      "keywords": [
+        "WebGPU",
+        "WebAssembly",
+        "ONNX Runtime",
+        "Service Worker",
+        "Cache Storage",
+        "TTS"
+      ],
+      "category": "パフォーマンス",
+      "domain": "general",
+      "readingMinutes": 15,
+      "payoff": "decide",
+      "durability": "durable"
+    }
+  ],
+  "stats": {
+    "collected": 782,
+    "afterDedupe": 747,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 413,
+      "zenn": 143,
+      "hatena": 36,
+      "hackernews": 53,
+      "devto": 6,
+      "github_release": 60,
+      "github_repo": 31,
+      "rss": 39,
+      "changelog": 1
+    },
+    "estimatedReadMinutes": 17
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 6825,
+        "outputTokens": 4462,
+        "cacheReadTokens": 0,
+        "elapsedMs": 29220,
+        "estimatedCostUsd": 0.0067193999999999995
+      },
+      "score": {
+        "model": "gpt-5.6-luna",
+        "requests": 9,
+        "inputTokens": 38460,
+        "outputTokens": 3677,
+        "cacheReadTokens": 10632,
+        "elapsedMs": 37337,
+        "estimatedCostUsd": 0.01231704
+      },
+      "describe": {
+        "model": "gpt-5.6-luna",
+        "requests": 4,
+        "inputTokens": 38258,
+        "outputTokens": 6504,
+        "cacheReadTokens": 8393,
+        "elapsedMs": 41795,
+        "estimatedCostUsd": 0.015624260000000001
+      },
+      "deep": {
+        "model": "gpt-5.6-luna",
+        "requests": 4,
+        "inputTokens": 7973,
+        "outputTokens": 8746,
+        "cacheReadTokens": 14328,
+        "elapsedMs": 59207,
+        "estimatedCostUsd": 0.01237636
+      }
+    },
+    "totalCostUsd": 0.047
+  },
+  "notes": []
+}
