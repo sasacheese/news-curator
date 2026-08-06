@@ -138,11 +138,13 @@ export const ReleaseResultSchema = z.object({
   ),
 });
 
-/** 冒頭サマリー。その日のダイジェスト全体を3〜5行で要約する。 */
+/** 冒頭サマリー。個々の記事の紹介ではなく、その日の技術界隈の傾向を3〜5行で書く。 */
 export const DigestSummarySchema = z.object({
   lines: z
     .array(z.string())
-    .describe('その日のダイジェストを紹介する3〜5行。各行1文、40字前後の平易な日本語。'),
+    .describe(
+      'その日の技術界隈の傾向・インサイト3〜5行。各行1文、40字前後の平易な日本語。個々の記事要約の言い換えではなく、複数項目を束ねた傾向を書く。',
+    ),
 });
 
 const PrerequisiteSchema = z.object({

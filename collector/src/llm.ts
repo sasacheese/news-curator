@@ -823,62 +823,149 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
  * 3) 冒頭サマリー
  *
  * ベスト N・リリース情報・その他の注目記事が出揃った後、それらを material に
- * その日のダイジェスト全体を紹介する短い案内文を作る。すでに要約済みの
- * headline/oneLiner/summary から合成するだけなので、安い rankModel で足りる。
+ * その日の技術界隈の傾向を俯瞰したインサイトを書く。個々の記事の紹介の
+ * 抜粋・列挙ではなく、「今日はセキュリティ関連が多かった」のような、
+ * 複数項目を束ねて初めて見える傾向を渡す。すでに要約済みの
+ * headline/oneLiner/summary/category/domain から合成するだけなので、
+ * 安い rankModel で足りる。
  * ------------------------------------------------------------------ */
+
+const RELEASE_IMPACT_LABELS: Record<string, string> = {
+  unlocks: '新機能',
+  security: 'セキュリティ',
+  improves: '改善',
+  chore: 'その他',
+};
 
 function digestSummarySystemPrompt(topics: TopicsConfig): string {
   return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
-今日のダイジェストの冒頭に置く、3〜5行の短い案内文を書いてください。
-読者はこれから本文を読みます。この案内文はその日何が載っているかの見取り図です。
+今日のダイジェストの冒頭に置く、3〜5行の短い「今日の傾向」を書いてください。
+これは個々の記事の紹介ではありません。**複数の項目を束ねて初めて見える、
+その日の技術界隈の動きを俯瞰したインサイト**を渡してください。
 
 # 読者プロフィール
 ${topics.profile}
 
 # 材料
-これから渡す一覧は、すでにこのダイジェスト用に選定・要約済みの項目です。
-新しい情報を付け足さず、この中から今日際立っているものを選んで案内文にしてください。
+渡す情報は、このダイジェスト用に選定・要約済みの項目一覧と、分野・カテゴリ・
+リリース内訳の集計です。新しい情報を付け足さず、この中から読み取れる傾向だけを書いてください。
+
+# 見つけてほしいもの（該当するものだけでよい。無理に全部を満たそうとしない）
+- ある分野・カテゴリに項目が偏っている
+  例:「セキュリティ関連の修正が5件重なった」「AIエージェント関連の発表が続いた」
+- 複数の項目が同じ方向を向いている
+  例: 主要ツールが揃って同じ種類の機能を追加した、同じ問題への対処が複数ソースで見られた
+- 際立って重要・意外な1件があり、それがその日の中心と言える
+- 上記のどれにも当てはまらない日は、無理に大きな主語を作らず、
+  「目立った偏りは無く、粒ぞろいの一日だった」のように率直に書いてよい
 
 # 書き方
 - 全体で3〜5行。1行1文、40字前後の平易な日本語。番号・記号・箇条書き記号は付けない。
-- その日実際に載っている具体的な項目（記事名やリリース名そのものではなく、
-  そこで何が起きたか）を書く。カテゴリを網羅しようとしない。
-  ベスト記事が2件しかなければ2件だけ、リリースが無ければリリースには触れない。
+- **個々の記事要約の言い換えではなく、複数項目を束ねた「傾向」を主語にする。**
+  「〜という記事が公開された」ではなく「〜系の動きが目立った」の形にする。
+  ただし際立って重要な1件は個別に触れてよい（傾向というほどの数が無い日はそれで足りる）。
+- 渡された集計の数字は使ってよいが、実際の値だけを使い、作り話をしない。
+  集計に現れない傾向を推測で足さない。
 - 「本日のダイジェストをお届けします」のような自己言及・宣伝口調・煽り文句は禁止。
-- 数字・固有名詞は具体的に残す（「大幅刷新」ではなく中身を書く）。
 - 読者を主語にしない（「〜な方におすすめ」のような呼びかけをしない）。事実を淡々と置く。`;
 }
 
+function summarizeCounts(values: string[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const v of values) counts[v] = (counts[v] ?? 0) + 1;
+  return counts;
+}
+
+function formatCounts(counts: Record<string, number>, labels?: Record<string, string>): string {
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${labels?.[k] ?? k} ${v}件`)
+    .join(' / ');
+}
+
+interface DigestSignals {
+  articleCount: number;
+  domainCounts: Record<string, number>;
+  categoryCounts: Record<string, number>;
+  buzzCount: number;
+  releaseImpactCounts: Record<string, number>;
+}
+
+/** 記事・リリースを横断した集計。個々の要約からは見えない偏りを、数字として先に渡す */
+function buildDigestSignals(top: TopItem[], releases: ReleaseItem[], others: RankedItem[]): DigestSignals {
+  const articles = [...top, ...others];
+  return {
+    articleCount: articles.length,
+    domainCounts: summarizeCounts(articles.map((i) => (i.domain === 'ai' ? 'AI' : 'AI以外'))),
+    categoryCounts: summarizeCounts(articles.map((i) => i.category)),
+    buzzCount: articles.filter((i) => i.buzz).length,
+    releaseImpactCounts: summarizeCounts(releases.map((r) => r.impact ?? 'chore')),
+  };
+}
+
 function renderDigestSummaryContext(top: TopItem[], releases: ReleaseItem[], others: RankedItem[]): string {
+  const signals = buildDigestSignals(top, releases, others);
+  const statsLines = [
+    `記事 ${signals.articleCount} 件の分野内訳: ${formatCounts(signals.domainCounts) || 'なし'}`,
+    Object.keys(signals.categoryCounts).length > 0
+      ? `カテゴリ内訳: ${formatCounts(signals.categoryCounts)}`
+      : null,
+    signals.buzzCount > 0 ? `他のエンジニアとも話題になりやすい記事（◆話題） ${signals.buzzCount} 件` : null,
+    releases.length > 0
+      ? `リリース ${releases.length} 件の内訳: ${formatCounts(signals.releaseImpactCounts, RELEASE_IMPACT_LABELS)}`
+      : null,
+  ]
+    .filter((v): v is string => Boolean(v))
+    .join('\n');
+
   const topLines = top.map(
-    (t) => `- [ベスト/${t.domain === 'ai' ? 'AI' : 'AI以外'}] ${t.deep.headline}\n  ${t.deep.summary}`,
+    (t) =>
+      `- [ベスト/${t.domain === 'ai' ? 'AI' : 'AI以外'}/${t.category}] ${t.deep.headline}\n  ${t.deep.summary}`,
   );
   const releaseLines = releases
     .slice(0, 20)
-    .map((r) => `- [リリース] ${r.product}${r.version ? ` ${r.version}` : ''}: ${r.unlock ?? r.summary}`);
-  const otherLines = others.slice(0, 15).map((o) => `- [その他] ${o.oneLiner}`);
+    .map(
+      (r) =>
+        `- [リリース/${RELEASE_IMPACT_LABELS[r.impact ?? 'chore']}] ${r.product}${r.version ? ` ${r.version}` : ''}: ${r.unlock ?? r.summary}`,
+    );
+  const otherLines = others
+    .slice(0, 15)
+    .map((o) => `- [その他/${o.domain === 'ai' ? 'AI' : 'AI以外'}/${o.category}] ${o.oneLiner}`);
 
-  return [...topLines, ...releaseLines, ...otherLines].join('\n');
+  return [
+    `# 集計\n${statsLines}`,
+    `# 項目一覧\n${[...topLines, ...releaseLines, ...otherLines].join('\n')}`,
+  ].join('\n\n');
 }
 
-/** LLM を使わないときのフォールバック。件数だけの素っ気ない案内になる */
+/**
+ * LLM を使わないときのフォールバック。
+ * 傾向の言語化までは無理せず、集計から機械的に言えることだけ並べる。
+ */
 function fallbackDigestSummary(top: TopItem[], releases: ReleaseItem[], others: RankedItem[]): string[] {
+  const signals = buildDigestSignals(top, releases, others);
   const lines: string[] = [];
-  if (top.length > 0) {
-    lines.push(`ベスト${top.length}件: ${top.map((t) => t.deep.headline).join(' / ')}`);
+
+  const topCategory = Object.entries(signals.categoryCounts).sort((a, b) => b[1] - a[1])[0];
+  if (topCategory && topCategory[1] >= 2) {
+    lines.push(`「${topCategory[0]}」関連の記事が ${topCategory[1]} 件と今日は多めだった。`);
   }
-  if (releases.length > 0) {
-    lines.push(
-      `リリース情報 ${releases.length} 件（${releases
-        .slice(0, 3)
-        .map((r) => r.product)
-        .join('、')} ほか）を掲載。`,
-    );
+
+  const securityCount = signals.releaseImpactCounts.security ?? 0;
+  if (securityCount > 0) {
+    lines.push(`リリース情報のうちセキュリティ関連の対応が ${securityCount} 件あった。`);
   }
-  if (others.length > 0) {
-    lines.push(`その他の注目記事を ${others.length} 件掲載。`);
+
+  const firstTop = top[0];
+  if (firstTop) {
+    lines.push(`いちばんの注目は「${firstTop.deep.headline}」。`);
   }
-  return lines;
+
+  if (lines.length === 0 && (top.length > 0 || releases.length > 0 || others.length > 0)) {
+    lines.push('目立った偏りは無く、粒ぞろいの一日だった。');
+  }
+
+  return lines.slice(0, 5);
 }
 
 export async function summarizeDigest(
@@ -899,7 +986,7 @@ export async function summarizeDigest(
       model: cfg.rankModel,
       maxTokens: 1000,
       system: digestSummarySystemPrompt(topics),
-      prompt: `以下は今日のダイジェストに載る項目です。これをもとに3〜5行の案内文を書いてください。\n\n${renderDigestSummaryContext(top, releases, others)}`,
+      prompt: `以下は今日のダイジェストの集計と項目一覧です。これをもとに、今日の技術界隈の傾向を3〜5行で書いてください。\n\n${renderDigestSummaryContext(top, releases, others)}`,
       schema: DigestSummarySchema,
     });
     const lines = (parsed.lines ?? []).map((l) => l.trim()).filter(Boolean).slice(0, 5);
