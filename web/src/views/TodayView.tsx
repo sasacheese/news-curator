@@ -8,7 +8,7 @@ import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
 import { Annotated } from '../Annotated';
 import { BuzzChip } from '../components';
-import { Chip, CopyButton, Empty, Notice } from '../components';
+import { Chip, CopyButton, Empty, Notice, ShareButtons } from '../components';
 import { FeedbackButtons } from '../FeedbackButtons';
 import type { Digest, Manifest, RankedItem, TopItem } from '../types';
 import { formatDateLabel, formatPublished, metricSummary, safeUrl } from '../format';
@@ -541,6 +541,7 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
         <a className="btn btn--sm" href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
           元記事を読む ↗
         </a>
+        <ShareButtons url={item.url} tweetText={d.headline} />
         <FeedbackButtons
           target={{
             id: item.id,

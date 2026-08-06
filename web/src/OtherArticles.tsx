@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { navigate } from './App';
-import { BuzzChip, Chip } from './components';
+import { BuzzChip, Chip, ShareButtons } from './components';
 import { FeedbackButtons } from './FeedbackButtons';
 import { metricSummary, safeUrl } from './format';
 import type { Payoff, RankedItem } from './types';
@@ -63,6 +63,7 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
               #{k}
             </button>
           ))}
+          <ShareButtons url={item.url} tweetText={item.oneLiner} />
           <FeedbackButtons
             target={{
               id: item.id,

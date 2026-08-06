@@ -137,6 +137,39 @@ export function CopyButton({ text, label = 'コピー' }: { text: string; label?
   );
 }
 
+/*
+ * X の投稿画面に渡す本文の上限。
+ * 日本語の文字は weight=2 で数えられ、URL は t.co 短縮後の 23 文字固定になるため、
+ * 本文側の実際の余裕は 280 - 23 = 257 weight 程度。全角想定で安全側に丸めている。
+ */
+const TWEET_TEXT_MAX_CHARS = 100;
+
+function truncateForTweet(text: string): string {
+  const chars = Array.from(text);
+  if (chars.length <= TWEET_TEXT_MAX_CHARS) return text;
+  return chars.slice(0, TWEET_TEXT_MAX_CHARS - 1).join('') + '…';
+}
+
+/**
+ * 共有リンクの取得（元記事URLのコピー）と、Xの投稿意図リンク。
+ *
+ * 投稿意図リンクは新しいタブでXの投稿画面を開くだけで、実際の投稿はしない。
+ * OAuth連携なしで済み、本人が文面を最終確認してから投稿できる。
+ */
+export function ShareButtons({ url, tweetText }: { url: string; tweetText: string }) {
+  const intentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(
+    truncateForTweet(tweetText),
+  )}&url=${encodeURIComponent(url)}`;
+  return (
+    <span className="share-buttons">
+      <CopyButton text={url} label="🔗 共有リンクを取得" />
+      <a className="btn btn--ghost btn--sm" href={intentUrl} target="_blank" rel="noreferrer noopener">
+        𝕏 に投稿
+      </a>
+    </span>
+  );
+}
+
 /** タグ（キーワード）を追加・削除できる入力欄 */
 export function TagInput({
   values,
