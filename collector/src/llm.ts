@@ -5,6 +5,7 @@ import type { RuntimeConfig } from './config.js';
 import {
   DeepDiveSchema,
   DescribeResultSchema,
+  DigestSummarySchema,
   ScoreResultSchema,
   type DescribeResult,
 } from './schemas.js';
@@ -13,7 +14,9 @@ import type {
   DeepDive,
   PreScoredItem,
   RankedItem,
+  ReleaseItem,
   TopicsConfig,
+  TopItem,
   UsageReport,
   UsageStat,
 } from './types.js';
@@ -814,4 +817,95 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
     relatedLinks: [],
     readingMinutes: 5,
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * 3) 冒頭サマリー
+ *
+ * ベスト N・リリース情報・その他の注目記事が出揃った後、それらを material に
+ * その日のダイジェスト全体を紹介する短い案内文を作る。すでに要約済みの
+ * headline/oneLiner/summary から合成するだけなので、安い rankModel で足りる。
+ * ------------------------------------------------------------------ */
+
+function digestSummarySystemPrompt(topics: TopicsConfig): string {
+  return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
+今日のダイジェストの冒頭に置く、3〜5行の短い案内文を書いてください。
+読者はこれから本文を読みます。この案内文はその日何が載っているかの見取り図です。
+
+# 読者プロフィール
+${topics.profile}
+
+# 材料
+これから渡す一覧は、すでにこのダイジェスト用に選定・要約済みの項目です。
+新しい情報を付け足さず、この中から今日際立っているものを選んで案内文にしてください。
+
+# 書き方
+- 全体で3〜5行。1行1文、40字前後の平易な日本語。番号・記号・箇条書き記号は付けない。
+- その日実際に載っている具体的な項目（記事名やリリース名そのものではなく、
+  そこで何が起きたか）を書く。カテゴリを網羅しようとしない。
+  ベスト記事が2件しかなければ2件だけ、リリースが無ければリリースには触れない。
+- 「本日のダイジェストをお届けします」のような自己言及・宣伝口調・煽り文句は禁止。
+- 数字・固有名詞は具体的に残す（「大幅刷新」ではなく中身を書く）。
+- 読者を主語にしない（「〜な方におすすめ」のような呼びかけをしない）。事実を淡々と置く。`;
+}
+
+function renderDigestSummaryContext(top: TopItem[], releases: ReleaseItem[], others: RankedItem[]): string {
+  const topLines = top.map(
+    (t) => `- [ベスト/${t.domain === 'ai' ? 'AI' : 'AI以外'}] ${t.deep.headline}\n  ${t.deep.summary}`,
+  );
+  const releaseLines = releases
+    .slice(0, 20)
+    .map((r) => `- [リリース] ${r.product}${r.version ? ` ${r.version}` : ''}: ${r.unlock ?? r.summary}`);
+  const otherLines = others.slice(0, 15).map((o) => `- [その他] ${o.oneLiner}`);
+
+  return [...topLines, ...releaseLines, ...otherLines].join('\n');
+}
+
+/** LLM を使わないときのフォールバック。件数だけの素っ気ない案内になる */
+function fallbackDigestSummary(top: TopItem[], releases: ReleaseItem[], others: RankedItem[]): string[] {
+  const lines: string[] = [];
+  if (top.length > 0) {
+    lines.push(`ベスト${top.length}件: ${top.map((t) => t.deep.headline).join(' / ')}`);
+  }
+  if (releases.length > 0) {
+    lines.push(
+      `リリース情報 ${releases.length} 件（${releases
+        .slice(0, 3)
+        .map((r) => r.product)
+        .join('、')} ほか）を掲載。`,
+    );
+  }
+  if (others.length > 0) {
+    lines.push(`その他の注目記事を ${others.length} 件掲載。`);
+  }
+  return lines;
+}
+
+export async function summarizeDigest(
+  top: TopItem[],
+  releases: ReleaseItem[],
+  others: RankedItem[],
+  topics: TopicsConfig,
+  cfg: RuntimeConfig,
+): Promise<string[]> {
+  if (top.length === 0 && releases.length === 0 && others.length === 0) return [];
+
+  const b = await getBackend();
+  if (!b) return fallbackDigestSummary(top, releases, others);
+
+  try {
+    const parsed = await complete(b, {
+      stage: 'digest-summary',
+      model: cfg.rankModel,
+      maxTokens: 1000,
+      system: digestSummarySystemPrompt(topics),
+      prompt: `以下は今日のダイジェストに載る項目です。これをもとに3〜5行の案内文を書いてください。\n\n${renderDigestSummaryContext(top, releases, others)}`,
+      schema: DigestSummarySchema,
+    });
+    const lines = (parsed.lines ?? []).map((l) => l.trim()).filter(Boolean).slice(0, 5);
+    return lines.length > 0 ? lines : fallbackDigestSummary(top, releases, others);
+  } catch (err) {
+    log.warn(`冒頭サマリー生成失敗: ${err instanceof Error ? err.message : err}`);
+    return fallbackDigestSummary(top, releases, others);
+  }
 }

@@ -2,7 +2,15 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
 import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
-import { deepDive, getBackend, getUsageReport, logUsage, rankItems, resetUsage } from './llm.js';
+import {
+  deepDive,
+  getBackend,
+  getUsageReport,
+  logUsage,
+  rankItems,
+  resetUsage,
+  summarizeDigest,
+} from './llm.js';
 import type { SlotRule } from './prescore.js';
 import { dedupe, pickByDomain, pickTopDiverse, preScore } from './prescore.js';
 import { collectReleaseCandidates, extractReleases, sortReleases } from './releases.js';
@@ -60,7 +68,7 @@ async function main(): Promise<void> {
   }
 
   /* 1. 収集 --------------------------------------------------------- */
-  log.step('1/6 収集');
+  log.step('1/7 収集');
   /**
    * COLLECT_CACHE を指定すると収集結果を再利用する。
    * モデルを比べるときに入力が違うと比較にならないため
@@ -76,7 +84,7 @@ async function main(): Promise<void> {
   }
 
   /* 2. 重複排除 ----------------------------------------------------- */
-  log.step('2/6 重複排除');
+  log.step('2/7 重複排除');
   const seenUrls = await loadSeenUrls();
   log.info(`過去に掲載済み: ${seenUrls.size} URL`);
   const unique = dedupe(collected, seenUrls);
@@ -120,7 +128,7 @@ async function main(): Promise<void> {
   if (feedbackSignal) log.info(`  フィードバック ${feedbackSignal.totalVotes} 件を反映`);
 
   /* 3. 事前スコアリング --------------------------------------------- */
-  log.step('3/6 事前スコアリング');
+  log.step('3/7 事前スコアリング');
   const withHatena = await enrichHatenaCounts(unique);
   const preScored = preScore(withHatena, effectiveTopics).sort((a, b) => b.preScore - a.preScore);
   const candidates = preScored.slice(0, runtime.rankCandidates);
@@ -129,7 +137,7 @@ async function main(): Promise<void> {
   );
 
   /* 4. LLM ランキング ----------------------------------------------- */
-  log.step('4/6 LLM ランキング');
+  log.step('4/7 LLM ランキング');
   const ranked = (
     await rankItems(candidates, effectiveTopics, runtime, feedbackNote)
   ).sort((a, b) => b.score - a.score);
@@ -138,7 +146,7 @@ async function main(): Promise<void> {
   }
 
   /* 5. 深掘り要約 --------------------------------------------------- */
-  log.step('5/6 深掘り要約');
+  log.step('5/7 深掘り要約');
   /**
    * ベスト3の枠。スコア順で埋めたあと、満たしていないものだけ下位と入れ替える。
    * 1 位は動かさないので、その日の最重要は必ず残る。
@@ -216,8 +224,13 @@ async function main(): Promise<void> {
     );
   }
 
-  /* 6. 保存 --------------------------------------------------------- */
-  log.step('6/6 保存');
+  /* 6. 冒頭サマリー --------------------------------------------------- */
+  log.step('6/7 冒頭サマリー');
+  const summary = await summarizeDigest(top, releases, others, topics, runtime);
+  for (const line of summary) log.info(`  ${line}`);
+
+  /* 7. 保存 --------------------------------------------------------- */
+  log.step('7/7 保存');
   const bySource: Record<string, number> = {};
   for (const item of collected) {
     bySource[item.source] = (bySource[item.source] ?? 0) + 1;
@@ -227,6 +240,7 @@ async function main(): Promise<void> {
     date,
     generatedAt: new Date().toISOString(),
     window: { start: start.toISOString(), end: end.toISOString() },
+    summary,
     top,
     releases,
     others,

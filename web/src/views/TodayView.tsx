@@ -202,6 +202,17 @@ export function TodayView({ manifest, date }: Props) {
         </div>
       ))}
 
+      {digestShown.summary && digestShown.summary.length > 0 && (
+        <section className="today-summary" aria-label="今日のサマリー">
+          <p className="today-summary__title">今日のサマリー</p>
+          <ul className="today-summary__list">
+            {digestShown.summary.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/*
         同じ数字を文章と数値タイルで二度出していたので、タイルをやめて 1 つの塊にした。
         上段が「結果」、下段が「その結果に至った経緯」。件数はどちらか一方にしか出ない。
