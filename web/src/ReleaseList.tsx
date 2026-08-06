@@ -1,4 +1,5 @@
 import { FeedbackButtons } from './FeedbackButtons';
+import { ShareButtons } from './components';
 import { safeUrl } from './format';
 import type { ReleaseAlso, ReleaseImpact, ReleaseItem, ReleaseKind } from './types';
 
@@ -167,6 +168,7 @@ function Row({
         </details>
       )}
 
+      <ShareButtons url={r.url} tweetText={r.unlock ? `${r.product}: ${r.unlock}` : `${r.product}: ${r.summary}`} />
       <FeedbackButtons
         target={{
           id: r.id,
