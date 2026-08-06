@@ -182,6 +182,8 @@ export interface Digest {
   date: string;
   generatedAt: string;
   window: { start: string; end: string };
+  /** 冒頭の3〜5行の案内文。この機能より前の日は undefined */
+  summary?: string[];
   top: TopItem[];
   releases?: ReleaseItem[];
   others: RankedItem[];

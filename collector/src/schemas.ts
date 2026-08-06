@@ -138,6 +138,13 @@ export const ReleaseResultSchema = z.object({
   ),
 });
 
+/** 冒頭サマリー。その日のダイジェスト全体を3〜5行で要約する。 */
+export const DigestSummarySchema = z.object({
+  lines: z
+    .array(z.string())
+    .describe('その日のダイジェストを紹介する3〜5行。各行1文、40字前後の平易な日本語。'),
+});
+
 const PrerequisiteSchema = z.object({
   term: z
     .string()
@@ -242,3 +249,4 @@ export const DeepDiveSchema = z.object({
 export type ScoreResult = z.infer<typeof ScoreResultSchema>;
 export type DescribeResult = z.infer<typeof DescribeResultSchema>;
 export type DeepDiveResult = z.infer<typeof DeepDiveSchema>;
+export type DigestSummaryResult = z.infer<typeof DigestSummarySchema>;

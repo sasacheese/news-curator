@@ -266,6 +266,8 @@ export interface Digest {
   date: string;
   generatedAt: string;
   window: { start: string; end: string };
+  /** 冒頭に置く3〜5行の案内文。ベスト・リリース・その他から合成する */
+  summary: string[];
   top: TopItem[];
   releases: ReleaseItem[];
   others: RankedItem[];
