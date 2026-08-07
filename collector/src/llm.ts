@@ -5,6 +5,7 @@ import type { RuntimeConfig } from './config.js';
 import {
   DeepDiveSchema,
   DescribeResultSchema,
+  DigestOutlookSchema,
   DigestSummarySchema,
   ScoreResultSchema,
   type DescribeResult,
@@ -994,5 +995,90 @@ export async function summarizeDigest(
   } catch (err) {
     log.warn(`冒頭サマリー生成失敗: ${err instanceof Error ? err.message : err}`);
     return fallbackDigestSummary(top, releases, others);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 4) この先の見立て（サマリー末尾の一行）
+ *
+ * サマリー本体は「今日の材料から読み取れることだけ」に閉じている。
+ * それだけだと日々の点は分かっても流れが分からないので、
+ * 直近数日のサマリーを並べて、現状の位置づけとこの先の方向を一行で書かせる。
+ * ここだけは推測を許す代わりに、推測と分かる語尾を強制する。
+ * LLM が無い日は書かない——集計から機械的に作れる類のものではない。
+ * ------------------------------------------------------------------ */
+
+export interface DigestHistory {
+  date: string;
+  summary: string[];
+}
+
+function digestOutlookSystemPrompt(topics: TopicsConfig): string {
+  return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
+今日のダイジェストの冒頭サマリーの最後に置く「この先の見立て」を1行で書いてください。
+読者が時流を読む助けになることが目的です。
+
+# 読者プロフィール
+${topics.profile}
+
+# 材料
+今日の項目一覧と集計に加えて、直近数日分のサマリーを日付順に渡します。
+1日の出来事ではなく、**数日並べて初めて見える流れ**として読んでください。
+
+# 1行に必ず両方を入れる
+- 現状: いまエンジニアリング業界がどの局面にいるか。何が定着しつつあり、何がまだ揺れているか。
+- この先: その流れの向かう先。次に焦点になりそうな論点や、仕事の仕方の変化。
+
+# 書き方
+- 1〜2文、合計90〜130字程度の平易な日本語。番号・記号・箇条書き記号は付けない。
+- 推測であることが分かる語尾（〜しつつある、〜になりそう、〜が焦点になる）を使い、断定しない。
+- 材料に無い製品名・数字・出来事を持ち込まない。推測は材料から辿れる範囲にとどめる。
+- 今日の出来事の言い換えで終わらせない。必ず「いまどこにいて、この先どちらへ動きそうか」を書く。
+- 数日分を通した変化（増えた・減った・焦点が移った）が読み取れるなら、それを優先する。
+- 煽り文句・自己言及・読者への呼びかけをしない。事実と見立てを淡々と置く。`;
+}
+
+export async function forecastOutlook(
+  todaySummary: string[],
+  history: DigestHistory[],
+  top: TopItem[],
+  releases: ReleaseItem[],
+  others: RankedItem[],
+  topics: TopicsConfig,
+  cfg: RuntimeConfig,
+): Promise<string | null> {
+  if (top.length === 0 && releases.length === 0 && others.length === 0) return null;
+
+  const b = await getBackend();
+  if (!b) return null;
+
+  // 古い日付が上に来るように並べ替える（流れは時系列で読ませたい）
+  const historyBlock = [...history]
+    .sort((a, b2) => a.date.localeCompare(b2.date))
+    .map((h) => `## ${h.date}\n${h.summary.map((l) => `- ${l}`).join('\n')}`)
+    .join('\n\n');
+
+  const context = [
+    historyBlock ? `# 直近数日のサマリー\n${historyBlock}` : null,
+    todaySummary.length > 0 ? `# 今日のサマリー\n${todaySummary.map((l) => `- ${l}`).join('\n')}` : null,
+    `# 今日の詳細\n${renderDigestSummaryContext(top, releases, others)}`,
+  ]
+    .filter((v): v is string => Boolean(v))
+    .join('\n\n');
+
+  try {
+    const parsed = await complete(b, {
+      stage: 'digest-outlook',
+      model: cfg.summaryModel,
+      maxTokens: 1000,
+      effort: cfg.summaryEffort,
+      system: digestOutlookSystemPrompt(topics),
+      prompt: `以下が材料です。これをもとに「この先の見立て」を1行で書いてください。\n\n${context}`,
+      schema: DigestOutlookSchema,
+    });
+    return parsed.outlook?.trim() || null;
+  } catch (err) {
+    log.warn(`この先の見立ての生成失敗: ${err instanceof Error ? err.message : err}`);
+    return null;
   }
 }

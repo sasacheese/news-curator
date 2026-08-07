@@ -147,6 +147,19 @@ export const DigestSummarySchema = z.object({
     ),
 });
 
+/**
+ * 冒頭サマリーの最後に置く「この先の見立て」。
+ * サマリー本体が「今日の材料から読み取れることだけ」なのに対し、
+ * こちらだけは数日分の流れからの推測を許す（時流を読む助けが目的）。
+ */
+export const DigestOutlookSchema = z.object({
+  outlook: z
+    .string()
+    .describe(
+      'エンジニアリング業界の現状の位置づけと、この先の方向を1行（1〜2文・90〜130字）で書く。推測が分かる語尾を使い、材料に無い固有名詞や数字を作らない。',
+    ),
+});
+
 const PrerequisiteSchema = z.object({
   term: z
     .string()

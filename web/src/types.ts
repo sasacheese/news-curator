@@ -184,6 +184,8 @@ export interface Digest {
   window: { start: string; end: string };
   /** 冒頭の3〜5行の案内文。この機能より前の日は undefined */
   summary?: string[];
+  /** サマリー末尾に置く「この先の見立て」。この機能より前の日と、生成できなかった日は無い */
+  outlook?: string | null;
   top: TopItem[];
   releases?: ReleaseItem[];
   others: RankedItem[];

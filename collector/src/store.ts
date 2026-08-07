@@ -48,6 +48,38 @@ export async function loadSeenUrls(days = 90): Promise<Set<string>> {
   return seen;
 }
 
+/**
+ * 直近の日次サマリーを新しい順に返す。
+ * 「この先の見立て」を、その日の点ではなく数日の流れから書くために使う。
+ * サマリーが無い日（この機能より前の日）は飛ばす。
+ */
+export async function loadRecentSummaries(
+  beforeDate: string,
+  days = 7,
+): Promise<{ date: string; summary: string[] }[]> {
+  await ensureDirs();
+  let files: string[] = [];
+  try {
+    files = (await readdir(DIGEST_DIR))
+      .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+      .map((f) => f.replace('.json', ''))
+      .filter((d) => d < beforeDate)
+      .sort()
+      .reverse()
+      .slice(0, days);
+  } catch {
+    return [];
+  }
+
+  const result: { date: string; summary: string[] }[] = [];
+  for (const date of files) {
+    const digest = await readJsonOr<Partial<Digest>>(resolve(DIGEST_DIR, `${date}.json`), {});
+    const summary = (digest.summary ?? []).filter(Boolean);
+    if (summary.length > 0) result.push({ date, summary });
+  }
+  return result;
+}
+
 export function toIndexEntries(digest: Digest): IndexEntry[] {
   const fromTop = digest.top.map<IndexEntry>((item) => ({
     id: item.id,

@@ -202,14 +202,23 @@ export function TodayView({ manifest, date }: Props) {
         </div>
       ))}
 
-      {digestShown.summary && digestShown.summary.length > 0 && (
+      {((digestShown.summary && digestShown.summary.length > 0) || digestShown.outlook) && (
         <section className="today-summary" aria-label="今日のサマリー">
           <p className="today-summary__title">今日のサマリー</p>
-          <ul className="today-summary__list">
-            {digestShown.summary.map((line, i) => (
-              <li key={i}>{line}</li>
-            ))}
-          </ul>
+          {digestShown.summary && digestShown.summary.length > 0 && (
+            <ul className="today-summary__list">
+              {digestShown.summary.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          )}
+          {/* 上の行は今日の事実、こちらは数日の流れからの推測。混ぜずに区切って出す */}
+          {digestShown.outlook && (
+            <p className="today-summary__outlook">
+              <span className="today-summary__outlook-label">この先の見立て</span>
+              {digestShown.outlook}
+            </p>
+          )}
         </section>
       )}
 
