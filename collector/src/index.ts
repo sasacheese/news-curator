@@ -4,6 +4,7 @@ import { enrichBodies, enrichHatenaCounts } from './enrich.js';
 import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
 import {
   deepDive,
+  forecastOutlook,
   getBackend,
   getUsageReport,
   logUsage,
@@ -16,7 +17,7 @@ import { dedupe, pickByDomain, pickTopDiverse, preScore } from './prescore.js';
 import { collectReleaseCandidates, extractReleases, sortReleases } from './releases.js';
 import { collectAdvisories } from './advisories.js';
 import { collectAll } from './sources.js';
-import { loadSeenUrls, saveDigest } from './store.js';
+import { loadRecentSummaries, loadSeenUrls, saveDigest } from './store.js';
 import type { Digest, RankedItem, RawItem, ReleaseItem, TopItem } from './types.js';
 import { formatJst, log, mapLimit, resolveWindow, safe } from './util.js';
 
@@ -229,6 +230,11 @@ async function main(): Promise<void> {
   const summary = await summarizeDigest(top, releases, others, topics, runtime);
   for (const line of summary) log.info(`  ${line}`);
 
+  // 今日の点だけでは流れが見えないので、直近数日のサマリーを添えて見立てを書かせる
+  const history = await safe('outlook-history', () => loadRecentSummaries(date, 7), []);
+  const outlook = await forecastOutlook(summary, history, top, releases, others, topics, runtime);
+  if (outlook) log.info(`  [この先] ${outlook}`);
+
   /* 7. 保存 --------------------------------------------------------- */
   log.step('7/7 保存');
   const bySource: Record<string, number> = {};
@@ -241,6 +247,7 @@ async function main(): Promise<void> {
     generatedAt: new Date().toISOString(),
     window: { start: start.toISOString(), end: end.toISOString() },
     summary,
+    outlook,
     top,
     releases,
     others,

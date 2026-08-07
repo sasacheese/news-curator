@@ -268,6 +268,11 @@ export interface Digest {
   window: { start: string; end: string };
   /** 冒頭に置く3〜5行の案内文。ベスト・リリース・その他から合成する */
   summary: string[];
+  /**
+   * サマリーの最後に置く「この先の見立て」。直近数日の流れからの推測なので、
+   * サマリー本体とは別枠で持つ。LLM 未設定・生成失敗の日は null。
+   */
+  outlook: string | null;
   top: TopItem[];
   releases: ReleaseItem[];
   others: RankedItem[];
