@@ -1,0 +1,1595 @@
+{
+  "date": "2026-08-09",
+  "generatedAt": "2026-08-08T22:24:00.309Z",
+  "window": {
+    "start": "2026-08-07T22:00:00.000Z",
+    "end": "2026-08-08T22:00:00.000Z"
+  },
+  "summary": [
+    "AI関連が10件を占め、Claude Codeの機能拡張と運用改善が集中した。",
+    "エージェントの連携・自動化が進む一方、認証や権限、安全性の修正も続いた。",
+    "WebMCPの公開と検証から、WebサイトをAIエージェントが操作する流れが見えた。",
+    "依存関係やデータ順序、CSPなど、実装の壊れやすさを抑える話題も目立った。"
+  ],
+  "outlook": "エージェントの連携・自動化と実行環境の整備は定着しつつある一方、認証・権限・供給網やWeb操作の安全性はなお揺れている。この先は、複数セッションやWebMCPを実務に組み込みながら、統制と壊れにくい開発基盤の両立が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.224｜セッション間 SendMessage が解禁｜毎日Changelog解説",
+      "url": "https://qiita.com/moha0918_/items/8d9bb54bff914f7017cd",
+      "publishedAt": "2026-08-07T22:10:09.000Z",
+      "author": "moha0918_",
+      "authorDetail": {
+        "name": "moha0918_",
+        "handle": "@moha0918_",
+        "url": "https://qiita.com/moha0918_",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3977355/profile-images/1784793752",
+        "location": "Tokyo",
+        "followers": 1,
+        "posts": 97,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "AI",
+        "Anthropic",
+        "Permissions"
+      ],
+      "snippet": ":::note info Claude Codeの公式Changelogをリリースから最速で翻訳・解説しています。 ::: 別々に起動した Claude Code のセッション同士が、SendMessage で直接やり取りできるようになりました。相手を探すのは ListAgents。同じマシンに居なくても届きます。 今回の注目ポイント 1. セッション間メッセージング - 別マシンで動くセッションにも SendMessage が届く。相手の探索は ListAgents (v2.1.224) 2. バイパス中のセッション宛は承認待ち - crossSessionInbound と dialogExpiry で受信側の扱いを決める (v2.1.224) 3. セルフホストの実行環境 - claude self-hosted-runner で手元のマシンを web / mobile / desk…",
+      "body": ":::note info\nClaude Codeの公式Changelogをリリースから最速で翻訳・解説しています。\n:::\n\n別々に起動した Claude Code のセッション同士が、SendMessage で直接やり取りできるようになりました。相手を探すのは ListAgents。同じマシンに居なくても届きます。\n\n今回の注目ポイント\n\n1. セッション間メッセージング - 別マシンで動くセッションにも SendMessage が届く。相手の探索は ListAgents (v2.1.224)\n2. バイパス中のセッション宛は承認待ち - crossSessionInbound と dialogExpiry で受信側の扱いを決める (v2.1.224)\n3. セルフホストの実行環境 - claude self-hosted-runner で手元のマシンを web / mobile / desktop セッションの実行先にする。Team と Enterprise プラン (v2.1.224)\n4. zip からのプラグイン導入 - archive ソースが追加。git も npm も要らず、SHA-256 でのピン留めを指定できる (v2.1.224)\n5. sandbox の deny 抜け穴が塞がった - 末尾スラッシュ付きの filesystem deny 指定が回避できていた (v2.1.224)\n6. フィードバック共有に system prompt が加わる - 同意すると CLAUDE.md を含む system prompt もアップロードされる (v2.1.224)\n\nセッション同士が直接メッセージを送り合う\n\n:::note info\n対象読者: Claude Code のセッションを 2 つ以上並行で動かしている人 (macOS / Linux)\n:::\n\nセッションが別セッションの宛先になりました。 ListAgents で送れる相手を一覧し、SendMessage で名前を指定して投げる。相手が同じマシンに居る必要はありません。\nAdded cross-session SendMessage: Claude Code sessions can now message each other, on any of your machines, with ListAgents to discover them (macOS and Linux)\n\n受信側の扱いを決めるのが、同じ v2.1.224 で入った crossSessionInbound と dialogExpiry。permission をバイパスして動かしているセッション宛のメッセージは、そのまま流し込まずに承認待ちで保留されます。バイパス中のセッションは確認なしでコマンドを実行するので、外から届いた指示がノーチェックで通ると危ない。それ以外のセッション宛は自動配信。\n\n\"Message sent\" と返しながら、受信箱への書き込みは失敗していた。このバグが直り、失敗はエラーとして報告されます。送信の成否を分岐に使う自動化は、v2.1.224 より前だと成立しません。\n\n末尾スラッシュ付きの deny 指定が効いていなかった\n\ndenyRead: \"/.aws/\" のように末尾へスラッシュを付けた sandbox の filesystem deny 指定が、Linux と macOS で回避できる状態でした。ブロックしているつもりの認証情報ディレクトリが、実際には読める。\n\n:::note warn\nsandbox の deny 指定を末尾スラッシュ付きで書いている場合、そのエントリはこれまで素通りでした。v2.1.224 で塞がったので、指定が効き始めるのはこのバージョンからです。\n:::\n\n違反の詳細が Bash の tool result に出ない問題も直りました。Claude 側は拒否された事実しか受け取れず、原因の切り分けができない状態。v2.1.224 からは、どのファイルアクセスやネットワークアクセスが、なぜ拒否されたかまで返ります。\n\n構造化された環境変数から値を取り出す extract と onExtractNoMatch、JWT を解釈して claim 単位で伏せる decode: \"jwt\" と maskClaims、AWS SigV4 を再署名する awsPairs と sigv4。credential masking の指定はこの 3 系統が追加されました。いずれも network.tlsTerminate が前提で、user / managed / --settings 経由の設定からしか読まれません。\n\nフィードバック調査で送られる中身が変わった\n\n:::note alert\nトランスクリプト共有に同意すると、直近リクエストのモデル設定も一緒にアップロードされるようになりました。対象は system prompt (CLAUDE.md の記述を含む)、tool definitions、モデルパラメータ。シークレットの伏せ字は従来通りで、サイズ超過時はこれらが先に捨てられます。CLAUDE.md に社内固有の手順を書いているなら、同意の前に中身を見ておく必要があります。\n:::\n\nその他の変更\n\n| バージョン | カテゴリ | 変更点 | 概要 |\n|---|---|---|---|\n| v2.1.224 | 新機能 | claude self-hosted-runner | 手元のマシンやコンテナを、web / mobile / desktop セッションの実行場所にする。Team と Enterprise プラン |\n| v2.1.224 | 新機能 | archive プラグインソース | HTTPS 上の zip からプラグインを入れる。git も npm も不要で、SHA-256 でのピン留めも指定できる |\n| v2.1.224 | 新機能 | ANTHROPICBEDROCKREGIONPREFIX | Bedrock で、AWSREGION から導かれるものとは別の cross-region inference profile を選ぶ |\n| v2.1.224 | 改善 | サブエージェントの上限撤廃 | 1 セッション 200 体の spawn 上限を削除。並列数と深さの制限は残る |\n| v2.1.224 | 修正 | 長いプロジェクトパス | 200 文字超のパスが別プロジェクトのセッションディレクトリに解決され、/resume や rename がプロジェクトを跨いでいた |\n| v2.1.224 | 修正 | プラグインの install レコード | 同じプラグインを複数のプロジェクトに入れると記録が壊れていた |\n| v2.1.224 | 修正 | MCP tool の途中接続 | ターンの途中で繋がった MCP tool が、名前をモデルに知らせないまま tool search 送りになっていた |\n| v2.1.224 | 改善 | フルスクリーンの scrollback | 圧縮を繰り返しても、直近区間だけでなく圧縮前の履歴全体がスクロールバックに残る |\n| v2.1.224 | 改善 | Remote Control の表示 | 圧縮の進捗と境界が web / mobile 側にも出る。接続失敗は 8 秒のトーストではなく、詳細付きの常設インジケータと再接続ショートカットに |\n| v2.1.224 | 修正 | Remote Control の再接続 | オフにしたはずが --resume や VS Code 拡張で再接続していた。期限切れ後に作り直したセッションへローカル履歴を上げる問題も修正 |\n| v2.1.224 | 変更 | Bash tool の説明 | コマンド出力はモデルには表示されるが、ユーザーには確実には表示されないと明記 |\n\nまとめ\n\nv2.1.224 の中心は、SendMessage と ListAgents によるセッション間の通信です。permission バイパス中のセッション宛には crossSessionInbound で承認が挟まるので、繋ぐ前に受信側の設定を確認しておく。同じバージョンで sandbox の deny 抜け穴も塞がっています。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0954bd442512e49c",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.869559748427673,
+      "popularityPercentile": 0.8616352201257862,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 95,
+      "oneLiner": "Claude Code v2.1.224がセッション間通信やセルフホスト実行環境などを追加した。",
+      "reason": "別マシンを含むClaude CodeのセッションへSendMessageで通知でき、ListAgentsで相手を探せるようになった。sandboxのdeny抜け穴修正やsystem prompt共有の変更も含む。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.224",
+        "SendMessage",
+        "ListAgents",
+        "self-hosted-runner",
+        "Plugins"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "ai",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": "Claude Code v2.1.224でセッション間通信が可能に",
+        "summary": "Claude Code v2.1.224 では、`ListAgents` で宛先を探し、`SendMessage` で別マシンを含むセッション間通信ができます。permission をバイパス中の受信側では `crossSessionInbound` と `dialogExpiry` により承認待ちが発生します。あわせて archive プラグインソース、`claude self-hosted-runner`、credential masking の拡張が追加され、sandbox の filesystem deny の抜け穴も修正されました。フィードバック共有に同意した場合は、CLAUDE.md を含む system prompt もアップロード対象になります。",
+        "prerequisites": [
+          {
+            "term": "ListAgents",
+            "stumblingPoint": "記事は「相手の探索は ListAgents」と書いているが、一覧取得とメッセージ送信が別操作だと知らないと手順を読み取れない。",
+            "explanation": "ListAgents は通信先を自動選択する機能ではなく、現在送信可能なセッションを探すための一覧取得です。複数セッションを並行起動している場合、まず宛先名を特定し、その名前を SendMessage に渡すという2段階になります。"
+          },
+          {
+            "term": "SendMessage",
+            "stumblingPoint": "記事は「別々に起動した Claude Code のセッション同士」と書いているが、サブエージェントとの通信ではなく独立セッション間の通信だと知らないと変更範囲を誤る。",
+            "explanation": "SendMessage による通信は、同じターミナル内のサブエージェント呼び出しとは異なり、別々に起動したセッション間で行われます。記事の「同じマシンに居る必要はありません」は、セッションの実行場所が分かれていても宛先になり得るという意味です。"
+          },
+          {
+            "term": "permission",
+            "stumblingPoint": "記事は「permission をバイパスして動かしているセッション」と書いているが、外部入力がそのまま実行される危険性を知らないと承認待ちの理由が読み取れない。",
+            "explanation": "permission をバイパスしているセッションは、確認なしでコマンドを実行できる状態です。そのため外部セッションから届いた指示を即時投入せず、crossSessionInbound などで承認を挟む設計になっています。"
+          },
+          {
+            "term": "crossSessionInbound",
+            "stumblingPoint": "記事は「crossSessionInbound と dialogExpiry で受信側の扱いを決める」と書いているが、通信設定ではなく受信時の安全制御だと知らないと役割を区別できない。",
+            "explanation": "crossSessionInbound は、セッション外から届いたメッセージを受信側でどう扱うかを決める設定です。特にバイパス状態のセッションでは、メッセージを即時処理せず承認待ちにする制御点として登場します。"
+          },
+          {
+            "term": "dialogExpiry",
+            "stumblingPoint": "記事は `dialogExpiry` の名前だけを挙げており、承認待ちが無期限に残るのか期限切れになるのかを知らないと運用上の挙動を判断できない。",
+            "explanation": "dialogExpiry は、受信したメッセージを承認待ちにするダイアログの有効期限を扱う設定です。記事は具体的なデフォルト値や設定形式を示していないため、値を推測して設定するのではなく、手元の公式設定仕様を確認する必要があります。"
+          },
+          {
+            "term": "archive",
+            "stumblingPoint": "記事は「archive ソース」と書いているが、これは圧縮ファイルを直接読む配布方式であり、既存の git / npm 導入と別経路だと知らないと差分を理解しにくい。",
+            "explanation": "archive は HTTPS 上の zip をプラグイン配布元にするソースです。git リポジトリや npm パッケージを前提にせず、SHA-256 によるピン留めも指定できる点が、プラグイン導入経路の追加にあたります。"
+          },
+          {
+            "term": "filesystem deny",
+            "stumblingPoint": "記事は「denyRead: \"/.aws/\"」を例にしているが、末尾スラッシュの有無がアクセス拒否の実効性に影響すると知らないと修正の緊急度を判断できない。",
+            "explanation": "filesystem deny は、Claude Code の sandbox から特定ファイルやディレクトリへのアクセスを拒否する指定です。末尾スラッシュ付きの指定が回避できていたため、認証情報を置くディレクトリを保護しているつもりでも実際には読める状態が発生していました。"
+          },
+          {
+            "term": "system prompt",
+            "stumblingPoint": "記事は「system prompt (CLAUDE.md の記述を含む)」と書いているが、フィードバック共有が会話本文だけでなく常時参照する指示まで含むと知らないと情報範囲を見誤る。",
+            "explanation": "system prompt はモデルに渡される指示のまとまりで、今回の共有範囲には CLAUDE.md の内容も含まれます。単なる会話ログの共有ではないため、社内手順やプロジェクト固有情報を CLAUDE.md に書いている場合は、同意前に共有内容を確認する必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "v2.1.224の主な差分",
+          "beforeLabel": "v2.1.223以前",
+          "afterLabel": "v2.1.224",
+          "rows": [
+            {
+              "aspect": "セッション間通信",
+              "before": "別セッションへの SendMessage は不可",
+              "after": "ListAgents で探索し SendMessage で送信"
+            },
+            {
+              "aspect": "受信時の扱い",
+              "before": "今回追加された制御",
+              "after": "バイパス中は承認待ち、それ以外は自動配信"
+            },
+            {
+              "aspect": "sandbox の filesystem deny",
+              "before": "指定を回避できる状態",
+              "after": "末尾スラッシュ付き指定も拒否が機能"
+            },
+            {
+              "aspect": "フィードバック共有",
+              "before": "今回の共有範囲変更前",
+              "after": "system prompt と CLAUDE.md も共有対象"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "複数の Claude Code セッションを並列実行し、`ListAgents` で対象を確認して `SendMessage` で作業依頼や状態通知を送れます。",
+          "セッション間通信を自動化する場合、送信結果を成功扱いする前提を v2.1.224 以降に更新し、受信側の承認フローも確認できます。",
+          "sandbox 設定に末尾スラッシュ付きの deny エントリがあれば見直し、認証情報ディレクトリへの拒否が意図どおり機能するか再確認できます。",
+          "Team / Enterprise では `claude self-hosted-runner` により、手元のマシンやコンテナを web / mobile / desktop セッションの実行先にできます。"
+        ],
+        "whatChanges": [
+          "独立した Claude Code セッション間で `ListAgents` と `SendMessage` を使えるようになり、別マシン上のセッションにも届くようになりました。",
+          "permission バイパス中のセッションへの受信は、`crossSessionInbound` と `dialogExpiry` によって承認待ちになります。送信失敗時に成功表示だけが返る不具合も修正されました。",
+          "sandbox の末尾スラッシュ付き filesystem deny が回避できていた問題が修正され、Bash の tool result に拒否理由の詳細も返るようになりました。",
+          "HTTPS の zip を使う `archive` プラグインソース、`claude self-hosted-runner`、Bedrock の `ANTHROPICBEDROCKREGIONPREFIX` が追加されました。"
+        ],
+        "howToTry": [
+          "Claude Code を2つ以上、macOS または Linux 上で起動し、別セッションとして待機させます。",
+          "送信側のセッションで `ListAgents` を使い、通信可能なセッション名を確認します。",
+          "確認した宛先名を指定して `SendMessage` を使い、短いテストメッセージを送信します。別マシン上のセッションも一覧に出れば、同じ手順で送信できます。",
+          "受信側が permission をバイパスしている場合は、`crossSessionInbound` と `dialogExpiry` の設定を確認し、メッセージが承認待ちになることを確認します。",
+          "手元の実行環境を web / mobile / desktop セッションから使う場合は、Team または Enterprise プランで `claude self-hosted-runner` を実行します。"
+        ],
+        "code": null,
+        "whyItMatters": "Claude Code を複数セッションで並列運用している場合、`ListAgents` と `SendMessage` により、人手でログを転記せずセッション同士を連携できます。一方で、permission バイパス、sandbox の filesystem deny、CLAUDE.md を含む system prompt の共有範囲は、導入前に安全性と情報漏えいの両面で確認すべき変更です。",
+        "caveats": [
+          "セッション間通信の対象は macOS / Linux。Windows 対応について本文に記載はありません。",
+          "permission をバイパスしているセッションでは、外部セッションからのメッセージが自動実行されず承認待ちになります。受信側の crossSessionInbound と dialogExpiry を確認してください。",
+          "トランスクリプト共有に同意すると、CLAUDE.md を含む system prompt、tool definitions、モデルパラメータもアップロード対象になります。",
+          "sandbox の filesystem deny を末尾スラッシュ付きで指定していた場合、v2.1.224 未満では拒否が回避されていた可能性があります。",
+          "credential masking の extract、decode: \"jwt\"、awsPairs などは network.tlsTerminate が前提で、user / managed / --settings 経由の設定からのみ読み込まれます。",
+          "サブエージェントの spawn 上限は撤廃されましたが、並列数と深さの制限は残ります。"
+        ],
+        "relatedLinks": [],
+        "readingMinutes": 5
+      }
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "title": "anthropics/claude-code v2.1.225",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.225",
+      "publishedAt": "2026-08-08T01:09:26.000Z",
+      "author": "ashwin-ant",
+      "authorDetail": {
+        "name": "ashwin-ant",
+        "handle": "@ashwin-ant",
+        "url": "https://github.com/ashwin-ant",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/178951676?v=4",
+        "organization": "anthropics"
+      },
+      "tags": [
+        "claude-code",
+        "release"
+      ],
+      "snippet": "What's changed ・Added gateway spend-limit support to Claude Code's usage warning; the limit-reached message now names the cap, its reset time, and the operator's message (requires the gateway on 2.1.225) ・Added a workspace trust prompt to claude agents for untrusted directories, matching the behavior of claude ・Fixed a transient 401 replacing a long-lived CLAUDECODEOAUTHTOKEN with a stored login's…",
+      "body": "What's changed\n・Added gateway spend-limit support to Claude Code's usage warning; the limit-reached message now names the cap, its reset time, and the operator's message (requires the gateway on 2.1.225)\n・Added a workspace trust prompt to claude agents for untrusted directories, matching the behavior of claude\n・Fixed a transient 401 replacing a long-lived CLAUDECODEOAUTHTOKEN with a stored login's short-lived token, breaking headless sessions until restart\n・Fixed MCP OAuth servers on macOS intermittently failing with a burst of 401 errors, as if never authenticated, after a keychain read timed out\n・Fixed auto mode counting a safety-filter refusal of its own permission check toward the consecutive-block limit; the action is still denied, but the model is now told to move on rather than retry\n・Fixed cross-session messages staying parked without a notice or expiry in headless sessions and during startup\n・Fixed conversation history breaking on Remote Control session resume after very large conversations were compacted\n・Fixed hovering over a session in another project in the agents list changing the directory the next agent starts in\n・Fixed claude self-hosted-runner registering and then failing every session when --base-dir cannot be created or written; it now exits at startup with a clear error\n・Fixed Claude Code on the web sessions being misreported as stuck, re-sending a growing event backlog on every reconnect\n・Improved Remote Control: photos attached from the Claude app are now shown to Claude directly instead of being read from disk with a separate tool call\n・[VSCode] Fixed Focus view folding away the latest to-do list, a pending question's context, and settled answers; thinking-only folds show \"Thought for Ns\" and re-collapse when their turn completes\n・SendMessage can now start a conversation with your Remote Control sessions on other machines by name (ListAgents shows them as name [ref]), instead of only replying after they message you first\n・SendMessage: a Remote Control recipient you already confirmed is never swapped for a same-named session on this machine when its own list couldn't be checked",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "db76a0dca184eb51",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 0.9617261904761905,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 92,
+      "oneLiner": "Claude Code v2.1.225が利用上限の表示や信頼されていない作業場の確認を追加した。",
+      "reason": "利用上限に達した際、上限額・リセット時刻・運用者メッセージまで表示されるようになった。長時間実行を壊す認証トークンの置換やmacOSのMCP OAuth失敗も修正されている。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.225",
+        "gateway spend limit",
+        "MCP OAuth",
+        "CLAUDECODEAUTHTOKEN",
+        "workspace trust"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "ai",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 2,
+      "deep": {
+        "headline": "Claude Code 2.1.225は認証・Remote Control・安全性を修正",
+        "summary": "Claude Code v2.1.225 は、gateway spend-limit による利用警告を改善し、上限値・リセット時刻・operator's message を表示します。claude agents に workspace trust prompt が追加され、未信頼ディレクトリの扱いが通常の claude と揃います。CLAUDECODEOAUTHTOKEN の認証破壊、macOSのMCP OAuth servers、headless session、Remote Control の再接続やメッセージ送信に関する不具合も修正されました。self-hosted-runner の --base-dir エラーは、セッション実行後ではなく起動時に検出されます。",
+        "prerequisites": [
+          {
+            "term": "gateway spend-limit",
+            "stumblingPoint": "「gateway spend-limit support」とあるが、Claude Codeのusage warningだけを更新すれば表示が変わるのか読み取りにくい。",
+            "explanation": "gateway spend-limit は、Claude Code単体のローカル設定ではなく、利用量の上限を管理する gateway 側の制限です。上限に達したとき、単に利用不能と知らせるのではなく、どの cap に達したか、いつ reset されるか、運用者が設定したメッセージを表示します。Claude Codeとgatewayのバージョンが揃っていないと、この表示変更を検証できません。"
+          },
+          {
+            "term": "workspace trust prompt",
+            "stumblingPoint": "「claude agents ... untrusted directories」とあるが、通常のclaudeとの違いが何か知らないと影響範囲を判断しにくい。",
+            "explanation": "workspace trust prompt は、プロジェクトのファイルや設定を読み書きする前に、そのディレクトリを信頼するか確認する仕組みです。ここでの変更は通常の claude だけでなく claude agents にも同じ確認を適用することです。自動実行やエージェント起動をスクリプト化している場合、初回起動時に対話入力が増える可能性があります。"
+          },
+          {
+            "term": "CLAUDECODEOAUTHTOKEN",
+            "stumblingPoint": "「long-lived CLAUDECODEOAUTHTOKEN」と「stored login's short-lived token」の違いを知らないと、なぜheadless sessionだけ再起動まで壊れるのか分からない。",
+            "explanation": "CLAUDECODEOAUTHTOKEN は、既存のログイン状態とは別に、Claude Codeへ渡して認証する長期間有効なトークンです。今回の修正前は一時的な401を契機に、これを保存済みログインの短期間トークンで置き換えることがありました。その結果、対話操作なしで動かす headless session が再起動まで壊れていました。"
+          },
+          {
+            "term": "MCP OAuth servers",
+            "stumblingPoint": "「MCP OAuth servers」と「keychain read timeout」が401のburstにつながる因果関係を知らないと、認証情報が消えたと誤認しやすい。",
+            "explanation": "MCP OAuth servers は、MCP接続時にOAuthで認証する外部サーバーです。macOSでは認証情報をkeychainから読む処理がタイムアウトすると、実際には認証済みでも未認証のように扱われ、401が短時間に連続発生していました。MCP連携を使う環境では、再ログインより先にこのバージョンの修正対象かを確認できます。"
+          },
+          {
+            "term": "Remote Control",
+            "stumblingPoint": "「Remote Control session resume」や「photos attached from the Claude app」が、ローカルセッションではなく別マシンのセッション操作を指すと知らないと変更点を追いにくい。",
+            "explanation": "Remote Control は、別のマシンで動くClaude Codeのセッションを操作する機能です。今回の変更では、Claudeアプリから添付した写真をいったんディスクへ保存し、別ツールで読み込むのではなく、Claudeへ直接表示します。また、別マシンのセッションを名前で指定して会話を開始できるようになります。"
+          },
+          {
+            "term": "SendMessage",
+            "stumblingPoint": "「SendMessage can now start a conversation」とあるが、以前は返信専用で、ListAgents の name [ref] が宛先指定に使われることを知らないと差分が分からない。",
+            "explanation": "SendMessage は、エージェントまたはRemote Controlセッションへメッセージを送る操作です。以前は相手側から先にメッセージが来ないと会話を始められませんでしたが、今回から ListAgents に表示された別マシンの名前を使って開始できます。すでに確認済みのRemote Control recipientについては、同名のローカルセッションへ誤って差し替えられないようになりました。"
+          },
+          {
+            "term": "--base-dir",
+            "stumblingPoint": "「registering and then failing every session when --base-dir cannot be created or written」とあるが、失敗が登録時ではなく各session時に起きていた点を知らないと改善効果を評価しにくい。",
+            "explanation": "--base-dir は self-hosted-runner が作業用の基底ディレクトリとして使うパスです。従来は作成・書き込みに失敗してもrunner登録後に各セッションが失敗していました。今回から起動時に検査して明確なエラーで終了するため、runnerが登録済みなのに全セッションが失敗する状態を早期に発見できます。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "v2.1.225の挙動変更",
+          "beforeLabel": "従来",
+          "afterLabel": "v2.1.225",
+          "rows": [
+            {
+              "aspect": "gateway利用上限の警告",
+              "before": "gateway spend-limit対応前",
+              "after": "上限値・リセット時刻・operator's messageを表示"
+            },
+            {
+              "aspect": "claude agentsの信頼確認",
+              "before": "claude agentsはclaudeと挙動が異なる",
+              "after": "未信頼ディレクトリでworkspace trust promptを表示"
+            },
+            {
+              "aspect": "self-hosted-runnerの--base-dir不備",
+              "before": "登録後、全セッションが失敗",
+              "after": "起動時に明確なエラーで終了"
+            },
+            {
+              "aspect": "SendMessageの開始条件",
+              "before": "相手から先にメッセージが必要",
+              "after": "別マシンのRemote Control sessionへ名前で会話開始"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "gatewayの利用上限に達した際、上限値・リセット時刻・運用者メッセージをその場で確認できます。",
+          "未信頼ディレクトリから claude agents を起動しても、通常の claude と同じ信頼確認を行えます。",
+          "Remote ControlでClaudeアプリから送った写真を、ディスク読み込み用の別ツール呼び出しなしでClaudeに渡せます。",
+          "別マシンのRemote Controlセッションへ、相手からの先行メッセージなしに SendMessage で会話を開始できます。"
+        ],
+        "whatChanges": [
+          "gateway spend-limit の利用警告が、cap、reset time、operator's message を含む内容になります。gateway も 2.1.225 が必要です。",
+          "claude agents が未信頼ディレクトリで workspace trust prompt を表示するようになり、claude と同じ挙動になります。",
+          "長期間有効な CLAUDECODEOAUTHTOKEN が一時的な401をきっかけに保存済みログインの短期トークンへ置き換わる問題、macOSのMCP OAuth serversの401連発、Remote Controlの再接続や会話履歴の問題が修正されます。",
+          "SendMessage は ListAgents に表示された別マシンのRemote Controlセッションを名前で指定して会話を開始でき、self-hosted-runner は --base-dir の不備を起動時に報告します。"
+        ],
+        "howToTry": [
+          "更新後、`claude --version` を実行して 2.1.225 になっていることを確認する。",
+          "書き込み不能なディレクトリを `mkdir -p /tmp/claude-runner-test && chmod 500 /tmp/claude-runner-test` で用意し、既存の `claude self-hosted-runner --base-dir /tmp/claude-runner-test` の起動手順に指定して、セッション開始後ではなく明確な起動エラーになることを確認する。検証後は `chmod 700 /tmp/claude-runner-test` に戻す。",
+          "別の未信頼ディレクトリを作成し、`mkdir -p /tmp/claude-untrusted-test && cd /tmp/claude-untrusted-test && claude agents` を実行して、claude と同様の workspace trust prompt が表示されることを確認する。",
+          "gateway を 2.1.225 に更新した環境で利用上限に到達させ、usage warning に上限値、リセット時刻、operator's message が含まれることを確認する。"
+        ],
+        "code": null,
+        "whyItMatters": "Claude CodeやMCPをheadless session・Remote Control・セルフホストrunnerで運用している場合、認証切れや再接続ループのような一時的に見える障害が継続実行を止めるため、今回の修正は運用安定性に直結します。特に gateway spend-limit と workspace trust prompt は、利用制限や自動起動時に「なぜ止まったか」を確認しやすくします。",
+        "caveats": [
+          "gateway spend-limit の詳細表示は、Claude Codeだけでなく gateway も 2.1.225 が必要です。",
+          "Remote Control の送信先確認や別マシンのセッション名指定は、記事では SendMessage と ListAgents の挙動変更として説明されており、具体的なCLI構文は示されていません。",
+          "セルフホスト runner は --base-dir が作成または書き込み不能な場合、セッション開始後ではなく起動時に終了するようになります。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "anthropics/claude-code v2.1.225 release",
+            "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.225"
+          }
+        ],
+        "readingMinutes": 3
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "package.json に書いていないパッケージを import できてしまう問題を検査する",
+      "url": "https://qiita.com/kodomo-news/items/4be9e3e1bc404955b984",
+      "publishedAt": "2026-08-08T14:21:23.000Z",
+      "author": "kodomo-news",
+      "authorDetail": {
+        "name": "kodomo-news",
+        "handle": "@kodomo-news",
+        "url": "https://qiita.com/kodomo-news",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4469439/c89df1651f7638f97453776bcfa2a931050aa09c/large.png?1785332884",
+        "bio": "小学生向けのニュースサイト「こどもニュース」を作っています。\r\n話題になっているニュースを調べ、ほとんどの工程を AI が行っています。\r\n記事は人間が最終確認しています。\r\n漢字や言葉づかいの習熟度は小学生のあいだでも差が大きいので、同じニュースを難易度別に書き分け、\r\nふりがなも学年に応じて段階的に付けて、学習に役立てられるつくりにしています。",
+        "followers": 0,
+        "posts": 2,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://kodomo-news.net"
+          }
+        ]
+      },
+      "tags": [
+        "Node.js",
+        "npm",
+        "ESLint",
+        "CI",
+        "TypeScript"
+      ],
+      "snippet": "こんにちは。小学生向けのニュースサイト、こどもニュースをつくっています。 このサイトのリポジトリで、使っていない devDependency を削除しました。eslint-config-next です。設定ファイルからは参照していないし、消しても問題ないはずでした。 消した瞬間、lint が起動しなくなりました。 [code] eslint.config.mjs はこのプラグインを import していました。そして package.json には、そのプラグインの宣言がありませんでした。 なぜ今まで動いていたか @next/eslint-plugin-next は eslint-config-next の依存です。npm は依存をフラットに展開するので、nodemodules の直下に実体が置かれます。Node の解決はそこを見つけるので、宣言していなくても import が通ります。 …",
+      "body": "こんにちは。小学生向けのニュースサイト、こどもニュースをつくっています。\n\nこのサイトのリポジトリで、使っていない devDependency を削除しました。eslint-config-next です。設定ファイルからは参照していないし、消しても問題ないはずでした。\n\n消した瞬間、lint が起動しなくなりました。\n\n [code] \n\neslint.config.mjs はこのプラグインを import していました。そして package.json には、そのプラグインの宣言がありませんでした。\n\nなぜ今まで動いていたか\n\n@next/eslint-plugin-next は eslint-config-next の依存です。npm は依存をフラットに展開するので、nodemodules の直下に実体が置かれます。Node の解決はそこを見つけるので、宣言していなくても import が通ります。\n\nこれが phantom dependency（幽霊依存）と呼ばれるものです。自分の package.json には書いていないのに、誰かの依存として入ってきたパッケージを直接使ってしまっている状態を指します。\n\n厄介なのは、壊れるタイミングが自分の変更と関係ないことです。今回はたまたま自分で提供元を消したので原因がすぐ分かりましたが、提供元が依存を差し替えた、メジャーバージョンを上げた、npm の巻き上げ方が変わった、といった理由でも同じことが起きます。そのときは自分のコードを一行も触っていないのに壊れます。\n\nどのゲートにも掛からない\n\nこのプロジェクトの pre-commit では、lint、型検査、unit テスト、E2E を回しています。それでも今回の宣言漏れは検出できませんでした。理由は単純で、どのゲートも見ていないからです。\n・lint: 動く。nodemodules に実体があるので import は解決する\n・型検査: 通る。同じ理由で型定義も見つかる\n・テスト: 通る。実行時も解決できる\n・ビルド: 通る\n\n全部のゲートが「ローカルの nodemodules にあるかどうか」を見ているので、宣言の有無は誰も検査していません。壊れるのは、依存ツリーが変わって実体が消えたときです。\n\nこういう「規約はあるが破っても何も落ちない」種類の問題は、放っておくと必ず破られます。実際に破られていたので、検査を追加しました。\n\nやることは 2 つの集合の差\n\n検査の中身は難しくありません。ソースから import 指定子を集めてパッケージ名に正規化し、package.json の宣言と突き合わせるだけです。\n\n [code] \n\n@scope/pkg/sub/path から @scope/pkg を取り出すところと、node:fs のような組み込みを除くところだけ気をつければ、あとは差集合です。\n\n例外も少しあります。\n\n [code] \n\nserver-only と client-only は Next.js が内部に持っていて alias で解決する公式の慣習なので、npm パッケージとしては存在しません。宣言しても意味がないので、検査から外します。\n\nそして設定ファイルも検査対象に含めます。今回の事故がまさに eslint.config.mjs だったからです。「アプリのコードではないから」で対象から外すと、同じ穴が残ります。\n\n難しいのは「どこが import か」の判定\n\n最初はこう書きました。\n\n [code] \n\n全文に当てると誤検出します。実際、この検査を入れた直後に pre-commit が止まりました。報告されたパッケージ名がこれです。\n\n [code] \n\n原因は、検査スクリプト自身のコードでした。\n\n [code] \n\n報告された名前は、コードの中の「文字列と文字列のあいだ」がそのまま取れたものです。この行にはシングルクォートが 4 つあります。\n\n [code] \n\n正規表現には、どれが文字列の中でどれが外かが分かりません。順に見るとこうなります。\n\n1. ①〜② の文字列の中身に import があるので、import\\s+ がそこに当たる\n2. その直後の ②（本当はリテラルの閉じクォート）を、指定子の開きクォートだと解釈する\n3. 指定子は [^'\"]+ ＝「次のクォートまで」なので、② から ③ までを取る\n\n② から ③ までにあるのは ) || line.startsWith( です。文字列が終わってから次の文字列が始まるまでの、コードそのものです。それが「パッケージ名」として報告され、当然そんなパッケージは無いので pre-commit が止まりました。コメントに書いた例示の import も同様に拾います。つまり、import 指定子を正しく取るには、文字列・テンプレートリテラル・コメント・正規表現リテラルを読み飛ばして、コードの位置だけを見る必要があります。\n\nそこで、雑ですが字句を順に走査する形にしました。\n\n [code] \n\nfrom の直前に . があるものを除いているのは、Array.from('abc') や Buffer.from(x) を import と誤認しないためです。この手のヒューリスティックは、除外条件を 1 つ書き忘れるとすぐ誤検出になります。\n\n正規表現リテラルの読み飛ばしも要りました。JavaScript は / が除算にも正規表現にもなるので、直前の文字で判定します。\n\n [code] \n\nこのあたりは定番のヒューリスティックで、完全ではありません。ただ、パーサを持ち込むほどの話でもないと判断しました。検査の目的は宣言漏れを見つけることであって、JavaScript を正しく解析することではないからです。\n\n誤検出は「検査を止める」ほうへ倒れる\n\nこの手の検査を入れるときに意識しておきたいのが、誤検出のコストが検出漏れより高くつきやすいことです。\n\npre-commit で走る検査が実在しないパッケージ名で止まると、その場でコミットできなくなります。理由が分からなければ、いちばん手軽な対処は検査を無効にすることです。そうやって一度外された検査は、たいてい戻ってきません。\n\nなので、判定できないケースは「報告しない」側に倒しました。副作用として、JSDoc の型注釈だけで参照しているパッケージ（@type {import('pkg')}）は検出できません。コメントを読み飛ばしているためです。ただ、型でしか使わないパッケージが消えれば型検査が落ちるので、そちらのゲートに任せられます。\n\n検査を足すときは、自分が拾いたい範囲と、他のゲートが既に守っている範囲を分けて考えると、無理に完璧を目指さずに済みます。\n\nworktree で作業するときの落とし穴\n\nもう 1 つ、実際に踏んだ環境の話です。\n\nこのプロジェクトでは、並行作業のために git worktree を使い、nodemodules を親から cp -al でハードリンク共有しています。ディスクと npm install の時間を節約するためです。\n\nこの状態だと、依存を変更する作業には使えません。共有している nodemodules には親の依存がすべて入っているので、宣言漏れがあっても解決できてしまいます。宣言の変更を検証したいなら、その worktree だけ共有を解いて実体を持たせる必要があります。\n\n [code] \n\nphantom dependency は「ローカルにたまたま実体がある」ことで隠れる問題なので、検証も「実体を持たせ直した環境」でやらないと意味がありません。\n\nまとめ\n・package.json に宣言していないパッケージでも、transitive に入っていれば import は通る\n・lint / 型検査 / テスト / ビルドはどれも実体の有無しか見ないので、宣言漏れは全部素通りする。壊れるのは提供元の依存が変わったとき\n・検査の本体は import 指定子とパッケージ宣言の差集合で、難しいのは「どこが import か」の判定\n・文字列・コメント・正規表現の中身を読み飛ばさないと、実在しないパッケージ名で pre-commit が止まる\n・誤検出は検査そのものを外される原因になるので、判定できないケースは報告しない側に倒す\n・設定ファイル（eslint.config.mjs 等）も検査対象に含める。今回の事故はそこだった",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8033c6e5626bfa6f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7256603773584906,
+      "popularityPercentile": 0.20754716981132076,
+      "matchedTopics": [
+        "TypeScript",
+        "Node.js",
+        "Vite / ビルドツール"
+      ],
+      "buzz": false,
+      "score": 76,
+      "oneLiner": "package.jsonに未宣言の依存をimportできてしまう原因と、CIで幽霊依存を検出する方法を解説する。",
+      "reason": "npmの依存 flattening で隠れていたパッケージが、依存元の削除や更新だけで突然消える。ESLintなどの実行経路を例に検査方法まで示す。",
+      "keywords": [
+        "Node.js",
+        "npm",
+        "phantom dependency",
+        "ESLint",
+        "TypeScript",
+        "CI"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "headline": "依存宣言漏れをCIで検出する",
+        "summary": "package.jsonに書いていないパッケージでも、transitive dependencyとしてnode_modulesに存在すれば直接importできてしまう。このphantom dependencyは、提供元の依存変更や削除で、アプリ側を変更していないのに壊れる。lint・型検査・テスト・ビルドは宣言の有無を見ないため、import指定子とpackage.jsonの宣言の差集合を検査する仕組みが必要になる。検査対象にはeslint.config.mjsなどの設定ファイルも含め、誤検出を抑えるため文字列・コメント・正規表現リテラルを読み飛ばす。",
+        "prerequisites": [
+          {
+            "term": "transitive dependency",
+            "stumblingPoint": "記事は「@next/eslint-plugin-next は eslint-config-next の依存」と書くが、transitive dependencyが直接importを隠す仕組みを知らないと、なぜ宣言なしで動くのか読み取れない。",
+            "explanation": "transitive dependencyは、自分のpackage.jsonではなく、別の依存パッケージの依存としてインストールされるパッケージを指す。npmのnode_modulesに実体がある間は直接importできてしまうため、宣言漏れに気づきにくい。この記事では、eslint-config-nextが@next/eslint-plugin-nextを提供していたために問題が隠れていた。"
+          },
+          {
+            "term": "phantom dependency",
+            "stumblingPoint": "記事はこの状態を「phantom dependency（幽霊依存）」と呼ぶが、単なる未使用依存の削除ではなく、直接宣言が必要な依存を別パッケージ経由で使っている問題だと分からないと危険性を捉えにくい。",
+            "explanation": "phantom dependencyは、依存ツリーの別パッケージ経由でたまたまインストールされているものを、直接の依存として使う状態。提供元がその依存を削除・置換すると、アプリ側のコードを変更していなくてもimportが壊れる。今回のeslint-config-next削除は、この隠れた供給元を消したケースに当たる。"
+          },
+          {
+            "term": "node_modules",
+            "stumblingPoint": "記事は「全部のゲートが『ローカルのnodemodulesにあるかどうか』しか見ていない」と説明するが、実体の存在確認と依存契約の確認が別物だと知らないと、既存CIが十分に見える理由を理解しにくい。",
+            "explanation": "node_modulesにあるかどうかを確認するlint・型検査・テスト・ビルドは、package.jsonに直接宣言されているかまでは検査しない。したがって、ローカルの依存ツリーが十分に揃っている限り、すべてのゲートが成功しても宣言漏れは残る。検査には、実際のimport集合と宣言済みパッケージ集合の比較が別途必要になる。"
+          },
+          {
+            "term": "差集合",
+            "stumblingPoint": "記事は検査を「2つの集合の差」と表現するが、何を左辺・右辺に置くのかを明確にしないと、transitiveな依存をどう発見する検査なのかが読み取りにくい。",
+            "explanation": "差集合は、2つの集合のうち片方にだけ存在する要素を取り出す操作。ここでは、ソースから抽出した直接importのパッケージ集合から、package.jsonに宣言された依存集合を引く。結果が残れば、実体は現在存在していても直接宣言されていない依存候補になる。"
+          },
+          {
+            "term": "eslint.config.mjs",
+            "stumblingPoint": "記事は「設定ファイルも検査対象に含める」と書くが、設定ファイルも実行時にNode.jsのモジュール解決を使うため依存契約の対象になる、という点を知らないと優先度が分かりにくい。",
+            "explanation": "eslint.config.mjsのような設定ファイルはアプリ本体の実行コードではないが、Node.jsで読み込まれるため依存を直接importする。ここを検査対象外にすると、設定だけが宣言なしのパッケージに依存する抜け道が残る。今回の障害はまさにこの設定ファイルで発生した。"
+          },
+          {
+            "term": "正規表現リテラル",
+            "stumblingPoint": "記事は「正規表現リテラルの読み飛ばしも要った」と書くが、`/`が除算と正規表現の両方に使われるため、単純な文字検索では判定できないことが読み取りにくい。",
+            "explanation": "正規表現リテラルは、JavaScriptコード中の `/.../` 形式の正規表現。単純に全文へ正規表現を当てると、その内部に書かれた`import`という文字列までimport文と誤認する。さらにJavaScriptの`/`は除算にも使われるため、直前のトークンを見て読み飛ばすか判断する必要がある。"
+          },
+          {
+            "term": "JSDoc",
+            "stumblingPoint": "記事は「JSDocの型注釈だけで参照しているパッケージは検出できない」と書くが、実行時importではなくコメント内の型参照なので、意図的な対象外であることを理解しにくい。",
+            "explanation": "JSDocはコメント内に型情報やドキュメントを書く仕組みで、`@type {import('pkg')}`のようにパッケージを参照できる。この記事の検査はコメントを読み飛ばすため、この形式の依存は拾わない。ただし、そのパッケージが型解決に必要なら、削除時には型検査が失敗するという役割分担になっている。"
+          },
+          {
+            "term": "git worktree",
+            "stumblingPoint": "記事は「worktreeだけ共有を解いて実体を持たせる」と書くが、node_modulesを共有したままだと依存を削除した検証にならない理由が、Gitの作業領域とNode.jsの解決経路をまたぐため分かりにくい。",
+            "explanation": "git worktreeは、同じGitリポジトリから複数の作業ディレクトリを持つ仕組み。この記事ではディスク節約のためnode_modulesをハードリンク共有しているため、子worktreeのpackage.jsonに依存がなくても親側の実体を参照できる。依存宣言の検証では、その共有が検査結果を歪める。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "宣言漏れ検査の追加",
+          "beforeLabel": "既存ゲートのみ",
+          "afterLabel": "依存宣言検査を追加",
+          "rows": [
+            {
+              "aspect": "宣言漏れの検出",
+              "before": "node_modulesに実体があるかだけ確認",
+              "after": "import集合とpackage.jsonの宣言集合を比較"
+            },
+            {
+              "aspect": "検査対象",
+              "before": "アプリコード中心だと設定ファイルを取りこぼす",
+              "after": "eslint.config.mjsなどの設定ファイルも対象"
+            },
+            {
+              "aspect": "誤検出対策",
+              "before": "全文への正規表現で無関係な文字列を拾う",
+              "after": "文字列・コメント・正規表現リテラルを除外"
+            },
+            {
+              "aspect": "検証環境",
+              "before": "共有node_modulesが宣言漏れを隠す",
+              "after": "依存を変更したworktreeでnode_modulesを再構築"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "依存パッケージを削除・更新する前に、ソースと設定ファイルからの直接importがpackage.jsonに宣言されているか確認できる。",
+          "pre-commitやCIに宣言漏れ検査を追加し、依存ツリーの変更によって初めて発覚するphantom dependencyを変更時点で検出できる。",
+          "検査不能なコメント内の参照まで無理に拾わず、JSDocの型参照は型検査に任せることで、誤検出による検査の無効化を避けられる。"
+        ],
+        "whatChanges": [
+          "直接importするnpmパッケージは、transitive dependencyとして解決できる場合でもpackage.jsonに明示的に宣言する。",
+          "検査はソースだけでなくeslint.config.mjsなどの設定ファイルも対象にし、import指定子とpackage.jsonの依存宣言の差集合を報告する。",
+          "node:fsのような組み込みモジュール、server-only、client-onlyはnpm依存として扱わず除外する。",
+          "git worktreeでnode_modulesをcp -al共有している場合、依存変更の検証前に共有を解除してクリーンインストールする。"
+        ],
+        "howToTry": [
+          "直接importしているが宣言していない依存を確認する。例として `npm ls @next/eslint-plugin-next` と `npm pkg get dependencies devDependencies` を実行する。",
+          "今回のように `eslint.config.mjs` から `@next/eslint-plugin-next` を直接importしているなら、プロジェクトの依存として `npm install -D @next/eslint-plugin-next` を実行する。",
+          "共有された依存を使わずに検証するため、対象worktreeで `rm -rf node_modules && npm ci` を実行し、親worktree由来の依存を除いた状態を作る。",
+          "クリーンな状態で `npx eslint .`、プロジェクトの型検査・テスト・ビルドを実行し、依存の宣言追加後に既存ゲートが通ることを確認する。",
+          "検査スクリプトを追加する場合は、ソースと設定ファイルからimport指定子を抽出し、組み込みモジュール・server-only・client-onlyを除外したうえで、package.jsonの宣言との差集合をpre-commitまたはCIで検査する。"
+        ],
+        "code": null,
+        "whyItMatters": "React / Next.jsプロジェクトでは、eslint.config.mjsやビルド設定などの実行される設定ファイルからもパッケージをimportするため、アプリコードだけを見ても依存契約は守れません。node_modulesの偶然の配置に依存したままでは、npm依存の更新やdevDependencyの整理が、無関係なlint・ビルド障害に変わります。差集合の検査を追加すれば、壊れる前に直接依存の不足を検出できます。",
+        "caveats": [
+          "字句走査による検出は完全なJavaScript解析ではない。文字列・テンプレートリテラル・コメント・正規表現リテラルを読み飛ばすヒューリスティックのため、特殊な構文では検出漏れや誤検出が残る。",
+          "JSDoc内の型注釈だけで使う@type {import('pkg')}は検査対象外になる。型だけの依存が消えた場合は型検査に検出を任せる設計。",
+          "git worktree間でnode_modulesをcp -alによりハードリンク共有している場合、親の依存が見えて宣言漏れが隠れる。依存変更の検証時は共有を解除する必要がある。",
+          "server-onlyとclient-onlyはNext.js内部のaliasで解決されるため、npmパッケージとしての宣言は不要で、検査対象から除外する。"
+        ],
+        "relatedLinks": [],
+        "readingMinutes": 6
+      }
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / TanStack/table",
+      "title": "TanStack/table @tanstack/table-core@9.1.1",
+      "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/table-core%409.1.1",
+      "publishedAt": "2026-08-08T18:38:02.000Z",
+      "author": "github-actions[bot]",
+      "authorDetail": {
+        "name": "github-actions[bot]",
+        "handle": "@github-actions[bot]",
+        "url": "https://github.com/apps/github-actions",
+        "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+        "organization": "TanStack"
+      },
+      "tags": [
+        "table",
+        "release"
+      ],
+      "snippet": "Patch Changes ・#6529 269e0d8 - Fix getSortedRowModel().flatRows listing sub-rows before their parent. This restores the parent-first order used by the v8 sorted model and aligns the flattened result with the sorted rows tree, core row model, and paginated row model.",
+      "body": "Patch Changes\n・#6529 269e0d8 - Fix getSortedRowModel().flatRows listing sub-rows before their parent. This restores the parent-first order used by the v8 sorted model and aligns the flattened result with the sorted rows tree, core row model, and paginated row model.",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "3b6a53b353e0fafc",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 0.8433333333333334,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 60,
+      "oneLiner": "TanStack Table Core 9.1.1が、ソート済みflatRowsの親子順を修正した。",
+      "reason": "getSortedRowModel().flatRowsで子行が親行より先に並ぶ不具合が修正され、v8以来の親行優先順に戻った。",
+      "keywords": [
+        "TanStack Table",
+        "@tanstack/table-core",
+        "9.1.1",
+        "getSortedRowModel",
+        "flatRows"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "headline": "flatRowsの親子順序を修正",
+        "summary": "`@tanstack/table-core` 9.1.1 では、ソート済み行モデルの `getSortedRowModel().flatRows` がサブ行を親行より先に並べる不具合が修正されました。`flatRows` は従来の `v8 sorted model` と同じ `parent-first order` に戻り、`sorted rows tree`、`core row model`、`paginated row model` と順序がそろいます。ソート結果の平坦な配列を走査・表示・テストしているコードでは、9.1.1 へ更新して親子順序を確認できます。",
+        "prerequisites": [
+          {
+            "term": "getSortedRowModel()",
+            "stumblingPoint": "記事は「Fix getSortedRowModel().flatRows」と書くが、ソート処理本体の修正か配列化処理の修正か読み取りにくい。",
+            "explanation": "`getSortedRowModel()` は、ソート条件を適用した行ツリーを返す処理です。今回の修正はこのモデルそのものの並び替え条件ではなく、そこから平坦化した `flatRows` の順序に関係します。ソート結果のツリーと平坦な配列の間で順序が食い違うと、表示・集計・テストで異なる行順を観測することになります。"
+          },
+          {
+            "term": "flatRows",
+            "stumblingPoint": "記事は「flatRows listing sub-rows before their parent」と書くが、flatRows がどの処理で問題になる配列か知らないと影響範囲を判断できない。",
+            "explanation": "`flatRows` は、親子構造を持つ行ツリーを1次元の配列として扱うための結果です。画面のツリー表示ではなく、全行を順番に走査したい処理やテストがこの配列を使う場合、親子の並び順がそのまま処理順になります。今回の不具合は、ソート済み行モデルの `flatRows` だけがツリーの構造と異なる順序になっていた点です。"
+          },
+          {
+            "term": "parent-first order",
+            "stumblingPoint": "記事は「sub-rows before their parent」とだけ説明しており、期待される parent-first order が何を保証するのかが省略されている。",
+            "explanation": "`parent-first order` は、親行を先に置き、その直後または配下にサブ行を置く順序です。従来は `sub-rows` が親行より前に並ぶケースがあり、ツリーを深さ優先で平坦化した結果として期待される順序と逆転していました。修正後は、親を基準に処理・表示するコードが `flatRows` の並びだけで自然に動きます。"
+          },
+          {
+            "term": "v8 sorted model",
+            "stumblingPoint": "記事は「restores the parent-first order used by the v8 sorted model」と書くが、v8 からの互換性を意識しないと復元の意味がわからない。",
+            "explanation": "`v8 sorted model` は、TanStack Table v8 で使われていたソート済みモデルの行順です。今回の修正は新しい別順序を導入するのではなく、v8 で使われていた親先行の順序を復元するものです。したがって、v8 からの移行後に `flatRows` の順番を前提にしていた処理があれば、期待する順序に戻る可能性があります。"
+          },
+          {
+            "term": "paginated row model",
+            "stumblingPoint": "記事は「sorted rows tree, core row model, and paginated row model」と列挙するが、どの結果同士の整合性が直るのかが読み取りにくい。",
+            "explanation": "`sorted rows tree` はソート後の親子構造を保った行モデルです。`core row model` は基本の行モデル、`paginated row model` はページネーション後の行モデルを指し、今回の修正ではこれらと `flatRows` の順序をそろえています。つまり、ソート済みツリーだけでなく、関連する行モデル間で同じ並びを前提にできるようになります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "flatRowsの親子順序",
+          "beforeLabel": "9.1.0以前",
+          "afterLabel": "9.1.1",
+          "rows": [
+            {
+              "aspect": "flatRowsの親子順序",
+              "before": "サブ行 → 親行になる場合がある",
+              "after": "親行 → サブ行"
+            },
+            {
+              "aspect": "行モデル間の順序",
+              "before": "flatRowsだけ順序が異なる場合がある",
+              "after": "sorted rows tree / core row model / paginated row model と整合"
+            },
+            {
+              "aspect": "互換性",
+              "before": "v8の親先行順序から外れる場合がある",
+              "after": "v8 sorted model と同じ parent-first order"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "`@tanstack/table-core@9.1.1` に更新し、ソートとサブ行を使う画面の行順序を確認できます。",
+          "`flatRows` の順序を前提にした表示処理やテストで、親行がサブ行より先に来ることを検証できます。"
+        ],
+        "whatChanges": [
+          "`getSortedRowModel().flatRows` で、サブ行が親行より先に並ぶ不具合が修正されます。",
+          "`flatRows` の順序が `v8 sorted model` の `parent-first order` に戻り、`sorted rows tree`、`core row model`、`paginated row model` と整合します。"
+        ],
+        "howToTry": [
+          "プロジェクトで `@tanstack/table-core` を更新します: `npm install @tanstack/table-core@9.1.1`",
+          "依存関係が更新されたことを確認します: `npm ls @tanstack/table-core`",
+          "ソートとサブ行を使う画面で任意の列をソートし、`getSortedRowModel().flatRows` の配列を確認します。",
+          "各親行の後ろにサブ行が並び、`sorted rows tree` と同じ親先行順になっていることを既存の表示またはテストで確認します。"
+        ],
+        "code": null,
+        "whyItMatters": "React / TypeScript のテーブル実装で、ソート済み行を `flatRows` として走査している場合、親子関係の表示順やテスト結果が意図せず逆転する問題を解消できます。`v8 sorted model` と同じ `parent-first order` に戻るため、行モデルをまたいだ順序の前提をそろえやすくなります。",
+        "caveats": [
+          "変更対象は、ソート済み行モデルの flatRows における行順序です。ソート条件やページネーション自体の仕様変更は本文に記載されていません。",
+          "破壊的変更や追加の移行手順は本文に記載されていません。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "TanStack/table v9.1.1 Release",
+            "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/table-core%409.1.1"
+          }
+        ],
+        "readingMinutes": 1
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "db76a0dca184eb51",
+      "product": "Claude Code",
+      "what": "AIコーディングエージェント",
+      "version": "v2.1.225",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "ゲートウェイの利用上限を詳しく確認できるようになる",
+      "change": {
+        "before": "ゲートウェイの利用上限情報を警告に表示しない",
+        "after": "上限額・リセット時刻・運営者メッセージを警告表示"
+      },
+      "scope": [],
+      "summary": "v2.1.225で、ゲートウェイの利用上限警告に上限額・リセット時刻・運営者メッセージを追加。claude agentsの未信頼ディレクトリ確認や認証・MCP OAuth関連の修正も含む。",
+      "title": "anthropics/claude-code v2.1.225",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.225",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-08-08T01:09:26.000Z",
+      "alsoReleased": [
+        {
+          "label": "v2.1.226",
+          "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.226"
+        }
+      ]
+    },
+    {
+      "id": "b8479fc887ddfe07",
+      "product": "GitHub Copilot",
+      "what": "AIコーディング支援サービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "完了リクエストの処理モデルを確認できるようになる",
+      "change": {
+        "before": "完了リクエストの処理モデルを表示しない",
+        "after": "完了リクエストの処理モデルを表示"
+      },
+      "scope": [],
+      "summary": "GitHub Copilotのデスクトップアプリ・CLI・VS Code向け更新で、Autoが処理モデルやAIクレジット、キャッシュ情報を表示。共有セッションへの移動や/sideによる並行質問にも対応した。",
+      "title": "GitHub Copilot weekly releases — August 3",
+      "url": "https://github.blog/changelog/2026-08-07-github-copilot-weekly-releases-august-3",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-07T23:16:02.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "3b6a53b353e0fafc",
+      "product": "TanStack Table",
+      "what": "ヘッドレスなテーブルUIライブラリ",
+      "version": "v9.1.1",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": {
+        "before": "flatRowsが子行を親行より先に並べる",
+        "after": "flatRowsが親行を先に並べる"
+      },
+      "scope": [],
+      "summary": "@tanstack/table-core@9.1.1で、getSortedRowModel().flatRowsの並び順を修正し、ソート済みツリーなどと同じ親行優先に戻した。",
+      "title": "TanStack/table @tanstack/table-core@9.1.1",
+      "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/table-core%409.1.1",
+      "sourceLabel": "GitHub Releases / TanStack/table",
+      "publishedAt": "2026-08-08T18:38:02.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/angular-table-devtools@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/angular-table-devtools%409.1.1"
+        },
+        {
+          "label": "@tanstack/vue-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/vue-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/svelte-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/svelte-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/solid-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/solid-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/react-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/react-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/preact-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/preact-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/octane-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/octane-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/lit-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/lit-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/ember-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/ember-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/angular-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/angular-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/alpine-table@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/alpine-table%409.1.1"
+        },
+        {
+          "label": "@tanstack/vue-table-devtools@9.1.1",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/vue-table-devtools%409.1.1"
+        }
+      ]
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code の Plugins(プラグイン)を自作して配布する実装手順 ― marketplace.json と $CLAUDE_PLUGIN_ROOT の3つのハマりどころ【2026】",
+      "url": "https://qiita.com/yureki_lab/items/0c474e49394999ee7832",
+      "publishedAt": "2026-08-07T23:02:52.000Z",
+      "author": "yureki_lab",
+      "authorDetail": {
+        "name": "yureki_lab",
+        "handle": "@yureki_lab",
+        "url": "https://qiita.com/yureki_lab",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4439166/f5012a69010db2f27c1e4d8cbc88f0453cff051b/large.png?1779893635",
+        "followers": 1,
+        "posts": 34,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "Plugins",
+        "MCP",
+        "自動化",
+        "AI"
+      ],
+      "snippet": "はじめに / 対象と前提 Claude Code には、スラッシュコマンド・サブエージェント・hooks・MCP サーバー・Skill をひとまとめにして配布できる Plugins という仕組みがある。チームに同じ hooks や lint 設定を配りたい、自作の便利コマンドを他プロジェクトでも使い回したい、というときに個別コピペするより圧倒的に楽になる。 この記事は以下を前提にしている。 ・Claude Code CLI を日常的に使っていて、.claude/hooks や .claude/commands を自作した経験がある人 ・「Plugins って聞いたことはあるけど自作したことはない」レベルの人 ・確認環境:Claude Code CLI(2026年8月時点の最新版)、macOS + zsh 自分は自作 hooks(保存時 lint)を毎回プロジェクトにコピペするのに疲れて P…",
+      "body": "はじめに / 対象と前提\n\nClaude Code には、スラッシュコマンド・サブエージェント・hooks・MCP サーバー・Skill をひとまとめにして配布できる Plugins という仕組みがある。チームに同じ hooks や lint 設定を配りたい、自作の便利コマンドを他プロジェクトでも使い回したい、というときに個別コピペするより圧倒的に楽になる。\n\nこの記事は以下を前提にしている。\n・Claude Code CLI を日常的に使っていて、.claude/hooks や .claude/commands を自作した経験がある人\n・「Plugins って聞いたことはあるけど自作したことはない」レベルの人\n・確認環境:Claude Code CLI(2026年8月時点の最新版)、macOS + zsh\n\n自分は自作 hooks(保存時 lint)を毎回プロジェクトにコピペするのに疲れて Plugins 化したところ、地味なところで2回ハマった。その記録。\n\nTL;DR\n・Plugin は .claude-plugin/plugin.json が本体、配布は .claude-plugin/marketplace.json を持つリポジトリ(マーケットプレイス)経由\n・commands/ agents/ hooks/hooks.json skills/ .mcp.json を1つの plugin ディレクトリにまとめて配布できる\n・hooks 内で自分のスクリプトを呼ぶときは相対パスではなく ${CLAUDEPLUGINROOT} を使わないと、インストール先によって静かに失敗する\n\n手順 / 動かし方\n\n1. plugin 本体を作る\n\n [code] \n\nplugin.json:\n\n [code] \n\nhooks/hooks.json:\n\n [code] \n\n2. マーケットプレイスを作る\n\n配布用の別リポジトリ(または同一リポジトリの別ディレクトリ)に .claude-plugin/marketplace.json を置く。\n\n [code] \n\n3. インストールして動作確認\n\n [code] \n\nインストール後、適当なファイルを Edit してみて scripts/lint.sh が実際に走るかを確認する。走らない場合は次の「ハマりどころ」を疑う。\n\nハマりどころ\n\n1. hooks 内の相対パスが解決できない\n\n最初 command を \"./scripts/lint.sh\" と相対パスで書いていたところ、手元では動くのにインストール経由だと無反応だった。原因は plugin のインストール先ディレクトリと Claude Code の実行時 cwd が一致しないこと。hooks はどのプロジェクトの cwd からでも呼ばれるので、相対パスは基本的に破綻する。${CLAUDEPLUGINROOT}(plugin 自身がインストールされているディレクトリを指す環境変数)で絶対パス化するのが正解。\n\n2. marketplace.json の source パスの起点ミス\n\nsource は marketplace.json 自身の位置(.claude-plugin/ の親ディレクトリ)からの相対パスになる。plugin ディレクトリを marketplace リポジトリの外に置いていたときに plugin not found 相当のエラーで弾かれた。marketplace リポジトリ配下に plugin をまとめて置くか、source を書き直す必要がある。\n\n3. plugin.json を編集しても反映されない\n\nインストール済みの plugin の plugin.json を直接書き換えても、既存セッションには反映されないことがあった。マーケットプレイスの更新を取り込む操作(/plugin marketplace add の再実行、もしくは plugin の再インストール)をしてから Claude Code を再起動して初めて反映された。「設定を直したのに動きが変わらない」と思ったらまずここを疑うとよい。\n\n背景・補足\n\nhooks 単体・commands 単体なら .claude/ 直下にファイルを置くだけで動くが、それだと「このプロジェクトだけの設定」で終わってしまう。Plugins 化すると、複数プロジェクト・複数マシンに同じ設定を配れるようになるので、個人の定型作業を自動化するレイヤーをそのまま「配布可能な単位」に昇格させられるのが大きい。自分は Claude Code に日次のルーチン作業(状態ファイルの読み込みや定型チェック)を任せる構成をいくつか組んでいるが、そうした自動化レイヤーの部品を plugin 化しておくと使い回しが効いて楽になる。\n\nまとめ\n・Plugin の本体は plugin.json、配布は marketplace.json を持つリポジトリ経由\n・hooks 内のスクリプト参照は必ず ${CLAUDEPLUGINROOT} で絶対パス化する(相対パスは cwd 次第で壊れる)\n・marketplace.json の source は marketplace 自身からの相対パスであることに注意\n・設定変更が反映されないときはマーケットプレイスの再取り込み+再起動を試す\n・個人用の hooks・commands が増えてきたら、コピペ運用をやめて plugin 化する価値がある",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "4feb0f18efe65832",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8612578616352202,
+      "popularityPercentile": 0.8238993710691824,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 90,
+      "oneLiner": "Claude Codeの複数機能をまとめて配布できる自作プラグインの実装手順を解説している。",
+      "reason": "プラグイン本体とマーケットプレイスの構成、commands・hooks・Skills・MCPの同梱方法を扱う。フックから自作スクリプトを呼ぶ際は相対パスではなく、インストール先を示す環境変数が必要になる。",
+      "keywords": [
+        "Claude Code Plugins",
+        "plugin.json",
+        "marketplace.json",
+        "CLAUDE_PLUGIN_ROOT",
+        "MCP",
+        "hooks"
+      ],
+      "category": "新機能・新ツール",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Codex CLI /goalの6状態を実例で理解する --- Blockedからの再開、BudgetLimited、Completeの違い",
+      "url": "https://qiita.com/ootakazuhiko/items/5503f23814ef4420cfdb",
+      "publishedAt": "2026-08-08T08:12:20.000Z",
+      "author": "太田 和彦",
+      "authorDetail": {
+        "name": "太田 和彦",
+        "handle": "@ootakazuhiko",
+        "url": "https://qiita.com/ootakazuhiko",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/64345/profile-images/1473696553",
+        "organization": "株式会社アイティードゥ",
+        "location": "山梨県甲斐市",
+        "followers": 12,
+        "posts": 42,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/ootakazuhiko"
+          }
+        ]
+      },
+      "tags": [
+        "codex",
+        "OpenAL",
+        "CodexCLI",
+        "AIエージェント",
+        "生成AI"
+      ],
+      "snippet": "Codex CLIで長時間タスクを動かしていると、最終出力に「停止しました」と書かれることがあります。 しかし、その停止には少なくとも次の違いがあります。 [code] これらをすべて「止まった」と扱うと、次の操作を誤ります。 ・Blockedなのに同じ指示を繰り返す ・BudgetLimitedなのに成功または失敗と断定する ・Completeを人間による承認やmergeと取り違える ・Activeを「いまプロセスが実行中」と誤解する 本記事は/goalの一般的な入門解説ではなく、現行実装の6状態、状態ごとの復旧方法、実案件での完了境界に焦点を当てます。 確認日: 2026年8月8日 対象: Codex CLIのinteractive TUI。OpenAI公式ドキュメントとopenai/codex公開ソースを確認しています。表示名や挙動は更新される可能性があります。 先に結論 /plan…",
+      "body": "Codex CLIで長時間タスクを動かしていると、最終出力に「停止しました」と書かれることがあります。\n\nしかし、その停止には少なくとも次の違いがあります。\n\n [code] \n\nこれらをすべて「止まった」と扱うと、次の操作を誤ります。\n・Blockedなのに同じ指示を繰り返す\n・BudgetLimitedなのに成功または失敗と断定する\n・Completeを人間による承認やmergeと取り違える\n・Activeを「いまプロセスが実行中」と誤解する\n\n本記事は/goalの一般的な入門解説ではなく、現行実装の6状態、状態ごとの復旧方法、実案件での完了境界に焦点を当てます。\n確認日: 2026年8月8日 \n対象: Codex CLIのinteractive TUI。OpenAI公式ドキュメントとopenai/codex公開ソースを確認しています。表示名や挙動は更新される可能性があります。\n\n先に結論\n\n/planと/goalの役割は次のように分けます。\n\n [code] \n\nGoalの状態遷移は、実務上次のように整理できます。\n\n [code] \n\n重要なのは次の3点です。\n\n [code] \n\n正式な6状態\n\n現行の公開スキーマには次の6状態があります。\n\n [code] \n\nCLIやUIでは大文字・小文字、空白、説明文が異なる場合があります。本記事では読みやすさのため、Active、Pausedのように表記します。\n\n| 状態 | 意味 | 自動継続 | 主な次の操作 |\n|---|---|---:|---|\n| Active | Goalが継続可能 | 条件付きで可能 | 継続、pause、完了判定 |\n| Paused | 人間が自動継続を一時停止 | しない | /goal resume |\n| Blocked | 外部入力・権限・環境変更なしでは有効に進めない | しない | 原因解消後にresume |\n| UsageLimited | アカウントまたはサービス側の利用制限 | しない | 制限解消後に再開 |\n| BudgetLimited | Goal固有のToken Budgetへ到達 | しない | 予算再設定または新Goal |\n| Complete | 完了条件を証拠付きで充足 | しない | 次の仕事は新Goal |\n\n遷移の制御主体も異なる\n\n現行のGoal tool specificationでは、モデル自身が更新できる状態はCompleteとBlockedに限定されています。\n\n [code] \n\nこれは安全上重要です。モデルが自分の判断だけで利用制限を解除したり、Token Budgetを増額したり、pauseを無視したりする設計ではありません。\n\nGoal状態、実行状態、成果状態を分ける\n\n/goalを扱う際に最も多い誤解は、異なる層の状態を混同することです。\n\n [code] \n\n例えば、次の組み合わせは矛盾しません。\n\n [code] \n\n現在のターンは終わっていても、Goalは条件が整えば次の継続を開始できるためです。\n\n次も矛盾しません。\n\n [code] \n\nGoalの完了条件を「人間が最終判断できるReady状態」と定義していれば、PRをmergeしないままCompleteになります。\n\n1. Active――「いま実行中」ではなく「継続可能」\n\nActiveは、Goalが自動継続の対象になり得る状態です。必ずしもシェルコマンドやモデル推論が動作中という意味ではありません。\n\n次の条件がそろうと、Goalの次のターンへ進めます。\n・現在のターンが完了している\n・スレッドがidleである\n・ユーザー入力がキューにない\n・承認待ちや別処理が残っていない\n・利用制限やToken Budget上限に達していない\n・GoalがPaused、Blocked、Completeではない\n\n状態確認は次で行います。\n\n [code] \n\nそれぞれの対象は異なります。\n\n| コマンド | 主に確認するもの |\n|---|---|\n| /goal | Goalのobjective、状態、予算・利用状況 |\n| /status | chat、workspace、model、権限など |\n| /ps | Codexが起動したバックグラウンドterminal |\n\n2. Paused――人間が意図的に止めた状態\n\nGoalの自動継続を止めるには次を使います。\n\n [code] \n\n再開は次です。\n\n [code] \n\nPausedではGoalのobjectiveと進捗は残ります。/goal clearとは異なります。\n\n安全に作業を中断する場合は、Goalとバックグラウンドプロセスを分けて確認します。\n\n [code] \n・/goal pause: Goalの自動継続を止める\n・/stop: Codexが開始したバックグラウンドterminalを止める\n・/goal clear: Goalそのものを削除する\n\n/goal pauseだけでは、起動済みの開発サーバーやwatch processが残る場合があります。/stopだけではGoalがActiveのまま残る場合があります。\n\n3. Blocked――現在の外部状態では進めない\n\nBlockedは失敗確定ではありません。\n\n [code] \n\n現行のGoal tool specificationでは、モデルがBlockedへ遷移する条件は厳しく制限されています。\n・同じblocking conditionが少なくとも3回連続する\n・外部入力または外部状態の変更なしでは意味のある進行ができない\n・「難しい」「遅い」「不確実」「未完了」というだけではBlockedにしない\n・一度BlockedになったGoalをresumeした後は、新しいblocked auditとして数え直す\n\n典型的なblockerは次です。\n・必須の認証情報がない\n・GitHub、クラウド、DBなどへの権限がない\n・外部サービスが停止している\n・人間による方針決定が必要\n・要件同士が矛盾している\n・禁止操作を行わなければ進めない\n・許可された変更範囲では解決できない\n\n望ましいBlocked報告\n\nBlocked時には、単に「できません」と報告させるのではなく、再開契約を残します。\n\n [code] \n\nBlockedからの再開\n\n外部状態を変更した後、同じchatで再開します。\n\n [code] \n\n再開後に同じblockerが再発した場合、現行実装では新しいblocked auditとして扱われます。以前の3回をそのまま引き継いで即座にBlockedへ戻すわけではありません。\n\n4. UsageLimited――サービス側の利用制限\n\nUsageLimitedは、Goalに設定したToken Budgetではなく、アカウントまたはサービス側の利用制限です。\n\n [code] \n\n例:\n・利用量上限\n・モデル利用枠\n・一時的なrate limit\n・契約・workspace側の制約\n\n制限が解消した後、クライアントの表示に従って再開します。利用制限は外部要因なので、resume前にGoal、worktree、branch、基準SHAを再確認します。\n\n復旧時には次を確認します。\n\n [code] \n\n利用制限の前後でmain branchやPR headが変わる可能性があるため、単にresumeするだけでなく、基準SHAを再確認します。\n\n5. BudgetLimited――資源切れであり成果判定ではない\n\n現行のbudget-limit templateでは、Token Budgetへ到達すると新しい実質的作業を開始せず、進捗、残作業、blocker、次の操作をまとめるよう定義されています。\n\n [code] \n\nこれは成果の意味ではなく、現在のGoal runに割り当てた計算資源の状態です。\n\nBudgetLimited時に残すべきcheckpoint\n\n [code] \n\nCLIの通常操作だけでToken Budgetを再設定できない環境では、次のいずれかを選びます。\n\n1. 予算変更を扱えるクライアントまたはApp Serverで再設定する\n2. 進捗checkpointを参照する新しいGoalを作る\n3. Goalを分割し、残作業を別のobjectiveにする\n\n新しいGoalへ切り替える場合も、完了したふりをしてCompleteにするべきではありません。\n\n6. Complete――完了述語が真になった状態\n\nCompleteは、モデルが「十分できたと思う」と宣言する状態ではありません。\n\n [code] \n\n例えば、PRを人間の判断直前まで進めるGoalは次のように定義できます。\n\n [code] \n\nここでは「mergeしていない」ことも完了条件の一部です。\n\n [code] \n\n実例1――PRをmergeせず、人間の判断直前まで進める\n\n公開リポジトリのcrypto-communications-assurance PR #24では、Codexによる長時間作業の終点を「merge」ではなく、次のReady-stateに設定しました。\n\n [code] \n\n公開PR上の最終headは次です。\n\n [code] \n\n2026年8月8日の再確認時点でも、PRはOPEN、draftではなく、mergeableでした。最終判断は人間に残されています。\n\nこのGoalの境界は次です。\n\n [code] \n\n「Issue #10を完成させる」より、次のobjectiveの方が安全です。\n\n [code] \n\n実例2――認証情報不足でBlockedになり、後から再開する\n\n外部チャットサービスの履歴を取得するツールを想定します。\n\n必要な環境変数:\n\n [code] \n\n認証情報なしで実データ検証はできません。一方で、ローカルの設定検査、parser、保存形式、dry-runなどは実行できます。\n\n望ましい進行:\n\n [code] \n\nこの場合、Codexは可能なローカル検証を終えた後、Blockedへ遷移し、resume conditionを報告します。\n\n利用者が環境変数を設定した後は、同じGoalを再開します。\n\n [code] \n\n悪い対応は次です。\n・推測したtokenやdummy値で実APIへ接続する\n・外部検証を省略してCompleteにする\n・変数の値をログへ出す\n・同じ認証失敗を無制限に繰り返す\n\n実例3――レビュー対応だけを限定Goalにする\n\n既存PRへ追加レビューが来た場合、Issue全体をもう一度Goalにするとscope creepが起きやすくなります。\n\n [code] \n\n完了条件を開始時点のreview setへ固定します。\n\n [code] \n\nGoalの大きさを「Issue全体」ではなく「レビューセットの解消」に限定することで、完了判定が明確になります。\n\n/planはGoalの前処理として使う\n\n本記事の主題は状態遷移ですが、/planとの関係は押さえておく必要があります。\n\n [code] \n\n/planで決めるもの:\n・現在状態\n・原因と依存関係\n・変更候補\n・実装順序\n・リスク\n・検証方法\n\n/goalで固定するもの:\n・成立させる最終状態\n・完了述語\n・許可操作と禁止操作\n・scopeとnon-goals\n・Blocked条件\n・人間へ戻す判断\n\n [code] \n\n最小のGoal specification\n\n詳細指示は、4,000文字のobjectiveへ詰め込むより、version管理できるファイルへ置く方が安全です。\n\n [code] \n\nCodex CLIでは次のように参照します。\n\n [code] \n\n状態別の復旧runbook\n\nCodexが止まったとき、まず/goalで状態を確認します。\n\n [code] \n\nよくある誤り\n\nPursuingを正式な状態名だと思う\n\nUIの説明としてPursuing goalのような表示があっても、公開スキーマ上の状態名はActiveです。\n\nUnmetをGoal状態として扱う\n\n「未達」は人間向けの結果表現です。正式状態としては、原因に応じてBlocked、BudgetLimited、UsageLimitedなどを使います。\n\n難しい作業をすぐBlockedにする\n\n難しさはblockerではありません。外部状態の変更なしでは意味のある進行ができないことが必要です。\n\nテスト成功だけでCompleteにする\n\n既存テストが受け入れ条件を網羅していない場合があります。\n\n [code] \n\nBudgetLimitedを失敗とみなす\n\n資源上限と成果の意味を分けます。checkpointと残作業が正確なら、別runへ安全に引き継げます。\n\nCompleteになったので自動mergeする\n\n技術的完了と組織的承認は別です。特に本番、release、法務・セキュリティ責任を伴う操作は人間へ残します。\n\n実行前チェックリスト\n\n [code] \n\nまとめ\n\n/goalを実務で使う場合、最も重要なのは自動継続そのものではありません。\n\n [code] \n\n特に次の区別を維持すると、長時間作業の制御が安定します。\n\n [code] \n\nGoalは「最後まで頑張らせる指示」ではありません。成果、境界、停止理由、再開条件を外部から検証できる実行契約です。\n\n---\n\n<!-- RELATEDARTICLESSTART\n関連:\n・複数のCodex Goalをsingle-writer方式で並列運用する: QIITAPARALLELARTICLEURL\n・AIエージェントの自律実行を状態機械として設計する: ZENNTHEORYARTICLEURL\nRELATEDARTICLESEND -->\n\n参考資料\n・OpenAI: Follow a goal\n・OpenAI: Developer commands\n・OpenAI: Long-running work\n・openai/codex: ThreadGoalUpdatedNotification schema\n・openai/codex: Goal tool specification\n・openai/codex: Goal continuation template\n・openai/codex: Budget-limit template",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "17b9d19b279bf2f9",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8923899371069183,
+      "popularityPercentile": 0.9654088050314465,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Codex CLIの/goalが示す6状態と、状態ごとの再開・完了判定を整理している。",
+      "reason": "Codex CLIの「停止しました」は一種類ではなく、Blocked・BudgetLimited・Completeなどで意味が異なる。Completeも承認やマージの完了ではなく、Goalの状態にすぎない点が本題。",
+      "keywords": [
+        "OpenAI Codex",
+        "Codex CLI",
+        "/goal",
+        "Active",
+        "Blocked",
+        "BudgetLimited"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "Auto mode is now the default in Claude Code for Pro, Max, and Team plans | Claude by Anthropic",
+      "url": "https://claude.com/blog/auto-mode-default-in-claude-code",
+      "publishedAt": "2026-08-07T23:44:42.000Z",
+      "tags": [
+        "テクノロジー",
+        "AI"
+      ],
+      "snippet": "We're making auto mode the default in Claude Code. Starting on August 14, new sessions on Pro, Max, and Team plans will run in auto mode. If you've already set a different default yourself, you may get a one-time prompt asking whether you want to switch to auto mode. If you have a pinned default,...",
+      "metrics": {
+        "hatena": 19
+      },
+      "sourceWeight": 3,
+      "id": "ab276623c0a8b8a2",
+      "lang": "en",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.8305263157894738,
+      "popularityPercentile": 0.6842105263157895,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": true,
+      "score": 88,
+      "oneLiner": "Claude CodeがPro・Max・TeamプランでAuto modeを新規セッションの標準設定にする。",
+      "reason": "8月14日から対象プランの新規セッションはAuto modeで開始される。既に別の既定値を設定している場合は、一度だけ切り替え確認が表示される。",
+      "keywords": [
+        "Claude Code",
+        "Auto mode",
+        "Pro",
+        "Max",
+        "Team",
+        "Anthropic"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "ai",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Codeのpush前フックをworktree対応にする(CLAUDE_PROJECT_DIRの罠)",
+      "url": "https://qiita.com/itaraiguma/items/d9f0e302b0b7c1826a7b",
+      "publishedAt": "2026-08-08T12:09:19.000Z",
+      "author": "itaraiguma",
+      "authorDetail": {
+        "name": "itaraiguma",
+        "handle": "@itaraiguma",
+        "url": "https://qiita.com/itaraiguma",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocLgqnR02vKLNdGPNWqtMCSwc0C8iK6zlcJhRWGk0yQBkl1lpg8=s96-c",
+        "followers": 0,
+        "posts": 13,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/it-araiguma"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/it_araiguma"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "Git",
+        "GitWorktree",
+        "個人開発",
+        "フック"
+      ],
+      "snippet": "この記事でできること 個人開発している技術記事キュレーションサービス「DevPick」と、その姉妹サービス「AgentPick」では、どちらもClaude Codeでの作業にgit worktreeを多用しています。 Claude Codeのgit push/gh pr create前にdocs整合性チェックやAIコードレビューを走らせるフックを組んでいると、git worktreeで複数セッションを並行させたときに、フックが元のリポジトリ本体の差分を見てしまい、無関係な変更でブロックされたり、逆に本来レビューすべき変更を素通りさせたりすることがあります。原因は環境変数CLAUDEPROJECTDIRをディレクトリ特定に使っていることです。この記事では、フック入力JSONのcwdを使う直し方をまとめます。設計の背景・気づいた経緯はZenn版で書いています。 前提 ・Claude Codeの…",
+      "body": "この記事でできること\n\n個人開発している技術記事キュレーションサービス「DevPick」と、その姉妹サービス「AgentPick」では、どちらもClaude Codeでの作業にgit worktreeを多用しています。\n\nClaude Codeのgit push/gh pr create前にdocs整合性チェックやAIコードレビューを走らせるフックを組んでいると、git worktreeで複数セッションを並行させたときに、フックが元のリポジトリ本体の差分を見てしまい、無関係な変更でブロックされたり、逆に本来レビューすべき変更を素通りさせたりすることがあります。原因は環境変数CLAUDEPROJECTDIRをディレクトリ特定に使っていることです。この記事では、フック入力JSONのcwdを使う直し方をまとめます。設計の背景・気づいた経緯はZenn版で書いています。\n\n前提\n・Claude Codeの.claude/settings.jsonで、git push/gh pr createをトリガーにしたPreToolUseフックを組んでいる\n・EnterWorktreeなどでgit worktreeのセッションに入り、そこからpush/PR作成を行う運用をしている\n\nこの2つを組み合わせている場合に、以下の問題が起こり得ます。\n\n何が起きるか\n\nClaude CodeのセッションでCLAUDEPROJECTDIRを使ってリポジトリのルートにcdしているフックは、次のように書かれていることが多いはずです。\n\n [code] \n\nCLAUDEPROJECTDIRはセッション開始時点の値で固定される仕様で、セッション中にEnterWorktreeでworktree配下に移動しても値は更新されません。Bashツールの実際のカレントディレクトリ(pwd)はworktree配下に切り替わっているのに、フック側はセッション開始時のリポジトリ本体を見続けます。\n\nこの状態でworktreeからpushすると、フックは実際にはworktreeではなくリポジトリ本体の方でgit diffを取ります。この時リポジトリ本体側に別の未pushの変更が残っていれば、それがworktree側の差分として誤って扱われ、無関係な差分でブロックされます。逆にリポジトリ本体側がクリーンなタイミングでは、空diffとして扱われ、本来レビューすべきworktree側の変更がノーチェックで通ってしまいます。\n\n直し方：フック入力JSONのcwdを優先する\n\nClaude Codeはフックを実行するたびに、標準入力にJSON形式のコンテキストを渡します。このJSONには、Bashツールが実際に呼び出された時点のカレントディレクトリがcwdフィールドとして含まれています。CLAUDEPROJECTDIRより、こちらが実態を正しく反映しています。\n\ncdする前に、標準入力からこのcwdを読み取るようにします。\n\n [code] \n\nポイントは3つです。\n・標準入力は一度しか読めないので、catで変数に受けてからjqで.cwdを取り出す(パイプで直接jqに渡すと、後続処理で入力を再利用できなくなる)\n・.cwdが無い場合に備えて// emptyで空文字にフォールバックさせ、jqの評価自体が失敗してスクリプトを止めないようにする\n・最終的なcd先はcwd → CLAUDEPROJECTDIR → .の優先順位にする。worktreeを使わない通常セッションではcwdとCLAUDEPROJECTDIRは基本的に一致するので、この変更で既存の動作は壊れない\n\nsettings.json側のインラインフックも同じ対応が必要\n\n.claude/settings.jsonにインラインで書いているフック(例えばpush前チェックスクリプトを呼ぶだけの短いコマンド)も、同じ理由でworktree配下では誤動作します。こちらも標準入力からcwdを取り出し、チェックスクリプトの実行場所として使うようにします。\n\n [code] \n\nチェックスクリプト自体の置き場所($CLAUDEPROJECTDIR/scripts/...)はリポジトリ本体で固定でよいですが、そのスクリプトが何を対象にチェックするか(cd先)はcwd優先にする必要がある、という点は同じです。\n\nまとめ\n・CLAUDEPROJECTDIRはセッション開始時に固定され、EnterWorktree後も値が変わらない\n・push前フックのディレクトリ特定にこれだけを使っていると、worktreeセッションで無関係な差分を見てブロックされたり、逆に本来の変更がノーチェックで通ったりする\n・フック入力JSON(標準入力)のcwdフィールドには、実際に呼び出された時点のカレントディレクトリが入っている。これをCLAUDEPROJECTDIRより優先して使う\n・cwdが取れない場合だけCLAUDEPROJECTDIRにフォールバックすれば、worktreeを使わない既存の運用は壊さずに済む\n\nworktreeで複数セッションを並行させる運用をしている場合は、pushやPR作成の前に自動で走らせているフック・スクリプトがディレクトリ特定に何を使っているか、一度洗い出しておくことをおすすめします。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "781cfda6e9e8b4b0",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7477987421383648,
+      "popularityPercentile": 0.3081761006289308,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Claude Codeのpush前フックをworktreeごとの作業ディレクトリで動かす修正方法を解説している。",
+      "reason": "CLAUDE_PROJECT_DIRはセッション開始時の本体リポジトリを指し続けるため、worktreeの変更を検査できない。フック入力JSONのcwdを使えば、実際にpushする作業ツリーを対象にできる。",
+      "keywords": [
+        "Claude Code",
+        "CLAUDE_PROJECT_DIR",
+        "Git worktree",
+        "PreToolUse",
+        "git push",
+        "gh pr create"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CloudflareのWebMCPの何が「やばい」のか",
+      "url": "https://qiita.com/ichiken26/items/41a1daa2277b68031b92",
+      "publishedAt": "2026-08-08T16:14:10.000Z",
+      "author": "ichi ken",
+      "authorDetail": {
+        "name": "ichi ken",
+        "handle": "@ichiken26",
+        "url": "https://qiita.com/ichiken26",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/97601028?v=4",
+        "followers": 1,
+        "posts": 9,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/ichiken26"
+          }
+        ]
+      },
+      "tags": [
+        "#Cloudflare",
+        "#WebMCP",
+        "#MCP",
+        "AIエージェント",
+        "AI活用"
+      ],
+      "snippet": "CloudflareのWeb MCPは間違いなくパラダイムシフトの1つである。 2026年8月6日、Cloudflareから「WebMCP」というなかなか面白い機能がDeveloper Previewとして公開された。 https://blog.cloudflare.com/webmcp/ 今回はこの内容を自分なりにかみ砕いて説明する。 最近MCPという言葉自体はかなり聞くようになったが、 「WebMCPって普通のMCPと何が違うんや？」 「WebサイトがMCPになるってどういうことや？」 と思った人もいるのではないだろうか。 自分も最初に発表を見たときは、 「Cloudflare通してるWebサイトが勝手にMCP Serverになるってこと？」 くらいの理解であった。 しかし、調べてみるとそんなものではなかった。まさにパラダイムシフトと評すべきものである。 そして個人的には、単なるClo…",
+      "body": "CloudflareのWeb MCPは間違いなくパラダイムシフトの1つである。 \n2026年8月6日、Cloudflareから「WebMCP」というなかなか面白い機能がDeveloper Previewとして公開された。\n\nhttps://blog.cloudflare.com/webmcp/\n\n今回はこの内容を自分なりにかみ砕いて説明する。\n\n最近MCPという言葉自体はかなり聞くようになったが、\n\n「WebMCPって普通のMCPと何が違うんや？」\n「WebサイトがMCPになるってどういうことや？」\n\nと思った人もいるのではないだろうか。\n\n自分も最初に発表を見たときは、\n「Cloudflare通してるWebサイトが勝手にMCP Serverになるってこと？」\nくらいの理解であった。\n\nしかし、調べてみるとそんなものではなかった。まさにパラダイムシフトと評すべきものである。\n\nそして個人的には、単なるCloudflareの新機能というより\n「Webサイトの作り方そのものが大きく変わる可能性のある技術」\nではないかと思う。\n\n今回はWebMCPとは何なのか、Cloudflareが何をしたのか、そしてこれが普及するとWeb開発がどう変わるのかをまとめる。\n\n現在のWebサイトについて\nそもそも今のWebサイトは「人間が操作する」前提で作られている。\n例えばタスク管理アプリなら、\n\n1. タスク名を入力する\n2. 「追加」ボタンを押下する\n3. 「タスク一覧に追加される」というUIが表示される\n\nAIエージェントがこのWebサイトを操作しようとすると、基本的にはこの人間向けUIをAIが頑張って操作することになる。\n\nAIが以下のようなスクレイピング的操作をするということである\n\n1. ページを見る\n2. DOMや画面を解析\n3. 「これはタスク入力欄っぽい」\n4. 文字を入力\n5. 「これは追加ボタンっぽい」\n6. クリック操作\n\n最近のブラウザエージェントはかなり賢くなっているので、これでもそれなりに動く。\n\nしかし、よく考えるとかなり回りくどい。\n\nAIがやりたいことは単純に、\n\n [code] \n\nこれだけだ。わざわざ人間用の入力フォームを探してクリックする必要はない。\n\nWebMCP\nここでWebMCPの登場である。\nWebMCPは、Webサイト側が\n\n「このサイトではAIからこういう操作ができるで」\n\nというToolをブラウザに公開できる仕組みである。\n\n現在Chrome 146で実験的に提供されており、ページ上には document.modelContext というAPIとして現れる。\n\n例えばタスク管理アプリなら、\n [code] \nというToolを公開する。\n\nするとAIエージェントは、\n\n1. 画面を見る\n2. 入力欄を探す\n3. 文字を入力する\n4. ボタンを探す\n5. クリックする\n\nのではなく、\n\n1. createtask\n2. { title: \"Cloudflareについて調べる\" }\n\nと直接アプリを操作できる。\n\nつまりWebサイトに\n\n人間向けには「HTML / CSS / JS によるUI」\nAI向けには「WebMCP Tools」\n\nという2つのインターフェースを持たせることができる。\nこれがWebMCPのかなり重要なところだろう。\n\n普通のMCPとは何が違うのか\n\nここで「それ普通のMCP Serverでよくね？」と思うかもしれない。\n\n通常のMCPはざっくり、\n [code] \nという構造になる。\n\n対してWebMCPは、\n [code] \nとなる。\n\nつまり\n「今ブラウザで開いているWebサイト自身がAIにToolを公開する」\nというところが大きく違う。サーバーサイドではなくクライアントサイドで動いているのだ。\n\n認証について\n特に面白いのが認証である。\n\n例えばユーザーがタスク管理アプリにログインしているとする。\nそのブラウザ上で動いているAIなら、WebMCP経由でそのユーザーのセッションを利用した操作ができる。\nCloudflareのSite MCP Server Packも、サイト自身のMCP endpointをsame-originで呼び出し、訪問者の既存セッションを利用する構成になっている。\n\nこれによって、\n\nユーザーが「今日のタスク教えて」と言ったことをAIに指示すると\nAIがgettodaytasks()を実行し、タスク管理アプリのクライアントサイドが「ログイン中ユーザーのタスク」を返す。\n\nAIが「今日はこの5件が期限やで」といったことができる。\n\nじゃあCloudflareは今回何をしたのか\n\nWebMCPそのものはCloudflare独自規格ではない。先ほども述べたようなChromeの実験搭載機能である。\n\n今回Cloudflareがやったのは\n「既存のWebサイトを簡単にWebMCP対応させるためのBridgeを作った」\nというものだ。\n\nCloudflare DashboardからWebMCPを有効にすると、CloudflareはHTMLを配信するときにHTMLRewriterを使ってBridge Scriptを挿入する。\n\nイメージとしては、\n\nユーザー(クライアント)\n ↓\nCloudflare Edge\n ↓\n元のHTML + WebMCP Bridge\n ↓\nBrowser\n ↓\ndocument.modelContext\n\nとなる。\n\n重要なのは、「Origin側のコードを変更する必要がない」ということだ。\n\n静的サイトでもSPAでも同じように動く。\nまさにエッジコンピューティングサービスを提供しているCDNの会社Cloudflareらしいといえるだろう。\n\n「Webサイト側の改修が必要なくね？俺らがEdgeで挟んでやればええやん？」という発想だ。\n具体的にはサイトのHTMLに\n [code] \nを挟み込みdocument.modelContext.registerTool(...)でWebページからエージェントにツールを公開してくれる。\n\nではスイッチをONにしたら何でもAIから操作できるのか？というとそうではない。\n\n例えば自分でタスク管理アプリを作って、\n\nCloudflare WebMCPをONにしたからと言って、AIが「ほーんこれはタスク管理アプリやんね」と解釈して\n [code] \nと言った関数群が生えてくるわけではない。\n\nCloudflareがアプリの仕様を解析して、CRUD操作を勝手にTool化してくれるわけではないのだ。\n現時点のDeveloper Previewでは「Tool Pack」という形で機能が提供されており、最初から用意されているのは主に\n\n1. Content Credentials Pack\n2. Site MCP Server Pack\n\nの2つである。\n\nContent Credentials Packはページ内画像のC2PAメタデータを調べるためのものである。\nつまり、「この画像はAdobe Illustratorで作られたんやな」といった来歴情報を認識できる。\n\nSite MCP Server Packは、サイトが既に持っているMCP ServerのToolをWebMCPへ橋渡しするものである。\n\nつまり自作タスク管理アプリなら、\n [code] \nといったアプリ固有の操作は、自分で設計する必要がある。\n\nCloudflareがやってくれるのは、そのToolをブラウザAIから使えるようにするためのBridge部分である。\n\n実例を交えて\nタスク管理アプリを公開するものとしよう\n\n例えばCloudflare Workers + D1でタスク管理アプリを作ったとする。\n※補足: \nWorkersはエッジサーバー上で動作し、静的サイトの配信やAPIなどのバックエンド処理を動かせるサーバーレス実行環境, \nD1はSQLite互換のサーバーレスSQLデータベースである\n\nNuxtを使って実装するとしよう。構成は以下のよう\n [code] \nここにMCPを追加する。\n [code] \nそしてMCP Serverから、\n [code] \nを公開する。\n\nCloudflare WebMCPを有効にすると、\n [code] \nという構造にできる。\n\nすると例えばブラウザAIに「Cloudflareについて調べるタスク登録してたっけ？」と聞く。\n\nAIは、\n [code] \nを呼ぶ。\n\nタスク管理アプリが、\n [code] \nを返す。\n\nそしてAIが「これじゃね？」と答える。\n\nつまりAIを自分のアプリに組み込んでいないのに、AIからアプリを操作できる。\n\n「MCP Serverさえ用意しておけば、WebMCP対応のためのフロント改修をほぼせずにBrowser AgentへToolを公開できるのである」\nここが個人的にWebMCPで一番面白いと思ったところである。\n\n「アプリにAIを入れる」から「AIがアプリを使う」へ\n\nここ数年、WebサービスへのAI導入というと、\n [code] \nという構成が多かった。\n\nつまり「自分のアプリの中にAIを入れる」という考え方である。\n\nWebMCPは逆である。\n [code] \nつまり、「ブラウザ上のAI AgentがWeb Appを使う」\nLLMの実行主体がWebアプリ側からBrowser Agent側へ移るのだ。\n\nユーザーが普段使っているAIエージェントから、そのままWebサービスを利用できる。\n例えばタスク管理アプリなら、\n「今日のタスク整理して」\nだけで\n [code] \n\nということも可能になる。\n\n予約サイトなら「8月10日の19時から渋谷で2人で入れる店探して」と指示すれば\n [code] \nという操作ができる。\n\nECサイトなら\n [code] \nなどを公開できる。\n\nAIがDOMを解析してボタンをクリックする必要がなくなる。UI操作でトークンを消費することがなくなるのだ。\n\nより詳しく図解\nAPI・UI・MCP・WebMCPの4分類が登場人物である。こう考えるとかなり分かりやすい。\n\n今までWebアプリには大きく、\n\n人間が使う「UI」\nプログラムが使う「REST API / GraphQL」\nの2種があった。\n\n最近はAIにとってのわかりやすい説明書たる「MCPサーバー」が出てきたのでこれを加えて3種類。\nここに、WebアプリにおいてはAI Agentが使う入口として「WebMCP」が増える。\nただし、Chrome公式が「WebMCP is not an extension or a replacement of MCP.」というようにWeb MCPはMCPサーバーの拡張でも置き換えでもない。\nWeb MCPは「サイトを開いているときだけ使えるAI用インターフェース」でMCPサーバーは「アプリ外からいつでも利用できるAI用インターフェース」である。\n\nhttps://developer.chrome.com/docs/ai/webmcp/compare-mcp?authuser=002&hl=ja\n\nつまり、ユーザーがアクセスしたときに動く範囲として\n [code] \nという構造である。\n\nWebMCPが普及した場合、Webサービスを作るときに、\n\n「画面どうする？」\n「APIどうする？」\n\nだけではなく、\n\n「Agentには何のToolを公開する？」\n\nという設計が入ってくるということだ。\n\nWeb MCPには何を置く？\nそして個人的にここはかなり重要だと思っている。\n\nWebMCPでは、AIに何をさせるかをサイト側が決められる。\n\n例えばタスク管理アプリなら、\n [code] \nといった設計ができる。\n\nAIにDBを直接触らせるわけではない。\nあくまで、サイト側が許可したToolだけをAIに渡す。\n\nなので今後WebMCPが普及した場合、\n\n「AI対応するかどうか」\n\nだけではなく\n\n「AIにどこまで権限を渡すか」\n\nという設計がかなり重要になりそうである。\n\n特に削除、購入、送信、公開などの不可逆操作については、人間による確認をどう挟むかというUX設計も必要になってくるだろう。\n\nAIクローラーとの違いも面白い。\nCloudflareが今回かなり強調しているのがこの部分である。\n\n現在の生成AIでは、\n [code] \nという構造になることが多い。\nサイトの情報だけ取られて、ユーザーは元サイトに来ない。\n\nWebMCPでは、\n [code] \nとなる。\n\nつまりAIがサイトの公式な入口を使ってサイト自身とやり取りする。\nCloudflareも、従来のクローラーがコンテンツをサーバーへコピーし、元サイトにトラフィックやクレジットが十分戻らない問題を今回の発表で明確に挙げている。\n\nAI時代のWebについて「AIにクロールさせるか、させないか」ではなく\n「AI用の正式なインターフェースを提供する」という第三の選択肢が出てきたとも言える。\n\nただしまだかなり実験段階、、\nここまで書くとすぐにでもWebMCP対応した方が良さそうに見えるが、まだそこまでではない。\n\n現状WebMCPはChrome 146で実験的に提供されている段階であり、Cloudflareの機能についてもDeveloper Previewである。\n仕様も今後変わる可能性がある。\n\nそのため「今後すべてのWebサイトがWebMCP対応する」とまで言うのは早い。\nが、「Webサイトが人間だけではなくAI Agentから操作されることを前提にする」という考え方自体はかなり面白い。\n\nまとめ\n\n今回のCloudflare WebMCPについて調べてみたが、最初に思っていた\n\n「Cloudflareがサイトを勝手にMCP化してくれる」\n\nというものではなかった。\n\n正確には\n\n「Webサイトが持っているAI向けToolを、ブラウザAIから利用しやすくするBridgeをCloudflareがEdgeから後付けできるようにした」\n\nというものであった。\n\nそして個人的に面白いと思ったのはCloudflareの機能そのものより、\n\n人間用には「HTMLベースのUI」\nプログラム用には「REST API / GraphQL」\nAIエージェント用には「WebMCP」\n\nという考え方である。\n\nこれまではWebサービスにAIを導入するとき\n「どうやって自分のアプリにAIを組み込むか」\nを考えることが多かった。\n\nしかしWebMCPのような仕組みが普及すると\n「どうやってAIから使いやすいアプリを作るか」\nを考えるようになるかもしれない。\n\n数年後、Webアプリの設計レビューで\n\n「この画面のUIどうする？」\n「APIはこれでいい？」\n\nに加え\n\n「ところでAgent Interfaceどうする？」\n\nという会話を普通にしている可能性もある。\nまだDeveloper Previewではあるが、個人的には今後を追っておきたい技術の一つである。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "937ec501f61a0b85",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7049056603773586,
+      "popularityPercentile": 0.11320754716981132,
+      "matchedTopics": [
+        "AI / LLM",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "CloudflareがWebサイトをAIエージェント向けの操作対象にするWebMCPを公開した。",
+      "reason": "WebMCPはAIに人間向け画面をクリックさせるのではなく、サイト側が操作可能な機能を道具として公開する仕組みだ。CloudflareのDeveloper Previewを起点に、Web開発の前提がどう変わるかを説明する。",
+      "keywords": [
+        "Cloudflare",
+        "WebMCP",
+        "MCP",
+        "AIエージェント",
+        "Developer Preview",
+        "navigator"
+      ],
+      "category": "新機能・新ツール",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Codeが「セッション同士で会話」できるように。並列開発を変えるCross-session messagingとは？",
+      "url": "https://qiita.com/zhao-xy/items/463b310c8a9401a4f2e1",
+      "publishedAt": "2026-08-08T14:41:51.000Z",
+      "author": "Zhao Xin",
+      "authorDetail": {
+        "name": "Zhao Xin",
+        "handle": "@zhao-xy",
+        "url": "https://qiita.com/zhao-xy",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/155256/profile-images/1488508981",
+        "organization": "株式会社テックオーシャン",
+        "location": "東京",
+        "followers": 8,
+        "posts": 159,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/zhao-xinyou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/xBWothnDrdZsUl2"
+          }
+        ]
+      },
+      "tags": [
+        "セッション同士",
+        "ClaudeCode",
+        "Claude",
+        "並列開発"
+      ],
+      "snippet": "Claude Codeを複数のターミナルで同時に動かしている人にとって、かなり面白い進化が登場しています。 それが、セッション間メッセージング（Cross-session messaging）です。 これまでClaude Codeを並列で使う場合、 ・セッションA：データベース設計 ・セッションB：API実装 ・セッションC：テスト作成 ・セッションD：ドキュメント更新 と役割分担することはできても、それぞれのセッションは基本的に独立していました。 そのため、 「DBのカラム名を変更したからAPI側にも伝えたい」 となった場合、人間がセッションAの結果をコピーし、セッションBへ貼り付けて説明する必要がありました。 つまり、AIを複数動かしているのに、人間自身がAI同士の「伝言係」になっていたわけです。 セッション間メッセージングは、この問題を大きく変える可能性があります。 --- Clau…",
+      "body": "Claude Codeを複数のターミナルで同時に動かしている人にとって、かなり面白い進化が登場しています。\n\nそれが、セッション間メッセージング（Cross-session messaging）です。\n\nこれまでClaude Codeを並列で使う場合、\n・セッションA：データベース設計\n・セッションB：API実装\n・セッションC：テスト作成\n・セッションD：ドキュメント更新\n\nと役割分担することはできても、それぞれのセッションは基本的に独立していました。\n\nそのため、\n「DBのカラム名を変更したからAPI側にも伝えたい」\n\nとなった場合、人間がセッションAの結果をコピーし、セッションBへ貼り付けて説明する必要がありました。\n\nつまり、AIを複数動かしているのに、人間自身がAI同士の「伝言係」になっていたわけです。\n\nセッション間メッセージングは、この問題を大きく変える可能性があります。\n\n---\n\nClaude Codeの「セッション」とは？\n\nまず前提として、Claude Codeでは複数の作業を並行して進められます。\n\nたとえば大きなWebサービスを開発している場合、\n\n [code] \n\nという形で、それぞれ別のClaudeに作業を担当させることができます。\n\n人間の開発チームに置き換えれば、\n\n [code] \n\nのようなものです。\n\n問題は、これまで各セッション間の情報共有に人間の介入が必要だったことです。\n\n---\n\n従来は「人間」がメッセージルーターだった\n\nたとえばDB担当Claudeが次の変更を行ったとします。\n\n [code] \n\nAPI担当Claudeにも、この変更を知らせる必要があります。\n\n従来なら、\n\n [code] \n\nという流れになります。\n\n複数セッションを動かせば動かすほど、この作業が増えていきます。\n\n3セッション程度ならまだ管理できますが、5個、10個と増えてくると、\n\n「どのClaudeに何を伝えたか」\n\nを人間が管理しなければならなくなります。\n\nAIを増やした結果、人間側の管理コストが増えるという矛盾がありました。\n\n---\n\nCross-session messagingで何が変わる？\n\nセッション間メッセージングでは、Claude Code側から別のセッション・エージェントへ情報を渡せるようになります。\n\n概念的には、\n\n [code] \n\nという連携が可能になります。\n\n人間がコピー＆ペーストする必要がありません。\n\nさらに複数のClaudeを組み合わせれば、\n\n [code] \n\nのような、小さなAI開発チームに近い構成が見えてきます。\n\n---\n\nカギになる「ListAgents」と「SendMessage」\n\nこの仕組みを理解するうえで重要なのが、エージェントの検出とメッセージ送信です。\n\n \n\n考え方としては非常にシンプルです。\n\nListAgents\n\nまず、\n\n [code] \n\nを調べます。\n\nたとえば、\n\n [code] \n\nのように、現在連携可能なエージェントを把握します。\n\n人間でいえば、\n「今、このプロジェクトには誰が参加している？」\n\nを確認するようなものです。\n\n---\n\nSendMessage\n\n送り先が分かれば、今度は必要な情報を送ります。\n\nたとえばDB担当が、\n\n [code] \n\nとAPI担当へ通知するイメージです。\n\nつまり、\n\n [code] \n\nという流れになります。\n\nClaude Codeの公式CHANGELOGでも、SendMessage を使ったバックグラウンドエージェントの再開や、メッセージの誤配送防止、エージェント間メッセージングのトークン削減など、関連機能の改善が継続的に行われています。\n\n---\n\n会話履歴を丸ごと渡すわけではない\n\nここは重要なポイントです。\n\nAI同士が連携すると聞くと、\n「Claude Aの巨大なコンテキストをClaude Bにも全部コピーするの？」\n\nと思うかもしれません。\n\nしかし、それでは非常に非効率です。\n\n仮にClaude Aが10万トークンの会話履歴を持っていたとして、それをClaude Bへ丸ごと渡せば、トークン消費もコンテキストも一気に膨らみます。\n\n必要なのは多くの場合、\n\n [code] \n\nという数行の情報だけです。\n\nつまり重要なのは、\n\n「コンテキストを共有する」のではなく、「必要な情報をメッセージとして共有する」\n\nという考え方です。\n\n---\n\nこれはトークン節約にもつながる\n\n個人的にかなり重要だと思うのが、この部分です。\n\nこれまで1つのClaudeに、\n\n [code] \n\nを全部やらせると、コンテキストがどんどん巨大化していました。\n\n一方、役割を分ければ、\n\n [code] \n\nという構成が可能になります。\n\nたとえば調査セッションが大量のWeb情報やコードを読み込んだとしても、実装セッションが必要なのは、\n\n [code] \n\nだけかもしれません。\n\nこれは、人間の会社で「100ページの調査資料を全社員に読ませる」のではなく、\n結論だけ会議で共有する\n\nのと同じです。\n\n---\n\n実用例① 調査Claude → 実装Claude\n\nかなり相性がよさそうなのが、\n\nResearch AgentとCoding Agentの分離\n\nです。\n\n [code] \n\nCoding Claudeは大量の調査履歴を抱える必要がありません。\n\n調査担当から、\n\n [code] \n\nという情報だけ受け取ればよいわけです。\n\n---\n\n実用例② DB担当 → API担当\n\n複数人開発に近い使い方もできます。\n\n [code] \n\nDB担当が変更を終えたらAPI担当へ通知。\n\nAPI担当が修正を終えたらテスト担当へ通知。\n\n最終的には、\n\n [code] \n\nという作業フローをClaude同士で引き継ぐ形が考えられます。\n\n---\n\n実用例③ 「司令塔Claude」を置く\n\nさらに面白いのが、1つのClaudeをリーダーとして使う方法です。\n\n [code] \n\n人間はManager Claudeに、\n\n [code] \n\nと依頼する。\n\nManager Claudeが、\n\n [code] \n\nという形で仕事を分解する。\n\nこうなるとClaude Codeは単なる、\n\n「AIコーディングアシスタント」\n\nではなく、\n\n「AI開発チームを動かす環境」\n\nへ近づいていきます。\n\n---\n\n実は以前からユーザーが求めていた機能\n\n興味深いのは、Claude CodeのGitHubでも以前から「複数セッション間で直接情報を共有したい」という要望が出ていたことです。\n\n典型的なのが、\n\n [code] \n\nなど複数セッションを並行稼働させているケースです。\n\nたとえばMigration担当がサーバーIPを変更した場合、他のClaudeは古いIPをコンテキストとして持ったまま作業してしまいます。\n\n従来は人間が全セッションへ変更内容を伝える必要がありました。\n\nこれは複数Claudeを本格利用すると、かなり大きな問題になります。\n\n---\n\nただし「AI同士が勝手に全部やってくれる」わけではない\n\n便利な仕組みですが、注意も必要です。\n\nセッションが増えるほど、\n\n [code] \n\nそれぞれがモデルを利用します。\n\nつまり、\n\nエージェントを増やせば計算資源やトークン消費も増える\n\nという基本構造は変わりません。\n\n「10個立ち上げれば10倍速い」と単純にはいきません。\n\nむしろ重要なのは、\n\n [code] \n\nことです。\n\n---\n\n情報の食い違いにも注意\n\nもう一つ注意したいのが状態管理です。\n\nたとえば、\n\n [code] \n\nという状況が起こる可能性があります。\n\nメッセージングがあったとしても、\n\nプロジェクト全体の状態が自動的に完全同期されるとは限りません。\n\nそのため実際の開発では、\n\n [code] \n\nなど、「最終的な正解となる情報源」を決めておくことが重要です。\n\nClaude同士のメッセージは、\n\n情報伝達の高速道路\n\nとして使い、コードや仕様の最終状態はGitなどで管理するのが安全でしょう。\n\n---\n\nGitとの組み合わせがかなり強そう\n\n特に相性がよいのがGit Worktreeです。\n\nたとえば、\n\n [code] \n\nという構成です。\n\nそれぞれ独立した作業環境でコードを書きながら、必要な情報だけをメッセージで共有する。\n\n最終的に、\n\n [code] \n\nという開発フローが見えてきます。\n\n---\n\nClaude Codeは「1人のAI」から「AIチーム」へ\n\n今回のセッション間メッセージングで重要なのは、単に、\n\n「Claude同士でメッセージを送れるようになった」\n\nという機能追加だけではないと思います。\n\nClaude Codeの使い方そのものが、\n\n [code] \n\nから、\n\n [code] \n\nへ変わる可能性があるからです。\n\nこれまで人間が担当していた、\n\n [code] \n\nという「AIの管理作業」の一部まで、Claude側へ移せる可能性があります。\n\n---\n\nまとめ\n\nClaude Codeのセッション間メッセージングは、派手に見える機能ではありません。\n\nしかし、複数のClaude Codeを並列で使っている人ほどインパクトは大きいでしょう。\n\nこれまでは、\n\n [code] \n\nだった情報伝達が、\n\n [code] \n\nへ変わる。\n\nこの違いは小さく見えて、実は非常に大きいものです。\n\nAIを1つ使う時代から、\n\n複数のAIに役割を与え、互いに連携させる時代へ。\n\nClaude Codeは「優秀なコーディングアシスタント」から、徐々にAIエージェントを束ねる開発環境へ進化しているように見えます。\n\n今後注目したいのは、単純なメッセージ送信だけではありません。\n\nタスクの依存関係、共有状態、レビュー、承認、Gitとの連携まで、どこまでAI同士で自律的に回せるようになるのか。\n\nセッション間メッセージングは、その入口になる機能かもしれません。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "dd1796df255be940",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7208176100628931,
+      "popularityPercentile": 0.18553459119496854,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 86,
+      "oneLiner": "Claude Codeを複数のターミナルで同時に動かしている人にとって、かなり面白い進化が登場しています。 それが、セッション間メッセージング（Cross-se…",
+      "reason": "",
+      "keywords": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "category": "その他",
+      "domain": "ai",
+      "readingMinutes": 7,
+      "payoff": "aware",
+      "durability": "durable"
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn",
+      "title": "WebMCPのnavigator/document揺れをGitHub Issueで裏取りしフォーム公開PoCを書いた",
+      "url": "https://zenn.dev/mskbhd/articles/lab-238-webmcpfeature-detectionpoc",
+      "publishedAt": "2026-08-08T20:45:50.987Z",
+      "author": "mskbhd",
+      "authorDetail": {
+        "name": "mskbhd",
+        "handle": "@mskbhd",
+        "url": "https://zenn.dev/mskbhd",
+        "avatarUrl": "https://res.cloudinary.com/zenn/image/fetch/s--5zTTu8b_--/c_limit%2Cf_auto%2Cfl_progressive%2Cq_auto%2Cw_70/https://static.zenn.studio/user-upload/avatar/5275e53d75.jpeg?_a=BACMTiAE",
+        "links": []
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "a54fac825346cafe",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.7008620689655173,
+      "popularityPercentile": 0.09482758620689655,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 86,
+      "oneLiner": "WebMCPのnavigatorとdocumentの挙動差を検証し、フォーム公開のPoCを作成している。",
+      "reason": "WebMCPの実装差をGitHub Issueの記録で裏付けながら、フォームを外部へ公開する最小構成をPoCに落としている。仕様説明だけでなく、実際のブラウザ上の挙動を軸に読める。",
+      "keywords": [
+        "WebMCP",
+        "navigator",
+        "document",
+        "GitHub Issue",
+        "フォーム",
+        "Cloudflare"
+      ],
+      "category": "Web標準/ブラウザ",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude apps gatewayをAWSに構築してClaude Codeの認証とコスト管理を一元化してみた",
+      "url": "https://qiita.com/RP4nda13/items/d9249816995b6467356a",
+      "publishedAt": "2026-08-07T23:24:33.000Z",
+      "author": "RP4nda13",
+      "authorDetail": {
+        "name": "RP4nda13",
+        "handle": "@RP4nda13",
+        "url": "https://qiita.com/RP4nda13",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/419035/8848cb5d9bf3de32f5f6ca2ed88179b2c49e8398/x_large.png?1770215804",
+        "followers": 1,
+        "posts": 2,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/RP4nda13"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "AWS",
+        "bedrock",
+        "Anthropic",
+        "Keycloak"
+      ],
+      "snippet": "<!-- 【公開前チェックリスト】 ・images/ 配下の画像(AWSブログ引用2枚 / my-architecture.png / dashboard.png / verify-1〜6)をQiitaにアップロードしてURL差し替え ・my-architecture.pngの元データは my-architecture.drawio(draw.ioで編集可能。編集後は再エクスポートする) ・verify-.png はマスキング済み(ドメイン・認証コード・レルム名・ユーザー名)。公開前に目視で再確認する ・gateway.yamlのモデルIDは list-inference-profiles の実IDで最終確認(jp.プレフィックス) --> はじめに 私はClaude CodeをAmazon Bedrock経由で利用するチームの運用を担当しているのですが、ずっと悩みの種だったのが認証とコス…",
+      "body": "<!--\n【公開前チェックリスト】\n・images/ 配下の画像(AWSブログ引用2枚 / my-architecture.png / dashboard.png / verify-1〜6)をQiitaにアップロードしてURL差し替え\n・my-architecture.pngの元データは my-architecture.drawio(draw.ioで編集可能。編集後は再エクスポートする)\n・verify-.png はマスキング済み(ドメイン・認証コード・レルム名・ユーザー名)。公開前に目視で再確認する\n・gateway.yamlのモデルIDは list-inference-profiles の実IDで最終確認(jp.プレフィックス)\n-->\n\nはじめに\n\n私はClaude CodeをAmazon Bedrock経由で利用するチームの運用を担当しているのですが、ずっと悩みの種だったのが認証とコスト管理です。\n以前の記事ではメンバーごとにアプリケーション推論プロファイルを作成してコストを可視化する方法を紹介しましたが、正直に言うとこの運用はかなりしんどくなってきていました。\n\nhttps://qiita.com/RP4nda13/items/62c5d37f8608881a2790\n\nそんな中、Claude apps gatewayというソリューションが登場しました。\n2026年7月にはAWS公式ブログでもBedrockと組み合わせた構成が紹介されています。\n\n本記事では、Claude apps gatewayとは何者なのか、既存のCloudWatchダッシュボードによるメトリクス収集と何が違うのか、そして実際にAWSで構築したアーキテクチャとハマりどころをまとめます。\n\nこれまでの運用とつらみ\n\nまず前提として、私たちの環境には社内コンプライアンス上の強い制約があります。(JTCあるある)\n主には推論を国内リージョンに限定すること、そして入出力データを保持させないこと(ゼロデータ保持)です。\nこの要件を満たせるのがAmazon Bedrockだったため、Claude Codeは東京リージョンのBedrock経由で利用しています。\nモデルはJPプレフィックス付きの国内クロスリージョン推論プロファイル(東京と大阪の間でのみルーティングされるプロファイル)を使い、推論が国外に出ないようにしています。\n\nその上で、メンバーごとのLLM利用量を把握するために、アプリケーション推論プロファイルを個人単位かつモデル単位で発行してコスト配分タグを付けていました。\nこの方式は確かに動くのですが、運用負荷が重いのが難点でした。\n\n新しいモデルがリリースされるたびに人数分のプロファイルを作成し、開発者が増えればモデル数分のプロファイルを作成します。\n例えば、10人のチームでOpus,Sonnet,Haikuの3モデルを使うだけでプロファイルは30個です。\nモデルの世代交代も頻繁にあるので、作っては消しの繰り返しで、管理台帳とAWS上の実体はすぐズレていきます。\n\n認証まわりの開発者体験にも課題がありました。\n開発者は毎朝 aws login を実行してブラウザで認証し、その一時クレデンシャルでBedrockにアクセスします。(これも社内制約でIdentityCenterによるSSOが使えないのが背景...)\nこのセッションは1日で切れるため、翌日また同じ操作が必要です。\nClaude Codeを使いたいだけなのにAWSの認証操作が毎日挟まるのは、地味にストレスでした。\n\nさらに、利用状況のメトリクス収集も自前で設計する必要がありました。\nClaude CodeはOpenTelemetryでメトリクスを出せるのですが、どのメトリクスを収集するか、コレクターをどこに立てるか、ユーザーをどう識別するかを全部自分たちで決めて作り込む必要がありました。\n\nClaude apps gatewayとは\n\nClaude apps gatewayは、開発者のClaude Codeクライアントとモデルプロバイダーの間に立つセルフホスト型のゲートウェイです。\nAnthropic自身が開発しているもので、私も最初見た時に驚いたのですがなんと claude バイナリに同梱されています。\nつまりラップトップでClaude Codeを動かすのと同じ実行ファイルが、 claude gateway --config gateway.yaml と打つだけでゲートウェイサーバーになります。\n\n \n\n出典: Introducing Claude apps gateway for AWS (AWS Machine Learning Blog)\n\n開発者は個別のAPIキーやAWSクレデンシャルを一切持たず、会社のIdP(IDプロバイダー)へのSSOサインインだけでClaude Codeを使えるようになります。\nBedrockへの認証情報はゲートウェイだけが持ち、誰が何をどれだけ使えるかはゲートウェイが一元管理します。\n\nAWSブログでは、ゲートウェイの責務として次の5つが挙げられています。\n\nまずIdentityです。\nOIDC(OpenID Connect)準拠のIdPと連携し、ブラウザSSOで短命トークンを発行します。\nOkta、Microsoft Entra ID、Google Workspace、Keycloakなどが使えます。\n\n次にPolicyです。\nモデルのallowlistやmanaged settings(管理者が強制する設定)をIdPのグループ単位でサーバー側から配布し、開発者側では上書きできません。\n\n3つ目はTelemetryです。\nトークン数、モデル、ユーザーID、レイテンシといった利用メトリクスを、OTLP(OTELの転送プロトコル)でCloudWatchやPrometheusなどの好きな観測基盤に送れます。\n\n4つ目はRoutingです。\nクライアントはAnthropicのMessages APIを話し、ゲートウェイがBedrock、Claude Platform on AWS、Google Cloud、Microsoft Foundryといった各アップストリーム向けに変換します。\nリージョンやプロバイダーの切り替え、フェイルオーバーも開発者に意識させず行えます。\n\n最後にSpend capsです。\nユーザー、グループ、組織の単位で日次・週次・月次の支出上限を設定でき、超過するとリクエストがブロックされます。\n\nインフラ要件はシンプルで、Linuxで動くコンテナ1つとPostgreSQL(サインイン状態や支出カウンタの保存先)だけです。\nただしセキュリティ上の設計として、ゲートウェイはプライベートネットワークのアドレスでしか動かせません。\nClaude Code側が /login 時にゲートウェイのホスト名がプライベートIPに解決されることを検証するため、インターネットに公開する構成はそもそも組めないようになっています。\n\nCloudWatchのダッシュボードとどう違うのか\n\n「Claude Codeの利用状況を見るならCloudWatchのダッシュボードがすでにあるのでは」と思った方もいるはずです。\n私も最初はそこが混乱したので、位置関係を整理します。\n\n従来のOTELメトリクス収集\n\nClaude Codeは、トークン使用量、セッション、コード編集、ツール呼び出し、コストといったメトリクスをOTELで送信できます。\nAWS公式のサンプル実装であるGuidance for Claude Code with Amazon Bedrockは、OTel CollectorをECS Fargateに立ててこれらを集約し、ユーザー別のCloudWatchダッシュボードを構築する方式でした。\n私たちが当初検討していたのもこの延長で、コレクターの設計もメトリクスの取捨選択も自前でやる前提です。\n\n新機能のCloudWatch Coding Agent Insights\n\nそこに2026年7月、CloudWatch Coding Agent Insightsが発表されました。\nCloudWatchコンソールのGenAI Observabilityメニューに追加された、AIコーディングエージェント専用の組み込みダッシュボードです。\nダッシュボードを自分で作成したりインポートしたりする必要はなく、所定の形式のメトリクスが届き始めると自動で表示されます。\nClaude Codeだけでなく、OpenAI CodexやGitHub Copilotにもエージェント別のタブで対応しています。\n\n見られるのは、トークン消費量、ターンごとのレイテンシ、ツール呼び出し、APIリクエスト、承認操作などです。\nこれらを組織・部門・チーム・コストセンター・ユーザーといった組織属性でスライスして比較できるのが特徴で、どのチームで導入効果が出ているか、支出のトレンド、モデルごとの費用対効果といった、リーダー層が見たい切り口を最初から想定した作りになっています。\nデータはCSVでエクスポートでき、メトリクスはPromQL(Prometheus由来のクエリ言語)で検索できるので、独自のダッシュボードやアラームを組むこともできます。\n料金は専用の課金があるわけではなく、CloudWatchの標準のOTELメトリクス取り込み料金だけで使えます。\n\n1つ注意があるとすれば、ダッシュボードが期待するメトリクスの形が決まっていることです。\nCloudWatchのOTLPエンドポイントに送ること、そして user.email や team.id などの識別属性をOTELのリソース属性として送ることが前提で、この形が崩れるとダッシュボードに反映されません。\n\nゲートウェイとの位置関係\n\nそのCloudWatchのドキュメントでは、Claude Codeからメトリクスを送る設定として2つのパスが案内されています。\n1つは各開発者のClaude CodeからbearerトークンでCloudWatchのOTLPエンドポイントに直送するパスで、個人や小規模チーム向けです。\nもう1つが、Claude apps gatewayを経由して組織展開するパスです。\n\nではこの2つは何が違うのか。\nひとことで言うと、OTELメトリクスの直送は「観測」の仕組みで、ゲートウェイは「観測に加えて制御」の仕組みです。\n\n| 観点 | OTELメトリクス直送 | Claude apps gateway |\n|---|---|---|\n| 主な役割 | 利用状況の観測 | アクセス・ポリシー・コストの制御 |\n| ユーザー識別 | クライアント側の環境変数で自己申告 | SSOサインインしたIdP上のID |\n| 設定の強制力 | 各開発者の設定次第 | サーバー側で強制(テレメトリ送信先もピン留め) |\n| 支出上限 | なし(見るだけ) | ユーザー/グループ/組織単位でブロック可能 |\n\n従来方式では、メトリクス送信の設定は各開発者マシンの環境変数に依存します。\n設定漏れがあればその人のメトリクスは欠落しますし、ユーザー識別も OTELRESOURCEATTRIBUTES に自分で名乗った値が使われるだけです。\nつまり性善説の仕組みで、集計の網羅性を担保するには配布と統制の作り込みが別途必要でした。\n\nゲートウェイ経由では、利用の記録はSSOでサインインした本人のIDに紐づいてサーバー側で行われます。\nテレメトリの送信先はゲートウェイが配布する設定でピン留めされ、ローカルの OTEL 環境変数より優先されるため、開発者側の設定ミスや細工で計測から漏れることがありません。\nそして計測だけでなく、支出上限による自動ブロックまで踏み込めます。\n\n大事なのは、この2つが排他ではないことです。\nゲートウェイはテレメトリをOTLPで任意の宛先にファンアウトできるので、CloudWatchのOTLPエンドポイントに送ればCoding Agent Insightsのダッシュボードがそのまま使えます。\n私たちにとっては「収集と可視化はCloudWatchにお任せ、認証やコスト制御はゲートウェイ」という分担がそのまま組める形です。\n\n導入すると何が嬉しいのか\n\n最初で語った運用のつらみに対して、導入メリットを整理します。\n\n【メリット1】 アプリケーション推論プロファイルの量産からの解放\n\nゲートウェイはサインインしたユーザー単位で利用額を計測するため、個人を識別する目的でAWS側のリソースを分ける必要がなくなります。\nBedrock側は共通の推論プロファイルを1系統用意するだけでよく、個人単位×モデル単位のプロファイル発行は不要になります。\n\n新モデルへの対応は gateway.yaml の models: にエントリを1つ追加して再デプロイするだけです。\n開発者が増えたときはKeycloakにユーザーを追加するだけで、AWS側の作業はゼロです。\n「モデルリリースのたびに人数分のプロファイルを作る」運用から解放されるのは、運用者としては一番嬉しいポイントでした。\n\n【メリット2】 毎朝のaws loginからの解放\n\n開発者はAWSクレデンシャルを一切持たなくなります。\nBedrockへの認証はゲートウェイのECSタスクロールが担い、開発者はブラウザで1回SSOサインインするだけです。\nセッションはTTL(この構成では8時間)の期限前にサイレント更新されるので、毎朝の認証儀式は不要になります。\n\n【メリット3】 社内ツールと認証を一元化できる\n\n私たちはIdPとしてKeycloakを自前で立てており、GitLabやRedmineの認証もそこに集約しています。\nゲートウェイも同じKeycloakのレルムにクライアントとして登録したので、開発者から見れば「いつもの社内アカウント」でClaude Codeにもログインできることになります。\nツールごとのパスワード管理から解放されるうえ、退職者のアカウントをIdPで無効化すればゲートウェイのセッションもTTL以内に失効します。\nオフボーディングの抜け漏れ対策として、これはかなり効きます。\n\n【メリット4】 メトリクス収集の設計をほぼお任せできる\n\nどのメトリクスを取るか、ユーザーをどう識別するか、コレクターをどう立てるかを自前で設計しなくても、ゲートウェイが標準でトークン数・モデル・ユーザーID・レイテンシを記録してくれます。\n誰がいくら使ったかはSpend limitsのAPIで取得でき、支出上限の変更履歴も監査APIで追えます。\nなお、ゲートウェイはプロンプトや応答の中身を保存しません。\nログやトレースまで収集するかは宛先ごとにオプトインで選ぶ設計になっており、ゼロデータ保持の要件とも相性が良いです。\n\n構築したAWSアーキテクチャ\n\nAWSブログにはECS/EKS/EC2上にゲートウェイを置くリファレンス構成が載っています。\n\n \n\n出典: Introducing Claude apps gateway for AWS (AWS Machine Learning Blog)\n\n今回はこれをベースに、既存環境(VPCとKeycloak)へ相乗りする形で開発環境を構築しました。\n実際の構成はこうなっています。\n\n \n\n開発者は同一VPC内の仮想デスクトップ(WorkSpaces)から利用するため、Claude CodeのCLIもサインイン用ブラウザもVPC内で完結します。\nゲートウェイがプライベートアドレス必須という制約とも相性が良く、VPNやResolverエンドポイントの追加は不要でした。\n\nゲートウェイの設定ファイルの肝になる部分はこんな形です。\n\n [code] \n\nモデルIDは環境によって異なるので、 aws bedrock list-inference-profiles で実際のIDを確認してから設定します。\n\n開発者側の設定は、管理者が配布するmanaged-settings.jsonに2行書くだけです。\n\n [code] \n\nこれで開発者が claude を実行するとCloud gateway画面が開き、ブラウザでKeycloakなどのIdPにサインインすれば完了です。\nモデルallowlistなどのポリシー本体は、サインイン後にゲートウェイ自身がIdPグループ単位で配信し、クライアントが起動時と1時間ごとのポーリングで適用します。\nなので端末側にファイルとして配るのは、入口を指すこの2行だけで済みます。\n\n支出上限はAdmin APIで設定します。\nたとえば組織全体のデフォルトを月$500/人にするならこうです。\n\n [code] \n\n設計にあたっての判断もいくつか記録しておきます。\n\nIdPにCognitoではなくKeycloakを選んだのは、既存資産があったことに加えて、Cognitoが offlineaccess スコープに対応しておらずセッションのサイレント更新が効かない(1時間ごとに再ログインになるリスクがある)ためです。\nKeycloakは公式ドキュメントに設定手順が載っている動作確認済みIdPなので、安心感もありました。\n\n開発者向けの利用状況の可視化は、ALBのOIDC認証とLambdaを組み合わせたミニWebアプリにしました。\nゲートウェイのSpend limits APIをログイン本人のIDに絞って呼び出し、日次・週次・月次の利用額と上限を表示するだけの小さなものです。\nGrafanaはユーザー単位課金が発生し、CloudWatchダッシュボードは「本人の分だけ見せる」制御ができないため、この方式に落ち着きました。\n追加コストはほぼゼロです。\n実際の画面はこんな形です。\n\n \n\n新規に追加したインフラの月額は、Fargate、内部ALB、RDS(シングルAZ)、Secrets Managerなどを合わせて概算$85程度の見込みです(Bedrockの推論費は別)。\n（結構高い...）\n\nつまずいたところ\n\n構築の過程でハマった点、事前に知らないと苦労する点を挙げます。\n\n【つまずき1】 公式のコンテナイメージが存在しない\n\nゲートウェイはバイナリ同梱とはいえ、公式のコンテナイメージなどは提供されていません。\nイメージは公式インストールスクリプトで claude バイナリを取得して自前でビルドしました。\n\n【つまずき2】 組み込みモデルカタログはUS向け\n\nデフォルトの autoincludebuiltinmodels: true のままだと、モデル名はUSのクロスリージョン推論プロファイル( us.anthropic. )にマッピングされます。\n東京リージョンで国内に閉じた推論をしたい場合はこれを無効化し、 models: ブロックでJPプレフィックスのプロファイルを明示指定する必要があります。\n国内リージョン縛りの環境では必須の設定です。\n\n【つまずき3】 ALBはIPv4専用にする\n\n内部ALBをdual-stackにすると、パブリック扱いのIPv6アドレス(AAAA)が返ってしまい、Claude Codeの /login がプライベートアドレス検証で拒否します。\n公式のトラブルシューティングにも記載のある既知の挙動で、ALBのIPアドレスタイプはipv4固定にしました。\n\n【つまずき4】 Gateway の向き先は managed-settings.json 限定\n\nユーザー自身の settings.json に書いても無効。管理者配布である設定ファイルでしか効かないのでMDMツールなどによる配信が必要になります。\nただ、これに関してはGatewayによる一括統制が目的なのでコンセプトとしては一貫しているなと感じました。\n\n知っておきたい制約\n\n導入判断に関わりそうな制約もフェアに書いておきます。\n\nまず、ゲートウェイ経由のセッションではWebSearchツールが使えません。\nゲートウェイがどのプロバイダーにルーティングするかをCLI側が確認できないため、無効化される仕様です。\n1時間の拡張プロンプトキャッシュTTLも使えず、キャッシュは5分TTLになります。\nWebSearchが使えないのは正直痛いなと思っているのですが、ちょうどBedrock AgentCore Gatewayのビルトインコネクタとしてマネージドなウェブ検索ツールが提供され始めたので、これをClaude CodeにMCPエンドポイントとして登録すれば代替になるんじゃないかと密かに目論んでいます。\nうまくいったら別記事で書くつもりです。\n\nCIなどの無人実行はゲートウェイ経由にできません。\nサインインが必ずブラウザのデバイスフローを通るため、サービストークンのような仕組みがないからです。\n私たちもCIパイプラインだけはBedrock直接続のまま残しています。\n\nSpend limitsの金額はトークン数×定価から算出される概算で、AWSの割引は反映されません。\n公式にも「請求書ではない」と明記されており、暴走を止めるサーキットブレーカーと割り切って、正式なコストはAWS請求で突合する運用です。\nまた、全員がゲートウェイの同一タスクロールでBedrockを呼ぶため、AWS側の請求では個人別の内訳が取れなくなります。\n個人別の利用状況はゲートウェイのAPIかテレメトリで見る、という役割分担になります。\n\n管理UIはなく、設定変更はYAMLを書き換えてコンテナを再デプロイするスタイルです。\nモデル追加程度なら苦になりませんが、頻繁にポリシーをいじる運用を想定しているなら知っておいたほうがよいです。\n\n動作確認\n\nデプロイ後、Claude Code を実行すると、Cloud gateway画面が開きます。\nmanaged-settings.jsonで配布したゲートウェイURLが最初から入力されているので、開発者はEnterを押すだけです。\n\n \n\nEnterを押すとブラウザでデバイス確認画面が開きます。\nCLI側に表示されたコードと一致していることを確認して続行します。\n\n \n\n続いてKeycloakのサインイン画面にリダイレクトされるので、いつものアカウントでログインします。\n\n \n\nサインインが完了するとブラウザに完了画面が表示され、CLI側も数秒で接続完了になりました。\n\n \n \n\n以降の起動ではステータス表示にCloud gatewayと出るようになり、モデル選択も gateway.yaml のallowlistに沿った内容だけが表示されます。\n\n \n\nまとめ\n\n個人×モデルで推論プロファイルを量産する自前運用から、Claude apps gatewayによる一元管理へ移行する話を書きました。\n国内リージョン縛りやゼロデータ保持といった制約のためにBedrock経由でClaude Codeを使っている組織は少なくないと思いますが、そういう環境ほど認証・コスト管理・メトリクスの作り込みが自前になりがちで、ゲートウェイの恩恵は大きいはずです。\n\n一方で、WebSearchが使えない、CIは対象外といった割り切りも存在するので、全部をゲートウェイに寄せるのではなく、OTELベースのCloudWatchダッシュボードやBedrock直接続と組み合わせて適材適所で使うのが現実解だと感じています。\n\n参考\n・Claude apps gateway (公式ドキュメント)\n・Introducing Claude apps gateway for AWS (AWS Machine Learning Blog)\n・Set up OpenTelemetry for Claude Code (Amazon CloudWatch)\n・Amazon CloudWatch launches Coding Agent Insights (What's New)\n・Guidance for Claude Code with Amazon Bedrock (GitHub)\n・Amazon Bedrock が日本国内クロスリージョン推論をサポート (AWSブログ)",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "2eeac874a42a20d1",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8709433962264151,
+      "popularityPercentile": 0.8679245283018868,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "Claude apps gatewayをAWSに構築し、Claude Codeの認証と利用コストを一元管理している。",
+      "reason": "メンバーごとの推論プロファイル管理を、ゲートウェイ経由の認証・利用量集計へ置き換える構成を紹介する。Amazon Bedrock、Keycloak、CloudWatchを組み合わせた実運用の設定と検証が中心。",
+      "keywords": [
+        "Claude apps gateway",
+        "AWS",
+        "Amazon Bedrock",
+        "Claude Code",
+        "Keycloak",
+        "CloudWatch"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "すりガラスの sticky ヘッダを作る — backdrop-filter と畳み方",
+      "url": "https://qiita.com/kodomo-news/items/37d25e1e5321e1a8c821",
+      "publishedAt": "2026-08-08T13:41:01.000Z",
+      "author": "kodomo-news",
+      "authorDetail": {
+        "name": "kodomo-news",
+        "handle": "@kodomo-news",
+        "url": "https://qiita.com/kodomo-news",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4469439/c89df1651f7638f97453776bcfa2a931050aa09c/large.png?1785332884",
+        "bio": "小学生向けのニュースサイト「こどもニュース」を作っています。\r\n話題になっているニュースを調べ、ほとんどの工程を AI が行っています。\r\n記事は人間が最終確認しています。\r\n漢字や言葉づかいの習熟度は小学生のあいだでも差が大きいので、同じニュースを難易度別に書き分け、\r\nふりがなも学年に応じて段階的に付けて、学習に役立てられるつくりにしています。",
+        "followers": 0,
+        "posts": 2,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://kodomo-news.net"
+          }
+        ]
+      },
+      "tags": [
+        "CSS",
+        "React",
+        "MUI",
+        "UI"
+      ],
+      "snippet": "こんにちは。小学生向けのニュースサイト、こどもニュースをつくっています。 このサイトのヘッダは上部に固定されていて、下段のナビゲーション行がすりガラスになっています。スクロールするとその行だけが畳まれます。 作るときに引っかかった点をまとめます。 backdrop-filter は背景が透けていないと効かない すりガラスの指定自体は 2 行です。 [code] blur だけだと、ぼかした結果が眠い色になります。saturate を足して彩度を上げると、下の色が透けている感じが出ます。数値は見ながら決めました。 引っかかったのは、背景色の扱いでした。 [code] ほぼ透明な白を指定しています。完全に透明（transparent）だと、環境によって backdrop-filter が効かないことがあります。背景のレイヤーが作られないためです。 わずかでも背景色があると、合成のレイヤーができ…",
+      "body": "こんにちは。小学生向けのニュースサイト、こどもニュースをつくっています。\n\nこのサイトのヘッダは上部に固定されていて、下段のナビゲーション行がすりガラスになっています。スクロールするとその行だけが畳まれます。\n\n作るときに引っかかった点をまとめます。\n\nbackdrop-filter は背景が透けていないと効かない\n\nすりガラスの指定自体は 2 行です。\n\n [code] \n\nblur だけだと、ぼかした結果が眠い色になります。saturate を足して彩度を上げると、下の色が透けている感じが出ます。数値は見ながら決めました。\n\n引っかかったのは、背景色の扱いでした。\n\n [code] \n\nほぼ透明な白を指定しています。完全に透明（transparent）だと、環境によって backdrop-filter が効かないことがあります。背景のレイヤーが作られないためです。\n\nわずかでも背景色があると、合成のレイヤーができて効きます。見た目には影響しない値を入れておく、という回避です。\n\n-webkit- 付きも書いています。この指定は接頭辞が必要な環境がまだあります。\n\n上段は不透明にする\n\nこのサイトのヘッダは 2 段構成です。上段はサイト名を出す色付きのバーで、こちらは不透明にしています。\n\nすりガラスは、下に何かがあるときにきれいに見えます。ページの最上部では、下にあるのはページの地色だけなので、ぼかす対象がありません。\n\n上段は常に見えているので、不透明の色を置いたほうが締まります。下段はスクロールしたときに本文の上に重なるので、そこですりガラスが効きます。\n\n「全部すりガラス」にすると、効く場所と効かない場所が混ざって統一感が出ませんでした。効果が生きる場所だけに使う、という判断です。\n\n畳み方: 高さを 0 にする\n\nスクロールしたときは、下段を畳みます。\n\n [code] \n\n高さを 0 にして、overflow: hidden で中身を隠します。display: none にすると遷移が効かないので、高さのアニメーションで畳みます。\n\nvisibility も切り替えているのは、畳んだ状態でも中身がフォーカスできてしまうのを防ぐためです。高さが 0 でも、要素は存在します。タブ移動で「見えないリンク」にフォーカスが移ると、どこにいるのか分からなくなります。\n\naria-hidden も同時に付けています。\n\n [code] \n\n読み上げソフトからも隠す、という指定です。視覚的に隠すのと、支援技術から隠すのは別の指定になります。\n\n遷移の時間を分ける\n\ntransition で、プロパティごとに時間を変えています。\n\n [code] \n\n透明度を少し速くしています。畳むときは先に薄くなってから縮むので、動きが自然に見えます。\n\n全部を同じ時間にすると、縮みながら薄くなって、最後にかくっと消える感じになります。数十ミリ秒の差ですが、印象が変わりました。\n\n何をもって「隠す」か\n\nスクロールの向きで畳むかどうかを決めますが、素朴に実装すると細かく反応しすぎます。少し下げただけで隠れ、少し上げただけで出てきます。\n\n判定には「折り返した量」を使いました。\n\n [code] \n\nある程度の量を動かして初めて切り替わります。この量は、畳む対象の高さより大きくしています。小さいと、隠れた瞬間にレイアウトが動いて、その動きがまた判定を引き起こす、というループが起きます。\n\nページ先頭の付近では常に表示します。一番上まで戻ったのにナビが隠れている、という状態を避けるためです。\n\n判定の部分は純粋関数に切り出して、テストしています。\n\n [code] \n\nスクロールの状態遷移は、実際に動かして確認するのが難しいものです。入力と出力の関数にしておくと、境界の挙動をテストで固定できます。\n\nスクロールの監視は間引く\n\nscroll イベントは大量に発火します。そのたびに状態を計算すると重くなります。\n\nrequestAnimationFrame で間引くフックを作って、ヘッダと目次で共有しています。フレームごとに 1 回だけ計算する形です。\n\n同じ間引きが複数箇所で要るなら、フックにまとめておくと実装が揃います。\n\nまとめ\n・backdrop-filter は blur に saturate を足すと色が生きる\n・完全に透明な背景だと効かないことがある。わずかな背景色を入れて合成レイヤーを作る\n・すりガラスは下に何かがある場所でだけ使う。全部に掛けると統一感が出ない\n・畳むときは高さを 0 にする。visibility と aria-hidden も同時に切り替える\n・遷移の時間はプロパティごとに変えると自然に見える\n・スクロールでの切り替えは、畳む対象より大きい移動量を閾値にする。小さいとループする\n・判定は純粋関数に切り出してテストする",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "de0ffcf3f712c660",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6766037735849058,
+      "popularityPercentile": 0.24213836477987422,
+      "matchedTopics": [
+        "React",
+        "CSS"
+      ],
+      "buzz": false,
+      "score": 72,
+      "oneLiner": "backdrop-filterで作るすりガラスのstickyヘッダと、透明背景や畳み込みで起きる注意点を解説する。",
+      "reason": "backdrop-filterは完全なtransparent背景では効かない環境があり、ほぼ透明な色で合成レイヤーを作ると安定する。",
+      "keywords": [
+        "CSS",
+        "backdrop-filter",
+        "React",
+        "MUI",
+        "sticky header",
+        "WebKit"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "DROPZERO:限定100個を3000人が同時に注文しても、絶対に売り越さないECをAmazon Aurora DSQLで作ってみた",
+      "url": "https://qiita.com/yama3133/items/7d21b96df7f4efb23954",
+      "publishedAt": "2026-08-08T01:48:27.000Z",
+      "author": "Yuuki Yamashita",
+      "authorDetail": {
+        "name": "Yuuki Yamashita",
+        "handle": "@yama3133",
+        "url": "https://qiita.com/yama3133",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4223081/133766ff1852bcb8e4ae07f568918fcb378cfa88/x_large.png?1785807274",
+        "bio": "AWS Community Builder(AI Engineering)\r\nAWS13冠",
+        "location": "東京都",
+        "followers": 27,
+        "posts": 117,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/111330118y_y"
+          }
+        ]
+      },
+      "tags": [
+        "AWS",
+        "DSQL",
+        "occ",
+        "Vercel"
+      ],
+      "snippet": "はじめに 限定ドロップ系のECサイトが発売開始と同時にアクセスが殺到して、売り越し(在庫数を超えて売ってしまうこと)や二重予約、サーバーダウンを起こしているのを何度か見たことがあります。 よく見ると、これらは別々の不具合ではなく、実は同じ1つの問題です。 「同時に大量のアクセスが来たときに、1つの数字(在庫数)を正しく数え続けられるか」 という問題です。 100個しかない在庫を101個売ってしまえば、それは技術的な誤差ではなく、お客さんに対する嘘になります。 これがキューイングシステムで後から取り繕う話ではなく、データベースの設計だけで最初から起きないようにできないか気になったので、実際にDROPZEROという限定ドロップECを作ってみました。 バックエンドはAmazon Aurora DSQL、フロントエンドはNext.js(v0で土台を作成)+Vercelです。 なぜAmazon Au…",
+      "body": "はじめに\n\n限定ドロップ系のECサイトが発売開始と同時にアクセスが殺到して、売り越し(在庫数を超えて売ってしまうこと)や二重予約、サーバーダウンを起こしているのを何度か見たことがあります。\nよく見ると、これらは別々の不具合ではなく、実は同じ1つの問題です。\n「同時に大量のアクセスが来たときに、1つの数字(在庫数)を正しく数え続けられるか」\nという問題です。\n100個しかない在庫を101個売ってしまえば、それは技術的な誤差ではなく、お客さんに対する嘘になります。\n\nこれがキューイングシステムで後から取り繕う話ではなく、データベースの設計だけで最初から起きないようにできないか気になったので、実際にDROPZEROという限定ドロップECを作ってみました。\nバックエンドはAmazon Aurora DSQL、フロントエンドはNext.js(v0で土台を作成)+Vercelです。\n\n \n\nなぜAmazon Aurora DSQLなのか\n\n単一リージョンのデータベースなら、在庫の数字をトランザクションで守るのはそれほど難しくありません。\n難しいのは、これをリージョンをまたいで、しかも正しさを犠牲にせずにやることです。\n分散システムの世界では「強整合」「低レイテンシ」「マルチリージョン書き込み」の3つは同時に成立しないというのがよくある前提で、たいてい2つしか選べません。\n\nAmazon Aurora DSQLは、この前提そのものを崩してくれるサービスでした。\nサーバーレスの分散SQLデータベースで、\nマルチリージョンのアクティブ・アクティブ構成でありながら強整合\nという特徴を持っています。\n2つのリージョンエンドポイントがありながら、論理的には1つのデータベースとして振る舞い、コミットは同期的な合意(クォーラム)を取ります。\nつまり、東京にいる買い手とソウルにいる買い手が同時に最後の1個を取り合っても、両者は同じ在庫の状態を見て判定されます。\nどちらか一方だけが成功し、在庫がマイナスになることはありません。\nこの特性がDROPZERO全体の土台になっています。\n\n簡単に説明すると\n\n限定100個のプリンをオンラインで予約する場面を想像してください。\n「予約する」ボタンを押した瞬間、システムは冷蔵庫を覗いてプリンがまだ残っているか確認し、残っていればそのまま1個抜き取ります。\nここで大事なのは、「確認する」と「抜き取る」を必ずセットで、同じ瞬間に行うという約束です。\n\n \n\nもし2人が同時にボタンを押したらどうなるでしょうか。\n片方が冷蔵庫を覗いている間、もう片方は少しだけ待たされます。\n先に覗いた人が最後の1個を抜き取ったら、後から覗いた人には「もう空っぽです」と正直に伝わります。\n誰も、本当は無いプリンを「あるつもり」で持ち帰ってしまうことはありません。\nこれがAurora DSQLの楽観的同時実行制御(OCC)という仕組みの正体で、DROPZEROが世界中から同時にアクセスされても売り越さない理由です。\n\n構成\n・Amazon Aurora DSQL: マルチリージョンクラスター。東京(ap-northeast-1)とソウル(ap-northeast-2)がアクティブなペア、大阪(ap-northeast-3)がwitness(第三者証人)リージョン\n・AWS IAM: フロントエンドがDSQLの認証トークンを取得するために引き受けるロール\n・Vercel OIDC federation: フロントエンドがOIDCトークンを提示してIAMロールを引き受け、そこからDSQLの認証情報を得る。アプリ側に長期的な秘密情報を一切持たない\n・Next.js on Vercel: ドロップ画面と購入/在庫APIルート\n\n [code] \n\n最初にDSQLを触ったとき、「認証がおかしい」で1晩費やしたのですが、原因は無関係な古い認証情報を握っていたことでした。\nVercelの管理されたOIDC連携にトークンのライフサイクルを丸ごと任せて、DSQLトークンを自前で作ろうとしないのがコツのようです。\n\nDSQL専用のデータモデル\n\nAurora DSQLはPostgreSQL互換ですが、素のPostgreSQLではありません。\n今回スキーマ設計に効いてきた制約は3つです。\n・外部キーが使えないので、整合性の担保はアプリ側で行う\n・シーケンス/SERIAL型が使えないので、主キーはUUID(genrandomuuid()をサーバー側デフォルトとして使用)にする\n・1トランザクションにつきDDL文は1つまでなので、マイグレーションは1文ずつ実行する\n\nスキーマはあえて小さくしています。\n・products(id uuid PK, name, dropname)\n・inventory(id uuid PK, productid, stock) ← ドロップ全体がこの1行にかかっている\n・orders(id uuid PK, productid, userref, status, region)\n\n世界中の買い手全員が、同じstockという1つのセルを取り合っているだけ、というのがこのアプリの本質です。\n\n売り越しを防ぐ核心部分\n\n購入処理は「在庫確認」と「減算」を1つのトランザクションにまとめています。\n面白いのは2つの購入が衝突したときの挙動です。\nAurora DSQLは楽観的同時実行制御(OCC)を採用していて、衝突はコミットのタイミングで検出され、負けた方はSQLSTATE 40001(またはDSQL固有のOC000/OC001)で弾かれます。なのでアプリ側でリトライする必要があります。\n\n [code] \n\nここのポイントは、リトライすると最新のスナップショットを読み直すことです。\n在庫が0になった時点でWHERE stock > 0にはどの行もマッチしなくなるので、その購入は素直に「売り切れ」を返します。\n衝突がエラーではなく、正しい答えに変わるという設計です。\n\nマルチリージョンの強整合を証明する\n\n東京(ap-northeast-1)とソウル(ap-northeast-2)をアクティブなペアにして、大阪(ap-northeast-3)をwitnessリージョンにしたマルチリージョンクラスターを作りました。\n\n作る前に1つハマった話があります。witnessは米国リージョンでないといけないと思い込んでいて(ネット上でもよく見かける説明です)、実際にus-east-1とus-west-2を指定したところ、両方とも拒否されました。\nwitnessはペアと同じリージョンセットに属している必要があり、APACのクラスターなら大阪が正解でした。\n\n [code] \n\n伝聞ではなく\n「実際に返ってきたAPIのエラーを信じるべきだった」\nという教訓でした。\n\n実際の検証は、両方のリージョンエンドポイントに同時に書き込む形で行いました。\n在庫を1にして、東京とソウルからそれぞれ1件ずつ購入を投げると、\n片方だけが成功し、もう片方は売り切れになり、両方のエンドポイントが同じ最終在庫を返すこと\nを確認できました。アプリ側で何か特別な調整をすることなく、リージョンをまたいだ強整合が実現されています。\n\n実際に負荷をかけてみる\n\nk6を使って、50VUsで両方のリージョンエンドポイントに向けて\n在庫100個、3000件の同時購入\nをぶつけてみました。\n\n| リトライ上限 | 成功(confirmed) | 売り切れ(soldout) | エラー | 最終在庫 |\n|---|---|---|---|---|\n| 8回 | 100 | 2,810 | 90 | 0 |\n| 40回 | 100 | 2,900 | 0 | 0 |\n\nわかったことは2つあります。\n\n1つ目は、どちらの条件でも\n売り越しは一度も起きていないこと\nです。confirmedはちょうど100件、最終在庫もちょうど0で、2回とも一致していました。\n1回目の90件の「エラー」は、売り越しではなく、衝突が解消しきれずに諦めた購入です(在庫は減っていません)。\n\n2つ目は、同じ1行を奪い合う状況では、それなりのリトライ回数が要る\nということです。\n50VUsが1つの在庫行に殺到すると相当数のOCC衝突が発生し、リトライ上限を引き上げたことで、その90件のエラーがきれいな「売り切れ」に変わりました。\n何回実行しても同じ結果になり、途中で失敗してもやり直せるというトランザクションは、ここではオプションではなく設計そのものだと感じました。\n\n最初から世界向けに作る\n\n世界中どこからアクセスしても違和感がないように、UIは\n8言語(英語・日本語・中国語・韓国語・スペイン語・フランス語・ポルトガル語・アラビア語)\nに対応させました。\nアラビア語は完全な右から左(RTL)のレイアウトで、画面全体が反転します(数字やIDだけは左から右のまま固定しています)。\n\nわかったこと\n\n作りながら得た教訓をいくつか書いておきます。\n\n管理された認証の経路に乗るのが一番安全でした。\nVercel OIDC→IAM→DSQLトークンという流れに任せておけば、アプリ内に秘密情報を持たずに済みますし、トークンの配管を自分で書く必要もありません。\n\nDSQLの方言は素直に受け入れた方がよさそうです。\n外部キー無し、シーケンス無し、1トランザクション1DDL、分離レベルはRepeatable Read固定。これに逆らって設計するのではなく、これを前提にスキーマを組んだ方が早いと感じました。\n\nOCCのリトライはエラー処理ではなく機能そのものだと考えるようになりました。\n「売り越さない」という約束を実際に成立させているのは、このリトライの部分です。\n\nマルチリージョンのwitnessは、必ず同じリージョンセットの中から選ぶ必要があります。\n「米国リージョンでないといけない」というよくある説明を鵜呑みにせず、実際に返ってきたAPIのエラーを信じるべきでした。\n\nおわりに\n\nAurora DSQLがあれば、リージョンをまたいでも1つの強整合な真実を持つことができます。そこまで揃ってしまえば、「売り越さない」というのは、小さくて注意深いトランザクションを1つ書くだけの話になります。\n買い手が1人でも100万人でも、東京でもサンパウロでも同じです。\n\nこの内容で、2026年8月22日にシンガポールで開催される\nAWS Community Day Singapore 2026\nに登壇します。発表タイトルは\n「Distributed Transactions Under Fire: Building a Zero-Oversell Flash Sale Platform with Amazon Aurora DSQL」\nです。\n当日はこの記事よりもう少し踏み込んで、OCCリトライの挙動やマルチリージョンでの障害時の振る舞いについても話す予定です。\nシンガポールにいらっしゃる方がいれば、ぜひ会場で声をかけてください。\n\n \n\n最後まで読んでいただきありがとうございました。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "84295505594f7897",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6633894878706199,
+      "popularityPercentile": 0.9088050314465409,
+      "matchedTopics": [
+        "Next.js",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 72,
+      "oneLiner": "Aurora DSQLとNext.jsで、3000人の同時注文でも100個の在庫を売り越さないECを実装する。",
+      "reason": "大量アクセス対策をキューで後処理するのではなく、強整合なマルチリージョンDBのトランザクションで売り越しを防いでいる。",
+      "keywords": [
+        "Amazon Aurora DSQL",
+        "Next.js",
+        "Vercel",
+        "在庫管理",
+        "強整合",
+        "マルチリージョン"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Cloudflare Pages のセキュリティヘッダで CSP を活用する",
+      "url": "https://qiita.com/16eK8XHMOQ1247/items/012b3fdb706431b048e5",
+      "publishedAt": "2026-08-08T03:13:28.000Z",
+      "author": "マサ",
+      "authorDetail": {
+        "name": "マサ",
+        "handle": "@16eK8XHMOQ1247",
+        "url": "https://qiita.com/16eK8XHMOQ1247",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4182340/9c62c2fb4dc7499701d8429e596db5018f4bdad3/x_large.png?1782552922",
+        "bio": "介護士7年・ケアマネ12年を経て2025年6月よりエンジニア学習開始。AWS/Java/Spring Bootを2500時間習得しCareDocWebを設計〜AWS運用。情報セキュリティ・Java2級取得。エンジニアを目指して活動。",
+        "followers": 0,
+        "posts": 6,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/16eK8XHMOQ1247"
+          }
+        ]
+      },
+      "tags": [
+        "CloudflarePages",
+        "CSP"
+      ],
+      "snippet": "そもそも CSP とは CSP は Content Security Policy（コンテンツ・セキュリティ・ポリシー） の略称です。 ブラウザに対して 「このサイトは何を読み込んでよいか」 を指示するセキュリティルールで、主に XSS（クロスサイトスクリプティング）攻撃を防ぐための仕組みです。 XSS は、攻撃者が悪意ある JavaScript をページに注入し、以下のようなことが可能になります。 ・Cookie を盗む ・ログイン状態を乗っ取る ・フォーム内容を盗む ・任意の操作をさせる CSP はこれらを ブラウザ側で強制的にブロックします。 Cloudflare Pages のセキュリティヘッダ Cloudflare Pages では、public/headers にヘッダを記述するだけで、強力な CSP を適用できます。 外部リソースを使わない構成であれば、XSS を大幅に削減で…",
+      "body": "そもそも CSP とは\nCSP は Content Security Policy（コンテンツ・セキュリティ・ポリシー） の略称です。\n\nブラウザに対して　「このサイトは何を読み込んでよいか」 を指示するセキュリティルールで、主に XSS（クロスサイトスクリプティング）攻撃を防ぐための仕組みです。\n\nXSS は、攻撃者が悪意ある JavaScript をページに注入し、以下のようなことが可能になります。\n・Cookie を盗む \n・ログイン状態を乗っ取る \n・フォーム内容を盗む \n・任意の操作をさせる \n\nCSP はこれらを ブラウザ側で強制的にブロックします。\n\nCloudflare Pages のセキュリティヘッダ\nCloudflare Pages では、public/headers にヘッダを記述するだけで、強力な CSP を適用できます。 \n外部リソースを使わない構成であれば、XSS を大幅に削減できます。\n\n今回設定した CSP の内容と解説\n\n [code] \n\ndefault-src 'self'\nすべてのリソースのデフォルト読み込み先を 自サイトのみ に限定します。 \n外部 JS・CSS・画像・iframe などは、個別に許可しない限り読み込めません。\n\nscript-src 'self'\nJavaScript は 自サイトのファイルのみ 読み込み可能です。\n・外部 CDN（Google / Cloudflare / jsDelivr）→ 読み込めない \n・インライン JavaScript → 'unsafe-inline' がないため禁止 \n・eval() → 'unsafe-eval' がないため禁止 \n\nstyle-src 'self'\nCSS も 自サイトのファイルのみ 読み込み可能です。\n・インライン style → 禁止 \n・Google Fonts や外部 CSS → 禁止 \n\nそのため、style=\"display:none\" を使えず、CSS クラスで非表示を実現しています。\n\nimg-src 'self' data: blob:\n画像は以下のみ許可されます。\n・自サイトの画像 \n・data: URL（Base64 画像） \n・blob: URL（PDF プレビューで使用） \n\n外部画像は読み込めません。\n\nfont-src 'self'\nフォントは 自サイトのものだけ 読み込み可能です。 \nGoogle Fonts など外部フォントは使えません。\n\nconnect-src 'self'\nfetch / XHR / WebSocket の通信先を 自サイトのみ に限定します。 \n外部 API を呼ぶ機能を追加すると通信できません。\n\nobject-src 'none'\nFlash・Java・PDF プラグインなど、古いブラウザプラグインを完全禁止します。 \n攻撃面をゼロにできます。\n\nframe-src 'self' blob:\niframe の読み込み元を以下に限定します。\n・自サイト \n・blob URL（PDF プレビュー用） \n\n外部サイトの iframe は読み込めません。\n\nbase-uri 'self'\n タグの URL を自サイトに限定します。 \n攻撃者が を書き換えてリンク先を乗っ取る攻撃を防ぎます。\n\nform-action 'none'\nフォーム送信を 全面禁止 します。\n・CSRF が完全に無効化される \n・ログインフォームや問い合わせフォームを追加すると送信できない \n → 必要になったら 'self' に変更する必要あり\n\nframe-ancestors 'none'\n他サイトがあなたのページを iframe に埋め込むことを完全禁止します。 \nクリックジャック対策として最強の設定です。\n\nX-Frame-Options: DENY と二重で防御しています。\n\nまとめ\nCloudflare Pages は「静的ホスティング」というイメージが強いですが、 \npublic/headers を使うことで 強力なセキュリティヘッダを簡単に適用できるプラットフォームになります。\n\n外部リソースを使わない構成であれば、今回のように CSP を 'self' のみに限定することで、強固な Web アプリを構築できます。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "cde47c56624a6935",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.685691823899371,
+      "popularityPercentile": 0.6698113207547169,
+      "matchedTopics": [
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 68,
+      "oneLiner": "Cloudflare Pagesのpublic/headersにCSPを設定し、外部リソースやインラインスクリプトを制限する方法を解説する。",
+      "reason": "Cloudflare Pagesではpublic/headersに記述するだけでCSPを配信できる。自サイト以外のスクリプトやevalを禁止する設定例を示す。",
+      "keywords": [
+        "Cloudflare Pages",
+        "CSP",
+        "Content-Security-Policy",
+        "XSS",
+        "security headers"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "guillermolg00/morphicons — Any icon morphs into any other — universal morphing for stroke-based icons with spring physics. Zero dependencies, ~7 KB gzip.",
+      "url": "https://github.com/guillermolg00/morphicons",
+      "publishedAt": "2026-08-01T08:15:09.000Z",
+      "author": "guillermolg00",
+      "authorDetail": {
+        "name": "guillermolg00",
+        "url": "https://github.com/guillermolg00",
+        "avatarUrl": "https://github.com/guillermolg00.png?size=120",
+        "bio": "Any icon morphs into any other — universal morphing for stroke-based icons with spring physics. Zero dependencies, ~7 KB gzip."
+      },
+      "tags": [
+        "TypeScript",
+        "animation",
+        "icons",
+        "morphing",
+        "react",
+        "svg",
+        "typescript"
+      ],
+      "snippet": "Any icon morphs into any other — universal morphing for stroke-based icons with spring physics. Zero dependencies, ~7 KB gzip.",
+      "metrics": {
+        "stars": 893
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "b00c6b9033eff468",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7885416666666668,
+      "popularityPercentile": 0.78125,
+      "matchedTopics": [
+        "React",
+        "TypeScript"
+      ],
+      "buzz": false,
+      "score": 67,
+      "oneLiner": "morphiconsは、依存なし・gzip約7KBで、線画アイコン同士をばね物理で変形させる。",
+      "reason": "線画アイコンの形状を相互変形するReact向けライブラリで、依存なし・gzip約7KBという小ささで導入できる。",
+      "keywords": [
+        "morphicons",
+        "React",
+        "TypeScript",
+        "SVG",
+        "spring physics",
+        "icon animation"
+      ],
+      "category": "新機能・新ツール",
+      "domain": "general",
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    }
+  ],
+  "stats": {
+    "collected": 558,
+    "afterDedupe": 538,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 319,
+      "zenn": 121,
+      "hatena": 20,
+      "hackernews": 27,
+      "devto": 1,
+      "github_release": 20,
+      "github_repo": 37,
+      "rss": 12,
+      "changelog": 1
+    },
+    "estimatedReadMinutes": 20
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3535,
+        "outputTokens": 877,
+        "cacheReadTokens": 0,
+        "elapsedMs": 7006,
+        "estimatedCostUsd": 0.0017594
+      },
+      "score": {
+        "model": "gpt-5.6-luna",
+        "requests": 9,
+        "inputTokens": 42026,
+        "outputTokens": 3858,
+        "cacheReadTokens": 10632,
+        "elapsedMs": 34470,
+        "estimatedCostUsd": 0.01324744
+      },
+      "describe": {
+        "model": "gpt-5.6-luna",
+        "requests": 4,
+        "inputTokens": 22141,
+        "outputTokens": 6435,
+        "cacheReadTokens": 25179,
+        "elapsedMs": 36251,
+        "estimatedCostUsd": 0.01265378
+      },
+      "deep": {
+        "model": "gpt-5.6-luna",
+        "requests": 4,
+        "inputTokens": 9822,
+        "outputTokens": 11902,
+        "cacheReadTokens": 14328,
+        "elapsedMs": 72466,
+        "estimatedCostUsd": 0.01653336
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2654,
+        "outputTokens": 235,
+        "cacheReadTokens": 0,
+        "elapsedMs": 5614,
+        "estimatedCostUsd": 0.0008128
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3006,
+        "outputTokens": 323,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3012,
+        "estimatedCostUsd": 0.0009888
+      }
+    },
+    "totalCostUsd": 0.046
+  },
+  "notes": []
+}
