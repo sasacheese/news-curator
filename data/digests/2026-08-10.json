@@ -1,0 +1,1562 @@
+{
+  "date": "2026-08-10",
+  "generatedAt": "2026-08-09T22:25:39.257Z",
+  "window": {
+    "start": "2026-08-08T22:00:00.000Z",
+    "end": "2026-08-09T22:00:00.000Z"
+  },
+  "summary": [
+    "AI関連が16件中10件を占め、Claude Codeを軸に動きが集中した。",
+    "Claude Codeでは配布の安全性、実行制御、運用検証を扱う項目が重なった。",
+    "TanStack系はrouterを中心に、リンク処理や性能、状態更新の改善が続いた。",
+    "全体として、AIエージェントの実運用と既存ツールの安定化が目立つ一日だった。"
+  ],
+  "outlook": "AIエージェントは配布・権限・実行検証を含む実運用の基盤として定着しつつある一方、認証や安全境界、既存ツールの安定性はなお揺れている。この先は連携を増やす競争から、変更を監査可能に制御し品質まで測る運用設計へ焦点が移りそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code archiveプラグイン、sha256改ざん検知を実機で確認",
+      "url": "https://qiita.com/kai_kou/items/0fae44220f37d9a0d851",
+      "publishedAt": "2026-08-09T07:08:46.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。2023年2月からアライドアーキテクツ株式会社のエンジニアリングマネージャーとしてワイワイやってます。",
+        "organization": "アライドアーキテクツ株式会社",
+        "location": "Osaka, Japan",
+        "followers": 940,
+        "posts": 727,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "CLI",
+        "OpenSource",
+        "Security"
+      ],
+      "snippet": "TL;DR ・Claude Code v2.1.224 で archive プラグインソースが追加され、git・npm を使わず HTTPS 上の zip からプラグインをインストールできるようになりました。 ・実際に Cloudflare R2 へ公開 HTTPS で zip を置き、marketplace.json に archive ソースを書いて claude plugin install を実行したところ、git リポジトリなしで正常にインストールできました。 ・sha256 を意図的に誤らせると Plugin archive integrity check failed で インストールが止まる、URL を http:// にすると must use https:// でそもそも受け付けない、という2つの拒否挙動も実機で確認しました。 はじめに 対象読者は、Claude Cod…",
+      "body": "TL;DR\n・Claude Code v2.1.224 で archive プラグインソースが追加され、git・npm を使わず HTTPS 上の zip からプラグインをインストールできるようになりました。\n・実際に Cloudflare R2 へ公開 HTTPS で zip を置き、marketplace.json に archive ソースを書いて claude plugin install を実行したところ、git リポジトリなしで正常にインストールできました。\n・sha256 を意図的に誤らせると Plugin archive integrity check failed で インストールが止まる、URL を http:// にすると must use https:// でそもそも受け付けない、という2つの拒否挙動も実機で確認しました。\n\nはじめに\n\n対象読者は、Claude Code のプラグイン配布を CI や社内配布パイプラインに組み込みたい開発者・運用者です。プラグインを配るとき、これまでは git リポジトリか npm パッケージのどちらかを用意する必要がありました。社内に GitHub がない・npm レジストリを公開したくない、といった事情があると地味に面倒です。v2.1.224 で追加された archive ソースは、この制約を「HTTPS で zip を配れればいい」まで下げます。本記事では実際に Cloudflare R2 に zip を置いてインストールを試し、公式ドキュメントが説明しているセキュリティ制約（HTTPS 必須・sha256 ピン留め）が実際にどう働くかを確認しました。\n\narchiveプラグインソースとは\n\n公式changelogによると、v2.1.224（2026-08-07公開）で以下が追加されています。\nAdded archive plugin source: install plugins from a zip over HTTPS without git or npm, with optional SHA-256 pinning\n\nプラグインマーケットプレイスの公式ドキュメントには、marketplace.json 内での指定形式が記載されています。\n\n [code] \n\nドキュメントが明記している制約は次の3点です。\n・url は HTTPS 必須。http:// は拒否され、ループバック・リンクローカル・クラウドメタデータ用のホストへの接続も拒否される（リダイレクト先も同じ条件を満たす必要がある）\n・sha256 は任意だが、指定すればダウンロードのたびに検証され、不一致ならインストールを拒否する\n・アーカイブは 256MiB を超えると拒否される\n\nここまでは公式ドキュメントの記載内容です。実際にこの制約が機能するかを、以下で検証しました。\n\n実機検証1: R2にzipを置いてgit無しでインストールする\n\nまず最小構成のプラグイン（plugin.json と SKILL.md のみ）を作り、zip化してsha256を計算しました。\n\n [code] \n\nこのリポジトリは記事画像の配信に Cloudflare R2 を使っており、公開HTTPSのバケットドメインを既に持っています。同じバケットの test-assets/ 配下に zip をアップロードし、公開URL経由でダウンロードできることを確認したうえで、marketplace.json を作成しました。\n\n [code] \n\nこれをローカルディレクトリからマーケットプレイスとして登録し、インストールを実行します。\n\n [code] \n\nclaude plugin list にも表示され、実体は /.claude/plugins/cache/archive-test-marketplace/my-test-plugin に展開されていました。この間、git clone も npm install も一切発生していません。使用した Claude Code のバージョンは claude --version で確認した 2.1.226 です。\n\n実機検証2: sha256を誤らせると止まる\n\n同じマーケットプレイスの sha256 を意図的に別の値へ書き換え、claude plugin marketplace update で更新してから再インストールを試しました。\n\n [code] \n\nダウンロード自体は起きているものの、展開・インストールの前でハッシュ不一致を検出して止めています。差し替え攻撃（配布元のzipを別内容に入れ替える）に対する防御として機能することを確認できました。\n\n実機検証3: httpスキームはそもそも拒否される\n\nsha256 を正しい値に戻したうえで、URLのスキームだけ https:// から http:// に変更してみました。\n\n [code] \n\nこちらはダウンロードの前、マーケットプレイスエントリのバリデーション段階で弾かれます。ドキュメントに書かれていた「ループバック・リンクローカル・クラウドメタデータホストも拒否する」という記述と合わせて考えると、SSRF（サーバー側から意図しない内部ホストへリクエストさせる攻撃）対策を意識した設計だとわかります。\n\n [code] \n\n著者視点の一次所見\n\n3つの検証を通して気づいたのは、archive ソースが「gitやnpmが使えない環境向けの簡易版」ではなく、むしろgit/npmソースより検証項目が明示的に多い という点です。git ソースはコミットハッシュを指定しない限り改ざん検知の仕組みを持ちませんが、archive ソースは sha256 を指定するだけでダウンロードのたびに検証されます。社内配布で「このzipは誰かが差し替えていないか」を機械的に保証したい場合、archiveソース＋sha256ピン留めのほうがgitソースより検証が簡潔になる場面があります。\n\n一方で、sha256を省略した場合は当然ながら差し替え検知は働きません。今回の検証はsha256を指定した状態のものなので、運用に組み込む際は sha256 を必ず指定する前提で設計するのが安全だと感じました。\n\n実務での使いどころ\n・社内向けプラグイン配布: GitHub Enterprise や npm レジストリを持たないチームでも、静的ファイルサーバー（S3・R2・Artifactory等）だけでプラグイン配布が完結する\n・改ざん検知が必要な配布: sha256 を配布物と一緒に社内Wikiやリリースノートに載せておけば、利用者側で不一致インストールが自動的にブロックされる\n・バージョン: v2.1.224未満のClaude Codeでは動かない: 公式ドキュメントによれば v2.1.120〜v2.1.223 では専用のエラーメッセージが出て失敗し、それより古いバージョンではマーケットプレイス自体の読み込みが失敗します。導入前にチーム全員のバージョンを揃える必要があります\n\n関連記事\n・Claude Codeの/rewind、事故った3時間を1コマンドで巻き戻せる仕組みだった\n・Claude CodeをOllama v0.14に直結する、--bareが鍵だった\n・agents-lintがCLAUDE.mdを0点判定、6件の誤検出を除いたら56点でした",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "380a3ab15fb31f43",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7906666666666667,
+      "popularityPercentile": 0.503030303030303,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 90,
+      "oneLiner": "Claude Code v2.1.224がHTTPS上のZIPからプラグインを配布するarchiveソースに対応した。",
+      "reason": "Gitやnpmを使わず、HTTPSのZIPだけでプラグインを配布できるようになった。sha256の不一致とHTTP URLは実機で拒否される。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.224",
+        "archive source",
+        "sha256",
+        "Cloudflare R2",
+        "HTTPS"
+      ],
+      "category": "新機能・新ツール",
+      "domain": "ai",
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "headline": "Claude CodeにHTTPS zip配布とsha256検証が追加",
+        "summary": "Claude Code v2.1.224 で、git や npm を使わず HTTPS 上の zip からプラグインを配布する archive ソースが追加された。marketplace.json に URL と sha256 を指定すれば、ダウンロードした zip の内容を検証して差し替えを検知できる。実機では Cloudflare R2 からのインストール、誤った sha256 による `Plugin archive integrity check failed`、HTTP URL の `must use https://` 拒否が確認された。アーカイブは 256MiB 以下で、利用には v2.1.224 以上が必要になる。",
+        "prerequisites": [
+          {
+            "term": "archive",
+            "stumblingPoint": "記事は「archive plugin source」と書いているが、git や npm と何が違い、どの処理を置き換える機能なのかが読み取りにくい。",
+            "explanation": "archive は、プラグイン本体を含む zip を HTTPS 経由で取得するマーケットプレイスの配布方式です。git clone や npm install のようなパッケージ取得処理を必要としないため、GitHub や npm レジストリを用意できない社内環境でも、静的ファイルの公開先だけで配布できます。"
+          },
+          {
+            "term": "sha256",
+            "stumblingPoint": "記事は「sha256 を指定すればダウンロードのたびに検証」と書くが、URL が正しくても zip の差し替えを検知する仕組みだと知らないと効果がわからない。",
+            "explanation": "sha256 は zip の内容から計算されるハッシュ値です。marketplace.json に期待値を固定すると、ダウンロードした zip の内容がその値と一致するかをインストール前に確認できます。配布先の URL が同じでもファイルを差し替えられる可能性があるため、URL 指定だけでは配布物の同一性を保証できません。"
+          },
+          {
+            "term": "HTTPS",
+            "stumblingPoint": "記事は「url は HTTPS 必須」「must use https://」と書いているが、HTTP が取得失敗ではなく入力検証段階で拒否される点を区別しないと挙動を誤解する。",
+            "explanation": "HTTPS は通信経路の暗号化だけでなく、この記事の archive 配布では利用可能な URL の最低条件になっています。HTTP URL は zip の取得以前にマーケットプレイスエントリの検証で拒否されるため、社内の単純な HTTP ファイルサーバーはそのまま配布先にできません。"
+          },
+          {
+            "term": "256MiB",
+            "stumblingPoint": "記事は「アーカイブは 256MiB を超えると拒否」とだけ記載しており、これは転送性能ではなくインストール可能サイズの上限だと読み取る必要がある。",
+            "explanation": "256MiB は zip 1個の許容サイズ上限です。プラグインの配布物がこの上限を超えると、URL や sha256 が正しくても拒否されます。通常の小さな設定・スキル・スクリプト中心のプラグインでは問題になりにくい一方、大きなバイナリや依存物を同梱する設計では事前確認が必要です。"
+          },
+          {
+            "term": "SSRF",
+            "stumblingPoint": "記事は「SSRF 対策を意識した設計」と結論づけるが、内部ホストへのリクエストがなぜ危険で、ホスト制限が何を防ぐのかが省略されている。",
+            "explanation": "SSRF は、外部からの入力を使ってサーバー側のプロセスに内部ネットワークへアクセスさせる攻撃です。archive の URL はマーケットプレイス設定から取得先を決めるため、ループバックやリンクローカル、クラウドメタデータ用ホストを拒否し、リダイレクト先にも同じ制約を適用しています。"
+          },
+          {
+            "term": "v2.1.224",
+            "stumblingPoint": "記事は「v2.1.224未満では動かない」と書いているが、単なる推奨バージョンではなく、機能の認識可否を分ける最低バージョンだと理解する必要がある。",
+            "explanation": "v2.1.224 は archive ソースが追加された最初のバージョンです。利用者の Claude Code がこの機能を知らない場合、設定が間違っていなくても動きません。記事の検証バージョンは 2.1.226 なので、導入時は最低バージョンをチーム全体で揃える必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "プラグイン配布方式の比較",
+          "beforeLabel": "従来の git / npm",
+          "afterLabel": "archive ソース",
+          "rows": [
+            {
+              "aspect": "配布物",
+              "before": "git リポジトリまたは npm パッケージ",
+              "after": "HTTPS 上の zip を取得"
+            },
+            {
+              "aspect": "取得方式",
+              "before": "git または npm の仕組みに依存",
+              "after": "git clone / npm install 不要"
+            },
+            {
+              "aspect": "改ざん検知",
+              "before": "git はコミットハッシュ未指定なら検知機構なし",
+              "after": "sha256 を指定すると毎回検証"
+            },
+            {
+              "aspect": "制約",
+              "before": "記事では archive と同等の制約は説明されていない",
+              "after": "HTTPS 必須、256MiB 以下"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "Cloudflare R2、S3、Artifactory などの静的 HTTPS 配布先にプラグイン zip を置き、社内向けマーケットプレイスから配布できる。",
+          "配布物の sha256 を marketplace.json にピン留めし、配布元の zip 差し替えを利用者側のインストール処理で自動的にブロックできる。",
+          "git や npm レジストリを持たない社内環境でも、HTTPS ファイルサーバーを使った CI・社内配布パイプラインを構成できる。"
+        ],
+        "whatChanges": [
+          "Claude Code v2.1.224 で marketplace.json に archive ソースを指定できるようになり、git リポジトリや npm パッケージなしで zip を配布できる。",
+          "sha256 を指定した場合、ダウンロード後・展開前にハッシュ不一致を検出し、`Plugin archive integrity check failed` でインストールを停止する。",
+          "archive の URL は HTTPS 必須になり、HTTP や内部向けホスト、条件を満たさないリダイレクト先は拒否される。",
+          "v2.1.224 未満の Claude Code は archive ソースを利用できないため、チーム導入時にバージョン移行が必要になる。"
+        ],
+        "howToTry": [
+          "Claude Code のバージョンを `claude --version` で確認し、v2.1.224 以上に揃える。記事の実機検証では 2.1.226 を使用している。",
+          "最小プラグインを zip 化し、公開 HTTPS で取得できる静的ファイルサーバーや Cloudflare R2 に配置する。`marketplace.json` のプラグインエントリには archive ソースの `url` と、計算した `sha256` を指定する。本文中の設定コードは省略されているため、キーの完全な記法は公式ドキュメントを参照する。",
+          "ローカルディレクトリをマーケットプレイスとして登録し、`claude plugin install` を実行する。インストール後、`claude plugin list` でプラグインが表示されることを確認する。",
+          "`sha256` を意図的に別の値へ変更し、`claude plugin marketplace update` を実行してから再インストールを試す。`Plugin archive integrity check failed` で停止すれば、ハッシュ検証が機能している。",
+          "`url` の `https://` を `http://` に変更して検証する。ダウンロード前に `must use https://` で拒否されれば、HTTPS 強制が機能している。"
+        ],
+        "code": null,
+        "whyItMatters": "React / Next.js の開発チームで Claude Code のプラグインを社内配布する場合、GitHub Enterprise や npm レジストリを新設せず、既存のオブジェクトストレージを配布基盤にできる。特に sha256 を使えば、単に URL から取得するだけでなく、配布物の差し替えをインストール時に検知できるため、CI や社内標準ツールの配布に適している。",
+        "caveats": [
+          "archive ソースは Claude Code v2.1.224 で追加された。v2.1.120〜v2.1.223 は専用エラーで失敗し、それより古いバージョンではマーケットプレイス自体の読み込みに失敗する。",
+          "sha256 は任意指定のため、省略すると配布元の zip 差し替え検知は働かない。改ざん検知を必要とする運用では必ず指定する。",
+          "url は HTTPS 必須。HTTP、ループバック、リンクローカル、クラウドメタデータ用ホスト、および条件を満たさないリダイレクト先は拒否される。",
+          "アーカイブは 256MiB を超えると拒否される。",
+          "記事本文では marketplace.json や zip 作成に使った具体的なコードが [code] として省略されているため、完全な設定ファイルを本文だけから再現することはできない。"
+        ],
+        "relatedLinks": [],
+        "readingMinutes": 5
+      }
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "title": "TanStack/router @tanstack/start-storage-context@1.167.23",
+      "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-storage-context%401.167.23",
+      "publishedAt": "2026-08-09T18:49:15.000Z",
+      "author": "github-actions[bot]",
+      "authorDetail": {
+        "name": "github-actions[bot]",
+        "handle": "@github-actions[bot]",
+        "url": "https://github.com/apps/github-actions",
+        "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+        "organization": "TanStack"
+      },
+      "tags": [
+        "router",
+        "release"
+      ],
+      "snippet": "Patch Changes ・Updated dependencies \\[51138a8]: ・@tanstack/router-core@1.171.21",
+      "body": "Patch Changes\n・Updated dependencies \\[51138a8]:\n・@tanstack/router-core@1.171.21",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "86b26c43569deedc",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 1,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "周辺ライブラリ",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 42,
+      "oneLiner": "Patch Changes ・Updated dependencies \\[51138a8]: ・@tanstack/router-core@1.171.21",
+      "reason": "",
+      "keywords": [
+        "周辺ライブラリ",
+        "AI / LLM"
+      ],
+      "category": "その他",
+      "domain": "ai",
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "headline": "依存するrouter-coreを1.171.21へ更新",
+        "summary": "TanStack/routerの@tanstack/start-storage-context@1.167.23で、依存する@tanstack/router-coreが1.171.21へ更新されました。本文に記載されている変更は依存関係更新のみで、新機能・バグ修正・API変更の詳細はありません。利用者は対象パッケージを更新し、lockfileと既存のビルド・テストを確認します。",
+        "prerequisites": [
+          {
+            "term": "Patch Changes",
+            "stumblingPoint": "本文が「Patch Changes」から始まるが、パッチ変更が機能追加や破壊的変更とどう違うかが書かれていない。",
+            "explanation": "Patch Changesは、このリリース本文がパッチ変更として記載していることを示します。ただし、本文には具体的な修正内容やAPI変更の説明がないため、パッチバージョンだから必ず影響がないとは判断できません。今回確認できる具体的な差分は依存関係更新です。"
+          },
+          {
+            "term": "Updated dependencies",
+            "stumblingPoint": "「Updated dependencies」とだけ書かれており、@tanstack/start-storage-context自身の機能が変わったのか判断しにくい。",
+            "explanation": "Updated dependenciesは、パッケージ自身の実装変更ではなく、依存先として指定している別パッケージのバージョンが更新されたという意味です。利用者側ではlockfileの解決結果が変わるため、コード変更がなくてもインストール後の挙動やビルド結果を確認する対象になります。"
+          },
+          {
+            "term": "@tanstack/router-core",
+            "stumblingPoint": "「@tanstack/router-core@1.171.21」と記載されているが、更新対象の@tanstack/start-storage-contextとの関係が読み取りにくい。",
+            "explanation": "@tanstack/router-coreは、今回更新された依存先パッケージです。@tanstack/start-storage-contextを更新すると、この依存先が1.171.21として解決されることが今回の明記された変更です。"
+          },
+          {
+            "term": "@tanstack/start-storage-context",
+            "stumblingPoint": "タグには「@tanstack/start-storage-context@1.167.23」とあるが、どのバージョンを手元に導入すればよいかを本文が明示していない。",
+            "explanation": "@tanstack/start-storage-context@1.167.23は今回のリリース対象パッケージとバージョンです。これを導入することで、本文に記載された@tanstack/router-core@1.171.21への依存関係更新を取り込めます。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "依存関係の変更",
+          "beforeLabel": "従来",
+          "afterLabel": "1.167.23",
+          "rows": [
+            {
+              "aspect": "依存先",
+              "before": "本文に記載なし",
+              "after": "@tanstack/router-core@1.171.21"
+            },
+            {
+              "aspect": "変更内容",
+              "before": "本文に記載なし",
+              "after": "依存関係更新"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "@tanstack/start-storage-context@1.167.23へ更新し、@tanstack/router-core@1.171.21を取り込めます。",
+          "依存関係更新後のlockfile、ビルド、テスト結果を確認できます。"
+        ],
+        "whatChanges": [
+          "@tanstack/start-storage-contextのリリースが1.167.23になりました。",
+          "依存先の@tanstack/router-coreが1.171.21へ更新されました。",
+          "本文には、利用者向けAPI、設定、コマンド、デフォルト値の変更は記載されていません。"
+        ],
+        "howToTry": [
+          "プロジェクトで利用しているパッケージマネージャーに合わせて、npmの場合は `npm install @tanstack/start-storage-context@1.167.23` を実行する。",
+          "更新後、lockfileに `@tanstack/router-core@1.171.21` が解決されていることを確認する。",
+          "既存のテストまたはビルドを実行し、依存関係更新による影響がないことを確認する。"
+        ],
+        "code": null,
+        "whyItMatters": "React / Next.js / TypeScriptのコードを直接変更するリリースではなく、依存先の@tanstack/router-coreを更新するリリースです。パッケージ更新時にlockfileの差分を確認し、既存のビルドとテストを通すのが実務上の確認ポイントです。",
+        "caveats": [
+          "本文にはAPI変更、設定変更、破壊的変更、移行手順の記載はありません。",
+          "このリリースの本文で明記されている変更は、@tanstack/router-core@1.171.21への依存関係更新だけです。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "GitHub Releases: @tanstack/start-storage-context@1.167.23",
+            "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-storage-context%401.167.23"
+          }
+        ],
+        "readingMinutes": 2
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "cors() を足して消したCORSエラーは、Cookieを足した日に戻ってくる",
+      "url": "https://qiita.com/ennagara128/items/10329d9da49e91be6d49",
+      "publishedAt": "2026-08-09T12:45:39.000Z",
+      "author": "ennagara128",
+      "authorDetail": {
+        "name": "ennagara128",
+        "handle": "@ennagara128",
+        "url": "https://qiita.com/ennagara128",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4156578/a82b923531ddc21bfa1f808acd2239c9669df885/x_large.png?1776655051",
+        "followers": 255,
+        "posts": 472,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/ai_info128"
+          }
+        ]
+      },
+      "tags": [
+        "CORS",
+        "Express",
+        "Node.js",
+        "JavaScript",
+        "初心者"
+      ],
+      "snippet": "AIにフロントとAPIをまとめて書かせて、ローカルで動かした瞬間にこれが出る。 [code] これをそのまま貼って「CORSエラーが出ました」と伝えると、だいたい Access-Control-Allow-Origin: を足す修正が返ってきます。ローカルでは直ります。そして本番で別の形で困ります。 この記事は、CORSエラーを直すときにAIへ何を渡すと、その場しのぎではない修正が返ってくるかの話です。 前提：このエラーはフロント側の問題ではない まず切り分けから。CORSはブラウザの仕組みで、別オリジンへのリクエストに対して、サーバー側が「このオリジンからは読んでよい」と明示していないと、レスポンスをJavaScriptに渡さないというものです。 ここで重要なのは3点です。 1. 多くの場合、リクエスト自体はサーバーに届いている。ブラウザがレスポンスをJavaScriptに渡さないだけで…",
+      "body": "AIにフロントとAPIをまとめて書かせて、ローカルで動かした瞬間にこれが出る。\n\n [code] \n\nこれをそのまま貼って「CORSエラーが出ました」と伝えると、だいたい Access-Control-Allow-Origin: を足す修正が返ってきます。ローカルでは直ります。そして本番で別の形で困ります。\n\nこの記事は、CORSエラーを直すときにAIへ何を渡すと、その場しのぎではない修正が返ってくるかの話です。\n\n前提：このエラーはフロント側の問題ではない\n\nまず切り分けから。CORSはブラウザの仕組みで、別オリジンへのリクエストに対して、サーバー側が「このオリジンからは読んでよい」と明示していないと、レスポンスをJavaScriptに渡さないというものです。\n\nここで重要なのは3点です。\n\n1. 多くの場合、リクエスト自体はサーバーに届いている。ブラウザがレスポンスをJavaScriptに渡さないだけで、サーバーのログには残る（※後述のプリフライトが挟まる条件では、プリフライトが失敗した時点で本体のリクエストは送られません）\n2. だから許可を出す場所はサーバー側。フロント側の書き方を変えるだけでは解決しない（Cookieを使う場合だけ、後述のとおりフロントにも credentials: 'include' の指定が要ります）\n3. オリジンは スキーム + ホスト + ポート の3点セット。http://localhost:3000 と http://localhost:8000 は、ホストが同じでもポートが違うので別オリジン\n\n3番目でつまずく人が多い印象があります。「同じlocalhostなのになぜ」となりますが、ポートが違えば別オリジンです。http:// と https:// も同様に別扱いになります。\n\n「そのまま貼る」と何が起きるか\n\nエラー文だけ貼ると、AIは最短で消える方法を返します。典型的なのがこれです。\n\n [code] \n\nこれは Access-Control-Allow-Origin: を返す設定です。エラーは消えます。ただし、この状態には2つの性質があります。\n・どのサイトからでもこのAPIを叩いて中身を読める（公開APIなら妥当だが、そうでないなら意図と違う）\n・credentials: 'include'（Cookie送信）と併用できない。ワイルドカードとクレデンシャル付きリクエストの組み合わせはブラウザが拒否する\n\n2番目は、ログイン機能を後から足したときに効いてきます。Access-Control-Allow-Origin: のまま credentials: 'include' を付けると、仕様上かならずブラウザに弾かれます。「CORSは前に直したはずなのに、ログインを実装したらまた出た」となるのはこれが理由です。\n\n渡すべき情報は4つ\n\n同じエラーでも、次の4点を添えると返ってくる修正が変わります。\n\n [code] \n\nポイントは、「ワイルドカードを使わない」と明示することと、Cookie認証の予定を先に伝えることです。この2つがないと、AIは目の前のエラーだけを消しにいきます。予定を伝えておけば、最初から併用可能な形で提案されます。\n\n返ってくる形\n\n上の条件を渡すと、だいたいこういう方向の修正になります。\n\n [code] \n\ncallback(new Error(...)) は cors の公式ドキュメントどおりの書き方ですが、Express のエラーハンドラに流れるので実際には 500 が返ります（開発中はスタックトレース付き）。単に「許可しない」だけで済ませたい場合は callback(null, false) を返す手もあります。この場合は Access-Control-Allow-Origin ヘッダが付かないだけで、サーバー自体は通常どおり応答します。\n\nここでは2つの設定が、別々の仕事をしています。\n・origin に配列や関数を渡すと、cors はリクエストの Origin ヘッダを照合し、許可されたときだけそのオリジンをそのまま Access-Control-Allow-Origin に返します（あわせて Vary: Origin も付きます）\n・credentials: true が足すのは Access-Control-Allow-Credentials: true ヘッダだけです\n\nつまり、ワイルドカードが消えるのは origin を指定したからであって、credentials: true の効果ではありません。ここを取り違えると、origin を '' のままにして credentials: true だけ足す——という、ブラウザに必ず弾かれる設定を書いてしまいます。Cookie認証と併用するには、この2つが両方必要です。\n\nなお、!origin を許可するかどうかはセキュリティ境界の話ではありません。CORS はブラウザの仕組みなので、curl からのリクエストは元々このチェックを通りません。APIを守るのはサーバー側の認証であって、CORS設定ではないという前提は押さえておいてください。（細かい点として、file:// などからは Origin: null という文字列が来るので !origin では拾えません）\n\nフロント側は fetch にこれを足します。\n\n [code] \n\n確認するところ\n\n修正したら、ブラウザの開発者ツール（Network タブ）で該当リクエストのレスポンスヘッダを見ます。\n\n| ヘッダ | 期待する値 |\n| --- | --- |\n| Access-Control-Allow-Origin | ではなく、自分のオリジンが具体的に入っている |\n| Access-Control-Allow-Credentials | true（Cookieを使う場合） |\n\nここが のままなら、効いていないのは credentials: true ではなく origin の指定です（未設定か '' のままになっています）。逆に Access-Control-Allow-Credentials の行が出ていないなら、そちらが credentials: true の付け忘れです。\n\nまた、条件によっては本体の前に OPTIONS メソッドのプリフライトリクエストが飛びます。飛ぶのは次のどれかに当てはまるときです。\n・GET / HEAD / POST 以外のメソッド（PUT / DELETE / PATCH など）\n・Authorization などの独自ヘッダを付けている\n・Content-Type が application/json（safelist は application/x-www-form-urlencoded / multipart/form-data / text/plain の3つだけ）\n\n3つ目が見落とされがちです。JSONをPOSTするAPIは、それだけでプリフライトが飛びます。この記事の例のような構成なら、ほぼ確実に OPTIONS が挟まると思っておいてください。\n\nプリフライトで落ちている場合は、許可メソッド・許可ヘッダを明示する形になります（先ほどの設定を置き換える形です。二重に登録しないでください）。なお cors の既定値は PUT/DELETE を含み、許可ヘッダもリクエスト内容を反射するので、明示指定はむしろ許可範囲を絞る方向の変更になります。\n\n [code] \n\nAIに投げる前に決めておくこと\n\nまとめると、CORSで詰まったときにAIへ渡す前に、自分の側で決めておくのは次の4つです。\n\n1. どのオリジンから叩かれるのか（開発と本番の両方）\n2. Cookieを使うのか、使わないのか\n3. 公開APIなのか、自分のフロントからだけ叩くAPIなのか\n4. GET以外のメソッドを使うのか\n\nもう一点、本番構成で引っかかりやすいところを。記事の例（example.com と api.example.com）はドメインが同じなので Cookie はそのまま送られますが、フロントとAPIで登録可能ドメインが変わる構成（Vercel と Railway に分ける、など）では、CORS を正しく直しても Cookie に SameSite=None; Secure が付いていないと、そもそも送られません。CORS の話とは別レイヤーなので、切り分けて確認してください。\n\nこの4つが決まっていれば、エラー文を貼るだけの依頼と比べて、返ってくるものの寿命がかなり変わります。逆にこれが決まっていないと、AIは決めようがないので、一番無難で一番緩い設定を出してきます。\n\nエラーを消すことと、設定を決めることは別の作業です。前者だけをAIに投げていると、後者がずっと未決のまま残ります。\n\n---\n\n未経験者向けの講座を運営しています\n\n未経験から Next.js + Supabase + Claude Code で Webアプリを公開するまで を、全20セッションで体系化した教材です。Claude Code を学習パートナーにする CLAUDE.md / Skills 設計までセットで含みます。\n・無料体験版（git clone してすぐ動く・最初の数セッション分・⭐ Star もよろしくお願いします）→ https://github.com/ayies128/next-ai-camp-trial\n・教材完全版＋月5,500円のメンタリング（全20セッション＋チャット質問し放題）→ https://menta.work/plan/20251?ref=qiita\n・YouTube『AIエンジニア情報局』（AI×開発ニュースを1本5分でキャッチアップできる別運営チャンネル・無料）→ https://www.youtube.com/channel/UC1rXVD9WYsQPQEWZyd-A1KA/?ref=qiita\n\n※ この教材は Qiita 読者の方には易しすぎる内容なので、初心者の知り合いへの紹介や社内研修の参考としてどうぞ。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6a8480f770e3ce2c",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6911547619047619,
+      "popularityPercentile": 0.24848484848484848,
+      "matchedTopics": [
+        "JavaScript",
+        "Node.js"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "CORS設定はCookie導入で再び破綻するため、AIへの伝え方とサーバー側の直し方を解説した。",
+      "reason": "CORSはフロントの問題ではなく、サーバーが許可するオリジンを返す仕組みだと整理する。Cookie利用時はcredentials設定と単一の許可先が必要になり、ワイルドカードでは通らない。",
+      "keywords": [
+        "CORS",
+        "Express",
+        "Node.js",
+        "Cookie",
+        "credentials"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "foundational",
+      "rank": 1,
+      "deep": {
+        "headline": "CORSはエラー文ではなく構成を渡して直す",
+        "summary": "CORSエラーを消すだけなら `Access-Control-Allow-Origin: *` で済むことがありますが、Cookie認証を後から追加すると再びブラウザに拒否されます。最初に開発・本番のオリジン、Cookie利用の有無、APIの公開範囲、GET以外のメソッド利用を決め、AIへ渡す情報に含めます。Cookieを使う場合は、サーバーの `origin` を限定し、`credentials: true` とフロントの `credentials: 'include'` を組み合わせます。JSON POSTなどではプリフライトも確認し、必要なら許可メソッドと許可ヘッダを明示します。",
+        "prerequisites": [
+          {
+            "term": "CORS",
+            "stumblingPoint": "記事は「このエラーはフロント側の問題ではない」と書いているが、CORSがレスポンスを隠す仕組みを知らないと切り分けに迷う。",
+            "explanation": "CORSはサーバーが別オリジンからの読み取りを許可するレスポンスヘッダを返し、ブラウザがそのレスポンスをJavaScriptへ渡すか判断する仕組みです。サーバーにリクエストが届いていても、ブラウザ側のJavaScriptからは失敗に見えることがあります。したがって、フロントのfetchだけを変更しても、サーバーの許可ヘッダがなければ解決しません。"
+          },
+          {
+            "term": "オリジン",
+            "stumblingPoint": "記事は「オリジンは スキーム + ホスト + ポート」と説明するが、localhostのポート差がなぜCORS対象になるかを知らないと理解しづらい。",
+            "explanation": "オリジンはスキーム、ホスト、ポートの組み合わせです。`http://localhost:3000` と `http://localhost:8000` はホスト名が同じでもポートが異なるため別オリジンとして扱われます。開発用フロントとAPIを別ポートで起動する構成では、localhostだから同一と判断しないことが必要です。"
+          },
+          {
+            "term": "Access-Control-Allow-Origin",
+            "stumblingPoint": "記事は「ワイルドカードとクレデンシャル付きリクエストは併用できない」と書くが、公開範囲を広げる設定とCookie認証の相性が読み取りにくい。",
+            "explanation": "`Access-Control-Allow-Origin: *` は任意のオリジンからの読み取りを許可する指定です。一方、Cookieなどの認証情報を付けたリクエストでは、ブラウザはワイルドカードを許可しません。そのためログイン機能を後から足す可能性があるなら、最初から許可するオリジンを配列や関数で限定する必要があります。"
+          },
+          {
+            "term": "credentials: true",
+            "stumblingPoint": "記事は「credentials: true が足すのは…ヘッダだけ」と書くが、origin指定との役割分担を知らないとこれだけ追加してしまう。",
+            "explanation": "`credentials: true` は許可されたオリジンを決める設定ではありません。これはサーバーが `Access-Control-Allow-Credentials: true` を返すための指定です。`origin` の限定と組み合わせて初めて、Cookieを使うクロスオリジン通信に必要な条件がそろいます。"
+          },
+          {
+            "term": "プリフライト",
+            "stumblingPoint": "記事は「JSONをPOSTするAPIは、それだけでプリフライトが飛ぶ」と書くが、本体が送られる前にOPTIONSが失敗する流れを知らないと調査対象を誤る。",
+            "explanation": "プリフライトは、本体リクエストを送る前にブラウザがOPTIONSでサーバーへ許可条件を確認する手順です。JSONのContent-TypeやAuthorization、PUT・DELETE・PATCHなどがあると発生し、本体より先にCORS設定の不備が表面化します。つまり、GETが動いていてもJSON POSTだけ失敗することがあります。"
+          },
+          {
+            "term": "credentials: 'include'",
+            "stumblingPoint": "記事はCookie利用時に「フロントにも credentials: 'include'」と書くが、サーバー側設定だけではCookieが送られない理由が省略されている。",
+            "explanation": "ブラウザの `fetch` は、Cookieを自動送信するクロスオリジン通信として扱うために `credentials: 'include'` を明示します。サーバー側の `credentials: true` は別の設定であり、片方だけでは成立しません。CORSヘッダが正しくてもCookieが付かなければ、ログイン済みAPIが未認証として応答する可能性があります。"
+          },
+          {
+            "term": "SameSite=None; Secure",
+            "stumblingPoint": "記事は「CORSを正しく直しても Cookie に SameSite=None; Secure が付いていないと送られない」と書くが、CORSとCookie属性が別の判定だと知らないと原因を混同する。",
+            "explanation": "`SameSite=None; Secure` はCookie自体が別サイトの通信に送られるための属性です。CORSの許可ヘッダとは別レイヤーなので、CORSのレスポンスが正しくてもCookie属性が条件を満たさなければ認証状態は共有されません。特にフロントとAPIを別サービスのドメインへ分ける本番構成で確認が必要です。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "CORS設定の考え方",
+          "beforeLabel": "エラーだけを貼った設定",
+          "afterLabel": "構成を決めた設定",
+          "rows": [
+            {
+              "aspect": "Access-Control-Allow-Origin",
+              "before": "`*` を返す",
+              "after": "`origin` に開発・本番の許可オリジンを指定"
+            },
+            {
+              "aspect": "Cookie認証",
+              "before": "Cookie利用の前提がなく、後から追加時に衝突",
+              "after": "`credentials: true` と `credentials: 'include'` を両方指定"
+            },
+            {
+              "aspect": "プリフライト",
+              "before": "本体リクエストだけを確認",
+              "after": "JSON・独自ヘッダ・メソッドを踏まえてOPTIONSを確認"
+            },
+            {
+              "aspect": "本番Cookie",
+              "before": "CORSだけでCookieも解決できると誤認",
+              "after": "SameSite=None; Secure も別途確認"
+            }
+          ]
+        },
+        "whatYouCanDo": [
+          "CORSエラーをAIへ渡す際、許可するオリジン、Cookie利用、APIの公開範囲、GET以外のメソッド利用を具体的に伝えられる。",
+          "Networkタブで `Access-Control-Allow-Origin` と `Access-Control-Allow-Credentials` の設定漏れを切り分けられる。",
+          "OPTIONSのプリフライト失敗と、Cookie属性による認証失敗を別問題として調査できる。"
+        ],
+        "whatChanges": [
+          "`Access-Control-Allow-Origin: *` から、許可する開発・本番オリジンを限定する設定へ変える。",
+          "Cookie認証では、サーバーに `credentials: true`、フロントのfetchに `credentials: 'include'` を追加する。",
+          "JSON POSTや独自ヘッダ付き通信では、OPTIONSのプリフライトを前提に `methods` と `allowedHeaders` を明示する。",
+          "別ドメイン構成では、CORSとは別にCookieへ `SameSite=None; Secure` が必要になる。"
+        ],
+        "howToTry": [
+          "Express側で `npm install cors` を実行し、`origin` に開発・本番の実際のオリジンを指定する。`origin: '*'` のまま `credentials: true` を追加しない。",
+          "Cookie認証を使うなら、フロントのリクエストに `credentials: 'include'`、ExpressのCORS設定に `credentials: true` を設定する。",
+          "JSON POSTやAuthorization付きリクエストを送った後、開発者ツールのNetworkタブでOPTIONSと本体リクエストを確認する。レスポンスヘッダの `Access-Control-Allow-Origin` が具体的なオリジンになっていること、Cookie利用時は `Access-Control-Allow-Credentials: true` があることを確認する。",
+          "プリフライトで失敗する場合は、`methods` と `allowedHeaders` をCORS設定に追加する。既存のcors設定を二重登録せず、1つの設定を置き換える。"
+        ],
+        "code": {
+          "lang": "javascript",
+          "caption": "許可オリジンを限定し、CookieとJSONリクエストに対応するExpress設定",
+          "content": "import cors from 'cors';\n\nconst allowedOrigins = [\n  'http://localhost:3000',\n  'https://example.com',\n];\n\napp.use(cors({\n  origin: allowedOrigins,\n  credentials: true,\n  methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH'],\n  allowedHeaders: ['Content-Type', 'Authorization'],\n}));\n\nconst response = await fetch('https://api.example.com/me', {\n  credentials: 'include',\n});"
+        },
+        "whyItMatters": "ReactやNext.jsのフロントとExpress APIを別ポート・別ドメインで動かす構成では、CORSはログイン機能追加時に再発しやすい問題です。`origin`、`credentials: true`、`credentials: 'include'` の役割を分けて設計すれば、AIに目先のエラーだけを消す設定ではなく、Cookie認証とプリフライトまで含む修正を依頼できます。",
+        "caveats": [
+          "Access-Control-Allow-Origin: * は公開APIでは妥当な場合があるが、Cookie送信を伴う credentials: 'include' とは併用できない。",
+          "CORSはブラウザの読み取り制御であり、curlなどの直接リクエストを防ぐ認証機構ではない。APIの保護はサーバー側の認証で行う。",
+          "Cookieを使う場合、サーバー側の credentials: true だけでなく、フロント側の fetch に credentials: 'include' が必要。",
+          "フロントとAPIの登録可能ドメインが異なる本番構成では、CORSが正しくてもCookieに SameSite=None; Secure がなければ送信されない。",
+          "JSON POST、PUT・DELETE・PATCH、Authorizationなどの独自ヘッダ付きリクエストでは、OPTIONS のプリフライトが本体の前に発生する。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "無料体験版リポジトリ",
+            "url": "https://github.com/ayies128/next-ai-camp-trial"
+          }
+        ],
+        "readingMinutes": 5
+      }
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "title": "TanStack/router Release 2026-08-09 18:49",
+      "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-09-1849",
+      "publishedAt": "2026-08-09T18:49:30.000Z",
+      "author": "github-actions[bot]",
+      "authorDetail": {
+        "name": "github-actions[bot]",
+        "handle": "@github-actions[bot]",
+        "url": "https://github.com/apps/github-actions",
+        "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+        "organization": "TanStack"
+      },
+      "tags": [
+        "router",
+        "release"
+      ],
+      "snippet": "Release 2026-08-09 18:49 Changes Fix ・router-core: handle excessive parent relative links (#8018) (5500fd3510) by @Sheraff Packages ・@tanstack/react-router@1.170.25 ・@tanstack/react-start@1.168.42 ・@tanstack/react-start-client@1.168.23 ・@tanstack/react-start-rsc@0.1.41 ・@tanstack/react-start-server@1.167.30 ・@tanstack/router-cli@1.167.27 ・@tanstack/router-core@1.171.21 ・@tanstack/router-generator@…",
+      "body": "Release 2026-08-09 18:49\n\nChanges\n\nFix\n・router-core: handle excessive parent relative links (#8018) (5500fd3510) by @Sheraff\n\nPackages\n・@tanstack/react-router@1.170.25\n・@tanstack/react-start@1.168.42\n・@tanstack/react-start-client@1.168.23\n・@tanstack/react-start-rsc@0.1.41\n・@tanstack/react-start-server@1.167.30\n・@tanstack/router-cli@1.167.27\n・@tanstack/router-core@1.171.21\n・@tanstack/router-generator@1.167.27\n・@tanstack/router-plugin@1.168.29\n・@tanstack/router-vite-plugin@1.167.29\n・@tanstack/solid-router@1.170.24\n・@tanstack/solid-start@1.168.41\n・@tanstack/solid-start-client@1.168.23\n・@tanstack/solid-start-server@1.167.30\n・@tanstack/start-client-core@1.170.21\n・@tanstack/start-plugin-core@1.171.33\n・@tanstack/start-server-core@1.169.25\n・@tanstack/start-static-server-functions@1.167.26\n・@tanstack/start-storage-context@1.167.23\n・@tanstack/vue-router@1.170.23\n・@tanstack/vue-start@1.168.40\n・@tanstack/vue-start-client@1.167.26\n・@tanstack/vue-start-server@1.167.30",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "9a5f407516e0bebd",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 1,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 72,
+      "oneLiner": "TanStack Routerが親相対リンクの過剰処理を修正し、関連パッケージを更新した。",
+      "reason": "router-coreで親相対リンクが過剰に扱われる不具合を修正し、@tanstack/react-routerは1.170.25、router-coreは1.171.21へ更新された。",
+      "keywords": [
+        "TanStack Router",
+        "@tanstack/react-router",
+        "router-core",
+        "1.171.21",
+        "1.170.25"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 2,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 2,
+      "deep": {
+        "headline": "親相対リンク処理を修正",
+        "summary": "TanStack/router の今回のリリースでは、router-core が excessive parent relative links を処理できるよう修正されました。React向けの @tanstack/react-router は 1.170.25、コアの @tanstack/router-core は 1.171.21 です。Reactプロジェクトでは、利用中のパッケージを対象バージョンへ更新し、親階層を参照する relative links のナビゲーションを確認できます。",
+        "prerequisites": [
+          {
+            "term": "router-core",
+            "stumblingPoint": "記事は「router-core: handle excessive parent relative links」と書いているが、どのパッケージのナビゲーション挙動に影響するか読み取りにくい。",
+            "explanation": "router-core は、ルーティングの中核処理を提供するパッケージです。今回の修正対象がここであるため、@tanstack/react-router などのフレームワーク向けパッケージを更新する場合でも、実際の挙動変更はこのコア処理に関係します。記事だけでは、各パッケージ間の依存関係までは示されていません。"
+          },
+          {
+            "term": "relative links",
+            "stumblingPoint": "記事は「parent relative links」とだけ述べているが、絶対パスではなく現在の位置を基準に解決するリンクの話だと知らないと修正範囲が分からない。",
+            "explanation": "relative links は、現在のURLや現在のルートを基準に解決されるリンクです。絶対パスを直接指定するリンクと異なり、現在地から親方向へ移動する指定を含められます。今回の修正は、その親方向の指定が過剰なケースの処理に限定されています。"
+          },
+          {
+            "term": "excessive parent relative links",
+            "stumblingPoint": "記事は「excessive parent relative links の処理」と書いているが、通常の親相対リンクと何が違うのかは本文だけでは分からない。",
+            "explanation": "excessive parent relative links は、親階層へ戻る指定が過剰になった relative links を指します。記事は具体的なURL例や、修正前にどのURLへ解決されていたかまでは説明していないため、ここでは問題の種類と修正対象だけを把握すれば十分です。"
+          },
+          {
+            "term": "@tanstack/react-router",
+            "stumblingPoint": "記事は複数のPackagesを列挙しているが、Reactアプリの利用者がどのパッケージをまず確認すべきか判断しにくい。",
+            "explanation": "@tanstack/react-router はReact向けの公開パッケージです。今回のリリースでは、コアの修正とは別に、このパッケージの公開バージョンが 1.170.25 になっています。SolidやVue向けパッケージも同時に公開されていますが、ReactプロジェクトではReact用パッケージだけを更新対象として確認できます。"
+          }
+        ],
+        "visual": null,
+        "whatYouCanDo": [
+          "Reactアプリでは @tanstack/react-router を 1.170.25 へ更新し、親階層を参照する relative links の既存テストを再実行できます。",
+          "router-core を直接依存している構成では @tanstack/router-core を 1.171.21 へ更新し、ルート遷移とビルドを確認できます。"
+        ],
+        "whatChanges": [
+          "router-core で excessive parent relative links の処理が修正されました（#8018、コミット 5500fd3510）。",
+          "@tanstack/react-router は 1.170.25、@tanstack/react-start は 1.168.42、@tanstack/react-start-client は 1.168.23、@tanstack/react-start-rsc は 0.1.41、@tanstack/react-start-server は 1.167.30 になりました。",
+          "@tanstack/router-cli は 1.167.27、@tanstack/router-core は 1.171.21、@tanstack/router-generator は 1.167.27、@tanstack/router-plugin は 1.168.29、@tanstack/router-vite-plugin は 1.167.29 になりました。その他、Solid/Vue向けおよびStart関連パッケージも本文記載のバージョンで公開されています。"
+        ],
+        "howToTry": [
+          "React版の利用状況を確認します: `npm ls @tanstack/react-router @tanstack/router-core`",
+          "React Routerを利用するプロジェクトでは、リリース対象版へ更新します: `npm install @tanstack/react-router@1.170.25`",
+          "router-coreを直接管理している場合は、対象版へ更新します: `npm install @tanstack/router-core@1.171.21`",
+          "親階層を過剰に参照する relative links を含む画面へ移動し、既存のナビゲーションテストとビルドを実行します: `npm test && npm run build`"
+        ],
+        "code": null,
+        "whyItMatters": "React/Next.js系のアプリで親階層を参照する relative links を使っている場合、今回の修正対象に該当する可能性があります。@tanstack/react-router と @tanstack/router-core の対象バージョンを確認して更新すれば、追加設定なしで修正を取り込めます。",
+        "caveats": [
+          "修正内容は「excessive parent relative links の処理」のみで、移行手順や追加設定の変更は本文に記載されていません。",
+          "パッケージごとにバージョンが異なります。React版を使っている場合は、対応する @tanstack/react-router のバージョンを指定してください。"
+        ],
+        "relatedLinks": [
+          {
+            "label": "GitHub Release: Release 2026-08-09 18:49",
+            "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-09-1849"
+          }
+        ],
+        "readingMinutes": 1
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "0b7d8409a92de0b0",
+      "product": "pnpm",
+      "what": "Node.js向けのパッケージマネージャー",
+      "version": "11.21",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "グローバル更新対象を対話的にグループ選択できるようになる",
+      "change": {
+        "before": "対話的なグローバル更新でパッケージを個別選択",
+        "after": "pnpm update --global --interactiveで更新対象をグループ選択"
+      },
+      "scope": [],
+      "summary": "pnpm 11.21で、pnpm update --global --interactiveに更新対象のグループ選択を追加。sudo経由でグローバル操作を実行した際の警告も表示し、pnpm v12ではERRPNPMSUDONOTSUPPORTEDになります。",
+      "title": "pnpm/pnpm pnpm 11.21",
+      "url": "https://github.com/pnpm/pnpm/releases/tag/v11.21.0",
+      "sourceLabel": "GitHub Releases / pnpm/pnpm",
+      "publishedAt": "2026-08-09T14:25:31.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "e660a906149d3c66",
+      "product": "TanStack/router",
+      "what": "React・Vue・Solid向けのルーター",
+      "version": null,
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "JSON解析・バッファ処理・キー収集に無駄な処理があった",
+        "after": "無駄なJSON解析を省略し、バッファ処理とキー収集を高速化"
+      },
+      "scope": [],
+      "summary": "router-coreのJSON解析、クライアントフレームデコーダーのバッファ処理、構造共有時のキー収集を高速化。関連するTanStack Startパッケージも更新されています。",
+      "title": "TanStack/router Release 2026-08-09 09:07",
+      "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-09-0907",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "publishedAt": "2026-08-09T09:07:21.000Z",
+      "alsoReleased": [
+        {
+          "label": "Release 2026-08-09 18:49",
+          "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-09-1849"
+        },
+        {
+          "label": "@tanstack/router-core@1.171.20",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.20"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.41",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.41"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.42",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.42"
+        },
+        {
+          "label": "@tanstack/solid-start@1.168.40",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.168.40"
+        },
+        {
+          "label": "@tanstack/vue-start@1.168.39",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.168.39"
+        },
+        {
+          "label": "@tanstack/solid-start@1.168.41",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.168.41"
+        },
+        {
+          "label": "@tanstack/vue-start@1.168.40",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.168.40"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.40",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.40"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.41",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.41"
+        },
+        {
+          "label": "@tanstack/start-plugin-core@1.171.33",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-plugin-core%401.171.33"
+        },
+        {
+          "label": "@tanstack/start-server-core@1.169.25",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-server-core%401.169.25"
+        }
+      ]
+    },
+    {
+      "id": "b53597e354f31b57",
+      "product": "TanStack Table",
+      "what": "Reactなどに対応するヘッドレステーブルライブラリ",
+      "version": "@tanstack/table-core@9.1.2",
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "古い制御テーブル状態との比較で再描画ループが起き得た",
+        "after": "最新状態を基準に更新し、変更がなければ再描画を抑制"
+      },
+      "scope": [],
+      "summary": "@tanstack/table-core@9.1.2で状態更新をsetStateSliceに集約し、最新値に基づく更新と構造的な変更がない場合の再描画抑制を実装。自動更新による再描画ループの一因を解消します。",
+      "title": "TanStack/table @tanstack/table-core@9.1.2",
+      "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/table-core%409.1.2",
+      "sourceLabel": "GitHub Releases / TanStack/table",
+      "publishedAt": "2026-08-09T03:10:22.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/angular-table-devtools@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/angular-table-devtools%409.1.2"
+        },
+        {
+          "label": "@tanstack/vue-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/vue-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/svelte-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/svelte-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/solid-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/solid-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/react-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/react-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/preact-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/preact-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/octane-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/octane-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/lit-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/lit-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/ember-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/ember-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/angular-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/angular-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/alpine-table@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/alpine-table%409.1.2"
+        },
+        {
+          "label": "@tanstack/vue-table-devtools@9.1.2",
+          "url": "https://github.com/TanStack/table/releases/tag/%40tanstack/vue-table-devtools%409.1.2"
+        }
+      ]
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.225〜v2.1.226｜ヘッドレスの CLAUDE_CODE_OAUTH_TOKEN が奪われる不具合｜毎日Changelog解説",
+      "url": "https://qiita.com/moha0918_/items/0b6db0c810a280d5b1bc",
+      "publishedAt": "2026-08-08T22:48:34.000Z",
+      "author": "moha0918_",
+      "authorDetail": {
+        "name": "moha0918_",
+        "handle": "@moha0918_",
+        "url": "https://qiita.com/moha0918_",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3977355/profile-images/1784793752",
+        "location": "Tokyo",
+        "followers": 1,
+        "posts": 98,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "AI",
+        "Anthropic",
+        "エンジニアリング"
+      ],
+      "snippet": ":::note info Claude Codeの公式Changelogをリリースから最速で翻訳・解説しています。 ::: 環境変数で渡した CLAUDECODEOAUTHTOKEN が一時的な 401 をきっかけに短命トークンへ差し替わる、という不具合が v2.1.225 で直りました。CI やバッチのヘッドレス実行だと、プロセスを再起動するまで認証が戻らないまま放置される壊れ方。v2.1.226 は 1 時間 39 分後に出た「Bug fixes and reliability improvements」だけのリリースです。 今回の注目ポイント 1. CLAUDECODEOAUTHTOKEN が短命トークンに差し替わる不具合を修正 - 一時的な 401 でヘッドレスセッションが再起動まで認証を失っていた (v2.1.225) 2. ゲートウェイの利用上限が警告メッセージに出る - 上限…",
+      "body": ":::note info\nClaude Codeの公式Changelogをリリースから最速で翻訳・解説しています。\n:::\n\n環境変数で渡した CLAUDECODEOAUTHTOKEN が一時的な 401 をきっかけに短命トークンへ差し替わる、という不具合が v2.1.225 で直りました。CI やバッチのヘッドレス実行だと、プロセスを再起動するまで認証が戻らないまま放置される壊れ方。v2.1.226 は 1 時間 39 分後に出た「Bug fixes and reliability improvements」だけのリリースです。\n\n今回の注目ポイント\n\n1. CLAUDECODEOAUTHTOKEN が短命トークンに差し替わる不具合を修正 - 一時的な 401 でヘッドレスセッションが再起動まで認証を失っていた (v2.1.225)\n2. ゲートウェイの利用上限が警告メッセージに出る - 上限額・リセット時刻・運用者からのメッセージを表示 (v2.1.225)\n3. macOS で MCP の OAuth が 401 を連発する不具合を修正 - キーチェーン読み取りのタイムアウトが原因 (v2.1.225)\n4. claude agents に workspace trust の確認が入る - 信頼していないディレクトリで起動したとき (v2.1.225)\n5. auto モードが安全フィルタの拒否を連続ブロックに数えなくなった - 拒否自体は維持、モデルには先へ進むよう伝える (v2.1.225)\n6. SendMessage が別マシンのセッションに名前で話しかけられる - 相手からの着信を待たずに会話を始められる (v2.1.225)\n\nヘッドレスの認証が 401 一発で壊れる\n\n長寿命トークンを渡していても、一時的な 401 で上書きされていました。 Claude Code は CLAUDECODEOAUTHTOKEN を環境変数で受け取れます。CI や cron からの非対話実行のために用意されたトークンです。\n\nきっかけは、このトークンに対して返る 1 回の 401。ログイン済みアカウントとして保存されている短命トークンに置き換わり、以降はそちらを使い続けます。短命トークンはすぐ切れるので、ヘッドレスセッションはプロセスを再起動するまで認証が通らないまま。一過性の 401 が 1 回返れば、そのジョブは終わりまで認証できませんでした。\n\n:::note warn\nCLAUDECODEOAUTHTOKEN で回している CI が「たまに認証エラーで落ちる」状態だったなら、原因の候補はこれです。v2.1.225 に上げてから同じ失敗が出るか確認してください。\n:::\n\nmacOS では MCP サーバー側の OAuth にも似た症状がありました。キーチェーンの読み取りがタイムアウトすると、認証済みのはずのサーバーが未認証扱いになり、401 をまとめて返す。こちらも v2.1.225 で修正されています。\n\nゲートウェイの利用上限が警告に出る\n\n:::note info\n対象読者: LLM ゲートウェイ経由で Claude Code をチームに配っている人\n:::\n\n上限に達したときのメッセージに、上限額そのもの、リセットされる時刻、運用者が設定したメッセージが載るようになりました。上限に当たった開発者が「いくらで止まって、いつ復活するのか」を管理者に聞きに行かずに済みます。\n\n条件はゲートウェイ側も v2.1.225 であること。Claude Code だけ上げても、ゲートウェイが古ければ表示は従来のままです。\n\n別マシンのセッションに名前で話しかける\n\nSendMessage の宛先に、他マシンの Remote Control セッションを名前で指定できるようになりました。相手から先にメッセージが届くのを待つ必要はもうありません。宛先は ListAgents に name [ref] の形で並びます。\n\n確認済みの宛先を、同名のローカルセッションと取り違えることもなくなりました。\n\nその他の変更\n\n| バージョン | カテゴリ | 変更点 | 概要 |\n|---|---|---|---|\n| v2.1.226 | 全般 | バグ修正と安定性改善 | changelog に内訳の記載なし |\n| v2.1.225 | セキュリティ | claude agents の workspace trust | 信頼していないディレクトリで起動すると、claude と同じ確認プロンプトが出る |\n| v2.1.225 | 権限 | auto モードの連続ブロック判定 | 安全フィルタが自身の権限チェックを拒否した分を数えない。拒否は維持したまま、モデルには再試行せず先へ進むよう伝える |\n| v2.1.225 | 修正 | ヘッドレスのクロスセッションメッセージ | 通知も期限も無いまま滞留していた問題を修正 |\n| v2.1.225 | 修正 | Remote Control のセッション再開 | 大きな会話を圧縮した後に履歴が壊れる問題を修正 |\n| v2.1.225 | 修正 | エージェント一覧のホバー | 別プロジェクトのセッションにカーソルを合わせると、次のエージェントの起動ディレクトリが変わっていた |\n| v2.1.225 | 修正 | claude self-hosted-runner | --base-dir を作成・書き込みできない場合、登録後に毎セッション失敗せず起動時にエラー終了する |\n| v2.1.225 | 修正 | Claude Code on the web | 停止扱いの誤判定で、再接続のたびに増え続けるイベントを再送していた |\n| v2.1.225 | 改善 | Remote Control の画像添付 | Claude アプリから添付した写真を、ディスク読み取りのツール呼び出しを挟まず直接渡す |\n| v2.1.225 | VSCode | Focus view の折りたたみ | 最新の to-do・保留中の質問の文脈・確定した回答が畳まれる問題を修正。思考だけの折りたたみは「Thought for Ns」と表示し、ターン完了時に再び畳む |\n\nまとめ\n\nv2.1.225 の中心は認証の取りこぼしで、CLAUDECODEOAUTHTOKEN の差し替えと macOS のキーチェーンタイムアウトが同時に潰れました。ヘッドレス運用で 401 由来の失敗が出ていたなら、v2.1.225 で挙動が変わります。v2.1.226 は 1 時間 39 分後の追い足しリリースで、changelog に内訳の記載はありません。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f08703117c293442",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8606666666666667,
+      "popularityPercentile": 0.8212121212121212,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Claude Code v2.1.225がヘッドレス実行時の認証トークン差し替え不具合を修正した。",
+      "reason": "一時的な401でCLAUDE_CODE_OAUTH_TOKENが短命トークンに置き換わり、再起動までCIの認証が戻らない不具合が修正された。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.225",
+        "v2.1.226",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "MCP OAuth",
+        "workspace trust"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "ai",
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Codeの権限モードは6種類。auto modeの\"classifier\"が許可とブロックをどう決めているか？",
+      "url": "https://qiita.com/startdevin/items/e5828695a3e468a79976",
+      "publishedAt": "2026-08-09T11:57:52.000Z",
+      "author": "Devin 太郎",
+      "authorDetail": {
+        "name": "Devin 太郎",
+        "handle": "@startdevin",
+        "url": "https://qiita.com/startdevin",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4349504/5a126814cf7850a7bae1fb6d850bca77bdd38d2e/large.png?1774080440",
+        "bio": "Devin解説サイト「StartDevin」運営中（https://www.startdevin.jp/）",
+        "followers": 1,
+        "posts": 25,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://www.startdevin.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "AI",
+        "AIエージェント",
+        "AI活用",
+        "Devin"
+      ],
+      "snippet": "はじめに 同じClaude Codeを使っていても、「確認プロンプトばかりで作業が一向に進まない人」と、「気づいたら触ってほしくない場所まで自動でいじられた人」がいます。この差は、たいてい権限モードの選び方で説明がつきます。 コーディングエージェントを使っていると、どのツールでも必ずぶつかる問いがあります。「どこまで勝手に走らせて、どこで止めて確認させるか」です。Devinにもplanモードやaskモードがあって、走らせすぎないための仕組みが用意されています。同じ問いに、Claude Codeは6つの権限モードと、auto modeという\"番人つきの自動実行\"で答えを出してきました。 DevinのバックにはClaudeのモデルがいます。だからClaude Code側がエージェントの自律性をどう安全に上げているかは、Devinユーザーにとっても対岸の話ではないと思っています。特に面白いのがa…",
+      "body": "はじめに\n\n同じClaude Codeを使っていても、「確認プロンプトばかりで作業が一向に進まない人」と、「気づいたら触ってほしくない場所まで自動でいじられた人」がいます。この差は、たいてい権限モードの選び方で説明がつきます。\n\nコーディングエージェントを使っていると、どのツールでも必ずぶつかる問いがあります。「どこまで勝手に走らせて、どこで止めて確認させるか」です。Devinにもplanモードやaskモードがあって、走らせすぎないための仕組みが用意されています。同じ問いに、Claude Codeは6つの権限モードと、auto modeという\"番人つきの自動実行\"で答えを出してきました。\n\nDevinのバックにはClaudeのモデルがいます。だからClaude Code側がエージェントの自律性をどう安全に上げているかは、Devinユーザーにとっても対岸の話ではないと思っています。特に面白いのがauto modeで、ここには専用のclassifier（判定用の別モデル）が入っていて、コマンドが実行される前に一つひとつ「これは通していいか」を判断しています。\n\nこの記事では、まず6つのモードをざっと押さえたうえで、auto modeのclassifierが何を見て、どんな順番で許可とブロックを決めているのかを掘っていきます。公式ドキュメントに「How the classifier evaluates actions（classifierはどうアクションを評価するか）」という項があって、ここがいちばんの読みどころです。\n\n:::note info\n先に3行でまとめると\n・Claude Codeの権限モードは6種類。オーバーサイト重視のManualから、全部止めずに走らせるbypassPermissionsまで一直線に並ぶ\n・目玉はauto mode。専用classifierが実行前に各アクションを審査し、要求を超える危険な操作だけを止める\n・classifierには決まった判定順序がある。ルール → 読み取り/編集の自動承認 → それ以外はclassifier、の3段構え\n:::\n\nこの記事に出てくる用語の位置づけ\n\nClaude Code独自の呼び名と、AI記事で一般に使う言葉が混ざります。先に整理しておくので、迷ったらここに戻ってきてください。\n\n| 用語 | 位置づけ | ざっくりの意味 |\n|---|---|---|\n| 権限モード（permission mode） | Claude Code独自 | 何を確認なしで実行してよいかを決める設定。6種類ある |\n| auto mode | Claude Code独自 | classifierの審査つきで、許可プロンプトを出さずに走るモード |\n| classifier | Claude Code独自 | アクションを実行前に審査する判定専用モデル |\n| protected paths（保護パス） | Claude Code独自 | .git や .claude など、自動承認されない特別なパス群 |\n| allow / ask / deny ルール | Claude Code独自 | ツールごとに事前許可・要確認・禁止を決める権限ルール |\n| Manual（default） | Claude Code独自 | 全アクションを毎回確認する最も慎重なモード。設定値は default |\n| オーバーサイト | 一般用語 | 人間による監督・目視確認のこと |\n| プロンプトインジェクション | 一般用語 | 外部から読み込んだ内容でAIを不正に操る攻撃 |\n| サブエージェント | 一般用語 | 親セッションが仕事を委譲する子エージェント |\n\n固有名詞（Claude Code独自）は「この製品の世界でだけ通じる言葉」、一般用語は「他社のAI記事でも出てくる言葉」と考えてください。\n\n権限モードは6種類\n\nまず全体像です。6つのモードは「どこまで確認なしで実行してよいか」の一本の軸に並びます。左に行くほど人間が見張り、右に行くほどエージェントに任せる、という並びです。\n\n \n \n\n表にすると、それぞれが「確認なしで動く範囲」で性格がはっきり分かれます。\n\n| モード | 確認なしで動く範囲 | 向いている場面 |\n|---|---|---|\n| default（Manual） | 読み取りのみ | 使い始め、慎重にいきたい作業 |\n| acceptEdits | 読み取り＋ファイル編集＋よく使うファイル操作（mkdir mv cp など） | レビューしながらコードを回すとき |\n| plan | 読み取り＋（auto mode利用時は）classifier承認済みコマンド | 変更前にコードベースを調べるとき |\n| auto | すべて。ただしバックグラウンドの安全チェックつき | 長い作業、確認疲れを減らしたいとき |\n| dontAsk | 事前承認したツールだけ | ロックダウンしたCIやスクリプト |\n| bypassPermissions | すべて（チェックなし） | 隔離されたコンテナ・VM専用 |\n\nCLIやVS Code拡張、デスクトップアプリでは、default は Manual という名前で表示されます。設定ファイルやSDKからは default を使いますが、claude --permission-mode manual のように manual という別名でも指定できます（別名の対応はv2.1.200以降）。\n\nモードの切り替えは、Claudeにチャットで頼むのではなく、専用の操作でおこないます。CLIなら Shift+Tab で default → acceptEdits → plan を循環。起動時なら claude --permission-mode plan のようにフラグで渡します。恒久的なデフォルトにしたいなら、設定ファイルに書きます。\n\n [code] \n\nauto・dontAsk・bypassPermissions はこの循環に自動では入りません。auto modeはアカウントが要件を満たすと循環に現れ、bypassPermissionsは起動時に有効化したときだけ、dontAskは循環には出ずフラグ指定のみ、という具合です。\n\nあなたはどのモードを使うべきか\n\n6つ並ぶと迷いますが、日常で実際に使うのは2〜3個です。場面から選ぶと、だいたいこう収まります。\n\n| こんなとき | おすすめモード | ひとこと |\n|---|---|---|\n| 使い始め、機微なコードを触る | default（Manual） | まず全部見て、慣れたら緩める |\n| 差分をレビューしながら回す | acceptEdits | 編集は任せ、git diff で後追い確認 |\n| 変更前に方針を固めたい | plan | 壊さず調べさせて計画を作る |\n| 長い作業をまるごと任せたい | auto | 番人つきで確認疲れを減らす |\n| CI・自動化スクリプト | dontAsk | 事前許可以外は即拒否で待たない |\n| 隔離コンテナ・VM限定 | bypassPermissions | それ以外の場所では使わない |\n\n個人的に落ち着いているのは、auto を土台にしつつ「pushとPR作成だけは必ず確認」に寄せる形です。任せる範囲は広げたいけれど、外に出ていく操作だけは目視したい、という欲張りをそのまま設定にできます。/.claude/settings.json にこう書きます。\n\n [code] \n\nこのバランスの意味を理解するためにも、ここから先はauto modeの中身を詳しく見ていきます。\n\nauto modeは\"番人つきの全自動\"\n\nauto modeは、いちいち許可を求めずにClaudeを走らせるモードです。とはいえ野放しではありません。裏で別のclassifierモデルがアクションを実行前に審査していて、次のようなものをブロックします。\n・あなたの要求を超えてエスカレートする操作\n・見覚えのないインフラをターゲットにする操作\n・Claudeが読み込んだ悪意ある内容に誘導された気配のある操作\n\n明示的なaskルールがあれば、auto modeでもちゃんと確認プロンプトが出ます。\n\n:::note warn\n公式は「auto modeは許可プロンプトを減らすが、安全を保証するものではない」とはっきり書いています。方向性を信頼できるタスクで使うものであって、機微な操作のレビューを丸ごと肩代わりするものではない、という位置づけです。\n:::\n\nひとつ知っておきたいのが、2026年8月14日から、Pro・Max・Teamプランの新規セッションではauto modeがデフォルトの権限モードになるという告知です（自分で設定したデフォルトは、一度だけ出る切り替え確認を承認しない限り維持され、組織が管理するデフォルトは変わりません）。つまりこれから多くの人にとって、auto modeは「わざわざ選ぶモード」ではなく「最初からそこにいるモード」になります。だからこそ、その番人が何を見ているかを知っておく価値があります。\n\nclassifierの判断順序\n\nここが本題です。classifierは思いつきで判断しているわけではなく、決まった順序でアクションを評価します。上から順に見ていって、最初に当てはまったステップで結論が出る、という仕組みです。\n\n [code] \n\n言葉にするとこうです。\n\n1. まず、あなたのallow / ask / denyルールに一致するアクションはその場で確定します。ただし保護パスへの書き込みは、allowルールに一致してもclassifierに回されます。組織が ask に設定したコネクタツールや、requiresUserInteraction が付いたMCPツールは、allowに一致しても直接あなたに確認します\n2. 読み取り系のアクションと、作業ディレクトリ内のファイル編集は自動承認されます（保護パスへの書き込みは除く）\n3. それ以外はすべてclassifierに回されます\n4. classifierがブロックしたら、Claudeは理由を受け取って別の手段を試します。多くのセッションでは、その理由は固定文言の Blocked by classifier です（v2.1.208以降）\n\n面白いのは、auto modeに入った瞬間、任意コード実行を許してしまう\"広すぎるallowルール\"が無効化される点です。Bash() や PowerShell()、Bash(python) のようなワイルドカード付きインタプリタ、パッケージマネージャの実行コマンド、Agent のallowルールなどが対象です。一方 Bash(npm test) のような具体的なルールはそのまま生きます。無効化されたルールは、auto modeを抜けると元に戻ります。\n\nそしてセキュリティ設計として上手いのが、classifierが見る範囲です。classifierはユーザーのメッセージ、ツール呼び出し、そして CLAUDE.md の内容を見ますが、ツールの実行結果は取り除かれます。つまりファイルやWebページに仕込まれた悪意ある内容が、classifierを直接操ることはできません。加えてサーバー側の別のプローブが、Claudeが読む前に届いたツール結果をスキャンして怪しい内容をフラグ立てします。番人自身が汚染されないように、そもそも汚染源を見せない作りになっています。\n\n会話で伝えた境界も、ブロックの合図になる\n\nルールを書かなくても、会話の中で言った制約はそのまま効きます。「まだpushしないで」「レビューするまでデプロイは待って」とClaudeに伝えると、classifierはデフォルトなら許すはずの操作でもブロックします。境界は、あとのメッセージで自分が解除するまで有効です。「条件を満たした」というClaude自身の判断で勝手に解除されることはありません。\n\nただしこの境界はルールとして保存されるわけではなく、classifierが毎回トランスクリプト（会話履歴）から読み直しています。だからコンテキストの圧縮でその発言が消えると、境界も失われる可能性があります。確実に守らせたいなら、会話で言うのではなくdenyルールを足すのが堅実です。\n\nサブエージェントは3つのタイミングで見張られる\n\nClaudeがサブエージェントに仕事を委譲するときも、classifierはちゃんと目を光らせています。チェックは3ヶ所です。\n\n [code] \n\n開始前のタスク内容の審査（①）はv2.1.178以降で、危険そうな委譲を起動の時点で止められます。実行中（②）は、サブエージェントのフロントマターに書かれた permissionMode は無視され、親と同じルールで審査されます。子だけこっそり緩める、ができないわけです。\n\nauto modeが自動実行を諦めるとき\n\n番人が働きすぎて、かえって邪魔になることもあります。そのための引き際も決まっています。classifierが3回連続、または合計20回ブロックすると、auto modeは一時停止して、Claude Codeは普通に許可プロンプトを出す状態に戻ります。プロンプトを承認すればauto modeが再開します。このしきい値は変更できません。\n\n連続カウンタは、許可されたアクションが1つでもあればリセットされます。合計カウンタはセッション中ずっと積み上がります。ちなみに -p を使う非対話モードでは、聞く相手がいないので、ブロックが続くとセッションごと打ち切られます。\n\n拒否が続くのは、たいていclassifierがあなたのインフラの文脈を知らないからです。この「教えてあげる」設定は次の記事のテーマなので、ここでは「詰まったらインフラを登録すれば直ることが多い」とだけ覚えておいてください。\n\nコストとレイテンシの話\n\nclassifierは、あなたが /model で選んだモデルではなく、既定でClaude Sonnet 5で動きます（Anthropicがサーバー側で別のclassifierモデルを指定していれば、そちらが優先されます）。\n\nEnterpriseプランや、Claude API・各クラウドプロバイダを使うアカウントでは、classifierの呼び出しがトークン使用量に計上されます。各チェックはトランスクリプトの一部と実行しようとしているアクションを送るので、実行前に往復が1回増えます。ただし読み取りと作業ディレクトリ内の編集（保護パス以外）はclassifierを通らないので、オーバーヘッドの主役はシェルコマンドとネットワーク操作です。裏で頻繁に走るぶん、ゼロコストではない、というのは頭の隅に置いておくとよいです。\n\n使う前に押さえておくこと\n\nauto modeは全プランで使えますが、いくつか要件があります。Team・Enterpriseでは既定で利用可（管理者が permissions.disableAutoMode を \"disable\" にすればオフにできます）。モデルは、Anthropic APIとClaude Platform on AWSではOpus 4.6以降・Sonnet 4.6以降・Fable 5、Bedrock/Google Cloud/Microsoft FoundryなどではSonnet 5・Opus 4.7以降・Fable 5が対象です。Sonnet 4.5やOpus 4.5、Haiku、claude-3系は対象外です。\n\nもし defaultMode: \"auto\" を設定したのにdefaultモードで起動する場合、その設定がプロジェクトの .claude/settings.json に書かれている可能性が高いです。v2.1.142以降は、リポジトリが自分にauto modeを付与できないよう、プロジェクト設定からの auto を無視します。/.claude/settings.json に移してください。\n\nやりがちな失敗\n\n最後に、権限モードまわりで踏みがちな地雷をまとめておきます。どれも本文で触れた話ですが、失敗の形で並べたほうが避けやすいはずです。\n\n| やりがちな失敗 | なぜまずいか | どうする |\n|---|---|---|\n| bypassPermissions を普段使いにする | 全チェックが無効。プロンプトインジェクションに無防備 | 隔離環境だけに限定し、普段は auto |\n| .claude/settings.json に defaultMode: \"auto\" を書く | プロジェクト設定からは無視され、default で起動する | /.claude/settings.json（ユーザー設定）に書く |\n| 会話で「pushしないで」と言って安心する | 圧縮でその発言が消えると境界も失われる | 恒久的に守るなら deny / ask ルール |\n| auto mode＝安全、と思い込む | 公式も「安全は保証しない」と明記している | 機微な操作は自分の目でレビューする |\n\nとくに2つめは、私も最初にやりました。リポジトリに設定を置けば効くだろうと .claude/settings.json に auto を書いて、いつまでもdefaultのまま起動して首をかしげる、という定番の落とし穴です。\n\nおわりに\n\nauto modeのclassifierを追っていて感心したのは、「自律性を上げる」と「安全を保つ」を、根性論ではなく仕組みで両立させにいっている点でした。決まった判定順序があり、番人自身は汚染源を見ず、行きすぎたら自分で引く。どれも派手さはないけれど、エージェントに任せる範囲を広げるうえで地味に効く設計です。\n\nDevinのplan/askモードもそうですが、コーディングエージェントの成熟は結局「どこまで安心して手を離せるか」に集約されていく気がします。次の記事では、このclassifierに「うちのインフラは信頼していい」と教えて、余計なブロックを減らすための設定（auto-mode-config）を掘ります。デフォルトのままだと自社リポジトリへのpushすら止められることがあるので、実務で使うならセットで読んでおくと効きます。\n\n:::note info\n🚀 Devin専門の解説メディア「StartDevin」を運営中！\nDevinの導入・使い方・最新アップデート・活用事例を、日本語でまとめています。\n👉 StartDevin をチェックする（startdevin.jp）\n\nこの記事にぜひ いいね❤️ していただけると励みになります 🙌\n:::\n\n参考リンク\n・Choose a permission mode（Claude Code公式ドキュメント）（一次情報。6モードとclassifierの判定順序）\n・Configure auto mode（Claude Code公式ドキュメント）（次の記事で扱う設定リファレンス）\n・Permissions（allow / ask / denyルール）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "2c1e38283c06f84d",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7453333333333334,
+      "popularityPercentile": 0.296969696969697,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Claude Codeのauto modeは専用classifierで各アクションの許可・ブロックを判定する。",
+      "reason": "auto modeは単純な全自動実行ではなく、別モデルのclassifierがコマンドごとに危険性を判定して止める。6種類の権限モードとの違いも整理されている。",
+      "keywords": [
+        "Claude Code",
+        "auto mode",
+        "classifier",
+        "権限モード",
+        "Devin",
+        "permission mode"
+      ],
+      "category": "AI/エージェント",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "共通スキルを symlink で一元管理する：更新伝播の仕組みと同期の落とし穴",
+      "url": "https://qiita.com/akihidem/items/018dd0dab57b876a5acc",
+      "publishedAt": "2026-08-09T11:00:01.000Z",
+      "author": "akihidem",
+      "authorDetail": {
+        "name": "akihidem",
+        "handle": "@akihidem",
+        "url": "https://qiita.com/akihidem",
+        "avatarUrl": "https://avatars1.githubusercontent.com/u/62442661?v=4",
+        "followers": 2,
+        "posts": 81,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/akihidem"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "AI開発",
+        "実践"
+      ],
+      "snippet": "複数のプロジェクトで Claude Code のスキルを保守していると、同じ SKILL.md を各プロジェクトのディレクトリへコピーして管理し、変更のたびに全コピーを更新する作業が生じます。2026-08-09 現在、Claude Code はスキルディレクトリのエントリとして symlink をサポートしており、ひとつのファイルへの変更を symlink で参照しているすべてのプロジェクトへ自動的に伝播できます。 本稿では、git 管理の共有スキルライブラリを作成し、personal および project レベルから symlink で参照する実装を、ゼロから動作確認まで通して示します。あわせて、ライブ変更検知の適用範囲、compaction 後のスキル再注入の挙動、standing instructions としての設計指針を扱います。 スキルの配置レベルと適用スコープ Claud…",
+      "body": "複数のプロジェクトで Claude Code のスキルを保守していると、同じ SKILL.md を各プロジェクトのディレクトリへコピーして管理し、変更のたびに全コピーを更新する作業が生じます。2026-08-09 現在、Claude Code はスキルディレクトリのエントリとして symlink をサポートしており、ひとつのファイルへの変更を symlink で参照しているすべてのプロジェクトへ自動的に伝播できます。\n\n本稿では、git 管理の共有スキルライブラリを作成し、personal および project レベルから symlink で参照する実装を、ゼロから動作確認まで通して示します。あわせて、ライブ変更検知の適用範囲、compaction 後のスキル再注入の挙動、standing instructions としての設計指針を扱います。\n\nスキルの配置レベルと適用スコープ\n\nClaude Code のスキルには enterprise・personal・project の3レベルがあります [1]。\n・Personal — /.claude/skills/ /SKILL.md（すべてのプロジェクトに適用）[1]\n・Project — .claude/skills/ /SKILL.md（当該プロジェクトのみに適用）[1]\n\n複数プロジェクト間で共有するスキルは personal レベルへ配置します。project レベルは、そのプロジェクト固有のカスタマイズを上乗せする場所として使います。\n\n同名スキルが複数レベルに存在する場合の優先順位は enterprise > personal > project であり、いずれのレベルのスキルも同名の bundled スキルを上書きします [1]。\n\"enterprise overrides personal, and personal overrides project. A skill at any of these levels also overrides a bundled skill with the same name.\" [1]\n\nsymlink サポートの基本仕様\n\"A entry in the enterprise, personal, or project locations can be a symlink to a directory elsewhere on disk. Claude Code follows the symlink and reads SKILL.md from the target directory\" [1]\n\nディレクトリエントリそのものが symlink であればよく、SKILL.md 自体を symlink にする必要はありません。同じ symlink 先が複数の場所から参照されても重複ロードは起きません。\n\"and if the same target is reachable from more than one location, Claude Code loads the skill once.\" [1]\n\npersonal と project の両レベルから同じターゲットを symlink した場合でも、スキルは1回だけ読み込まれます。\n\nなお、plugin スキルの symlink 扱いは通常スキルと異なります [1]。\n\"Plugin skills handle symlinks differently\" [1]\n\nplugin スキルを symlink で共有する際は、Marketplace の symlink 共有ドキュメントを別途参照してください。\n\n実装：ゼロから動作確認まで\n\n環境: Linux または macOS、Claude Code 最新版（2026-08-09）、git 導入済み。\n\nステップ 1：共有スキルライブラリの作成\n\n [code] \n\ndeploy-helper の SKILL.md を作成します。\n\n [code] \n\nステップ 2：git リポジトリとして初期化\n\n [code] \n\n実行すると次のような出力が得られます。\n\n [code] \n\nステップ 3：symlink の作成（personal レベル）\n\n [code] \n\nステップ 4：動作確認\n\nsymlink が正しく張られているか確認します。\n\n [code] \n\n [code] \n\nsymlink 先の実パスを確認します。\n\n [code] \n\n [code] \n\nSKILL.md が参照可能かを確認します。\n\n [code] \n\n [code] \n\nこれで /.claude/skills/deploy-helper/SKILL.md がセッション開始時に読み込まれます。\n\nステップ 5：ライブラリの更新と伝播確認\n\n [code] \n\n [code] \n\nセッション内であればライブ変更検知により次のターンから反映されます（後述）。\n\nステップ 6：project レベルとの組み合わせ\n\n [code] \n\n [code] \n\npersonal と project の両方から同じターゲットが参照される場合、Claude Code はそのスキルを1回だけ読み込みます。\n\n変更検知の動作範囲\n\"Claude Code watches skill directories for file changes. When you add, edit, or remove a skill under /.claude/skills/, the project .claude/skills/, or a .claude/skills/ inside an --add-dir directory, Claude Code picks up the change within the current session, without a restart.\" [1]\n\nSKILL.md の追加・編集・削除はセッション内でリスタートなしに検知されます。symlink 先のファイルを直接編集した場合も対象です。\n\n例外 1：セッション開始後に skills ディレクトリを新規作成した場合\n\"If you create a top-level skills directory that didn't exist when the session started, restart Claude Code so it can watch the new directory.\" [1]\n\n/.claude/skills/ 自体がセッション開始時に存在しなかった場合、その後作成しても監視が始まりません。Claude Code を再起動する必要があります。\n\n例外 2：plugin スキルの内部変更\n\"Live change detection covers SKILL.md text only. For a skill folder that is also a plugin, changes to hooks/, .mcp.json, agents/, and output-styles/ need /reload-plugins to take effect.\" [1]\n\nスキルが plugin でもある場合、SKILL.md 以外の変更には /reload-plugins コマンドが必要です。\n\ncompaction 後のスキル再注入\n\"Claude Code re-attaches the most recent invocation of each skill after the summary, keeping the first 5,000 tokens of each. Re-attached skills share a combined budget of 25,000 tokens.\" [1]\n\n各スキルの先頭 5,000 トークンが再注入され、複数スキルの合計上限は 25,000 トークンです（2026-08-09 時点）。最近使ったスキルから順に充填されるため、セッション内で多数のスキルを呼び出した場合、古いスキルは compaction 後に完全に落ちることがあります。\n\nstanding instructions の設計\n\"Claude Code does not re-read the skill file on later turns, so write guidance that should apply throughout a task as standing instructions rather than one-time steps.\" [1]\n\nスキルはターンをまたいで再読み込みされません。スキル呼び出し後のすべてのターンで適用してほしい指示は、SKILL.md に standing instructions として記述します。逐次ステップではなく、セッション全体に適用される方針として書くことが重要です。\n\npermissions.additionalDirectories との違い\n\nsettings.json の permissions.additionalDirectories はファイルアクセス権限のみを付与します。\n\"The permissions.additionalDirectories setting in settings.json grants file access only and does not load skills.\" [1]\n\n共有ライブラリのディレクトリを permissions.additionalDirectories に追加しても、スキルとして有効にはなりません。スキルとして読み込むには --add-dir または /add-dir を使用します。\n\nCowork セッションとクラウドセッションの制約\n\"Cowork sessions and cloud sessions, including routines, don't read /.claude/skills/ on your machine.\" [1]\n\nCowork セッションおよびクラウドセッションはローカルの /.claude/skills/ を読み込みません。チーム共有のスキルは必ずリポジトリの .claude/skills/ に配置し、git 管理します。\n\n運用設計：共有ライブラリをどう組むか（docs に無い観点）\n\n以下は公式ドキュメントには記載のない、実際の運用での設計判断です。\n\nスキル名の安定性\n\nスキル名はそのままディレクトリ名になり、各プロジェクトの symlink 名とも一致させる必要があります。ライブラリ側でディレクトリ名を変更すると、すべての symlink の張り直しが発生します。動詞-名詞形の短い名前（例: deploy-helper、code-review）を最初に確定させることは、後から変更コストが高くなるため実際には意味があります。\n\nSKILL.md の構造と compaction の関係\n\ncompaction 後に各スキルの先頭 5,000 トークンしか再注入されない仕様上、重要な standing instructions ほど SKILL.md の前に置く必要があります。後半に追記した指示は compaction を挟むと失われる可能性があります。5,000 トークンは日本語で約 3,500〜4,000 字程度が目安です。\n\n共有ライブラリとして複数プロジェクトで使う場合、全プロジェクトに共通する指示をファイル冒頭に置き、プロジェクト固有のカスタマイズは project レベルの別スキルに分離する設計が、compaction の制約上は妥当だと考えます。\n\nplugin スキルとの分離\n\nplugin スキルの symlink 扱いは通常スキルと異なります。共有ライブラリに plugin スキルを混在させると、SKILL.md のライブ検知と plugin 内部変更の /reload-plugins 必要性が並存し、運用の把握が複雑になります。plugin スキルは別のリポジトリで管理し、通常スキルの共有ライブラリとは分離する方が管理しやすいと思います。\n\nCowork 環境への対応\n\nCowork セッションはローカルの /.claude/skills/ を読み込まないため、チーム共有のルールを personal スキルに集約していると Cowork では無効になります。この前提でチーム開発を計画する場合、重要な業務ルールはリポジトリ内の .claude/skills/ に置くことを設計段階で決めておく方が実際には安全です。\n\nReferences\n\n[1] https://code.claude.com/docs/en/slash-commands",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6f29e39da03cb26b",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7111071428571428,
+      "popularityPercentile": 0.3575757575757576,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 86,
+      "oneLiner": "Claude Codeの共通スキルをsymlinkで共有し、複数プロジェクトへ変更を自動伝播させる方法を示した。",
+      "reason": "SKILL.mdを各プロジェクトへコピーせず、git管理した共有ライブラリをsymlinkで参照できる。personalとprojectの適用範囲やcompaction後の挙動も扱う。",
+      "keywords": [
+        "Claude Code",
+        "Skill",
+        "SKILL.md",
+        "symlink",
+        "personal scope",
+        "project scope"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AI に rm を打たせない — hooks 三段構えの実物",
+      "url": "https://qiita.com/berrylove/items/11272b4c4d7e75d04a19",
+      "publishedAt": "2026-08-09T08:01:06.000Z",
+      "author": "berrylove",
+      "authorDetail": {
+        "name": "berrylove",
+        "handle": "@berrylove",
+        "url": "https://qiita.com/berrylove",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4481912/8ce43347baef8158353eddf1321545aa4790d0d3/x_large.png?1786259907",
+        "followers": 0,
+        "posts": 2,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "AI",
+        "hooks",
+        "個人開発"
+      ],
+      "snippet": "本記事は Zenn に公開した記事の転載です。元記事: https://zenn.dev/berrylove/articles/ai-cant-rm-hooks-in-practice 先日公開した本『AI 国家運営』の第5章では、「指示書はサブエージェントに徹底されない」という前提に立って、削除コマンドを機械的にブロックする仕組みを「三段構え」として説明しました。本では設計の考え方に絞ったので、コードそのものは書いていません。この記事では、その3段目にあたる実装から、判定の中核部分を抜粋して紹介します。 三段構えのおさらい [code] 1段目・2段目は運用でカバーできますが、CLAUDE.md に「削除はヘルパー経由で」と書いても、指示書が読み込まれない・読み込まれても従わないケースは実際に起こります（私の環境で起きた実例は本の第5章に書きました）。3段目の PreToolUse フッ…",
+      "body": "本記事は Zenn に公開した記事の転載です。元記事: https://zenn.dev/berrylove/articles/ai-cant-rm-hooks-in-practice\n\n先日公開した本『AI 国家運営』の第5章では、「指示書はサブエージェントに徹底されない」という前提に立って、削除コマンドを機械的にブロックする仕組みを「三段構え」として説明しました。本では設計の考え方に絞ったので、コードそのものは書いていません。この記事では、その3段目にあたる実装から、判定の中核部分を抜粋して紹介します。\n\n三段構えのおさらい\n\n [code] \n\n1段目・2段目は運用でカバーできますが、CLAUDE.md に「削除はヘルパー経由で」と書いても、指示書が読み込まれない・読み込まれても従わないケースは実際に起こります（私の環境で起きた実例は本の第5章に書きました）。3段目の PreToolUse フックは、指示書が読まれたかどうかに関係なく、コマンド文字列そのものを検査して機械的に止めます。\n\n実装: rm-guard.js\n\nClaude Code の PreToolUse フックは、標準入力に JSON でツール呼び出しの情報が渡され、標準出力の JSON で判定を返す仕組みです。拒否時は deny を返し、非該当時は空の JSON を返して通常の権限判定に委ねます。rm / Remove-Item / rmdir / del などの直接削除コマンドを、コマンドの先頭トークン（sudo は読み飛ばす）としてのみ検出します。\n\n [code] \n\nコマンド位置に限定しているのがポイントです。単純な文字列一致だと git rm（正当なサブコマンド）や、コミットメッセージにたまたま含まれる \"rm\" まで拾ってしまいます。&& や ; で連結された複数コマンドも1つずつ分解してから、それぞれの先頭トークンだけを見ます。\n\n先に限界も書いておきます。この方式が止められるのは、列挙したコマンド名の直接入力だけです。/bin/rm のようなパス指定、スクリプトやインタプリタ経由の削除、find -delete や git rm -f のような列挙外の削除経路は対象外ですし、引用符の中に区切り文字を含むコマンドの分解にも限界があります。これらを1本のフックで塞ごうとするより、対象外の経路は1段目（可逆化）と2段目（確認）で受け止める、という役割分担で運用しています。\n\n判定を返す部分はこうなっています。\n\n [code] \n\n拒否理由（permissionDecisionReason）には「代わりにこのコマンドを使え」という誘導を必ず含めます。これがあることで、エージェントは拒否されたあと確認を挟まずに正しい手段へ切り替えやすくなります。理由を空にしたり抽象的な文言にしたりすると、エージェントが同じ操作を別の言い回しで再試行してくることがあり、誘導の具体性が実運用での再試行回数を左右します。\n\n最後に、入力が読めない・パースできないケースはすべて allow() に倒しています。フック自体のバグが全操作の停止に直結する事故のほうが、検知漏れより悪いという判断です。素通りした先には、危険コマンドに確認を課す2段目の設定（対象コマンドを permissions で確認必須にしておく設定）を最終防衛線として残しておきます。なお、確認を省略する権限モードで運用している場合、この防衛線は効かない点には注意してください。\n\nもう一つ: 全部を止めない設計\n\n削除だけでなく git push にも同じ考え方のフックをかけています。ただしこちらは対象をさらに絞り、force push と main/master への明示的な push の2パターンだけを確認対象にします。それ以外の push（フィーチャーブランチへの push、通常のコミット操作）はすべて素通しです。\n\n以下は判定の入口部分の抜粋です（FORCEFLAGS の定義や保護ブランチ（main/master）の判定、リポジトリ例外の適用などは完全版にあります）。\n\n [code] \n\n全部の Bash コマンドや全部の git コマンドを確認対象にしなかったのは理由があります。本の第5章にも書いたとおり、以前 prompt 型（LLM 判定）のフックで無害な操作を繰り返し誤ブロックした経験があり、確認が頻発すると「読まずに承認する」動きが定着してしまいます。確認は、本当に取り返しがつかない2パターンだけに絞ったほうが、結果として機能します。\n\nもう一点、このフックにはリポジトリ単位の例外リストを最初から持たせています。「main への直 push が正規の運用」というリポジトリも実際にあり、そこで毎回止められると自動化の意味がなくなるためです。\n\n [code] \n\n検証はテストケース表で\n\nこの手のフックは、思いつきで数パターン試して「動いているはず」で終わらせると、あとで誤検知や見逃しに気づくことになります。実装時は次のような表を作り、危険系・誤検知チェック系を分けて手動実行しました。\n\n| 入力コマンド | 期待結果 |\n|---|---|\n| rm -rf tmp/ | deny |\n| sudo rm file | deny |\n| git rm tracked-file | allow |\n| echo \"please rm this later\" | allow |\n| find . -name '.rm' -delete | allow |\n| npm rm some-package | allow |\n\ngit rm や find -delete が allow なのは見逃しではなく、「このガードは列挙したコマンド名だけを対象にする」という設計どおりの挙動を確認するためのケースです。これらの削除経路は前述のとおり1段目・2段目の受け持ちになります。\n\nrm-guard・push-guard それぞれに危険系・誤検知チェック系のテストケース表を作って全件を通し、期待どおりの判定になることを確認しています（ケースは運用の中で随時追加しています）。\n\n使ってみる\n\nスクリプトを配置し、settings.json の PreToolUse にハンドラーを追加します（例は rm-guard の分。push-guard も同じ形で並べます）。\n\n [code] \n\n本の第5章では、この仕組みに至った経緯（指示書が読まれなかった実例、prompt 型フックでの誤検知の実例）を書いています。設計に至った経緯や失敗例を詳しく読みたい方はそちらもどうぞ。\n\nhttps://zenn.dev/berrylove/books/ai-agent-nation\n\nなお、ここで抜粋した2本の完全版（動くファイル一式）は、CLAUDE.md のひな形や allowlist の作り方とあわせて、Claude Code のエージェント運用テンプレ集として BOOTH での公開を準備しています。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "3456df31d77cc883",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.78,
+      "popularityPercentile": 0.45454545454545453,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "Claude CodeのPreToolUseフックで削除コマンドを機械的に拒否する三段構えを実装した。",
+      "reason": "CLAUDE.mdの指示は無視されることがあるため、PreToolUseフックがコマンド文字列を直接検査する。rmやRemove-Itemなどを先頭トークンに限定して拒否する。",
+      "keywords": [
+        "Claude Code",
+        "PreToolUse",
+        "hooks",
+        "rm-guard.js",
+        "CLAUDE.md",
+        "Remove-Item"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code開発者が押さえておきたいAnthropicニュース（2026-08-09）",
+      "url": "https://qiita.com/homhom44/items/43f323290eb3f524263c",
+      "publishedAt": "2026-08-09T05:53:27.000Z",
+      "author": "ホムホム ホムホム",
+      "authorDetail": {
+        "name": "ホムホム ホムホム",
+        "handle": "@homhom44",
+        "url": "https://qiita.com/homhom44",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/131316/profile-images/1473718247",
+        "followers": 38,
+        "posts": 60,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/homhom44"
+          }
+        ]
+      },
+      "tags": [
+        "Claude",
+        "Anthropic",
+        "AI",
+        "ClaudeCode"
+      ],
+      "snippet": "Anthropic の Claude / Claude Code 関連ニュースをまとめた索引だ。記事本文は日本語で PaPoo に投稿している。ここでは各記事の要点を紹介するので、詳細は各リンク先を読んでほしい。 端末をまたいで会話がつながるのは、思ったより怖くて便利だ 最初に思ったのは、「これ、便利だけど境界がかなり繊細だな」ということだった。 Claude Code が別のセッションへメッセージを飛ばせる、という発想自体はわかりやすい。長い migration を別端末で回していて、片方で見つけたことをもう片方に渡したい。並列で worktree を触っていると、いちいち人間がコピペで中継するのは正直つらい。そこを AI 同士でつなぐのはかなり筋がいいと思う。 https://papoo.work/doc/cb5c11aae5fa7edd Claude Codeのセッション同士が話せる…",
+      "body": "Anthropic の Claude / Claude Code 関連ニュースをまとめた索引だ。記事本文は日本語で PaPoo に投稿している。ここでは各記事の要点を紹介するので、詳細は各リンク先を読んでほしい。\n\n端末をまたいで会話がつながるのは、思ったより怖くて便利だ\n\n最初に思ったのは、「これ、便利だけど境界がかなり繊細だな」ということだった。 Claude Code が別のセッションへメッセージを飛ばせる、という発想自体はわかりやすい。長い migration を別端末で回していて、片方で見つけたことをもう片方に渡したい。並列で worktree を触っていると、いちいち人間がコピペで中継するのは正直つらい。そこを AI 同士でつなぐのはかなり筋がいいと思う。\n\nhttps://papoo.work/doc/cb5c11aae5fa7edd\n\nClaude Codeのセッション同士が話せるようになったことを読んで\n\n正直、最初に思ったのは「そこまでやるのか」という驚きだった。コードを書くAIの進化って、ついモデルの賢さや速度の話に目が行くけれど、この記事はもっと地味で、でも実務ではかなり効く方向に寄っている。別々のTerminalで動いているClaude同士が、手でコピペしなくても文脈を渡し合える。派手さはないけれど、こういう小さな摩擦の削減が一番ありがたい場面は多い。\n\nhttps://papoo.work/doc/285a8040565136d9\n\n使える場所と、信用の置き方が同じ強さで売られている\n\n最初に思ったのは、これは「MCP server の一覧サイト」以上に、信頼を商品にしているページだな、ということだった。 単に数を並べるだけなら珍しくない。でもここでは、インストールの簡単さや free の多さよりも、監査した、記録が残る、human-in-the-loop だ、という話がかなり前に出てくる。AI agent 向けのマーケットプレイスで、しかも agent commerce をうたうなら、たしかにそこで一番怖いのは「何…\n\nhttps://papoo.work/doc/baf90d8eaea11e6e\n\nClaude Codeの自動モードが突きつけるもの\n\nこの記事を読んでまず思ったのは、これは「AIが賢くなった話」よりも、「人間の確認作業が思った以上に当てにならない」という話だな、ということだった。少し意地の悪い言い方に聞こえるけれど、本文のトーンもそこをかなりはっきり突いていて、そこに妙なリアリティがある。\n\nhttps://papoo.work/doc/a75fbeeadd2ce7b7\n\nAIアシスタントに渡す権限は、思ったよりずっと大事\n\nこの記事を読んで最初に思ったのは、AI coding agent の便利さって「賢さ」よりも「どこまで安全に文脈へ入れられるか」で決まるんだな、ということでした。Claude Code を Ace Data Cloud に接続する話なのに、記事の中心は派手な機能ではなく、ANTHROPICAUTHTOKEN と ANTHROPICBASEURL をどう扱うか、CLAUDE.md に何を書くか、という地味な境界線の引き方です。そ…\n\nhttps://papoo.work/doc/d5a43aa66417bf03\n\nMCPは「道具の見せ方」だけで終わらない\n\nこの記事を読んでまず思ったのは、MCPって派手な機能よりも、地味なメタ情報の積み重ねでかなり賢く見えるようになるんだな、ということだった。ツールを公開する仕組みとして見ると、名前と説明と入力スキーマがあれば最低限は足りそうに見える。でも実際には、クライアントが安心して使えるかどうかは、その先の「このツールは壊すのか、繰り返しても平気か、結果はどんな形で返るのか」といった周辺情報でかなり変わる。そこを丁寧に書けるのが面白い。\n\nhttps://papoo.work/doc/24ce8f34059b2fab\n\nCloudflareが“入口”だけを片づけた話\n\n読んでまず思ったのは、Cloudflareらしいな、でも本丸はそこじゃないな、ということだった。 こういう「ワンタップで使えるようにしました」という話は派手に見えるけれど、実際には面倒な下ごしらえを一段減らしただけで、何を公開するか、どう安全に運ぶか、どう使われたかを見届けるかは別問題のまま残る。この記事はその線引きをかなりはっきり書いていて、そこが好感だった。\n\nhttps://papoo.work/doc/1bec6ace84db0dc9\n\nSlackでAIに仕事を振るのは、かなり現実的になってきた\n\nSlackの中で「@Claude これやっといて！」と投げられるようになる、という話を読んで、まず思ったのは「ついに“AIを開く”手間が消えつつあるんだな」ということだった。地味だけど、ここはかなり大きいと思う。AIって結局、別タブを開いて、状況をコピペして、少し整えてから頼む、というひと手間が面倒で使わなくなることが多い。Slackの会話の流れの中でそのまま呼べるなら、依頼する心理的なハードルはかなり下がるはずだ。\n\nhttps://papoo.work/doc/ead6cf7b58d06ac2\n\nAzureのAIゲートウェイ、便利そうなのに境界が気になる\n\n最初に思ったのは、「ようやくここまで来たか」というより、「ここまで一つの入口に寄せるなら、責任の境界もかなりはっきりさせないと怖いな」という感覚でした。 モデル、MCP server、tool をまとめて gateway で扱うのは確かに気持ちがいいです。アプリごとにバラバラに持つより、運用も監査も楽になるはずだし、rate limit や spend control を後から継ぎ足す苦労も減りそうです。\n\nhttps://papoo.work/doc/e5d26bb832f45616\n\n---\n\n記事本文は日本語。\n\nほぼ毎日、Claudeに関するNewsをお伝えしてます! 過去記事はこちら!!\n\nhttps://papoo.work/u/claudenewsjp",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c4929bd32090bdf0",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8073333333333333,
+      "popularityPercentile": 0.5787878787878787,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "Anthropic関連ニュースとして、Claude Codeのセッション間メッセージングなど複数の動向を紹介した。",
+      "reason": "別端末のClaude Codeセッションへメッセージを渡せる機能など、実務の摩擦を減らす更新を複数の記事から抜き出している。",
+      "keywords": [
+        "Anthropic",
+        "Claude Code",
+        "Claude",
+        "SendMessage",
+        "MCP server",
+        "session messaging"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "ai",
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn",
+      "title": "Claude CodeのSkillはちゃんと発火しているか？ 自作ダッシュボードと公式機能を突き合わせてみた",
+      "url": "https://zenn.dev/ytakashi_dev/articles/self-built-dashboard-value-shift",
+      "publishedAt": "2026-08-09T16:28:43.525Z",
+      "author": "たかし",
+      "authorDetail": {
+        "name": "たかし",
+        "handle": "@ytakashi_dev",
+        "url": "https://zenn.dev/ytakashi_dev",
+        "avatarUrl": "https://res.cloudinary.com/zenn/image/fetch/s---Mffms_q--/c_limit%2Cf_auto%2Cfl_progressive%2Cq_auto%2Cw_70/https://static.zenn.studio/user-upload/avatar/3833cc1700.jpeg?_a=BACMTiAE",
+        "links": []
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "dacb48accbf7f515",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.7762500000000001,
+      "popularityPercentile": 0.4375,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "Claude CodeのSkillが実際に発火したかを自作ダッシュボードと公式機能で比較検証した。",
+      "reason": "本文は提供されていないため詳細は不明だが、Skillの発火状況を独自の可視化と公式機能で突き合わせる検証記事である。",
+      "keywords": [
+        "Claude Code",
+        "Skill",
+        "SKILL.md",
+        "ダッシュボード",
+        "発火検証"
+      ],
+      "category": "調査・考察",
+      "domain": "ai",
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "実際のレビュー指摘から Claude Code のルールを改善する",
+      "url": "https://qiita.com/kkaattoo/items/4a1e1c60a4c50dda6370",
+      "publishedAt": "2026-08-09T13:56:59.000Z",
+      "author": "kkaattoo",
+      "authorDetail": {
+        "name": "kkaattoo",
+        "handle": "@kkaattoo",
+        "url": "https://qiita.com/kkaattoo",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3941192/47675686eb19b7e9e9a83341f70059cd621339bf/large.png?1734223536",
+        "followers": 7,
+        "posts": 32,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "AI",
+        "コードレビュー"
+      ],
+      "snippet": "はじめに 前回の記事で、CLAUDE.md に書くこと・書かないことの判断基準をまとめました。要点は「消しても Claude がミスしないルールは削除する」です。 今回はこの基準を、チームのリポジトリのコーディング規約（.claude/rules/）に以下の手順で適用してみました。 1. 実際のレビュー指摘を反映する 2. 基準で削る 3. 削った結果を検証する 4. 効果を見る 規約はあるのに、レビューで指摘されている 直近3ヶ月のチームの人間レビュアーのコメント約400件を調べてみました。すると、頻繁に出てくる指摘の多くが、既に規約ファイルに文書化されている内容でした。 規約ファイルは AI のコンテキストに毎回読み込まれています。しかし、公式ドキュメントでは、これは強制ではなくあくまでコンテキストで、長いファイルはコンテキストを消費し遵守を下げると警告されています。 そこで、AI が…",
+      "body": "はじめに\n\n前回の記事で、CLAUDE.md に書くこと・書かないことの判断基準をまとめました。要点は「消しても Claude がミスしないルールは削除する」です。\n\n今回はこの基準を、チームのリポジトリのコーディング規約（.claude/rules/）に以下の手順で適用してみました。\n\n1. 実際のレビュー指摘を反映する\n2. 基準で削る\n3. 削った結果を検証する\n4. 効果を見る\n\n規約はあるのに、レビューで指摘されている\n\n直近3ヶ月のチームの人間レビュアーのコメント約400件を調べてみました。すると、頻繁に出てくる指摘の多くが、既に規約ファイルに文書化されている内容でした。\n\n規約ファイルは AI のコンテキストに毎回読み込まれています。しかし、公式ドキュメントでは、これは強制ではなくあくまでコンテキストで、長いファイルはコンテキストを消費し遵守を下げると警告されています。\n\nそこで、AI が読んで従える形に規約を作り直すことにしました。以下はその作業記録です。\n\n実際のレビュー指摘からルールを作る\n\n約400件の指摘を分類すると、リポジトリの構造や扱うデータに起因する頻出するバグのパターンが見つかりました。\n\nこれを新しいルールファイル1つにまとめました。採用基準は2つです。\n・実際に繰り返し起きていることだけを載せる：裏付けが1件だけの項目は、偶発なのか繰り返しているのか判断できないので、載せない\n・AI がコードから推測できない情報だけを書く：アーキテクチャの事実、固有ユーティリティの存在、外部サービスの挙動などは書く\n\nこのファイルは常時読み込みにしました。レビューで見つけるより前の、コードを書いている時点で防げるようにします。\n\n基準で削る\n\nもともとあった規約ファイルを前記事の基準で見直しました。「書く価値がない」として実際に削ったのは次のようなものです。\n・標準知識を教えるコード例：try/finally の書き方、?? と || の違いなど、Claude が既に知っていることの NG/OK 例\n → 数十行のコード例を、検証可能な指示文数行に置き換える\n・同じ規約の重複記載：規約がスキルとエージェント定義の2箇所に書かれ、実際に内容が乖離していた\n → 定義は1箇所にして、他は参照だけにする\n\n判断に迷ったときは「この記述の有無で、実際にコードを書く AI の行動が変わるか」を確認し、変わらないなら削除します。\n\n編集ミスを検証で見つける\n\n規約の作り直しという編集作業ではミスが起きました。今回は次の2つの方法で検証し、ミスを見つけました。\n\n1. 移動元の文と1行ずつ突き合わせる：削りすぎて落ちた情報がないか確かめる\n\n2. 別コンテキストの Claude にレビューさせる：書いた本人の判断に引きずられずに、意味の変化や矛盾がないか確かめる\n\n適用効果の確かめ方\n\n書き直した規約に効果があるのか、過去のプルリクエスト5件で確かめました。\n\n最初は、人間レビュアーの指摘を正解表にして検出率を測ろうとして、失敗しました。人間の指摘はマージ前に修正されるため、マージ後のコードを対象にすると「直された欠陥は見つからなくて正解」になります。測るなら、レビューが付く前の時点のコミットを対象にすべきでした。\n\nそこで、同じ PR を旧規約と新規約のレビュアーに別々にレビューさせて、検出内容を突き合わせる方法に切り替えました。レビュアーは同一モデルで、コンテキストだけ分けています。計12試行で、1件の PR は結果のばらつきを見るため新旧2回ずつレビューさせました。\n\n以下のことがわかりました。\n・5件すべての PR で、新規約のレビュアーだけが見つけた欠陥が1件ずつあった\n・同じ PR を2回レビューさせると、新規約は2回ともほぼ同じ指摘だが、旧規約は回ごとに主要な指摘が変わった\n\n旧規約のレビュアーも重要な欠陥を見つけていました。新規約では、見つかる欠陥が増え、レビュー結果が安定しました。\n\nまとめ\n・実際のレビュー指摘を調べると、規約の何が守られていないかが見えた\n・ルールに載せるのは「実際に繰り返し起きていること」と「AI が推測できない情報」だけ\n・削る基準は「消しても行動が変わらないか」\n・規約の作り直し自体がミスを生むため、削った結果は検証する\n・効果の測定は、新旧の規約で同じ PR をレビューさせて、検出内容を突き合わせる\n\n参考\n\nhttps://code.claude.com/docs/ja/memory\n\nhttps://code.claude.com/docs/ja/best-practices",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "2ed349c37c3a2c3d",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7200000000000001,
+      "popularityPercentile": 0.18181818181818182,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "約400件のレビュー指摘から、Claude Codeに読ませるルールを削って再設計した。",
+      "reason": "規約が存在してもレビュー指摘が続いたため、繰り返し起きる問題とAIがコードから推測できない事実だけをルール化した。長い指示は遵守率を下げる。",
+      "keywords": [
+        "Claude Code",
+        "CLAUDE.md",
+        ".claude/rules",
+        "コードレビュー",
+        "コンテキスト",
+        "ルール設計"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "ai",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code + OpenRouter 無料モデル 5 選：2026年版クオリティ・速度・コスト完全比較",
+      "url": "https://qiita.com/locallab/items/b4058846ae7427c0d76e",
+      "publishedAt": "2026-08-09T12:01:29.000Z",
+      "author": "locallab",
+      "authorDetail": {
+        "name": "locallab",
+        "handle": "@locallab",
+        "url": "https://qiita.com/locallab",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKfnZSzyFpE4KXJiusijLyvnZs9J1X1uyI_FBdaqiwCl-r1ucQ=s96-c",
+        "followers": 0,
+        "posts": 24,
+        "links": []
+      },
+      "tags": [
+        "Claude",
+        "AI",
+        "OpenRouter"
+      ],
+      "snippet": "TL;DR ・OpenRouter の :free モデルは 2026 年時点で 5 モデル以上が実用レベルに達した ・コーディング補助・要約・翻訳など 用途別に最適モデルが異なる ・無料枠のレート制限と文脈長を把握すれば 月 $0 でエージェント運用が現実的 --- 背景：なぜ今 OpenRouter 無料モデルなのか LLM を自社プロダクトや社内ツールに組み込むとき、最初のハードルはコストだ。OpenAI GPT-4o や Anthropic Claude 3.5 Sonnet はクオリティが高い反面、バッチ処理・自動化・社内ハーネスで回し続けると月額が青天井になる。 OpenRouter は複数プロバイダの LLM を単一 API で呼び出せるアグリゲーターで、Provider が試用・宣伝目的で提供するモデルを :free サフィックスで無料公開している。 2024 年末〜202…",
+      "body": "TL;DR\n・OpenRouter の :free モデルは 2026 年時点で 5 モデル以上が実用レベルに達した\n・コーディング補助・要約・翻訳など 用途別に最適モデルが異なる\n・無料枠のレート制限と文脈長を把握すれば 月 $0 でエージェント運用が現実的\n\n---\n\n背景：なぜ今 OpenRouter 無料モデルなのか\n\nLLM を自社プロダクトや社内ツールに組み込むとき、最初のハードルはコストだ。OpenAI GPT-4o や Anthropic Claude 3.5 Sonnet はクオリティが高い反面、バッチ処理・自動化・社内ハーネスで回し続けると月額が青天井になる。\n\nOpenRouter は複数プロバイダの LLM を単一 API で呼び出せるアグリゲーターで、Provider が試用・宣伝目的で提供するモデルを :free サフィックスで無料公開している。\n\n2024 年末〜2026 年にかけて Qwen / Mistral / Meta / Google / DeepSeek などが相次いで高性能モデルを無料公開したことで、実務ユースケースに耐えるモデルが一気に増えた。\n\n [code] \n\n---\n\n評価軸と方法論\n\n本記事では以下 4 軸で各モデルを評価する。数値は公式発表値・ベンチマーク論文・コミュニティレポートを元にした定性〜定量の混合評価であり、環境依存がある点はご了承いただきたい。\n\n| 軸 | 説明 |\n|---|---|\n| コーディング精度 | HumanEval / MBPP 相当タスクの正答率傾向 |\n| レイテンシ | 初回トークン到達時間 (TTFT) の体感 |\n| コンテキスト長 | 最大入力トークン数 |\n| レート制限 | :free 枠の req/min・RPD (requests per day) |\n\n---\n\nモデル別詳細\n\n1. qwen/qwen3-235b-a22b:free ── 推論×コーディング最強クラス\n\nAlibaba Cloud の Qwen3 シリーズ最大モデル。MoE (Mixture of Experts) アーキテクチャにより 有効パラメータ 22B 相当の計算量で 235B 規模の表現力を引き出す。\n\n強み\n・コーディング・数学・推論タスクで GPT-4o に匹敵する結果が複数ベンチマークで報告されている\n・日本語・中国語・英語の多言語対応が優秀\n・thinking モードで CoT (Chain of Thought) を内部展開し、複雑なタスクに自動適用\n\n弱み\n・:free 枠は混雑時にレイテンシが跳ね上がる\n・RPD が低めに設定されているため、バッチ処理には注意\n\n推奨ユースケース\nコードレビュー・複雑な要件定義の整理・多言語ドキュメント生成\n\n [code] \n\n---\n\n2. meta-llama/llama-3.3-70b-instruct:free ── バランス型定番\n\nMeta の Llama 3.3 70B は「ちょうど良い」モデルの代名詞。前世代の Llama 3.1 から命令追従性が大幅に向上し、ビジネス文書・コード説明・要約で安定したアウトプットを出す。\n\n強み\n・レート制限が比較的緩め ← 自動化ハーネスと相性が良い\n・128K トークンのコンテキスト窓\n・Apache 2.0 ライセンスで商用利用可 (モデルウェイト自体)\n\n弱み\n・最先端の推論タスクでは Qwen3 235B に劣る\n・コーディングはソリッドだが、複雑なアルゴリズム設計では Qwen3 が優位\n\n推奨ユースケース\n・API ドキュメントの自動生成\n・PR description の下書き\n・ログ・エラーメッセージの自然言語説明\n\n---\n\n3. google/gemma-3-27b-it:free ── マルチモーダル対応の軽量枠\n\nGoogle の Gemma 3 シリーズは テキスト＋画像入力に対応した初のオープンモデル群。27B モデルは商用利用可能な Gemma Terms of Use の下で提供されている。\n\n強み\n・画像 → テキスト変換、スクリーンショット解析などマルチモーダルタスクが可能\n・レスポンス速度が速い (軽量なアーキテクチャ)\n・Google のインフラが裏にある安定性\n\n弱み\n・純テキストのコーディング精度は Llama 3.3 70B よりやや低い\n・長文生成での一貫性がやや落ちる場面がある\n\n推奨ユースケース\n・UI スクリーンショットから HTML のたたき台生成\n・図表・グラフ画像の説明生成\n・画像付きサポートチケットの自動トリアージ\n\n---\n\n4. deepseek/deepseek-r1:free ── 推論特化・OSS の異端児\n\nDeepSeek R1 は強化学習ベースの推論トレーニング (GRPO) を採用し、数学・コーディング・論理パズルで GPT-o1 に迫る性能を誇る。MIT ライセンスで公開されているため、ローカルデプロイも可能。\n\n強み\n・CoT (思考連鎖) の過程が タグで明示的に出力されるため、デバッグがしやすい\n・アルゴリズム問題・競技プログラミング相当のタスクが得意\n・ローカル量子化版 (GGUF) が Ollama / LM Studio で動く\n\n弱み\n・:free 枠は思考ステップが長いためレイテンシが高い\n・思考過程が長くなり、出力トークンが膨らむ → RPD の消費が速い\n・日本語の自然さは Qwen3 に劣る\n\n推奨ユースケース\n・バグの根本原因分析 (RCA)\n・アルゴリズム最適化の相談\n・SQL クエリのパフォーマンスチューニング案\n\n [code] \n\n---\n\n5. mistralai/mistral-7b-instruct:free ── 軽量・高速の先駆者\n\n2023 年末に登場し、「7B でここまでできるのか」と業界を驚かせた Mistral 7B。2026 年現在は絶対性能では後続に抜かれているが、軽量・低レイテンシ・安定稼働の三点で今でも現役だ。\n\n強み\n・TTFT (Time to First Token) が :free モデル中トップクラスに速い\n・レート制限が緩め → 高頻度の簡易タスクに最適\n・Apache 2.0 ライセンス\n\n弱み\n・コンテキスト長は 32K と他モデルに比べ短め\n・複雑な推論・コーディングは他 4 モデルに劣る\n\n推奨ユースケース\n・コミットメッセージの自動生成 (短文・高頻度)\n・変数名・関数名のサジェスト\n・CI コメントの生成\n\n---\n\n5 モデル比較サマリー\n\n| モデル | コーディング | レイテンシ | コンテキスト | 日本語 | 推奨用途 |\n|---|---|---|---|---|---|\n| Qwen3 235B A22B | ⭐⭐⭐⭐⭐ | 中〜遅 | 128K | ⭐⭐⭐⭐⭐ | 推論・多言語 |\n| Llama 3.3 70B | ⭐⭐⭐⭐ | 中 | 128K | ⭐⭐⭐⭐ | バランス・自動化 |\n| Gemma 3 27B | ⭐⭐⭐ | 速 | 128K | ⭐⭐⭐ | マルチモーダル |\n| DeepSeek R1 | ⭐⭐⭐⭐⭐ | 遅 | 128K | ⭐⭐⭐ | 数学・RCA |\n| Mistral 7B | ⭐⭐ | 最速 | 32K | ⭐⭐ | 高頻度・短文 |\n⚠️ :free 枠のレート制限は OpenRouter の方針変更で予告なく変わることがある。本番環境での SLA が必要な場合は有料プランへの移行を検討すること。\n\n---\n\n実践：用途別モデル選択フロー\n\n [code] \n\n---\n\nOpenRouter でモデルをフォールバック運用する実装パターン\n\n:free モデルはレート制限に達すると 429 Too Many Requests を返す。以下のパターンでフォールバックを実装すると可用性が上がる。\n\n [code] \n\nこのパターンの要点:\n\n1. モデルリストの順序 = 優先度。高品質モデルを先頭に置く\n2. 指数バックオフ (2 attempt) でバースト超過を回避\n3. APIError (サーバーエラー) は即次のモデルへ切り替え\n\n---\n\nレート制限の現実的な管理\n\n:free モデルの制限は OpenRouter の公式ダッシュボード (openrouter.ai/activity) でリアルタイム確認できる。2026 年時点の一般的な傾向:\n・RPM (requests per minute): 10〜20 req/min が多い\n・RPD (requests per day): 100〜500 req/day の範囲\n・TPM (tokens per minute): モデルによって 40K〜200K 程度\n自動化ハーネスで朝〜昼に大量消費すると夕方以降に枯渇するケースがある。タスクの優先度に応じてスロットリングを実装することを推奨。\n\n---\n\nまとめ\n\nOpenRouter の :free モデルは 2026 年現在、実務ユースケースの 7〜8 割をカバーできる水準に達した。コスト $0 でエージェント駆動の自動化を組む際の出発点として十分だ。\n\n用途別の選択基準を整理すると:\n・品質最優先の多言語タスク → Qwen3 235B A22B\n・バランス・量産系 → Llama 3.3 70B\n・画像入力あり → Gemma 3 27B\n・難問・推論デバッグ → DeepSeek R1\n・高頻度・低レイテンシ → Mistral 7B\n\nレート制限とフォールバックを正しく設計すれば、有料モデルへのフォールバックが必要な場面を大幅に減らせる。まずは :free 枠で動かしてみて、本当にボトルネックになった箇所だけ有料モデルへ切り替えるというアプローチが現実的だ。\n\n---\n\n参考リンク\n・OpenRouter Docs — Model Routing\n・Qwen3 Technical Report (Alibaba Cloud)\n・Llama 3 Model Card (Meta AI)\n・Gemma 3 Technical Report (Google DeepMind)\n・DeepSeek R1 Paper (arXiv:2501.12948)\n・Mistral 7B Technical Blog\n\n---\n\n✍️ 本記事の著者: 合同会社ジモラボ\n\nジモラボは、八王子を拠点に AI を活用した SaaS を多数開発しています。本記事の技術検証もそうした開発過程の副産物です。\n・🌐 公式サイト: https://locallab.jp\n・🔍 AI SEO 最適化 SaaS: lookupai.jp\n・📺 YouTube: @locallabllc\n・✉️ お問い合わせ: info@locallab.jp\n興味を持っていただけたら、ぜひ各 SNS のフォローもお願いします!",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "300122ddd78ea049",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7433333333333334,
+      "popularityPercentile": 0.2878787878787879,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 80,
+      "oneLiner": "OpenRouterの無料モデル5種以上をClaude Code用途別に品質・速度・コスト比較した。",
+      "reason": "無料モデルは一律に優れているのではなく、コーディングや要約など用途で適性が分かれる。レート制限と文脈長を含めて月額$0運用を評価する。",
+      "keywords": [
+        "Claude Code",
+        "OpenRouter",
+        "free models",
+        "Qwen",
+        "Mistral",
+        "DeepSeek"
+      ],
+      "category": "調査・考察",
+      "domain": "ai",
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "React Testing Library でフォーム入力テストにハマった記録（ReferenceError: input is not defined）",
+      "url": "https://qiita.com/taki-umi/items/a727574a9bcf14d70002",
+      "publishedAt": "2026-08-09T08:52:26.000Z",
+      "author": "Takumi Takikawa",
+      "authorDetail": {
+        "name": "Takumi Takikawa",
+        "handle": "@taki-umi",
+        "url": "https://qiita.com/taki-umi",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/673539/d7d2c53899bcf15d87ed356c31aa1bf0f907c469/large.png?1779368519",
+        "bio": "Javaをメインでさわってます。\r\nバックエンド、フロントエンドどちらもやります。",
+        "followers": 1,
+        "posts": 10,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/taki-umi"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/taki_umi1374"
+          }
+        ]
+      },
+      "tags": [
+        "React",
+        "Vitest",
+        "react-testing-library"
+      ],
+      "snippet": "はじめに 学習記録アプリで「フォームに入力して登録するとレコードが追加される」テストを書こうとしたら、エラーを1つ潰すたびに次のエラーが出てくる状態になった。その過程をまとめる。 実際の実装 [code] 問題 render( ) してテキストボックスに入力したいのに、レンダー時に Supabase からの 取得処理が走って「ロード中」画面になり、テキストボックスが見つからない。 最初のエラー [code] 対象コード（テスト） [code] 対象コード（実装 App.jsx） [code] 原因は2つあって、 1. テスト内で実際のSupabaseデータ取得処理（ getAllTodos()） に通信していて結果が不安定 2. fetch は非同期なので、render 直後はまだ「ロード中」で、フォームが描画されていない 解決方法 ステップ1：Supabase 通信をモックする テスト内…",
+      "body": "はじめに\n学習記録アプリで「フォームに入力して登録するとレコードが追加される」テストを書こうとしたら、エラーを1つ潰すたびに次のエラーが出てくる状態になった。その過程をまとめる。\n\n実際の実装\n [code] \n\n問題\nrender( ) してテキストボックスに入力したいのに、レンダー時に Supabase からの\n取得処理が走って「ロード中」画面になり、テキストボックスが見つからない。\n\n最初のエラー\n\n [code] \n\n対象コード（テスト）\n\n [code] \n\n対象コード（実装 App.jsx）\n\n [code] \n\n原因は2つあって、\n1. テスト内で実際のSupabaseデータ取得処理（ getAllTodos()） に通信していて結果が不安定\n2. fetch は非同期なので、render 直後はまだ「ロード中」で、フォームが描画されていない\n\n解決方法\nステップ1：Supabase 通信をモックする\n\nテスト内で本物の通信を走らせないよう、モジュールをモックして固定データを返すようにした。\n\n※参考にした記事：\n\nhttps://zenn.dev/rh820/articles/25d26253d99bd9#%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB%E5%85%A8%E4%BD%93%E3%81%AE%E3%83%A2%E3%83%83%E3%82%AF%E5%8C%96\n\n [code] \n\nステップ2：非同期表示を「待つ」クエリに変える\n\n今度はこんなエラーが。\n\n [code] \n\nどうやらtextboxの「学習内容」という要素が見つからないらしい。\n\n原因は、getByXXX系（同期）を使用していたから。\nモックで即データを返しても、state 更新 → 再レンダリングは次のタイミングなので、まだ画面が完全に描画されていないのにgetByXXX系（同期）ですぐ要素を探しに行こうとして「そんな要素存在しないよう」というものらしい。\n\nなので、getByRole（同期）ではなく、\n要素が現れるのを待つ findByRole（非同期）に変更した。\n\n※参考にした記事：\n\nhttps://qiita.com/nhatcaofedev/items/1d3069f07c10e85455dd#%E3%82%B3%E3%83%BC%E3%83%89%E3%82%92%E8%A7%A3%E8%AA%AC%E3%81%99%E3%82%8B\n\n [code] \n\nステップ3：それでも「学習内容」要素が紐づかない\n\nfindByRole にして「待つ」ようにしたのに、まだ同じエラーが消えない。\n\n [code] \n\n原因は name オプションの勘違いだった。\n\n [code] \n\ngetByRole / findByRole の name は、HTML の name 属性のことではなく\n「アクセシブルネーム（accessible name）」 を指す。\nアクセシブルネームは との紐付けや aria-label などから決まるもので、\ninput の隣に 学習内容 や 学習内容 を ただ置いただけ では\ninput と紐付かず、アクセシブルネームは空のまま。だから name: \"学習内容\" で探しても見つからない。\n\n対応として、 を input に 明示的に紐付ける。方法は2つ。\n・htmlFor と id を同じ値にして結ぶ\n・で を囲む\n\n（textbox として拾えるのは type=\"text\" の input。type=\"number\" は spinbutton ロールに\nなるので、「学習時間」側は findByRole(\"spinbutton\", { name: \"学習時間\" }) で取る点にも注意）\n\n [code] \n\n最終的なソースコードとテストコード\n\n [code] \n\n [code] \n\nおわりに\n・要素の取得方法（getByRole/ queryByRole/ findByRole）の違いを知れた\n・findByRoleのname指定の勘違いを正せた！",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c07fa7ee69915f9a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8806666666666667,
+      "popularityPercentile": 0.9121212121212121,
+      "matchedTopics": [
+        "React",
+        "Vite / ビルドツール",
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 70,
+      "oneLiner": "React Testing LibraryでSupabase通信と非同期ロードを含むフォーム入力テストを安定させる手順を整理した。",
+      "reason": "フォームが見つからない原因は、実通信とロード中表示だった。Supabaseをモックし、非同期表示を待つクエリへ変える流れが具体的に示されている。",
+      "keywords": [
+        "React Testing Library",
+        "Vitest",
+        "Supabase",
+        "getAllTodos",
+        "非同期テスト"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ZodユーザーがValibotを触りながら違いを理解する",
+      "url": "https://qiita.com/koji0705/items/065dd5cc8afe39a2241b",
+      "publishedAt": "2026-08-09T07:54:45.000Z",
+      "author": "河村 康治",
+      "authorDetail": {
+        "name": "河村 康治",
+        "handle": "@koji0705",
+        "url": "https://qiita.com/koji0705",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/599049/profile-images/1700449853",
+        "bio": "大阪でエンジニアやってます。Go/React/関西型言語が得意です。",
+        "organization": "kkfactory",
+        "location": "大阪府",
+        "followers": 23,
+        "posts": 500,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kouji0705"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/kkfactory0705"
+          }
+        ]
+      },
+      "tags": [
+        "valibot",
+        "TypeScript",
+        "zod",
+        "Validation"
+      ],
+      "snippet": "はじめに 先週、Cloudflare Workers Tech Talks in Osakaに参加してきました。 その中で、ValibotのOSSコントリビューターの方がValibotを紹介されていて、「まずは自分でも触ってみたい」と思い、この記事を書いています。 普段、ValidationにはZodを使っているので、ValibotはZodとどこが違うのか、どのような考え方で設計されているのかを意識しながら学んでいこうと思います！ Valibotとは？？ Valibotは、TypeScript向けのモジュール式で型安全なスキーマライブラリです。 フォームの入力値、APIのレスポンス、環境変数など、アプリケーションの外部から来るデータが期待した形式になっているかを実行時に検証できます。 Valibot公式サイトで紹介されている主な特徴（出典：Valibot公式サイト） TypeScriptの…",
+      "body": "はじめに\n\n先週、Cloudflare Workers Tech Talks in Osakaに参加してきました。\n\nその中で、ValibotのOSSコントリビューターの方がValibotを紹介されていて、「まずは自分でも触ってみたい」と思い、この記事を書いています。\n\n普段、ValidationにはZodを使っているので、ValibotはZodとどこが違うのか、どのような考え方で設計されているのかを意識しながら学んでいこうと思います！\n\nValibotとは？？\n\n \n\nValibotは、TypeScript向けのモジュール式で型安全なスキーマライブラリです。\n\nフォームの入力値、APIのレスポンス、環境変数など、アプリケーションの外部から来るデータが期待した形式になっているかを実行時に検証できます。\nValibot公式サイトで紹介されている主な特徴（出典：Valibot公式サイト）\n\nTypeScriptの型は、コンパイル後のJavaScriptには残りません。そのため、次のようにAPIレスポンスへ型を付けただけでは、実際の値がTodoの構造になっていることは保証されません。\n\n [code] \n\nここでスキーマを使うと、unknownな値を実行時に検証し、検証に成功した値を型安全に扱えるようになります。\n\n [code] \n\nValibotの公式ドキュメントでは、主な構成要素を次の3つに分けています。\nSchema・Method・Actionの関係（参考：Valibot Mental model）\n・Schema：stringやobjectなど、値の基本的な型や構造を検証する\n・Action：emailやminLength、trimなど、追加の検証や変換を行う\n・Method：parseやsafeParse、pipeなど、スキーマを利用・変更する\n\n例えば、文字列であることを検証し、前後の空白を削除してからメールアドレスかを確認するスキーマは、次のように書けます。\n\n [code] \n\npipeの中を左から右へ値が流れ、それぞれのActionが順番に値を検証・変換します。\n\nValibotの特徴は、一つの大きな関数やクラスに多くの機能を持たせるのではなく、小さく独立した関数を組み合わせてスキーマを作ることです。このモジュール式の設計により、バンドラーが未使用の機能をtree shakingで取り除きやすくなっています。\n\n特に、ブラウザへJavaScriptを配信するフロントエンドや、起動時間が重要になるWorkers・Serverless環境では、この小さなバンドルサイズがメリットになりそうです。\n\nZodとの違いは？？\n\nValibotとZodは、どちらも次のような用途に使えます。\n・実行時のデータ検証\n・スキーマからのTypeScript型推論\n・入力値の変換\n・詳細なValidationエラーの取得\n\n目的はよく似ていますが、APIの設計に大きな違いがあります。\n\n最初に、主な違いを表で整理します。\n\n| 比較項目 | Valibot | Zod |\n| --- | --- | --- |\n| APIの考え方 | 小さな関数を組み合わせる | スキーマのメソッドをチェーンする |\n| 文字列の追加検証 | v.pipe(v.string(), v.email()) | z.string().email() |\n| 検証して値を取得 | v.parse(Schema, input) | Schema.parse(input) |\n| 例外を投げない検証 | v.safeParse(Schema, input) | Schema.safeParse(input) |\n| safeParse成功時 | result.output | result.data |\n| safeParse失敗時 | result.issues | result.error.issues |\n| 出力型の推論 | v.InferOutput | z.infer またはz.output |\n| 入力型の推論 | v.InferInput | z.input |\n| 判別可能Union | v.variant('type', [...]) | z.discriminatedUnion('type', [...]) |\n| ブランド型 | v.pipe(Schema, v.brand('UserId')) | Schema.brand () |\n| モジュール性 | 単機能の関数へ分割され、tree shakingを重視 | 通常版はメソッド中心。軽量なzod/miniもある |\n| 向いている場面 | ブラウザ、Workers、Serverlessなどバンドルサイズを抑えたい場面 | メソッドチェーンの発見しやすさや既存エコシステムを重視する場面 |\n\nメソッドチェーンと関数の合成\n\nZodでは、スキーマが持つメソッドをチェーンして制約を追加します。\n\n [code] \n\nValibotでは、独立した関数をpipeで合成します。\n\n [code] \n\nZodはスキーマオブジェクトを中心に操作し、Valibotは小さな関数を組み合わせてデータの流れを作る、と考えると分かりやすそうです。\n\nparseとsafeParseの呼び出し方\n\nZodでは、スキーマ自身のメソッドとして呼び出します。\n\n [code] \n\nValibotでは、スキーマを関数の第1引数に渡します。\n\n [code] \n\nまた、safeParseが成功した場合の値や失敗時の情報にも名前の違いがあります。\n\n| | 成功時 | 失敗時 |\n| --- | --- | --- |\n| Valibot | result.output | result.issues |\n| Zod | result.data | result.error.issues |\n\n型推論\n\nどちらもスキーマをTypeScript型の唯一の情報源として利用できます。\n\n [code] \n\n変換によって入力と出力の型が異なる場合、ValibotではInferInputとInferOutputを使い分けられます。\n\n [code] \n\nバンドルサイズ\n\nValibotは、各機能が小さく独立しているため、利用していないコードを削除しやすい構造です。\n\n公式の比較ページに掲載されている特定のログインフォーム用スキーマでは、通常版のZodよりもValibotのバンドルが大幅に小さくなる測定結果が示されています。Zod v4にはtree shakingを意識したzod/miniもあるため、実際の比較では使用するAPIやバンドラーなど、同じ条件で計測する必要があります。\n\n機能の有無だけでなく、「必要な機能だけをアプリへ含める」というモジュール性を重視している点が、Valibotの大きな特徴だと感じました。\n\n実際にコードを書いてみる。\n\nここからは、実際のアプリケーションでValidationが必要になりそうなケースごとに書いてみます。\n\nケース1：フォーム入力のエラーを画面に表示する\n\nユーザーが入力するフォームでは、Validationエラーは例外的な障害ではありません。「入力に成功したか」「どの項目に問題があるか」を画面側で分岐して扱いたいため、safeParseが向いています。\n\n [code] \n\nsafeParseは失敗しても例外を投げず、successがfalseの結果を返します。v.flattenを使うと、ネストしたissueをフォーム項目ごとのエラーとして扱いやすくできます。\n\n \n テストコードと実行結果を見る \n\n [code] \n\n [code] \n\n [code] \n\n \n\nケース2：APIレスポンスが契約どおりか検証する\n\nfetch(...).json()で取得した値は、TypeScriptの型だけでは実際の中身を保証できません。外部APIとの境界では、レスポンスをunknownとして受け取り、スキーマを通してからアプリケーション内で使います。\n\n [code] \n\nここでは、APIが契約違反のデータを返した場合、そのまま処理を継続するのは危険なのでparseを使っています。検証に失敗するとValiErrorが投げられ、呼び出し側のエラーハンドリングへ処理を移せます。\n\nつまり、次のように使い分けられます。\n・入力エラーを通常の分岐として扱う：safeParse\n・不正なデータなら処理を中断する：parse\n\n \n テストコードと実行結果を見る \n\n [code] \n\n [code] \n\n [code] \n\n \n\nケース3：文字列の入力をアプリ用の型へ変換する\n\nURLのクエリパラメータやフォームの値は、数値であっても文字列として渡されることがあります。Valibotでは、検証と変換を同じpipeの中に順番どおり記述できます。\n\n [code] \n\nこのスキーマでは、入力と出力の型が異なります。\n\n [code] \n\npage: 'zero'を渡すと、Number('zero')はNaNになり、その後のintegerで検証に失敗します。変換後の値にも制約をかけられるところがpipeの便利な点です。\n\n \n テストコードと実行結果を見る \n\n [code] \n\n [code] \n\n [code] \n\n \n\nケース4：環境変数やWorkersのBindingsを起動時に検証する\n\n環境変数は、設定漏れやタイプミスが実行時エラーにつながりやすい場所です。アプリケーションの入口で一度検証しておくと、それ以降のコードでは検証済みの設定だけを扱えます。\n\n [code] \n\n設定が不正な状態で処理を続けないよう、ここでもparseを使っています。本番環境だけで発生する設定ミスを、アプリケーションの境界で検出できます。\n\n \n テストコードと実行結果を見る \n\n [code] \n\n [code] \n\n [code] \n\n \n\nケース5：DDDの値をブランド型で区別する\n\nDDDでは、ユーザーIDと注文IDのように、実体はどちらもstringでもドメイン上の意味が異なる値を区別したいことがあります。\n\n [code] \n\nValibotではv.brand()を使い、検証済みの出力へブランドを付けられます。\n\n [code] \n\nメールアドレスのように、表記を正規化してからドメイン型として扱うこともできます。\n\n [code] \n\nbrand自体はUUIDやメールアドレスを検証するものではありません。前段の検証・変換を通過した値の出力型にブランドを付けるActionなので、基本的にはpipeの最後に置きます。\n\nまた、ブランドはTypeScript上の区別であり、実行時に専用のラッパーオブジェクトへ変わるわけではありません。上のUserIdやEmailAddressの実行時の値は、通常の文字列のままです。そのため、次の点には注意が必要です。\n・APIやDBから読み直した値は、境界で再度スキーマを通す\n・ブランド型の値を型アサーションで直接作らない\n・値に振る舞いを持たせたい場合は、クラスやValue Object用のオブジェクトも検討する\n\nブランド型はValue Objectの完全な代替ではありませんが、「検証済みの値だけをドメイン層へ渡す」「同じプリミティブ型のIDを取り違えない」という用途には使いやすそうです。\n\n \n テストコードと実行結果を見る \n\n [code] \n\n [code] \n\n [code] \n\nUserIdとOrderIdの取り違えは実行時テストではなく、npm run checkによるTypeScriptの型チェックで確認しています。\n\n \n\nケース6：複数の種類を持つデータを安全に分岐する\n\nイベントや通知のように、種類によって必要なプロパティが異なるデータにはvariantを使えます。ZodのdiscriminatedUnionに相当する機能です。\n\n [code] \n\ntype: 'push'のような定義されていない種類や、emailなのにaddressがないデータは検証に失敗します。外部から受け取ったイベントの種類とデータ構造を、実行時とTypeScriptの両方で揃えられます。\n\n \n テストコードと実行結果を見る \n\n [code] \n\n [code] \n\n [code] \n\n \n\n今回のケースを整理すると、次のようになります。\n\n| ユースケース | 主に使う機能 | ポイント |\n| --- | --- | --- |\n| フォーム入力 | safeParse、flatten | 失敗を画面表示用のデータとして扱う |\n| APIレスポンス | parse、object | unknownを検証してから利用する |\n| クエリパラメータ | pipe、transform | 検証しながらアプリ用の型へ変換する |\n| 環境変数・Bindings | parse、optional | 不正な設定では処理を開始しない |\n| DDDの値 | brand | 検証済みの値にドメイン上の意味を付ける |\n| 種類の異なるデータ | variant | 判別可能Unionとして安全に分岐する |\n\n実際に書いてみると、Zodのメソッドチェーンとは見た目が違うものの、基本的な考え方はよく似ています。一方で、pipeによって「基本型の検証 → 追加の検証 → 変換 → ブランド付け」というデータの流れが明示されるところに、Valibotらしさを感じました。\n\nまとめ\n\n今回触ってみて理解したValibotの特徴は、次のとおりです。\n・TypeScriptでは保証できない実行時の値を検証できる\n・スキーマからTypeScriptの型を推論できる\n・小さく独立した関数をpipeで組み合わせる\n・brandで検証済みのドメイン型を表現できる\n・モジュール式の設計によってtree shakingしやすい\n・Zodと目的はよく似ているが、APIの組み立て方が異なる\n\nまだ基本的な機能を触った段階ですが、Valibotは単に「Zodと同じことを別の書き方で行うライブラリ」ではなく、モジュール性と小さなバンドルサイズを重視して設計されたスキーマライブラリだと分かりました。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "57211b819c85e393",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7813333333333334,
+      "popularityPercentile": 0.46060606060606063,
+      "matchedTopics": [
+        "TypeScript",
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 58,
+      "oneLiner": "Zodユーザー向けに、Valibotの実行時検証とSchema・Method・Actionの設計を比較しながら解説した。",
+      "reason": "TypeScriptの型だけでは実行時の値を保証できないため、Valibotは外部入力を検証して型安全に扱う。Zodとの設計思想の違いも整理されている。",
+      "keywords": [
+        "Valibot",
+        "Zod",
+        "TypeScript",
+        "Schema",
+        "Action",
+        "Method"
+      ],
+      "category": "設計・実装ノウハウ",
+      "domain": "general",
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "title": "TanStack/router @tanstack/router-core@1.171.21",
+      "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.21",
+      "publishedAt": "2026-08-09T18:48:24.000Z",
+      "author": "github-actions[bot]",
+      "authorDetail": {
+        "name": "github-actions[bot]",
+        "handle": "@github-actions[bot]",
+        "url": "https://github.com/apps/github-actions",
+        "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+        "organization": "TanStack"
+      },
+      "tags": [
+        "router",
+        "release"
+      ],
+      "snippet": "Patch Changes ・#8019 51138a8 - handle excessive parent relative links",
+      "body": "Patch Changes\n・#8019 51138a8 - handle excessive parent relative links",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "01846e369af4dc46",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 0.73,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 57,
+      "oneLiner": "@tanstack/router-core 1.171.21が過剰な親相対リンクを処理する不具合を修正した。",
+      "reason": "今回の変更は機能追加ではなく、親相対リンクが過剰になったケースを処理するパッチ修正に限られる。",
+      "keywords": [
+        "TanStack Router",
+        "@tanstack/router-core",
+        "1.171.21",
+        "parent relative links"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "github_release",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "title": "TanStack/router @tanstack/start-static-server-functions@1.167.26",
+      "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-static-server-functions%401.167.26",
+      "publishedAt": "2026-08-09T18:49:24.000Z",
+      "author": "github-actions[bot]",
+      "authorDetail": {
+        "name": "github-actions[bot]",
+        "handle": "@github-actions[bot]",
+        "url": "https://github.com/apps/github-actions",
+        "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4",
+        "organization": "TanStack"
+      },
+      "tags": [
+        "router",
+        "release"
+      ],
+      "snippet": "Patch Changes ・Updated dependencies \\[]: ・@tanstack/start-client-core@1.170.21 ・@tanstack/react-start@1.168.42 ・@tanstack/solid-start@1.168.41",
+      "body": "Patch Changes\n・Updated dependencies \\[]:\n・@tanstack/start-client-core@1.170.21\n・@tanstack/react-start@1.168.42\n・@tanstack/solid-start@1.168.41",
+      "metrics": {},
+      "sourceWeight": 5,
+      "lang": "en",
+      "id": "82a4267ca6be5c84",
+      "foundIn": [
+        "github_release"
+      ],
+      "preScore": 0.8716666666666668,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 55,
+      "oneLiner": "start-static-server-functions 1.167.26がStart系クライアントとReact向け依存パッケージを更新した。",
+      "reason": "start-static-server-functionsのコード変更ではなく、start-client-core 1.170.21など関連パッケージのバージョン追従が内容になっている。",
+      "keywords": [
+        "TanStack Router",
+        "@tanstack/start-static-server-functions",
+        "@tanstack/start-client-core",
+        "@tanstack/react-start",
+        "1.167.26"
+      ],
+      "category": "リリース/アップデート",
+      "domain": "general",
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    }
+  ],
+  "stats": {
+    "collected": 648,
+    "afterDedupe": 615,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 331,
+      "zenn": 133,
+      "hatena": 14,
+      "hackernews": 54,
+      "devto": 2,
+      "github_release": 67,
+      "github_repo": 37,
+      "rss": 9,
+      "changelog": 1
+    },
+    "estimatedReadMinutes": 18
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3768,
+        "outputTokens": 882,
+        "cacheReadTokens": 0,
+        "elapsedMs": 8443,
+        "estimatedCostUsd": 0.001812
+      },
+      "score": {
+        "model": "gpt-5.6-luna",
+        "requests": 9,
+        "inputTokens": 38138,
+        "outputTokens": 3235,
+        "cacheReadTokens": 10632,
+        "elapsedMs": 35363,
+        "estimatedCostUsd": 0.011722240000000002
+      },
+      "describe": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 30015,
+        "outputTokens": 5721,
+        "cacheReadTokens": 8393,
+        "elapsedMs": 35158,
+        "estimatedCostUsd": 0.01303606
+      },
+      "deep": {
+        "model": "gpt-5.6-luna",
+        "requests": 4,
+        "inputTokens": 9789,
+        "outputTokens": 9832,
+        "cacheReadTokens": 14328,
+        "elapsedMs": 63661,
+        "estimatedCostUsd": 0.014042760000000001
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2568,
+        "outputTokens": 192,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2407,
+        "estimatedCostUsd": 0.000744
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3038,
+        "outputTokens": 284,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3068,
+        "estimatedCostUsd": 0.0009484000000000001
+      }
+    },
+    "totalCostUsd": 0.0423
+  },
+  "notes": []
+}
