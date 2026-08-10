@@ -1,4 +1,5 @@
-import type { PreScoredItem, RawItem, SourceKind, TopicsConfig } from './types.js';
+import type { Lane, PreScoredItem, RawItem, SourceKind, TopicsConfig } from './types.js';
+import { LANES } from './types.js';
 import { isHttpUrl, normalizeUrl, titleKey } from './util.js';
 
 /**
@@ -307,28 +308,39 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
 }
 
 /**
- * 一覧を「AI」と「それ以外」に分けて選ぶ。
+ * 一覧をレーンごとの予算で選ぶ。
  *
- * 母集団が AI に大きく偏っている（実測で採点上位 15 件のうち 13〜15 件が AI）ので、
- * 単純なスコア順だと AI 以外が 1〜2 件しか残らない。リリース情報を別枠にしたのと
- * 同じ考えで、量の違うものに別の予算を与える。
+ * 目的が違うものを 1 本のスコア順で並べると、いちばん件数の多い目的が全部を取る。
+ * 以前は AI / AI以外 で分けていたが、それは母集団の偏りを均すための便宜的な分割で、
+ * 「読者が何のために読むか」とは対応していなかった。予算はレーンに与える。
  *
- * 片方が足りない日はもう片方で埋める（枠を空けたまま件数を減らさない）。
+ * 足りないレーンがある日は、余っているレーンで埋める（枠を空けたまま件数を減らさない）。
+ * これは「その日は該当が無かった」場合の話で、しきい値がずれている場合の
+ * 補充は候補選定側（lanes.ts）で先に済んでいる。
  */
-export function pickByDomain<T extends { domain: 'ai' | 'general' }>(
+export function pickByLane<T extends { lane: Lane }>(
   ranked: readonly T[],
   total: number,
-  generalShare = 1 / 3,
-): { ai: T[]; general: T[] } {
-  const generalQuota = Math.max(1, Math.round(total * generalShare));
-  const general = ranked.filter((i) => i.domain !== 'ai').slice(0, generalQuota);
-  const ai = ranked.filter((i) => i.domain === 'ai').slice(0, total - general.length);
-  // AI 側が足りなければ AI 以外で埋め戻す
-  if (ai.length + general.length < total) {
-    const extra = ranked
-      .filter((i) => i.domain !== 'ai' && !general.includes(i))
-      .slice(0, total - ai.length - general.length);
-    general.push(...extra);
+): Record<Lane, T[]> {
+  const quota = Math.floor(total / LANES.length);
+  const picked: Record<Lane, T[]> = { know: [], build: [], talk: [] };
+
+  for (const lane of LANES) {
+    picked[lane] = ranked.filter((i) => i.lane === lane).slice(0, quota);
   }
-  return { ai, general };
+
+  // 端数と、埋まらなかったレーンのぶんを、残りからスコア順で配る
+  const taken = new Set<T>(LANES.flatMap((lane) => picked[lane]));
+  let remaining = total - taken.size;
+  if (remaining > 0) {
+    for (const item of ranked) {
+      if (remaining <= 0) break;
+      if (taken.has(item)) continue;
+      picked[item.lane].push(item);
+      taken.add(item);
+      remaining--;
+    }
+  }
+
+  return picked;
 }

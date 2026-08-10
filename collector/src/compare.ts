@@ -67,7 +67,7 @@ function agreement(a: Digest, b: Digest): void {
 
   console.log(`\n判定の一致（両方に出た ${pairs.length} 件）`);
   console.log(`  category   ${same((i) => i.category)}/${pairs.length}`);
-  console.log(`  domain     ${same((i) => i.domain)}/${pairs.length}`);
+  console.log(`  lane       ${same((i) => i.lane)}/${pairs.length}`);
   console.log(`  payoff     ${same((i) => i.payoff)}/${pairs.length}`);
   console.log(`  durability ${same((i) => i.durability)}/${pairs.length}`);
   console.log(`  スコア差   平均 ${avg.toFixed(1)} 点 / 最大 ${Math.max(...scoreDiff)} 点`);

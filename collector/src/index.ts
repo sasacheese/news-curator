@@ -12,13 +12,15 @@ import {
   resetUsage,
   summarizeDigest,
 } from './llm.js';
+import { selectLaneCandidates } from './lanes.js';
 import type { SlotRule } from './prescore.js';
-import { dedupe, pickByDomain, pickTopDiverse, preScore } from './prescore.js';
+import { dedupe, pickByLane, pickTopDiverse, preScore } from './prescore.js';
 import { collectReleaseCandidates, extractReleases, sortReleases } from './releases.js';
 import { collectAdvisories } from './advisories.js';
 import { collectAll } from './sources.js';
-import { loadRecentSummaries, loadSeenUrls, saveDigest } from './store.js';
-import type { Digest, RankedItem, RawItem, ReleaseItem, TopItem } from './types.js';
+import { loadLaneContext, loadRecentSummaries, loadSeenUrls, saveDigest } from './store.js';
+import type { Digest, Lane, RankedItem, RawItem, ReleaseItem, TopItem } from './types.js';
+import { LANES, LANE_LABELS } from './types.js';
 import { formatJst, log, mapLimit, resolveWindow, safe } from './util.js';
 
 interface Args {
@@ -128,91 +130,151 @@ async function main(): Promise<void> {
   const feedbackNote = feedbackSignal ? renderFeedbackNote(feedbackSignal) : null;
   if (feedbackSignal) log.info(`  フィードバック ${feedbackSignal.totalVotes} 件を反映`);
 
-  /* 3. 事前スコアリング --------------------------------------------- */
+  /* 3. 事前スコアリングとレーン振り分け ------------------------------ */
   log.step('3/7 事前スコアリング');
   const withHatena = await enrichHatenaCounts(unique);
   const preScored = preScore(withHatena, effectiveTopics).sort((a, b) => b.preScore - a.preScore);
-  const candidates = preScored.slice(0, runtime.rankCandidates);
+
+  /*
+   * レーンごとに別の信号で候補を絞る。
+   *
+   * 以前はここで preScore 上位 150 件に切っていたが、preScore の主項は
+   * トピックキーワードの一致なので、それは「読者が既に知っている領域か」で
+   * 絞っていたことになる。大きな話題も新しい道具も、その網には掛からない。
+   * 絞り込みは preScored 全件を母集団にして、目的ごとに行う。
+   */
+  const laneCtx = await safe('lane-context', () => loadLaneContext(date), {
+    seenTerms: new Set<string>(),
+    recentTopicCounts: new Map<string, number>(),
+  });
+  log.info(`  既出の語 ${laneCtx.seenTerms.size} 件を「新しさ」の判定に使用`);
+
+  const selection = selectLaneCandidates(
+    preScored,
+    runtime.laneCandidates,
+    laneCtx,
+    runtime.laneThresholds,
+  );
+  const candidates = LANES.flatMap((lane) => selection.candidates[lane]);
   log.info(
-    `LLM 採点対象 ${candidates.length} 件（最高 ${(candidates[0]?.preScore ?? 0).toFixed(2)} / 最低 ${(candidates.at(-1)?.preScore ?? 0).toFixed(2)}）`,
+    `  振り分け: ${LANES.map((l) => `${LANE_LABELS[l]} ${selection.assigned[l]}`).join(' / ')}` +
+      `（しきい値 know=${runtime.laneThresholds.know} talk=${runtime.laneThresholds.talk}）`,
+  );
+  log.info(
+    `LLM 採点対象 ${candidates.length} 件: ` +
+      LANES.map((l) => `${LANE_LABELS[l]} ${selection.candidates[l].length}`).join(' / '),
   );
 
   /* 4. LLM ランキング ----------------------------------------------- */
   log.step('4/7 LLM ランキング');
-  const ranked = (
-    await rankItems(candidates, effectiveTopics, runtime, feedbackNote)
-  ).sort((a, b) => b.score - a.score);
-  for (const item of ranked.slice(0, 8)) {
-    log.info(`  ${String(item.score).padStart(3)} | ${item.sourceLabel} | ${item.title.slice(0, 60)}`);
+  /*
+   * レーンをまたいだスコアの比較には意味が無い。know の 80 点は「規模」への、
+   * talk の 80 点は「立場が割れるか」への答えで、別の問いへの答えだからだ。
+   * 並べ替えは常にレーン内で行う。
+   */
+  const ranked = await rankItems(selection.candidates, effectiveTopics, runtime, feedbackNote);
+  const rankedByLane = (lane: Lane) =>
+    ranked.filter((i) => i.lane === lane).sort((a, b) => b.score - a.score);
+  for (const lane of LANES) {
+    for (const item of rankedByLane(lane).slice(0, 3)) {
+      log.info(
+        `  [${LANE_LABELS[lane]}] ${String(item.score).padStart(3)} | ${item.sourceLabel} | ${item.title.slice(0, 50)}`,
+      );
+    }
   }
 
   /* 5. 深掘り要約 --------------------------------------------------- */
   log.step('5/7 深掘り要約');
   /**
-   * ベスト3の枠。スコア順で埋めたあと、満たしていないものだけ下位と入れ替える。
-   * 1 位は動かさないので、その日の最重要は必ず残る。
+   * ベスト N の枠。スコア順で埋めたあと、満たしていないものだけ下位と入れ替える。
+   * 1 位は動かさないので、そのレーンの最重要は必ず残る。
    *
-   * 一次情報を先に置いているのは、実測でベスト3+その他の 15 件中 0〜1 件しか
-   * 一次情報が残らなかったため。公式ブログを毎日 40 件拾っているのに、
-   * Qiita/Zenn の二次情報が構造的に勝っていた。
+   * 枠ルールはレーンごとに変える。目的が違えば「確保したいもの」も違う。
+   * - know: 一次情報。実測でベスト+その他の 15 件中 0〜1 件しか残らなかった。
+   *   公式ブログを毎日 40 件拾っているのに二次情報が構造的に勝っていた。
+   * - build: 触れる実体があるもの。「すごそう」だけで枠が埋まると、
+   *   このレーンは目的を果たさない。payoff=apply とリポジトリ由来を実体とみなす。
+   * - talk: 枠を確保しない。争点があるかどうかは採点で見ており、
+   *   それ以上に「この性質のものを必ず入れる」と決められる軸が無い。
    */
-  const slotRules: SlotRule<RankedItem>[] = [
-    {
-      label: '一次情報',
-      match: (i) => i.source === 'rss' || i.source === 'github_release' || i.source === 'changelog',
-    },
-    {
-      label: '長く効くもの',
-      match: (i) => i.durability === 'foundational' || i.durability === 'durable',
-    },
-  ];
-  /**
-   * AI とそれ以外で別々にベスト N を作る。
-   * 母集団が AI 一色なので、混ぜて 1 つのベスト3にすると AI 以外が入らない。
-   * 枠ルールはどちらのグループにも同じように効かせる。
-   */
-  const groups = [
-    { key: 'ai' as const, items: ranked.filter((i) => i.domain === 'ai') },
-    { key: 'general' as const, items: ranked.filter((i) => i.domain !== 'ai') },
-  ];
-  const topCandidates = groups.flatMap((g) => {
-    const picked = pickTopDiverse(g.items, runtime.topN, slotRules);
-    for (const rule of slotRules) {
+  const primarySource: SlotRule<RankedItem> = {
+    label: '一次情報',
+    match: (i) => i.source === 'rss' || i.source === 'github_release' || i.source === 'changelog',
+  };
+  const durable: SlotRule<RankedItem> = {
+    label: '長く効くもの',
+    match: (i) => i.durability === 'foundational' || i.durability === 'durable',
+  };
+  const tangible: SlotRule<RankedItem> = {
+    label: '今日試せるもの',
+    match: (i) => i.payoff === 'apply' || i.source === 'github_repo',
+  };
+  const laneSlotRules: Record<Lane, SlotRule<RankedItem>[]> = {
+    know: [primarySource, durable],
+    build: [tangible, durable],
+    talk: [],
+  };
+
+  const topCandidates = LANES.flatMap((lane) => {
+    /*
+     * スコア下限を先に掛ける。掛けないと、そのレーンに該当が乏しい日でも
+     * 必ず topN 件が深掘りされる（全部 20 点の日でも上位 2 件が Sonnet に回る）。
+     * 件数を埋めることより、薄い日は薄いまま出すことを優先する。
+     */
+    const pool = rankedByLane(lane).filter((i) => i.score >= runtime.minTopScore);
+    const dropped = rankedByLane(lane).length - pool.length;
+    const picked = pickTopDiverse(pool, runtime.topN, laneSlotRules[lane]);
+    if (picked.length < runtime.topN) {
+      log.warn(
+        `  ${LANE_LABELS[lane]}のベストは ${picked.length}/${runtime.topN} 件` +
+          `（${runtime.minTopScore} 点未満を ${dropped} 件除外）`,
+      );
+    }
+    for (const rule of laneSlotRules[lane]) {
       if (picked.length > 0 && !picked.some(rule.match)) {
-        log.warn(`  ${g.key} のベスト${runtime.topN}に「${rule.label}」の枠を確保できませんでした`);
+        log.warn(
+          `  ${LANE_LABELS[lane]}のベスト${runtime.topN}に「${rule.label}」の枠を確保できませんでした`,
+        );
       }
     }
-    log.info(`  ${g.key}: ${picked.length} 件（候補 ${g.items.length}）`);
+    log.info(`  ${LANE_LABELS[lane]}: ${picked.length} 件（候補 ${pool.length}）`);
     return picked;
   });
   const enriched = await enrichBodies(topCandidates, runtime.bodyCharLimit);
   const enrichedById = new Map(enriched.map((i) => [i.id, i]));
 
-  // rank はグループ内で 1 から振る（画面上も「AI のベスト3」「AI以外のベスト3」で分かれる）
+  // rank はレーン内で 1 から振る（画面上も「知る のベスト」「作る のベスト」で分かれる）
   const rankOf = new Map<string, number>();
-  for (const g of groups) {
+  for (const lane of LANES) {
     let r = 0;
     for (const c of topCandidates) {
-      if ((c.domain === 'ai') === (g.key === 'ai')) rankOf.set(c.id, ++r);
+      if (c.lane === lane) rankOf.set(c.id, ++r);
     }
   }
 
   const top: TopItem[] = await mapLimit(topCandidates, 3, async (item) => {
     const withBody = { ...item, ...(enrichedById.get(item.id) ?? {}) } as RankedItem;
     const deep = await deepDive(withBody, topics, runtime);
-    log.info(`  [${item.domain}] #${rankOf.get(item.id)} ${deep.headline}`);
+    log.info(`  [${LANE_LABELS[item.lane]}] #${rankOf.get(item.id)} ${deep.headline}`);
     return { ...withBody, rank: rankOf.get(item.id) ?? 1, deep };
   });
 
   // リリース情報は別枠で全件出しているので、一覧には重複させない
   const topIds = new Set(top.map((t) => t.id));
-  const remaining = ranked.filter(
-    (item) => !topIds.has(item.id) && !releaseUrls.has(item.url),
+  const remaining = LANES.flatMap((lane) =>
+    rankedByLane(lane).filter(
+      (item) =>
+        !topIds.has(item.id) &&
+        !releaseUrls.has(item.url) &&
+        item.score >= runtime.minOtherScore,
+    ),
   );
-  // AI と AI 以外に別々の枠を与える（母集団が AI に偏っているため）
-  const byDomain = pickByDomain(remaining, runtime.otherN);
-  const others = [...byDomain.ai, ...byDomain.general].sort((a, b) => b.score - a.score);
-  log.info(`  その他の注目記事: AI ${byDomain.ai.length} / AI以外 ${byDomain.general.length}`);
+  const byLane = pickByLane(remaining, runtime.otherN);
+  // 画面はレーンで分けて出すので、保存もレーン順にまとめておく
+  const others = LANES.flatMap((lane) => byLane[lane].sort((a, b) => b.score - a.score));
+  log.info(
+    `  その他の注目記事: ${LANES.map((l) => `${LANE_LABELS[l]} ${byLane[l].length}`).join(' / ')}`,
+  );
 
   // 選定は ranked 全体に届くので、要約対象の外から拾うことが原理的にありうる。
   // 起きたら気づけるようにしておく（黙って本文の切り出しが出るのが一番まずい）
@@ -241,6 +303,10 @@ async function main(): Promise<void> {
   for (const item of collected) {
     bySource[item.source] = (bySource[item.source] ?? 0) + 1;
   }
+  const laneCounts: Record<string, number> = {};
+  for (const item of [...top, ...others]) {
+    laneCounts[item.lane] = (laneCounts[item.lane] ?? 0) + 1;
+  }
 
   const digest: Digest = {
     date,
@@ -257,6 +323,7 @@ async function main(): Promise<void> {
       afterPreScore: candidates.length,
       ranked: ranked.length,
       bySource,
+      byLane: laneCounts,
       estimatedReadMinutes:
         top.reduce((sum, t) => sum + t.deep.readingMinutes, 0) + Math.ceil(others.length * 0.4),
     },

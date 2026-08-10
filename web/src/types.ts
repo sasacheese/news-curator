@@ -36,6 +36,22 @@ export type Payoff = 'apply' | 'decide' | 'aware';
 /** この情報がどれくらい保つか */
 export type Durability = 'foundational' | 'durable' | 'ephemeral';
 
+/**
+ * キュレーションのレーン。読者の 3 つの目的に対応する。
+ * この機能より前の日は undefined で、代わりに domain（ai / general）が入っている。
+ */
+export type Lane = 'know' | 'build' | 'talk';
+
+/** talk レーンの記事に付く「意見の足場」。意見の下書きではない */
+export interface Debate {
+  axis: string;
+  forSide: string;
+  againstSide: string;
+  /** 記事が片側しか書いていないか。true なら againstSide は記事の外からの補い */
+  oneSided?: boolean;
+  yourAngle?: string;
+}
+
 export interface RankedItem {
   id: string;
   source: SourceKind;
@@ -55,7 +71,11 @@ export interface RankedItem {
   reason: string;
   keywords: string[];
   category: string;
-  /** AI が主題か、それ以外か */
+  /** どの目的で選ばれたか。この機能より前の日は undefined */
+  lane?: Lane;
+  /** talk レーンの記事に付く意見の足場 */
+  debate?: Debate | null;
+  /** 旧: AI が主題か、それ以外か。レーン導入前の日にだけ入っている */
   domain?: 'ai' | 'general';
   /** 元記事の読了目安（分） */
   readingMinutes?: number;
@@ -113,20 +133,59 @@ export type Visual =
       }[];
     };
 
-export interface DeepDive {
+export interface DeepDiveBase {
   headline: string;
   summary: string;
   prerequisites?: Prerequisite[];
   visual?: Visual | null;
-  whatYouCanDo: string[];
-  whatChanges: string[];
-  howToTry: string[];
   code: { lang: string; caption: string; content: string } | null;
   whyItMatters: string;
-  caveats: string[];
   relatedLinks: { label: string; url: string }[];
   readingMinutes: number;
 }
+
+export interface KnowDeepDive extends DeepDiveBase {
+  lane: 'know';
+  impact: string[];
+  timeline: string[];
+  checkNow: string[];
+  unknowns: string[];
+}
+
+export interface BuildDeepDive extends DeepDiveBase {
+  lane: 'build';
+  unlocks: string[];
+  howToTry: string[];
+  fitFor: string[];
+  notFor: string[];
+  caveats: string[];
+}
+
+export interface TalkDeepDive extends DeepDiveBase {
+  lane: 'talk';
+  evidence: string[];
+  counterEvidence: string[];
+  whenItHolds: string[];
+  /** 語れる角度。名詞句のみ。文にはしない */
+  angles: string[];
+  verify: string[];
+}
+
+/**
+ * レーン導入前に生成した日のカード。
+ *
+ * 過去のダイジェストは data/ にそのまま残っていて、日付を遡ると今でも表示される。
+ * 「何ができるようになるか」と「何が変わるか」を別項目で持っていた頃の形。
+ */
+export interface LegacyDeepDive extends DeepDiveBase {
+  lane?: undefined;
+  whatYouCanDo: string[];
+  whatChanges: string[];
+  howToTry: string[];
+  caveats: string[];
+}
+
+export type DeepDive = KnowDeepDive | BuildDeepDive | TalkDeepDive | LegacyDeepDive;
 
 export interface TopItem extends RankedItem {
   rank: number;
@@ -195,6 +254,8 @@ export interface Digest {
     afterPreScore: number;
     ranked: number;
     bySource: Record<string, number>;
+    /** レーンごとの掲載件数。レーン導入前の日は undefined */
+    byLane?: Record<string, number>;
     estimatedReadMinutes: number;
   };
   topics: string[];

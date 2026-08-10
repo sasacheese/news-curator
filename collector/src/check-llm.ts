@@ -3,7 +3,7 @@ import { loadRuntimeConfig } from './config.js';
 import { getBackend } from './llm.js';
 import { complete } from './llm.js';
 import {
-  DeepDiveSchema,
+  BuildDeepDiveSchema,
   DescribeResultSchema,
   ReleaseResultSchema,
   ScoreResultSchema,
@@ -40,7 +40,8 @@ const CASES: Case[] = [
   },
   {
     name: 'deep',
-    schema: DeepDiveSchema,
+    // 深掘りはレーンごとにスキーマが違うが、受理されるかの確認は項目数が一番多い1つで足りる
+    schema: BuildDeepDiveSchema,
     prompt: 'TypeScript 5.9 で satisfies 演算子が改善された、という記事だとして深掘りしてください。',
     deep: true,
   },

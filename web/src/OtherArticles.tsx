@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import { navigate } from './App';
 import { BuzzChip, Chip, ShareButtons } from './components';
+import { DebateScaffold } from './DebateScaffold';
 import { FeedbackButtons } from './FeedbackButtons';
 import { metricSummary, safeUrl } from './format';
+import { groupByLane } from './lanes';
 import type { Payoff, RankedItem } from './types';
 
 /**
  * その他の注目記事。
  *
- * AI とそれ以外をタブで切り替える。母集団が AI に大きく偏っていて
- * （実測で 12 件中 8 件が AI）、混ぜて並べると AI 以外が埋もれるため。
- * 収集側でも AI 以外に全体の 1/3 を確保している。
+ * 目的（潮目／手札／論点）をタブで切り替える。
+ * 混ぜて 1 列に並べると件数の多い目的が上を占めてしまい、
+ * 「今日は何を書けるか」を探しにきた時に見つからない。収集側でも
+ * レーンごとに枠を確保している。
  *
  * 並びは重要度順の一本にした。時間対効果順も付けていたが使われなかったので外した。
  */
@@ -20,8 +23,6 @@ const PAYOFF_LABELS: Record<Payoff, string> = {
   decide: '判断材料',
   aware: '知っておく',
 };
-
-type DomainTab = 'ai' | 'general';
 
 function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
   return (
@@ -40,6 +41,8 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
             {item.reason}
           </p>
         )}
+        {/* 一覧でも争点まで見せる。開かないと立場が決められないなら足場にならない */}
+        {item.debate && <DebateScaffold debate={item.debate} compact />}
         <div className="row__meta">
           {item.buzz && <BuzzChip />}
           {item.readingMinutes != null && item.payoff && (
@@ -74,7 +77,7 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
               title: item.title,
               url: item.url,
               category: item.category,
-              domain: item.domain,
+              lane: item.lane,
               matchedTopics: item.matchedTopics,
               score: item.score,
             }}
@@ -86,48 +89,43 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
 }
 
 export function OtherArticles({ items, digestDate }: { items: RankedItem[]; digestDate: string }) {
-  const groups = useMemo(
-    () => ({
-      ai: items.filter((i) => i.domain === 'ai'),
-      general: items.filter((i) => i.domain !== 'ai'),
-    }),
-    [items],
-  );
-  // 件数の多い側を初期表示にする（片方が 0 件のときに空を見せないため）
-  const [tab, setTab] = useState<DomainTab>(
-    groups.ai.length >= groups.general.length ? 'ai' : 'general',
-  );
+  const groups = useMemo(() => groupByLane(items, 'list'), [items]);
+  // 件数の多い側を初期表示にする（先頭が 0 件のときに空を見せないため）
+  const [tabId, setTabId] = useState<string | null>(null);
+  const active = groups.find((g) => g.id === tabId) ?? groups[0];
 
-  const shown = groups[tab];
+  if (!active) {
+    return (
+      <p className="faint" style={{ fontSize: 13 }}>
+        この日は該当する記事がありませんでした。
+      </p>
+    );
+  }
 
   return (
     <>
       <div className="listctl">
         <div className="segmented">
-          {(
-            [
-              ['ai', 'AI'],
-              ['general', 'AI以外'],
-            ] as const
-          ).map(([key, label]) => (
-            <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)}>
-              {label} <span className="segmented__count">{groups[key].length}</span>
+          {groups.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              aria-pressed={g.id === active.id}
+              onClick={() => setTabId(g.id)}
+            >
+              {g.label} <span className="segmented__count">{g.items.length}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {shown.length === 0 ? (
-        <p className="faint" style={{ fontSize: 13 }}>
-          この日は該当する記事がありませんでした。
-        </p>
-      ) : (
-        <div className="list">
-          {shown.map((item) => (
-            <Row key={item.id} item={item} digestDate={digestDate} />
-          ))}
-        </div>
-      )}
+      {active.lead && <p className="section-lead">{active.lead}</p>}
+
+      <div className="list">
+        {active.items.map((item) => (
+          <Row key={item.id} item={item} digestDate={digestDate} />
+        ))}
+      </div>
     </>
   );
 }
