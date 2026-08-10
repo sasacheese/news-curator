@@ -320,14 +320,36 @@ interface HnHit {
 async function collectHackerNews(cfg: SourcesConfig['hackernews'], w: Window): Promise<RawItem[]> {
   const from = Math.floor(w.start.getTime() / 1000);
   const to = Math.floor(w.end.getTime() / 1000);
-  const filters = `created_at_i>${from},created_at_i<${to},points>${cfg.minPoints}`;
-  const url =
-    `https://hn.algolia.com/api/v1/search_by_date?tags=story` +
-    `&numericFilters=${encodeURIComponent(filters)}&hitsPerPage=${cfg.hitsPerPage}`;
-  const res = await fetchJson<{ hits: HnHit[] }>(url);
+  const window = `created_at_i>${from},created_at_i<${to}`;
+  const search = (tags: string, minPoints: number) =>
+    `https://hn.algolia.com/api/v1/search_by_date?tags=${tags}` +
+    `&numericFilters=${encodeURIComponent(`${window},points>${minPoints}`)}` +
+    `&hitsPerPage=${cfg.hitsPerPage}`;
 
-  return (res.hits ?? [])
-    .filter((h) => h.title)
+  /*
+   * Show HN を別枠で、低いしきい値で拾う。
+   *
+   * points>40 の網は「作ったものの発表」にはきつい。誰も知らない個人の新作は
+   * その日のうちにその点数まで伸びないことが多く、通常の story 枠では
+   * 構造的にほぼ落ちていた。ここは「新しい道具を探す」入口なので、
+   * 話題の大きさより、そもそも候補に入ることを優先する。
+   */
+  const [stories, showHn] = await Promise.all([
+    fetchJson<{ hits: HnHit[] }>(search('story', cfg.minPoints)),
+    safe(
+      'hn(show_hn)',
+      () => fetchJson<{ hits: HnHit[] }>(search('show_hn', cfg.showHnMinPoints)),
+      { hits: [] as HnHit[] },
+    ),
+  ]);
+
+  const seen = new Set<string>();
+  return [...(stories.hits ?? []), ...(showHn.hits ?? [])]
+    .filter((h) => {
+      if (!h.title || seen.has(h.objectID)) return false;
+      seen.add(h.objectID);
+      return true;
+    })
     .map((h) =>
       makeItem({
         source: 'hackernews',
@@ -573,6 +595,58 @@ async function collectGithubTrending(
   return nested.flat();
 }
 
+/**
+ * 生まれたばかりのリポジトリ。言語もキーワードも絞らない。
+ *
+ * githubTrending 側は queries（typescript / react / ai agent など）で絞っており、
+ * 「全く新しい種類の道具」——Rust のターミナル、Zig のパッケージマネージャ、
+ * 名前も分野もまだ知らないもの——が構造的に 1 件も入ってこなかった。
+ *
+ * 新しさとキーワード一致は逆を向く。名前がまだどの語彙にも無いから新しい。
+ * だからここでは検索語を持たず、「最近作られた」「もう星が付いている」の
+ * 2 条件だけで拾う。星の下限は trending より低くする——3 日前に公開された
+ * ものに 500 星は付かない。
+ */
+async function collectGithubNew(cfg: SourcesConfig['githubNew'], w: Window): Promise<RawItem[]> {
+  const headers = githubHeaders();
+  const since = jstDateString(new Date(w.end.getTime() - cfg.days * 24 * 60 * 60 * 1000));
+  // 検索語を持たない修飾子だけのクエリ。GitHub Search はこの形を許容する
+  const query = `created:>=${since} stars:>=${cfg.minStars}`;
+
+  return safe(
+    'gh-new',
+    async () => {
+      const res = await fetchJson<{ items: GhRepo[] }>(
+        `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}` +
+          `&sort=stars&order=desc&per_page=${cfg.perPage}`,
+        { headers },
+      );
+      return (res.items ?? []).map((r) =>
+        makeItem({
+          source: 'github_repo',
+          sourceLabel: 'GitHub 新着リポジトリ',
+          title: `${r.full_name} — ${r.description ?? ''}`.trim(),
+          url: r.html_url,
+          publishedAt: new Date(r.created_at).toISOString(),
+          author: r.full_name.split('/')[0],
+          authorDetail: {
+            name: r.full_name.split('/')[0] ?? r.full_name,
+            url: `https://github.com/${r.full_name.split('/')[0]}`,
+            avatarUrl: `https://github.com/${r.full_name.split('/')[0]}.png?size=120`,
+            bio: r.description ?? undefined,
+          },
+          tags: [r.language, ...(r.topics ?? [])].filter((t): t is string => Boolean(t)).slice(0, 8),
+          snippet: r.description ?? '',
+          metrics: { stars: r.stargazers_count },
+          sourceWeight: 3,
+          lang: 'en',
+        }),
+      );
+    },
+    [] as RawItem[],
+  );
+}
+
 /* ------------------------------------------------------------------ *
  * RSS
  * ------------------------------------------------------------------ */
@@ -678,6 +752,8 @@ export async function collectAll(cfg: SourcesConfig, w: Window): Promise<RawItem
       name: 'github_repo',
       run: () => collectGithubTrending(cfg.githubTrending, w),
     });
+  if (cfg.githubNew.enabled)
+    collectors.push({ name: 'github_new', run: () => collectGithubNew(cfg.githubNew, w) });
   if (cfg.rss.enabled) collectors.push({ name: 'rss', run: () => collectRss(cfg.rss, w) });
   if (cfg.changelogs.enabled)
     collectors.push({ name: 'changelog', run: () => collectChangelogs(cfg.changelogs, w) });

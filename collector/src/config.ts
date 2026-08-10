@@ -14,10 +14,18 @@ export interface SourcesConfig {
   qiita: { enabled: boolean; maxPages: number; perPage: number };
   zenn: { enabled: boolean; orders: string[]; count: number };
   hatena: { enabled: boolean; feeds: string[] };
-  hackernews: { enabled: boolean; minPoints: number; hitsPerPage: number };
+  hackernews: {
+    enabled: boolean;
+    minPoints: number;
+    /** Show HN 用の低いしきい値。誰も知らない個人の新作は普通の網では落ちる */
+    showHnMinPoints: number;
+    hitsPerPage: number;
+  };
   devto: { enabled: boolean; perPage: number; minReactions: number };
   githubReleases: { enabled: boolean; repos: string[]; includePrerelease: boolean };
   githubTrending: { enabled: boolean; minStars: number; perPage: number; queries: string[] };
+  /** 検索語を持たない新着枠。「まだ名前を知らない道具」はここからしか入ってこない */
+  githubNew: { enabled: boolean; minStars: number; days: number; perPage: number };
   rss: { enabled: boolean; feeds: { label: string; url: string; weight: number }[] };
   changelogs: { enabled: boolean; entries: { label: string; url: string; homepage: string }[] };
   advisories: AdvisoryConfig;
@@ -26,8 +34,12 @@ export interface SourcesConfig {
 /** sources.json の「監視対象リスト抜き」の形。リストは watchlist.json から合流させる。 */
 type SourcesFile = Omit<
   SourcesConfig,
-  'githubReleases' | 'rss' | 'changelogs' | 'advisories'
+  'githubReleases' | 'rss' | 'changelogs' | 'advisories' | 'githubNew' | 'hackernews'
 > & {
+  /* この機能より前の sources.json には無いので任意にする */
+  githubNew?: Partial<SourcesConfig['githubNew']>;
+  hackernews: Omit<SourcesConfig['hackernews'], 'showHnMinPoints'> &
+    Partial<Pick<SourcesConfig['hackernews'], 'showHnMinPoints'>>;
   githubReleases: Omit<SourcesConfig['githubReleases'], 'repos'>;
   rss: Omit<SourcesConfig['rss'], 'feeds'>;
   changelogs: Omit<SourcesConfig['changelogs'], 'entries'>;
@@ -37,12 +49,18 @@ type SourcesFile = Omit<
 
 /** 実行時のチューニング項目。すべて環境変数で上書きできる。 */
 export interface RuntimeConfig {
-  /** 事前スコアリング後に LLM へ渡す候補数 */
-  rankCandidates: number;
-  /** 深掘り要約する件数（= ベスト N） */
+  /** 1 レーンあたり LLM へ渡す候補数。合計はこの 3 倍 */
+  laneCandidates: number;
+  /** レーンの振り分けしきい値。実データを見ながら動かす前提 */
+  laneThresholds: { know: number; talk: number };
+  /** 深掘り要約する件数（= 各レーンのベスト N） */
   topN: number;
   /** 「その他の注目記事」として保存する件数 */
   otherN: number;
+  /** 深掘りする最低スコア。これを下回るレーンは件数を減らす */
+  minTopScore: number;
+  /** 一覧に載せる最低スコア */
+  minOtherScore: number;
   rankModel: string;
   summaryModel: string;
   summaryEffort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
@@ -68,24 +86,52 @@ export function loadRuntimeConfig(): RuntimeConfig {
   const effort = str('SUMMARY_EFFORT', 'medium') as RuntimeConfig['summaryEffort'];
   return {
     /**
-     * LLM に採点させる候補数。
+     * 1 レーンあたり LLM に採点させる候補数。合計 150 件は 3 レーン化の前と同じ。
      *
      * 採点は 2 段階（スコアのみ → 上位だけ文章化）なので、ここを増やして
      * 増えるのは安い 1 段目の入力だけ。2 段目と深掘りのコストは変わらない。
-     * 150 件でも採点コストは 2 段階化前の 90 件より安く収まる。
      *
-     * 逆に絞る方向は割に合わない。45 まで下げる案を実データで検証したところ、
-     * 46〜60 位の帯に「実際にベスト3入りした記事」が含まれていた。
+     * 逆に絞る方向は割に合わない。以前 45 まで下げる案を実データで検証したとき、
+     * 46〜60 位の帯に「実際にベスト入りした記事」が含まれていた。
      */
-    rankCandidates: num('RANK_CANDIDATES', 150),
+    laneCandidates: num('LANE_CANDIDATES', 50),
     /**
-     * 深掘りする件数。AI / AI以外 の**グループごと**なので、既定 2 で 4 件。
+     * レーンの振り分けしきい値。
+     *
+     * know / talk は「要件を満たすか」で判定し、満たさなければ build に落ちる
+     * （build が既定のレーン）。適正値は実データを見ないと決められないので、
+     * 実行ログにレーン別の件数を出して調整する前提の値にしてある。
+     *
+     * 高くしすぎると know / talk が空になり、低くしすぎると build から
+     * 中身の薄いものが流れ込む。まずはログの「振り分け」の行を見て、
+     * know が 1 日 30〜80 件、talk が 40〜100 件くらいに収まるあたりを狙う。
+     */
+    laneThresholds: {
+      know: num('KNOW_THRESHOLD', 0.42),
+      talk: num('TALK_THRESHOLD', 0.4),
+    },
+    /**
+     * 深掘りする件数。**レーンごと**なので、既定 2 で 6 件。
      * 深掘りは Sonnet を使う一番高い工程で、実測でも全体の 6〜7 割を占める。
-     * 3 にすると 6 件になり 1 日あたり $0.12 ほど増える。
-     * 読了目安も 3 なら 36 分で「30分でキャッチアップ」を超える。
+     * 2 レーン時代の 4 件から 6 件になるので、1 日あたり $0.06〜0.08 ほど増える。
+     * コストを戻したいなら TOP_N=1（3 件）にする。
      */
     topN: num('TOP_N', 2),
+    /** 「その他の注目記事」の合計。3 レーンで等分する（既定 12 → 各 4 件） */
     otherN: num('OTHER_N', 12),
+    /**
+     * 掲載のスコア下限。
+     *
+     * レーンを分けたことで「そのレーンに該当が乏しい日」が起きうるようになった。
+     * 下限が無いと、候補の質に関係なく必ず topN 件が深掘りされる——採点が
+     * 全部 20 点の日でも、その中の上位 2 件が Sonnet に回ってベストとして出る。
+     * 件数を埋めることより、薄い日は薄いまま出すことを優先する。
+     *
+     * 採点基準では 40 点以下が「目的に沿わない」の帯なので、深掘りはその少し上、
+     * 一覧はその手前に置いている。
+     */
+    minTopScore: num('MIN_TOP_SCORE', 45),
+    minOtherScore: num('MIN_OTHER_SCORE', 30),
     rankModel: str('RANK_MODEL', 'claude-haiku-4-5'),
     summaryModel: str('SUMMARY_MODEL', 'claude-sonnet-5'),
     summaryEffort: (['low', 'medium', 'high', 'xhigh', 'max'] as const).includes(effort)
@@ -189,6 +235,13 @@ export async function loadSources(): Promise<SourcesConfig> {
   ]);
   return {
     ...file,
+    hackernews: { ...file.hackernews, showHnMinPoints: file.hackernews.showHnMinPoints ?? 5 },
+    githubNew: {
+      enabled: file.githubNew?.enabled ?? true,
+      minStars: file.githubNew?.minStars ?? 80,
+      days: clamp(file.githubNew?.days ?? 10, 1, 60),
+      perPage: clamp(file.githubNew?.perPage ?? 40, 1, 100),
+    },
     githubReleases: { ...file.githubReleases, repos: watchlist.repos },
     rss: { ...file.rss, feeds: watchlist.feeds },
     changelogs: { ...file.changelogs, entries: watchlist.changelogs },

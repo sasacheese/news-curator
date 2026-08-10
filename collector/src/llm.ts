@@ -3,16 +3,24 @@ import { selectBackend } from './backend.js';
 import { CATEGORIES } from './categories.js';
 import type { RuntimeConfig } from './config.js';
 import {
-  DeepDiveSchema,
+  BuildDeepDiveSchema,
   DescribeResultSchema,
+  KnowDeepDiveSchema,
+  TalkDeepDiveSchema,
   DigestOutlookSchema,
   DigestSummarySchema,
   ScoreResultSchema,
-  type DescribeResult,
+  TalkDescribeResultSchema,
+  type BuildDeepDiveResult,
+  type DescribeItem,
+  type KnowDeepDiveResult,
+  type TalkDeepDiveResult,
 } from './schemas.js';
-import { DURABILITIES, PAYOFFS } from './types.js';
+import { DURABILITIES, LANES, LANE_LABELS, PAYOFFS } from './types.js';
 import type {
+  Debate,
   DeepDive,
+  Lane,
   PreScoredItem,
   RankedItem,
   ReleaseItem,
@@ -163,32 +171,174 @@ function readerContext(topics: TopicsConfig, feedbackNote?: string | null): stri
   return `# 読者プロフィール\n${topics.profile}\n\n# 関心トピック\n${topicList}${feedback}`;
 }
 
-function scoreSystemPrompt(topics: TopicsConfig, feedbackNote?: string | null): string {
+/**
+ * レーンごとの採点基準。
+ *
+ * 以前はひとつの「今日読む価値 0〜100」で採点していたが、それだと 3 つの目的が
+ * ひとつの尺度に潰れ、いちばん測りやすいもの（関心トピックとの一致）だけが残る。
+ * 目的ごとに別の問いを立て、別の証拠で採点する。
+ *
+ * 各レーンの末尾に置いた「判定の問い」がいちばん効く。基準表よりも、
+ * 答えられなければ落とす、という 1 つの問いのほうが境界が安定する。
+ */
+const LANE_RUBRICS: Record<Lane, string> = {
+  know: `# このレーンの目的
+「知っておかないと判断を間違えるもの」だけを拾う。**読者の関心領域かどうかは問わない。**
+ハードウェアの価格、企業の買収、規制、大規模障害のように、読者の関心トピック一覧に
+無い話題でも、規模が大きければ高く採点する。関心トピックは、同点のときの並べ替えにだけ使う。
+
+# 採点基準（規模 = 影響を受ける人数 × 取り返しのつかなさ）
+- 90-100: 業界全体が動く。広範囲のサプライチェーン攻撃、主要プラットフォームの提供終了、
+  大手の買収、価格や供給構造の変化。知らなければ確実に判断を誤る。
+- 70-89 : 読者の周辺で確実に影響が出る。使っている可能性の高い基盤の重大な変更、
+  期限のある廃止、深刻度の高い脆弱性。
+- 50-69 : 影響はあるが限定的。特定の環境・特定の使い方でだけ問題になる。
+- 30-49 : 知っていれば少し役に立つ程度。行動は変わらない。
+- 0-29  : 個人の作業記録、宣伝、入門、感想。規模の話ではない。
+
+# 幹と枝を分ける ← このレーンで一番大事な判断
+**幹を知っていれば導けるものは、枝である。枝は 40 点を超えさせない。**
+- 幹「npm に大規模なサプライチェーン攻撃」/ 枝「個別パッケージのパッチ公開」
+- 幹「PC の価格が高騰している」/ 枝「整備済み品の在庫が増えた」
+- 幹「モデルの世代交代が起きた」/ 枝「それに伴う料金表の改定」
+迷ったら「これは事象そのものか、事象の帰結か」を問う。帰結なら枝。
+
+# 判定の問い
+**「これを知らないまま1週間過ごしたとき、読者は何を間違えるか」**
+具体的に答えられないなら 40 点未満。「なんとなく知っておくとよい」は答えではない。`,
+
+  build: `# このレーンの目的
+「読んだら手を動かしたくなるもの」を拾う。読者が探しているのは、新しい道具と、
+作れるものの幅が広がる変化。
+
+# 採点基準（可能性の差分 × 触れる実体）
+- 90-100: これまで作れなかったものが作れるようになる。全く新しい種類の道具
+  （エディタ、ターミナル、ランタイム、パッケージ管理、言語、フレームワーク）や、
+  能力の段が上がったモデル・API。しかも今日インストールして試せる。
+- 70-89 : できることの幅が広がる。新しいライブラリや手法で、手順とコードがあり試せる。
+- 50-69 : 手を動かす具体はあるが、既にできていたことがやりやすくなるだけ。
+  読者のスタック（React / Next.js / TypeScript など）の実装ノウハウは基本ここ。
+- 30-49 : 概念や構想の紹介で、今すぐ触れる実体が無い。
+- 0-29  : 宣伝、内容の薄いまとめ、感想。
+
+# 程度と種類を分ける ← このレーンで一番大事な判断
+**「速くなった・便利になった」は程度の改善であって、差分ではない。
+「できなかったことができる」が差分。** 種類が変わったものを上に置く。
+- 差分:「ブラウザだけで動画のエンコードができるようになった」
+- 程度:「ビルドが2倍速くなった」（有用だが、作れるものは変わらない）
+ただし桁が変わって使い方そのものが変わるなら、程度の改善でも差分として扱ってよい。
+
+# 触れる実体があるか
+今日インストールして動かせるか。リポジトリ・インストール手順・動くデモ・コード片の
+どれかがあること。研究発表・構想・ロードマップだけのものは 40 点を超えさせない。
+「すごそう」で終わるものは試したくならない。
+
+# 新しさの扱い
+読者がまだ名前を聞いたことがなさそうなものを、既知のものより高く置く。
+**知らない名前が出てきたことを減点の理由にしない。** それは新しさの証拠であって、
+無関係さの証拠ではない。
+
+# 判定の問い
+**「これの前後で、作れるものの集合はどう変わったか」**
+「同じものがより楽に作れる」しか答えられないなら 60 点未満。`,
+
+  talk: `# このレーンの目的
+「読者が自分の意見を言える記事」を拾う。SNS で発信するための素材なので、
+正しさや一次情報らしさより **立場が割れること** を優先する。
+
+# 採点基準（立場が割れること）
+- 90-100: 同じ事実から正反対の結論が出る。実際に界隈で意見が割れていて、
+  賛成側も反対側も具体的な根拠を持てる。
+- 70-89 : 明確な主張があり、反論が成り立つ。設計論、やめた話、比較検証、失敗談。
+- 50-69 : 主張はあるが反論しづらい（ほぼ誰もが同意する）。
+- 30-49 : 事実の報告で、立場の取りようが無い。
+- 0-29  : 宣伝、単なる手順書、中身のない感想。
+
+# 判定の問い ← このレーンで一番大事な判断
+**「反対の立場を、藁人形にせず1文で書けるか」**
+書けないものは論点ではなく事実。事実を扱うのは別のレーンの仕事なので、ここでは 40 点未満。
+
+# 争われているのは優先順位である
+賛否の本質は「どちらが正しいか」ではなく「何を優先するか」が違うこと。
+速さ vs 安全、自動化 vs 制御、統一 vs 自由、今の生産性 vs 将来の保守性。
+この形に還元できる記事を高く置く。事実の正誤が争われているだけのものは論点ではない。
+
+# このレーンでは一次情報を優遇しない
+公式のリリースノートに意見は書けない。個人の主張・検証・体験談のほうがここでは価値が高い。
+**「〜してみた」「やめた」「後悔した」を、その形だからという理由で減点しない。**
+ただし主張が無く手順だけのものは 40 点未満。`,
+};
+
+function scoreSystemPrompt(
+  lane: Lane,
+  topics: TopicsConfig,
+  feedbackNote?: string | null,
+): string {
   return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
-渡された記事を、この読者にとっての「今日読む価値」で 0〜100 点に採点してください。
+渡された記事を、下に示すひとつの目的に照らして 0〜100 点に採点してください。
+**この目的以外の良さで加点しない。** 良い記事でも、この目的に沿わなければ低くつけます。
 
 ${readerContext(topics, feedbackNote)}
 
-# 採点基準
-- 90-100: 読者が日常的に使う技術の重大な変更・新機能。今日知らないと損をするレベル。
-- 70-89 : 関心トピックど真ん中で、実装や意思決定に直接影響する具体的な内容。
-- 50-69 : 関心はあるが緊急度は低い。あとで読めばよい良記事。
-- 30-49 : 隣接領域。読者の主戦場からは少し遠い。
-- 0-29  : 無関係、入門記事の焼き直し、宣伝、ポエム、内容の薄いまとめ。
+${LANE_RUBRICS[lane]}
 
-# 重要な判断ルール
-- 一次情報（公式リリースノート、公式ブログ、仕様策定）は二次情報より高く評価する。
-- 「〜してみた」「入門」「まとめ」系は、独自の検証や数値がない限り 40 点以下。
-- 人気（いいね数・順位）は参考程度。読者の関心との一致を最優先する。
-- 同じ話題の記事が複数あるときは、最も一次情報に近く情報量の多いものを高くする。
+# 共通のルール
 - 日本語・英語で有利不利をつけない。
+- 人気（いいね数・順位）は参考程度。目的との一致を優先する。
+- 同じ話題の記事が複数あるときは、この目的をいちばん強く満たす1本を高くする。
 
 # 出力
 - 説明や理由は書かず、ref と score だけを返す。
 - 入力されたすべての ref に対して、必ず1件ずつ結果を返す。`;
 }
 
-function describeSystemPrompt(topics: TopicsConfig, feedbackNote?: string | null): string {
+/**
+ * レーンごとに、要約で何に焦点を当てるかの指示。
+ * talk レーンだけは項目自体が増える（意見の足場）。
+ */
+const LANE_DESCRIBE_BLOCKS: Record<Lane, string> = {
+  know: `# このレーンについて
+これらは「知っておかないと判断を間違えるもの」として選ばれている。
+reason には規模が伝わる具体を必ず入れる——何に、いつから、どれくらいの範囲で効くのか。
+「重要な変更があった」で終わらせない。期限があるなら日付を、範囲があるなら対象を書く。`,
+
+  build: `# このレーンについて
+これらは「試してみたくなるもの」として選ばれている。
+reason には「これまでできなかった何ができるようになるか」を入れる。
+できるようになることが無く、既存のやり方が楽になるだけなら、それを率直にそう書く。
+無理に「新しくできること」をひねり出さない。`,
+
+  talk: `# このレーンについて
+これらは「読者が自分の意見を言えるもの」として選ばれている。
+通常の項目に加えて、debate の 5 項目を書くこと。
+
+# debate（意見の足場）
+読者はこれを見て SNS に投稿する。**意見の下書きは書かない。**
+下書きを渡すと読者自身の言葉でなくなるうえ、裏を取っていない文章がそのまま外に出る。
+渡すのは、読者が自分で書き始められる足場だけ。
+
+- **debateAxis は「A か B か」の形にする。**「〜について」は争点ではない。
+  優先順位の対立に還元する（速さ vs 安全、自動化 vs 制御、統一 vs 自由、
+  今の生産性 vs 将来の保守性）。
+- **debateFor / debateAgainst は、それぞれの立場の一番強い言い分を書く。**
+  反対側を弱く書かない。実際にその立場を取る人が言うことを書く。
+  藁人形を立てると、読者がそれを引用した時点で恥をかく。
+- 記事が片側の立場しか書いていないなら **debateOneSided を true** にする。
+  そのとき debateAgainst は記事の外から補った一般論なので、記事の主張として
+  読める書き方をしない。
+- **debateYourAngle は読者プロフィールとの接点。** 「読者が実体験として持っている
+  一次情報はどこか」を指す。意見そのものは書かない。
+  ✗「自動化には慎重であるべきだと言える」（意見の代筆）
+  ✓「同じ構成を業務で毎日動かしているので、手戻りの頻度は実測値として出せる」
+- **争点が本当に無い記事なら、5 項目すべて null / false にする。無理に作らない。**
+  事実の報告に無理やり争点をかぶせるのが、この項目で一番やってはいけないこと。`,
+};
+
+function describeSystemPrompt(
+  lane: Lane,
+  topics: TopicsConfig,
+  feedbackNote?: string | null,
+): string {
   return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
 選抜済みの記事について、一覧に載せる要約とキーワードを書いてください。
 
@@ -390,10 +540,7 @@ reason は「それをどう読むと自分の役に立つか」を書く。
 - 一般論ではなく、この読者のプロフィールに紐づける。
 - 記事に書かれていない効能を推測で足さない。
 
-# domain（AI か否か）
-- LLM・生成AI・AIエージェント・コーディングエージェントそのものが主題なら ai。
-- AI を道具として使った話（AI で何かを作ってみた等）でも、記事の主題が AI の使い方なら ai。
-- 主題が Web フロントエンド・インフラ・言語仕様などで、AI は文中に出てくるだけなら general。
+${LANE_DESCRIBE_BLOCKS[lane]}
 
 # readingMinutes と payoff（時間対効果）
 読者が「どれを読むか」を選ぶための材料なので、正直に見積もること。
@@ -427,41 +574,81 @@ payoff とは別の軸。「今日役に立つか」ではなく「1年後にも
 - 有用さと混同しない。今すごく便利な Tips でも、来年通用しないなら ephemeral。`;
 }
 
-function renderCandidate(item: PreScoredItem, ref: number, excerptChars: number): string {
+/**
+ * レーンごとに、判定の役に立つ機械的な事実だけを添える。
+ *
+ * know なら「複数のプラットフォームで同時に取り上げられている」が規模の証拠になり、
+ * talk なら「人気の割にコメントが多い」が論争の証拠になる。どちらもモデルが
+ * 本文からは読み取れない情報なので、こちらで渡す。build には該当する指標が無い。
+ */
+function laneEvidence(item: PreScoredItem, lane: Lane): string | null {
+  const m = item.metrics;
+  switch (lane) {
+    case 'know': {
+      const parts: string[] = [];
+      const sources = item.foundIn?.length ?? 1;
+      if (sources > 1) parts.push(`${sources} つのプラットフォームで同時に浮上`);
+      if (item.buzz) parts.push('その日として明らかに伸びている');
+      return parts.length > 0 ? parts.join(' / ') : null;
+    }
+    case 'talk': {
+      const points = m.points ?? m.likes ?? m.hatena ?? 0;
+      const comments = m.comments ?? 0;
+      if (comments <= 0) return null;
+      // 賛同だけなら star が伸びてコメントは伸びない。割れているとコメント側が伸びる
+      return points > 0
+        ? `コメント ${comments} 件（支持 ${points} に対して）`
+        : `コメント ${comments} 件`;
+    }
+    default:
+      return null;
+  }
+}
+
+function renderCandidate(
+  item: PreScoredItem,
+  ref: number,
+  excerptChars: number,
+  lane: Lane,
+): string {
   const excerpt = truncate((item.body || item.snippet).replace(/\s+/g, ' ').trim(), excerptChars);
   // 生の LGTM 数などは渡さない。プラットフォーム間で桁が違って比較できず、
   // モデルが数字の大きいソースに引きずられるため、正規化済みの順位だけを渡す。
   const popularity = `同ソース内で上位 ${Math.round((1 - item.popularityPercentile) * 100)}%`;
+  const evidence = laneEvidence(item, lane);
 
   return [
     `[${ref}] ${item.title}`,
     `  ソース: ${item.sourceLabel} / ${popularity}`,
     item.tags.length ? `  タグ: ${item.tags.slice(0, 8).join(', ')}` : null,
-    item.matchedTopics.length ? `  事前マッチ: ${item.matchedTopics.join(', ')}` : null,
+    /*
+     * know レーンには関心トピックを渡さない。渡すと「関心に近いから高得点」という
+     * 元の偏りがそのまま戻ってくる。このレーンの判定軸は規模であって一致ではない。
+     */
+    lane !== 'know' && item.matchedTopics.length
+      ? `  事前マッチ: ${item.matchedTopics.join(', ')}`
+      : null,
+    evidence ? `  参考: ${evidence}` : null,
     `  抜粋: ${excerpt || '(本文なし)'}`,
   ]
     .filter(Boolean)
     .join('\n');
 }
 
-/** LLM を使わないときのフォールバック値 */
-/** 要約前に AI 関連かを粗く見分ける。候補の広げ方を決めるためだけに使う */
-function looksAi(item: PreScoredItem): boolean {
-  return item.matchedTopics.some((t) => /AI|Claude|Codex/.test(t));
-}
-
-/** 一次情報か。ベスト3の枠確保の対象になりうるかの判定に使う */
+/** 一次情報か。ベストNの枠確保の対象になりうるかの判定に使う */
 function isPrimarySource(item: PreScoredItem): boolean {
   return item.source === 'rss' || item.source === 'github_release' || item.source === 'changelog';
 }
 
-function ruleBasedFields(item: PreScoredItem, note: string) {
+/** LLM を使わないときのフォールバック値 */
+function ruleBasedFields(item: PreScoredItem, lane: Lane, note: string) {
   return {
     oneLiner: truncate(item.snippet.replace(/\s+/g, ' ').trim(), 80) || item.title,
     reason: note,
     keywords: item.matchedTopics.slice(0, 5),
     category: 'その他',
-    domain: looksAi(item) ? ('ai' as const) : ('general' as const),
+    lane,
+    debate: null,
     // 本文の長さから機械的に見積もる（日本語は約 600 字/分）
     readingMinutes: Math.max(1, Math.min(30, Math.round((item.body?.length ?? 600) / 600))),
     payoff: 'aware' as const,
@@ -473,6 +660,7 @@ function ruleBasedFields(item: PreScoredItem, note: string) {
 /** 1 段目: 候補全件にスコアだけ付ける */
 async function scorePass(
   b: LlmBackend,
+  lane: Lane,
   items: PreScoredItem[],
   topics: TopicsConfig,
   cfg: RuntimeConfig,
@@ -483,16 +671,16 @@ async function scorePass(
     batches.push(items.slice(i, i + cfg.rankBatchSize));
   }
 
-  const system = scoreSystemPrompt(topics, feedbackNote);
+  const system = scoreSystemPrompt(lane, topics, feedbackNote);
   const scores = new Map<string, number>();
 
   await mapLimit(batches, 3, async (batch, batchIndex) => {
     const offset = batchIndex * cfg.rankBatchSize;
-    const body = batch.map((item, i) => renderCandidate(item, offset + i, 500)).join('\n\n');
+    const body = batch.map((item, i) => renderCandidate(item, offset + i, 500, lane)).join('\n\n');
 
     try {
       const parsed = await complete(b, {
-        stage: 'score',
+        stage: `score:${lane}`,
         model: cfg.rankModel,
         maxTokens: 4000,
         system,
@@ -520,12 +708,13 @@ const DESCRIBE_BATCH_SIZE = 12;
 /** 2 段目: 実際に保存する分だけ文章化する */
 async function describePass(
   b: LlmBackend,
+  lane: Lane,
   shortlist: PreScoredItem[],
   topics: TopicsConfig,
   cfg: RuntimeConfig,
   feedbackNote?: string | null,
-): Promise<Map<string, DescribeResult['items'][number]>> {
-  const described = new Map<string, DescribeResult['items'][number]>();
+): Promise<Map<string, DescribeItem>> {
+  const described = new Map<string, DescribeItem>();
   if (shortlist.length === 0) return described;
 
   /**
@@ -542,34 +731,65 @@ async function describePass(
     batches.push(shortlist.slice(i, i + DESCRIBE_BATCH_SIZE));
   }
 
-  const system = describeSystemPrompt(topics, feedbackNote);
+  const system = describeSystemPrompt(lane, topics, feedbackNote);
+  // talk レーンだけ「意見の足場」の 5 項目が乗る。他のレーンで無駄な出力をさせない
+  const schema = lane === 'talk' ? TalkDescribeResultSchema : DescribeResultSchema;
   await mapLimit(batches, 3, async (batch, batchIndex) => {
     // ref は採点段と同じく通し番号で振る（実装が食い違うと取り違えの温床になる）
     const offset = batchIndex * DESCRIBE_BATCH_SIZE;
-    const body = batch.map((item, i) => renderCandidate(item, offset + i, 700)).join('\n\n');
+    const body = batch.map((item, i) => renderCandidate(item, offset + i, 700, lane)).join('\n\n');
     try {
       const parsed = await complete(b, {
-        stage: 'describe',
+        stage: `describe:${lane}`,
         model: cfg.rankModel,
         maxTokens: 16000,
         system,
         prompt: `以下 ${batch.length} 件を要約してください。\n\n${body}`,
-        schema: DescribeResultSchema,
+        schema,
       });
       for (const r of parsed.items ?? []) {
         const item = shortlist[r.ref];
-        if (item) described.set(item.id, r);
+        if (item) described.set(item.id, r as DescribeItem);
       }
     } catch (err) {
-      log.warn(`要約 batch ${batchIndex}: ${err instanceof Error ? err.message : err}`);
+      log.warn(`要約 ${lane} batch ${batchIndex}: ${err instanceof Error ? err.message : err}`);
     }
   });
 
   return described;
 }
 
+/**
+ * 要約結果から「意見の足場」を組み立てる。
+ *
+ * 争点が本当に無い記事に無理やり争点をかぶせるのが一番まずいので、
+ * 軸か賛成側か反対側のどれかが欠けていたら、まるごと null にして表示しない。
+ * 半端な足場は、無い足場より読者を迷わせる。
+ */
+function toDebate(r: DescribeItem): Debate | null {
+  const axis = r.debateAxis?.trim();
+  const forSide = r.debateFor?.trim();
+  const againstSide = r.debateAgainst?.trim();
+  if (!axis || !forSide || !againstSide) return null;
+  return {
+    axis,
+    forSide,
+    againstSide,
+    oneSided: r.debateOneSided === true,
+    yourAngle: r.debateYourAngle?.trim() || '',
+  };
+}
+
+/**
+ * レーンごとに採点し、そのレーンのラベルを付けた RankedItem を返す。
+ *
+ * レーンをまたいだ重複は起きない。候補の割り当て（lanes.ts）の時点で
+ * 1 件は 1 レーンにしか入らないため、ここでは単純に連結すればよい。
+ * score はレーン内でのみ意味を持つ値になる——know の 80 点と talk の 80 点は
+ * 別の問いへの答えなので、レーンをまたいで並べ替えてはいけない。
+ */
 export async function rankItems(
-  items: PreScoredItem[],
+  byLane: Record<Lane, PreScoredItem[]>,
   topics: TopicsConfig,
   cfg: RuntimeConfig,
   feedbackNote?: string | null,
@@ -577,16 +797,34 @@ export async function rankItems(
   const b = await getBackend();
   if (!b) {
     log.warn('LLM バックエンドが無いためルールベースのスコアにフォールバックします');
-    return items.map((item) => ({
-      ...item,
-      score: Math.round(item.preScore * 100),
-      ...ruleBasedFields(item, '事前スコアのみ（LLM 未使用）'),
-    }));
+    return LANES.flatMap((lane) =>
+      byLane[lane].map((item) => ({
+        ...item,
+        score: Math.round(item.preScore * 100),
+        ...ruleBasedFields(item, lane, '事前スコアのみ（LLM 未使用）'),
+      })),
+    );
   }
 
+  const perLane = await Promise.all(
+    LANES.map((lane) => rankLane(b, lane, byLane[lane], topics, cfg, feedbackNote)),
+  );
+  return perLane.flat();
+}
+
+async function rankLane(
+  b: LlmBackend,
+  lane: Lane,
+  items: PreScoredItem[],
+  topics: TopicsConfig,
+  cfg: RuntimeConfig,
+  feedbackNote?: string | null,
+): Promise<RankedItem[]> {
+  if (items.length === 0) return [];
+
   // 1 段目
-  const scores = await scorePass(b, items, topics, cfg, feedbackNote);
-  log.info(`  スコアリング: ${scores.size}/${items.length} 件`);
+  const scores = await scorePass(b, lane, items, topics, cfg, feedbackNote);
+  log.info(`  [${LANE_LABELS[lane]}] スコアリング: ${scores.size}/${items.length} 件`);
 
   const scoreOf = (item: PreScoredItem) =>
     // 採点に失敗した分は事前スコアで代替する（控えめに）
@@ -595,32 +833,32 @@ export async function rankItems(
   /**
    * 2 段目に回す候補。
    *
-   * 単純なスコア上位だけでは足りない。一覧は AI 以外に別枠を与えており、
-   * ベスト3も一次情報の枠を確保するため、どちらもスコア順の外から拾うことがある。
-   * 要約されていない項目が選ばれると、要約が本文の切り出しになり、
-   * durability も既定値になる（判定していないのに枠を満たしてしまう）。
-   * その分だけ候補を広げておく。
+   * 単純なスコア上位だけでは足りない。ベスト N は一次情報や長く効くものの枠を
+   * 確保するため、スコア順の外から拾うことがある。要約されていない項目が
+   * 選ばれると、要約が本文の切り出しになり durability も既定値になる
+   * （判定していないのに枠を満たしてしまう）。その分だけ候補を広げておく。
    */
   const byScore = [...items].sort((a, b2) => scoreOf(b2) - scoreOf(a));
-  // topN は AI / AI以外 の 2 グループぶん必要
-  const base = byScore.slice(0, cfg.topN * 2 + cfg.otherN + 10);
+  const laneOtherN = Math.ceil(cfg.otherN / LANES.length);
+  const base = byScore.slice(0, cfg.topN + laneOtherN + 6);
   const baseIds = new Set(base.map((i) => i.id));
-  // ベスト N もドメイン別・一次情報枠でスコア順の外から拾うので、その分も見込む
-  const headroom = cfg.topN + Math.ceil(cfg.otherN / 2);
-  const extra = [
-    ...byScore.filter((i) => !baseIds.has(i.id) && !looksAi(i)).slice(0, headroom),
-    ...byScore.filter((i) => !baseIds.has(i.id) && isPrimarySource(i)).slice(0, headroom),
-  ];
-  const shortlist = [...base, ...new Map(extra.map((i) => [i.id, i])).values()];
+  const extra = byScore
+    .filter((i) => !baseIds.has(i.id) && isPrimarySource(i))
+    .slice(0, cfg.topN + 2);
+  const shortlist = [...base, ...extra];
 
-  const described = await describePass(b, shortlist, topics, cfg, feedbackNote);
-  log.info(`  要約: ${described.size}/${shortlist.length} 件`);
+  const described = await describePass(b, lane, shortlist, topics, cfg, feedbackNote);
+  log.info(`  [${LANE_LABELS[lane]}] 要約: ${described.size}/${shortlist.length} 件`);
 
   return items.map((item) => {
     const r = described.get(item.id);
     const score = scoreOf(item);
     if (!r) {
-      return { ...item, score, ...ruleBasedFields(item, scores.has(item.id) ? '' : '採点失敗') };
+      return {
+        ...item,
+        score,
+        ...ruleBasedFields(item, lane, scores.has(item.id) ? '' : '採点失敗'),
+      };
     }
     return {
       ...item,
@@ -629,7 +867,8 @@ export async function rankItems(
       reason: r.reason?.trim() ?? '',
       keywords: (r.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 8),
       category: CATEGORIES.includes(r.category) ? r.category : 'その他',
-      domain: r.domain === 'ai' ? 'ai' : 'general',
+      lane,
+      debate: lane === 'talk' ? toDebate(r) : null,
       readingMinutes: Number.isFinite(r.readingMinutes)
         ? Math.max(1, Math.min(30, Math.round(r.readingMinutes)))
         : 5,
@@ -643,20 +882,75 @@ export async function rankItems(
  * 2) 深掘り要約（高性能モデル）
  * ------------------------------------------------------------------ */
 
-function deepSystemPrompt(topics: TopicsConfig): string {
+/**
+ * カードをどの目的で読ませるか。同じ記事でも、レーンが違えば書くべき中身が違う。
+ * 一覧側の要約（describe）と食い違わないよう、判定の問いは採点基準と同じものを使う。
+ */
+const LANE_DEEP_BLOCKS: Record<Lane, string> = {
+  know: `# このカードの目的:「知る」
+これは規模の大きい話として選ばれている。読者が知りたいのは使い方ではなく、
+**自分がどう巻き込まれるか** である。手順を書く項目も「試す」ではなく「確認する」に寄せる。
+
+- **impact** — 誰の・どの構成に効くか。対象バージョン、対象環境、成立条件。
+  「広く影響する」で済ませない。範囲が特定できないなら、特定できないと書く。
+- **timeline** — いつ起きたか、いつから効くか、期限はいつか。廃止・移行・サポート終了は
+  日付が本体なので、記事にあれば必ず拾う。無ければ空配列にする。
+- **checkNow** — 自分が該当するかを確認する方法。調べるコマンド、見るべき設定、暫定回避。
+- **whyItMatters** — 「これを知らないまま1週間過ごしたとき、読者は何を間違えるか」。
+  一般的な重要性ではなく、間違える具体を書く。
+- **unknowns** — 進行中の事象なら、判明していることと推測の境目を書く。
+  ここを空にしたまま推測を impact に混ぜるのが、このレーンで一番まずい。
+- 図は comparison（前後の対比）が合うことが多い。`,
+
+  build: `# このカードの目的:「作る」
+これは試してみたくなるものとして選ばれている。読者はこのカードを読んで、
+そのまま手を動かし始める。
+
+- **unlocks** — **「これまで◯◯だったのが、これから△△できる」の差分の形で書く。**
+  この形にすれば「何ができるか」と「何が変わるか」を 1 項目で言えるので、分けない。
+  「速くなる」「便利になる」は程度の改善であって、できるようになることではない。
+  差分が無いなら無理に作らず、何が楽になるのかを率直に書く。
+- **howToTry** — インストールから最初の結果が出るまでを、読者が調べ直さずに済む粒度で。
+- **fitFor / notFor** — 向いている場面と向いていない場面。新しい道具ほど適用範囲は狭いのに、
+  そこが書かれないことが多い。記事から読み取れる範囲で書き、推測で広げない。
+- **whyItMatters** — 読者の既存のやり方の何を置き換えるか。プロフィールにある
+  技術スタックの上での位置づけを書く。
+- **caveats** — 試す前に知っておくべき制約。前提ツール、対応環境、料金、成熟度。
+- 図は flow（仕組み）か metrics（実測値）が合うことが多い。`,
+
+  talk: `# このカードの目的:「話す」
+これは読者が自分の意見を発信するための素材として選ばれている。
+**意見の下書きを書かないこと。** 読者自身の言葉で書けるための材料だけを渡す。
+
+- **evidence / counterEvidence** — それぞれの立場を支える具体を、**そのまま引用できる粒度**で。
+  「効果があった」ではなく「p95 が 1.2 秒から 40ms」。反対側を藁人形にしない——
+  実際にその立場を取る人が挙げる根拠を書く。記事の外から補ったものは
+  文頭に「（記事外）」と付ける。付けずに混ぜると、読者が記事の主張として引用してしまう。
+- **whenItHolds** — 成り立つ条件と崩れる条件。賛否の本質は正誤ではなく優先順位の違い
+  （速さ vs 安全、自動化 vs 制御）なので、その分かれ目を条件の形にする。
+- **angles** — 書ける切り口の**名前だけ**を並べる。**文にしない。主張を書かない。**
+  ✗「レビューの自動化には慎重であるべきだ」（意見の代筆になっている）
+  ✓「40万件という母数の偏り」「見逃し率3倍という数字の測定条件」
+- **verify** — 読者が自分の環境で真偽を確かめる方法。無ければ空配列。
+- **whyItMatters** — なぜ今この争点なのか。何が変わったから議論になっているのか。
+- 図は comparison を、賛成側と反対側の対比に使うとよい。`,
+};
+
+function deepSystemPrompt(lane: Lane, topics: TopicsConfig): string {
   return `あなたは、あるソフトウェアエンジニア専属の技術情報キュレーターです。
 1本の記事を読み込み、「朝の30分で要点を掴んで、必要なら今日すぐ試せる」カードに変換してください。
 
 # 読者プロフィール
 ${topics.profile}
 
+${LANE_DEEP_BLOCKS[lane]}
+
 # 執筆ルール
 - すべて日本語。ただし API 名・オプション名・コマンドは原文のまま正確に書く。
 - 記事に書かれていないことを推測で書かない。情報が無い項目は空配列にするか、その旨を明記する。
-- 「〜が発表されました」で終わらせない。読者の手元のコードが具体的にどう変わるかまで踏み込む。
-- howToTry は実際に打てるコマンド・書けるコードのレベルまで具体化する。「試してみましょう」は禁止。
+- 「〜が発表されました」で終わらせない。読者の手元で何が起きるかまで踏み込む。
+- 手順を書く項目は、実際に打てるコマンド・書けるコードのレベルまで具体化する。「試してみましょう」は禁止。
 - バージョン番号、フラグ名、デフォルト値の変更は省略せず正確に書く。
-- 破壊的変更や移行が必要な点があれば、必ず whatChanges か caveats に入れる。
 - code は、読者がコピペして動かし始められる最小の断片にする。記事に該当するものが無ければ null。
 - 冗長な前置き・一般論・「重要です」といった中身のない強調は書かない。
 
@@ -734,45 +1028,108 @@ export async function deepDive(
     `公開: ${item.publishedAt}`,
     item.tags.length ? `タグ: ${item.tags.join(', ')}` : null,
     item.matchedTopics.length ? `関連トピック: ${item.matchedTopics.join(', ')}` : null,
+    /*
+     * 一覧側で既に書かせた争点を渡す。カード側で別の軸を立てると、
+     * 同じ記事について画面の上下で違うことを言うことになる。
+     */
+    item.debate ? `一覧で提示済みの争点: ${item.debate.axis}` : null,
   ]
     .filter(Boolean)
     .join('\n');
 
   const content = truncate(item.body || item.snippet, cfg.bodyCharLimit);
+  const request = {
+    stage: `deep:${item.lane}`,
+    model: cfg.summaryModel,
+    maxTokens: 12_000,
+    effort: cfg.summaryEffort,
+    system: deepSystemPrompt(item.lane, topics),
+    prompt: `${meta}\n\n--- 本文ここから ---\n${content}\n--- 本文ここまで ---`,
+  };
 
   try {
-    const parsed = await complete(b, {
-      stage: 'deep',
-      model: cfg.summaryModel,
-      maxTokens: 12_000,
-      effort: cfg.summaryEffort,
-      system: deepSystemPrompt(topics),
-      prompt: `${meta}\n\n--- 本文ここから ---\n${content}\n--- 本文ここまで ---`,
-      schema: DeepDiveSchema,
-    });
-
-    return {
-      headline: parsed.headline?.trim() || item.oneLiner,
-      summary: parsed.summary?.trim() || item.oneLiner,
-      prerequisites: (parsed.prerequisites ?? [])
-        .filter((p) => p?.term && p?.explanation)
-        .map((p) => ({ ...p, stumblingPoint: p.stumblingPoint ?? '' })),
-      visual: normalizeVisual(parsed.visual as DeepDive['visual']),
-      whatYouCanDo: parsed.whatYouCanDo ?? [],
-      whatChanges: parsed.whatChanges ?? [],
-      howToTry: parsed.howToTry ?? [],
-      code: parsed.code ?? null,
-      whyItMatters: parsed.whyItMatters?.trim() ?? '',
-      caveats: parsed.caveats ?? [],
-      relatedLinks: (parsed.relatedLinks ?? []).filter((l) => l?.url?.startsWith('http')),
-      readingMinutes: Number.isFinite(parsed.readingMinutes)
-        ? Math.max(1, Math.min(30, Math.round(parsed.readingMinutes)))
-        : 5,
-    };
+    // スキーマはレーンごとに違うので、分岐したうえで呼ぶ（union のままだと型が絞れない）
+    switch (item.lane) {
+      case 'know': {
+        const p = await complete(b, { ...request, schema: KnowDeepDiveSchema });
+        return {
+          ...toBase(p, item),
+          lane: 'know',
+          impact: clean(p.impact),
+          timeline: clean(p.timeline),
+          checkNow: clean(p.checkNow),
+          unknowns: clean(p.unknowns),
+        };
+      }
+      case 'build': {
+        const p = await complete(b, { ...request, schema: BuildDeepDiveSchema });
+        return {
+          ...toBase(p, item),
+          lane: 'build',
+          unlocks: clean(p.unlocks),
+          howToTry: clean(p.howToTry),
+          fitFor: clean(p.fitFor),
+          notFor: clean(p.notFor),
+          caveats: clean(p.caveats),
+        };
+      }
+      case 'talk': {
+        const p = await complete(b, { ...request, schema: TalkDeepDiveSchema });
+        return {
+          ...toBase(p, item),
+          lane: 'talk',
+          evidence: clean(p.evidence),
+          counterEvidence: clean(p.counterEvidence),
+          whenItHolds: clean(p.whenItHolds),
+          /*
+           * 角度は名詞句だけにさせている。文で返ってきたものは意見の代筆なので落とす。
+           */
+          angles: clean(p.angles).filter((a) => !looksLikeOpinion(a)),
+          verify: clean(p.verify),
+        };
+      }
+    }
   } catch (err) {
     log.warn(`深掘り失敗 (${item.title}): ${err instanceof Error ? err.message : err}`);
     return fallbackDeepDive(item);
   }
+}
+
+/** 3 レーン共通の項目を整える */
+function toBase(
+  parsed: KnowDeepDiveResult | BuildDeepDiveResult | TalkDeepDiveResult,
+  item: RankedItem,
+) {
+  return {
+    headline: parsed.headline?.trim() || item.oneLiner,
+    summary: parsed.summary?.trim() || item.oneLiner,
+    prerequisites: (parsed.prerequisites ?? [])
+      .filter((p) => p?.term && p?.explanation)
+      .map((p) => ({ ...p, stumblingPoint: p.stumblingPoint ?? '' })),
+    visual: normalizeVisual(parsed.visual as DeepDive['visual']),
+    code: parsed.code ?? null,
+    whyItMatters: parsed.whyItMatters?.trim() ?? '',
+    relatedLinks: (parsed.relatedLinks ?? []).filter((l) => l?.url?.startsWith('http')),
+    readingMinutes: Number.isFinite(parsed.readingMinutes)
+      ? Math.max(1, Math.min(30, Math.round(parsed.readingMinutes)))
+      : 5,
+  };
+}
+
+/** 空文字と余白だけの項目を落とす。箇条書きに空行が出るのを防ぐ */
+function clean(list: string[] | undefined): string[] {
+  return (list ?? []).map((v) => v?.trim()).filter((v): v is string => Boolean(v));
+}
+
+/**
+ * 「語れる角度」が主張になっていないか。
+ *
+ * 角度は読者が自分の言葉で書き始めるための見出しなので、名詞句でなければならない。
+ * 文を渡すと読者はそれをそのまま投稿でき、裏を取っていない意見が本人の名前で外に出る。
+ * プロンプトでも禁じているが、破られたときに画面まで通さないようにする。
+ */
+function looksLikeOpinion(text: string): boolean {
+  return /[。.]$/.test(text) || /べき|だと言える|と思う|しよう|ではないか/.test(text);
 }
 
 /**
@@ -803,21 +1160,49 @@ function normalizeVisual(visual: DeepDive['visual']): DeepDive['visual'] {
   }
 }
 
+/**
+ * 深掘りに失敗した日の代替。
+ *
+ * 項目を埋められないので抜粋だけを出し、caveats 相当の場所で「要約に失敗した」と
+ * 明示する。もっともらしい空の箇条書きを並べるより、失敗が見えるほうがよい。
+ */
 function fallbackDeepDive(item: RankedItem): DeepDive {
-  return {
+  const base = {
     headline: item.oneLiner,
     summary: truncate((item.body || item.snippet).replace(/\s+/g, ' ').trim(), 500),
     prerequisites: [],
     visual: null,
-    whatYouCanDo: [],
-    whatChanges: [],
-    howToTry: ['元記事を開いて確認してください。'],
     code: null,
     whyItMatters: item.reason,
-    caveats: ['LLM による要約に失敗したため、抜粋のみ表示しています。'],
     relatedLinks: [],
     readingMinutes: 5,
   };
+  const failed = 'LLM による要約に失敗したため、抜粋のみ表示しています。';
+
+  switch (item.lane) {
+    case 'know':
+      return { ...base, lane: 'know', impact: [], timeline: [], checkNow: [], unknowns: [failed] };
+    case 'build':
+      return {
+        ...base,
+        lane: 'build',
+        unlocks: [],
+        howToTry: ['元記事を開いて確認してください。'],
+        fitFor: [],
+        notFor: [],
+        caveats: [failed],
+      };
+    case 'talk':
+      return {
+        ...base,
+        lane: 'talk',
+        evidence: [],
+        counterEvidence: [],
+        whenItHolds: [],
+        angles: [],
+        verify: [],
+      };
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -827,7 +1212,7 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
  * その日の技術界隈の傾向を俯瞰したインサイトを書く。個々の記事の紹介の
  * 抜粋・列挙ではなく、「今日はセキュリティ関連が多かった」のような、
  * 複数項目を束ねて初めて見える傾向を渡す。すでに要約済みの
- * headline/oneLiner/summary/category/domain から合成するだけなので、
+ * headline/oneLiner/summary/category/lane から合成するだけなので、
  * 安い rankModel で足りる。
  * ------------------------------------------------------------------ */
 
@@ -886,7 +1271,7 @@ function formatCounts(counts: Record<string, number>, labels?: Record<string, st
 
 interface DigestSignals {
   articleCount: number;
-  domainCounts: Record<string, number>;
+  laneCounts: Record<string, number>;
   categoryCounts: Record<string, number>;
   buzzCount: number;
   releaseImpactCounts: Record<string, number>;
@@ -897,7 +1282,7 @@ function buildDigestSignals(top: TopItem[], releases: ReleaseItem[], others: Ran
   const articles = [...top, ...others];
   return {
     articleCount: articles.length,
-    domainCounts: summarizeCounts(articles.map((i) => (i.domain === 'ai' ? 'AI' : 'AI以外'))),
+    laneCounts: summarizeCounts(articles.map((i) => LANE_LABELS[i.lane] ?? i.lane)),
     categoryCounts: summarizeCounts(articles.map((i) => i.category)),
     buzzCount: articles.filter((i) => i.buzz).length,
     releaseImpactCounts: summarizeCounts(releases.map((r) => r.impact ?? 'chore')),
@@ -907,7 +1292,7 @@ function buildDigestSignals(top: TopItem[], releases: ReleaseItem[], others: Ran
 function renderDigestSummaryContext(top: TopItem[], releases: ReleaseItem[], others: RankedItem[]): string {
   const signals = buildDigestSignals(top, releases, others);
   const statsLines = [
-    `記事 ${signals.articleCount} 件の分野内訳: ${formatCounts(signals.domainCounts) || 'なし'}`,
+    `記事 ${signals.articleCount} 件の目的別内訳: ${formatCounts(signals.laneCounts) || 'なし'}`,
     Object.keys(signals.categoryCounts).length > 0
       ? `カテゴリ内訳: ${formatCounts(signals.categoryCounts)}`
       : null,
@@ -921,7 +1306,7 @@ function renderDigestSummaryContext(top: TopItem[], releases: ReleaseItem[], oth
 
   const topLines = top.map(
     (t) =>
-      `- [ベスト/${t.domain === 'ai' ? 'AI' : 'AI以外'}/${t.category}] ${t.deep.headline}\n  ${t.deep.summary}`,
+      `- [ベスト/${LANE_LABELS[t.lane]}/${t.category}] ${t.deep.headline}\n  ${t.deep.summary}`,
   );
   const releaseLines = releases
     .slice(0, 20)
@@ -931,7 +1316,7 @@ function renderDigestSummaryContext(top: TopItem[], releases: ReleaseItem[], oth
     );
   const otherLines = others
     .slice(0, 15)
-    .map((o) => `- [その他/${o.domain === 'ai' ? 'AI' : 'AI以外'}/${o.category}] ${o.oneLiner}`);
+    .map((o) => `- [その他/${LANE_LABELS[o.lane]}/${o.category}] ${o.oneLiner}`);
 
   return [
     `# 集計\n${statsLines}`,

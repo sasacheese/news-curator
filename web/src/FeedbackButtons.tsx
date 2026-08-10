@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getFeedbackDb } from './firebase';
 import { isFeedbackUnlocked } from './settings';
+import type { Lane } from './types';
 
 export type FeedbackVote = 'good' | 'bad';
 
@@ -13,7 +14,7 @@ export interface FeedbackTarget {
   title: string;
   url: string;
   category?: string;
-  domain?: 'ai' | 'general';
+  lane?: Lane;
   matchedTopics?: string[];
   score?: number;
 }
@@ -58,7 +59,7 @@ async function submitFeedback(target: FeedbackTarget, vote: FeedbackVote): Promi
       source: target.source,
       sourceLabel: target.sourceLabel,
       category: target.category ?? '',
-      domain: target.domain ?? null,
+      lane: target.lane ?? null,
       matchedTopics: target.matchedTopics ?? [],
       score: target.score ?? null,
       title: target.title,
