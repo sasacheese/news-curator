@@ -89,7 +89,7 @@ function Row({
           </span>
         )}
         <span className="rel__kind">{KIND_LABELS[r.kind]}</span>
-        {highlighted && <span className="rel__badge">ベスト3で詳説</span>}
+        {highlighted && <span className="rel__badge">上で詳説</span>}
       </p>
 
       {r.what && <p className="rel__what">{r.what}</p>}
@@ -191,7 +191,7 @@ export function ReleaseList({
   digestDate,
 }: {
   releases: ReleaseItem[];
-  /** ベスト3にも入っているもの。重複に見えないよう印をつける */
+  /** 深掘りカードにも入っているもの。重複に見えないよう印をつける */
   highlightIds: ReadonlySet<string>;
   digestDate: string;
 }) {

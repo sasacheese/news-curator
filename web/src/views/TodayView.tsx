@@ -9,8 +9,10 @@ import { loadDigest } from '../api';
 import { Annotated } from '../Annotated';
 import { BuzzChip } from '../components';
 import { Chip, CopyButton, Empty, Notice, ShareButtons } from '../components';
+import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
-import type { Digest, Manifest, RankedItem, TopItem } from '../types';
+import { groupByLane } from '../lanes';
+import type { DeepDive, Digest, Manifest, Prerequisite, RankedItem, TopItem } from '../types';
 import { formatDateLabel, formatPublished, metricSummary, safeUrl } from '../format';
 import { setWalkMinutes } from '../walkerClock';
 
@@ -185,10 +187,7 @@ export function TodayView({ manifest, date }: Props) {
     );
   }
 
-  const topGroups = TOP_GROUPS.map((g) => ({
-    ...g,
-    items: shown.top.filter((t) => (t.domain === 'ai') === (g.id === 'top-ai')),
-  })).filter((g) => g.items.length > 0);
+  const topGroups = groupByLane(shown.top, 'top');
 
   const digestShown = shown;
 
@@ -248,9 +247,9 @@ export function TodayView({ manifest, date }: Props) {
         topGroups.map((g) => (
           <section key={g.id}>
             <h2 className="section-title" id={g.id}>
-              {g.label}
-              {g.items.length}
+              {g.label} {g.items.length}
             </h2>
+            {g.lead && <p className="section-lead">{g.lead}</p>}
             {g.items.map((item) => (
               <TopCard key={item.id} item={item} digestDate={digestShown.date} />
             ))}
@@ -316,12 +315,6 @@ export function TodayView({ manifest, date }: Props) {
   );
 }
 
-/** ベストN のグループ。目次と見出しで同じ定義を使う */
-const TOP_GROUPS = [
-  { id: 'top-ai', label: 'AI のベスト' },
-  { id: 'top-general', label: 'AI以外のベスト' },
-] as const;
-
 export function cardDomId(id: string): string {
   return `card-${id}`;
 }
@@ -345,11 +338,9 @@ function jumpTo(id: string): void {
 function Toc({ digest }: { digest: Digest }) {
   const entries: { id: string; label: string; count?: number; nested?: boolean }[] = [];
 
-  for (const g of TOP_GROUPS) {
-    const items = digest.top.filter((t) => (t.domain === 'ai') === (g.id === 'top-ai'));
-    if (items.length === 0) continue;
-    entries.push({ id: g.id, label: `${g.label}${items.length}` });
-    for (const item of items) {
+  for (const g of groupByLane(digest.top, 'top')) {
+    entries.push({ id: g.id, label: `${g.label} ${g.items.length}` });
+    for (const item of g.items) {
       entries.push({ id: cardDomId(item.id), label: item.deep.headline, nested: true });
     }
   }
@@ -427,6 +418,9 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           <Annotated text={d.summary} prerequisites={pr} idPrefix={`${item.id}-sum`} />
         </p>
 
+        {/* 争点は要約のすぐ下に置く。カードを開いた時点で立場を決められるように */}
+        {item.debate && <DebateScaffold debate={item.debate} />}
+
         {(d.prerequisites?.length ?? 0) > 0 && (
           <details className="prereq">
             <summary className="prereq__summary">
@@ -452,71 +446,7 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
 
         {d.visual && <VisualFigure visual={d.visual} />}
 
-        {d.whatYouCanDo.length > 0 && (
-          <Detail label="何ができるようになるか">
-            <ul>
-              {d.whatYouCanDo.map((t, i) => (
-                <li key={i}>
-                  <Annotated text={t} prerequisites={pr} idPrefix={`${item.id}-can-${i}`} />
-                </li>
-              ))}
-            </ul>
-          </Detail>
-        )}
-
-        {d.whatChanges.length > 0 && (
-          <Detail label="何が変わるか">
-            <ul>
-              {d.whatChanges.map((t, i) => (
-                <li key={i}>
-                  <Annotated text={t} prerequisites={pr} idPrefix={`${item.id}-chg-${i}`} />
-                </li>
-              ))}
-            </ul>
-          </Detail>
-        )}
-
-        {d.howToTry.length > 0 && (
-          <Detail label="試し方・使い方">
-            <ol>
-              {d.howToTry.map((t, i) => (
-                <li key={i}>{t}</li>
-              ))}
-            </ol>
-            {d.code && (
-              <div className="codeblock">
-                <div className="codeblock__bar">
-                  <span className="codeblock__lang">{d.code.lang}</span>
-                  <span className="codeblock__caption">{d.code.caption}</span>
-                  <span className="codeblock__copy">
-                    <CopyButton text={d.code.content} />
-                  </span>
-                </div>
-                <pre>
-                  <code>{d.code.content}</code>
-                </pre>
-              </div>
-            )}
-          </Detail>
-        )}
-
-        {d.whyItMatters && (
-          <Detail label="なぜ重要か">
-            <p>
-              <Annotated text={d.whyItMatters} prerequisites={pr} idPrefix={`${item.id}-why`} />
-            </p>
-          </Detail>
-        )}
-
-        {d.caveats.length > 0 && (
-          <Detail label="注意点" caveat>
-            <ul>
-              {d.caveats.map((t, i) => (
-                <li key={i}>{t}</li>
-              ))}
-            </ul>
-          </Detail>
-        )}
+        <CardBody deep={d} itemId={item.id} prerequisites={pr} />
 
         {d.relatedLinks.length > 0 && (
           <Detail label="関連リンク">
@@ -561,7 +491,7 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
             title: item.title,
             url: item.url,
             category: item.category,
-            domain: item.domain,
+            lane: item.lane,
             matchedTopics: item.matchedTopics,
             score: item.score,
           }}
@@ -610,6 +540,139 @@ function Byline({ item }: { item: RankedItem }) {
         </>
       )}
     </p>
+  );
+}
+
+/**
+ * カードの本体。レーンごとに項目構成が違う。
+ *
+ * 「何が変わるか」と「何ができるようになるか」は以前は別項目だったが、同じ差分を
+ * 二度書いていた。3 レーンとも見ているのは同じ差分で、見る向きが違うだけなので、
+ * レーンごとに 1 項目へ統合してある（知る = 影響範囲 / 作る = できるようになること /
+ * 話す = そもそも差分ではないので持たない）。
+ */
+function CardBody({
+  deep,
+  itemId,
+  prerequisites,
+}: {
+  deep: DeepDive;
+  itemId: string;
+  prerequisites: Prerequisite[];
+}) {
+  const list = (label: string, items: string[], key: string, caveat = false) =>
+    items.length > 0 ? (
+      <Detail label={label} caveat={caveat}>
+        <ul>
+          {items.map((t, i) => (
+            <li key={i}>
+              <Annotated text={t} prerequisites={prerequisites} idPrefix={`${itemId}-${key}-${i}`} />
+            </li>
+          ))}
+        </ul>
+      </Detail>
+    ) : null;
+
+  const steps = (label: string, items: string[]) =>
+    items.length > 0 ? (
+      <Detail label={label}>
+        <ol>
+          {items.map((t, i) => (
+            <li key={i}>{t}</li>
+          ))}
+        </ol>
+        <CodeBlock code={deep.code} />
+      </Detail>
+    ) : null;
+
+  const why = (label: string) =>
+    deep.whyItMatters ? (
+      <Detail label={label}>
+        <p>
+          <Annotated
+            text={deep.whyItMatters}
+            prerequisites={prerequisites}
+            idPrefix={`${itemId}-why`}
+          />
+        </p>
+      </Detail>
+    ) : null;
+
+  switch (deep.lane) {
+    case 'know':
+      return (
+        <>
+          {list('誰に効くか', deep.impact, 'impact')}
+          {list('いつから', deep.timeline, 'when')}
+          {steps('今日の確認', deep.checkNow)}
+          {why('知らないと何を間違えるか')}
+          {/* 進行中の事象で、推測を確定として読ませないための枠 */}
+          {list('まだ確定していないこと', deep.unknowns, 'unknown', true)}
+        </>
+      );
+    case 'build':
+      return (
+        <>
+          {list('できるようになること', deep.unlocks, 'unlock')}
+          {steps('試し方', deep.howToTry)}
+          {list('向いている場面', deep.fitFor, 'fit')}
+          {list('向いていない場面', deep.notFor, 'notfit')}
+          {why('既存の何を置き換えるか')}
+          {list('注意点', deep.caveats, 'caveat', true)}
+        </>
+      );
+    case 'talk':
+      return (
+        <>
+          {list('賛成側の根拠', deep.evidence, 'ev')}
+          {list('反対側の根拠', deep.counterEvidence, 'cev')}
+          {list('成り立つ条件・崩れる条件', deep.whenItHolds, 'when')}
+          {/* 名詞句だけを並べる。文にすると意見の代筆になり、読者の言葉でなくなる */}
+          {deep.angles.length > 0 && (
+            <Detail label="語れる角度">
+              <ul className="angles">
+                {deep.angles.map((a, i) => (
+                  <li key={i}>{a}</li>
+                ))}
+              </ul>
+              <p className="angles__note">
+                切り口だけです。どう書くかはご自身の言葉でどうぞ。
+              </p>
+            </Detail>
+          )}
+          {steps('自分で確かめる', deep.verify)}
+          {why('なぜ今この争点か')}
+        </>
+      );
+    default:
+      // レーン導入前に生成した日
+      return (
+        <>
+          {list('何ができるようになるか', deep.whatYouCanDo, 'can')}
+          {list('何が変わるか', deep.whatChanges, 'chg')}
+          {steps('試し方・使い方', deep.howToTry)}
+          {why('なぜ重要か')}
+          {list('注意点', deep.caveats, 'caveat', true)}
+        </>
+      );
+  }
+}
+
+function CodeBlock({ code }: { code: DeepDive['code'] }) {
+  if (!code) return null;
+  return (
+    <div className="codeblock">
+      <div className="codeblock__bar">
+        <span className="codeblock__lang">{code.lang}</span>
+        <span className="codeblock__caption">{code.caption}</span>
+        <span className="codeblock__copy">
+          <CopyButton text={code.content} />
+        </span>
+      </div>
+      <pre>
+        <code>{code.content}</code>
+      </pre>
+    </div>
   );
 }
 

@@ -3,18 +3,26 @@ import { loadRuntimeConfig } from './config.js';
 import { getBackend } from './llm.js';
 import { complete } from './llm.js';
 import {
-  DeepDiveSchema,
+  BuildDeepDiveSchema,
   DescribeResultSchema,
+  KnowDeepDiveSchema,
   ReleaseResultSchema,
   ScoreResultSchema,
+  TalkDeepDiveSchema,
+  TalkDescribeResultSchema,
 } from './schemas.js';
 import { log } from './util.js';
 
 /**
- * 設定したモデルが 4 つのスキーマを受け付けるかだけを、最小の呼び出しで確かめる。
+ * 設定したモデルが本番で使うスキーマを受け付けるかだけを、最小の呼び出しで確かめる。
  *
  * プロバイダを差し替えると、構造化出力のスキーマが受理されるかどうかが最初の関門になる。
  * 本番を 10 分回した末に落ちるより先に、数秒・数円で分かるようにしておく。
+ *
+ * **本番で送る形はすべて並べること。** 確かめたいのは項目数ではなく「その形が
+ * 受理されるか」なので、形が違うものは 1 つでも欠かすと意味が無い。スキーマ検証が
+ * 落ちるとバッチ全体がルールベースへ落ち、画面上はもっともらしいまま中身だけが
+ * 失われる——この壊れ方は実行ログを見ないと気づけない。
  *
  *   npm run check:llm
  */
@@ -39,9 +47,27 @@ const CASES: Case[] = [
     prompt: '[0] Vite v8.2.0 released\n\n以上 1 件を判定してください。',
   },
   {
-    name: 'deep',
-    schema: DeepDiveSchema,
+    // 論点レーンだけ要約に「意見の足場」5 項目が乗るので、別スキーマになっている
+    name: 'describe/talk',
+    schema: TalkDescribeResultSchema,
+    prompt: '[0] テスト記事 — モノレポをやめた理由\n\n以上 1 件を要約してください。',
+  },
+  {
+    name: 'deep/know',
+    schema: KnowDeepDiveSchema,
+    prompt: 'npm の広範なパッケージが改ざんされた、という記事だとして深掘りしてください。',
+    deep: true,
+  },
+  {
+    name: 'deep/build',
+    schema: BuildDeepDiveSchema,
     prompt: 'TypeScript 5.9 で satisfies 演算子が改善された、という記事だとして深掘りしてください。',
+    deep: true,
+  },
+  {
+    name: 'deep/talk',
+    schema: TalkDeepDiveSchema,
+    prompt: 'コードレビューは自動化すべきだ、と主張する記事だとして深掘りしてください。',
     deep: true,
   },
 ] as const;
@@ -59,6 +85,7 @@ async function main(): Promise<void> {
 
   for (const c of CASES) {
     const model = c.deep ? cfg.summaryModel : cfg.rankModel;
+    const label = c.name.padEnd(13);
     const startedAt = Date.now();
     try {
       await complete(backend, {
@@ -69,10 +96,10 @@ async function main(): Promise<void> {
         prompt: c.prompt,
         schema: c.schema,
       });
-      log.info(`  ✔ ${c.name.padEnd(9)} ${model} (${Date.now() - startedAt}ms)`);
+      log.info(`  ✔ ${label} ${model} (${Date.now() - startedAt}ms)`);
     } catch (err) {
       failed++;
-      log.error(`  ✘ ${c.name.padEnd(9)} ${model}: ${err instanceof Error ? err.message : err}`);
+      log.error(`  ✘ ${label} ${model}: ${err instanceof Error ? err.message : err}`);
     }
   }
 
@@ -80,7 +107,7 @@ async function main(): Promise<void> {
     log.error(`\n${failed} 件のスキーマが通りませんでした。本番実行の前に解消してください。`);
     process.exit(1);
   }
-  log.info('\n4 つとも通りました。');
+  log.info(`\n${CASES.length} つとも通りました。`);
 }
 
 main().catch((err) => {

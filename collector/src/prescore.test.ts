@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dedupe, isBuzzing, pickByDomain, pickTopDiverse } from './prescore.js';
-import type { Metrics, RawItem, SourceKind } from './types.js';
+import { dedupe, isBuzzing, pickByLane, pickTopDiverse } from './prescore.js';
+import type { Lane, Metrics, RawItem, SourceKind } from './types.js';
 
 /*
  * ここで検証しているのは、このツールの実際の壊れ方に対応する不変条件。
@@ -123,35 +123,52 @@ describe('pickTopDiverse', () => {
   });
 });
 
-describe('pickByDomain', () => {
-  const ai = (id: string) => ({ id, domain: 'ai' as const });
-  const general = (id: string) => ({ id, domain: 'general' as const });
+describe('pickByLane', () => {
+  const item = (id: string, lane: Lane) => ({ id, lane });
 
-  it('AI に偏った母集団でも AI 以外の枠を確保する', () => {
-    // 実測で採点上位 15 件のうち 13〜15 件が AI だった
-    const pool = [...Array.from({ length: 14 }, (_, i) => ai(`ai${i}`)), general('g0'), general('g1')];
-    const { ai: pickedAi, general: pickedGeneral } = pickByDomain(pool, 9);
-    assert.equal(pickedGeneral.length, 2, 'AI以外が確保されていない');
-    assert.equal(pickedAi.length + pickedGeneral.length, 9);
+  it('1 つのレーンに偏った母集団でも他レーンの枠を確保する', () => {
+    // 以前の実測で、掲載 15 件中 13〜15 件が同じ性質のものに寄っていた
+    const pool = [
+      ...Array.from({ length: 14 }, (_, i) => item(`b${i}`, 'build')),
+      item('k0', 'know'),
+      item('t0', 'talk'),
+    ];
+    const got = pickByLane(pool, 9);
+    assert.equal(got.know.length, 1, 'know が確保されていない');
+    assert.equal(got.talk.length, 1, 'talk が確保されていない');
+    assert.equal(got.know.length + got.build.length + got.talk.length, 9);
   });
 
-  it('AI 側が足りなければ AI 以外で埋め戻す', () => {
-    const pool = [ai('ai0'), ...Array.from({ length: 8 }, (_, i) => general(`g${i}`))];
-    const { ai: pickedAi, general: pickedGeneral } = pickByDomain(pool, 6);
-    assert.equal(pickedAi.length, 1);
-    assert.equal(pickedAi.length + pickedGeneral.length, 6);
+  it('足りないレーンのぶんは他レーンで埋める', () => {
+    const pool = [item('k0', 'know'), ...Array.from({ length: 8 }, (_, i) => item(`b${i}`, 'build'))];
+    const got = pickByLane(pool, 6);
+    assert.equal(got.know.length, 1);
+    assert.equal(got.talk.length, 0);
+    assert.equal(got.know.length + got.build.length + got.talk.length, 6);
   });
 
   it('埋め戻しで同じ記事を二重に入れない', () => {
-    const pool = [ai('ai0'), general('g0'), general('g1'), general('g2')];
-    const { ai: a, general: g } = pickByDomain(pool, 4);
-    const ids = [...a, ...g].map((i) => i.id);
-    assert.equal(new Set(ids).size, ids.length, '同じ記事が AI 枠と AI以外 枠の両方に入っている');
+    const pool = [item('k0', 'know'), item('b0', 'build'), item('b1', 'build'), item('t0', 'talk')];
+    const got = pickByLane(pool, 4);
+    const ids = [...got.know, ...got.build, ...got.talk].map((i) => i.id);
+    assert.equal(new Set(ids).size, ids.length, '同じ記事が複数のレーンに入っている');
   });
 
   it('母集団が総数に足りない日は水増ししない', () => {
-    const { ai: a, general: g } = pickByDomain([ai('ai0'), general('g0')], 10);
-    assert.equal(a.length + g.length, 2);
+    const got = pickByLane([item('k0', 'know'), item('b0', 'build')], 10);
+    assert.equal(got.know.length + got.build.length + got.talk.length, 2);
+  });
+
+  it('端数はスコア順（渡された順）に配る', () => {
+    // total 4 / 3 レーン → 各 1 件 + 端数 1 件
+    const pool = [
+      item('b0', 'build'),
+      item('k0', 'know'),
+      item('t0', 'talk'),
+      item('b1', 'build'),
+    ];
+    const got = pickByLane(pool, 4);
+    assert.deepEqual(got.build.map((i) => i.id), ['b0', 'b1']);
   });
 });
 

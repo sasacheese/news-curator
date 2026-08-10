@@ -74,6 +74,55 @@ export interface PreScoredItem extends RawItem {
   matchedTopics: string[];
 }
 
+/**
+ * キュレーションのレーン。読者が持つ 3 つの目的にそのまま対応する。
+ *
+ * ひとつの「価値スコア」に畳むと、いちばん測りやすい指標——このツールでは
+ * 関心トピックとのキーワード一致——だけが残る。実測で掲載記事の 43% が
+ * 単一プロダクトの話に偏ったのはそれが原因だった。目的ごとに別の証拠を使い、
+ * 別の予算を与える。
+ *
+ * - know : 知る。規模の大きい話。影響範囲 × 取り返しのつかなさで測る。
+ *          読者の関心と独立に成立するので、トピック一致を判定に使わない。
+ * - build: 作る。試したくなるもの。可能性の差分 × 触れる実体で測る。
+ *          新しいものほど語彙に無いので、ここでも一致は主軸にしない。
+ *          どのレーンにも寄らなかったものはここに入る（既定のレーン）。
+ * - talk : 話す。意見が言えるもの。立場が割れることを discussion 量と語彙で測る。
+ *          二次情報のほうが強いことが多いので、一次情報を優遇しない。
+ */
+export const LANES = ['know', 'build', 'talk'] as const;
+export type Lane = (typeof LANES)[number];
+
+export const LANE_LABELS: Record<Lane, string> = {
+  know: '知る',
+  build: '作る',
+  talk: '話す',
+};
+
+/**
+ * talk レーンの記事に付ける「意見の足場」。
+ *
+ * 意見が出ない理由を分解すると、主張の理解 → 反対側の把握 → 自分の位置決め →
+ * 自分にしか書けない一点、の順にハードルが上がる。詰まるのは最後の一点なので、
+ * そこを名指しする。意見の下書きは作らない——そのまま出せてしまうと読者の
+ * 言葉でなくなるうえ、裏取りされていない文章が外に出る。渡すのは足場だけ。
+ */
+export interface Debate {
+  /** 争点。「A か B か」の形にする */
+  axis: string;
+  /** 賛成側の一番強い言い分 */
+  forSide: string;
+  /** 反対側の一番強い言い分 */
+  againstSide: string;
+  /**
+   * 記事が片側しか書いていないか。true のとき againstSide は記事の外から
+   * 補った一般的な反論なので、そのまま引用してはいけないことを画面で示す。
+   */
+  oneSided: boolean;
+  /** 読者のプロフィール上、実体験として語れそうな接点 */
+  yourAngle: string;
+}
+
 /** 読んだ結果として何が得られるか。時間対効果の「リターン」側。 */
 export const PAYOFFS = ['apply', 'decide', 'aware'] as const;
 export type Payoff = (typeof PAYOFFS)[number];
@@ -96,8 +145,10 @@ export interface RankedItem extends PreScoredItem {
   reason: string;
   keywords: string[];
   category: string;
-  /** AI が主題か、それ以外か */
-  domain: 'ai' | 'general';
+  /** どの目的で選ばれたか。選定・表示の単位 */
+  lane: Lane;
+  /** talk レーンのときだけ入る意見の足場。他のレーンでは null */
+  debate: Debate | null;
   /** 元記事の読了目安（分）。時間対効果の「コスト」側 */
   readingMinutes: number;
   payoff: Payoff;
@@ -164,20 +215,74 @@ export type Visual =
       }[];
     };
 
-export interface DeepDive {
+/**
+ * 深掘りカードの共通部分。
+ *
+ * 「何が変わるか」と「何ができるようになるか」は、以前は別項目だったが
+ * 同じ差分を二度書いていた。3 レーンとも見ているのは同じ差分で、見る向きが
+ * 違うだけなので、レーンごとに 1 項目へ統合してある。
+ *
+ * - know : 自分への影響として見る → impact
+ * - build: 可能性の広がりとして見る → unlocks（「これまで◯◯ → これから△△」の形）
+ * - talk : そもそも差分ではなく立場の対立なので、どちらも持たない
+ */
+export interface DeepDiveBase {
   headline: string;
   summary: string;
   prerequisites: Prerequisite[];
   visual: Visual | null;
-  whatYouCanDo: string[];
-  whatChanges: string[];
-  howToTry: string[];
   code: { lang: string; caption: string; content: string } | null;
+  /** レーンごとに問いを変える。know なら「知らないと何を間違えるか」 */
   whyItMatters: string;
-  caveats: string[];
   relatedLinks: { label: string; url: string }[];
   readingMinutes: number;
 }
+
+/** 知る: 読者が知りたいのは使い方ではなく「自分がどう巻き込まれるか」 */
+export interface KnowDeepDive extends DeepDiveBase {
+  lane: 'know';
+  /** 誰の・どの構成に効くか。バージョン範囲・対象環境・条件 */
+  impact: string[];
+  /** いつ起きた / いつから効く / 期限。廃止や移行は日付が本体 */
+  timeline: string[];
+  /** 該当するか調べる方法・見るべき設定・暫定回避。「試す」ではなく「確認する」 */
+  checkNow: string[];
+  /** 進行中の事象で、事実と推測の境目。確定していないことを確定として書かせない */
+  unknowns: string[];
+}
+
+/** 作る: 読者はこのカードを読んでそのまま手を動かす */
+export interface BuildDeepDive extends DeepDiveBase {
+  lane: 'build';
+  /** できるようになること。「これまで◯◯ → これから△△」の差分形で書く */
+  unlocks: string[];
+  howToTry: string[];
+  /** 向いている場面。新しい道具ほど適用範囲が狭いのに、そこが書かれない */
+  fitFor: string[];
+  /** 向いていない場面 */
+  notFor: string[];
+  caveats: string[];
+}
+
+/** 話す: 投稿に引用できる粒度の具体を渡す。意見の下書きは作らない */
+export interface TalkDeepDive extends DeepDiveBase {
+  lane: 'talk';
+  /** 賛成側が引ける数字・事例 */
+  evidence: string[];
+  /** 反対側が引ける具体。記事の外から補ったものは明示する */
+  counterEvidence: string[];
+  /** 成り立つ条件 / 崩れる条件。優先順位の対立を条件の形にする */
+  whenItHolds: string[];
+  /**
+   * 語れる角度。**名詞句だけ**を並べ、文にしない。
+   * 文にすると意見の代筆になり、読者自身の言葉でなくなる。
+   */
+  angles: string[];
+  /** 自分の環境で主張の真偽を確かめる方法。無ければ空 */
+  verify: string[];
+}
+
+export type DeepDive = KnowDeepDive | BuildDeepDive | TalkDeepDive;
 
 export interface TopItem extends RankedItem {
   rank: number;
@@ -282,6 +387,8 @@ export interface Digest {
     afterPreScore: number;
     ranked: number;
     bySource: Record<string, number>;
+    /** レーンごとの掲載件数。偏りを後から追えるように残す */
+    byLane: Record<string, number>;
     estimatedReadMinutes: number;
   };
   topics: string[];
@@ -303,6 +410,8 @@ export interface IndexEntry {
   keywords: string[];
   topics: string[];
   category: string;
+  /** どの目的で選ばれたか。リリース情報など該当しないものは null */
+  lane: Lane | null;
   score: number;
   publishedAt: string;
   lang: string;
