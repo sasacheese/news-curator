@@ -173,6 +173,27 @@ async function main(): Promise<void> {
    * 並べ替えは常にレーン内で行う。
    */
   const ranked = await rankItems(selection.candidates, effectiveTopics, runtime, feedbackNote);
+
+  /*
+   * 採点が 1 件も成立しなかった日を、画面から見えるようにする。
+   *
+   * LLM の呼び出しはリクエスト単位で例外を握りつぶすので、全滅しても実行は成功し、
+   * ルールベースのスコアでダイジェストが組み上がってコミットまで通る。実際に
+   * OpenAI がスキーマ名を弾いた日に、150 件すべてが「採点失敗」のまま公開された。
+   * 落ちずに劣化する方針は変えないが、劣化したことは読み手に伝える。
+   */
+  if (backend) {
+    const scoreRequests = Object.entries(getUsageReport().stages)
+      .filter(([stage]) => stage.startsWith('score:'))
+      .reduce((sum, [, s]) => sum + s.requests, 0);
+    if (scoreRequests === 0) {
+      const note =
+        'LLM の採点が全件失敗したため、事前スコアだけで並べています。' +
+        '読みどころと深掘りは生成されていません。';
+      notes.push(note);
+      log.error(`  ${note} 実行ログの警告を確認してください。`);
+    }
+  }
   const rankedByLane = (lane: Lane) =>
     ranked.filter((i) => i.lane === lane).sort((a, b) => b.score - a.score);
   for (const lane of LANES) {

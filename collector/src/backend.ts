@@ -189,6 +189,21 @@ export function isOpenAiModel(model: string): boolean {
   return /^(gpt|o[0-9])/.test(model);
 }
 
+/**
+ * OpenAI の `response_format.json_schema.name` は `^[a-zA-Z0-9_-]+$` しか受け付けない。
+ *
+ * stage は使用量レポートの見出しでもあり、`score:know` のように区切り文字を含む。
+ * 表示用の名前をそのまま API へ渡すと 400 で全リクエストが落ちる——実際に
+ * レーン別の stage を導入した日に、採点・要約・深掘りの 3 段が丸ごと失敗した。
+ * しかもリクエスト単位で握りつぶされるので、画面には「採点失敗」とだけ出る。
+ *
+ * stage の付け方を制約する（コロンを禁じる）のではなく、API に渡す境界で落とす。
+ * 表示に適した名前と API が受け付ける名前は別物で、後者に前者を合わせる理由が無い。
+ */
+export function toSchemaName(stage: string): string {
+  return stage.replace(/[^a-zA-Z0-9_-]/g, '_') || 'schema';
+}
+
 function createOpenAiBackend(): LlmBackend {
   const client = new OpenAI();
 
@@ -203,7 +218,7 @@ function createOpenAiBackend(): LlmBackend {
           { role: 'system', content: opts.system },
           { role: 'user', content: opts.prompt },
         ],
-        response_format: zodResponseFormat(opts.schema, opts.stage),
+        response_format: zodResponseFormat(opts.schema, toSchemaName(opts.stage)),
       });
 
       const choice = res.choices[0];
