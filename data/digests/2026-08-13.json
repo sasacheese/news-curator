@@ -1,0 +1,2171 @@
+{
+  "date": "2026-08-13",
+  "generatedAt": "2026-08-12T22:36:32.519Z",
+  "window": {
+    "start": "2026-08-11T22:00:00.000Z",
+    "end": "2026-08-12T22:00:00.000Z"
+  },
+  "summary": [
+    "AIエージェント関連が9件と目立ち、実装から運用基盤まで広がった。",
+    "複数エージェントでのスキル共有や遠隔操作など、連携機能の追加が続いた。",
+    "一方で、Claude Codeの修正や透かし、侵入事例など安全性と統制も焦点になった。",
+    "リリースでは新機能が6件あり、AI Gatewayや可観測性など周辺基盤も拡充した。"
+  ],
+  "outlook": "AIエージェントは複数連携・遠隔操作・常駐運用まで実装基盤が整いつつある一方、権限、データ来歴、侵入対策、人間の判断はなお揺れている。今後は機能追加の速さより、検索や監査を含む検証可能な統制と、変更を小さく保つ開発運用が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.228対応:同期スキルのセキュリティ強化とメモリ削除バグ",
+      "url": "https://qiita.com/picnic/items/e20692ced34c7a82eaec",
+      "publishedAt": "2026-08-12T12:21:25.000Z",
+      "author": "picnic",
+      "authorDetail": {
+        "name": "picnic",
+        "handle": "@picnic",
+        "url": "https://qiita.com/picnic",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKJ3kiIjdUf7zPvCPsjLhdpqsl9XSc0xblptYG809gyvXXYhvQ1=s96-c",
+        "followers": 3,
+        "posts": 140,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/PICNIC-A-DAY"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/h_picnic"
+          }
+        ]
+      },
+      "tags": [
+        "Claude",
+        "ClaudeCode",
+        "Anthropic",
+        "AI",
+        "Security"
+      ],
+      "snippet": "はじめに 2026年8月、Claude Code の最新バージョン v2.1.228 がリリースされました。今回のアップデートは新機能の追加よりも、セキュリティ強化と重要なバグ修正に重点が置かれた内容になっています。 特に注目すべきは以下の3点です。 1. claude.ai から同期されたスキルが、ローカルのコマンドや MCP のプロンプトを乗っ取れないようにするセキュリティ強化 2. セッションクリーンアップ処理がメモリフォルダの中身を誤って削除してしまうデータ損失バグの修正 3. Remote Control で /resume した際に、会話タイトルや履歴が別セッションに漏れていた問題の修正 Claude Code のスキル機能や Memory 機能、Remote Control を使っている開発者にとっては見逃せない変更です。本記事では、これらの変更が「なぜ重要か」「どう対応すべ…",
+      "body": "はじめに\n\n2026年8月、Claude Code の最新バージョン v2.1.228 がリリースされました。今回のアップデートは新機能の追加よりも、セキュリティ強化と重要なバグ修正に重点が置かれた内容になっています。\n\n特に注目すべきは以下の3点です。\n\n1. claude.ai から同期されたスキルが、ローカルのコマンドや MCP のプロンプトを乗っ取れないようにするセキュリティ強化\n2. セッションクリーンアップ処理がメモリフォルダの中身を誤って削除してしまうデータ損失バグの修正\n3. Remote Control で /resume した際に、会話タイトルや履歴が別セッションに漏れていた問題の修正\n\nClaude Code のスキル機能や Memory 機能、Remote Control を使っている開発者にとっては見逃せない変更です。本記事では、これらの変更が「なぜ重要か」「どう対応すべきか」を中心に整理します。\n📌 影響を受ける人\n・claude.ai とスキルを同期して Claude Code を使っている人\n・memory フォルダで永続メモリ機能を利用している人\n・Remote Control で複数セッションを行き来している人\n・Windows / self-hosted runner / Vertex AI 経由で Claude Code を運用している人\n\n変更の全体像\n\n今回のアップデートの中核は「リモート由来のコンテンツがローカル環境に与える影響を制限する」というセキュリティ設計の強化です。従来、claude.ai から同期されたスキルの説明文は、ローカルの ! コマンド実行や @ によるファイル展開のトリガーとして扱われる余地がありました。v2.1.228 ではこの経路が明確に遮断されます。\n\n [code] \n\nつまり、悪意のある、あるいは意図せず不適切な内容を持つ同期スキルが存在しても、それがローカルの実行コンテキストを乗っ取ることができなくなった、というのが今回のセキュリティ強化の要点です。\n\n変更内容\n\n🔒 claude.ai 同期スキルのセキュリティ強化 (severity: high)\n⚠️ Breaking Change 相当の注意点\n同期スキルの説明文がこれまで ! コマンドや @ ファイル展開のトリガーとして機能していた場合、その挙動は動作しなくなります。意図的にこの仕組みに依存したスキル運用をしていた場合は見直しが必要です。\n・同期スキルの説明文はサニタイズ・ラベル付けされるようになった\n・スキル本文がローカルマシン上で ! コマンドの実行や @ ファイルの展開を行わなくなった\n・ローカルコマンドや MCP プロンプトのシャドウイング(上書き)を防止\n\nなぜ重要か: claude.ai 経由で共有・同期されるスキルは、組織内の複数人が利用することも多く、信頼境界を越えてコンテンツが流通します。これまでの実装では、同期されたスキルの記述内容によっては、意図しないコマンド実行やローカル設定の上書きにつながるリスクがありました。今回の修正はこの攻撃面(attack surface)を塞ぐものです。\n\n💾 メモリフォルダ誤削除バグの修正 (severity: high)\n・セッションクリーンアップ処理が、プロジェクトの memory フォルダの内容を誤って削除していた\n・永続メモリ機能を利用しているユーザーにとってはデータ損失につながる重大なバグだった\n\nなぜ重要か: Claude Code の Memory 機能はセッションをまたいでプロジェクトの文脈を保持する仕組みです。この情報が消えると、蓄積してきたコンテキストが失われ、再構築に時間がかかります。すでに memory フォルダを運用している場合は、念のためバックアップを取っておくことを推奨します。\n\n🔓 Remote Control /resume の情報漏洩修正 (severity: medium)\n・Remote Control 接続中に /resume を実行すると、再開した会話のタイトルや履歴が接続先セッションに漏れていた\n・セッション間の情報分離が正しく行われていなかったプライバシー上の問題\n\n複数端末・複数セッションで Remote Control を使っている場合、意図しない会話内容の露出につながる可能性があった修正です。\n\n✏️ Write ツールの上書きルール変更 (severity: medium)\n\n新しいモデルでは、セッション中に一度も Read していない既存ファイルでも Write ツールで上書きできるようになりました。これは Edit ツールの既存挙動と整合させる変更です。\n\n| 項目 | 旧モデル | 新モデル |\n|---|---|---|\n| 未読ファイルへの Write | ❌ 事前の Read が必須 | ✅ Read なしでも上書き可能 |\n| Edit ツールとの整合性 | 不整合(ルールが異なる) | 整合(同じルールに統一) |\n💡 Tips\nフックやワークフローで「Write 前に必ず Read される」という前提に依存した処理を組んでいる場合、新しいモデルではその前提が崩れます。ファイル変更の検知をフック側で行っている場合は挙動を確認しておきましょう。\n\n🪟 Windows: git / Git Bash が見つからない問題の修正 (severity: medium)\n\nGit インストール先の親フォルダから Claude Code を起動した際に、git や Git Bash が検出できない Windows 固有の不具合が修正されました。Windows で Git 関連の操作が突然失敗していた場合、この修正でパス解決が正しく行われるようになります。\n\n☁️ Vertex AI 認証エラーのフェイルファスト化 (severity: medium)\n\n期限切れ・欠落した Google Cloud 認証情報でのエラーが、これまでの数分間のリトライから数秒での失敗に短縮されました。Vertex AI 経由で Claude Code を利用している場合、認証トラブルの切り分けが大幅に速くなります。\n\nその他の修正(影響は限定的)\n\n| 変更内容 | 種別 |\n|---|---|\n| 対話セッションの描画が完全停止する問題を修正 | bugfix |\n| /tui がモデル選択を巻き戻す問題を修正 | bugfix |\n| self-hosted-runner の checkout フック失敗でセッション全体が落ちる問題を修正 | bugfix |\n| self-hosted ランナーがバックグラウンドタスク終了直後に落ちる問題を修正 | bugfix |\n| 開発用シンボリックリンクのプラグインキャッシュ削除問題を修正 | bugfix |\n| 設定マージでマーケットプレイスエントリが他ティアのヘッダーを継承する問題を修正 | bugfix |\n| クロスセッションメッセージング初回起動時の受信箱欠落を修正 | bugfix |\n| スキル実行後の deferred-tools リマインダー二重送信を修正 | bugfix |\n| クロスセッションメッセージの表示をインライン化 | improvement |\n| コンパクション進行表示にリトライカウントダウン等を追加 | improvement |\n| ターミナルタブのちらつき軽減(スピナー文字更新) | improvement |\n| auto モードのコストに関する古い注意書きを削除 | announcement |\n\n影響と対応\n・同期スキルを利用している人: 特別な対応は不要ですが、! コマンドや @ ファイル展開に依存したスキル運用をしていた場合は動作確認をしてください。基本的にはセキュリティが向上する方向の変更です。\n・Memory 機能を使っている人: アップデート後、memory フォルダの内容が保持されているか確認することを推奨します。過去に原因不明のメモリ消失があった場合、このバグが原因だった可能性があります。\n・Remote Control 利用者: /resume 時の情報漏洩は修正済みなので、v2.1.228 へのアップデートを推奨します。\n・Windows / self-hosted runner / Vertex AI ユーザー: それぞれの環境固有の不具合が解消されているため、該当する環境で問題が起きていた場合はアップデートで解決する可能性が高いです。\n・フック・ワークフロー開発者: Write ツールの挙動変更(未読ファイルへの上書き許可)がフックのロジックに影響しないか確認してください。\n\nコード例\n\nWrite ツールの挙動変更をイメージすると、以下のようになります。\n\nBefore(旧モデル)\n\n [code] \n\nAfter(新しいモデル)\n\n [code] \n\nスキルのシャドウイング防止についても、擬似的に表すと以下のような変化です。\n\nBefore\n\n [code] \n\nAfter\n\n [code] \n\nまとめ\n\nClaude Code v2.1.228 は、目立つ新機能こそありませんが、セキュリティとデータ整合性の両面で重要な修正が詰まったアップデートです。\n・claude.ai 同期スキルによるローカルコマンド・MCP プロンプトの乗っ取りを防止(severity: high)\n・メモリフォルダの誤削除というデータ損失バグを修正(severity: high)\n・Remote Control のセッション間情報漏洩を修正\n・Write ツールの上書きルールが Edit ツールと統一\n・Windows・self-hosted runner・Vertex AI 周りの安定性向上\n\n特にスキル同期と Memory 機能を活用しているチームは、このアップデートで運用の安全性が向上します。まだアップデートしていない場合は、早めに v2.1.228 への更新を検討することをおすすめします。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "4609f41093bf5fd5",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7275826972010179,
+      "popularityPercentile": 0.21628498727735368,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "Claude Code v2.1.228がスキル同期の安全性と複数の不具合を修正した。",
+      "reason": "v2.1.228は、同期スキルによるローカル操作の制限、Memoryフォルダ誤削除、Remote Controlの履歴漏えいを修正した。WindowsやVertex AI環境も対象になる。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.228",
+        "Remote Control",
+        "Memory",
+        "MCP",
+        "セキュリティ"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": "v2.1.228は安全性とデータ保持を優先",
+        "summary": "Claude Code v2.1.228 は、新機能よりもセキュリティとデータ整合性を優先した更新です。claude.ai と同期したスキルから ! コマンド、@ ファイル展開、ローカルコマンド、MCP プロンプトへ影響する経路が制限されます。memory フォルダの誤削除と、Remote Control の /resume によるセッション情報漏洩も修正されました。Write ツールは、未読ファイルへの上書きが可能になり、Read 必須を前提にしたフックは確認が必要です。",
+        "prerequisites": [
+          {
+            "term": "claude.ai",
+            "stumblingPoint": "記事は「claude.ai 同期スキル」と書くが、同期元がなぜローカル実行の信頼境界になるか読み取りにくい。",
+            "explanation": "claude.ai から共有・同期されるスキルは、ローカルで実行される Claude Code の処理に入ってくるリモート由来のコンテンツです。従来は説明文の内容が ! コマンドや @ ファイル展開のトリガーとして解釈される余地があり、スキルの文章が単なる説明を越えてローカル環境の動作に影響し得ました。今回の変更ではサニタイズとラベル付けによって、その信頼境界を越えた実行経路を制限しています。"
+          },
+          {
+            "term": "! コマンド",
+            "stumblingPoint": "「! コマンドや @ ファイル展開のトリガー」とあるが、単なる記法ではなく実行経路だと分かりにくい。",
+            "explanation": "! コマンドは Claude Code の文脈からローカルシェルコマンドを実行する記法として記事中で扱われています。@ ファイル展開は指定したファイルの内容を会話や処理へ展開する経路です。同期スキルの本文がこれらを誘発できると、共有された文章がローカルのコマンド実行やファイル参照に影響します。v2.1.228 では同期スキル本文からのこの経路が遮断されます。"
+          },
+          {
+            "term": "MCP プロンプト",
+            "stumblingPoint": "「MCP プロンプトのシャドウイング」とあるが、何を上書きすると利用者の操作が変わるのか不明瞭。",
+            "explanation": "MCP プロンプトは、MCP 経由で提供されるプロンプトや操作の入口を指します。記事では、同期スキルがローカルコマンドだけでなく MCP プロンプトをシャドウイングできた可能性を問題にしています。つまり、同名・類似の定義を同期コンテンツが優先させ、利用者が意図した入口を別の内容に置き換えるリスクです。今回の修正はこの上書き経路を防ぎます。"
+          },
+          {
+            "term": "memory フォルダ",
+            "stumblingPoint": "「メモリフォルダ誤削除」とあるが、通常のキャッシュ削除ではなく永続コンテキストの消失だと分かりにくい。",
+            "explanation": "memory フォルダは、Claude Code の Memory 機能がセッションをまたいでプロジェクトの文脈を保持するために使う場所です。通常の一時的な会話履歴ではなく、蓄積したプロジェクト情報が置かれるため、削除されると単に再起動すれば戻る問題ではありません。記事は、セッションクリーンアップ処理がこのフォルダの内容を誤って削除していたと説明しています。"
+          },
+          {
+            "term": "Remote Control",
+            "stumblingPoint": "「Remote Control で /resume」とあるが、再開元と接続先が別セッションになる点を知らないと漏洩範囲を誤る。",
+            "explanation": "Remote Control は、別の端末や接続先から Claude Code のセッションを操作する運用形態です。/resume は既存の会話を再開する操作で、今回の不具合では再開対象のタイトルや履歴が接続先セッションに混入しました。複数セッションを行き来する利用者ほど、別案件の会話内容が見える境界問題として捉える必要があります。"
+          },
+          {
+            "term": "Write ツール",
+            "stumblingPoint": "「未読ファイルへの Write」とあるが、Read 必須がモデルの安全ルールではなく変更された前提条件だと分かりにくい。",
+            "explanation": "Write ツールはファイルを書き換える操作で、記事では新しいモデルで未読の既存ファイルにも適用できるようになったとされています。従来は同一セッション中に Read を先に行うことが前提でしたが、そのガードがなくなりました。Edit ツールと同じルールになったため、Read の有無だけで変更を許可・拒否するフックは見直しが必要です。"
+          },
+          {
+            "term": "self-hosted runner",
+            "stumblingPoint": "「self-hosted runner の checkout フック失敗」とあるが、通常のローカルセッションより障害範囲が大きい理由が省略されている。",
+            "explanation": "self-hosted runner は、利用者側が管理する実行環境で Claude Code の処理を動かす構成です。記事では checkout フックの失敗やバックグラウンドタスク終了直後のプロセス終了という、実行環境固有の不安定要因が修正対象になっています。通常のローカル利用で再現しなくても、CI や自前 runner ではセッション全体の停止として現れます。"
+          },
+          {
+            "term": "Vertex AI",
+            "stumblingPoint": "「フェイルファスト化」とあるが、認証エラーが解決したのではなく待ち時間だけが短縮された点に注意が要る。",
+            "explanation": "Vertex AI は、Google Cloud 側の認証を使って Claude Code を利用する経路です。期限切れまたは欠落した認証情報があると、修正前は数分間リトライしてから失敗していました。v2.1.228 では数秒で失敗するため、処理が成功するようになった変更ではなく、認証設定の不備を早く発見できる変更です。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "主な挙動の変更",
+          "beforeLabel": "修正前",
+          "afterLabel": "v2.1.228",
+          "rows": [
+            {
+              "aspect": "同期スキルとローカル実行",
+              "before": "! コマンドや @ ファイル展開のトリガーになり得た",
+              "after": "同期スキル本文からの起動経路を遮断"
+            },
+            {
+              "aspect": "セッションクリーンアップ",
+              "before": "内容を誤って削除する可能性があった",
+              "after": "memory フォルダを誤削除しない"
+            },
+            {
+              "aspect": "Remote Control の /resume",
+              "before": "再開した会話情報が接続先へ漏れていた",
+              "after": "別セッションへタイトル・履歴を漏らさない"
+            },
+            {
+              "aspect": "Write ツール",
+              "before": "事前の Read が必須だった",
+              "after": "未読ファイルにも Write 可能"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "これを知らないと、同期スキルの ! コマンドや @ ファイル展開が動かなくなった原因を、権限設定やスキルの破損だと誤認して調査を続けることになります。また、memory フォルダの消失を単なるセッション履歴の問題として扱ったり、Remote Control の /resume で別案件の履歴を見せた可能性を確認しないまま運用を続けたりします。フック開発者は、Write ツールの Read 必須を前提にした安全策が有効だと思い込みます。",
+        "relatedLinks": [
+          {
+            "label": "元記事（Qiita）",
+            "url": "https://qiita.com/picnic/items/e20692ced34c7a82eaec"
+          }
+        ],
+        "readingMinutes": 4,
+        "lane": "know",
+        "impact": [
+          "claude.ai と同期したスキルを利用している構成では、同期スキルの説明文から ! コマンドや @ ファイル展開を起動する経路が遮断される。これらに依存したスキルは、v2.1.228 以降で従来どおり動かない可能性がある。",
+          "Memory 機能でプロジェクトの memory フォルダを使っている構成では、修正前のセッションクリーンアップ処理により内容が誤削除されるデータ損失リスクがあった。",
+          "Remote Control で複数セッションを運用し、/resume を使う構成では、修正前に会話タイトルや履歴が接続先セッションへ漏れる問題があった。",
+          "Write ツールの挙動をフックやワークフローで監視している構成では、未読ファイルへの上書きが許可され、Read 必須を前提にしたロジックが成立しなくなる。Windows、self-hosted runner、Vertex AI 利用者にも個別の修正がある。"
+        ],
+        "timeline": [
+          "2026年8月に Claude Code v2.1.228 がリリースされた。記事の公開日は 2026-08-12。",
+          "v2.1.228 で、同期スキルの実行経路制限、memory フォルダ誤削除、Remote Control の /resume 情報漏洩が修正された。",
+          "記事には、v2.1.228 の具体的なリリース日時、旧バージョンの影響範囲、更新期限は記載されていない。"
+        ],
+        "checkNow": [
+          "Claude Code のバージョン表示を確認し、v2.1.228 未満なら更新対象として扱う。記事には具体的な更新コマンドは記載されていない。",
+          "claude.ai と同期したスキルを使っている場合、スキル本文に ! コマンド、@ ファイル展開、ローカルコマンド、MCP プロンプトの動作を前提にした記述がないか確認する。",
+          "Memory 機能を使っている場合、プロジェクトの memory フォルダが存在し、既存の内容が保持されているか確認する。過去に消失があった場合は、残っているメモリをバックアップする。",
+          "Remote Control、Windows、self-hosted runner、Vertex AI のいずれかで過去に問題があった場合、v2.1.228 に更新したうえで /resume、Git 操作、checkout フック、認証失敗時の挙動を再確認する。"
+        ],
+        "unknowns": [
+          "記事には、どの旧バージョンから memory フォルダ誤削除や /resume の情報漏洩が発生するのか記載されていない。",
+          "Write ツールの変更対象である「新しいモデル」の具体的なモデル名・適用条件は記載されていない。",
+          "記事中のコード例は空欄のため、同期スキルのサニタイズ・ラベル付けの具体的な形式や、Write ツールの判定をフックで置き換える実装方法は確認できない。",
+          "記事は、過去に消失した memory フォルダの内容が復元できるかどうかを説明していない。"
+        ]
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "中国発AIエージェント「Manus」、Metaから独立へ　中国政府が買収に反発、一部ユーザーデータは削除に",
+      "url": "https://itmedia.co.jp/news/article/2608/12/2000000508",
+      "publishedAt": "2026-08-12T06:54:48.000Z",
+      "tags": [
+        "テクノロジー",
+        "中国"
+      ],
+      "snippet": "中国発のAIエージェント「Manus」を提供するManus社は8月11日（現地時間）、米Metaから分離し、独立企業としての運営を間もなく再開すると発表した。Metaは2025年12月にManusを約20億ドル（約3000億円）規模で買収したと報じられていたが、AIの発展を国策に掲げる中国政府が反発。ロイター通信によると、中国国家発展改...",
+      "metrics": {},
+      "sourceWeight": 3,
+      "id": "2646cbaf048a3a4a",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.4983333333333334,
+      "popularityPercentile": 0.3333333333333333,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 72,
+      "oneLiner": "AIエージェントのManusがMetaから分離し、独立企業として再始動する。",
+      "reason": "Metaが2025年12月に約20億ドルで買収したManusは、2026年8月11日に中国政府の反発を受けて独立運営へ戻ると発表した。一部データは削除された。",
+      "keywords": [
+        "Manus",
+        "Meta",
+        "AIエージェント",
+        "中国政府",
+        "ユーザーデータ"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 2,
+      "deep": {
+        "headline": "ManusがMetaから分離、データ削除に注意",
+        "summary": "中国発のAIエージェントManusは、2025年12月に約20億ドル規模で買収したと報じられたMetaから分離し、独立企業として運営を再開する。中国政府の反発が背景にあるとされ、一部のユーザーデータが削除された。Manus利用者は、独立後の運営条件と自分のデータが削除対象かを確認する必要がある。",
+        "prerequisites": [
+          {
+            "term": "AIエージェント",
+            "stumblingPoint": "記事は「中国発AIエージェント」と書いているが、通常のチャットAIとの違いを知らないと、何を利用しているサービスなのか読み取れない。",
+            "explanation": "AIエージェントは、質問に答えるだけでなく、与えられた目的に沿って複数の作業を進めるサービスを指す。この記事では、Manusがその種のサービスを提供しているという位置付けで使われている。したがって、単なるチャットサービスの運営会社変更よりも、保存データや外部サービス連携の扱いを確認する必要がある。"
+          },
+          {
+            "term": "Manus",
+            "stumblingPoint": "「Manus社」「AIエージェント『Manus』」と表記が切り替わるため、製品名と運営主体を区別しないと、何が分離するのか理解しづらい。",
+            "explanation": "Manusは、この記事で扱われているAIエージェントのサービス名であり、運営会社の分離対象でもある。製品名と会社名が本文で近い意味で使われるため、利用者は自分のManusアカウントや保存データが対象かを確認する文脈で読む。"
+          },
+          {
+            "term": "Meta",
+            "stumblingPoint": "記事は「Metaから分離」と書いているが、MetaがManusを買収していた経緯を知らないと、今回の発表が単なる社名変更ではないと分からない。",
+            "explanation": "Metaは、Manusを2025年12月に約20億ドル規模で買収したと報じられた企業である。今回の発表は、買収後もMetaの傘下で運営が続くという前提が変わることを意味する。"
+          },
+          {
+            "term": "独立企業",
+            "stumblingPoint": "「独立企業としての運営を間もなく再開」とあるが、独立後に資本・サービス・データ管理がどう変わるかは別途確認が必要になる。",
+            "explanation": "独立企業とは、この記事の文脈では、Metaの傘下ではなくManus社が独立した企業として運営する状態を指す。独立後の具体的な資本関係、サービス提供条件、データ管理の変更内容までは本文抜粋からは分からない。"
+          },
+          {
+            "term": "ユーザーデータ",
+            "stumblingPoint": "タイトルは「一部ユーザーデータは削除に」としているが、削除対象のデータ種別やユーザー条件が書かれていないと影響範囲を判断できない。",
+            "explanation": "ユーザーデータは、Manusの利用時にサービス側へ保存されている利用者のデータを指す。記事は一部削除に触れているが、データの種類や削除された利用者の条件は示していないため、全利用者のデータが消えたと読むことはできない。"
+          },
+          {
+            "term": "中国政府",
+            "stumblingPoint": "「中国政府が買収に反発」とあるが、政府の反発がManusの分離やデータ削除にどうつながったのかは、本文抜粋だけでは確定できない。",
+            "explanation": "中国政府は、AIの発展を国策に掲げている主体として記事に登場し、ManusのMetaによる買収に反発したと説明されている。これはサービス利用者の直接的な設定変更を示す記述ではなく、買収・分離の背景にある政治的要因である。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "Manusの運営主体とデータの変化",
+          "beforeLabel": "買収後",
+          "afterLabel": "分離後",
+          "rows": [
+            {
+              "aspect": "運営主体",
+              "before": "Metaが買収したと報じられた",
+              "after": "独立企業として運営を再開予定"
+            },
+            {
+              "aspect": "データ",
+              "before": "削除に関する記載なし",
+              "after": "一部ユーザーデータが削除されたとされる"
+            },
+            {
+              "aspect": "状況",
+              "before": "2025年12月に買収と報道",
+              "after": "中国政府の反発を背景に分離を発表"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "ManusをMeta傘下のサービスだと考えたまま使い続けると、独立後の運営条件やデータ管理の変更を見落とす。特に、ユーザーデータの削除対象を確認しないまま1週間過ごすと、必要なデータがすでに失われていても気付けない可能性がある。",
+        "relatedLinks": [
+          {
+            "label": "記事本文",
+            "url": "https://itmedia.co.jp/news/article/2608/12/2000000508"
+          }
+        ],
+        "readingMinutes": 2,
+        "lane": "know",
+        "impact": [
+          "Manusを利用しているユーザーは、Metaから独立企業へ運営主体が変わるため、サービス提供条件やデータ取り扱いの案内を確認する必要がある。",
+          "Manus上に保存したユーザーデータがあるユーザーは、一部データが削除されたとされるため、自分のデータが対象か確認する必要がある。記事本文だけでは、削除対象・範囲・復旧可否は特定できない。",
+          "Metaによる買収を前提にManusを評価・導入している企業や開発者は、買収後の構成が継続しない前提で、独立後の提供元と運営方針を再確認する必要がある。"
+        ],
+        "timeline": [
+          "2025年12月：MetaがManusを約20億ドル規模で買収したと報じられた。",
+          "2026年8月11日（現地時間）：Manus社がMetaから分離し、独立企業として運営を間もなく再開すると発表した。"
+        ],
+        "checkNow": [
+          "Manusを利用中なら、公式告知とアカウント内の通知を確認し、ユーザーデータの削除対象・対象時期・必要な対応が記載されているかを見る。",
+          "Meta連携やManus上に保存したデータがある場合は、利用停止・削除に関する案内が出ていないか確認する。",
+          "Manusを業務で組み込んでいる場合は、独立後の提供元、サービス継続条件、データ取り扱いの更新情報を確認する。"
+        ],
+        "unknowns": [
+          "独立企業としての運営を再開する具体的な日付は、記事本文からは分からない。",
+          "一部削除されたユーザーデータの種類、対象ユーザー、削除時期、復旧可否は、記事本文からは分からない。",
+          "中国政府の反発が、分離やユーザーデータ削除にどのような具体的影響を与えたかは、記事本文からは確定できない。",
+          "Metaとの資本関係、独立後のサービス提供条件、データ管理方針がどう変わるかは、記事本文からは分からない。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "IBM Bob × Confluent MCP入門：KafkaとFlinkを自然言語で触ってみた",
+      "url": "https://qiita.com/kaku_zui/items/81af00d831d1a412f953",
+      "publishedAt": "2026-08-12T05:41:27.000Z",
+      "author": "zui kaku",
+      "authorDetail": {
+        "name": "zui kaku",
+        "handle": "@kaku_zui",
+        "url": "https://qiita.com/kaku_zui",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocIzrd3ZeTiB9qdeYK-PPU5tuaF3EzLz-xIwGukW0eS2EZxk=s96-c",
+        "bio": "*このサイトの掲載内容は私自身の見解であり、必ずしも所属会社の立場、戦略、意見を代表するものではありません。",
+        "followers": 0,
+        "posts": 1,
+        "links": []
+      },
+      "tags": [
+        "confluent",
+        "IBMBob",
+        "Bob",
+        "MCPサーバー",
+        "Kafka"
+      ],
+      "snippet": "はじめに この記事では IBM Bob に Confluent MCP サーバー を接続することで、日本語のチャットだけで Kafka トピックの作成・データ投入・Flink SQL 実行 まで一気通貫でやってみた記録をまとめます。 コマンドはセットアップ時にほんの少し打つだけ。あとは Bob に話しかけるだけで Confluent Cloud を操作できるようになります。 --- この記事でやること 1. MCP サーバーのセットアップ 2. Bob からトピック作成・Connector 作成・メッセージ確認 3. Flink SQL をチャットで実行してストリーミング処理 4. スキーマ管理もチャットで完結 --- 前提・環境 | 必要なもの | 備考 | |---|---| | IBM Bob | インストール済み、一度は起動済みであること | | Confluent Cloud ア…",
+      "body": "はじめに\n\nこの記事では IBM Bob に Confluent MCP サーバー を接続することで、日本語のチャットだけで Kafka トピックの作成・データ投入・Flink SQL 実行 まで一気通貫でやってみた記録をまとめます。\nコマンドはセットアップ時にほんの少し打つだけ。あとは Bob に話しかけるだけで Confluent Cloud を操作できるようになります。\n\n---\n\nこの記事でやること\n\n1. MCP サーバーのセットアップ\n2. Bob からトピック作成・Connector 作成・メッセージ確認\n3. Flink SQL をチャットで実行してストリーミング処理\n4. スキーマ管理もチャットで完結\n\n---\n\n前提・環境\n\n| 必要なもの | 備考 |\n|---|---|\n| IBM Bob | インストール済み、一度は起動済みであること |\n| Confluent Cloud アカウント | クラスターを1つ作成済みであること |\n| Node.js 22 以上 | node -v で確認。なければ nvm install 22 |\n| Confluent CLI | この記事の Step 2 でインストール |\n\nまず Node.js のバージョンを確認しておきます。ここだけは必須チェックです。\n\n [code] \n\n---\n\nMCP サーバーとは？\n\nMCP（Model Context Protocol） は、AIエージェントが外部ツール・サービスを呼び出すための標準プロトコルです。\n\nConfluent が公式に公開している @confluentinc/mcp-confluent を IBM Bob に登録すると、Bob が自動的に Confluent Cloud の API を呼び出してくれます。\n対応しているツールは Kafka・Flink SQL・Schema Registry・Connectors など50種類以上。\n\n---\n\nStep 1. 作業フォルダを作って config のひな形を生成する\n\n [code] \n\n実行すると config.yaml が生成されます。これに接続情報を書き込んでいきます。\n\n---\n\nStep 2. Confluent CLI をインストールしてログインする\n\n [code] \n\nログイン後、使いたい Environment と Kafka クラスターを選択します。\n\n [code] \n\n---\n\nStep 3. 接続情報を控える\n\nconfig.yaml に書き込む URL を CLI で確認します。\n\n [code] \n\n---\n\nStep 4. API Key を4種類発行する\n\nConfluent Cloud では サービスごとにスコープが異なる API Key を使います。4種類、別々に作る必要があります。\n\n [code] \n\n| Key 種別 | 用途 |\n|---|---|\n| Kafka API Key | トピック操作・メッセージ送受信 |\n| Schema Registry API Key | スキーマの登録・参照 |\n| Cloud API Key | 環境・クラスター・billing の参照 |\n| Flink API Key | Flink SQL ステートメントの実行 |\n⚠️ Secret はその場でしか表示されません。 必ずコピーしてから次に進んでください。\n\n---\n\nStep 5. config.yaml に書き込む\n\nStep 3・4 で集めた情報を config.yaml に書き込みます。\n\n [code] \n\n---\n\nStep 6. MCP サーバーが起動するか単体確認する\n\nBob に組み込む前に、まずコマンドラインで動作確認します。\n\n [code] \n\nkafka / schema-registry / flink / confluent-cloud カテゴリのツール一覧が表示されれば OK です。\n\n---\n\nStep 7. IBM Bob に MCP サーバーを登録する\n\nBob の設定ファイルに追記します。\n\n [code] \n\n [code] \n{username} は whoami コマンドで確認できます。絶対パス で書くのがポイントです（相対パスは認識されません）。\n\n設定を保存したら IBM Bob を完全に終了して再起動 します。\n\nBob の Settings → MCP を開くと、登録した MCP サーバーの一覧が表示されます。ここに confluent が表示され、ステータスが緑色の 「接続済み」 になっていれば OK です。\n\n \n\n---\n\nStep 8. 疎通確認（チャットで試す）\n\nBob を開いて、以下のプロンプトを投げてみます。\n\n [code] \n\nlist-topics ツールが呼ばれ、トピック名が返ってくれば接続成功です 🎉\n\n---\n\n実際に触ってみた\n\nセットアップ完了後、実際に Bob と対話しながら Confluent Cloud を操作してみました。以下はそのハイライトです。\n\nトピック作成\n\n [code] \n\n→ Bob が create-topics を呼び出し、1秒ほどで作成完了。 \nConfluent Cloud の画面で確認できます。\n\n \n\nDatagen Connector でテストデータを流す\n\n [code] \n\n→ Orders テンプレートを使った Connector が自動作成され、サンプルの注文データが流れ始めます。\n\nメッセージを覗いてみる\n\n [code] \n\n→ Bob が consume-messages を呼び出し、最新5件を表形式で見せてくれました。\n\nトピック testordersraw にデータが継続的に流入しているのが確認できます。\n\n \n\nスキーマを登録する\n\nConnector の出力フォーマットが JSON（Plain JSON）だったため、Schema Registry には自動登録されていませんでした。\n\n \n\n [code] \n\n→ Bob がトピックからサンプルメッセージを取得し、JSON Schema（draft-07）を自動で作って登録してくれました。コードを一行も書いていません。\n\n \n\nFlink SQL をチャットで実行\n\n [code] \n\n→ Bob が create-flink-statement を呼び出し、ストリーミングクエリが実行されました。250件以上の結果が返ってきました。\n\nクエリが正常に実行されました。結果を見やすいレポート形式で表示します。\n\n \n\nCTAS でフィルタ結果を新トピックへ書き込む\n\n [code] \n\n→ CTAS ステートメントが実行され、testordersfiltered トピックが自動作成され、orderunits > 5 のデータがリアルタイムで書き込まれ続けました。\n\nConnector を一時停止\n\n [code] \n\n→ pause-connector が呼ばれ、Datagen Connector が PAUSED 状態に。\n\n他にもいろいろ試してみました。\n\n [code] \n\n---\n\nつまずきやすいポイント\n\n| 問題 | 解決策 |\n|---|---|\n| node: command not found / バージョンが古い | nvm install 22 && nvm use 22 |\n| Bob に登録後ツールが表示されない | mcpsettings.json の config.yaml パスが 絶対パス か確認。Bob を 再起動 する |\n| Kafka 用と SR 用の Key を混同した | スコープが別なので必ず4種類別々に作成する |\n| confluent api-key create がエラー | confluent environment use / confluent kafka cluster use でクラスターを選択してから実行 |\n| --list-tools でツールが出ない | config.yaml のインデントや引用符の YAML 構文エラーを確認 |\n\n---\n\nまとめ\n\nIBM Bob に Confluent MCP サーバーを接続することで、Kafka の知識がなくても自然言語で Confluent Cloud を操作 できるようになりました。\n\n今回やったこと：\n・✅ トピック作成\n・✅ Datagen Connector でテストデータ投入\n・✅ メッセージの確認\n・✅ Schema Registry へのスキーマ登録\n・✅ Flink SQL の実行（SELECT・CTAS）\n・✅ Connector の一時停止\n\nMCP サーバーさえ設定してしまえば、あとは Bob に日本語で話しかけるだけ。Confluent Cloud の入門として非常におすすめです。\n\n---\n\n参考リンク\n・confluentinc/mcp-confluent（GitHub）\n・mcp-confluent CONFIGURATION.md\n・Confluent CLI インストールガイド",
+      "metrics": {
+        "likes": 4
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "503037723a4a065b",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.7584623773173391,
+      "popularityPercentile": 0.9821882951653944,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "IBM BobがConfluent MCP経由でKafkaとFlinkを自然言語操作できる。",
+      "reason": "IBM BobにConfluent MCPサーバーを接続すると、チャットだけでKafkaトピックやConnectorを作成し、Flink SQL実行やスキーマ管理まで行える。Node.js 22以上が必要になる。",
+      "keywords": [
+        "IBM Bob",
+        "Confluent MCP Server",
+        "Confluent Cloud",
+        "Kafka",
+        "Apache Flink",
+        "MCP"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": "BobからConfluent Cloudを自然言語操作",
+        "summary": "IBM Bobに@confluentinc/mcp-confluentを登録すると、チャットからConfluent CloudのKafka操作、Schema Registry、Connector、Flink SQLを呼び出せます。記事ではトピック作成、Datagen Connectorによるデータ投入、メッセージ確認、JSON Schema登録、SELECT・CTAS実行、Connector一時停止までを試しています。実際の権限と接続先は4種類のAPI Keyを設定したconfig.yamlで与えます。",
+        "prerequisites": [
+          {
+            "term": "MCP",
+            "stumblingPoint": "記事は「MCP（Model Context Protocol）」でBobがAPIを呼ぶと書いているが、チャット応答だけでなく外部操作まで実行される仕組みを知らないと、設定の役割が読み取れない。",
+            "explanation": "MCPは、モデルが外部サービスの機能をツールとして呼び出すための接続規約です。この記事ではBobが会話を解釈し、Confluent MCPサーバーがConfluent Cloud APIの呼び出しへ変換します。そのため、チャットだけで操作できても、実際にはBobにクラウド操作権限を持つ接続設定を渡すことになります。"
+          },
+          {
+            "term": "@confluentinc/mcp-confluent",
+            "stumblingPoint": "記事は「公式に公開している @confluentinc/mcp-confluent」を登録すると書いているが、Bobの拡張機能ではなくConfluent Cloud操作を仲介する別プロセスだと知らないと、なぜconfig.yamlが必要なのか分からない。",
+            "explanation": "@confluentinc/mcp-confluentは、Confluentが公開しているMCPサーバーのパッケージ名です。Bob本体にKafka機能を追加するのではなく、このサーバーがKafka、Flink SQL、Schema Registry、Connectorsなどの操作をツールとして公開します。記事では50種類以上のツールが対象になっています。"
+          },
+          {
+            "term": "config.yaml",
+            "stumblingPoint": "記事は「config.yamlが生成されます。接続情報を書き込む」と進むが、設定ファイルの不備がツール一覧の表示まで止めることを知らないと、Bob側の問題と切り分けられない。",
+            "explanation": "config.yamlには、各サービスの接続先URLとAPI Keyなどを記述します。ここが誤っていると、Bobのチャット機能ではなくMCPサーバーの起動やツール呼び出しが失敗します。YAMLのインデントや引用符の誤りも、記事では`--list-tools`でツールが表示されない原因として挙げられています。"
+          },
+          {
+            "term": "Confluent CLI",
+            "stumblingPoint": "記事は「ログイン後、使いたい Environment とKafkaクラスターを選択」と書いているが、API Key作成の対象を事前に選ぶ操作だと知らないと、ログイン済みなのに発行が失敗する理由が分からない。",
+            "explanation": "Confluent CLIは、EnvironmentやKafkaクラスターの選択、各サービスのURL確認、API Key発行に使うコマンドラインツールです。Bobへ登録する前に、Confluent Cloud側の対象リソースを選択しておく必要があります。クラスター未選択だと`confluent api-key create`がエラーになると説明されています。"
+          },
+          {
+            "term": "API Key",
+            "stumblingPoint": "記事は「4種類、別々に作る必要があります」と書いているが、Kafka API KeyとSchema Registry API Keyの役割が違うことを知らないと、同じKeyを複数欄へ設定してしまう。",
+            "explanation": "API Keyは1個を全機能で使い回すのではなく、サービスごとのスコープに分かれています。Kafka用はトピックやメッセージ、Schema Registry用はスキーマ、Cloud用は環境やクラスター、Flink用はFlink SQL実行に使います。種類を混同すると、接続自体はできても特定ツールだけ権限エラーになります。"
+          },
+          {
+            "term": "Schema Registry",
+            "stumblingPoint": "記事は「Plain JSONだったため、Schema Registryには自動登録されていない」と書いているが、メッセージ形式とスキーマ登録が別の処理だと知らないと、データが流れているのにスキーマが無い状態を理解しにくい。",
+            "explanation": "Schema Registryは、Kafkaメッセージのスキーマを登録・参照するサービスです。記事のDatagen ConnectorはPlain JSONを出力するためスキーマが自動登録されず、BobがサンプルメッセージからJSON Schema draft-07を生成して登録しています。つまり、Connectorが動いていてもSchema Registryへの登録は別途必要な場合があります。"
+          },
+          {
+            "term": "CTAS",
+            "stumblingPoint": "記事は「CTASステートメント」で新トピックへ書き込むと書いているが、SELECT結果の表示ではなく継続的な出力を作るSQLだと知らないと、トピックが自動作成される流れを読み取れない。",
+            "explanation": "CTASは`CREATE TABLE ... AS SELECT`の形で、クエリ結果を新しいテーブルや出力先へ作る操作です。この記事ではCTASにより`testordersfiltered`トピックが作られ、`orderunits > 5`のデータがリアルタイムで書き込まれ続けます。単なる一回限りのSELECTではなく、ストリーミング処理の出力先を作る例です。"
+          },
+          {
+            "term": "mcpsettings.json",
+            "stumblingPoint": "記事は「mcpsettings.jsonのconfig.yamlパスは絶対パス」「Bobを再起動」と書いているが、MCPサーバーの接続設定とBobの再読み込みが別段階だと知らないと、登録後にツールが見えない原因を特定できない。",
+            "explanation": "mcpsettings.jsonは、Bobが利用するMCPサーバーの登録先です。ここからconfig.yamlの場所を参照するため、相対パスでは認識されず絶対パスが必要です。設定後のBob再起動も、登録内容を読み直させるための手順です。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "BobからConfluent Cloudを操作",
+          "steps": [
+            {
+              "label": "前提を準備",
+              "detail": "Node.js 22以上とConfluent Cloudを用意"
+            },
+            {
+              "label": "接続情報を設定",
+              "detail": "CLIで環境・クラスターと4種のKeyを設定"
+            },
+            {
+              "label": "MCPを接続",
+              "detail": "MCP単体確認後、Bobへ登録"
+            },
+            {
+              "label": "自然言語で実行",
+              "detail": "チャットでConfluent Cloudを操作"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "React / Next.jsの実装でAIコーディングエージェントにコードを書かせるのと同じ発想を、開発用のストリーミング基盤操作へ広げます。Confluent CLI、Kafkaのメッセージ確認、Flink SQLの手動実行を、IBM BobとMCPサーバーによる会話ベースの操作に置き換えられるため、イベント駆動機能の検証をコード実装前に進められます。",
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "build",
+        "unlocks": [
+          "これまでConfluent CLIや各種APIを個別に操作していたのが、IBM Bobへの日本語チャットでKafkaトピックの作成・メッセージ確認・Connectorの一時停止まで依頼できる。",
+          "これまでサンプルデータの投入と確認を別々に行っていたのが、Datagen Connectorを作成してトピックへ継続投入し、最新メッセージを表形式で確認できる。",
+          "これまでFlink SQLを手動で実行していたのが、BobにSELECTやCTASを依頼し、ストリーミング結果やフィルタ済みの新トピックを作成できる。",
+          "これまでコードを書いてSchema Registryへ登録していたのが、トピックのサンプルメッセージからJSON Schema（draft-07）を生成・登録できる。"
+        ],
+        "howToTry": [
+          "Node.jsのバージョンを確認し、22未満または未インストールなら実行する。`node -v`、必要なら`nvm install 22 && nvm use 22`。",
+          "作業フォルダを作り、記事のStep 1にあるコマンドで@confluentinc/mcp-confluentのconfig.yamlひな形を生成する。なお、提示された本文ではこのコマンド自体が省略されている。",
+          "記事のStep 2〜5に従い、Confluent CLIをインストールしてログインし、EnvironmentとKafkaクラスターを選択する。各サービスのURLを取得し、Kafka・Schema Registry・Cloud・Flink用の4種類のAPI KeyとSecretをconfig.yamlへ記入する。提示本文ではCLIコマンドと設定例が省略されている。",
+          "Step 6の単体確認コマンドでkafka、schema-registry、flink、confluent-cloudのツール一覧を表示し、Step 7でconfig.yamlの絶対パスをmcpsettings.jsonへ登録する。`whoami`でユーザー名を確認できる。",
+          "IBM Bobを完全終了して再起動し、Settings → MCPでconfluentが緑色の「接続済み」になったら、チャットでトピック一覧の取得を依頼する。list-topicsが呼ばれてトピック名が返れば疎通確認完了。"
+        ],
+        "fitFor": [
+          "Confluent Cloud上でKafkaトピック、Datagen Connector、Schema Registry、Flink SQLをまとめて試したい場合",
+          "KafkaやFlinkのCLI操作を覚える前に、自然言語で検証用のストリーミング環境を作りたい場合"
+        ],
+        "notFor": [
+          "Confluent Cloud以外のKafka環境を操作したい場合",
+          "本番環境で、自然言語によるトピック作成・Connector操作・Flink SQL実行を無確認で許可したい場合"
+        ],
+        "caveats": [
+          "IBM Bobをインストール済みで、一度起動している必要がある。",
+          "Confluent Cloudのアカウントと、作成済みのKafkaクラスターが必要。",
+          "Node.js 22以上が必須。Kafka、Schema Registry、Cloud、Flinkで用途が分かれる4種類のAPI Keyを別々に発行する。Secretは発行時にしか表示されない。",
+          "この記事本文ではセットアップ用のコードブロックが省略されているため、@confluentinc/mcp-confluentの起動コマンドやconfig.yamlの完全な記述は、そのまま再現できない。",
+          "Bob側の設定ではconfig.yamlを絶対パスで指定し、設定変更後にIBM Bobを完全終了して再起動する必要がある。"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "criptogus/HermesOffice — HermesOffice — AI-native office suite forked from GenOffice (Apache-2.0), with native Hermes Agent AI",
+      "url": "https://github.com/criptogus/HermesOffice",
+      "publishedAt": "2026-08-04T15:55:03.000Z",
+      "author": "criptogus",
+      "authorDetail": {
+        "name": "criptogus",
+        "url": "https://github.com/criptogus",
+        "avatarUrl": "https://github.com/criptogus.png?size=120",
+        "bio": "HermesOffice — AI-native office suite forked from GenOffice (Apache-2.0), with native Hermes Agent AI"
+      },
+      "tags": [
+        "TypeScript",
+        "ai-native",
+        "docx",
+        "electron",
+        "fork",
+        "genoffice",
+        "hermes",
+        "macos"
+      ],
+      "snippet": "HermesOffice — AI-native office suite forked from GenOffice (Apache-2.0), with native Hermes Agent AI",
+      "metrics": {
+        "stars": 480
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "6b15d201b9b6cbbf",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7800000000000001,
+      "popularityPercentile": 0.22727272727272727,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 62,
+      "oneLiner": "HermesOffice — AI-native office suite forked from GenOffice (Apache-2.0), with n…",
+      "reason": "",
+      "keywords": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "category": "その他",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "HermesOffice\n\nAn AI-native office suite for macOS and Windows: word processor, spreadsheet,\npresentations, and PDF — five Electron apps sharing one engine layer, built\naround AI editing as a first-class workflow rather than a bolted-on chat box.\n\n \n\nWatch the demo video on YouTube\n\nDownload\n\n| Platform | Requirements | Download |\n| ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |\n| macOS (Apple Silicon) | macOS 11+ | HermesOffice-0.5.83-arm64.dmg |\n| Windows (x64) | Windows 10+ | HermesOfficeSetup-v0.5.79.exe |\n| Linux — Debian / Ubuntu | x8664, glibc 2.34+ (Ubuntu 22.04 or newer) | hermesoffice0.5.149amd64.deb |\n| Linux — other distributions | x8664, glibc 2.34+, FUSE 2 | HermesOffice-0.5.149.AppImage |\n\nAll builds come from main; the macOS and Windows installers are signed.\nOlder versions are on the Releases page.\n\nInstalling on Linux\n\nThe deb installs with apt — it pulls in the dependencies and adds HermesOffice\nto the applications menu:\n\n [code] \n\nThe AppImage instead runs in place: install the FUSE 2 runtime\n(sudo apt install libfuse2; on Ubuntu 24.04 the package is libfuse2t64),\nmake the file executable, then run it:\n\n [code] \n\nApps\n\n| App | Product | What it is |\n| ------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |\n| apps/docs | HermesOffice Docs | .docx word processor. Byte-preserving round trip: only dirty paragraphs are regenerated (paragraph patch), everything else in the original file is kept byte-for-byte, so opening and saving never breaks layout in Word. Paginated view whose line metrics reproduce the original document's layout, tracked changes, comments, styles, equations, ink. |\n| apps/sheets | HermesOffice Sheets | .xlsx spreadsheet. UI built on the open-source Univer core (Apache-2.0) with a large layer of in-house extensions; .xlsx import/export runs through an in-house Rust sidecar (calamine + IronCalc), charts are rendered in-house (Konva), plus pivot tables, slicers, conditional formatting, and formula tracing. |\n| apps/slides | HermesOffice Slides | .pptx presentations. In-house .pptx parse/render/edit engine with masters, charts, cropping, ink, and text shaping (HarfBuzz metrics). |\n| apps/pdf | HermesOffice PDF | .pdf viewer/editor on pdf.js + pdf-lib: annotations, forms, outlines, stamps, signatures, page operations, and printing support. |\n| apps/shell | HermesOffice | The suite shell: home screen, tabbed hosting of the four editors, auto-update. |\n\nEvery app embeds the same AI panel: block-granular AI editing with version\nsnapshots and diffs in docs, a tool-calling agent over workbook/slide/PDF\nstate in the others.\n\nAI providers. The apps sign in to a Genspark account and route model\ncalls through the Genspark service side; no model API key is stored locally.\n\nEngine packages\n\nAll pure TypeScript, no Electron dependency, unit-tested (except the UI kit):\n・packages/docx-engine — docx parsing → block tree (with docxIndex\n anchors and passthrough), OOXML fragment generation, byte-level paragraph\n patching.\n・packages/pptx-engine / packages/pptx-render — pptx model and rendering.\n・packages/file-parse — text extraction for AI attachments (office formats,\n text formats).\n・packages/agent-core — the AI agent loop and skill composition shared by\n every app.\n・packages/ai-provider — provider abstraction and streaming for the model\n backends.\n・packages/ai-search — Genspark auth + web/image search tools.\n・packages/i18n, packages/ui, packages/project-store,\n packages/electron-utils — shared i18n core, React UI kit, recent-files\n store, and Electron main-process helpers.\n\nDevelopment\n\n [code] \n\nThe sheets app additionally needs a Rust toolchain for its xlsx sidecar\n(cargo on PATH); npm run build -w @hermesoffice/sheets compiles it\nautomatically.\n\nLocal UI/e2e driver scripts (Playwright + Electron, for local acceptance, not\ncommitted by default) live in scripts/drivers/.\n\nArchitecture notes (docx round trip)\n\n [code] \n\nThe same philosophy holds in sheets and slides: the original file is the\nsource of truth, edits are applied as narrow patches, and everything the\neditor didn't touch survives the round trip untouched.\n\nSecurity\n\nSee SECURITY.md for the process security posture (renderer\nsandboxing, IPC validation, external-link gating) and the threat models for\nAI-generated content.\n\nThird-party notices\n\nnpm run notices regenerates the bundled third-party license summary\n(tools/gen-third-party-notices.mjs); all runtime dependencies are\nMIT/Apache-2.0/OFL, and the bundled fonts (Liberation, Carlito, Caladea, Noto\nCJK subsets) are OFL/Apache.\n\nLicense\n\nHermesOffice is licensed under the Apache License 2.0, with one\nexception: the ee/ directory is reserved for future enterprise modules and\nis covered by the HermesOffice Enterprise License.\n\nThe HermesOffice and Genspark names and logos are trademarks of Mainfunc, Inc.\nThe Apache-2.0 license does not grant permission to use them (see section 6);\nforks should use their own branding.",
+      "rank": 2,
+      "deep": {
+        "headline": "Office編集をAI-nativeにするElectronスイート",
+        "summary": "HermesOfficeは、Docs・Sheets・Slides・PDFの4編集アプリとシェルを共通エンジンで束ねた、macOS・Windows・Linux向けのElectron製Officeスイートです。AIを後付けのチャット欄ではなく、文書ブロック編集やファイル状態へのツール呼び出しとして組み込んでいます。Docsはparagraph patchで変更段落だけを再生成し、未編集部分を元ファイルのバイト列のまま保持します。AI利用はGenspark経由で、ローカルにモデルAPIキーを保存しません。",
+        "prerequisites": [
+          {
+            "term": "Electron",
+            "stumblingPoint": "記事は「five Electron apps sharing one engine layer」と書いているが、Electronを知らないと、なぜmacOS・Windows向けのインストーラーが必要なのか読み取れない。",
+            "explanation": "ElectronはChromiumベースのレンダラーとNode.js側のメインプロセスでデスクトップアプリを構成する仕組みです。この記事では4つの編集アプリと、それらを載せるスイートのシェルを同じデスクトップ実行環境で配布しています。したがって、Webアプリとしてブラウザにデプロイするものではなく、OSごとのインストーラーを使うアプリだと読み取る必要があります。"
+          },
+          {
+            "term": "paragraph patch",
+            "stumblingPoint": "記事は「only dirty paragraphs are regenerated (paragraph patch)」と書いているが、paragraph patchを知らないと、通常のファイル再出力と何が違うのか読み取れない。",
+            "explanation": "paragraph patchは、.docx全体を作り直すのではなく、変更された段落だけを再生成して元ファイルへ適用する方式です。記事の文脈では、未編集部分を元のバイト列のまま保持するため、Wordでのレイアウト崩れや、編集していない要素の消失を避ける狙いがあります。"
+          },
+          {
+            "term": "Genspark",
+            "stumblingPoint": "記事は「AI providers. The apps sign in to a Genspark account」と書いているが、Gensparkを知らないと、利用者が別途どの認証情報を用意する必要があるのか読み取れない。",
+            "explanation": "Gensparkは、このアプリがモデル呼び出しと検索機能を仲介させるサービス側のアカウントです。ローカルにOpenAIなどのモデルAPIキーを置いて任意のバックエンドへ接続する構成ではありません。AI機能を使うには、アプリ内でGensparkにサインインする必要があります。"
+          },
+          {
+            "term": "OOXML",
+            "stumblingPoint": "記事は「OOXML fragment generation」と書いているが、OOXMLを知らないと、docx-engineが単なるテキスト変換ではなくOffice内部構造を編集していることが読み取れない。",
+            "explanation": "OOXMLは、.docxや.pptxなどのOfficeファイル内部で使われるXMLベースの文書構造です。ここでは単純なテキスト抽出ではなく、文書のブロック、スタイル、コメント、数式などを構造として扱い、必要な断片を生成・パッチするための対象になっています。"
+          },
+          {
+            "term": "agent-core",
+            "stumblingPoint": "記事は「packages/agent-core — the AI agent loop and skill composition shared by every app」と書いているが、AIエージェントのループを知らないと、各アプリのAIパネルが何を共有しているのか読み取れない。",
+            "explanation": "agent-coreは、4つのアプリで共通利用するAIエージェントのループとスキル合成をまとめたパッケージです。Docsではブロック単位の編集、Sheets・Slides・PDFではワークブックやスライド、PDFの状態を操作するツール呼び出しに使われます。アプリごとに別のチャット実装を持つのではなく、共通のエージェント層を共有する構成です。"
+          },
+          {
+            "term": "Rust sidecar",
+            "stumblingPoint": "記事は「.xlsx import/export runs through an in-house Rust sidecar」と書いているが、sidecarを知らないと、なぜSheetsだけRust toolchainとcargoが必要なのか読み取れない。",
+            "explanation": "Rust sidecarは、Electron/TypeScriptアプリ本体とは別に起動・連携するRust製の補助プロセスです。この記事ではSheetsの.xlsx入出力をcalamineとIronCalcを使うRust側で処理し、ビルド時にcargoでコンパイルします。そのため、SheetsだけはNode.jsの依存関係を入れるだけでは開発ビルドが完了しません。"
+          },
+          {
+            "term": "HarfBuzz",
+            "stumblingPoint": "記事はSlidesの説明で「text shaping (HarfBuzz metrics)」と書いているが、テキストシェーピングを知らないと、HarfBuzzがスライド編集のどの表示問題に関係するのか読み取れない。",
+            "explanation": "HarfBuzzは文字の形状や配置を計算するテキストシェーピングの仕組みです。Slidesではテキストを表示するだけでなく、HarfBuzzのメトリクスを使って文字幅などを考慮したレンダリングを行う、と記事は説明しています。異なる環境でスライドの文字配置を合わせるための内部実装要素です。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "Office編集の構成差分",
+          "beforeLabel": "従来の分離構成",
+          "afterLabel": "HermesOffice",
+          "rows": [
+            {
+              "aspect": "アプリ構成",
+              "before": "Docs・Sheets・Slides・PDFを個別に扱う",
+              "after": "4編集アプリ＋シェルを共通エンジンでホスト"
+            },
+            {
+              "aspect": "AIの位置づけ",
+              "before": "後付けのチャットボックス",
+              "after": "編集画面内のAIパネルから状態を操作"
+            },
+            {
+              "aspect": "Officeファイル保存",
+              "before": "ファイル全体を再生成する方式",
+              "after": "変更段落だけをパッチし未編集部分を保持"
+            },
+            {
+              "aspect": "認証・モデル接続",
+              "before": "ローカルにモデルAPIキーを設定",
+              "after": "Gensparkサービス側でモデル呼び出し"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "React / TypeScriptで作るWebアプリのAIチャット統合とは異なり、HermesOfficeはElectron上でOfficeファイルの内部構造と編集状態をAIエージェントに渡す位置づけです。既存のOfficeアプリを開いて別ウィンドウのAIコーディングエージェントやチャットに内容を貼る流れを、各編集画面のagent-coreとファイル状態のツール呼び出しへ置き換えます。既存ファイルを壊さずにAI編集を試したい場合は、paragraph patchと各形式の専用エンジンが差分になります。",
+        "relatedLinks": [
+          {
+            "label": "HermesOffice GitHubリポジトリ",
+            "url": "https://github.com/criptogus/HermesOffice"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "build",
+        "unlocks": [
+          "これまでOfficeファイルごとに別アプリとAIチャットを使っていたのが、Docs・Sheets・Slides・PDFを1つのElectronスイートで開き、各編集画面からAI操作できる。",
+          "これまで.docx全体を再生成して保存していたのが、paragraph patchで変更した段落だけを更新し、未編集部分を保持できる。",
+          "これまで文書へのAI指示をテキスト会話だけで行っていたのが、Docsではブロック単位の編集、Sheets・Slides・PDFではファイル状態を対象にしたツール呼び出しができる。",
+          "これまでモデルAPIキーをローカル設定する必要があったのが、Gensparkアカウントでサインインしてサービス側経由でモデルを利用できる。"
+        ],
+        "howToTry": [
+          "利用するOSに対応したビルドをダウンロードする。macOS Apple Siliconは`HermesOffice-0.5.83-arm64.dmg`、Windows x64は`HermesOfficeSetup-v0.5.79.exe`を使う。",
+          "macOSではDMGを開いてHermesOfficeをApplicationsへコピーし、WindowsではEXEインストーラーを起動してインストールする。",
+          "LinuxではDebian/Ubuntu向けに`hermesoffice0.5.149amd64.deb`、その他のディストリビューションには`HermesOffice-0.5.149.AppImage`を選ぶ。AppImageは先にFUSE 2を用意し、実行可能にして起動する。記事本文のコードブロックが欠落しているため、具体的なLinuxコマンドはこの情報だけでは確定できない。",
+          "起動後、Gensparkアカウントでサインインし、Docs・Sheets・Slides・PDFのいずれかでファイルを開く。AIパネルから、Docsでは文書ブロックの編集、他のアプリではファイル状態に対するエージェント操作を実行する。"
+        ],
+        "fitFor": [
+          "macOSまたはWindowsで、.docx・.xlsx・.pptx・.pdfを1つのElectronスイートで扱いたい場合",
+          "文書編集、表計算、スライド、PDF操作にAI編集や状態を理解したツール呼び出しを組み込みたい場合",
+          "既存のOfficeファイルを大きく変換せず、編集箇所だけを狭く更新したい場合"
+        ],
+        "notFor": [
+          "Intel Mac向けのmacOSビルドが必要な環境",
+          "Gensparkアカウントを使わず、任意のモデルAPIキーを直接設定したい環境",
+          "Officeファイルの全体再生成を前提にした変換処理を開発したい場合"
+        ],
+        "caveats": [
+          "macOSはApple SiliconかつmacOS 11以降、Windowsはx64かつWindows 10以降が必要。",
+          "Linuxはx8664、glibc 2.34以降が必要で、AppImageはFUSE 2も必要。Ubuntu 24.04ではパッケージ名がlibfuse2t64。",
+          "AI機能の利用にはGensparkアカウントが必要。モデル呼び出しはGenspark側を経由し、モデルAPIキーはローカルに保存されない。",
+          "シートの開発ビルドにはRust toolchainとPATH上のcargoが必要。",
+          "公開ビルドのバージョンがプラットフォームごとに異なる（macOS 0.5.83、Windows 0.5.79、Linux 0.5.149）。",
+          "本体はApache License 2.0だが、ee/ディレクトリは将来のエンタープライズモジュール用で、HermesOffice Enterprise Licenseが適用される。名称・ロゴは商標のため、フォーク時は独自ブランドが必要。"
+        ]
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "AI is removing the middle class of software engineering?",
+      "url": "https://blog.florianherrengt.com/ai-removing-middle-class-software-engineering.html",
+      "publishedAt": "2026-08-12T13:20:05.000Z",
+      "author": "florianherrengt",
+      "authorDetail": {
+        "name": "florianherrengt",
+        "handle": "florianherrengt",
+        "url": "https://news.ycombinator.com/user?id=florianherrengt"
+      },
+      "tags": [],
+      "snippet": "It's 2020. You're the most senior person on your team, in charge of code quality and architecture. You've set up good engineering practices, you thoroughly review PRs from people who are less experienced than you and work hard to maintain a healthy codebase. Then at some point, you go on holiday. When you come back, the codebase is a mess. Everyone merged each other's PRs without really paying muc…",
+      "metrics": {
+        "points": 646,
+        "comments": 549
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "75e387dc4b74a8a4",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.21228070175438596,
+      "popularityPercentile": 0.9649122807017544,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 92,
+      "oneLiner": "AIがソフトウェア開発の中間層を縮小する可能性が議論された。",
+      "reason": "AIエージェントがコードを書く範囲を広げると、定型実装を担ってきた中間層の仕事が減る可能性を、549件のコメントを伴って議論している。",
+      "keywords": [
+        "AIエージェント",
+        "ソフトウェアエンジニアリング",
+        "開発者の生産性",
+        "Hacker News"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIで中間層の仕事を減らすか、人間の判断を残すか",
+        "forSide": "AIエージェントが実装を担えば、中間層の定型的な作業は縮小しうる。",
+        "againstSide": "実装量が減っても、設計・検証・運用の仕事は残り、職種全体の消滅とは限らない。",
+        "oneSided": true,
+        "yourAngle": "AIコーディング導入前後で、実装時間とレビュー・障害対応の比率を比較できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "It's 2020. You're the most senior person on your team, in charge of code\n        quality and architecture. You've set up good engineering practices, you\n        thoroughly review PRs from people who are less experienced than you and\n        work hard to maintain a healthy codebase.\n      \n      \n        Then at some point, you go on holiday. When you come back, the codebase\n        is a mess. Everyone merged each other's PRs without really paying much\n        attention, someone added a bunch of new tables to the database to\n        denormalise it because it was easier and they added serverless or Kafka\n        to the stack without any solid evidence that they needed either.\n      \n      It's okay. You can fix this.\n      \n        Fast forward to 2026. You haven't been on holiday. It's just a normal\n        Monday morning. You make yourself a nice coffee, open your computer and\n        find yourself with 7 PRs to review. You open the first one:\n        +24506\n          -3938\n        lines, accompanied by some AI-generated description of what they're\n        supposed to do. Somehow, your team has made more changes since Friday\n        than they used to make while you were away for a few weeks.\n      \n\n      AI removed the speed limit\n      AI makes projects with weak engineering culture fail much faster.\n      \n        There used to be a time when people sat down and talked about how they'd\n        do something. Now they can just prompt an agent for a few hours and open\n        a PR.\n      \n      \n        The most tragic aspect of this way of working is that, to the untrained\n        eye, it works.\n      \n      \n        If you pull the branch and test it, you'll probably get something\n        somewhat functional. So what do they do? They keep going. Again and\n        again. Until the project reaches a point where no one knows how anything\n        works.\n      \n      \n        Just like someone buying a new luxury car on a credit card. You don't\n        see the debt. You just see the car that looks great.\n      \n      \n        But then users start to report a weird bug. It's the 4th time your team\n        has been trying to fix it. I mean... asking AI to fix it. Unfortunately,\n        it seems like not even Fable can figure it out.\n      \n      You go talk to the person who worked on this feature.\n      \n        \"So where does the data come from?\"\n        \"Hmm... actually I don't know. Let me ask Claude.\"\n      \n      \n        You sit next to each other watching an endless wall of text appear on\n        the screen. Neither of you has any idea whether any of it is true but\n        Claude seems very confident.\n      \n      \n        \"Let's just turn on ultracode and ask it to\n        double-check?\"\n      \n      \n        This one will take a while. You start talking about the latest drama on\n        X.\n      \n      You finally get an answer back.\n      \n        \"Does this make any sense to you?\"\n        \"I'm not sure.\"\n        \"Didn't you build this like... last week?\"\n      \n      Silence.\n      \n        This project has become so convoluted, with so many layers and services,\n        that no one on your team could possibly start to understand what's going\n        on.\n      \n      So, what do you do?\n      \n        Fixing it would require such a colossal amount of work that it would be\n        impossible to even start justifying it to anyone in management.\n      \n      \n        And what are you even thinking about? It would end up in the exact same\n        state again in just a few months anyway.\n      \n      \n        \"Let's just ask Claude to fix it.\"\n        \n          \"Okay. I'll create a loop and goal so it doesn't stop until it's\n          checked that everything works.\"\n        \n        \"Sounds good\"\n        \n          \"Actually, I ran out of Fable usage for today so I'll run it tomorrow\"\n        \n      \n      \n        You grab another coffee and walk back to your computer. You now have 13\n        PRs left to review. You see something you don't quite understand, so you\n        message the person who wrote it.\n      \n      \n        \"Why are we doing this here?\"\n      \n      They send you a link. It's a Claude conversation.\n      \n        Somewhere in that conversation, buried between Claude confidently\n        recommending one architecture, apologising, changing its mind, your\n        coworker asking it to reconsider again and another 15 rounds of changes,\n        is apparently the design decision behind this code.\n      \n      \n        \"Which part should I read?\"\n        \"Probably all of it.\"\n      \n      Does this sound familiar?\n      \n        Whenever I talk about this, someone eventually tells me that nobody ever\n        fully understood large systems anyway. It's true.\n      \n      \n        You were never expected to understand every service and every database.\n        But at least someone did and would explain it to you.\n      \n      Now they ask an LLM because they don't actually know themselves.\n\n      \n\n      You can't afford bad engineers anymore\n      \n        In every team, there are competent people who make the project possible.\n        There are also people who essentially make it harder for everyone else.\n        And now anyone can produce more code in a day than they used to in a\n        year.\n      \n      In the story above, everyone is failing:\n      \n        \n          The engineer opening a 25,000-line PR should have stopped the agent\n          long before it got there. They should have understood what it was\n          doing, broken the work into smaller pieces and questioned every new\n          abstraction it introduced.\n        \n        \n          The person reviewing it should have refused to review something that\n          large instead of giving in.\n        \n        \n          The person adding Kafka should have been able to explain exactly why\n          it was needed.\n        \n        \n          The person who built the feature should have been able to explain\n          where the data came from without sending a link to a Claude\n          conversation.\n        \n      \n      \n        But what's the problem then? Just use AI to fix it. Well, it's not that\n        easy...\n      \n      \n        Before anyone jumps on this, none of this means technical debt is always\n        bad. The important part is that you know it's a shortcut.\n      \n      Anyway, reverting a bad decision is hard. Very hard.\n      \n        For example, how long would it take an LLM to add a bunch of tables and\n        columns to the database? 10 minutes?\n      \n      \n        But once you start storing data there, you can't just remove them. You\n        have to come up with a migration plan, make sure you don't disrupt the\n        system because people are paying to use this every day. You have to\n        think about what you'll do if the migration fails. Make sure you don't\n        end up with orphaned foreign keys. It's just so much harder to fix. Even\n        with the best model you can get.\n      \n      \n        And while you're fixing it, more PRs keep coming in. More code, more\n        abstractions, more decisions. A person can generate 20,000 lines of code\n        in an afternoon, but you still have to sit there and understand what\n        those lines actually do.\n      \n      \n        By the time you've untangled one bad decision, five more have been\n        merged.\n      \n\n      The new AI economy\n      Of course, bad engineers were always a liability.\n      \n        It has been like this for decades, well before OpenAI or Anthropic\n        existed. Bad decisions compounded, unnecessary complexity accumulated\n        and teams ended up maintaining systems nobody really understood.\n      \n      \n        The difference is that there used to be a limit to how fast you could do\n        it.\n      \n      \n        Today, implementation is cheap. You are paid to make good decisions. To\n        build software that will scale while managing complexity.\n      \n      \n        Ask yourself why companies are paying six-figure salaries for engineers\n        in London or San Francisco in the first place.\n      \n      \n        If all they needed was someone who could turn a specification into\n        working code, why were they paying that much when they could already get\n        it done cheaply elsewhere?\n      \n      \n        Why are the tech companies claiming that \"software is solved\" still\n        paying top salaries to attract the best people they can?\n      \n      \n        My bet is that AI pushes salaries further apart. To be employable,\n        there's a bar you have to clear and that bar is whatever the current\n        best model du jour can do.\n      \n      \n        Good engineers have become more valuable because AI lets them move much\n        faster. They don't need as many people around them just to do the\n        implementation work anymore.\n      \n      \n        At the same time, bad engineers have become much more expensive to hire.\n      \n      \n        I wrote about this before when I said the\n        vibe coder career path is doomed.\n      \n      \n        You need to contribute beyond what everyone already gets by giving an\n        agent a prompt.\n      \n      \n        If you lack the judgment required to evaluate the LLM's recommendation,\n        asking for more judgment doesn't solve the problem.\n      \n      \n        At some point, someone still has to know what is going on. And that's\n        the most valuable person on the team.\n      \n      \n        The people who don't will become much cheaper to hire or get replaced\n        entirely while the money gets funnelled towards an increasingly smaller\n        number of people who can actually be trusted.\n      \n      \n        I don't think this is going to be limited to software engineering\n        either. I believe the same thing is going to happen across most\n        knowledge work. AI will make the best people much more productive and\n        the bad ones almost impossible to hire. Before, there was a good chance\n        someone would catch their bad decisions before they went too far. Now\n        they can make changes faster than anyone around them can realistically\n        review or understand them.",
+      "rank": 1,
+      "deep": {
+        "headline": "AIは実装者より判断者を高くする",
+        "summary": "AIは実装の速度制限を外し、弱い engineering culture のチームでは複雑性と判断ミスの蓄積も速める。記事の具体例は、+24506/-3938行のPR、根拠のないKafka導入、Claude conversationに埋もれた設計判断、午後に生成される20,000行のコードだ。AIがコードを作れても、データの出所やmigration planを説明し、変更を小さく分けて評価する人間の判断は残る。著者は、その判断を担える人の価値が上がり、そうでない人の採用コストが上がると見ている。",
+        "prerequisites": [
+          {
+            "term": "25,000-line PR",
+            "stumblingPoint": "記事は「+24506 -3938 lines」と書くが、PRの変更量として何を示すかで詰まる。",
+            "explanation": "PRの変更量を示す表記で、+24506は追加行、-3938は削除行を指す。記事では、この規模の変更にAI生成の説明文が添えられ、レビュー対象の量そのものが人間の理解可能な単位を超えつつある状況を表している。"
+          },
+          {
+            "term": "Kafka",
+            "stumblingPoint": "記事は「serverless or Kafka」を根拠なく追加した例にするが、なぜ判断の問題なのかが省略されている。",
+            "explanation": "Kafkaはメッセージを保持・配信する分散ストリーミング基盤として使われる名前だが、この記事では製品の説明より「必要性を説明できないまま導入されたサービス」の例として登場する。新しい基盤を増やすと、運用、障害経路、データ整合性を理解すべき範囲も増えるため、単なる実装詳細ではなく設計判断の証拠として読める。"
+          },
+          {
+            "term": "technical debt",
+            "stumblingPoint": "記事は「technical debt is always badではない」と書くが、許容できる負債と危険な負債の境目が読みにくい。",
+            "explanation": "technical debtは、短期の実装容易性と引き換えに、将来の変更・運用コストを抱える設計上の借りとして扱われている。記事のポイントは負債をゼロにすることではなく、それが近道だとチームが認識し、後で返す計画や判断理由を説明できることにある。AIが追加速度だけを上げると、負債の存在を認識する前に利用実績や依存関係が積み上がる。"
+          },
+          {
+            "term": "LLM",
+            "stumblingPoint": "記事はClaudeに「where does the data come from?」と聞くが、LLMの回答を検証する前提が必要になる。",
+            "explanation": "LLMはコードや設計案を生成するモデルで、記事ではClaudeがデータの出所や不具合修正を説明する役として使われる。しかし、生成された説明が正しいかを利用者自身が判断できなければ、質問を重ねても判断の代替にはならない。この記事の「LLMに聞けば直る」という流れは、知識の移転ではなく、責任ある設計理由の所在が曖昧になる問題を示している。"
+          },
+          {
+            "term": "Fable",
+            "stumblingPoint": "記事は「Fable usage」と「ultracode」を固有名詞のまま使い、役割と制約を説明しない。",
+            "explanation": "Fableとultracodeは記事中のAIコーディング環境・機能名として登場する。Fable usageには日次の利用上限があり、ultracodeで再確認を依頼しても、返答が得られるまで待つ描写になっている。ここではモデル性能だけでなく、利用制限や待ち時間が、修正ループを止める実務上の制約になっている。"
+          },
+          {
+            "term": "six-figure salaries",
+            "stumblingPoint": "記事は「six-figure salaries」を判断力の対価として使うが、実装以外の価値が何かを読み解く必要がある。",
+            "explanation": "six-figure salariesは、ロンドンやサンフランシスコで年6桁の給与を受けるエンジニアを指す表現として使われている。記事は、仕様を動くコードに変換するだけなら安価に外部化できるのに、企業が高給を払う理由を、複雑性を管理し良い判断をする能力に求めている。したがって給与の議論は、単純な実装作業と設計・評価・説明責任の分離に接続している。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "実装速度と判断負荷",
+          "beforeLabel": "AI普及前",
+          "afterLabel": "AI利用後",
+          "rows": [
+            {
+              "aspect": "実装速度",
+              "before": "人間の実装速度が変更量の上限",
+              "after": "短時間で大量のコード・PRを生成"
+            },
+            {
+              "aspect": "判断負荷",
+              "before": "実装とレビューの速度差が比較的小さい",
+              "after": "生成量に対して理解・レビューが追いつかない"
+            },
+            {
+              "aspect": "知識の所在",
+              "before": "誰かが設計を理解し説明できる",
+              "after": "AI conversationに設計理由が埋もれる"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "AIによって、実装の供給量が人間のレビュー能力を超え、25,000-line PRや20,000行規模の生成が現実的になったことが争点を変えた。これまでの問題だった設計ミスやtechnical debtが、より速く積み上がり、誰かが追いついて説明する前に次の変更が到着する。記事は、AIを使えるかではなく、AIの出力を評価してシステム全体の判断を引き受けられるかを、雇用価値の分かれ目として提示している。",
+        "relatedLinks": [
+          {
+            "label": "記事本文",
+            "url": "https://blog.florianherrengt.com/ai-removing-middle-class-software-engineering.html"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "talk",
+        "evidence": [
+          "「Somehow, your team has made more changes since Friday than they used to make while you were away for a few weeks.」AIによって、チームの変更速度が従来の数週間分を週末後だけで上回っている。",
+          "「A person can generate 20,000 lines of code in an afternoon, but you still have to sit there and understand what those lines actually do.」生成量は午後だけで20,000行に達し得る一方、理解に必要な人間の時間は同じ速度では増えない。",
+          "「The person reviewing it should have refused to review something that large instead of giving in.」25,000行規模のPRを作った側だけでなく、レビューを受け入れた側も失敗していると記事は述べる。",
+          "データベースの変更は「10 minutes?」で追加できても、実データの保存後はmigration plan、移行失敗時の対応、orphaned foreign keysの回避、日々利用する顧客への影響まで考える必要がある。"
+        ],
+        "counterEvidence": [
+          "「nobody ever fully understood large systems anyway.」大規模システムの全体を誰も完全には理解していなかった、という反論が成り立つ。以前は、少なくとも誰かが理解していて説明できた。",
+          "「none of this means technical debt is always bad. The important part is that you know it's a shortcut.」技術的負債そのものが問題なのではなく、意図した近道として把握できているかが問題だという立場。",
+          "「bad engineers were always a liability.」AI以前から悪い判断は複利的に悪化し、不要な複雑性を蓄積させていた。AIは問題の原因というより、その進行速度を変えただけとも読める。"
+        ],
+        "whenItHolds": [
+          "AIがPRの生成速度だけを上げ、変更分割、設計理由の記録、レビュー担当者の理解を同時に強化していないチームでは、記事の懸念が成立しやすい。",
+          "データベースや稼働中サービスのように、追加後の撤去・移行コストが高い領域では、実装の速さよりも事前の判断と説明能力を重視する主張が強く成り立つ。",
+          "小さく可逆的な変更で、technical debtを意図した近道として記録し、後で返す条件まで合意できる場合は、AIによる実装速度の優位性が崩れにくい。"
+        ],
+        "angles": [
+          "25,000-line PRというレビュー単位",
+          "実装速度と判断負荷の非対称性",
+          "technical debtを自覚したショートカットとして扱う条件",
+          "AI時代のエンジニア評価と報酬分布"
+        ],
+        "verify": [
+          "自分のリポジトリで直近のPRについて `git diff --stat <base>...<head>` を実行し、変更行数とレビュー時間をPRごとに記録する。大きなPRほどレビューが遅れたり、分割後に指摘内容が変わったりするかを確認する。",
+          "AI生成PRで導入された新しいテーブル、カラム、サービスについて、PR本文や設計記録から「なぜ必要か」「代替案は何か」「撤去条件は何か」を書けるか確認する。書けない変更を抽出し、後続PRの修正・再レビュー件数と照合する。",
+          "不具合修正の対象について、担当者にAIの会話リンクではなく、データの出所、変換箇所、依存サービス、失敗時の挙動をコード上のファイル・関数・スキーマで示してもらう。説明に必要な箇所が特定できるかで、AI出力への依存とシステム理解を切り分ける。",
+          "データベース変更を1件選び、追加に要した時間と、migration plan、ロールバック、orphaned foreign keys、稼働中ユーザーへの影響を含む撤去・変更計画に要する時間を別々に測る。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "決算書のRAGで埋め込みをやめたら精度が15.7%から58.8%へ",
+      "url": "https://qiita.com/okssusucha/items/dba4d90a7e2bd5ccced0",
+      "publishedAt": "2026-08-12T00:07:23.000Z",
+      "author": "okssusucha",
+      "authorDetail": {
+        "name": "okssusucha",
+        "handle": "@okssusucha",
+        "url": "https://qiita.com/okssusucha",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4445918/profile-images/1781670797",
+        "followers": 4,
+        "posts": 122,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/okssusucha"
+          }
+        ]
+      },
+      "tags": [
+        "rag",
+        "LLM",
+        "AI",
+        "MCP",
+        "検索"
+      ],
+      "snippet": "780ページある州政府の決算書のなかに「1,234」という数字が現れたとして、それが10万単位（lakh）なのか1000万単位（crore）なのかは、そのままでは判別できない。単位はたいてい表のヘッダー側に書かれていて、数値からの距離は中央値で13行、90パーセンタイルだと26行も離れている。文書を数百文字ごとに切ってベクトル埋め込みするふつうのRAGでは、数値と単位ヘッダーが同じチャンクに収まらない。結果として、桁が2つズレた答えを、それらしい自信とともに返す。 この「埋め込み検索は構造化文書で構造的に壊れる」という主張を、実データで測った論文が8月6日にarXivへ出ている。Sagar Tamangらの Beyond Top-K: Replacing Black-Box Retrieval with Interpretable Agentic Operations(arXiv:2608…",
+      "body": "780ページある州政府の決算書のなかに「1,234」という数字が現れたとして、それが10万単位（lakh）なのか1000万単位（crore）なのかは、そのままでは判別できない。単位はたいてい表のヘッダー側に書かれていて、数値からの距離は中央値で13行、90パーセンタイルだと26行も離れている。文書を数百文字ごとに切ってベクトル埋め込みするふつうのRAGでは、数値と単位ヘッダーが同じチャンクに収まらない。結果として、桁が2つズレた答えを、それらしい自信とともに返す。\n\nこの「埋め込み検索は構造化文書で構造的に壊れる」という主張を、実データで測った論文が8月6日にarXivへ出ている。Sagar Tamangらの Beyond Top-K: Replacing Black-Box Retrieval with Interpretable Agentic Operations(arXiv:2608.06305)だ。結論を先に言うと、埋め込みをまるごと捨てた素朴な手法のほうが、精度で大きく上回った。\n\nhttps://arxiv.org/abs/2608.06305\n\nなぜ埋め込みは決算書で溺れるのか\n\n一般的なRAG(Retrieval-Augmented Generation、検索で拾った文脈をLLMに渡す仕組み)は、文書をチャンクに割り、各チャンクをベクトルに変換し、質問ベクトルに近い上位k件を返す。意味の近さで引くこの方式は、言い換えや同義語には強い。だが今回の対象文書(Gujarat Finance Accounts 2024–25、780ページ、19,198行)は、非空行の86.8%が表の行だった。\n\n問題は数字そのものにある。文書中の58,791個の数値トークンは、実際には15,960種類の値へ収束する。同じような数字が埋め込み空間にひしめき、質問と「意味的に近い」チャンクが大量に競合してしまう。企業名・勘定科目・桁揃えされた数値といった、決算書でいちばん効く手がかりは、埋め込みがもっとも均してしまう情報だ。表計算のシートをコピー機で薄く印刷して、罫線も桁も滲んで読めなくなる状態に近い。それが埋め込みが数値に対してやっていることだ。\n\nREAD:grepと行番号読みだけのエージェント\n\n提案手法 READ(Reliable Embedding-free Agentic Document-search)は、埋め込みを一切使わない。代わりに、決定的な3種類の操作をエージェントに渡す。正規化した字句検索、見出し構造の把握、行番号で範囲を指定した読み出しだ。これらは Model Context Protocol(MCP、ツールをLLMへ標準化された形で公開する仕組み)のサーバとして、次の道具立てで実装されている。\n\n [code] \n\nエージェントはまずgrepで数値やラベルの在処を探し、outlineで自分が文書のどこにいるかを掴み、証拠の位置を見てから読む範囲を決める。ポイントは、単位ヘッダーを取り込むために範囲を上方向へ広げられることだ。しかも全操作が「文書と引数の純粋関数」なので、同じ手順を再実行すれば同じ結果が出る。類似度スコアという不透明な数字ではなく、再生可能な監査ログが残る。ここは実務でかなり効く。なぜその行を引いたのかを、後から人間が追える。\n\n素朴なほうが勝ち、しかも本命はBM25\n\n評価は、文書から人手で作った51問(単純参照・算術・集計・ナビゲーション・回答不能など6カテゴリ)で行われた。バックエンドのLLMはGemini-2.5-pro。主な結果はこうなった。\n\n| 手法 | 正答率 | 補足 |\n|---|---|---|\n| READ(4操作) | 58.8% | 埋め込みなし |\n| READ(naive-grep版) | 66.7% | 正規化なしの素のgrep |\n| BM25 | 51.0% | 疎な字句検索 |\n| Dense(最良調整) | 35.3% | 2000字・k=16 |\n| Hybrid(RRF+リランカー) | 29.4% | dense+BM25融合 |\n| Agentic RAG | 27.5% | ベクトル検索ツール付き |\n| Dense(既定) | 15.7% | 2000字・k=8 |\n\nREADはk=8のdense検索に対して統計的に明確な差(McNemar検定、Holm補正後 p=2×10⁻⁵)をつけた。だが本当に興味深いのはBM25との比較だ。READ 58.8%に対しBM25 51.0%、その差は有意ではない(p=1.00)。正規化を外した素のgrep版はむしろ66.7%まで上がる。つまりこの結果は「エージェントが賢いから勝った」のではなく、「埋め込みをやめたから勝った」と読むのが正しい。著者自身がそう明言している。ベクトルDBを立てて、融合して、リランカーまで足したHybridが、素のBM25に負けているのが象徴的だ。\n\nこの方向性は独立した研究とも符合する。Akarsuらの From BM25 to Corrective RAG(arXiv:2604.01733)は、7,318件の財務文書・23,088クエリという桁違いの規模で10種の検索手法を比較し、「BM25が最新のdense検索を財務文書で上回る」と報告した。ただし両者で食い違う点もある。Akarsuらの総合勝者はHybrid+ニューラルリランカー(Recall@5=0.816)だったのに対し、READの単一文書ではHybridがBM25に負けた。ここから引き出せるのは、「dense単独が数値・表データの弱点」という部分は再現性が高く、その先(素の字句検索で十分か、Hybrid+良質なリランカーが要るか)は文書とパイプライン次第、という現実的な結論だ。\n\nどこまで真に受けるか、そして何を試すか\n\n冷静に見ると、READの実験には弱点が多い。文書1本・LLM1種・51問という小ささで、しかもベンチマークを作ったのが評価対象システムの著者本人だ。回答の根拠一致率(groundedness)はREAD 58.0%と、BM25の67.3%より低い。多く読むぶん、拾った本文にない数字を口走る隙が増えるからだ。コストとレイテンシもREADが不利(1問あたり$0.058対BM25の$0.020、31.4秒対dense12.7秒)。だからこれは「決着」ではなく強い信号だ。\n\nそれでも、現場のエンジニアが持ち帰れる指針ははっきりしている。埋め込みは意味の近さを引く道具であって、正確な数値や識別子の照合には向いていない。表と数字が主体のコーパスに、反射的にベクトルDBを立てる前に、まずgrepと行範囲読みを試す価値がある。監査ログが残り、単価も安く、実装も軽い。「とりあえず全部embedして top-k」という既定路線を、少なくとも構造化文書では一度疑ってみる。今回いちばん学びになったのは、精度を上げたのが高度なモデルではなく、余計な抽象化を一枚はがしたことだった、という点だ。\n\n※本記事は一次情報の調査をAIが行い、事実確認のうえ執筆・公開しています。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "dbed83a651d60223",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5906997455470738,
+      "popularityPercentile": 0.7531806615776081,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 91,
+      "oneLiner": "決算書RAGで埋め込み検索をやめると精度が15.7%から58.8%に上がった。",
+      "reason": "表の数値と離れた位置にある単位を通常のチャンク分割が拾えず、埋め込みを使わない検索の精度が15.7%から58.8%に上がった。",
+      "keywords": [
+        "RAG",
+        "Beyond Top-K",
+        "arXiv:2608.06305",
+        "埋め込み検索",
+        "Agentic Operations"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "埋め込み検索を使い続けるか、解釈可能な操作に置き換えるか",
+        "forSide": "780ページの決算書では、埋め込みを使わない手法の精度が15.7%から58.8%に上がった。",
+        "againstSide": "構造情報を保つ分割や検索設計を改善すれば、埋め込み検索を捨てずに済む場合もある。",
+        "oneSided": true,
+        "yourAngle": "RAGの質問別正答率と、チャンク分割・検索方式ごとの誤答内容を実測できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "headline": "財務文書では埋め込みより字句検索が勝つ場合がある",
+        "summary": "780ページの州政府決算書では、数値と単位ヘッダーが中央値13行離れており、チャンク単位のベクトル埋め込みでは対応関係を取り逃がしやすい。正規化字句検索・見出し確認・行範囲読み出しを組み合わせるREADは、Dense(既定)の15.7%に対して58.8%の正答率を示し、READ(naive-grep版)は66.7%に達した。一方、groundednessはREADが58.0%、BM25が67.3%で、READのコストとレイテンシも高い。MCPで解釈可能な検索操作をエージェントに渡す設計は、財務・表データでベクトルDBを使う前に比較すべき選択肢として提示されている。",
+        "prerequisites": [
+          {
+            "term": "RAG",
+            "stumblingPoint": "記事は「一般的なRAGは文書をチャンクに割り、各チャンクをベクトルに変換」と書くが、検索結果が回答にどう影響するか読み取りにくい。",
+            "explanation": "RAGは、検索した文書断片をLLMの入力に追加して回答させる構成を指す。この記事では、検索結果の品質が回答精度を直接左右するため、LLMそのものよりも検索方式の比較が主題になっている。"
+          },
+          {
+            "term": "ベクトル埋め込み",
+            "stumblingPoint": "記事は「埋め込み空間に同じような数字がひしめく」と書くが、数値の意味ではなく近さで検索することの問題が分かりにくい。",
+            "explanation": "ベクトル埋め込みは、文章やチャンクを意味の近さを計算できる数値表現に変換するもの。言い換えには強い一方、表の列・行・単位のような離れた構造情報を1つの近さの値に圧縮するため、この記事では数値と単位の対応が失われる原因として扱われている。"
+          },
+          {
+            "term": "READ",
+            "stumblingPoint": "記事は「READ(Reliable Embedding-free Agentic Document-search)」と略称を出すが、単なるgrepとエージェント操作の違いが読み取りにくい。",
+            "explanation": "READは、検索モデルの名前というより、正規化した字句検索・見出し構造の確認・行番号による範囲読み出しをエージェントに組み合わせた手法。検索結果を上位k件で固定せず、見つかった行から単位ヘッダーを含む範囲へ読解対象を広げられる点が比較対象の中心になる。"
+          },
+          {
+            "term": "BM25",
+            "stumblingPoint": "記事は「BM25 51.0%」と結果を示すが、BM25がdense検索と何を違う基準で選んでいるか知らないと比較の意味を掴みにくい。",
+            "explanation": "BM25は、検索語の出現頻度と文書内での希少性などを使って、語の一致度を順位付けする疎な字句検索。意味を似せるのではなく、企業名・勘定科目・数値などの文字列を直接照合するため、財務文書ではdense検索より適する可能性がある。"
+          },
+          {
+            "term": "Hybrid",
+            "stumblingPoint": "記事は「Hybrid(RRF+リランカー)」と書くが、複数検索を組み合わせることが単純な改善策ではない理由が省略されている。",
+            "explanation": "Hybridは、dense検索とBM25のような複数の検索結果を融合する方式。この記事では、リランカーまで加えたHybridが素のBM25を下回ったため、検索方式を足し合わせれば必ず精度が上がるわけではないという比較材料になっている。"
+          },
+          {
+            "term": "groundedness",
+            "stumblingPoint": "記事は「groundednessはREAD 58.0%、BM25 67.3%」と書くが、正答率58.8%との違いを知らないと弱点の意味を誤読する。",
+            "explanation": "groundednessは、回答が検索・提示された根拠にどれだけ一致しているかを測る指標。正答率とは別で、最終回答が偶然正しくても根拠から逸脱していれば低くなり得る。この記事ではREADが多く読むことで、本文にない数字を口走る余地が増えたと説明されている。"
+          },
+          {
+            "term": "McNemar検定",
+            "stumblingPoint": "記事は「McNemar検定、Holm補正後 p=2×10⁻⁵」と報告するが、平均正答率の差だけを検定した値ではないことが分かりにくい。",
+            "explanation": "McNemar検定は、同じ質問集合に対する2手法の正誤の組み合わせを比較する検定。別々の問題を解いた平均値ではなく、同じ51問でどちらが正解したかの差を検定しているため、READとdenseの差の統計的な裏付けとして使われている。"
+          },
+          {
+            "term": "MCP",
+            "stumblingPoint": "記事は「MCPのサーバとして実装」と書くが、MCPが検索アルゴリズムなのか、ツール接続の規約なのかが読み取りにくい。",
+            "explanation": "MCPは、LLMエージェントから外部ツールを共通形式で呼び出すためのプロトコル。この記事では、grep・outline・行範囲読み出しをMCPサーバとして公開し、LLMに検索手順を選ばせる構成を指す。MCP自体が検索精度を保証するのではなく、操作を明示的な道具として渡すための境界になっている。"
+          }
+        ],
+        "visual": {
+          "type": "metrics",
+          "title": "検索方式の精度とコスト",
+          "items": [
+            {
+              "label": "正答率",
+              "value": "READ: 58.8%",
+              "baseline": "Dense(既定): 15.7%",
+              "direction": "up-good",
+              "note": "2000字・k=8"
+            },
+            {
+              "label": "正答率",
+              "value": "READ(naive-grep): 66.7%",
+              "baseline": "BM25: 51.0%",
+              "direction": "up-good",
+              "note": "READとの差は有意ではない(p=1.00)"
+            },
+            {
+              "label": "1問あたりコスト",
+              "value": "READ: $0.058",
+              "baseline": "BM25: $0.020 / 1問",
+              "direction": "down-good",
+              "note": null
+            },
+            {
+              "label": "1問あたりレイテンシ",
+              "value": "READ: 31.4秒",
+              "baseline": "dense: 12.7秒 / 1問",
+              "direction": "down-good",
+              "note": null
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "「とりあえず全部embedして top-k」というRAGの既定路線が、財務・表データでは最適とは限らないことを、15.7%対58.8%という差で問い直している。特にMCPで検索操作を明示的な道具に分解できるため、既存のベクトルDBを置き換えなくても、まずgrepと行範囲読み出しを同じ質問集合で比較できる。",
+        "relatedLinks": [
+          {
+            "label": "Beyond Top-K: Replacing Black-Box Retrieval with Interpretable Agentic Operations",
+            "url": "https://arxiv.org/abs/2608.06305"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "talk",
+        "evidence": [
+          "対象文書は780ページ・19,198行で、非空行の86.8%が表の行だった。",
+          "数値と単位ヘッダーの距離は中央値で13行、90パーセンタイルで26行離れていた。",
+          "READは58.8%、READ(naive-grep版)は66.7%で、Dense(既定)の15.7%を上回った。",
+          "READはk=8のdense検索に対して、Holm補正後 p=2×10⁻⁵の統計的に明確な差を示した。"
+        ],
+        "counterEvidence": [
+          "「文書1本・LLM1種・51問という小ささで、しかもベンチマークを作ったのが評価対象システムの著者本人だ」",
+          "「回答の根拠一致率(groundedness)はREAD 58.0%と、BM25の67.3%より低い」",
+          "「コストとレイテンシもREADが不利(1問あたり$0.058対BM25の$0.020、31.4秒対dense12.7秒)」",
+          "「Akarsuらの総合勝者はHybrid+ニューラルリランカー(Recall@5=0.816)だった」"
+        ],
+        "whenItHolds": [
+          "表の行・数値・識別子が多く、単位や見出しが数行以上離れている文書では、意味の近さより文字列一致と行範囲読み出しが効きやすい。",
+          "質問が企業名・勘定科目・数値の正確な照合を求め、監査ログとして検索理由と読んだ範囲を残したい場合は、READやBM25の利点が出やすい。",
+          "言い換えや自然文の意味検索が中心、複数文書から広く候補を集める必要がある、またはレイテンシとLLMコストを抑えたい場合は、READの優位性が崩れ、Hybridやdense検索が有力になり得る。"
+        ],
+        "angles": [
+          "58.8%と66.7%の差の解釈",
+          "51問・1文書という評価規模",
+          "groundednessと正答率のトレードオフ",
+          "31.4秒と$0.058の実運用コスト",
+          "財務文書におけるBM25の再評価"
+        ],
+        "verify": [
+          "決算書をテキスト化したうえで、`grep -nE '1234|1,234|lakh|crore' finance.txt` を実行し、数値行と単位ヘッダーの行番号を確認する。",
+          "候補行の周辺を `sed -n '開始行,終了行p' finance.txt` で読み、数値だけを取得した場合と、単位ヘッダーまで含めた場合で回答が変わるか比較する。",
+          "同じ質問集合を用意し、`grep -n` による字句検索と、現在のdense検索の検索結果・正答率・根拠一致率を同じLLM、同じプロンプトで測定する。",
+          "評価時に質問ごとの正誤表、入力トークン数、API料金、処理時間を保存し、READ・BM25・dense・Hybridを同じ条件で比較する。"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "a0b08af57f6d790c",
+      "product": "Claude Code",
+      "what": "CLI型のAIコーディングエージェント",
+      "version": "v2.1.229",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "セルフホスト環境でもサーバー側hooksを使えるようになる",
+      "change": null,
+      "scope": [
+        "セルフホスト"
+      ],
+      "summary": "Claude Code v2.1.229で、self-hosted runnerへのserver-supplied hooks、plugin marketplaceのコマンドソース、Remote Control再開手順を追加。長時間思考時のSSE切断も防止。",
+      "title": "anthropics/claude-code v2.1.229",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.229",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-08-12T20:56:22.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "e16773e9249cd767",
+      "product": "Agent Plugins",
+      "what": "AIエージェント向けプラグイン標準",
+      "version": "1.0",
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "skillsとMCP serversを複数のエージェントで共有できるようになる",
+      "change": {
+        "before": "エージェントごとにプラグインを重複して公開",
+        "after": "複数のエージェント向けに1つのプラグインを配布"
+      },
+      "scope": [
+        "VS Code",
+        "Copilot CLI",
+        "Copilot app"
+      ],
+      "summary": "Agent Plugins 1.0を公開。agent skillsとMCP serversを1つのインストール可能なプラグインにまとめ、対応する複数のエージェントクライアントで共有できるオープン標準。",
+      "title": "Agent Plugins 1.0 in VS Code, Copilot CLI, and the Copilot app",
+      "url": "https://github.blog/changelog/2026-08-12-agent-plugins-1-0-in-vs-code-copilot-cli-and-the-copilot-app",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-12T18:39:11.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "b105e3f999076a5d",
+      "product": "GitHub Rule Insights",
+      "what": "GitHubリポジトリルールの可視化ダッシュボード",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "組織内全リポジトリのruleset傾向を確認できるようになる",
+      "change": {
+        "before": "リポジトリ単位でルール状況を個別に確認",
+        "after": "組織内全リポジトリのルール状況を一覧分析"
+      },
+      "scope": [],
+      "summary": "GitHubのRule Insightsダッシュボードが組織単位のpublic previewに移行。全リポジトリのruleset評価・適用状況を集約表示できる。",
+      "title": "Rule insights for organizations in public preview",
+      "url": "https://github.blog/changelog/2026-08-12-rule-insights-for-organizations-in-public-preview",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-12T18:30:28.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "d3e784e2c610fb6b",
+      "product": "rolldown",
+      "what": "Rollup互換のJavaScriptバンドラー",
+      "version": "v1.2.4",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "複雑なコード分割を正しく処理できるようになる",
+      "change": null,
+      "scope": [
+        "Android"
+      ],
+      "summary": "rolldown v1.2.4で、既にロード済みのマージに対するnamespace抽出を拡張。Android arm64のillegal instructionクラッシュなども修正。",
+      "title": "rolldown/rolldown v1.2.4",
+      "url": "https://github.com/rolldown/rolldown/releases/tag/v1.2.4",
+      "sourceLabel": "GitHub Releases / rolldown/rolldown",
+      "publishedAt": "2026-08-12T10:33:48.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "15143278cae69aae",
+      "product": "Grok 4.6",
+      "what": "xAIの大規模AIモデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "AI Gateway経由でGrok 4.6を利用できるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "Grok 4.6がVercel AI Gatewayで利用可能になった。",
+      "title": "Grok 4.6 now available on AI Gateway",
+      "url": "https://vercel.com/changelog/grok-4-6-now-available-on-ai-gateway",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-12T00:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "9372040b58fe4e20",
+      "product": "Vercel Connect",
+      "what": "Vercelの接続・統合サービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Vercel Connectで可観測性を扱えるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "Vercel Connectにobservabilityサポートが追加され、接続機能で可観測性を扱えるようになった。",
+      "title": "Vercel Connect adds observability support",
+      "url": "https://vercel.com/changelog/vercel-connect-adds-observability-support",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-11T22:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "d7416c8bf68a56ec",
+      "product": "Wrangler",
+      "what": "Cloudflare Workers向けデプロイCLI",
+      "version": "wrangler@4.122.0",
+      "kind": "minor",
+      "impact": "improves",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Wrangler 4.122.0で、compatibility dateからNode.js互換性を自動判定するよう変更。2026-08-04以降はnodejscompat系フラグの明示なしでも正しく扱える。",
+      "title": "cloudflare/workers-sdk wrangler@4.122.0",
+      "url": "https://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.122.0",
+      "sourceLabel": "GitHub Releases / cloudflare/workers-sdk",
+      "publishedAt": "2026-08-12T14:20:44.000Z",
+      "alsoReleased": [
+        {
+          "label": "@cloudflare/vitest-pool-workers@0.21.2",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vitest-pool-workers%400.21.2"
+        },
+        {
+          "label": "@cloudflare/vite-plugin@1.52.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vite-plugin%401.52.0"
+        },
+        {
+          "label": "@cloudflare/autoconfig@0.2.7",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/autoconfig%400.2.7"
+        },
+        {
+          "label": "create-cloudflare@2.71.1",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/create-cloudflare%402.71.1"
+        },
+        {
+          "label": "@cloudflare/workers-utils@0.33.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workers-utils%400.33.0"
+        },
+        {
+          "label": "@cloudflare/remote-bindings@0.0.11",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/remote-bindings%400.0.11"
+        },
+        {
+          "label": "@cloudflare/deploy-helpers@0.6.9",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/deploy-helpers%400.6.9"
+        },
+        {
+          "label": "@cloudflare/runtime-types@0.0.13",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/runtime-types%400.0.13"
+        },
+        {
+          "label": "@cloudflare/pages-shared@0.13.168",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/pages-shared%400.13.168"
+        },
+        {
+          "label": "@cloudflare/workers-auth@0.6.3",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workers-auth%400.6.3"
+        },
+        {
+          "label": "@cloudflare/cli-shared-helpers@0.1.23",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/cli-shared-helpers%400.1.23"
+        }
+      ]
+    },
+    {
+      "id": "a20a27f5055054d1",
+      "product": "DeepSeek V4 Pro",
+      "what": "DeepSeekの大規模AIモデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "improves",
+      "unlock": "AI Gatewayから更新済みweightsのDeepSeek V4 Proを利用できるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "Vercel AI Gatewayで、DeepSeek V4 Proが更新済みのweightsで実行されるようになった。",
+      "title": "DeepSeek V4 Pro now runs updated weights on AI Gateway",
+      "url": "https://vercel.com/changelog/deepseek-v4-pro-now-runs-updated-weights-on-ai-gateway",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-12T07:00:00.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "7a3607bbcbda3f22",
+      "product": "SWR",
+      "what": "React向けのデータ取得・キャッシュライブラリ",
+      "version": "v2.5.1",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "SWR v2.5.1で、fetcherなしフックのcacheData hydrate、Suspense cacheDataの再検証、完了済みsubscription状態の整理を修正。",
+      "title": "vercel/swr v2.5.1",
+      "url": "https://github.com/vercel/swr/releases/tag/v2.5.1",
+      "sourceLabel": "GitHub Releases / vercel/swr",
+      "publishedAt": "2026-08-12T14:39:02.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "2371c1e955d99188",
+      "product": "TanStack Router",
+      "what": "Reactなど向けの型安全なルーター",
+      "version": "@tanstack/react-router@1.170.26",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "TanStack Router関連パッケージを更新。fallback内のOutlet警告、viewport linkへのpreload delay適用、loaderキャッシュ処理などを修正。",
+      "title": "TanStack/router Release 2026-08-12 08:39",
+      "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-12-0839",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "publishedAt": "2026-08-12T08:39:03.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/vue-router@1.170.24",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-router%401.170.24"
+        },
+        {
+          "label": "@tanstack/solid-router@1.170.25",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-router%401.170.25"
+        },
+        {
+          "label": "@tanstack/react-router@1.170.26",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-router%401.170.26"
+        },
+        {
+          "label": "Release 2026-08-12 09:19",
+          "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-12-0919"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.43",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.43"
+        },
+        {
+          "label": "@tanstack/solid-start@1.168.42",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.168.42"
+        },
+        {
+          "label": "@tanstack/vue-start@1.168.41",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.168.41"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.42",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.42"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.44",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.44"
+        },
+        {
+          "label": "@tanstack/start-plugin-core@1.171.34",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-plugin-core%401.171.34"
+        },
+        {
+          "label": "@tanstack/solid-start-server@1.167.31",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start-server%401.167.31"
+        },
+        {
+          "label": "@tanstack/solid-start-client@1.168.24",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start-client%401.168.24"
+        }
+      ]
+    }
+  ],
+  "others": [
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "Claude がテキストに電子透かしを入れ始めたので、LLM ウォーターマーキングの仕組みを調べた",
+      "url": "https://zenn.dev/hellorusk/articles/3328866ca9e922",
+      "publishedAt": "2026-08-12T13:27:16.000Z",
+      "tags": [
+        "テクノロジー",
+        "AI",
+        "あとで読む"
+      ],
+      "snippet": "2026年8月、Anthropic が「Claude の生成テキストに機械可読なマーク（電子透かし）を埋め込む」と発表しました[1]。EU AI Act 第50条の透明性規範（Code of Practice on Transparency of AI-Generated Content）に署名したことに伴うもので、2026年8月2日以降にリリースされるモデルは、EU 圏内に限らず世界中でテキス...",
+      "metrics": {
+        "hatena": 93
+      },
+      "sourceWeight": 3,
+      "id": "aeeee726b42b9088",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.73,
+      "popularityPercentile": 1,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 68,
+      "oneLiner": "AnthropicがClaudeの生成テキストへ機械可読な電子透かしを埋め込む。",
+      "reason": "Anthropicは2026年8月2日以降のモデルで、EU AI Act第50条への対応として生成文に機械可読マークを付け、対象地域をEU外にも広げた。",
+      "keywords": [
+        "Claude",
+        "Anthropic",
+        "電子透かし",
+        "EU AI Act",
+        "第50条",
+        "生成テキスト"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "aware",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Hugging FaceのAI主導侵入が示す、AIネイティブなセキュリティ設計",
+      "url": "https://qiita.com/mhamadajp/items/bd80db720e4f917a8742",
+      "publishedAt": "2026-08-12T20:53:31.000Z",
+      "author": "Masa Ham",
+      "authorDetail": {
+        "name": "Masa Ham",
+        "handle": "@mhamadajp",
+        "url": "https://qiita.com/mhamadajp",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/84697/b202245c4759546bf67604609e6e889fa1ebc2b1/x_large.png?1768172122",
+        "followers": 21,
+        "posts": 429,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/mshkhamada"
+          }
+        ]
+      },
+      "tags": [
+        "AIセキュリティ",
+        "AIエージェント",
+        "huggingface",
+        "IAM",
+        "インシデント対応"
+      ],
+      "snippet": "「AIがAIを攻撃した」という見出しは目を引きます。しかし、IT技術者がこの事案から受け取るべきなのは、AIが未知の魔法のような侵入方法を生み出した、という話ではありません。 重要なのは、既知の攻撃工程を、エージェント型の自動化が高速かつ継続的に回せる段階に入ったことです。そして防御側も、人間の調査速度だけでは追いつけないログ量を、AIで検知・分析し始めています。 2026年7月に公開されたHugging Faceのインシデント報告は、その構造を具体的に示す貴重な事例です。なお、同社は影響範囲の評価を継続中としており、パートナーや顧客データへの影響の有無は確定していません。本稿も、同報告で確認できる事実と、そこから導ける設計上の教訓を分けて扱います。 何が起きたのか――侵入口は既知のコード実行経路だった 同社の報告によると、侵入はデータセット処理パイプラインから始まりました。悪意あるデータ…",
+      "body": "「AIがAIを攻撃した」という見出しは目を引きます。しかし、IT技術者がこの事案から受け取るべきなのは、AIが未知の魔法のような侵入方法を生み出した、という話ではありません。\n\n重要なのは、既知の攻撃工程を、エージェント型の自動化が高速かつ継続的に回せる段階に入ったことです。そして防御側も、人間の調査速度だけでは追いつけないログ量を、AIで検知・分析し始めています。\n\n2026年7月に公開されたHugging Faceのインシデント報告は、その構造を具体的に示す貴重な事例です。なお、同社は影響範囲の評価を継続中としており、パートナーや顧客データへの影響の有無は確定していません。本稿も、同報告で確認できる事実と、そこから導ける設計上の教訓を分けて扱います。\n\n何が起きたのか――侵入口は既知のコード実行経路だった\n\n同社の報告によると、侵入はデータセット処理パイプラインから始まりました。悪意あるデータセットが、リモートコードを実行するデータセットローダーと、データセット設定におけるテンプレートインジェクションという、二つのコード実行経路を悪用したものです。\n\n処理ワーカーでコードが実行された後、攻撃者はノードレベルのアクセスへ権限を上げ、クラウドとクラスタの認証情報を取得し、複数の内部クラスタへ横展開したと報告されています。\n\nここで冷静に押さえるべき点は、AIが新種の脆弱性を作ったわけではないことです。問題は、既知の入力・実行・認証・横展開の連鎖を、AIエージェント型の枠組みが大量に試行できることにあります。\n\n [code] \n\n報告では、攻撃キャンペーンは短命なサンドボックス群を使う自律型エージェントのフレームワークによって実行され、数千回規模の操作が行われたとされています。ただし、同社は使用されたLLM自体は未特定と明記しています。「特定のAIモデルが単独で全工程を実行した」とまで断定するのは正確ではありません。\n\n脅威の本体は、未知性ではなく試行回数と継続性である\n\n人間の攻撃者にも自動化ツールはありました。違いは、LLMを組み込んだエージェントが、状況を読んで次の操作を選び、失敗結果を踏まえて試行を変えるループを作りやすくなったことです。\n\n人間の作業は、調査、仮説、スクリプト修正、待機、引き継ぎによって途切れます。一方でエージェントは、許された範囲であれば、探索と試行を繰り返せます。防御側が月次棚卸しや営業時間内の一次対応を前提にしていると、攻撃側との速度差は大きくなります。\n\nしたがって、対策の優先順位は「AI特有の未知攻撃を予言すること」ではありません。まず、既知の実行経路、過剰な権限、長期間有効な認証情報、監視されていない横展開経路を、機械速度の試行に耐えるように減らすことです。\n\n「データは安全な入力」という前提を捨てる\n\n今回の入口はデータセットでした。もちろん、CSV、JSON、PDFを読み込んだだけで常にコードが実行されるわけではありません。危険になるのは、データを処理するローダー、テンプレート、変換処理、外部ツール呼び出しなどに、実行可能な経路が含まれている場合です。\n\nAIシステムでは、ユーザーのプロンプトだけでなく、RAGで取得する文書、メール、チケット、Webページ、データセットも、モデルやエージェントの判断材料になります。悪意ある指示が混ざれば、間接的なプロンプトインジェクションやツールの誤用につながる可能性があります。OWASPのLLM向けリスク整理でも、Prompt Injection、Data and Model Poisoning、Vector and Embedding Weaknesses、Excessive Agencyなどが挙げられています。\n\n設計上は、データを次の二つに分けて扱う必要があります。\n\n| 分けるもの | 設計原則 |\n|---|---|\n| 信頼できないデータ | 命令として解釈させず、検証・無害化・隔離の対象にする |\n| 実行を伴う処理 | ローダー、テンプレート、変換、ツール呼び出しを最小化し、実行環境を隔離する |\n\n「AIが読む情報」は、単なるコンテンツではありません。AIがどの権限で、どのツールに渡し、どんな処理を許すかまで含めた攻撃面です。\n\nAIエージェントを、高権限の自動実行主体として設計する\n\nAIエージェントは、非決定的な出力を出すモデルに、検索、コード実行、クラウド操作、メール送信、チケット更新といった実行能力を接続したものです。便利さと同時に、プロンプトインジェクションや誤判断が実システムの操作へ波及する可能性を持ちます。\n\nOWASPのExcessive Agencyの解説が指摘するように、問題の根本は過剰な機能、過剰な権限、過剰な自律性です。AIエージェントには、人間の管理者アカウントをそのまま渡すのではなく、用途ごとに権限と実行範囲を切り分けます。\n\n| 領域 | 避けるべき設計 | 取るべき設計 |\n|---|---|---|\n| IAM | 本番環境の管理者権限を常時付与する | 操作単位のロール、短寿命トークン、明示的な権限昇格 |\n| 実行環境 | 任意コマンドを本番ネットワークで実行する | 使い捨てサンドボックス、コンテナ、VM、出口通信制御 |\n| ツール | 読み取り用途に更新・削除APIも渡す | read / write / delete を別ツール・別認可に分ける |\n| シークレット | APIキーを環境変数やプロンプトに常駐させる | Secrets Manager、動的発行、スコープ制限、即時失効 |\n| 重要操作 | エージェントの判断だけで外部へ反映する | 承認、差分確認、対象制限、ロールバックを必須にする |\n\n特に重要なのは、ツールの許可とデータの参照権限を同じにしないことです。たとえば「社内文書を検索できる」エージェントに、「その検索結果を外部へ送信できる」権限まで与える必要は通常ありません。\n\n防御側もAIを使う。ただし、証拠と操作を混同しない\n\nこの事案では、最初の異常検知にもLLMベースのトリアージが使われました。さらにHugging Faceは、17,000件超の攻撃者操作ログをLLM駆動の分析エージェントで処理し、タイムラインの再構成、IoC抽出、触れられた認証情報の追跡、実害と囮活動の切り分けを行ったと説明しています。通常なら数日かかる作業を数時間で実施できたということです。\n\n一方で、商用APIのフロンティアモデルは、実際の攻撃コマンドやペイロード、C2の痕跡を含むログの解析を安全機能によって拒否しました。同社は最終的に、GLM 5.2というオープンウェイトモデルを自社インフラ上で使い、調査を完了しています。\n\nこの点は、単に「オープンウェイトモデルがよい」という結論ではありません。SOC・CSIRTは次の問いに答えられる必要があります。\n・実インシデントの攻撃ログを、契約上・法令上・運用上どのAI環境へ送れるか\n・外部AIが解析を拒否した場合、代替の分析環境と手順があるか\n・AIの要約結果に、元ログ・時刻・ホスト・イベントIDなどの検証可能な証拠を紐付けられるか\n・AIに分析までを任せ、隔離・失効・削除といった実行操作はどこで人間承認に切り替えるか\n\nAIは、ログの要約、時系列化、相関候補の発見、影響範囲の仮説作成に有効です。しかし、AIの結論そのものを証拠にしてはいけません。各結論を、元のイベント、認証ログ、ネットワーク記録、資産台帳へ戻って確認できるように設計する必要があります。\n\n今すぐ確認する実務チェックリスト\n\nこの事案を受け、まず棚卸しすべきなのはモデルの性能ではなく、AIシステムの接続面です。\n・データセット、添付ファイル、RAG文書を処理する経路に、不要なコード実行やテンプレート評価が残っていないか\n・AIエージェントのツールごとに、利用目的、対象範囲、read / write / delete、ネットワーク到達先を定義しているか\n・本番環境の認証情報をエージェントの実行環境へ恒久的に置いていないか\n・トークンは短寿命で、用途別・環境別に分離され、失効とローテーションを自動化できるか\n・エージェントの操作、ツール呼び出し、参照データ、認可結果を時刻付きで監査できるか\n・AIによる検知・分析結果から、元ログと資産情報へ戻れるか\n・異常時にエージェントを停止し、トークンを失効し、隔離し、復旧できる手順を演習しているか\n\n結論：守るべき対象は「モデル」ではなく、行動できるAIシステム全体である\n\nHugging Faceの事案は、AIが万能な攻撃者になったことを証明するニュースではありません。既知の侵入経路と過剰な権限が残っていれば、エージェント型の自動化によって探索・試行・横展開の速度と継続性が増幅される、という現実を示しています。\n\n同時に、防御側もAIによって膨大なログを調査し、対応時間を縮められることが示されました。これからのセキュリティ設計では、モデル単体を評価するだけでは足りません。データ、プロンプト、RAG、ツール、IAM、シークレット、実行環境、監査ログ、停止と復旧までを、一つのシステムとして統制する必要があります。\n\nAIネイティブなセキュリティとは、AIを特別扱いすることではありません。AIが24時間動き、判断し、ツールを使えることを前提に、権限を狭め、行動を隔離し、証拠を残し、止めて戻せるようにする設計です。\n\n---\n\n作成日: 2026年7月22日",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5d43b3309a0cf4da",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.37505089058524177,
+      "popularityPercentile": 0.030534351145038167,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 67,
+      "oneLiner": "Hugging Faceでは悪意あるデータセットから侵入と内部クラスタへの横展開が起きた。",
+      "reason": "2026年7月のHugging Face事案では、2つの既知のコード実行経路から認証情報を奪い、複数クラスタへ侵入した。影響範囲は調査中である。",
+      "keywords": [
+        "Hugging Face",
+        "AIセキュリティ",
+        "データセットローダー",
+        "テンプレートインジェクション",
+        "IAM",
+        "クラウド認証情報"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "Google Play上でサードパーティ製アプリストアの配布が始まる、Epic Gamesの独占禁止法訴訟における裁判所命令で解禁",
+      "url": "https://gigazine.net/news/20260812-google-play-first-third-party-app-store",
+      "publishedAt": "2026-08-12T06:04:57.000Z",
+      "tags": [
+        "テクノロジー",
+        "アプリ",
+        "ビジネス"
+      ],
+      "snippet": "Google公式のAndroid用アプリストア「Google Play」に、初めてサードパーティ製アプリストアが登場しました。記事作成時点でゲーム特化ストアの「Aptoide」のみが提供されています。 Aptoide Returns to Google Play After More Than a Decade, Opening a New Chapter for Competition on Android https://www.prnewswir...",
+      "metrics": {},
+      "sourceWeight": 3,
+      "id": "4ff54d3d6cd7a85a",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.08,
+      "popularityPercentile": 0.36363636363636365,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 61,
+      "oneLiner": "Google Playが裁判所命令を受け、Aptoideの配布を開始した。",
+      "reason": "Google Playで初めてサードパーティ製アプリストアが配布され、記事時点ではゲーム特化のAptoideだけが提供されている。背景にはEpic Games訴訟の命令がある。",
+      "keywords": [
+        "Google Play",
+        "Aptoide",
+        "Android",
+        "サードパーティ製アプリストア",
+        "Epic Games",
+        "独占禁止法"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "OpenAIのセキュリティ特化モデル「Daybreak」がAmazon Bedrockで利用可能に",
+      "url": "https://qiita.com/picnic/items/b4c7380be14ecb2103a3",
+      "publishedAt": "2026-08-12T12:22:32.000Z",
+      "author": "picnic",
+      "authorDetail": {
+        "name": "picnic",
+        "handle": "@picnic",
+        "url": "https://qiita.com/picnic",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKJ3kiIjdUf7zPvCPsjLhdpqsl9XSc0xblptYG809gyvXXYhvQ1=s96-c",
+        "followers": 3,
+        "posts": 140,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/PICNIC-A-DAY"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/h_picnic"
+          }
+        ]
+      },
+      "tags": [
+        "OpenAI",
+        "AWS",
+        "bedrock",
+        "AI",
+        "Security"
+      ],
+      "snippet": "はじめに 2026年8月11日、OpenAIはサイバーセキュリティに特化したモデル「Daybreak」を、Amazon Bedrock経由で提供開始したことを発表しました。これはOpenAIとAWSの提携によるもので、エンタープライズ企業がセキュリティワークフロー（脅威分析、セキュリティ運用支援など）にDaybreakの能力を組み込みやすくすることが目的です。 これまでOpenAIのモデルを利用するには基本的にOpenAI自身のAPIやMicrosoft Azure経由が主流でしたが、今回AWSエコシステムへも提供チャネルが拡大したことで、すでにBedrockを業務基盤として採用している企業にとっては大きな意味を持つ発表です。 📌 影響を受ける人 ・AWS / Amazon Bedrockをすでに利用しているセキュリティ・インフラ担当者 ・SOC（セキュリティオペレーションセンター）やS…",
+      "body": "はじめに\n\n2026年8月11日、OpenAIはサイバーセキュリティに特化したモデル「Daybreak」を、Amazon Bedrock経由で提供開始したことを発表しました。これはOpenAIとAWSの提携によるもので、エンタープライズ企業がセキュリティワークフロー（脅威分析、セキュリティ運用支援など）にDaybreakの能力を組み込みやすくすることが目的です。\n\nこれまでOpenAIのモデルを利用するには基本的にOpenAI自身のAPIやMicrosoft Azure経由が主流でしたが、今回AWSエコシステムへも提供チャネルが拡大したことで、すでにBedrockを業務基盤として採用している企業にとっては大きな意味を持つ発表です。\n📌 影響を受ける人\n・AWS / Amazon Bedrockをすでに利用しているセキュリティ・インフラ担当者\n・SOC（セキュリティオペレーションセンター）やSIEM運用でAIモデルの活用を検討している企業\n・マルチクラウド戦略の中でOpenAIモデルの利用チャネルを増やしたい開発者\n\n変更の全体像\n\n今回の発表による提供チャネルの拡大を図で整理すると、以下のようになります。\n\n [code] \n\nBedrockを既存のインフラとして使っている企業は、新たにOpenAI用のAPIキー管理や認証基盤を追加構築することなく、既存のBedrockの権限管理・課金体系の中でDaybreakを評価・導入できる点がポイントです。\n\n変更内容\n\n今回の発表内容を整理すると以下の通りです。\n\n| 項目 | 内容 |\n|---|---|\n| 発表日 | 2026年8月11日 |\n| 対象モデル | Daybreak（OpenAIのサイバーセキュリティ特化モデル） |\n| 新たな提供チャネル | Amazon Bedrock |\n| 主なユースケース | 脅威分析、セキュリティ運用支援などのエンタープライズ向けセキュリティワークフロー |\n| 想定利用者 | Bedrockを利用中の企業・セキュリティチーム |\n| Breaking Change | なし |\n| 料金体系の変更 | 言及なし |\n・Daybreakは汎用のチャットモデルではなく、サイバーセキュリティ領域に特化したモデルである点が特徴です。\n・今回の提携により、OpenAIモデルの提供元がOpenAI自社チャネルに限定されず、クラウドベンダーを横断した形で広がっていることが示されました。\n・既存のBedrock契約・IAM権限・VPC構成をそのまま利用できるため、新規のセキュリティレビューや契約手続きの手間を軽減できる可能性があります。\n💡 Tips\nすでに他のBedrock対応モデル（Anthropic Claudeなど）を利用している場合、Model Access画面から同様の手順でDaybreakへのアクセスをリクエストできると想定されます。既存のBedrock運用フローに乗せやすいのが今回のアップデートの利点です。\n\n影響と対応\n\n今回の変更は破壊的変更ではなく、既存の利用者に対して即座のアクション（actionrequired: false）は求められていません。ただし、以下の観点でのキャッチアップは有用です。\n\n1. Bedrockを利用中のセキュリティチーム\n・Daybreakが自社のセキュリティワークフロー（アラートトリアージ、脅威インテリジェンス分析など）に活用できないか評価する\n2. マルチクラウドでAIモデルを運用している組織\n・OpenAIモデルへのアクセス経路が増えたことで、ベンダーロックインのリスク低減や、リージョン要件・データ所在地要件への対応がしやすくなる可能性がある\n3. これからBedrockの導入を検討している企業\n・Daybreakのようなドメイン特化モデルの存在も、Bedrock選定の判断材料になり得る\n\nまとめ\n・OpenAIのセキュリティ特化モデル「Daybreak」がAmazon Bedrock経由で利用可能になりました（2026年8月11日発表）。\n・目的はエンタープライズのセキュリティワークフロー（脅威分析・セキュリティ運用支援）の強化です。\n・破壊的変更や料金変更はなく、既存ユーザーに緊急対応は不要ですが、Bedrock利用企業にとっては評価・導入の好機となります。\n・OpenAIモデルの提供チャネルがAWSエコシステムへ広がったことは、マルチクラウド時代のAIモデル活用戦略において注目すべき動きです。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "48174e9aa5017f24",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7270229007633588,
+      "popularityPercentile": 0.21374045801526717,
+      "matchedTopics": [
+        "AI / LLM",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 60,
+      "oneLiner": "OpenAIのセキュリティ特化モデルDaybreakがAmazon Bedrockで利用可能になった。",
+      "reason": "2026年8月11日、Daybreakの提供経路がOpenAI APIやAzureに加えてAmazon Bedrockへ広がった。既存のAWS権限管理と課金基盤から評価できる。",
+      "keywords": [
+        "OpenAI",
+        "Daybreak",
+        "Amazon Bedrock",
+        "AWS",
+        "サイバーセキュリティ",
+        "SOC"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "VictorTaelin/OptMem — Permanent memory for AI agents. A 426-token prompt, a script, plug and play.",
+      "url": "https://github.com/VictorTaelin/OptMem",
+      "publishedAt": "2026-07-25T16:58:43.000Z",
+      "author": "VictorTaelin",
+      "authorDetail": {
+        "name": "VictorTaelin",
+        "url": "https://github.com/VictorTaelin",
+        "avatarUrl": "https://github.com/VictorTaelin.png?size=120",
+        "bio": "Permanent memory for AI agents. A 426-token prompt, a script, plug and play."
+      },
+      "tags": [
+        "Python"
+      ],
+      "snippet": "Permanent memory for AI agents. A 426-token prompt, a script, plug and play.",
+      "metrics": {
+        "stars": 1248
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "dbb1c6f1f4dd9db3",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.545,
+      "popularityPercentile": 0.3181818181818182,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "OptMemが426トークンのプロンプトとスクリプトでAIエージェントに永続メモリを追加する。",
+      "reason": "OptMemは、426トークンのプロンプトと1本のスクリプトを組み合わせ、AIエージェントに会話や知識を保持させる構成を提供している。",
+      "keywords": [
+        "OptMem",
+        "AIエージェント",
+        "永続メモリ",
+        "Python",
+        "プロンプト"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "スマホからGPTアプリでPCのローカル開発環境を操作する",
+      "url": "https://qiita.com/SysDevLog/items/4ca49bbc267bcba4a74d",
+      "publishedAt": "2026-08-12T02:07:04.000Z",
+      "author": "SysDevLog",
+      "authorDetail": {
+        "name": "SysDevLog",
+        "handle": "@SysDevLog",
+        "url": "https://qiita.com/SysDevLog",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4476954/profile-images/1785455994",
+        "followers": 0,
+        "posts": 3,
+        "links": []
+      },
+      "tags": [
+        "ChatGPT",
+        "codex",
+        "OpenAI"
+      ],
+      "snippet": "はじめに 外出先やソファからスマホで指示を出し、自宅PCにあるプロジェクトをCodexに編集してもらえたら便利そうです。 そこで今回は、ChatGPTモバイルアプリの「Remote」を使い、AndroidスマホからWindows PC上のローカル開発環境を操作してみました。 実際に確認できたのは、次のような流れです。 ・スマホから自然文で開発内容を指示する ・PC上でファイルの作成・編集やコマンド実行が行われる ・スマホから進捗や実行結果を確認する ・必要な操作をスマホ側で承認する ・完成したアプリをPCのブラウザで確認する 結論からいうと、スマホを「小さな開発PC」として使うのではなく、PC上で動くCodexの操作・確認端末として使うイメージでした。 この記事は2026年8月時点で確認した内容です。画面名や提供条件は今後変更される可能性があります。 今回の構成 今回使用した端末と役割は次…",
+      "body": "はじめに\n\n外出先やソファからスマホで指示を出し、自宅PCにあるプロジェクトをCodexに編集してもらえたら便利そうです。\n\nそこで今回は、ChatGPTモバイルアプリの「Remote」を使い、AndroidスマホからWindows PC上のローカル開発環境を操作してみました。\n\n実際に確認できたのは、次のような流れです。\n・スマホから自然文で開発内容を指示する\n・PC上でファイルの作成・編集やコマンド実行が行われる\n・スマホから進捗や実行結果を確認する\n・必要な操作をスマホ側で承認する\n・完成したアプリをPCのブラウザで確認する\n\n結論からいうと、スマホを「小さな開発PC」として使うのではなく、PC上で動くCodexの操作・確認端末として使うイメージでした。\nこの記事は2026年8月時点で確認した内容です。画面名や提供条件は今後変更される可能性があります。\n\n今回の構成\n\n今回使用した端末と役割は次のとおりです。\n\n| 端末 | 役割 |\n| --- | --- |\n| Windows PC | プロジェクトの保存、ファイル編集、コマンド実行、アプリの表示確認 |\n| Androidスマホ | Codexへの指示、進捗確認、操作の承認 |\n\nスマホからPCへリモートデスクトップ接続し、VS Codeやターミナルを直接操作したわけではありません。\n\nスマホから送った指示はChatGPTを経由し、PC上のChatGPTデスクトップアプリと、そのPCで動作するCodexが処理します。ファイルや開発ツール、認証情報、実行権限などは接続先PCの環境が使われます。\n\n公式ドキュメントでも、スマホを操作側、接続先PCを実行環境とする仕組みとして説明されています。\n・Remote connections（OpenAI公式）\n・Mastering remote engineering work from your phone（OpenAI公式）\n\n前提条件\n\n今回、Remoteを試すために用意したものは次のとおりです。\n・Codexを利用できるPC版ChatGPTアプリ\n・AndroidまたはiOSのChatGPTアプリ\n・PCとスマホで使用する同一のChatGPTアカウント\n・多要素認証（Remoteの設定時に有効化を求められたため）\n\n今回はWindows PCとAndroidスマホを使用しました。Remoteの設定を進めたところ、多要素認証を設定するよう警告が表示されたため、先にChatGPTアカウントの多要素認証を有効化しています。\n\n今回のサンプルアプリに必要なもの\n\n今回はVite + React + TypeScriptのアプリを作ったため、PC側にNode.jsとnpmが必要です。\n\nこれはRemote自体の必須条件ではありません。Pythonアプリを作るならPython、Javaアプリを作るならJDKというように、開発対象に応じたツールを接続先PCへ用意します。\n\nなお、今回の検証にGitHubとの連携は必須ではありません。PC上の空フォルダを作業場所として利用しました。\n\n事前に理解しておきたいこと\n\nPCが実行主体になる\n\nスマホは指示と確認を行う端末です。次の処理はPC側で実行されます。\n・ローカルファイルの読み書き\n・npm installなどのコマンド\n・ビルドやテスト\n・開発サーバーの起動\n\nそのため、PCがスリープしたり、ネットワークから切断されたり、ChatGPTデスクトップアプリを終了したりするとRemote接続は利用できなくなります。\n\nlocalhostの画面がスマホに転送されるわけではない\n\nPCで開発サーバーを起動した場合、localhostはそのPC自身を指します。\n\n今回できたのは、スマホから開発サーバーの起動を指示し、PC側のブラウザで表示を確認することです。スマホのブラウザから同じlocalhostを開いても、PC上のアプリには接続できません。\n\nスマホ上でもアプリ画面を開きたい場合は、LAN内からアクセスできるように開発サーバーを設定する、トンネルサービスを使う、検証環境へデプロイする、といった別の対応が必要です。ネットワークへ公開する場合は、認証やファイアウォールなどの安全面も別途検討します。\n\nPCをインターネットへ直接公開する必要はない\n\n通常のRemote接続のために、ルーターのポート開放やPCへのグローバルIP付与を行う必要はありません。公式ドキュメントでは、認証された中継レイヤーを使い、PCをパブリックインターネットへ直接公開せずに接続すると説明されています。\n\nRemoteの設定\n\n1. PC側でRemote接続を設定する\n\nPCのChatGPTデスクトップアプリを開き、次の画面から接続設定を開始します。\n\n [code] \n\n画面の案内に従ってRemoteアクセスを有効にすると、スマホとのペアリングに使用するQRコードが表示されます。\n\n2. スマホでQRコードを読み取る\n\n表示されたQRコードをスマホで読み取り、ChatGPTモバイルアプリで接続を完了します。\n\n今回、Remoteの設定時に多要素認証を設定するよう警告が表示されました。そのため、画面の案内に従ってChatGPTアカウントの多要素認証を有効化してから、接続設定を続けました。\n\nPCとスマホでは、同じChatGPTアカウントを使用します。\n\n接続に成功すると、スマホのChatGPTアプリにある「Remote」からPCを選択できるようになります。\n\nPC側に検証用プロジェクトを用意する\n\n今回は、Windows PCに次の空フォルダを作成しました。\n\n [code] \n\nこのフォルダをChatGPTデスクトップアプリのCodexで開き、作業対象のプロジェクトとして選択しました。\n\n「PCで一度チャットしないとスマホに表示されない？」\n\n今回の検証では、フォルダを開いただけの状態ではスマホ側で対象プロジェクトを見つけられず、PC側で一度チャットを開始するとRemoteに表示されました。\n\nただし、公式ドキュメント上は、Remoteから接続先PCのプロジェクトを選択し、新しいチャットを開始することも可能とされています。そのため、PC側で事前にチャットを開始することが常に必須とは限りません。\n\n同じ状況になった場合は、次を確認するとよさそうです。\n・PCとスマホが同じアカウント・ワークスペースか\n・PC側で対象フォルダをプロジェクトとして開いているか\n・PC側のChatGPTデスクトップアプリが起動しているか\n・PCがスリープしていないか\n・両方のアプリが最新版か\n・Remoteの接続先として正しいPCを選んでいるか\n\nそれでも表示されない場合は、今回のようにPC側で対象プロジェクトのチャットを一度開始し、スマホのRemoteからそのチャットを開く方法も試せます。\n\nスマホから開発を指示する\n\nスマホのChatGPTアプリで「Remote」を開き、接続したPCと対象プロジェクトを選択します。\n\n今回は空のフォルダから検証を始めたため、次のように指示しました。\n\n [code] \n\n元の指示よりも、次の点を明示しています。\n・作業対象のフォルダ\n・最初に確認すること\n・実装後に行うビルドや動作確認\n・変更してはいけない範囲\n・最後に報告してほしい内容\n・開発サーバーの停止\n\nスマホでは長いコマンドを手入力するのではなく、達成したい状態と制約を自然文で伝えます。具体的なコマンドは、PCの環境を確認したCodexに選択させる形です。\n\n実際にできたこと\n\nスマホから送った指示により、PC側では次の作業が行われました。\n・Node.jsとnpmのバージョン確認\n・Viteプロジェクトの作成\n・依存関係のインストール\n・Reactアプリの実装\n・ファイルの編集\n・ビルドの実行\n・ローカル開発サーバーの起動\n・PC側のlocalhostで表示確認\n・開発サーバーの停止\n\n作業中の進捗やコマンドの結果は、スマホ側から確認できました。つまり、コードをスマホで直接編集したのではなく、スマホからCodexへ指示し、PCの開発環境で作業を進めてもらった形です。\n\nコマンド実行時の承認\n\n依存関係のインストールや開発サーバーの起動など、PC上で影響のある操作を行う際には、承認を求められることがあります。\n\nこれはエラーではなく、PC上で実行される操作を利用者が確認するための仕組みです。Remoteでは、こうした承認もスマホ側から行えます。\n\nただし、表示された確認を機械的に許可するのではなく、少なくとも次の点は確認します。\n・実行するコマンドが依頼内容と一致しているか\n・操作対象のパスがプロジェクト配下になっているか\n・管理者権限を要求していないか\n・OSやPC全体の設定を変更しようとしていないか\n・不明なスクリプトを外部から取得してそのまま実行しようとしていないか\n\n特に、Program Filesなどのシステム領域への書き込みや、管理者権限を伴う操作が表示された場合は、目的と必要性を理解できるまで承認しない方が安全です。\n\n安全に試すために意識したこと\n\n空の検証用フォルダから始める\n\nいきなり重要なプロジェクトで試さず、失敗しても問題のない空フォルダを用意しました。\n\n既存プロジェクトで試す場合は、事前にGitへコミットするか、別ブランチやworktreeを使用すると差分を確認しやすくなります。\n\n作業範囲をプロンプトで限定する\n\n今回の指示には、次の制約を含めました。\n\n [code] \n\nプロンプトに書くだけで安全が保証されるわけではありませんが、意図しない範囲の変更を避けるための境界として役立ちます。実際の安全性は、アプリのサンドボックス設定や権限、操作時の承認と組み合わせて確保します。\n\n認証情報をプロンプトへ貼らない\n\nAPIキー、パスワード、秘密鍵などをチャットへ直接貼り付けないようにします。必要な認証情報は、接続先PCで適切に管理されている環境変数や認証設定を利用します。\n\n最後に状態を確認する\n\n開発サーバーのように常駐するプロセスを起動した場合は、検証後に停止を依頼しました。\n\n [code] \n\nさらに、変更ファイルと実行結果の一覧を報告させると、PCへ戻ったあとに確認しやすくなります。\n\n試して分かったこと\n\n良かった点\n・PCの前にいなくても、開発作業の開始や追加指示ができる\n・スマホから進捗、差分、テスト結果、ターミナル出力を確認できる\n・コマンドの承認や質問への回答もスマホ側で行える\n・実行環境はPC側なので、既存のローカルツールやプロジェクトを利用できる\n\n注意が必要な点\n・PCが起動し、オンラインかつChatGPTデスクトップアプリが動いている必要がある\n・スマホからの指示でも、操作されるのは実際のPC環境である\n・localhostのアプリ画面をスマホから直接見られるわけではない\n・小さな画面では長い差分や大量のログを精査しにくい\n・最終的なコードレビューや画面確認はPCで行った方が確実\n\nまとめ\n\nChatGPTのRemoteを利用すると、スマホから指示を出し、接続先PCのローカル開発環境でCodexに作業してもらうことができました。\n\n今回確認した基本的な流れは次のとおりです。\n\n1. PCとスマホへ最新版のChatGPTアプリを用意する\n2. 同じChatGPTアカウント・ワークスペースでサインインする\n3. PCの接続設定からRemoteを有効化し、スマホとペアリングする\n4. PC側に作業対象のプロジェクトを用意する\n5. スマホの「Remote」からPCとプロジェクトを選ぶ\n6. 作業内容と制約を自然文で指示する\n7. 進捗やコマンドを確認し、必要な操作を承認する\n8. PC側で成果物と動作を最終確認する\n\n「スマホだけで開発環境を動かす」というより、開発環境を持つPCをホストにして、スマホをCodexのコントローラーとして使う仕組みです。\n\n短い修正やビルド・テストの実行、作業の開始、進捗確認などには特に相性がよさそうです。一方で、画面の細かな確認や大量の差分レビューはPCで行う、という使い分けが現実的だと感じました。\n\n参考\n・Remote connections（OpenAI公式）\n・Mastering remote engineering work from your phone（OpenAI公式）\n・ChatGPT Work and Codex（OpenAI Help Center）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "a017e0bceb6acc6e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8630534351145038,
+      "popularityPercentile": 0.8320610687022901,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "ChatGPTのRemoteでスマホからPC上のCodexを操作できる。",
+      "reason": "AndroidのChatGPTアプリから自然文で指示すると、Windows PC上のCodexがファイル編集やコマンド実行を行い、スマホで進捗確認と承認ができる。",
+      "keywords": [
+        "ChatGPT",
+        "Codex",
+        "Remote",
+        "OpenAI",
+        "Windows",
+        "Android"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "GitHub Agentic Workflow入門",
+      "url": "https://qiita.com/FukuharaYohei/items/786a94ac031996e16a5e",
+      "publishedAt": "2026-08-12T13:56:12.000Z",
+      "author": "Fukuhara",
+      "authorDetail": {
+        "name": "Fukuhara",
+        "handle": "@FukuharaYohei",
+        "url": "https://qiita.com/FukuharaYohei",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/134273/profile-images/1473719237",
+        "bio": "Cloud Solution Architect。ここに記した内容は個人の独断と偏見に基づくものであり、所属する組織とは一切の関係がありませんのでご承知おきくださいませ。",
+        "followers": 420,
+        "posts": 417,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/FukuharaYohei"
+          }
+        ]
+      },
+      "tags": [
+        "GitHub",
+        "GitHubAgenticWorkflow"
+      ],
+      "snippet": "GitHub Agentic Workflow について学習しました。そのメモです。 主たるコマンドは以下のページ参照。 https://github.github.com/gh-aw/setup/cli/ 実務上、ワークフローをgh aw add-wizard githubnext/agentics/ で取り込むのが便利。以下にあるワークフローを取り込んでくれます。 https://github.com/githubnext/agentics/tree/main/workflows 前提 私の環境は、Ubuntu で動かしています。 公式に記載の以下が前提です。 ・AI アカウント: GitHub Copilot、 Anthropic Claude、 OpenAI Codex、Google Gemini ・書き込みアクセス権がある GitHub リポジトリ ・GitHub Actions…",
+      "body": "GitHub Agentic Workflow について学習しました。そのメモです。\n主たるコマンドは以下のページ参照。\n\nhttps://github.github.com/gh-aw/setup/cli/\n\n実務上、ワークフローをgh aw add-wizard githubnext/agentics/ で取り込むのが便利。以下にあるワークフローを取り込んでくれます。\n\nhttps://github.com/githubnext/agentics/tree/main/workflows\n\n前提\n私の環境は、Ubuntu で動かしています。\n公式に記載の以下が前提です。\n・AI アカウント: GitHub Copilot、 Anthropic Claude、 OpenAI Codex、Google Gemini\n・書き込みアクセス権がある GitHub リポジトリ\n・GitHub Actions リポジトリに対して有効\n・GitHub CLI (gh) v2.0.0 以降がインストールおよび認証されている\n・バージョンを確認するには、 gh --versionを実行します。 認証するには、次のコマンドを実行します。\n\nhttps://docs.github.com/ja/copilot/how-tos/github-agentic-workflows/quickstart#prerequisites\n\nCLIに関しては以下のコマンドでインストール/Update可能。\n\n [code] \n\nQuick Start: まずは使う\nまずは、Quick Start を実施。\n\nhttps://docs.github.com/ja/copilot/how-tos/github-agentic-workflows/quickstart\n\n1. ワークフロー追加\nワークフロー追加前にRepositoryのGit状態をCommit しておく。gh aw add-wizardでgithubnext/agenticsからワークフローを追加。\n\n [code] \n\n途中 PAT(personal access tokens)をブラウザでGenerateしてCLIに入力(最小権限として Copilot Requests: Read だけを付ける)。PATのIDはCOPILOTGITHUBTOKENでなくても問題ない。IDがCOPILOTGITHUBTOKENなのはリポジトリシークレット側(Agentic Workflow で固定値のような形で使われるので)。\n\n2. ワークフロー起動\nコマンドでワークフローを起動。\n\n [code] \n\nawcontext入力を聞かれていますが、未入力でEnter。以下で定義されている通り、required: falseで今回は不要。\n\n [code] \n\nもし、手で./.github/workflows/my-workflow.mdを修正したら以下のコマンド実行。\n\n [code] \n\n独自のワークフロー定義\n次は、自分自身でワークフローを定義していきます。\n\n1. 初期化\ngh aw initで初期化。\n\n [code] \n\n以下のディレクトリ、ファイルが作成されます。\n\n [code] \n\n2. 追加\ngh aw newでワークフロー定義を追加。Interactiveにいくつか聞かれます。\n\n [code] \n\nで、最後に以下の内容を入力。\n\n [code] \n\n [code] \n\n./.github/workflows/に２つのファイルが作成されます。\n\n [code] \n\nワークフロー定義の中身。\n\n [code] \n\n3. ワークフロー定義修正\nワークフロー定義を修正してみます。\n\n [code] \n\n [code] \n\nコンパイルを実施。\n\n [code] \n\n4. 実行前確認\n4.1. ドライラン\n試行のドライラン。この場合はRepositoryも作らない。\n\n [code] \n\n4.2. 試行\n今度はドラインランではなく試行実行。試行用にリポジトリを作成しておく必要があり、少し面倒。検証用なら不要だが、本番リポジトリで試す前の確認としては必要。\nそして以下が必要。そして、やはりSecret COPILOTGITHUBTOKENも必要。\n\n1. Trial用に作成された/指定したリポジトリの Settings タブでActions -> Generalを選択\n2. Under 'Workflow permissions', select 'Allow GitHub Actions to create and approve pull requests'\n3. Click 'Save'\n\nパスを間違えたので、失敗だが、コマンドgh aw trial ./.github/workflows/my-workflow.md。\n\n [code] \n\n5. 本番実行\n以下コマンドで本番実行。\n\n [code] \n\n6. 結果確認\ngh aw logsでの確認\n\n [code] \n\ngh aw audit での確認。\n\n [code] \n\nGitHub上でのActions結果。\n \n\n作成されたIssue。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0ac0106aa26303f7",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.713027989821883,
+      "popularityPercentile": 0.15012722646310434,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 80,
+      "oneLiner": "GitHub Agentic WorkflowsがAIを組み込んだActionsの導入手順を提供する。",
+      "reason": "GitHub Agentic Workflowsでは、GitHub Actions上でCopilot、Claude、Codex、Geminiを使うワークフローをgh aw CLIから追加できる。",
+      "keywords": [
+        "GitHub Agentic Workflows",
+        "GitHub Actions",
+        "GitHub CLI",
+        "gh aw",
+        "GitHub Copilot",
+        "Claude"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "MLXでミニGPTをゼロから書いて日本語を喋らせる ── ハマった5つの落とし穴",
+      "url": "https://qiita.com/GeneLab_999/items/e0b2038ed81d5e2020a8",
+      "publishedAt": "2026-08-12T02:27:10.000Z",
+      "author": "GeneLab_999",
+      "authorDetail": {
+        "name": "GeneLab_999",
+        "handle": "@GeneLab_999",
+        "url": "https://qiita.com/GeneLab_999",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3908981/profile-images/1769496892",
+        "bio": "AI初〜中級者向けの「しっかり基礎を理解しよう」ってコンセプトな記事多め。\r\nAIテックリード。",
+        "location": "Tokyo",
+        "followers": 306,
+        "posts": 418,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/hiroki-abe-58"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/geneLab_999"
+          }
+        ]
+      },
+      "tags": [
+        "LLM",
+        "Python",
+        "AI",
+        "LM",
+        "mlx"
+      ],
+      "snippet": "Apple Silicon の Mac 1台で、学習済みモデルを一切使わずに Transformer を書き、 日本語のコーパスで学習させて、チャットできるところまでやりました。 ・モデル: 文字レベル ミニGPT / 6層 / 384次元 / 6ヘッド / 文脈256文字 / 11.53Mパラメータ ・フレームワーク: MLX（Apple純正。pip install mlx だけでGPUが動く） ・データ: kunishou/oasst1-89k-ja（Apache-2.0）を整形した日本語会話 28,616件 / 441万文字 ・学習: MacBook Pro (M1 Max, 32コアGPU) で 32分 / 3,600ステップ コードは全部 MIT で公開しています。 https://github.com/hiroki-abe-58/1LM この記事は MLX を使ったときにだけ踏…",
+      "body": "Apple Silicon の Mac 1台で、学習済みモデルを一切使わずに Transformer を書き、\n日本語のコーパスで学習させて、チャットできるところまでやりました。\n・モデル: 文字レベル ミニGPT / 6層 / 384次元 / 6ヘッド / 文脈256文字 / 11.53Mパラメータ\n・フレームワーク: MLX（Apple純正。pip install mlx だけでGPUが動く）\n・データ: kunishou/oasst1-89k-ja（Apache-2.0）を整形した日本語会話 28,616件 / 441万文字\n・学習: MacBook Pro (M1 Max, 32コアGPU) で 32分 / 3,600ステップ\n\nコードは全部 MIT で公開しています。\n\nhttps://github.com/hiroki-abe-58/1LM\n\nこの記事は MLX を使ったときにだけ踏む落とし穴 に絞って書きました。\nPyTorch から来ると「同じ書き味なのに挙動が違う」箇所がいくつかあり、\nそのどれもが エラーを出さずに静かに壊れる タイプだったからです。\n\n記事中の数値はすべて手元の M1 Max での実測値です。\n\n \n\n---\n\n前提: MLXは本当に「入れるだけ」\n\n [code] \n\nこれだけでGPUが使えます。PyTorch + MPS のときに必要だった\nPYTORCHENABLEMPSFALLBACK=1 の指定も、「この演算はMPS未対応です」との格闘も、\n今回は一度もありませんでした。Apple Silicon でゼロから書くなら MLX が圧倒的に楽です。\n\nただし conda で環境を作る場合、CONDASUBDIR の指定だけは忘れないでください。\n\n [code] \n\n付けないと x8664 のパッケージが混ざり、実行時にこう化けます。\n\n [code] \n\nconda config --env --set subdir osx-arm64 を打っておくと、\n後から pip install や conda install を追加したときも巻き添えを防げます。\n\n---\n\n実装の核: 「次の1文字」を予測するだけ\n\n言語モデルがやっていることは1つだけです。\nこれまでの文字列を見て、次に来る1文字の確率分布を出す\n\n会話に見えるのは、学習データをこの形にしておくからです。\n\n [code] \n\n の続きを予測させれば、それが「返答」になります。\nルールも分岐も if 文も書きません。フォーマットを学習させるだけです。\n\nトークナイザ: マーカーは1トークンにする\n\n文字レベル（1文字=1トークン）は日本語と相性が良く、SentencePiece の学習も要りません。\nただし を素直に8文字へ分解すると、モデルは「開始記号」を覚えるだけで\n貴重な容量を使い、生成時に <|use のような壊れた記号を吐きます。\n\n [code] \n\n も語彙に入れておきます。コーパスには出てきませんが、\n推論時にユーザーが未知の文字を打ってくる可能性があるためです。\n\nなお文字レベルは語彙が数千種類に膨らみます。今回は「出現10回未満の文字を含む会話は丸ごと捨てる」\nフィルタで 文字種 2,072 まで落としました。65,536未満なら\nトークン列を uint16 で持てるので、441万文字が9MBに収まり全部メモリに載ります。\n\nモデル: MLXはPyTorchとほぼ同じ書き味\n\n [code] \n\nMLX には mx.fast.scaleddotproductattention があり、mask=\"causal\" と\n文字列で渡せます。自分で下三角行列を作って -inf を埋める必要はありません。\n\nブロックは Pre-LN + 残差接続です。\n\n [code] \n\n出力層は埋め込み行列を転用します（weight tying）。\n\n [code] \n\nnn.Embedding.aslinear() が最初から用意されているのが MLX の気持ちいいところです。\n語彙2,077 × 384次元ぶんのパラメータを節約できて、小さいモデルではむしろ精度が上がります。\n\nこれで 11.53M パラメータです。\n\n---\n\nハマりどころ 1: mx.eval を呼ばないと計算が走らない\n\nMLX は遅延評価です。演算はグラフを積むだけで、結果が必要になるまで実行されません。\n学習ループで mx.eval を忘れると、グラフが延々と伸びてメモリを食い続け、\n「異常に速いのに loss が出てこない」 という状態になります。\n\n [code] \n\nmx.eval に渡すのは loss だけでは足りません。オプティマイザの状態も含めた\nstate 全体を評価しないと、更新のグラフが残ったままになります。\n\nPyTorch の .item() に相当する感覚ですが、あちらは呼び忘れても同期が入るのに対し、\nMLX は本当に何も起きません。ここが一番の違いです。\n\n---\n\nハマりどころ 2: mx.compile の inputs に mx.random.state を入れ忘れる\n\nこれが今回いちばん気づきにくかった罠です。\n\nmx.compile はグラフを固定します。inputs / outputs に mx.random.state を\n含めないと、Dropout の乱数が固定されます。\n毎ステップまったく同じ位置のニューロンを落とすので、正則化として機能しません。\n\nそして エラーも警告も一切出ません。loss はそれらしく下がっていきます。\n\n [code] \n\n「mx.compile を使うときは、関数の外側で変化するものを全部 inputs/outputs に列挙する」\nと覚えるのが安全です。乱数状態はその筆頭で、忘れやすいわりに影響が大きい。\n\n---\n\nハマりどころ 3: mask=\"causal\" を外すと、lossは下がるのに生成が壊れる\n\nこれは MLX 固有というより Transformer 全般の話ですが、\nMLX だと mask=\"causal\" という引数1つで済むぶん、消しても動いてしまうのが厄介です。\n\n因果マスクは「未来の文字を見てはいけない」という制約で、言語モデルの心臓部です。\n外すと学習時にモデルが答えを覗けるので、train loss も val loss も綺麗に下がります。\nところが生成時には未来の文字が存在しないため、出力は完全に破綻します。\n\n「損失は良いのに生成がおかしい」という症状に出会ったら、まずここを疑ってください。\n損失グラフだけ見ていると絶対に気づけません。\n\n対策はシンプルで、250ステップごとに固定プロンプトで実際に生成させてログに残すことです。\n\n [code] \n\n損失という数字だけでなく、生成という「出力そのもの」を監視対象に入れる。\nこれは自作モデル全般に効く習慣だと思います。\n\n---\n\nハマりどころ 4: 推論前の model.eval() 忘れ\n\nMLX の nn.Module にも学習モードと推論モードがあります。\nmodel.eval() を呼ばないと Dropout が有効なままです。\n\n [code] \n\n症状は「同じ入力なのに返答が毎回ぶれる」「なんとなく壊れている」。\n温度やシード固定で再現性を取ろうとしても取れないので、そこで気づけます。\n\nPyTorch でも定番の事故ですが、MLX は情報が少ないぶん\n「MLX 特有の問題では？」と疑って遠回りしがちです。まずここを確認してください。\n\n---\n\nハマりどころ 5: mx.topk は並び順を保証しない\n\ntop-k サンプリングを書くときの罠です。\nmx.topk(logits, k) は「大きい方から k 個の値」を返しますが、\nそれがソート済みである保証はありません。\n\nなので「k番目の値」を取るつもりで [..., -1] を取ると、しきい値がずれます。\n返ってきた k 個の 最小値 を取るのが正解です。\n\n [code] \n\nついでに、小さいモデルが同じ言葉を繰り返すときは\nモデルを疑う前にサンプリング設定を疑ってください。今回効いた値はこのあたりです。\n・temperature 0.8前後 ── 低いと堅くなるが同じ言い回しに固まる。高いと崩れる\n・topk 40前後 ── 語彙2,077のうち確率が極端に低い文字を切る\n・repetitionpenalty 1.15前後 ── 直近に出した文字のロジットを割り引く。ループから抜ける効果が一番大きい\n\n学習をやり直す前に、この3つを振ってみる価値は十分あります。\n\n---\n\n実測値: どれくらい出るのか\n\nバッチサイズを速度で選ぶ意味はなかった\n\n定常状態のスループットを測り直した結果です（M1 Max 32コアGPU / 11.53M / 文脈256）。\n\n [code] \n\n意外なことに ほぼ横ばいでした。差は±4%程度で、測り直すと順位が入れ替わる範囲です。\nこのサイズのモデルでは GPU がすでに飽和していて、バッチを増やしても\n1トークンあたりのコストが変わらない、ということだと思います。\n\nつまりバッチサイズは速度ではなく 学習の安定性 で選んでください。今回は64にしました。\n\nベンチマーク値で総ステップ数を逆算すると必ず足りない\n\ncosinedecay は「総ステップ数」を前提に学習率を下げるので、\n時間切れで打ち切ると学習率が高いまま終わって性能を取り逃がします。\nそこで先にスループットを測って逆算したのですが、ここでも外しました。\n\n37,000 × 60 × 32 ÷ 16,384 ≒ 4,300ステップ と見積もって回したところ、\n32分で到達したのは3,600ステップでした。\n\n原因は、この計算に 検証とサンプル生成の時間が入っていない ことです。\n250ステップごとに検証を20バッチ回し、さらに固定プロンプトへの返答まで生成しています。\n通しの実測スループットは 31k tok/s で、ベンチマーク値の84%しかありませんでした。\n\n逆算にはベンチマーク値ではなく通しの実測値を使ってください。\nそれが分からないうちは、逆算値を1〜2割少なめに見積もっておくのが安全です。\n\n最終結果\n・学習時間 ── 32分 / 3,600ステップ\n・最終 train loss ── 1.751\n・最良 val loss ── 1.857\n・スループット ── 31k tok/s（通し）\n・生成速度 ── 200〜300 文字/秒（KVキャッシュなし）\n\nランダムに答えたときの損失は ln(2077) = 7.64 なので、そこから1.86まで下がっています。\n\n \n\n---\n\nで、会話はどうなったか\n\n [code] \n\n内容はもちろんデタラメです。11.53Mパラメータに知識は入りません。\nそれでも助詞の使い方、句読点の位置、「〜として、私は〜です」という言い回しは\nちゃんと日本語になっています。文法も会話の作法も一切教えていません。\n「次の1文字を当てろ」という問題を3,600回解かせただけです。\n\nなぜ賢くならないのかも、学習曲線を見るとはっきり分かります。\ntrain と val の線が 1,250ステップあたりから離れ始め、\nそこから差は一度も縮まりませんでした。\n\n [code] \n\nこれは「データを覚えきった」サインです。441万文字を13エポック回しているので、\n足りないのは時間ではなくデータでした。長く回しても伸びません。\n\n---\n\n伸ばすならこの順番\n\n1. BPE / SentencePiece トークナイザにする。1トークンあたりの情報量が増え、同じ計算量で扱える文脈が数倍になります\n2. KVキャッシュを実装する。今は毎回フル系列を再計算しています\n3. 損失を の部分だけに絞る（instruction masking）。返答の質が上がります\n4. 素の日本語で事前学習してから対話データで仕上げる。今回は対話2万8千件だけから日本語そのものを学んでいるので、語彙も言い回しも痩せています。1億文字を3周でも 31k tok/s なら約2.7時間、寝ている間に終わります\n\n---\n\nまとめ\n\nMLX で踏んだ罠は、どれも エラーを出さずに静かに壊れる タイプでした。\n・mx.eval 忘れ → メモリが増え続け loss が出ない\n・mx.compile の inputs に mx.random.state 忘れ → Dropout が効かない（無警告）\n・mask=\"causal\" を外す → loss は下がるのに生成が破綻する\n・model.eval() 忘れ → 返答が毎回ぶれる\n・mx.topk の並び順を仮定する → top-k のしきい値がずれる\n\n共通の教訓は、損失という数字だけを監視対象にしないことだと思います。\n特に3番目と4番目は、250ステップごとに固定プロンプトで生成させてログに残していなければ、\n最後まで気づけなかったはずです。\n\nコード一式（データ整形・学習・CLI・Web GUI）はこちらです。\ndata/raw/.jsonl に自分のデータを置けば差し替えられるようにしてあります。\n\nhttps://github.com/hiroki-abe-58/1LM\n\n質問や「うちのMacだとこうなった」があればコメントで教えてください。\n\nライセンスについて\n・コード: MIT\n・学習データ: kunishou/oasst1-89k-ja（Apache-2.0、OpenAssistant/oasst1 の日本語訳）\n・学習済み重みは Apache-2.0 データからの派生物として扱い、リポジトリの NOTICE に帰属表示をまとめています\n\n補足\n\nこの題材については、GUI（Liquid Glass風）の作り方やコーパス設計の判断、\n今回省いた分も含めた全13件の詰まりどころを、別途 note に有料記事としてまとめています。\nこの記事の内容だけで手元で再現できるようにはしてあるので、\n興味があれば覗いてみてください。\n\nお盆休みの3日間で「自分だけの言語モデル」を作る (有料)\n\nhttps://note.com/genelab999/n/nd7e1c28bc426",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "bc7ba6d99a3399c5",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6510687022900763,
+      "popularityPercentile": 0.6412213740458015,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "MLXで11.53Mパラメータの日本語ミニGPTをM1 Max上で学習できた。",
+      "reason": "Apple SiliconのM1 Maxだけで、28,616件の日本語会話を使った文字レベルGPTを32分・3,600ステップで学習し、チャットまで動かしている。",
+      "keywords": [
+        "MLX",
+        "Apple Silicon",
+        "Transformer",
+        "ミニGPT",
+        "llama",
+        "Python"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIコーディングでも私はなぜよく知っている技術を使うか",
+      "url": "https://qiita.com/tomokusaba/items/7708b19bbb6bdbba9d86",
+      "publishedAt": "2026-08-11T22:18:39.000Z",
+      "author": "Tomomitsu Kusaba",
+      "authorDetail": {
+        "name": "Tomomitsu Kusaba",
+        "handle": "@tomokusaba",
+        "url": "https://qiita.com/tomokusaba",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/46523924?v=4",
+        "bio": "Microsoft MVP for Developer Technologies",
+        "organization": "FutureOne株式会社",
+        "followers": 15,
+        "posts": 95,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/tomokusaba"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/tomo_kusaba"
+          },
+          {
+            "label": "Web",
+            "url": "https://zenn.dev/tomokusaba"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "C#",
+        "Azure",
+        "SoftwareEngineering",
+        "copilot"
+      ],
+      "snippet": "はじめに AI コーディングが普及して、私はときどき「技術スタックなんてもう AI 任せでいいのでは？」と思うようになりました。 実際、AI はかなりのことをやってくれます。言語も、フレームワークも、デプロイ先も、いまの AI は選択肢を広げてくれます。どんな言語でも、どんなインフラでも、動くコードを生成してくれることがあります。私はそれを否定しませんし、むしろありがたいと感じています。 ただ、ここで大事なのは「動くかどうか」と「何が起きても対処できるか」は別だということです。 AI にコードを書かせると、たいていの実装は一通り進みます。動くと思わせるコードを出してくれることも多いです。ところが、問題が起きたときに、私が本当に頼れるのは「よく知っている技術」なのです。 私はその観点で、C# と Azure の組み合わせに強く安心感を感じています。だから、AI コーディングを使うときでも、私…",
+      "body": "はじめに\n\nAI コーディングが普及して、私はときどき「技術スタックなんてもう AI 任せでいいのでは？」と思うようになりました。\n\n実際、AI はかなりのことをやってくれます。言語も、フレームワークも、デプロイ先も、いまの AI は選択肢を広げてくれます。どんな言語でも、どんなインフラでも、動くコードを生成してくれることがあります。私はそれを否定しませんし、むしろありがたいと感じています。\n\nただ、ここで大事なのは「動くかどうか」と「何が起きても対処できるか」は別だということです。\n\nAI にコードを書かせると、たいていの実装は一通り進みます。動くと思わせるコードを出してくれることも多いです。ところが、問題が起きたときに、私が本当に頼れるのは「よく知っている技術」なのです。\n\n私はその観点で、C# と Azure の組み合わせに強く安心感を感じています。だから、AI コーディングを使うときでも、私はたいていその組み合わせを選びたくなります。\n\nAIが書くコードと、人間が検証するコード\n\nAI は、かなり便利です。\n\nたとえば、API のエンドポイントを作るとき、データベースの接続を作るとき、簡単なバッチ処理を作るとき、AI は一通りのコードを作れます。しかも、言語や環境を切り替えながら、比較的スムーズに対応してくれます。\n\n実務で考えると、こうした利点はとても大きいです。\n・実装の初期速度が上がる\n・仕様を言語化しやすくなる\n・既存の知識を前提にしなくても着手しやすい\n・似たようなコードのパターンをすぐ生成してくれる\n\n一方で、AI が書いたコードには、実務では見落とされやすい「不安」が残りやすいです。\n・例外の扱いが粗い\n・ログの粒度が合っていない\n・依存関係の解決が変な方向に行っている\n・非同期やタイムアウトの境界が曖昧\n・本番環境での観測性が弱い\n\nこういう問題は、コードの見た目が動いていても、実運用では立ち上がってくることがあります。\n\nそして、そんなときに本当に頼れるのは、「このコードの挙動がなぜ起きるのかを説明できる」技術です。\n\nAI が書いた設計が、私の既存の知識と合っていれば、かなり安心できます。なぜなら、「何が起きているか」を自分で説明できるからです。逆に、知らない言語や知らないインフラだと、原因の切り分けが遅くなり、対処の選択肢も狭まります。\n\n「動く」と「対処できる」は違う\n\n私は、AI コーディングで一番大事にしているのは「ロールバックできるか」「原因を追えるか」「最小限の修正で戻せるか」という点です。\n\nコードが動くことは、重要です。\n\nでもそれ以上に重要なのは、問題が起きたときに、どこを見ればいいかが分かることです。\n\nたとえば、Web アプリの 500 エラーが発生したとき、\n・どの層で失敗しているか\n・どのログを持てば原因を絞れるか\n・設定が漏れているのか、依存のバージョンが合っていないのか\n・Azure 側でイベントが発生しているのか、アプリ側で落ちているのか\n\nを見分けられるかどうかが、問題解決の本質です。\n\nこれは、AI だけがやっているわけではありません。人間が設計を理解し、監視と観測の仕組みを知っていなければなりません。\n\nたとえ AI が 90% の実装を完了してくれても、最後の 10% を本人が担う前提があるとき、私は信頼感が増します。なぜなら、その 10% が本番運用で置き去りにならないからです。\n\n私が安心できるのは C# と Azure\n\n私は、C# と Azure の組み合わせにかなり強い安心感があります。\n\nその理由は、単に「私が慣れているから」ではありません。\n\nC# は、型安全性や構造化された設計、デバッグのしやすさ、ツールチェーンの整合性が揃っているので、問題発生時の見立てがしやすいです。ローカルで再現できることも多く、ログの追跡もやりやすい。\n\nAzure も同じです。\n・App Service\n・Functions\n・Azure SQL\n・Application Insights\n・Key Vault\n・Service Bus\n・Container Apps\n\nこうしたサービスの組み合わせは、メトリクスとログを見ながら、どこで何が起こっているかを切り分けやすいです。\n\n私はこの組み合わせが、混乱しにくく、対処しやすく、再現しやすいと感じています。\n\nAI が書いたコードに対しても、私はそれを「自分の知識で検証できる」安心が必要です。\n・C# のコードがどこで例外を吐いているのか\n・Azure のログに何が残っているのか\n・依存サービスの呼び出しがどうなっているのか\n・監視の指標がどう見えるのか\n\nこうした見え方が分かると、AI が書いたものでも、少しずつ人間の責任範囲で整えられます。\n\nもちろん、C# と Azure 以外の技術にも優れた選択肢はあります。JavaScript でも、Python でも、Go でも、クラウド基盤を変えても、十分に良い開発ができます。\n\nでも、知っている技術であれば、問題が起きたときに本気で対処できるという自信がある種の支えになります。\n\n他の言語やインフラでは、なぜ同じ安心感が持てないのか\n\n私には、他の言語やインフラでも同じ安心感が得られる可能性は十分にあると思います。\n\nただ、現実には「自分がその技術をどこまで知っているか」で差が出ます。これは一種の経験の蓄積であり、言語やインフラへの習熟度の差でもあります。\n\n同じように AI がコードを書くとしても、知らない言語だと、\n・例外の握り方が知らない\n・依存関係がどう解決されるかが分からない\n・実行環境とローカル環境の差が見えにくい\n・どこで落ちるかを予測しにくい\n\nという問題に直面しやすくなります。\n\n逆に、私が長く触ってきた C# と Azure では、コードの構造・例外・ログ・監視・デプロイ先の期待値が見えやすい。それが、AI を使うときの安心材料になるのです。\n\nただし、ここで一つ重要なのは、この話は本番向けのプロダクト開発を前提にしているということです。\n\n実験、PoC、勉強、教育、趣味開発、あるいは「新しい技術を試す」こと自体が目的のときは、話は違います。\n\nその場合は、むしろ未知の技術を選ぶ価値が高いです。AI と組み合わせれば、短期間で試験的に動かしてみることができますし、技術選定の学習にもなります。\n・触ったことがない言語で小さな実験をやってみる\n・新しいクラウドサービスを試す\n・既存のやり方では得られない設計の仮説を検証する\n\nこうした文脈では、未知の技術を選ぶこと自体が価値になります。\n\nだから、私は「どの技術を選ぶべきか」を一律に決めているわけではありません。\n\nむしろ、次のように分けています。\n・本番プロダクト: 失敗したときに対処できる技術を選ぶ\n・実験 / 勉強 / PoC: 先に試したい技術を選んで、学びを得る\n\nこの違いはとても大切です。プロダクトの話では、知っている技術の安心感が強く効きます。一方で、学習や実験の話では、知らない技術に踏み込む価値があるからです。\n\nそして、ここにはもう一つ重要な事実があります。\n\n最後に責任を取るのは人間だということです。\n\nAI が生成したコードを使うのは、技術的には便利ですが、そのコードが本番で安全かどうかを最終的に判断するのは人間です。変更によって発生した障害に対して、説明責任を取るのも人間です。\n\nだからこそ、私が選ぶ技術は「AI に任せやすいもの」ではなく、「問題が起きても自分が責任を持って対処できるもの」なのです。\n\nまとめ\n\nAI コーディングの時代において、技術スタックの選定は以前よりも「自分がどこまでその技術を知っているか」が重要になっています。\n\nAI は、技術を選ぶときの選択肢を広げてくれます。どんな言語でも、どんなインフラでも、たいていはうまくいくでしょう。\n\nでも、そうした時代だからこそ、私たちはより慎重に技術を選ぶ必要があります。\n・何が起きても対処できるか\n・変更の影響範囲を見極められるか\n・ログと監視で原因を絞れるか\n・最後に責任を取れるか\n\nこの観点で見ると、私がよく知っている C# と Azure の組み合わせには、やはり大きな安心感があります。\n\nAI にコードを書かせるとき、私はその手助けを歓迎します。けれど、どこまでを AI に任せ、どこからを自分が制御するのか。その境界を見極めるためにも、知っている技術を選ぶことの価値は今後も大きいと考えています。\n\nAI コーディングの便利さは大きいですが、責任と対処能力は、やはり人間の知っている技術に支えられるものです。\n\nそして、私はその意味でも、勝手知ったる技術スタックを選ぶことに、ちゃんと価値があると感じています。\n\nおわりに\n\nAI と一緒に開発するとき、私は「自分が信頼できる技術」を選ぶことを大切にしています。\n\nそれは、古い技術にこだわるというより、自分が問題を追える技術を選ぶということです。\n\nAI にコードを書かせる時代において、それができる人ほど、安心して実装を進められるし、失敗したときにも立ち直れます。\n\n私にとって、C# と Azure はその代表格です。そこに安心感があるからこそ、AI を使いながらも、最後まで自分の手で責任を持てるのだと思います。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "cb28942f9f742ad3",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.510092693565976,
+      "popularityPercentile": 0.8651399491094147,
+      "matchedTopics": [
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 85,
+      "oneLiner": "AIコーディングでも、障害対応のため熟知したC#とAzureが選ばれている。",
+      "reason": "AIは言語や環境を問わず実装を進められる一方、障害の原因調査と修正では、深く知るC#とAzureの知識が頼りになる。",
+      "keywords": [
+        "AIコーディング",
+        "C#",
+        "Azure",
+        "GitHub Copilot",
+        "技術選定"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIに技術選定を任せるか、熟知した技術を優先するか",
+        "forSide": "障害時に原因を切り分けるには、AIが生成したコードよりC#とAzureの既知の知識が頼りになる。",
+        "againstSide": "未知の技術をAIで素早く試せれば、選択肢を広げながら経験を積める。",
+        "oneSided": true,
+        "yourAngle": "AI生成コードの初期実装時間と、障害対応・レビューにかかった時間を技術スタック別に比較できる。"
+      },
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "2026年 IT業界での生き残り戦略",
+      "url": "https://qiita.com/op_yamaguchi/items/0bf9bde0bd0fccd9c6fb",
+      "publishedAt": "2026-08-12T01:25:47.000Z",
+      "author": "山口 貴生",
+      "authorDetail": {
+        "name": "山口 貴生",
+        "handle": "@op_yamaguchi",
+        "url": "https://qiita.com/op_yamaguchi",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/512476/profile-images/1570778869",
+        "bio": "自動車関連企業でクラウドサービスのテックリードに携わりながら副業でSREを行っております。\r\n事業会社目線で運用を一番に考えたサービス構成を考えるのが好きです。\r\nお仕事のご依頼ありましたらお気軽にお問い合わせください。",
+        "followers": 20,
+        "posts": 5,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://www.wantedly.com/id/TakaoYamaguchi"
+          }
+        ]
+      },
+      "tags": [
+        "生成AI",
+        "AIエージェント",
+        "Cloud",
+        "Claude",
+        "ClaudeCode"
+      ],
+      "snippet": "SREとして事業会社で働きながら、副業で個人事業主としても活動している山口と申します。 仕様駆動開発や、superpowersのようなスキルフレームワークを使ったAI駆動開発が当たり前になったIT業界を改めて振り返り、どうキャリアプランを立てるのか。生成AIを使わずに考えてみました。 （書き終えた後に誤字脱字の訂正と簡単な校正だけやってもらいました） ご参考までにこれまで書いてきた記事です。 https://qiita.com/opyamaguchi/items/00790c15556f26c6e549 https://qiita.com/opyamaguchi/items/e3e0512a9e8462b49873 現状と見立て ちょっと前までは「どうやって生成AIで開発や業務を効率化するか」を考えていたのに、今は「生成AIをどう駆動させ、その中で人に何をやらせるのか」を問われているIT業…",
+      "body": "SREとして事業会社で働きながら、副業で個人事業主としても活動している山口と申します。\n仕様駆動開発や、superpowersのようなスキルフレームワークを使ったAI駆動開発が当たり前になったIT業界を改めて振り返り、どうキャリアプランを立てるのか。生成AIを使わずに考えてみました。\n（書き終えた後に誤字脱字の訂正と簡単な校正だけやってもらいました）\n\nご参考までにこれまで書いてきた記事です。\nhttps://qiita.com/opyamaguchi/items/00790c15556f26c6e549\nhttps://qiita.com/opyamaguchi/items/e3e0512a9e8462b49873\n\n現状と見立て\n\nちょっと前までは「どうやって生成AIで開発や業務を効率化するか」を考えていたのに、今は「生成AIをどう駆動させ、その中で人に何をやらせるのか」を問われているIT業界。\nさらに、その人だけが持っている暗黙知をナレッジ化するサービスも次々と登場しており、どのITエンジニアにとっても悪夢のような状況です。\n特にここ数ヶ月、ClaudeCodeでOpusを使って開発している人は、自分の存在意義を見失い、モチベーションを落としているケースも多いかと思います。\n以下、キャリアと業種ごとに現状と今後の戦略を掘り下げます。\n\nジュニアエンジニア\n\n完全に代替可能なのはもちろん、一部では採用活動がストップするなど、不安定な状況にいます。\n昔ながらの「OJTで作業しながら工数を請求する」スキームが塞がれつつあり、大手以外は教育コストを捻出しづらいのが最大のネックです。\nAIを使った教育プログラムを導入し、採用後に一年ほどふるいに掛けて残す手法が一般的になりそうです。\n採用後の教育カリキュラムの内容、IT以外にどんなドメイン知識を習得できるかなど、会社選びがより重要になるのは間違いありません。\nそんな中でも、休日にAIを使って自主的に勉強できる人は、どこでも活躍できるかと思います。\n\nシニアエンジニア\n\nAI駆動開発への過渡期ということもあり、そこまで追い込まれている印象はありません。\n生成AIの推論に対して、IT技術とドメイン知識の両面からしっかり指摘できる人材は、今後も希少な存在であり続けます。\nAI駆動やAIオーケストレーションの仕組みを一人で構築して運用できることも大きいです。\nその反面、AIレビューを担当する人はAIが次々提案してくる新しい技術を理解しないと業務が成り立たず、キャッチアップの工数が膨れ上がっています。\nジュニアが生成AIでアウトプットしたものへのレビューが集中する問題も、しばらくは解消しないでしょう。\n（生成AIのレビュー結果を生成AIでレビューする仕組みを用いても、ネストが深くなってSSoTが分かり辛くなり、かえって負担が増える）\nただし、生成AIの推論に対して何も指摘ができない場合は、会社から厳しい目で見られることは間違いないですね。\n\nSIer\n\nもっとも厳しい状況に追い込まれているといっても過言ではないでしょう。\n今はまだ生成AIで圧縮した開発コストが利益になっていますが、個人事業主やベンチャー型SIerは生成AIを前提とした見積もりへ移行しつつあります。\n事業会社側でもAI駆動開発が推進されているため、今後は実装やテストで従来の数分の一程度しか費用を請求できなくなるはずです。\n今後は、言われたことしかできない、ITのことしか知らない、生成AIで代替できるSIerは淘汰され、ビジネスやドメインの観点から革新的な提案ができるSIerが台頭してくると思います。\n顧客向けに構築したサービスが生む利益から一部を報酬として受け取る、成果報酬型のSIerも増えていきそうです。\n\n事業会社\n\nこれまで内製開発を行っていなかった会社ほど恩恵を受けており、良くも悪くも大きな影響が出ています。\n自分たちの業務や業界を一番理解していることがより強みとなり、AIオーケストレーターとして更に活躍できるはずです。\n一方で、SIerと比較してITエンジニアのスキルが劣るのは確かで、AI駆動開発において開発はもちろん、リリースしたサービスの運用をどうするかという人の課題を抱えています。\nこの辺の解決が今後のSIerの役割になっていくかもですね。\n経験がなくてもしっかり資格を取っていく人、生成AIを活用した生産性向上の手法を社内に展開できる人は、今後も重宝されるでしょう。\nそして、ITシニアエンジニアの求人が急増しそうです。\n\n最後に\n\nこの状況は突然なのか？\n\n意見が分かれそうですが、私は必然だと思っています。\n昔のITは必要な仕組みやライブラリをすべて自作する必要があり、状況によって言語を使い分けるのはもちろん、ポインタやスレッドの理解、時にはフレームワークの自作まで求められました。\nクラウドがなかった時はサーバ管理も自前で、コマンドラインは当然として、ファイルシステムやカーネルの仕組みを理解していなければ仕事ができませんでした。\nそれがいつからかOSSの利用が前提となり、車輪の再発明は悪とされ、サービスの実装はベンダーが用意したAPIを呼ぶだけになりました。アプリケーションもSpringやReactといったフレームワークが前提となり、著名なエンジニアが抽象化した概念やルールを学ぶことがメインになる。ビルドするために複雑な環境構築の仕組みをキャッチアップする。ある意味、ITの本質からは離れていった感覚があります。\nインフラもTerraformで数行HCLを書ければおしまいで、構築するだけなら高校生でも十分できるほど参入障壁は下がりました（インフラ全体を最適化した上で設計してHCLを実装するのとは、まったく別の話ですが）。\nこれだけエコシステムが充実した中で、自動化が来るのは必然だったと思います。\nもちろん、人の思考がニューラルネットワークによってベクトルで表現され、LLMが言葉を理解して代替できるようになるとは思ってもいませんでしたが。\n\nAI駆動開発は何をもたらすのか？\n\n生産性の向上はもちろん、それと合わせてITエンジニアの淘汰が進みます。\n生成AIがユーザーに課題や要求をヒアリングし、要求定義・要件定義・設計・実装以降を担っていく中でタスクはどんどんなくなり、レビュー、オーケストレーションの仕組みの構築、サービス運用の意思決定あたりだけが残るでしょう。\nそうなった場合、そのポジションに残るのは十分にITを理解しているITエンジニアだけで、それ以外はむしろ不要という世界観になるのではないでしょうか。\n一部のITエンジニアは淘汰され、生成AIが苦手とする分野へ配置転換が進んでいく。\nそしてこれは、ある意味IT業界をあるべき姿へ戻す「再編」に繋がると思います。\n\nそしてこれはただの始まり\n\nIT業界が生成AIによってこれほど急速に変革できたのは、0か1しかない世界であること、OSSという部品を共有する考え、GitHubというコードから意思決定までオープンな場、ブログなどで学んだ知識をアウトプットする文化、そしてそれらがLLMを学習させる仕組みそのものに利用されていたこと。これらが揃っていたことが大きいと思います。\nこれによって生成AIはITという万能な武器を手に入れ、ついでに業界を自動化するプロセスまで理解しました。\nその結果、他のあらゆる業種にAI駆動のためのエコシステムが構築され、人の代替が進んでいくのは時間の問題です。\nこれからは、生成AIから逃れた先もすでに生成AIによって代替されていた、ということも十分起こり得ます。\n個人的には今の状況は割と楽しんでいる方なので、AI駆動開発のトレンドを追いつつ、オーケストレーションの可能性を探索して行きたいと思っています。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "65b0b5f7bbd847a4",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7898091603053436,
+      "popularityPercentile": 0.8854961832061069,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 85,
+      "oneLiner": "AI駆動開発の普及で、ITエンジニアの役割がAIの駆動と暗黙知の言語化へ移る。",
+      "reason": "AIが実装を担う前提が強まり、人にはAIを動かす設計力や、個人の暗黙知を再利用できる形にする力が求められると整理している。",
+      "keywords": [
+        "Claude Code",
+        "AIエージェント",
+        "仕様駆動開発",
+        "superpowers",
+        "キャリア"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AI駆動開発へ適応するか、従来の専門性を深めるか",
+        "forSide": "仕様駆動開発やClaude Codeの普及で、人は実装よりAIの駆動と暗黙知の言語化を担う方向に移る。",
+        "againstSide": "AIを使わない方針は、成果物の速度と市場で求められる経験との差を広げるおそれがある。",
+        "oneSided": true,
+        "yourAngle": "Claude Code導入後に、担当業務・必要スキル・成果物の変化を自分の職歴で整理できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "aware",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": " 連載第1回：レガシー脱却プロジェクト発足！技術選定で「理想のクラウドネイティブ」をあえて捨てた日",
+      "url": "https://qiita.com/futayubi5656/items/9673c05d736422f527e2",
+      "publishedAt": "2026-08-12T02:48:50.000Z",
+      "author": "futayubi5656",
+      "authorDetail": {
+        "name": "futayubi5656",
+        "handle": "@futayubi5656",
+        "url": "https://qiita.com/futayubi5656",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3734047/d7a194747b4320249685000b64dd8e933ecbfec4/large.png?1759679913",
+        "bio": "ナマケモノが好きなシステムエンジニアです。\r\nお手柔らかに！ﾉｼ",
+        "followers": 22,
+        "posts": 55,
+        "links": []
+      },
+      "tags": [
+        "GoogleCloud",
+        "IIS",
+        "SQLServer",
+        "Windows",
+        "インフラ"
+      ],
+      "snippet": "導入部 こんにちは！テックリードの皆さん、今日も良いアーキテクチャ描いてますか？ 今回からいよいよ、架空のプロジェクト「SampleProject」を舞台に、生々しい技術選定の裏側を解説していきます。 このプロジェクトの最大のミッションは、「稼働から十数年が経過し、スパゲッティ状態になったレガシーシステム（VB6 / ClassicASP）を、最新の.NET環境へ移行してGoogle Cloud（GCP）に載せること」です。 当時の私は、クラウド移行と聞いて「最新技術のオンパレードにできる！」とワクワクしていました。しかし、アーキテクトである上司が下した決断は、一見すると非常に「保守的」なものでした。 今回は、なぜ最新技術の採用が見送られ、一見泥臭く見える構成が「最適解」として選ばれたのか、その思考プロセスに迫ります。 【対象となる前提環境】 ・移行前：VB6, ClassicASP, W…",
+      "body": "導入部\n\nこんにちは！テックリードの皆さん、今日も良いアーキテクチャ描いてますか？\n\n今回からいよいよ、架空のプロジェクト「SampleProject」を舞台に、生々しい技術選定の裏側を解説していきます。\nこのプロジェクトの最大のミッションは、「稼働から十数年が経過し、スパゲッティ状態になったレガシーシステム（VB6 / ClassicASP）を、最新の.NET環境へ移行してGoogle Cloud（GCP）に載せること」です。\n\n当時の私は、クラウド移行と聞いて「最新技術のオンパレードにできる！」とワクワクしていました。しかし、アーキテクトである上司が下した決断は、一見すると非常に「保守的」なものでした。\n\n今回は、なぜ最新技術の採用が見送られ、一見泥臭く見える構成が「最適解」として選ばれたのか、その思考プロセスに迫ります。\n\n【対象となる前提環境】\n・移行前：VB6, ClassicASP, Windows Server, SQL Server（オンプレミス）\n・移行後：.NET 8 (C#), Google Cloud (GCP)\n・対象読者：中級エンジニア、技術選定やアーキテクチャ設計に悩んでいる方\n\n \n\n1. 巨大マイグレーションの重圧と「全部入り」の誘惑\n\n【起結】⏱ 10秒まとめ：本章の結論\n\n技術選定の罠は「理想を追い求めすぎること」です。古いコードを最新言語に書き換えること自体が巨大なリスクであり、同時にインフラも最新にしようとするとプロジェクトは高確率で炎上します。\n\n【承】🌩 課題：こんなこと困るよね。難しいよね。\n\nシステムの刷新プロジェクトが立ち上がると、エンジニアなら誰しもこう思いますよね。\n「せっかくGCPを使うんだから、Webサーバーはコンテナ化してCloud Runで動かしたい！」\n「DBも高額なライセンスとおさらばして、超高速なAlloyDB（PostgreSQL互換）に乗り換えよう！」\n\nしかし、現場のコードベースを見て現実に引き戻されます。\n何百個もあるVB6の画面、謎のビジネスロジックが詰まったClassicASP、Windowsの特定のフォントや描画エンジンにがっつり依存した帳票出力機能……。これらを最新の .NET 8 に書き換えるだけでも、数え切れないほどのバグが出ることが容易に想像できます。\n\n【転】💡 解決策：採用理由と他の選択肢\n\nこの状況で、アーキテクトはどのようにスコープを切るべきか。ADR（アーキテクチャ・ディシジョン・レコード）の観点ではこうなります。\n・選択肢A：インフラとアプリの同時フルリプレース（見送り）\n・見送り理由： レガシーコードを別言語に翻訳するバグに加えて、インフラ環境の変化（OSの違いやDBの違い）によるエラーが同時に発生する。問題が起きた際に「コードが悪いのか、インフラ設定が悪いのか」の切り分けができなくなり、泥沼化するため。\n・採用案：アプリのモダン化に全集中し、インフラのパラダイムは変えない\n・採用理由： 「絶対に失敗できないレガシーの書き換え」にリスク予算を全振りするため。まずは既存のオンプレミス環境とほぼ同じ構成をクラウド上に用意し、「プログラムの書き換えエラー」だけを純粋に追跡できる安全な土台を作る。\n\n【結】💻 具体例：アーキテクチャ変遷のロードマップ\n\n技術選定の会議で上司がホワイトボードに描いたロードマップ（イメージ）です。一度にゴールを目指すのではなく、フェーズを分けることでリスクをコントロールしています。\n\n [code] \n【補足】🔰 初心者向け解説：マイグレーションとリフト＆シフトとは？\n「老朽化した一軒家」からのお引っ越しに例えましょう。\n・マイグレーション（移行）： 古い家を壊して、最新の建材（.NET 8）で新しい家を建てること。\n・リフト＆シフト： とりあえず家具をそのまま段ボールに詰めて、別のマンション（クラウドのVM）にお引越し（Lift）し、引っ越した先でゆっくり家具を最新家電に買い替えていく（Shift）手法。一番安全なお引っ越しのやり方です。\n\n2. アーキテクトの前に並んだ「3つの選択肢」と決断\n\n【起結】⏱ 10秒まとめ：本章の結論\n\n技術選定とは「最高の技術を選ぶこと」ではなく、「限られたリスク予算をどこに使うか」を決めることです。「ビッグバン・リリース」を避けることが、最大の防御になります。\n\n【承】🌩 課題：こんなこと困るよね。難しいよね。\n\nお客さんや経営層からはよくこう言われます。\n「どうせ作り直すなら、後から2回工事しなくていいように、最初から一番良い（ランニングコストが安い）クラウドの形にしてよ」\n\nお財布を握る側からすれば当然の要望です。しかし、第0回で解説した通り、Cloud Run（コンテナ）は「Linux」でしか動かず、AlloyDBは「PostgreSQL」ベースです。もし一発でこの環境へ移行しようとすると、既存の「Windows向けに作られた帳票ツール」などの資産が全滅し、ライセンス費用の削減額を遥かに超える莫大な再開発コスト（と炎上リスク）が降り掛かってきます。\n\n【転】💡 解決策：採用理由と他の選択肢\n\nこれらを踏まえ、上司が作成した意思決定の記録（ADR）のコアとなる部分です。\n・選択肢A：Cloud Run ＋ AlloyDB の採用（見送り）\n・見送り理由： ライセンス費用はゼロになるが、帳票機能のLinux向け再構築、SQLの全面書き換えが発生する。レガシー移行と同時に行う「ビッグバン・リリース」となり、プロジェクトの頓挫リスクが許容値を超えるため。\n・選択肢B：Cloud Run ＋ SQL Server の採用（見送り）\n・見送り理由： DBのリスクは減るが、依然としてWebサーバーのLinuxコンテナ化が必要。Windows用の帳票ツールが動かない問題が解決しないため。\n・採用案：Compute Engine (Windows VM) ＋ Cloud SQL for SQL Server の採用\n・採用理由： 既存のWindows資産とSQL Serverの機能（Entity Framework等のコード資産）を100%活かす。ライセンス費用は残るが、システム停止によるビジネス損失リスクと、炎上時のデバッグ修正費用を考慮すれば、トータルコストが最も安く、確実な選択であると判断したため。\n\n【結】💻 具体例：ADR（アーキテクチャ・ディシジョン・レコード）の書き方\n\n現場で実際に書かれるようなADR（意思決定記録）のMarkdown記述例です。なぜその技術を選んだのか、チーム全体で納得感を持つための重要なドキュメントです。\n\n [code] \n【補足】🔰 初心者向け解説：ビッグバン・リリースとは？\n文字通り、宇宙の始まりのように「すべての機能を一気に爆発的に新しくして公開する」手法です。\n車に例えると、「高速道路を走りながら、エンジンとタイヤとハンドルを同時に最新パーツに交換する」ようなものです。もし車が止まってしまった時、エンジンのせいなのか、タイヤのせいなのか原因が全く分からなくなりますよね。だから、プロは「まずはエンジンだけ変えて様子を見る（段階的リリース）」を好むのです。\n\n単語一覧 (Glossary)\n・ビッグバン・リリース (Big Bang Release): システムのハードウェア、ソフトウェア、ネットワークなどを一斉にすべて新しく切り替えること。リスクが非常に高く、現代の開発ではアンチパターンとされることが多い。\n・技術的負債 (Technical Debt): 「とりあえず今は動くから」と、場当たり的な古い設計やコードを放置し続けること。後になって機能追加やクラウド移行をする際に、利子となって莫大な改修コストがのしかかってくる。\n・ADR (Architecture Decision Record): チーム内で「なぜこの技術を採用したか（あるいは見送ったか）」という意思決定の背景を記録するドキュメント。未来の開発者が「なんでこんな設計にしたんだ？」と迷わないための道しるべになる。\n\nいかがでしたか？最新技術の誘惑に打ち勝ち、プロジェクトを確実に成功へ導くための「リスク予算の配分」こそが、アーキテクトの真骨頂です。\n\n次回、第2回では、今回見送られた「Cloud Run（コンテナ）」の壁について、さらに技術的にディープに掘り下げます。「コンテナにすれば何でも動くわけじゃない」という厳しい現実と、Windows資産との戦いをお届けします。お楽しみに！",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "35c6686130b03a97",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.35529262086513996,
+      "popularityPercentile": 0.8422391857506362,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "レガシー移行で最新技術を一括導入せず、変更範囲を抑える構成が選ばれた。",
+      "reason": "VB6・Classic ASPから.NET 8へ移す際、コードとインフラを同時に全面刷新するとリスクが重なるため、既存資産を残す方針を採った。",
+      "keywords": [
+        ".NET 8",
+        "Google Cloud",
+        "GCP",
+        "VB6",
+        "Classic ASP",
+        "レガシー移行"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "理想的なクラウドネイティブ化を進めるか、既存資産を残すか",
+        "forSide": "VB6やClassic ASPの移行では、言語とインフラを同時に刷新せず、リスクを分ける構成が選ばれた。",
+        "againstSide": "移行時に古い構成を残すと、運用負荷や将来の刷新コストを先送りすることになる。",
+        "oneSided": true,
+        "yourAngle": "既存システムの依存関係と、段階移行で実際に減ったリリース・障害リスクを記録できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn",
+      "title": "【Go】Dockerfile に air は不要？ Use Compose Watch を前提にしたコンテナ構築",
+      "url": "https://zenn.dev/otakakot/articles/693a8367fd5f01",
+      "publishedAt": "2026-08-12T01:00:05.159Z",
+      "author": "おーたかこーたろー",
+      "authorDetail": {
+        "name": "おーたかこーたろー",
+        "handle": "@otakakot",
+        "url": "https://zenn.dev/otakakot",
+        "avatarUrl": "https://res.cloudinary.com/zenn/image/fetch/s--3jEHiCC6--/c_limit%2Cf_auto%2Cfl_progressive%2Cq_auto%2Cw_70/https://static.zenn.studio/user-upload/avatar/3e84ae393c.jpeg?_a=BACMTiAE",
+        "links": []
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "",
+      "metrics": {
+        "likes": 14,
+        "stocks": 2,
+        "comments": 1,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c3bfb8d3165a13a3",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.21702702702702703,
+      "popularityPercentile": 0.9864864864864865,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 82,
+      "oneLiner": "Goのコンテナ開発で、airを使わずCompose Watchを前提にする構成が示された。",
+      "reason": "Docker ComposeのCompose Watchでソース変更をコンテナへ反映できるため、Go用のファイル監視ツールairをイメージに含めない構成を説明している。",
+      "keywords": [
+        "Go",
+        "Dockerfile",
+        "Docker Compose",
+        "Compose Watch",
+        "air"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "Compose Watchに統一するか、airのような専用監視ツールを使うか",
+        "forSide": "Goのコンテナ開発では、Docker ComposeのCompose Watchを使えばDockerfileにairを入れずに済む。",
+        "againstSide": "専用のファイル監視ツールは、複雑な開発フローや細かな制御を必要とする場合に有利になる。",
+        "oneSided": true,
+        "yourAngle": "Go開発でファイル変更から反映までの時間と、監視ツールの設定・保守量を比較できる。"
+      },
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    }
+  ],
+  "stats": {
+    "collected": 794,
+    "afterDedupe": 743,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 394,
+      "zenn": 155,
+      "hatena": 34,
+      "hackernews": 59,
+      "devto": 4,
+      "github_release": 45,
+      "github_repo": 73,
+      "rss": 29,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 28
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5540,
+        "outputTokens": 2316,
+        "cacheReadTokens": 0,
+        "elapsedMs": 15354,
+        "estimatedCostUsd": 0.0038872
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 16693,
+        "outputTokens": 1787,
+        "cacheReadTokens": 1655,
+        "elapsedMs": 18065,
+        "estimatedCostUsd": 0.0055160999999999995
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14622,
+        "outputTokens": 1869,
+        "cacheReadTokens": 3608,
+        "elapsedMs": 19373,
+        "estimatedCostUsd": 0.005239359999999999
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 19664,
+        "outputTokens": 1818,
+        "cacheReadTokens": 3454,
+        "elapsedMs": 18700,
+        "estimatedCostUsd": 0.006183480000000001
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 9492,
+        "outputTokens": 2067,
+        "cacheReadTokens": 4796,
+        "elapsedMs": 13040,
+        "estimatedCostUsd": 0.00447472
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 9499,
+        "outputTokens": 1757,
+        "cacheReadTokens": 0,
+        "elapsedMs": 9711,
+        "estimatedCostUsd": 0.0040082
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 11505,
+        "outputTokens": 3742,
+        "cacheReadTokens": 0,
+        "elapsedMs": 22592,
+        "estimatedCostUsd": 0.0067913999999999995
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 8746,
+        "outputTokens": 5362,
+        "cacheReadTokens": 5833,
+        "elapsedMs": 33702,
+        "estimatedCostUsd": 0.00830026
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 9369,
+        "outputTokens": 6022,
+        "cacheReadTokens": 6054,
+        "elapsedMs": 39022,
+        "estimatedCostUsd": 0.009221280000000002
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 10695,
+        "outputTokens": 6289,
+        "cacheReadTokens": 6321,
+        "elapsedMs": 44570,
+        "estimatedCostUsd": 0.00981222
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3236,
+        "outputTokens": 244,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2957,
+        "estimatedCostUsd": 0.00094
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4135,
+        "outputTokens": 276,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2631,
+        "estimatedCostUsd": 0.0011582
+      }
+    },
+    "totalCostUsd": 0.0655
+  },
+  "notes": []
+}
