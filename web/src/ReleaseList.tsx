@@ -1,3 +1,5 @@
+import { AskClaudeButton } from './AskClaudeButton';
+import { askContextForRelease } from './askClaude';
 import { FeedbackButtons } from './FeedbackButtons';
 import { ShareButtons } from './components';
 import { safeUrl } from './format';
@@ -168,6 +170,7 @@ function Row({
         </details>
       )}
 
+      <AskClaudeButton context={askContextForRelease(r)} />
       <ShareButtons url={r.url} tweetText={r.unlock ? `${r.product}: ${r.unlock}` : `${r.product}: ${r.summary}`} />
       <FeedbackButtons
         target={{

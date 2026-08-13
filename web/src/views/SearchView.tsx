@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { navigate } from '../App';
+import { AskClaudeButton } from '../AskClaudeButton';
+import { askContextForIndexEntry } from '../askClaude';
 import { loadIndexByMonth, loadIndexShard } from '../api';
 import { ALL_MONTHS, Chip, Empty, Highlight, LoadingCards, MonthPicker } from '../components';
 import { SOURCE_LABELS, daysPerMonth, formatDateShort, formatMonthLabel, safeUrl } from '../format';
@@ -256,6 +258,8 @@ export function SearchView({ manifest, initialQuery }: Props) {
                       #{k}
                     </button>
                   ))}
+                  {/* 過去の記事を掘り返したときは、当時の要約しか手元にないので特に効く */}
+                  <AskClaudeButton context={askContextForIndexEntry(entry)} />
                 </div>
               </div>
             </div>

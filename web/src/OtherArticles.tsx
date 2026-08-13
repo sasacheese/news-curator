@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { navigate } from './App';
+import { AskClaudeButton } from './AskClaudeButton';
+import { askContextForItem } from './askClaude';
 import { BuzzChip, Chip, ShareButtons } from './components';
 import { DebateScaffold } from './DebateScaffold';
 import { FeedbackButtons } from './FeedbackButtons';
@@ -66,6 +68,7 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
               #{k}
             </button>
           ))}
+          <AskClaudeButton context={askContextForItem(item)} />
           <ShareButtons url={item.url} tweetText={item.oneLiner} />
           <FeedbackButtons
             target={{
