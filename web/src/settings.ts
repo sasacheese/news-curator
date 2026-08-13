@@ -78,18 +78,39 @@ export function clearLocalTopics(): void {
 const FEEDBACK_UNLOCK_KEY = 'news-curator:feedback-unlocked';
 
 /**
- * URL の ?fb=<token> が VITE_FEEDBACK_TOKEN と一致したら解除フラグを立てる。
+ * 合言葉（VITE_FEEDBACK_TOKEN）が一致したら解除フラグを立てる。一致したかを返す。
  *
  * 認証ではなく「偶然見つからない」程度の目隠し。トークン自体はビルド済み JS に
  * 平文で入るので、本気で探せば見つかる。実害はスパム投稿程度で、
  * フィードバックデータは Firestore の TTL で数週間後に消える前提。
  */
+export function unlockFeedback(token: string): boolean {
+  const expected = import.meta.env.VITE_FEEDBACK_TOKEN;
+  if (!expected || token !== expected) return false;
+  localStorage.setItem(FEEDBACK_UNLOCK_KEY, '1');
+  return true;
+}
+
+export function lockFeedback(): void {
+  localStorage.removeItem(FEEDBACK_UNLOCK_KEY);
+}
+
+/** 合言葉がビルドに埋め込まれているか。未設定ならこの機能は使えない */
+export function hasFeedbackToken(): boolean {
+  return Boolean(import.meta.env.VITE_FEEDBACK_TOKEN);
+}
+
+/**
+ * URL の ?fb=<token> で解除する。PC のブラウザ向けの入口。
+ *
+ * ホーム画面に追加した PWA には URL バーが無く、`start_url` にも
+ * クエリは載らないので、この経路は使えない。PWA からは設定画面
+ * （ロゴ連打で入る）の入力欄で解除する。
+ */
 export function unlockFeedbackFromUrl(): void {
   const token = new URLSearchParams(location.search).get('fb');
-  const expected = import.meta.env.VITE_FEEDBACK_TOKEN;
-  if (!token || !expected || token !== expected) return;
+  if (!token || !unlockFeedback(token)) return;
 
-  localStorage.setItem(FEEDBACK_UNLOCK_KEY, '1');
   const url = new URL(location.href);
   url.searchParams.delete('fb');
   history.replaceState(null, '', url);

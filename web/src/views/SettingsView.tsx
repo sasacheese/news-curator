@@ -7,8 +7,12 @@ import {
   clearLocalTopics,
   getLocalTopics,
   getTheme,
+  hasFeedbackToken,
+  isFeedbackUnlocked,
+  lockFeedback,
   saveLocalTopics,
   setTheme as persistTheme,
+  unlockFeedback,
 } from '../settings';
 import type { Manifest, Topic, TopicsConfig } from '../types';
 
@@ -24,6 +28,9 @@ export function SettingsView({ manifest }: { manifest: Manifest | null }) {
   const [status, setStatus] = useState<Status>(null);
 
   const [theme, setThemeState] = useState<Theme>(() => getTheme());
+  const [feedbackInput, setFeedbackInput] = useState('');
+  const [feedbackUnlocked, setFeedbackUnlocked] = useState(() => isFeedbackUnlocked());
+  const [feedbackError, setFeedbackError] = useState(false);
   const repo = isRepoSlug(manifest?.repo) ? manifest.repo : null;
 
   useEffect(() => {
@@ -286,6 +293,78 @@ export function SettingsView({ manifest }: { manifest: Manifest | null }) {
           ))}
         </div>
       </section>
+
+      {/* ---------------- Good / Bad ボタン ---------------- */}
+      {/*
+        解除の状態はブラウザごと（localStorage）に持つ。ホーム画面に追加した PWA は
+        Safari と保存領域が別なので、ブラウザで解除しても PWA には引き継がれない。
+        PWA には URL バーが無く `?fb=` も打てないため、ここから解除できるようにしてある。
+      */}
+      {hasFeedbackToken() && (
+        <section className="settings-section">
+          <h2>Good / Bad ボタン</h2>
+          <p>
+            合言葉が合っていれば、記事に Good / Bad ボタンが出ます。投票は毎朝の採点の
+            重み付けに反映されます。解除の状態は<strong>このブラウザにのみ</strong>
+            保存され、ホーム画面に追加した PWA はブラウザとは別扱いになるので、
+            使う場所ごとに解除してください。
+          </p>
+
+          {feedbackUnlocked ? (
+            <div className="actions" style={{ marginTop: 0 }}>
+              <span className="field__hint" style={{ margin: 0 }}>
+                この環境では解除済みです。
+              </span>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => {
+                  lockFeedback();
+                  setFeedbackUnlocked(false);
+                }}
+              >
+                解除を取り消す
+              </button>
+            </div>
+          ) : (
+            <form
+              className="actions"
+              style={{ marginTop: 0 }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!unlockFeedback(feedbackInput.trim())) {
+                  setFeedbackError(true);
+                  return;
+                }
+                setFeedbackUnlocked(true);
+                setFeedbackError(false);
+                setFeedbackInput('');
+              }}
+            >
+              <input
+                type="password"
+                value={feedbackInput}
+                onChange={(e) => {
+                  setFeedbackInput(e.target.value);
+                  setFeedbackError(false);
+                }}
+                placeholder="合言葉"
+                aria-label="合言葉"
+                autoComplete="off"
+                style={{ maxWidth: 260 }}
+              />
+              <button type="submit" className="btn btn--primary" disabled={!feedbackInput.trim()}>
+                解除する
+              </button>
+              {feedbackError && (
+                <span className="field__hint" style={{ margin: 0 }}>
+                  合言葉が違います。
+                </span>
+              )}
+            </form>
+          )}
+        </section>
+      )}
     </>
   );
 }

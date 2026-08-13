@@ -261,10 +261,19 @@ pre {
 /* ---------------- ロゴ ---------------- */
 
 .logo {
+  /*
+   * 組み上がりを始めるまでの間。
+   *
+   * 開いた瞬間に始めると、目線がヘッダーに届く前に終わっていて気付けない。
+   * 一拍おいてから始める。delay が効くのは初回だけで、以降は 30 秒周期のまま
+   * まるごと後ろにずれる。面ごとの 0.16 秒差もこの起点から数える。
+   */
+  --logo-start-delay: 0.9s;
+
   display: block;
   overflow: visible;
   /* 4 枚が収まった瞬間、マーク全体が衝撃を受け止めて一度だけ震える */
-  animation: logo-settle 30s linear infinite;
+  animation: logo-settle 30s linear var(--logo-start-delay) infinite;
   transform-origin: center;
 }
 
@@ -273,7 +282,7 @@ pre {
   fill: color-mix(in srgb, var(--text-faint) 72%, var(--bg));
   transform-box: fill-box;
   transform-origin: center;
-  animation: logo-assemble 30s linear infinite;
+  animation: logo-assemble 30s linear var(--logo-start-delay) infinite;
   /*
    * backwards が無いと、遅延中の面が「素の状態」= 完成形のまま見えてしまう。
    * 3 枚目と 4 枚目が最初から置かれていて、時計回りに組み上がって見えなかった。
@@ -291,15 +300,15 @@ pre {
  * 次が飛び込んでくるので、動きが途切れずに繋がる。
  */
 .logo__face:nth-child(2) {
-  animation-delay: 0.16s;
+  animation-delay: calc(var(--logo-start-delay) + 0.16s);
 }
 
 .logo__face:nth-child(3) {
-  animation-delay: 0.32s;
+  animation-delay: calc(var(--logo-start-delay) + 0.32s);
 }
 
 .logo__face:nth-child(4) {
-  animation-delay: 0.48s;
+  animation-delay: calc(var(--logo-start-delay) + 0.48s);
 }
 
 /*
@@ -396,7 +405,16 @@ pre {
  * 動きを減らす設定では組み立てを見せない。
  * 全体の reduced-motion 指定で duration が 0.01ms になり、
  * 一瞬で最終状態に飛ぶので、組んだ形だけが残る。
+ *
+ * ただし delay は 0.01ms 化の対象外なので、待ちを入れたぶんだけ
+ * マークが空白のまま置かれる（fill-mode: backwards で 0% = opacity 0）。
+ * 見せない動きを待たせる意味は無いので、起点の待ちだけ外す。
  */
+@media (prefers-reduced-motion: reduce) {
+  .logo {
+    --logo-start-delay: 0s;
+  }
+}
 
 .tabs {
   display: flex;
@@ -2724,261 +2742,6 @@ a.btn {
   }
   .site-header__inner {
     padding-block: 8px;
-  }
-}
-
-/* ---------------- 歩く猫 ---------------- */
-
-/*
- * 画面下端を往復する。1 周 = 読了目安（--walk-duration、既定 20 分）。
- *
- * 動かすのは transform だけ。left を動かすとフレームごとにレイアウトが走り、
- * backdrop-filter を持つ追従ヘッダーの再描画まで巻き込む。
- *
- * 移動（.walker）と反転（.walker__flip）を別の層に分けている。同じ層でやると
- * 折り返しで吹き出しの文字まで鏡文字になる。
- */
-.walker {
-  position: fixed;
-  left: 0;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
-  z-index: 15;
-  width: 28px;
-  height: 18px;
-  color: var(--text-faint);
-  opacity: 0.55;
-  /*
-   * walker-half は見た目に何もしない。半周ごとに animationiteration を出して
-   * 折り返しの合図にするためだけに重ねている（Walker.tsx の useTurnCue）。
-   * 同じ要素に載せておけば hover の一時停止も一緒に効く。
-   */
-  animation: walker-tour var(--walk-duration, 1200s) linear infinite,
-    walker-half calc(var(--walk-duration, 1200s) / 2) linear infinite;
-  will-change: transform;
-}
-
-.walker__flip {
-  display: block;
-  animation: walker-face var(--walk-duration, 1200s) linear infinite;
-}
-
-.walker__cat {
-  display: block;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  line-height: 0;
-  /* 歩く上下動。往復と反転の transform とぶつからないよう層を分ける */
-  animation: walker-bob 0.52s ease-in-out infinite;
-}
-
-.walker svg {
-  fill: currentColor;
-  overflow: visible;
-}
-
-/* 目だけ地の色で抜く。白を塗るとダークで浮く */
-.walker__eye {
-  fill: var(--bg);
-}
-
-.walker__leg {
-  fill: currentColor;
-  transform-origin: 50% 0;
-  animation: walker-step 0.52s ease-in-out infinite;
-}
-
-/* 前足と後ろ足は半周ずらす */
-.walker__leg--front {
-  animation-delay: -0.26s;
-}
-
-.walker__tail {
-  transform-origin: 100% 100%;
-  animation: walker-tail 1.6s ease-in-out infinite;
-}
-
-/* 触ると立ち止まる */
-.walker:hover {
-  opacity: 0.95;
-  animation-play-state: paused;
-}
-
-/*
- * 止めるのは歩き（往復・向き・上下動・足）だけ。
- * しっぽは止めない——立ち止まった猫のしっぽが固まると、生きていないものに見える。
- */
-.walker:hover .walker__flip,
-.walker:hover .walker__cat,
-.walker:hover .walker__leg {
-  animation-play-state: paused;
-}
-
-.walker__cat:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: 4px;
-}
-
-/*
- * 折り返しの吹き出し。
- *
- * 右端で出るので、猫の右ではなく左へ伸ばす（右だと画面外に出る）。
- * 出ている時間は JS 側が実時間で決める（往復が 3 分の日と 90 分の日で
- * キーフレームの % が 1 秒と 30 秒になってしまうため）。
- */
-.walker__say {
-  position: absolute;
-  right: -2px;
-  bottom: 22px;
-  white-space: nowrap;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow);
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-muted);
-  opacity: 0;
-  transform: translateY(4px) scale(0.9);
-  transform-origin: 88% 120%;
-  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease-bounce);
-  pointer-events: none;
-}
-
-/* しっぽ側の小さな三角。吹き出しらしさはこれだけで足りる */
-.walker__say::after {
-  content: '';
-  position: absolute;
-  right: 10px;
-  bottom: -4px;
-  width: 6px;
-  height: 6px;
-  background: var(--bg-elevated);
-  border-right: 1px solid var(--border-strong);
-  border-bottom: 1px solid var(--border-strong);
-  transform: rotate(45deg);
-}
-
-.walker--saying {
-  /* 喋っているあいだは薄いままだと読めない */
-  opacity: 0.95;
-}
-
-.walker--saying .walker__say {
-  opacity: 1;
-  transform: none;
-}
-
-/*
- * 往復。
- *
- * 左端から出発して、半分で右端に着く。100vw を使うのでウィンドウ幅が
- * 変わっても端まで歩く。
- */
-@keyframes walker-tour {
-  0% {
-    transform: translateX(8px);
-  }
-  49.7% {
-    transform: translateX(calc(100vw - 36px));
-  }
-  100% {
-    transform: translateX(8px);
-  }
-}
-
-/*
- * 向き。折り返しでほぼ瞬間に反転させる（間を取ると猫が薄くつぶれて通り過ぎる）。
- * 反転の位置は walker-tour の 49.7% と Walker.tsx の TURN_AT と揃えること。
- */
-@keyframes walker-face {
-  0%,
-  49.6% {
-    transform: scaleX(1);
-  }
-  49.8%,
-  99.8% {
-    transform: scaleX(-1);
-  }
-  100% {
-    transform: scaleX(1);
-  }
-}
-
-/*
- * 折り返しの合図を出すためだけの動き。transform とは別枠の rotate を
- * 同じ値で置いているので、見た目には何も起きない。
- */
-@keyframes walker-half {
-  from {
-    rotate: 0deg;
-  }
-  to {
-    rotate: 0deg;
-  }
-}
-
-@keyframes walker-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-1.2px);
-  }
-}
-
-@keyframes walker-step {
-  0%,
-  100% {
-    transform: rotate(15deg);
-  }
-  50% {
-    transform: rotate(-15deg);
-  }
-}
-
-@keyframes walker-tail {
-  0%,
-  100% {
-    transform: rotate(-7deg);
-  }
-  50% {
-    transform: rotate(9deg);
-  }
-}
-
-/* クリックしたときの跳ね。着地で少しつぶれる */
-.walker--hop .walker__cat {
-  animation: walker-hop 0.62s var(--ease-bounce);
-}
-
-@keyframes walker-hop {
-  0% {
-    transform: translateY(0) scale(1, 1);
-  }
-  22% {
-    transform: translateY(-13px) scale(0.94, 1.08);
-  }
-  62% {
-    transform: translateY(0) scale(1.1, 0.9);
-  }
-  100% {
-    transform: translateY(0) scale(1, 1);
-  }
-}
-
-/*
- * 動きを減らす設定のときは出さない。
- * 全体の reduced-motion 指定で duration が 0.01ms になるため、
- * 残すと猫が右端に張り付いたまま動かない置物になる。
- */
-@media (prefers-reduced-motion: reduce) {
-  .walker {
-    display: none;
   }
 }
 
