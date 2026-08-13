@@ -16,7 +16,6 @@ import { FeedbackButtons } from '../FeedbackButtons';
 import { groupByLane } from '../lanes';
 import type { DeepDive, Digest, Manifest, Prerequisite, RankedItem, TopItem } from '../types';
 import { formatDateLabel, formatPublished, metricSummary, safeUrl } from '../format';
-import { setWalkMinutes } from '../walkerClock';
 
 /**
  * 読み込み中の骨組み。
@@ -103,11 +102,6 @@ export function TodayView({ manifest, date }: Props) {
     const timer = window.setTimeout(() => setShowSkeleton(true), 160);
     return () => window.clearTimeout(timer);
   }, [loading]);
-
-  // 読了目安を猫に渡す。猫はこの時間でちょうど画面を往復する
-  useEffect(() => {
-    if (digest) setWalkMinutes(digest.stats.estimatedReadMinutes);
-  }, [digest]);
 
   if (!manifest) return <TodaySkeleton />;
 
