@@ -261,10 +261,19 @@ pre {
 /* ---------------- ロゴ ---------------- */
 
 .logo {
+  /*
+   * 組み上がりを始めるまでの間。
+   *
+   * 開いた瞬間に始めると、目線がヘッダーに届く前に終わっていて気付けない。
+   * 一拍おいてから始める。delay が効くのは初回だけで、以降は 30 秒周期のまま
+   * まるごと後ろにずれる。面ごとの 0.16 秒差もこの起点から数える。
+   */
+  --logo-start-delay: 0.9s;
+
   display: block;
   overflow: visible;
   /* 4 枚が収まった瞬間、マーク全体が衝撃を受け止めて一度だけ震える */
-  animation: logo-settle 30s linear infinite;
+  animation: logo-settle 30s linear var(--logo-start-delay) infinite;
   transform-origin: center;
 }
 
@@ -273,7 +282,7 @@ pre {
   fill: color-mix(in srgb, var(--text-faint) 72%, var(--bg));
   transform-box: fill-box;
   transform-origin: center;
-  animation: logo-assemble 30s linear infinite;
+  animation: logo-assemble 30s linear var(--logo-start-delay) infinite;
   /*
    * backwards が無いと、遅延中の面が「素の状態」= 完成形のまま見えてしまう。
    * 3 枚目と 4 枚目が最初から置かれていて、時計回りに組み上がって見えなかった。
@@ -291,15 +300,15 @@ pre {
  * 次が飛び込んでくるので、動きが途切れずに繋がる。
  */
 .logo__face:nth-child(2) {
-  animation-delay: 0.16s;
+  animation-delay: calc(var(--logo-start-delay) + 0.16s);
 }
 
 .logo__face:nth-child(3) {
-  animation-delay: 0.32s;
+  animation-delay: calc(var(--logo-start-delay) + 0.32s);
 }
 
 .logo__face:nth-child(4) {
-  animation-delay: 0.48s;
+  animation-delay: calc(var(--logo-start-delay) + 0.48s);
 }
 
 /*
@@ -396,7 +405,16 @@ pre {
  * 動きを減らす設定では組み立てを見せない。
  * 全体の reduced-motion 指定で duration が 0.01ms になり、
  * 一瞬で最終状態に飛ぶので、組んだ形だけが残る。
+ *
+ * ただし delay は 0.01ms 化の対象外なので、待ちを入れたぶんだけ
+ * マークが空白のまま置かれる（fill-mode: backwards で 0% = opacity 0）。
+ * 見せない動きを待たせる意味は無いので、起点の待ちだけ外す。
  */
+@media (prefers-reduced-motion: reduce) {
+  .logo {
+    --logo-start-delay: 0s;
+  }
+}
 
 .tabs {
   display: flex;
