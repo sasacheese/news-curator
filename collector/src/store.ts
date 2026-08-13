@@ -195,7 +195,29 @@ export function toIndexEntries(digest: Digest): IndexEntry[] {
     lang: 'unknown',
   }));
 
-  return [...fromTop, ...fromReleases, ...fromOthers];
+  /*
+   * 同じ記事が top とリリース情報の両方に載る日がある。ダイジェストの画面は
+   * 「ベスト」と「リリース情報」を別枠で見せるので重複してよいが、検索
+   * インデックスは 1 記事 1 行でないと同じ記事が二重に並ぶ（React の
+   * key も (date, id) なので衝突する）。id で先勝ちにまとめる。
+   *
+   * 残すのは top > others > releases の順。リリース側は score 0 / rank null /
+   * category 固定で、検索結果としては情報が薄い。ただし keyword だけは
+   * 製品名とバージョン（v2.1.225 など）を持っていて、これは他のどこにも
+   * 出てこない検索語なので、落とす側からも拾っておく。
+   */
+  const byId = new Map<string, IndexEntry>();
+  for (const entry of [...fromTop, ...fromOthers, ...fromReleases]) {
+    const kept = byId.get(entry.id);
+    if (kept) {
+      kept.keywords = [...new Set([...kept.keywords, ...entry.keywords])];
+    } else {
+      byId.set(entry.id, entry);
+    }
+  }
+
+  // 並び順は今までどおりに保つ（勝った側だけを元の位置で返す）
+  return [...fromTop, ...fromReleases, ...fromOthers].filter((e) => byId.get(e.id) === e);
 }
 
 export async function saveDigest(digest: Digest): Promise<void> {
