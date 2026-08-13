@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { loadManifest } from './api';
 import { Notice } from './components';
 import { RETIRED_TOKEN_KEY, purgeRetiredKeys } from './settings';
 import { Logo } from './Logo';
 import type { Manifest } from './types';
-import { Walker } from './Walker';
 import { ArchiveView } from './views/ArchiveView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
@@ -69,11 +68,40 @@ const TABS: Tab[] = [
   { key: 'search', label: '検索', href: '/search' },
 ];
 
+const SECRET_TAPS = 5;
+const SECRET_TAP_WINDOW_MS = 3000;
+
+/**
+ * ロゴマークを素早く 5 回叩いたら発火する。設定画面への隠し入口。
+ *
+ * ホーム画面に追加した PWA には URL バーが無いので `#/settings` を直接打てず、
+ * 画面にリンクを出していない設定画面へ到達する手段が無かった。端末の操作だけで
+ * 入れる経路として連打を用意する。ロゴを叩いても `#/today` へは飛ばさない
+ * （連打の途中でページが変わらないように）。ブランド名のテキスト側は今まで通り。
+ */
+function useSecretTap(onTrigger: () => void) {
+  const taps = useRef<number[]>([]);
+
+  return useCallback(
+    (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const now = Date.now();
+      taps.current = [...taps.current, now].filter((t) => now - t < SECRET_TAP_WINDOW_MS);
+      if (taps.current.length < SECRET_TAPS) return;
+      taps.current = [];
+      onTrigger();
+    },
+    [onTrigger],
+  );
+}
+
 export function App() {
   const route = useRoute();
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [purged, setPurged] = useState<string[]>([]);
+  const onLogoTap = useSecretTap(useCallback(() => navigate('/settings'), []));
 
   // 撤去した機能が残したトークンを消す。過去に保存したブラウザだけが対象
   useEffect(() => setPurged(purgeRetiredKeys()), []);
@@ -124,7 +152,7 @@ export function App() {
       <header className="site-header">
         <div className="container site-header__inner">
           <a className="brand" href="#/today">
-            <span className="brand__mark">
+            <span className="brand__mark" onClick={onLogoTap}>
               <Logo />
             </span>
             <span>
@@ -203,8 +231,6 @@ export function App() {
           <p>キーボード: / で検索、t で今日のダイジェスト。</p>
         </div>
       </footer>
-
-      <Walker />
     </div>
   );
 }
