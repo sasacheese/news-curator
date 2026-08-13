@@ -7,6 +7,8 @@ import { VisualFigure } from '../VisualFigure';
 import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
 import { Annotated } from '../Annotated';
+import { AskClaudeButton } from '../AskClaudeButton';
+import { askContextForTop } from '../askClaude';
 import { BuzzChip } from '../components';
 import { Chip, CopyButton, Empty, Notice, ShareButtons } from '../components';
 import { DebateScaffold } from '../DebateScaffold';
@@ -480,6 +482,8 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
         <a className="btn btn--sm" href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
           元記事を読む ↗
         </a>
+        {/* 読んだ直後に詰まったところを聞く動線なので、元記事リンクの隣に置く */}
+        <AskClaudeButton context={askContextForTop(item)} />
         <ShareButtons url={item.url} tweetText={d.headline} />
         <FeedbackButtons
           target={{
