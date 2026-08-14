@@ -4,6 +4,7 @@ import { getBackend } from './llm.js';
 import { complete } from './llm.js';
 import {
   BuildDeepDiveSchema,
+  CommunitySpeakResultSchema,
   DescribeResultSchema,
   KnowDeepDiveSchema,
   ReleaseResultSchema,
@@ -45,6 +46,11 @@ const CASES: Case[] = [
     name: 'release',
     schema: ReleaseResultSchema,
     prompt: '[0] Vite v8.2.0 released\n\n以上 1 件を判定してください。',
+  },
+  {
+    name: 'community',
+    schema: CommunitySpeakResultSchema,
+    prompt: '[0] TSKaigi 2026 登壇者募集（LT 5分 × 6枠）\n\n以上 1 件を判定してください。',
   },
   {
     // 論点レーンだけ要約に「意見の足場」5 項目が乗るので、別スキーマになっている

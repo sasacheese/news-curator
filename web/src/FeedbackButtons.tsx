@@ -7,7 +7,15 @@ export type FeedbackVote = 'good' | 'bad';
 
 export interface FeedbackTarget {
   id: string;
-  tier: 'top' | 'other' | 'release';
+  /**
+   * どの枠からの投票か。
+   *
+   * ⚠️ 値を増やしたら **Firestore のルールを先に公開**すること。
+   * ルールの `d.tier in [...]` に無い値を送ると書き込みが拒否され、
+   * 失敗は console.warn に出るだけで画面には出ない（ボタンは押した色に変わる）。
+   * 気づかないまま 1 件も貯まらない状態になる。
+   */
+  tier: 'top' | 'other' | 'release' | 'community';
   digestDate: string;
   source: string;
   sourceLabel: string;

@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { loadRuntimeConfig, loadSources, loadTopics } from './config.js';
+import { collectCommunity } from './community.js';
+import { loadCommunity, loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichBodies, enrichHatenaCounts } from './enrich.js';
 import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
 import {
@@ -18,9 +19,25 @@ import { dedupe, pickByLane, pickTopDiverse, preScore } from './prescore.js';
 import { collectReleaseCandidates, extractReleases, sortReleases } from './releases.js';
 import { collectAdvisories } from './advisories.js';
 import { collectAll } from './sources.js';
-import { loadLaneContext, loadRecentSummaries, loadSeenUrls, saveDigest } from './store.js';
-import type { Digest, Lane, RankedItem, RawItem, ReleaseItem, TopItem } from './types.js';
-import { LANES, LANE_LABELS } from './types.js';
+import {
+  loadLaneContext,
+  loadPreviousCommunityIds,
+  loadRecentSummaries,
+  loadSeenUrls,
+  saveCommunityBoard,
+  saveDigest,
+} from './store.js';
+import type {
+  CommunityBoard,
+  CommunityItem,
+  Digest,
+  Lane,
+  RankedItem,
+  RawItem,
+  ReleaseItem,
+  TopItem,
+} from './types.js';
+import { COMMUNITY_ACTIONS, LANES, LANE_LABELS } from './types.js';
 import { formatJst, log, mapLimit, resolveWindow, safe } from './util.js';
 
 interface Args {
@@ -69,6 +86,20 @@ async function main(): Promise<void> {
   } else {
     log.info(`バックエンド     : ${backend.name}${backend.metered ? '' : '（従量課金なし）'}`);
   }
+
+  /*
+   * コミュニティ情報は記事のパイプラインに依存しない（開催日と締切で引くので、
+   * 収集した記事も重複排除も使わない）。ここで投げておいて、後で受け取る。
+   */
+  const communityTask = safe(
+    'community',
+    async () => {
+      const cfg = await loadCommunity();
+      const previousIds = await loadPreviousCommunityIds();
+      return await collectCommunity(cfg, topics, previousIds, backend, runtime);
+    },
+    { items: [] as CommunityItem[], degraded: false },
+  );
 
   /* 1. 収集 --------------------------------------------------------- */
   log.step('1/7 収集');
@@ -119,6 +150,29 @@ async function main(): Promise<void> {
   const releaseUrls = new Set(
     releases.flatMap((r) => [r.url, ...r.alsoReleased.map((a) => a.url)]),
   );
+
+  /* コミュニティ情報 -------------------------------------------------- */
+  /*
+   * イベント・登壇募集・もくもく会。順位を付けず、開催日と締切で並べる。
+   *
+   * ダイジェストには入れず data/community.json に単独で保存する。流動性が高く
+   * 「その日の記録」として残す意味が無いためで、日次に埋めると同じ 12 件が毎日
+   * コミットされ、過去日を開いたときに終わったイベントが並ぶ。画面も
+   * 「今日」ではなく専用タブに出す。
+   *
+   * 記事の重複排除にも検索インデックスにも通さない（イベントのタイトルで
+   * seenTerms が汚れると、build レーンの「初出性」判定がずれる）。
+   */
+  log.step('コミュニティ');
+  const community = await communityTask;
+  const communityNotes: string[] = [];
+  if (community.degraded) {
+    communityNotes.push(
+      'connpass の API キーが未設定のため、Doorkeeper と confs.tech だけで集めています' +
+        '（もくもく会はほとんど拾えません）。',
+    );
+    log.warn('  CONNPASS_API_KEY が未設定です。日本語のイベントの母集団が大きく欠けます。');
+  }
 
   /* 読者フィードバック ------------------------------------------------ */
   /*
@@ -328,6 +382,16 @@ async function main(): Promise<void> {
   for (const item of [...top, ...others]) {
     laneCounts[item.lane] = (laneCounts[item.lane] ?? 0) + 1;
   }
+  // 0 件の行動も残す。どの枠が薄いのか後から追えるようにするため
+  const communityBoard: CommunityBoard = {
+    updatedAt: new Date().toISOString(),
+    date,
+    items: community.items,
+    byAction: Object.fromEntries(
+      COMMUNITY_ACTIONS.map((a) => [a, community.items.filter((i) => i.action === a).length]),
+    ),
+    notes: communityNotes,
+  };
 
   const digest: Digest = {
     date,
@@ -359,7 +423,7 @@ async function main(): Promise<void> {
 
   if (args.dryRun) {
     log.info('--dry-run のため保存しません');
-    console.log(JSON.stringify(digest, null, 2).slice(0, 4000));
+    console.log(JSON.stringify({ digest, community: communityBoard }, null, 2).slice(0, 4000));
     return;
   }
 
@@ -371,8 +435,11 @@ async function main(): Promise<void> {
   }
 
   await saveDigest(digest);
+  // 盤面は日付を持たない別ファイル。ダイジェストが落ちた日でも単独で更新される
+  await saveCommunityBoard(communityBoard);
   log.info(
-    `\n✔ 完了: ベスト${top.length}件 + その他${others.length}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
+    `\n✔ 完了: ベスト${top.length}件 + その他${others.length}件` +
+      ` + コミュニティ${community.items.length}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
   );
 }
 

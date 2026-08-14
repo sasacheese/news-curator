@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AdvisoryConfig } from './advisories.js';
+import type { CommunityConfig } from './community.js';
 import type { TopicsConfig, Watchlist } from './types.js';
 import { log } from './util.js';
 
@@ -226,6 +227,64 @@ export async function loadWatchlist(): Promise<Watchlist> {
     `監視対象: リポジトリ ${repos.length} / フィード ${feeds.length} / CHANGELOG ${changelogs.length}`,
   );
   return { repos, feeds, changelogs };
+}
+
+/** community.json の既定値。ファイルが無い / 項目が欠けているときに埋める */
+const COMMUNITY_DEFAULTS: CommunityConfig = {
+  enabled: false,
+  location: { prefectures: ['東京都'], online: true },
+  horizonDays: 21,
+  cfpHorizonDays: 45,
+  keywords: [],
+  exclude: [],
+  excludeOrganizers: [],
+  cfpTopics: [],
+  limits: { speak: 6, attend: 8, work: 4 },
+};
+
+/**
+ * コミュニティ情報の設定を読む。
+ *
+ * watchlist.json と同じく Web エディタから手で編集される前提なので、
+ * 欠けている項目は既定値で埋めて先に進む。ファイルが無い場合は
+ * 機能ごと無効にする（この機能より前のチェックアウトで落ちないようにするため）。
+ */
+export async function loadCommunity(): Promise<CommunityConfig> {
+  let raw: Partial<CommunityConfig>;
+  try {
+    raw = await readJson<Partial<CommunityConfig>>(resolve(CONFIG_DIR, 'community.json'));
+  } catch {
+    log.warn('config/community.json が読めないため、コミュニティ情報を無効にします。');
+    return COMMUNITY_DEFAULTS;
+  }
+
+  const strings = (v: unknown): string[] =>
+    asArray(v as string[] | undefined)
+      .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+      .map((s) => s.trim());
+
+  return {
+    enabled: raw.enabled !== false,
+    location: {
+      prefectures: strings(raw.location?.prefectures),
+      online: raw.location?.online !== false,
+    },
+    horizonDays: clamp(Number(raw.horizonDays) || COMMUNITY_DEFAULTS.horizonDays, 1, 120),
+    cfpHorizonDays: clamp(
+      Number(raw.cfpHorizonDays) || COMMUNITY_DEFAULTS.cfpHorizonDays,
+      1,
+      365,
+    ),
+    keywords: strings(raw.keywords),
+    exclude: strings(raw.exclude),
+    excludeOrganizers: strings(raw.excludeOrganizers),
+    cfpTopics: strings(raw.cfpTopics),
+    limits: {
+      speak: clamp(Number(raw.limits?.speak) || COMMUNITY_DEFAULTS.limits.speak, 0, 30),
+      attend: clamp(Number(raw.limits?.attend) || COMMUNITY_DEFAULTS.limits.attend, 0, 30),
+      work: clamp(Number(raw.limits?.work) || COMMUNITY_DEFAULTS.limits.work, 0, 30),
+    },
+  };
 }
 
 export async function loadSources(): Promise<SourcesConfig> {

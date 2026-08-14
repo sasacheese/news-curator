@@ -5,6 +5,7 @@ import { RETIRED_TOKEN_KEY, purgeRetiredKeys } from './settings';
 import { Logo } from './Logo';
 import type { Manifest } from './types';
 import { ArchiveView } from './views/ArchiveView';
+import { CommunityView } from './views/CommunityView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
 import { TodayView } from './views/TodayView';
@@ -13,6 +14,7 @@ export type Route =
   | { name: 'today'; date?: string }
   | { name: 'search'; q?: string }
   | { name: 'archive' }
+  | { name: 'community' }
   | { name: 'settings' };
 
 function parseHash(hash: string): Route {
@@ -26,6 +28,8 @@ function parseHash(hash: string): Route {
       return { name: 'search', q: params.get('q') ?? undefined };
     case 'archive':
       return { name: 'archive' };
+    case 'community':
+      return { name: 'community' };
     case 'settings':
       return { name: 'settings' };
     case 'today':
@@ -64,6 +68,7 @@ type Tab = { key: Route['name']; label: string; href: string };
  */
 const TABS: Tab[] = [
   { key: 'today', label: '今日', href: '/today' },
+  { key: 'community', label: 'コミュニティ', href: '/community' },
   { key: 'archive', label: 'アーカイブ', href: '/archive' },
   { key: 'search', label: '検索', href: '/search' },
 ];
@@ -207,6 +212,8 @@ export function App() {
           {!error && route.name === 'today' && (
             <TodayView manifest={manifest} date={route.date} />
           )}
+          {/* 盤面は manifest に依存しない（日付を持たない 1 ファイルなので） */}
+          {route.name === 'community' && <CommunityView />}
           {!error && route.name === 'archive' && <ArchiveView manifest={manifest} />}
           {!error && route.name === 'search' && (
             <SearchView manifest={manifest} initialQuery={route.q ?? ''} />
