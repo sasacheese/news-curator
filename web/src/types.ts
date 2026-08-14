@@ -237,6 +237,63 @@ export interface ReleaseItem {
   alsoReleased: (string | ReleaseAlso)[];
 }
 
+/**
+ * テックコミュニティの情報（イベント・登壇募集・もくもく会）。
+ *
+ * 記事ともリリースとも軸が違う。開催日と締切（未来）が本体なので順位を付けず、
+ * 日付で並べる。開催まで毎日出るのが正しいので、記事のように重複排除で落とさない。
+ * 代わりに前回との差を isNew で見せる。
+ *
+ * 日次ダイジェストには入らない。data/community.json に 1 ファイルで持ち、
+ * 専用タブに出す（流動性が高く、その日の記録として残す意味が無いため）。
+ */
+export type CommunityAction = 'speak' | 'attend' | 'work';
+export type CommunityScale = 'conference' | 'meetup' | 'recurring';
+
+export interface CommunityDeadline {
+  kind: 'cfp' | 'apply';
+  at: string;
+  /** 生成日を基準にした残り日数。過去日を開いたときに負の値を出さないため保存値を使う */
+  daysLeft: number;
+}
+
+export interface CommunityItem {
+  id: string;
+  action: CommunityAction;
+  title: string;
+  url: string;
+  organizer: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  venue: {
+    mode: 'online' | 'onsite' | 'hybrid';
+    place: string | null;
+    prefecture: string | null;
+    country: string;
+  };
+  deadline: CommunityDeadline | null;
+  scale: CommunityScale;
+  capacity: { limit: number | null; accepted: number | null; waiting: number | null } | null;
+  what: string;
+  /** speak のときだけ。読み取れなければ null */
+  callFor: string | null;
+  /** speak のときだけ。名詞句だけが入る */
+  angles: string[];
+  isNew: boolean;
+  sourceLabel: string;
+  matchedTopics: string[];
+}
+
+/** data/community.json。履歴を持たず、毎回まるごと差し替わる */
+export interface CommunityBoard {
+  updatedAt: string;
+  /** 生成日（JST）。deadline.daysLeft と「今日」の基準日 */
+  date: string;
+  items: CommunityItem[];
+  byAction?: Record<string, number>;
+  notes?: string[];
+}
+
 export interface Digest {
   date: string;
   generatedAt: string;

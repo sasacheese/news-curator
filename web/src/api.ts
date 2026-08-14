@@ -1,4 +1,11 @@
-import type { Digest, IndexEntry, Manifest, TopicsConfig, Watchlist } from './types';
+import type {
+  CommunityBoard,
+  Digest,
+  IndexEntry,
+  Manifest,
+  TopicsConfig,
+  Watchlist,
+} from './types';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -40,6 +47,17 @@ export function loadDigest(date: string, latestDate?: string | null): Promise<Di
   // 最新日ぶんは走り直しで差し替わることがあるので検証する
   const freshness: Freshness = latestDate && date < latestDate ? 'archived' : 'live';
   return getJson<Digest>(`data/digests/${date}.json`, freshness);
+}
+
+/**
+ * コミュニティの盤面を読む。
+ *
+ * 日付を持たない 1 ファイルで、毎回まるごと差し替わる。過去ぶんが無いので
+ * 常に検証する（`archived` にできるものが無い）。
+ * まだ一度も生成していないリポジトリでは 404 になるので、呼び出し側で受ける。
+ */
+export function loadCommunityBoard(): Promise<CommunityBoard> {
+  return getJson<CommunityBoard>('data/community.json');
 }
 
 /**

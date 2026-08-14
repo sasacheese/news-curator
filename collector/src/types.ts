@@ -367,6 +367,108 @@ export interface ReleaseItem {
   alsoReleased: ReleaseAlso[];
 }
 
+/**
+ * テックコミュニティの情報（イベント・登壇募集・もくもく会）。
+ *
+ * 記事ともリリースとも軸が違う。記事は publishedAt（過去）が本体だが、
+ * これは開催日と締切（未来）が本体なので、公開ウィンドウで引くと
+ * 「3 週間前に告知され、明日が応募締切の CFP」——この枠でいちばん行動価値が
+ * 高いもの——が構造的に落ちる。ウィンドウを広げる話ではなく、引く軸が違う。
+ *
+ * そのため「その日の差分」ではなく**盤面**として持つ。開催まで毎日出るのが
+ * 正しいので、記事の重複排除（loadSeenUrls）や検索インデックスには通さない。
+ * 代わりに前日との差を isNew で見せる。
+ *
+ * 日次ダイジェストには入れない（data/community.json に 1 ファイルで持つ）。
+ * 流動性が高く、その日の記録として残す意味が無いためで、日次に埋めると
+ * 同じ 12 件が毎日コミットされ、過去日を開いたときに終わったイベントが並ぶ。
+ */
+export const COMMUNITY_ACTIONS = ['speak', 'attend', 'work'] as const;
+export type CommunityAction = (typeof COMMUNITY_ACTIONS)[number];
+
+export const COMMUNITY_ACTION_LABELS: Record<CommunityAction, string> = {
+  speak: '登壇できる',
+  attend: '参加する',
+  work: 'もくもく',
+};
+
+/**
+ * イベントの規模。距離フィルタを緩める判断に使う。
+ *
+ * 近所しか出さないと TSKaigi / JSConf / ISUCON が構造的に落ち、全国を出すと
+ * 行けないもくもく会で埋まる。規模が距離の免除条件になる。
+ */
+export const COMMUNITY_SCALES = ['conference', 'meetup', 'recurring'] as const;
+export type CommunityScale = (typeof COMMUNITY_SCALES)[number];
+
+export interface CommunityDeadline {
+  /** 何の締切か。cfp = 登壇応募 / apply = 参加申込 */
+  kind: 'cfp' | 'apply';
+  at: string;
+  /**
+   * 生成日を基準にした残り日数。画面で計算し直さない。
+   * 過去日のダイジェストを開いたときに「残り -40 日」を出さないため、
+   * その日の見え方をそのまま保存する。
+   */
+  daysLeft: number;
+}
+
+export interface CommunityItem {
+  id: string;
+  action: CommunityAction;
+  title: string;
+  url: string;
+  /** 主催コミュニティ。connpass の series / Doorkeeper のサブドメイン */
+  organizer: string | null;
+  startsAt: string;
+  /** 複数日開催のときだけ。単日は null */
+  endsAt: string | null;
+  venue: {
+    mode: 'online' | 'onsite' | 'hybrid';
+    place: string | null;
+    /** 都道府県。住所から引く。オンラインのみなら null */
+    prefecture: string | null;
+    /** 国。海外の現地開催を落とすために持つ */
+    country: string;
+  };
+  /** 締切。定例のもくもく会など、無いものは null */
+  deadline: CommunityDeadline | null;
+  scale: CommunityScale;
+  /** 定員・参加確定・補欠。「もう埋まっている」を出すために要る。取れないソースは null */
+  capacity: { limit: number | null; accepted: number | null; waiting: number | null } | null;
+  /** 何のイベントか。1 文・60 字 */
+  what: string;
+  /** speak のときだけ: 何を募集しているか（「LT 5 分 × 6 枠」）。読み取れなければ null */
+  callFor: string | null;
+  /**
+   * speak のときだけ: 読者のプロフィールから出せる題材。
+   * **名詞句だけ**を並べ、文にしない。文にすると LT の代筆になる。
+   * TalkDeepDive.angles と同じ思想・同じ後処理を通す。
+   */
+  angles: string[];
+  /** 前日のダイジェストに無かった = 今日はじめて盤面に乗った */
+  isNew: boolean;
+  sourceLabel: string;
+  matchedTopics: string[];
+}
+
+/**
+ * コミュニティの盤面（data/community.json）。毎回まるごと差し替える。
+ *
+ * 日次ダイジェストと違って履歴を残さない。開催が過ぎたイベントに価値は無く、
+ * 「いつ告知されたか」も読者の行動に効かないため。
+ */
+export interface CommunityBoard {
+  updatedAt: string;
+  /** 生成日（JST）。CommunityItem.deadline.daysLeft の基準日 */
+  date: string;
+  items: CommunityItem[];
+  /** 行動ごとの件数。どの枠が薄いのか後から追えるように残す */
+  byAction: Record<string, number>;
+  /** 縮退（connpass のキーが無いなど）を読み手に伝える */
+  notes: string[];
+}
+
 export interface Digest {
   date: string;
   generatedAt: string;

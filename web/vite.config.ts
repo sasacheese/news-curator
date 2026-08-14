@@ -78,6 +78,9 @@ const BASE = process.env.BASE_PATH ?? '/news-curator/';
 export default defineConfig({
   base: BASE,
   plugins: [react(), repoDataPlugin(BASE)],
+  // 5173 が埋まっている環境（別の worktree で同時に立てているときなど）で
+  // 呼び出し側が指定した port に合わせられるようにする
+  server: { port: Number(process.env.PORT) || 5173 },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

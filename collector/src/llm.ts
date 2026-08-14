@@ -988,7 +988,14 @@ function clean(list: string[] | undefined): string[] {
  * 文を渡すと読者はそれをそのまま投稿でき、裏を取っていない意見が本人の名前で外に出る。
  * プロンプトでも禁じているが、破られたときに画面まで通さないようにする。
  */
-function looksLikeOpinion(text: string): boolean {
+/**
+ * 文で返ってきた「角度」を弾く。
+ *
+ * 名詞句だけを並べさせているのに、モデルは文を書きたがる。文になったものは
+ * 意見の代筆なので落とす。コミュニティの「あなたが出せる題材」も同じ思想なので、
+ * community.ts から共有している（判定を二重に持つと片方だけ緩む）。
+ */
+export function looksLikeOpinion(text: string): boolean {
   return /[。.]$/.test(text) || /べき|だと言える|と思う|しよう|ではないか/.test(text);
 }
 

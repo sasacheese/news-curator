@@ -1,12 +1,14 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DATA_DIR } from './config.js';
-import type { Digest, IndexEntry, Manifest } from './types.js';
+import type { CommunityBoard, Digest, IndexEntry, Manifest } from './types.js';
 import { extractTerms, log, normalizeUrl } from './util.js';
 
 const DIGEST_DIR = resolve(DATA_DIR, 'digests');
 const INDEX_DIR = resolve(DATA_DIR, 'index');
 const MANIFEST_PATH = resolve(DATA_DIR, 'manifest.json');
+/** コミュニティの盤面。日付を持たない 1 ファイルで、毎回差し替える */
+const COMMUNITY_PATH = resolve(DATA_DIR, 'community.json');
 
 async function ensureDirs(): Promise<void> {
   await mkdir(DIGEST_DIR, { recursive: true });
@@ -137,6 +139,38 @@ export async function loadRecentSummaries(
     if (summary.length > 0) result.push({ date, summary });
   }
   return result;
+}
+
+/**
+ * 前回の盤面に載っていた id を集める。
+ *
+ * イベントは開催まで毎日盤面に居るのが正しいので、記事のように重複排除で
+ * 落とすことはしない。代わりに「前回に無かったもの」へ印を付けるために使う。
+ * 毎日同じ盤面を眺めることになるので、差分が見えるかどうかがこの画面の
+ * 読みやすさを決める。
+ *
+ * 見るのは 1 世代前だけ。履歴を持たないので、これ以上は遡れない
+ * （遡れたとしても、数日前に見たものが NEW のまま残るだけで役に立たない）。
+ */
+export async function loadPreviousCommunityIds(): Promise<Set<string>> {
+  await ensureDirs();
+  const board = await readJsonOr<Partial<CommunityBoard>>(COMMUNITY_PATH, {});
+  return new Set((board.items ?? []).map((c) => c.id));
+}
+
+/**
+ * 盤面をまるごと差し替える。
+ *
+ * 日次ダイジェストのように日付ごとには残さない。開催が過ぎたイベントに価値は無く、
+ * 同じ 12 件が毎日コミットされるだけになるため。
+ */
+export async function saveCommunityBoard(board: CommunityBoard): Promise<void> {
+  await ensureDirs();
+  await writeJson(COMMUNITY_PATH, board);
+  const counts = Object.entries(board.byAction)
+    .map(([k, v]) => `${k} ${v}`)
+    .join(' / ');
+  log.info(`保存: data/community.json (${board.items.length} 件 — ${counts})`);
 }
 
 export function toIndexEntries(digest: Digest): IndexEntry[] {

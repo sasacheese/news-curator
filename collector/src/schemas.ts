@@ -386,7 +386,56 @@ export const TalkDeepDiveSchema = z.object({
     .describe('なぜ今この争点なのか。何が変わったから議論になっているのかを書く。2〜3文。'),
 });
 
+/**
+ * コミュニティの「登壇できる」枠だけに通す判定。
+ *
+ * ルールベースでは「LT」「登壇者募集」の語で拾うところまでしかできない。
+ * まだ募集しているのか、何を何枠募集しているのか、締切はいつかは
+ * イベント説明の本文に埋まっているので、そこだけ読ませる。
+ *
+ * 参加系（勉強会・もくもく会）には通さない。日時・場所・定員は API が
+ * 構造化データで返すので、要約を通すと情報が減る。
+ */
+export const CommunitySpeakResultSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        ref: z.number().int().describe('入力に付与した番号'),
+        isOpen: z
+          .boolean()
+          .describe(
+            '**いま登壇者・発表者を募集しているか。** 過去の登壇募集の報告、LT を聞くだけの回、' +
+              '募集が締め切られたもの、登壇ではなく参加の募集は false。判断に迷うときは false。',
+          ),
+        callFor: z
+          .string()
+          .nullable()
+          .describe(
+            '何を何枠募集しているか。原文の数字をそのまま使う。例:「LT 5分 × 6枠」「トーク 20分 / 40分」。' +
+              '本文から読み取れないときは null。埋めるために推測しないこと。',
+          ),
+        deadlineAt: z
+          .string()
+          .nullable()
+          .describe(
+            '応募の締切。YYYY-MM-DD 形式。本文に書かれていなければ null（開催日で代用しないこと）。',
+          ),
+        angles: z
+          .array(z.string())
+          .describe(
+            'この読者がこのイベントで出せる題材の**名前だけ**を並べる。**文にしない。** ' +
+              '読者プロフィールにある技術スタックと、そのイベントの主題が重なるところを名詞句で書く。' +
+              '例:「Server Components の実務での落とし所」「AI エージェント併用時のレビュー負荷の実測」。' +
+              '「〜すべきだ」「〜だと言える」のような主張や、発表の下書きは禁止。' +
+              '重なりが無ければ空配列にする。0〜3個。',
+          ),
+      }),
+    )
+    .describe('入力されたすべての ref に対して1件ずつ'),
+});
+
 export type ScoreResult = z.infer<typeof ScoreResultSchema>;
+export type CommunitySpeakResult = z.infer<typeof CommunitySpeakResultSchema>;
 export type DescribeResult = z.infer<typeof DescribeResultSchema>;
 export type TalkDescribeResult = z.infer<typeof TalkDescribeResultSchema>;
 /** 要約段の 1 件ぶん。talk レーンだけ debate* が乗る */
