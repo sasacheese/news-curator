@@ -1,0 +1,2036 @@
+{
+  "date": "2026-08-16",
+  "generatedAt": "2026-08-15T22:17:28.771Z",
+  "window": {
+    "start": "2026-08-14T22:00:00.000Z",
+    "end": "2026-08-15T22:00:00.000Z"
+  },
+  "summary": [
+    "AI/エージェント関連が7件と最多で、開発の実行基盤と協働方法に動きが集中した。",
+    "Claude Codeを含む複数ツールで、文脈継承や並列作業、外部サービス連携が広がった。",
+    "機密情報の扱い、脆弱性、計測バグなど、AI活用を支える安全性と検証も目立った。"
+  ],
+  "outlook": "AIエージェントは文脈継承・並列作業・外部連携を備えた実行基盤として定着しつつある一方、機密情報や認証、計測の信頼性はなお揺れている。この先は、意図を安全に実行へ変える権限境界と評価・復旧、人間の確認点の設計が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.232｜サブエージェントの fork がデフォルトON｜毎日Changelog解説",
+      "url": "https://qiita.com/moha0918_/items/6bc03320b1d2873318db",
+      "publishedAt": "2026-08-14T23:05:23.000Z",
+      "author": "moha0918_",
+      "authorDetail": {
+        "name": "moha0918_",
+        "handle": "@moha0918_",
+        "url": "https://qiita.com/moha0918_",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3977355/profile-images/1784793752",
+        "location": "Tokyo",
+        "followers": 1,
+        "posts": 102,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "AI",
+        "Anthropic",
+        "Permissions"
+      ],
+      "snippet": ":::note info Claude Codeの公式Changelogをリリースから最速で翻訳・解説しています。 ::: v2.1.232 でサブエージェントの fork がデフォルト有効になりました。subagenttype: \"fork\" のサブエージェントが親の会話全体とプロンプトキャッシュを引き継ぐので、これまでの経緯を要約して渡す作業が丸ごと消えます。対話セッションでのエージェント起動もバックグラウンドが既定になり、サブエージェントの回し方が一段変わります。 今回の注目ポイント 1. サブエージェントの fork がデフォルト有効に - subagenttype: \"fork\" が会話全体とプロンプトキャッシュを継承 (v2.1.232) 2. @ で他の Claude セッションを名指し - 名前を打つだけで SendMessage が直接届く (v2.1.232) 3. ネ…",
+      "body": ":::note info\nClaude Codeの公式Changelogをリリースから最速で翻訳・解説しています。\n:::\n\nv2.1.232 でサブエージェントの fork がデフォルト有効になりました。subagenttype: \"fork\" のサブエージェントが親の会話全体とプロンプトキャッシュを引き継ぐので、これまでの経緯を要約して渡す作業が丸ごと消えます。対話セッションでのエージェント起動もバックグラウンドが既定になり、サブエージェントの回し方が一段変わります。\n\n今回の注目ポイント\n\n1. サブエージェントの fork がデフォルト有効に - subagenttype: \"fork\" が会話全体とプロンプトキャッシュを継承 (v2.1.232)\n2. @ で他の Claude セッションを名指し - 名前を打つだけで SendMessage が直接届く (v2.1.232)\n3. ネストした git リポジトリの trust 継承を廃止 - 親ディレクトリの信頼を引き継がず、リポジトリごとに確認 (v2.1.232)\n4. PowerShell と Git Bash の権限バイパスを修正 - $PSDefaultParameterValues の上書きと Cygwin 形式シンボリックリンク経由の書き込み (v2.1.232)\n5. GitLab がシークレット秘匿と marketplace の両方でサポート対象に - gitlab.com の URL が github.com と同じように clone される (v2.1.232)\n6. MCP の接続失敗で 30 秒待たされなくなった - プロトコルバージョン確認への無応答・不正応答を即座に打ち切り (v2.1.232)\n\nfork したサブエージェントが会話をまるごと引き継ぐ\n\n:::note info\n対象読者: サブエージェントやカスタムエージェントを日常的に呼び出している人\n:::\n\nデフォルトが「引き継ぐ」側に倒れました。 changelog の原文はこうなっています。\nSubagent forking is now on by default: a subagenttype: \"fork\" subagent inherits the full conversation and prompt cache\n\nfork で起動したサブエージェントは、親セッションの会話履歴とプロンプトキャッシュをそのまま持ちます。呼び出す側が「ここまでの経緯」を要約してプロンプトに詰め直す手順が消える。キャッシュごと引き継ぐので、同じ前提を読み直すためのトークンも積み上がりません。\n\nもう 1 つ、対話セッションから teammate 以外のエージェントを起動したときの既定がバックグラウンド実行に変わりました。起動して結果を待つあいだ手が止まらず、そのまま次の指示を打てます。\n\n起動時のヒントに出ていた「カスタムサブエージェントを作る」という案内と、/powerup ツアー内の同じ誘導は削除されています。カスタムエージェントを新規作成する導線は 2 か所とも消え、fork が既定になりました。\n\n@ で別セッションに直接話しかける\n\n [code] \n\nプロンプトで @ に続けてセッション名を書くと、Claude がそのセッションへ SendMessage を投げます。別ターミナルで回している作業の進捗を、手元のセッションから直接確認できます。\n\nSendMessage 側の挙動も変わりました。ライブセッションと完全一致する裸の名前なら、ref での確認を挟まずそのまま届きます。名前が衝突しないよう、同じマシン上の対話セッションは一意な名前を保つようになりました。既存のライブセッションと同じ名前で起動・リネームすると name-word-word 形式の変種が割り当てられ、その旨が通知されます。\n\n受信側の制御は /config に増えた行で行います。\n\n| /config の行 | 内容 |\n|---|---|\n| Dialog expiry | ダイアログの有効期限 |\n| Messages from your other sessions | 他セッションからの受信を accept / hold / refuse で制御 |\n\nネストした git リポジトリが親の信頼を引き継がなくなった\n\n:::note alert\nモノレポやサブモジュールを抱えたリポジトリでは、アップデート後に信頼確認のプロンプトが増えます。\n:::\n\n親ディレクトリで信頼済みなら、その配下のリポジトリも自動的に信頼扱いでした。v2.1.232 からはリポジトリごとに確認が要ります。サブモジュールや、作業ツリーの中にクローンした別リポジトリが対象。\n\n権限まわりの修正はほかに 2 件。PowerShell では、変数を書き込むパラメータが $PSDefaultParameterValues を黙って上書きし、後続コマンドのファイルアクセス先を差し替えられる状態でした。Windows の Git Bash では Cygwin 形式のシンボリックリンクをパス検証が通常ファイルと見なしており、リンク越しの書き込みが素通りしていました。どちらも権限承認を経由するようになっています。\n\nBash の入力リダイレクト (< file) も、引数として書いた場合と同じく全プラットフォームで権限チェックされます。sandbox.ripgrep は user / managed / --settings からのみ有効になり、プロジェクト設定からの上書きは効きません。\n\nFable 5 が /advisor に復帰\n\nFable へのアクセスを持つ組織で、Fable 5 を /advisor のアドバイザーとして再び選べます。利用クレジットの同意は /model fable から。\n\nその他の変更\n\n| バージョン | カテゴリ | 変更点 | 概要 |\n|---|---|---|---|\n| v2.1.232 | セキュリティ | GitLab トークンの秘匿化 | glrt- gloas- glptt- など 9 系統をマスク、ルーティング可能な glpat- / gldt- は全体を秘匿。glab の設定ストアも gh と同じ保護対象に |\n| v2.1.232 | セキュリティ | 管理設定の承認ダイアログを強化 | エンドポイント URL を表示、テレメトリのみの変更は文言を明確化、sandbox.bwrapPath などバイナリ上書きは承認必須 |\n| v2.1.232 | プラグイン | GitLab の marketplace 対応 | ネストしたサブグループを含む gitlab.com の URL が github.com と同様に clone される。clone 失敗時のヒントも実際の git ホスト名を出す |\n| v2.1.232 | 設定 | marketplace 設定のエイリアス追加 | additionalMarketplaces / allowedMarketplaces が extraKnownMarketplaces / strictKnownMarketplaces の別名として通る |\n| v2.1.232 | MCP | 接続失敗時の待ち時間を解消 | プロトコルバージョン確認に無応答・不正応答のサーバーで 30 秒間ハングしていた問題を修正 |\n| v2.1.232 | Gateway | desktop: オーバーレイと管理ポリシーの検証 | 手書きの 11 キーからリリース済み Desktop 設定全体へ拡張。空の match.groups や不正な emaildomain は起動時に失敗 |\n| v2.1.232 | Remote Control | 再接続の粘りを強化 | ネットワーク断から約 30 分は再接続を継続し、1 時間に数回の瞬断でも切れない |\n| v2.1.232 | Remote Control | セッション重複と履歴復元の修正 | Desktop / IDE 発のセッションが再開のたびに新規扱いされる問題、worker 再起動で履歴が戻らない問題を修正 |\n| v2.1.232 | コマンド | /code-review の高負荷モード | high / xhigh / max もほかのレベルと同じくバックグラウンドエージェントで動く |\n| v2.1.232 | コマンド | /plugin install が marketplace を先に更新 | plugin@marketplace 指定時、公開直後のプラグインも手動更新なしで入る |\n| v2.1.232 | UI | フルスクリーン表示の高速化 | 更新のたびに会話全体を再正規化しなくなり、長いセッションでも応答性を保つ |\n| v2.1.232 | サンドボックス | 保護パスの回避経路を封鎖 | Linux ファイルシステムサンドボックスの保護パスバイパスと、共有 /tmp 上のソケットディレクトリを強化 |\n\nまとめ\n\nfork のデフォルト有効化で、サブエージェントに文脈を渡す書き方そのものが変わります。@ によるセッション間メンションと合わせ、複数セッションを並行で回している環境ほど影響が大きい。権限チェックの抜け道を塞ぐ修正が Windows と Linux の双方に入っているので、アップデートは早いほうがいいです。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "704ee95a25249363",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8758381502890173,
+      "popularityPercentile": 0.8901734104046243,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "Claude Code v2.1.232はfork継承とバックグラウンド起動を既定にした。",
+      "reason": "fork型サブエージェントが親の会話全体とプロンプトキャッシュを引き継ぐ仕様になった。対話セッションの起動もバックグラウンドが既定になり、ネストしたGitのtrust継承は廃止された。",
+      "keywords": [
+        "Claude Code",
+        "v2.1.232",
+        "サブエージェント",
+        "fork",
+        "SendMessage",
+        "GitLab"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 4,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": "Claude Code v2.1.232で文脈継承が既定に",
+        "summary": "Claude Code v2.1.232 では、`subagenttype: \"fork\"` がデフォルト有効になり、親の会話全体とプロンプトキャッシュを引き継ぐようになりました。対話セッションから teammate 以外のエージェントを起動すると、バックグラウンド実行が既定になります。`@` と `SendMessage` によるセッション間通信、リポジトリ単位の trust 確認、PowerShell / Git Bash の権限チェック強化も入っています。GitLab の marketplace 対応とトークン秘匿化、MCP 接続失敗時の 30 秒待機解消も同じ v2.1.232 の変更です。",
+        "prerequisites": [
+          {
+            "term": "subagenttype: \"fork\"",
+            "stumblingPoint": "記事は `subagenttype: \"fork\"` が会話全体を継承すると書いているが、通常のサブエージェント起動との違いを知らないと変更範囲が読めない。",
+            "explanation": "`subagenttype: \"fork\"` は、サブエージェントを親セッションから分岐させる指定です。今回の変更では、分岐先が親の会話履歴とプロンプトキャッシュを持った状態で起動します。そのため、親が何を調査・実装してきたかを毎回短く再説明する設計から、既存の文脈を前提に追加指示だけを書く設計へ変わります。"
+          },
+          {
+            "term": "プロンプトキャッシュ",
+            "stumblingPoint": "記事は「キャッシュごと引き継ぐ」と説明しているが、プロンプトキャッシュが何を再利用するものか知らないと、単なる履歴コピーとの違いがわからない。",
+            "explanation": "`プロンプトキャッシュ` は、同じ前提文脈を再利用するためのキャッシュです。記事の文脈では、会話履歴だけでなくこのキャッシュも fork 先へ引き継ぐため、親の前提を要約して新しいプロンプトに詰め直す作業が不要になります。ただし、記事が示しているのは v2.1.232 の挙動であり、個別モデルの料金やキャッシュの詳細までは説明していません。"
+          },
+          {
+            "term": "バックグラウンド実行",
+            "stumblingPoint": "記事は「既定がバックグラウンド実行」と書くが、teammate 以外が対象だと知らないと、すべてのエージェントの起動方式が変わったと誤読する。",
+            "explanation": "`バックグラウンド実行` は、エージェントを起動したセッションが完了を待たず、次の指示を受け付ける実行形態です。従来のようにサブエージェントの結果待ちで対話が止まる前提が変わります。記事では teammate 以外のエージェントが対象で、対話セッションからの起動時に既定値が変わったとされています。"
+          },
+          {
+            "term": "SendMessage",
+            "stumblingPoint": "記事は「@ でセッションへ SendMessage」と書いているが、通常のメンションではなく別セッションへの指示送信だと知らないと用途を取り違える。",
+            "explanation": "`SendMessage` は、別のライブセッションへメッセージを届ける機能です。今回の変更では、プロンプト中で `@` に続けてセッション名を指定でき、別ターミナルの作業状況を現在のセッションから問い合わせられます。同一マシン上で名前が衝突すると、`name-word-word` 形式の別名が割り当てられます。"
+          },
+          {
+            "term": "trust",
+            "stumblingPoint": "記事は「親の信頼を引き継がなくなった」と書くが、trust がリポジトリ操作の許可状態だと知らないと、なぜプロンプトが増えるのか読み取れない。",
+            "explanation": "`trust` は、Claude Code がそのリポジトリを信頼済みとして扱うための確認状態です。今回の変更前は、信頼済みの親ディレクトリ配下にあるリポジトリも自動的に信頼扱いでした。v2.1.232 ではリポジトリ単位になるため、サブモジュールや作業ツリー内の別リポジトリを開くたびに確認が発生し得ます。"
+          },
+          {
+            "term": "MCP",
+            "stumblingPoint": "記事は「MCP の接続失敗」とだけ書いているが、MCP サーバーとの初期接続確認が原因で 30 秒待たされていたと知らないと、修正対象を特定できない。",
+            "explanation": "`MCP` は Claude Code から外部ツールやサーバーへ接続するための仕組みです。今回の修正対象は、接続先がプロトコルバージョン確認に無応答または不正応答を返すケースです。該当時に従来の 30 秒待機が発生しなくなり、接続失敗を早く認識できます。"
+          },
+          {
+            "term": "GitLab",
+            "stumblingPoint": "記事は GitLab をシークレット秘匿と marketplace の両方で扱っているが、認証情報の保護とプラグイン取得元の対応が別機能だと知らないと混同する。",
+            "explanation": "`GitLab` の marketplace 対応は、プラグインの配布元として `gitlab.com` のリポジトリ URL を扱えるという意味です。GitHub 用の URL だけを許可する変更ではなく、ネストしたサブグループを含む GitLab URL も clone 対象になります。GitLab トークンの秘匿化と marketplace 対応は別の変更として記載されています。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "v2.1.232 の挙動変更",
+          "beforeLabel": "v2.1.231 以前",
+          "afterLabel": "v2.1.232",
+          "rows": [
+            {
+              "aspect": "fork の文脈",
+              "before": "今回の変更前の挙動は記事に明記なし",
+              "after": "会話全体とプロンプトキャッシュを継承"
+            },
+            {
+              "aspect": "非 teammate エージェント",
+              "before": "今回の変更前の既定値は記事に明記なし",
+              "after": "バックグラウンド実行が既定"
+            },
+            {
+              "aspect": "ネストした git リポジトリ",
+              "before": "親ディレクトリの trust を自動継承",
+              "after": "リポジトリごとに trust を確認"
+            },
+            {
+              "aspect": "MCP 接続失敗",
+              "before": "プロトコルバージョン確認で 30 秒ハング",
+              "after": "無応答・不正応答時に即座に打ち切り"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "これを知らずに1週間過ごすと、fork 先へ親の経緯を手作業で要約し続け、不要なプロンプトを組み立てることになります。また、バックグラウンド実行を想定せず結果待ちの手順を組んだり、ネストしたリポジトリの trust 確認を異常と誤認したりします。Windows では権限承認なしに書き込める前提、MCP では接続失敗時に 30 秒待つ前提もそのままでは成立しません。",
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "v2.1.232 を使い、`subagenttype: \"fork\"` のサブエージェントを呼び出す構成では、親の会話全体とプロンプトキャッシュが自動的に引き継がれる。経緯を要約してサブエージェントへ渡すプロンプト設計が変わる。",
+          "対話セッションから teammate 以外のエージェントを起動する利用者は、起動後の既定動作がバックグラウンド実行に変わる。",
+          "複数の Claude Code セッションを同一マシンで並行稼働している場合、`@` と `SendMessage` で別セッションへ直接メッセージを送れる。受信可否は `/config` の `Messages from your other sessions` で制御する。",
+          "モノレポ、サブモジュール、作業ツリー内の別 git リポジトリを Claude Code で扱う場合、親ディレクトリの trust は継承されず、リポジトリごとの確認が必要になる。Windows の PowerShell / Git Bash、Linux のサンドボックス利用者には権限チェック強化も効く。"
+        ],
+        "timeline": [
+          "2026-08-14 公開の記事で、Claude Code v2.1.232 の変更として解説されている。",
+          "v2.1.232 から `subagenttype: \"fork\"` のサブエージェントがデフォルトで fork する。",
+          "v2.1.232 から、対話セッションで teammate 以外のエージェントを起動した場合の既定動作がバックグラウンド実行になる。",
+          "v2.1.232 から、ネストした git リポジトリは親ディレクトリの trust を継承しない。"
+        ],
+        "checkNow": [
+          "Claude Code のバージョンが v2.1.232 以降かを確認し、サブエージェント起動時に `subagenttype: \"fork\"` がデフォルト扱いになっているか確認する。",
+          "対話セッションで teammate 以外のエージェントを起動し、待機せずバックグラウンド実行になるか確認する。",
+          "`/config` を開き、`Messages from your other sessions` が表示され、他セッションからのメッセージを `accept` / `hold` / `refuse` で制御できることを確認する。",
+          "モノレポ、サブモジュール、作業ツリー内にクローンした別リポジトリを開き、リポジトリごとに trust の確認プロンプトが出るか確認する。"
+        ],
+        "unknowns": []
+      }
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn",
+      "title": "CVE取れたので脆弱性の説明と学習したこと リプレイ攻撃の脆弱性 - CVE-2026-73683 -",
+      "url": "https://zenn.dev/meihao550/articles/a1561a73696d77",
+      "publishedAt": "2026-08-15T04:27:50.313Z",
+      "author": "meihao550",
+      "authorDetail": {
+        "name": "meihao550",
+        "handle": "@meihao550",
+        "url": "https://zenn.dev/meihao550",
+        "avatarUrl": "https://res.cloudinary.com/zenn/image/fetch/s--ehp3wXdT--/c_limit%2Cf_auto%2Cfl_progressive%2Cq_auto%2Cw_70/https://static.zenn.studio/user-upload/avatar/670b94d175.jpeg?_a=BACMTiAE",
+        "links": []
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "自己紹介 この記事を書いた時の年齢は１９歳で、LaravelやVue.jsなど色々使いながらウェブ開発したり、PythonでAIを使ったりするのが単純に好きです。 セキュリティにあまり関心はなかったはずなのですが、いつのまにかセキュリティが面白くなってきています。 脆弱性報告含め、色々学べることがあったので共有します。 この記事で解説すること 脆弱性について 脆弱性を見つけた後の対応（ここ結構学習することが多かった） nonceやリプレイ攻撃などの脆弱性の説明 見つけた脆弱性 https://www.cve.org/CVERecord?id=CVE-2026-73683 Laravel SocialiteというPHPのフレームワークで有名なLaravelのOAuthやOIDC認証ライブラリの脆弱性 簡単に説明すると、リプレイ攻撃が可能になる脆弱性 OIDCのnonce検証の欠如によるリプレ…",
+      "metrics": {
+        "likes": 2,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "201f14af37564aed",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.21098360655737705,
+      "popularityPercentile": 0.9590163934426229,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 48,
+      "oneLiner": "CVE-2026-73683としてリプレイ攻撃の脆弱性を取得した。",
+      "reason": "記事タイトルは、CVE-2026-73683としてリプレイ攻撃の脆弱性を説明し、学習内容をまとめる構成を示している。本文の抜粋がないため、影響範囲や修正方法は確認できない。",
+      "keywords": [
+        "CVE-2026-73683",
+        "リプレイ攻撃",
+        "脆弱性",
+        "CVE"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "自己紹介\n\n この記事を書いた時の年齢は１９歳で、LaravelやVue.jsなど色々使いながらウェブ開発したり、PythonでAIを使ったりするのが単純に好きです。\n\n セキュリティにあまり関心はなかったはずなのですが、いつのまにかセキュリティが面白くなってきています。\n\n 脆弱性報告含め、色々学べることがあったので共有します。\n\n \n この記事で解説すること\n\n \n 脆弱性について\n\n 脆弱性を見つけた後の対応（ここ結構学習することが多かった）\n\n nonceやリプレイ攻撃などの脆弱性の説明\n\n \n \n 見つけた脆弱性\n\n https://www.cve.org/CVERecord?id=CVE-2026-73683 \n\n \n Laravel SocialiteというPHPのフレームワークで有名なLaravelのOAuthやOIDC認証ライブラリの脆弱性\n\n 簡単に説明すると、リプレイ攻撃が可能になる脆弱性\n\n OIDCのnonce検証の欠如によるリプレイ攻撃の脆弱性\n\n 報告した結果、 PR#789 として修正され、CVE-2026-73683が採番されました。\n\n \n この記事では、リプレイ攻撃や、OIDC、OAuth、nonceなど必要な知識を踏まえた上で脆弱性解説をします！長いですが、興味を持った方はよろしくお願いします！\n\n \n なぜ見つけたのか\n\n 時系列にすると以下の通りです。\n\n \n 2026年2月: Laravelに出会う\n\n 2026年4月: Laravelを使って大学生コミュニケーションサイトを作った\n\n 2026年6月: サイトを作成した時に使用したライブラリの裏の動きが知りたくて、そのうちのSocialiteを覗く\n\n 2026年6月: たまたまOIDCの仕組みを知っていたため、nonceの欠如に気がつくことができた\n\n 2026年8月14日: CVE取得\n\n \n \n 脆弱性解説(前提知識編）\n\n \n Laravel SocialiteとOAuth & OIDCについて\n\n \n githubのソースコード\n\n https://github.com/laravel/socialite \n\n \n ソースコードのIntroductionにも説明がある。\n\n \n Introductionからの引用です\n\nLaravel Socialite provides an expressive, fluent interface to OAuth authentication with Bitbucket, Facebook, GitHub, GitLab, Google, LinkedIn, Slack, Twitch, and X. It handles almost all of the boilerplate social authentication code you are dreading writing.\n\n We are not accepting new adapters.\n\n Adapters for other platforms are listed at the community driven Socialite Providers website.\n\n \n \n 日本語訳(自分の弱々英語翻訳なのであしからず）\n\n このライブラリは、表現豊かで流暢なOAuth認証のインターフェースを提供します。\n\n 書くのがめんどくさいコードはほとんど全て定型文として処理されるようになります。\n\n \n つまり、 OAuth系の認証ライブラリ です。(結構便利！）\n\n \n OAuthとは（知っている人は飛ばしてください）\n\n \n すごく簡単にいうと、あるサービスが持っているあなたのデータのアクセス権を別のアプリに渡すための仕組み\n\n みんながよく使う機能だとおもわれます！\n\n ログインに使われることが多いので「認証」の仕組みだと思われがちだが、OAuth自体は「あなたは誰か」を教えてくれない。ここを補うためにつくられたのがOIDCである。\n\n \n \n OIDCとは\n\n \n ユーザー間の「認証情報」を安全にやり取りするための標準プロトコル\n\n OAuthは「認可」の仕組みを担うが、OIDCは「認証」の仕組みを担う。\n\n \n \n 認証と認可の違い\n\n 「認証」: 誰であるかを確認すること\n\n「認可」: 認証した利用者が「何をしていいか」の権限を決める\n\n \n OIDCの仕組み\n\n \n クライアントが提供プロバイダーに対し、「IDトークン」および「アクセストークン」の発行を要求\n\n プロバイダーは、二つのトークンを発行して良いかユーザーに確認\n\n 本人確認が行われ認証に問題がなければ、二つのトークンの発行\n\n クライアントは受け取ったトークンを検証\n\n 正当性の確認後サービスが利用可能\n\n \n \n IDトークンの中身\n\n \n JWT(ジョット）といわれる、ウェブのログイン認証やAPIのアクセス制御でよく使われる技術が基本。\n\n JWTは、 ヘッダ.ペイロード.署名 の3部構成で分けられる。\n\n \n ペイロード にはClaim(クレーム）というものがあり、OIDCの仕様で決められている、必要なClaimがあって仕様と沿っていれば安全な通信と見なすことが可能。\n\n id_tokenの詳細 \n\n \n \n Claim(クレーム）\n\n id_tokenに必要なクレームとして以下の６つが仕様で定義されています。\n\n \n iss 発行者\n\n sub ユーザーのID\n\n aud 宛先\n\n exp 有効期限\n\n iat 発行時刻\n\n nonce リプレイ攻撃を軽減するために必要(Requiredではない）\n\n \n 必須なのはnonce以外の五つは必須で nonce は必須ではありません。\n\nこの中の最後の nonce が今回の脆弱性の 鍵 となります。\n\n \n nonceについて\n\n 前述で**「リプレイ攻撃を軽減するために必要」**と述べたのですが、なぜリプレイ攻撃を軽減できるか仕組みを確認していきます。\n\n nonceについて触れる前に必要な知識である、**「state」**について触れましょう。\n\n \n stateとは\n\n まずアプリがランダムな文字列を作り、セッションに保存したのちにそれをプロバイダーへのリダイレクトURLにつける。\n\n 例： \n\n \n example1: プロバイダー\n\n example2: アプリ\n\n \n https://example1.com/dialog/oauth?client_id=...&state=jfaiejaowiwja \n \n\n example1(プロバイダー）は、そのまま ランダムな文字列 を返します(コールバック）。\n\n 例：\n\n https://example2.com/callback?code=XXXX&state=jfaiejaowiwja \n \n\n \n 上記のURLの値に state がわかる。\n\n アプリ自身が　 セッションに保存した値と一致するか 　を確認し、一致しなければ、その通信は自分が始めた手続きでないとわかる。\n\n \n 備考：\n\n \n セッション：　サーバーがユーザーごとに一時的に保存しておくデータ置き場のこと。\n\n \n \n stateがないと何が起こるか\n\n \n 攻撃者は、攻撃者自身のプロバイダー(Facebookなど）で、アプリのログインをする。\n\n プロバイダーがコールバックを返す。 example2.com/callback?code=XXXX みたいなコールバックURLが返ってくる。\n\n Aさん（攻撃対象）にこのコールバックURLをなんらかの手法で踏ませる\n\n Aさんのブラウザにおいて実行\n\n stateがないことから本人確認ができないため、Aさんのアカウントに攻撃者のプロバイダーアカウントが紐づけられる。\n\n 攻撃者自身のプロバイダー経由で、Aさんのアカウントに不正アクセスが可能！！\n\n state はCSRF(クロスサイトリクエストフォージェリー）に対して、有効な脆弱性対策!\n\n \n \n nonceとは（本題）\n\n stateと同じようにランダムな文字列を作り、セッションに保存する。\n\n 異なる点 として、 state はURLのクエリにつけていたが、 nonce はid_tokenの中身に埋め込まれて返ってくる（前述した通り）\n\n 中身に埋め込まれることで、プロバイダーの署名がかかります。署名検証を行うため、改竄検知をすることも可能になります。stateの場合はURLのクエリパラメータのため、誰でも改ざんすることが可能です。\n\n OIDCの通信の際、stateとnonceを本来アプリケーションからリダイレクトします。\n\nstateのコールバックが帰ってきた後、アプリからプロバイダーに直接再度通信し、プロバイダーはIDトークンを含むレスポンスを返します。\n\n nonce がないとどういうことが起きるかというと、「リプレイ攻撃」が可能になり、idトークンが持っているだけでログインできるというただの紙切れ同然の証明書になる。\n\n \n リプレイ攻撃とは\n\n リプレイ攻撃とは、攻撃者が以前に送信されたメッセージを傍受し、後でそれを再送信し、元のメッセージと同じ認証情報を取得しようとする攻撃のこと と MDN の説明がある。\n\n \n 実際に使われる本物の通信をそのまま再送する攻撃なので、本物かどうかを確認できれば防ぐことが可能。\n\n 今回の脆弱性では、nonceがないためこの「本物」かどうかを確認できないため脆弱性であると判断できる。\n\n \n \n 今回の脆弱性について\n\n \n どのような脆弱性なのか\n\n \n Laravel SocialiteのFacebookプロバイダーにおけるOIDC認証のnonceの欠如による、リプレイ攻撃の脆弱性\n\n \n \n 脆弱性コード\n\n 修正前のコード \n\n src/Two/FacebookProvider.php の getUserByOIDCToken() メソッドが脆弱性の該当する部分でした。\n\n protected function getUserByOIDCToken($token) \n { \n // ... \n \n throw_if($data['aud'] !== $this->clientId, new Exception('Token has incorrect audience.')); \n throw_if($data['iss'] !== 'https://www.facebook.com', new Exception('Token has incorrect issuer.')); \n \n $data['id'] = $data['sub']; \n \n // ... \n } \n \n\n このコードにはnonceがありません。そのため脆弱性の存在がわかるわけです。\n\n 修正後のコード にはnonceを追加し、それをPRしたあとマージされました。\n\n具体的には以下のコードを追加しました。\n\n $expectedNonce = $this->getExpectedNonce(); \n \n throw_if( \n $expectedNonce === null || \n ! isset($data['nonce']) || \n ! hash_equals($expectedNonce, (string) $data['nonce']), \n new Exception('Token has incorrect nonce.') \n ); \n \n\n $expectedNonce === null nonceを指定できているかどうか\n\n !isset($data['nonce']) トークン側にnonceがなければそもそも拒否する\n\n !hash_equals(...) タイミング攻撃に強い定数時間の比較\n\n \n 脆弱性の報告で学んだこと\n\n \n 意外と難しかったこと\n\n \n Laravelのライブラリは、Taylor Otwell氏のメールにセキュリティに問題がある際は、送らないといけないこと\n\n 自分の場合は返信が一切来ず、PRという形で提出することにした。\n\n OSSの脆弱性報告は、すごい時間がかかります（ここ重要）\n\n CVEの発行機関が何をつかえばいいかそもそもわかっていなかった。\n\n \n \n CVEの発行のために使ったサービス\n\n \n \n VulnCheck \n\nこのサービスで自分は脆弱性報告を行いました。",
+      "rank": 2,
+      "deep": {
+        "headline": "Socialite Facebook OIDCのnonce欠如",
+        "summary": "Laravel SocialiteのFacebookプロバイダーにおいて、OIDCのIDトークンに含まれるnonceを検証していなかったため、リプレイ攻撃が可能になる脆弱性が報告された。修正前はaudとissを確認していたが、認証リクエストとIDトークンを結び付けるnonceの確認がなかった。報告後にPR#789で修正され、CVE-2026-73683が採番された。記事では影響バージョンや修正リリース番号までは示されていないため、Facebook OIDCを使うアプリは依存バージョンと該当メソッドの実装を確認する必要がある。",
+        "prerequisites": [
+          {
+            "term": "OIDC",
+            "stumblingPoint": "記事は「OAuthは認可、OIDCは認証」と書いているが、OAuthだけではログインした利用者の身元を検証できない点が読み取りにくい。",
+            "explanation": "`OAuth` は別サービスのデータへアクセスする認可の仕組みで、単独では利用者が誰かを保証しない。`OIDC` はOAuth上でIDトークンを返し、そのトークンを使って認証を補うため、Socialiteのようなログイン処理では両者の役割を分けて読む必要がある。"
+          },
+          {
+            "term": "state",
+            "stumblingPoint": "記事は「state はCSRFに有効」と説明するが、`state` の検証だけではIDトークンの再利用まで防げない理由が途中で混同しやすい。",
+            "explanation": "`state` はアプリが開始した認証リクエストとコールバックを結び付ける値で、通常はセッションにも保存する。これにより、攻撃者が自分のプロバイダーアカウントで作ったコールバックを被害者のブラウザに実行させるCSRF系の混同を検出できる。今回の問題は、`state` があってもIDトークン自体の再利用を防ぐ検証が別途必要だという点にある。"
+          },
+          {
+            "term": "nonce",
+            "stumblingPoint": "記事は「nonceはid_tokenの中身に埋め込まれる」と書いているが、署名検証だけでは正規トークンの再送を検出できないことが読み取りにくい。",
+            "explanation": "`nonce` は認証リクエストごとに生成してセッションへ保存し、プロバイダーから返るIDトークン内の値と照合する一回限りの対応付けに使う。IDトークンはプロバイダーの署名で改ざんを検出できても、同じ正規トークンを後から再送されたことまでは、対応する `nonce` を検証しなければ判別できない。"
+          },
+          {
+            "term": "IDトークン",
+            "stumblingPoint": "記事は「nonce以外の五つは必須」と書いた直後に、署名済みJWTのClaim検証を安全性の根拠として説明しているため、Claimごとの役割の違いで詰まりやすい。",
+            "explanation": "`IDトークン` はJWT形式を基本とし、`iss`、`sub`、`aud`、`exp`、`iat`などのClaimを持つ。`aud` や `iss` が正しくても、それは宛先と発行者の確認であり、今回必要だった「このログイン開始に対応したトークンか」という確認を代替しない。記事では `nonce` はOIDC仕様上必須ではない場合がある一方、今回のリプレイ攻撃軽減に必要な値として扱われている。"
+          },
+          {
+            "term": "リプレイ攻撃",
+            "stumblingPoint": "記事は「本物の通信をそのまま再送」と説明しているが、改ざんされていないため署名検証だけでは止められない点が重要になる。",
+            "explanation": "`リプレイ攻撃` は、以前の正規通信をそのまま再送する攻撃である。内容を改ざんしないため署名検証を通過できる可能性があり、リクエストごとの新しい値との対応付けが必要になる。今回のコードでは、その対応付けに使う `nonce` が欠けていた。"
+          },
+          {
+            "term": "hash_equals",
+            "stumblingPoint": "記事は「hash_equalsはタイミング攻撃に強い」とだけ述べているが、通常の文字列比較ではなく認証用の秘密値比較に使う理由が必要になる。",
+            "explanation": "`hash_equals` は2つの文字列を比較する際、単純な比較よりタイミング差から値を推測されにくい定数時間比較を行うためのPHP関数である。ここではセッション側の期待値とIDトークン側の `nonce` を比較し、期待値がない場合やトークンに `nonce` がない場合も拒否する。値を比較するだけでなく、欠落時の拒否条件まで含めて修正されている。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "Socialiteのnonce検証",
+          "beforeLabel": "修正前",
+          "afterLabel": "修正後",
+          "rows": [
+            {
+              "aspect": "IDトークン検証",
+              "before": "`aud` と `iss` のみを比較",
+              "after": "`nonce` をセッションの期待値と比較"
+            },
+            {
+              "aspect": "欠落値の扱い",
+              "before": "`nonce` 欠如を検出しない",
+              "after": "期待値なし・トークン側欠落・不一致を拒否"
+            },
+            {
+              "aspect": "値の比較",
+              "before": "比較処理なし",
+              "after": "`hash_equals` で比較"
+            }
+          ]
+        },
+        "code": {
+          "lang": "php",
+          "caption": "修正後に追加されたnonce検証",
+          "content": "$expectedNonce = $this->getExpectedNonce();\n\nthrow_if(\n    $expectedNonce === null ||\n    ! isset($data['nonce']) ||\n    ! hash_equals($expectedNonce, (string) $data['nonce']),\n    new Exception('Token has incorrect nonce.')\n);"
+        },
+        "whyItMatters": "これを知らずに1週間過ごすと、Facebook OIDCログインでは `aud` と `iss` が正しいため安全だと判断し、`nonce` 未検証のままリプレイ攻撃を受け得る構成を見逃す。さらに、影響バージョンと修正版の番号が記事だけでは確定できないため、CVE番号を確認しただけで依存更新まで完了したと誤認しやすい。",
+        "relatedLinks": [
+          {
+            "label": "CVE-2026-73683",
+            "url": "https://www.cve.org/CVERecord?id=CVE-2026-73683"
+          },
+          {
+            "label": "Laravel Socialite GitHub",
+            "url": "https://github.com/laravel/socialite"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "know",
+        "impact": [
+          "`Laravel Socialite` のFacebookプロバイダーでOIDC認証を利用し、修正版へ更新していないアプリが対象。記事には影響するバージョン範囲が記載されていない。",
+          "修正前の `getUserByOIDCToken()` はIDトークンの `aud` と `iss` を検証していたが、`nonce` を検証していなかった。Facebook OIDCのIDトークンを受け入れる処理がこのメソッドを通る場合、リプレイ攻撃が成立し得る。",
+          "CVE-2026-73683として報告され、PR#789で修正された。記事内では、修正リリースのバージョン番号や、Facebook以外のプロバイダーへの影響は示されていない。"
+        ],
+        "timeline": [
+          "2026年2月: 執筆者がLaravelに出会う。",
+          "2026年4月: Laravelを使った大学生向けコミュニケーションサイトを作成。",
+          "2026年6月: Socialiteの内部実装を調査し、OIDCの知識からnonce欠如に気づく。",
+          "2026年8月14日: CVE-2026-73683を取得。",
+          "2026年8月15日: 本記事を公開。"
+        ],
+        "checkNow": [
+          "`composer show laravel/socialite` で導入バージョンを確認し、記事に影響範囲のバージョン記載がないため、CVE-2026-73683および修正PR#789の対応リリースと照合する。",
+          "`src/Two/FacebookProvider.php` の `getUserByOIDCToken()` を確認し、`aud` と `iss` だけでなく、期待する `nonce` の取得・存在確認・`hash_equals` による比較が実装されているかを見る。",
+          "FacebookログインでOIDCを使っている構成か、SocialiteのFacebookプロバイダーが実際に `getUserByOIDCToken()` を通る構成かを確認する。記事では他プロバイダーや他フローへの影響範囲は示されていない。",
+          "修正版へ更新できるまで、該当するFacebook OIDCログインを一時停止するか、アプリケーション側でIDトークンの `nonce` をセッションに保存した値と比較する。"
+        ],
+        "unknowns": [
+          "記事には、影響を受けるLaravel Socialiteの具体的なバージョン範囲が記載されていない。",
+          "記事には、PR#789を含む修正版のリリースバージョンや、修正版へ更新する具体的なComposer指定が記載されていない。",
+          "記事で具体的に示されている対象はFacebookプロバイダーのOIDC認証であり、他のプロバイダーやOAuthのみのフローにも同じ影響があるかは本文から判断できない。",
+          "実際の攻撃に必要なIDトークンの取得経路、再送方法、成立するログインフローの詳細は記事で示されていない。"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "vercel-labs/eve-software-factory-template — Meet Foreman, an eve Software Factory.",
+      "url": "https://github.com/vercel-labs/eve-software-factory-template",
+      "publishedAt": "2026-08-12T12:34:43.000Z",
+      "author": "vercel-labs",
+      "authorDetail": {
+        "name": "vercel-labs",
+        "url": "https://github.com/vercel-labs",
+        "avatarUrl": "https://github.com/vercel-labs.png?size=120",
+        "bio": "Meet Foreman, an eve Software Factory."
+      },
+      "tags": [
+        "TypeScript",
+        "agent",
+        "ai",
+        "eve",
+        "vercel"
+      ],
+      "snippet": "Meet Foreman, an eve Software Factory.",
+      "metrics": {
+        "stars": 777
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "44a8bc070d1ce879",
+      "foundIn": [
+        "github_repo"
+      ],
+      "body": "eve Software Factory Template\n\n \n \n \n\nMeet Foreman, an eve software factory that puts AI agents on every stage of the development loop and keeps people on the judgment calls.\n\nForeman takes tasks from GitHub and Linear, moves each one through four stations, and delivers a reviewed draft pull request on your repository. You review, mark ready, and merge.\n\n \n\nHow it works\n・Classifier triages the task: type, priority, complexity, actionable or not. When the task isn't actionable, Foreman asks the requester instead of building the wrong thing.\n・Analyst turns it into a plan with acceptance criteria, working from a live checkout of your repository.\n・Implementer executes the plan in its own sandbox, verifies with your repo's own checks, and pushes a branch.\n・Reviewer independently judges everything against the real diff, with evidence for each verdict.\n\nEach station is its own agent with its own instructions, sandbox, and tools. The Reviewer sees only the pushed branch, never the Implementer's reasoning. Between runs, Foreman keeps a factory brain: notes about your repository that every run starts from. See the pipeline and factory memory for the full picture.\n\nHow work arrives\n・Label an issue factory. The pipeline runs on its own, posts progress as stations complete, and ends with a draft PR linked to the issue.\n・@mention it on an issue or PR. Mentions from repo owners, members, and collaborators start an interactive session.\n・Delegate in Linear. Linear Agent Sessions run the same pipeline and report progress back in Linear.\n・The dev TUI. Hand it a task locally. Changes to GitHub wait for your approval.\n・Red CI on a factory PR. Foreman diagnoses the failure and pushes a fix to its own branches, never yours.\n・Someone opens a pull request. Foreman posts one orienting comment for reviewers: a summary, not a review.\n\nDeploy\n\n \n\nThe Vercel deploy flow sets up everything: the GitHub connector, Linear connector, Vercel Blob store, and a prompt for the FACTORYREPO and FACTORYLABEL environment variables.\n\nConfiguration (see .env.example):\n\n| Variable | Required | Default | What it does |\n| --- | --- | --- | --- |\n| FACTORYREPO | Yes | — | The owner/repo the factory works on (the build fails without it) |\n| FACTORYSETUPCOMMAND | No | — | Runs once inside the sandbox checkout at build time (e.g. pnpm install), so every run starts with dependencies already installed |\n| FACTORYLABEL | No | factory | The issue label that hands an issue to the factory |\n| FACTORYBRANCHPREFIX | No | factory/ | Branch prefix marking the factory's own PRs, which are the only branches automated CI fixes touch |\n| FACTORYBOTNAME | No | the GitHub App's slug | The @mention name, resolved from the connector automatically when unset |\n| GITHUBCONNECTOR / LINEARCONNECTOR | Yes | — | Set automatically from Vercel Connect connector UIDs |\n\nLocal development\n\nLink the project you deployed (or a fresh one), pull its environment, and start the TUI:\n\n [code] \n\nHand the agent a task (\"users report the password reset email arrives twice, fix it\") and watch the four stations fire in order, ending in a draft PR on FACTORYREPO. Local runs are treated as untrusted, so changes to GitHub wait for your approval in the TUI.\n\nResources\n・Foreman Docs\n・Vercel Connect\n・eve Documentation\n・GitHub Tools eve Extension\n\nExplore more templates\n・eve Marketing Team\n・eve Personal Agent\n・eve Sanity Copilot",
+      "preScore": 0.8510000000000001,
+      "popularityPercentile": 0.55,
+      "matchedTopics": [
+        "Next.js",
+        "TypeScript",
+        "AI / LLM",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 85,
+      "oneLiner": "Foremanがeve向けSoftware Factoryテンプレートとして公開された。",
+      "reason": "Foremanは、eveでSoftware Factoryを構築するためのテンプレートとして公開されている。",
+      "keywords": [
+        "Foreman",
+        "eve",
+        "Software Factory",
+        "Vercel",
+        "TypeScript"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": "AIエージェントでタスクをdraft PRまで運ぶ",
+        "summary": "Foremanは、GitHubやLinearのタスクをClassifier、Analyst、Implementer、Reviewerの四つのstationで処理し、リポジトリのチェック結果とレビュー根拠付きのdraft PRまで届けるeve Software Factory template。依頼が曖昧なら実装せず、依頼者に確認する。実装は専用sandboxとbranchで行い、人間が差分を確認してready化・mergeする。実行をまたいでリポジトリの知識を保持するfactory brainも備える。",
+        "prerequisites": [
+          {
+            "term": "FACTORYREPO",
+            "stumblingPoint": "記事は`FACTORYREPO`を必須かつ「build fails without it」と書いているが、対象リポジトリを指定しないと処理先もビルド条件も成立しないと読み取れない。",
+            "explanation": "`FACTORYREPO`はForemanが作業する対象を指定する値で、単なる表示用設定ではない。ここがないとビルド自体に失敗するため、デプロイ時点で対象リポジトリの`owner/repo`を決めておく必要がある。"
+          },
+          {
+            "term": "GITHUBCONNECTOR",
+            "stumblingPoint": "記事は`GITHUBCONNECTOR / LINEARCONNECTOR`がVercel Connect connector UIDsから自動設定されると書いているが、connectorを先に接続しないとForemanがタスクを取得・報告できない。",
+            "explanation": "connectorはForemanがGitHubやLinearへ接続するためのVercel Connect上の設定である。本文ではUIDが自動設定されるため、環境変数を手で発行するのではなく、Deploy flowで各サービスを接続するのが前提になる。"
+          },
+          {
+            "term": "Classifier",
+            "stumblingPoint": "記事は「Classifier triages the task」と書いているが、triageが実装前の分類・実行可否判定を指すと知らないと、なぜ依頼者へ質問する段階があるのか読み取れない。",
+            "explanation": "Classifierは依頼をすぐ実装するのではなく、type、priority、complexity、actionableかどうかを判定する最初のagentである。依頼がactionableでなければ実装せず、依頼者への確認に回るため、曖昧なIssueをそのままコード化しない設計になっている。"
+          },
+          {
+            "term": "acceptance criteria",
+            "stumblingPoint": "記事はAnalystが「plan with acceptance criteria」を作ると書いているが、acceptance criteriaが実装完了を判定する条件だと知らないと、planとReviewerの関係がつながらない。",
+            "explanation": "Analystのplanは単なる作業メモではなく、acceptance criteriaを含む実装計画である。live checkoutを見ながら作るため、リポジトリの現在のコードや構成に合わせて、Reviewerが後で判定できる基準を用意する。"
+          },
+          {
+            "term": "Reviewer",
+            "stumblingPoint": "記事は「The Reviewer sees only the pushed branch, never the Implementer's reasoning」と書いているが、stationごとの分離がレビューの独立性を担保する仕組みだと読み取る必要がある。",
+            "explanation": "各stationは独立したagentとして、固有の指示・sandbox・toolsを持つ。特にReviewerはImplementerの推論過程を見ず、pushされたbranchの実際のdiffだけを評価するため、実装者の自己申告ではなく成果物と証拠を基準に判定する。"
+          },
+          {
+            "term": "factory brain",
+            "stumblingPoint": "記事は「Between runs, Foreman keeps a factory brain」と書いているが、これはモデルの一般的な会話履歴ではなく、リポジトリ向けの継続的なnotesだと知らないと保持範囲を誤解しやすい。",
+            "explanation": "`factory brain`は毎回の実行をまたいで保持される、リポジトリに関するnotesである。各runがそこから始まるため、リポジトリ固有の知識を毎回ゼロからagentに説明する運用を減らせる。"
+          },
+          {
+            "term": "draft PR",
+            "stumblingPoint": "記事は「delivers a reviewed draft pull request」と書いているが、draft PRはレビュー済みでも人間の確認とready化・mergeが残る状態だと知らないと、完全自動デプロイと受け取りかねない。",
+            "explanation": "`draft PR`はForemanが作成するが、merge可能な完成扱いではない。人間が差分とReviewerの根拠を確認してreadyに変更し、その後mergeするため、AIの自動処理範囲と人間の判断範囲の境界を示している。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "Foremanの処理フロー",
+          "steps": [
+            {
+              "label": "タスク受信",
+              "detail": "GitHub Issue、@mention、Linear、TUIから受信"
+            },
+            {
+              "label": "Classifier",
+              "detail": "type・優先度・複雑度・実行可否を判定"
+            },
+            {
+              "label": "Analyst",
+              "detail": "live checkoutから計画と受け入れ条件を作成"
+            },
+            {
+              "label": "Implementer",
+              "detail": "sandboxで実装・repoのチェック・branch push"
+            },
+            {
+              "label": "Reviewer",
+              "detail": "実際のdiffを独立評価し根拠を付与"
+            },
+            {
+              "label": "人間の判断",
+              "detail": "人間が確認してready化・merge"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "React / Next.js / TypeScriptのリポジトリでは、ForemanをGitHub IssueやLinearからdraft PRを作る実装パイプラインとして、Claude CodeやOpenAI Codexを個別に呼び出す運用の上位に置ける。既存のCI・リポジトリ固有チェックをImplementerに実行させ、Reviewerの判断材料を添えて人間へ返すため、AIに任せる作業と人間が担うmerge判断を分離できる。",
+        "relatedLinks": [
+          {
+            "label": "Foremanのリポジトリ",
+            "url": "https://github.com/vercel-labs/eve-software-factory-template"
+          }
+        ],
+        "readingMinutes": 4,
+        "lane": "build",
+        "unlocks": [
+          "これまでIssueやLinearのタスクを人間が読み、計画・実装・レビューへ振り分けていたのが、Foremanに渡してdraft PRまで四段階で進められる。",
+          "これまで実装agentの自己申告を中心に確認していたのが、独立したReviewerが実際のdiffと証拠に基づいて判定できる。",
+          "これまで曖昧な依頼も実装開始まで進み得たのが、Classifierがactionableでない依頼を依頼者への確認に止められる。",
+          "これまでローカルでのAI変更をそのままGitHubへ反映していたのが、dev TUIでは承認してから変更を送れる。"
+        ],
+        "howToTry": [
+          "VercelのDeploy flowからテンプレートをデプロイし、GitHub connector、Linear connector、Vercel Blob storeを接続する。",
+          "デプロイ時のプロンプトで`FACTORYREPO`に対象リポジトリの`owner/repo`を設定する。必要に応じて`FACTORYLABEL`、`FACTORYSETUPCOMMAND`、`FACTORYBRANCHPREFIX`も設定する。",
+          "対象リポジトリのIssueに`factory`ラベル（`FACTORYLABEL`を変更した場合はその値）を付ける。ForemanがClassifier、Analyst、Implementer、Reviewerの順に処理し、進捗とリンク付きのdraft PRをIssueへ投稿する。",
+          "draft PRの差分とReviewerの判定根拠を確認し、問題なければ自分でreadyに変更してmergeする。",
+          "ローカルで試す場合は、デプロイ済み（または新規）のプロジェクトをlinkして環境変数を取得し、記事に示されたTUI起動コマンドを実行する。本文ではコマンド自体が欠落しているため、ここはリポジトリのLocal development手順を参照する。TUIに`users report the password reset email arrives twice, fix it`のようなタスクを入力すると、GitHubへの変更は承認後に反映される。"
+        ],
+        "fitFor": [
+          "GitHub IssueやLinearのタスクを、計画・実装・検証・レビューまで一貫して自動処理したいリポジトリ",
+          "リポジトリ固有のチェックを実行させ、担当者がdraft PRを確認してからmergeする運用",
+          "GitHub上のfactoryラベル、@mention、Linear Agent Sessions、ローカルTUIを使い分けたい開発チーム"
+        ],
+        "notFor": [
+          "人間の承認なしに本番リポジトリへ直接変更・mergeまで自動化したい運用",
+          "タスクの受け付け先がGitHubやLinearではなく、別の課題管理システムだけの運用",
+          "既存リポジトリのチェックをサンドボックス内で実行できないタスク"
+        ],
+        "caveats": [
+          "Vercel deploy flowでGitHub connector、Linear connector、Vercel Blob storeを設定する必要がある。",
+          "`FACTORYREPO`、`GITHUBCONNECTOR`、`LINEARCONNECTOR`は必須で、`FACTORYREPO`がないとビルドに失敗する。",
+          "`FACTORYSETUPCOMMAND`を設定しない場合、サンドボックスの依存関係は事前インストールされない。設定例は`pnpm install`。",
+          "自動CI修正の対象は`FACTORYBRANCHPREFIX`で識別されるForeman自身のPRだけで、通常の開発ブランチは変更しない。",
+          "ローカル実行はuntrusted扱いで、GitHubへの変更はTUI上の承認を待つ。",
+          "人間はレビュー、readyへの変更、mergeを担当する。Foremanはレビュー済みのdraft PRまでを作成する。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "承認パネルが握り潰される原因を138件のダンプから特定した。many-ai-cli v0.7.0 の6つの変更",
+      "url": "https://qiita.com/ishizakahiroshi/items/fc31553bf9427109d4dc",
+      "publishedAt": "2026-08-15T16:16:06.000Z",
+      "author": "hiroshi ishizaka",
+      "authorDetail": {
+        "name": "hiroshi ishizaka",
+        "handle": "@ishizakahiroshi",
+        "url": "https://qiita.com/ishizakahiroshi",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4423880/049abdd348db632de359b7a933054dacc58166bb/large.png?1782949151",
+        "bio": "田舎在宅エンジニアです。\r\n\r\nhttps://x.com/ishizakahiroshi",
+        "location": "群馬県",
+        "followers": 2,
+        "posts": 53,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/ishizakahiroshi"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/ishizakahiroshi"
+          },
+          {
+            "label": "Web",
+            "url": "https://ishizakahiroshi.github.io/"
+          }
+        ]
+      },
+      "tags": [
+        "Go",
+        "TypeScript",
+        "AIエージェント",
+        "個人開発",
+        "CLI"
+      ],
+      "snippet": "2026-08-15 に v0.7.0 を出しました。CHANGELOG に並んだ項目は 27 個で、そのうち 14 個が Fixed です。新機能より修正のほうが倍あるリリースになりました。 この記事では、その 27 個のうち 6 つを実装の中身まで掘って書きます。残りは最後にまとめて 1 節にしました。 many-ai-cli について 自作で many-ai-cli という AI ツール向けの Web ダッシュボードを作っています。複数の AI コーディング CLI を並列で走らせ、承認をブラウザ 1 タブに集約。スマホからでも。 ・何ができるかの紹介ページ: https://ishizakahiroshi.com/work.html?id=many-ai-cli ・リポジトリ（Star をいただけると励みになります）: https://github.com/ishizakahiro…",
+      "body": "2026-08-15 に v0.7.0 を出しました。CHANGELOG に並んだ項目は 27 個で、そのうち 14 個が Fixed です。新機能より修正のほうが倍あるリリースになりました。\n\n \n\nこの記事では、その 27 個のうち 6 つを実装の中身まで掘って書きます。残りは最後にまとめて 1 節にしました。\n\nmany-ai-cli について\n\n自作で many-ai-cli という AI ツール向けの Web ダッシュボードを作っています。複数の AI コーディング CLI を並列で走らせ、承認をブラウザ 1 タブに集約。スマホからでも。\n・何ができるかの紹介ページ: https://ishizakahiroshi.com/work.html?id=many-ai-cli\n・リポジトリ（Star をいただけると励みになります）: https://github.com/ishizakahiroshi/many-ai-cli\n\n同じ悩みを持っている方は、下記で入ります。\n\n [code] \n\nbun install -g many-ai-cli でも npm install -g many-ai-cli でも入ります。Windows は winget、macOS は Homebrew の cask もあります。\n\nこの話には前があります。前回は、対応する AI CLI を増やすかどうかを 20 製品調べて全部見送った、という判断の記録でした。\n\n前回の記事: 対応 AI CLI を増やす前に、自分のツールの利用者数を測った方がいい\n\nあのとき「provider を増やすより先に、今あるものの品質を上げるほうが効く」と書きました。v0.7.0 は、そう書いた 2 日後から始めた作業の結果です。承認の検出まわりに手を入れた項目が多いのはそのためです。\n\n1. デスクトップのアイコン 2 個問題を、トレイ常駐で畳んだ\n\nmany-ai-cli setup は、これまでデスクトップにショートカットを 2 個置いていました。Hub を起動する「Many AI Hub Start」と、止める「Many AI Hub Stop」です。\n\nこれが最後まで気に入っていませんでした。起動と停止という 1 つの状態の裏表を、アイコン 2 個という空間の分割で表現しているからです。使う側からすると、今 Hub が動いているかどうかはアイコンを見ても分かりません。分からないまま Start を押すと、既に動いていた場合の挙動を考えないといけない。\n\n窓（デスクトップアプリ）にしてしまえば解決する話ではあります。実際 2026-08-14 に Tauri での Windows アプリ化と Microsoft Store 提出を検討しました。結論は 1 行も書かないまま全件見送りで、理由は「UI は既定ブラウザのタブで開く形のほうが自分の使い方に合っている」からです。複数のブラウザタブを行き来しながら使うので、Hub がそのタブの 1 つであること自体が利点になっている。独立した窓は画面の枠を 1 つ占有して、他のウィンドウと場所を取り合います。\n\nそこで残った実課題、つまり「アイコンが 2 個ある」だけを、窓を作らずに畳むことにしました。\n\ntray は serve の中ではなく、別プロセスに置く\n\nmany-ai-cli tray は小さな常駐プロセスを起動します。メニューは 3 つだけです。\n・Hub を開く（動いていなければ先に起動してから開く）\n・Hub を停止\n・トレイを終了\n\nsetup が作るショートカットは「Many AI Hub」1 個になり、これが tray を指します。\n\n実装で最初に決めたのは、tray を serve の中に同居させないことでした。同居させると、Hub を停止した瞬間にトレイアイコンも消えます。そうすると「止めた後にもう一度開く」導線が無くなり、結局デスクトップのアイコンに戻ることになる。tray が別プロセスであれば、Hub の生死と無関係に居座れます。停止した後もトレイは残り、次に開きたくなったらそこから起動できる。\n\nもう 1 つは cgo を持ち込まないことです。Go でトレイアイコンを出すライブラリはいくつかありますが、多くは cgo を要求します。cgo を有効にすると、リリースのクロスコンパイルが一気に面倒になります。このプロジェクトは全リリースターゲットを CGOENABLED=0 で作っているので、そこを崩したくない。\n\nなので Win32 API を golang.org/x/sys/windows 経由で直接叩いています。ShellNotifyIcon でアイコンを登録し、非表示のメッセージ専用ウィンドウを作ってウィンドウプロシージャでクリックを拾い、TrackPopupMenu でメニューを出す。書く量は増えますが、依存が増えないぶん後が楽です。\n\n \n\n上の図のとおり、tray プロセスと Hub プロセスは親子ではなく並列に置いてあります。tray は Hub の起動と停止を外から指示するだけで、Hub が落ちても tray は生き残る。UI が出る先はこれまでどおり既定ブラウザのタブで、OS のネイティブ通知は増やしていません。\n\n既存のアイコンは消さない\n\nsetup を再実行しても、既にある「Start」「Stop」のショートカットは削除しません。見つけたことだけ報告して、消すかどうかは利用者に任せます。\n\nここは少し悩みました。移行のことだけ考えるなら、古いものを消して新しいものに置き換えるのが親切です。ただ、デスクトップは利用者の持ち物です。自分が置いたものを自分で消すのはともかく、「これは自分が置いたものだから」という判定を自動で下して勝手に消すのは、判定が外れたときの被害が大きい。同名のショートカットを自分で作り直している人もいるかもしれない。\n\nsetup が触るのは自分が今から作るものだけ、というルールにしました。\n\n対象は Windows だけです。macOS と Linux は従来どおり Start / Stop の 2 つ（.command / .desktop）が置かれます。トレイの実装が OS ごとに完全に別物になるので、まず自分が毎日使っている環境から入れました。\n\nトレイを入れても、OS のネイティブ通知は入れていない\n\nトレイに常駐するなら、ついでにトースト通知も出せます。実際そういう作りのツールは多い。\n\n入れませんでした。作者本人が、あの右下から出てくる通知を好きではないためです。\n\n承認待ちの知らせは、既に 3 つの経路で成立しています。ブラウザのタブタイトルが点滅する、favicon に件数のバッジが出る、設定で音を鳴らす。タブを見れば分かる状態が既にあるところに、OS レベルの割り込みを足す理由が見つかりませんでした。\n\n「常駐プロセスができたから通知も出せる」は、できることの話であって、要るかどうかの話ではない。ここは分けて考えるようにしています。\n\n前提: 承認をどうやって検出しているか\n\n次の節から承認の検出まわりが続くので、先に仕組みを書いておきます。\n\nwrap 対象の AI CLI は、どれも自前の TUI を持っています。API を生やしてくれているわけではないので、「今この CLI は承認待ちか」を外から知る手段は基本的にありません。PTY の出力を読むしかない。\n\n素直にやるなら、出力の文字列を正規表現で引っかける方法（パターンスクレイピング）になります。実際そこから始めました。ただ、これは CLI 側の文言が変わるたびに壊れます。しかも壊れたことに気づけない。承認が出ていないのか、検出できていないのかが区別できないからです。\n\nなので今は、AI 側に決まった形式で出力してもらう方式が主です。各 CLI の指示ファイル（Claude なら CLAUDE.md、Codex なら AGENTS.md）へ承認マーカーの仕様を冪等に注入し、質問と選択肢をその形式で囲んで出してもらう。マーカーは開始と終了の 2 つで、その内側は罫線と表を禁止しています。注入したブロックは、そのファイルを参照しているアクティブセッションが 0 になったら削除します。\n\n問題は、出してもらった後です。PTY から流れてくるのは「画面に描くための命令の列」であって、テキストではありません。カーソル移動、行の消去、部分的な再描画が混ざります。TUI は入力欄の枠を毎フレーム描き直しますし、スクロールのたびに全体を描き直します。\n\nそのため Hub 側に VT エミュレータのミラーを持っています。PTY の出力を食わせて、実端末と同じ画面バッファを再現し、その結果からマーカーブロックを取り出す。ここが今回のバグの舞台です。\n\n取り出したブロックは、さらに分類にかけます。開始マーカーがブロック内に 2 個ある、選択肢の番号が重複している、罫線が混ざっている、といった形を「壊れている」と判定します。壊れていたら承認パネルを出さず、代わりに「承認を保留しました」というバナーを出す。壊れた選択肢を並べて誤送信するくらいなら出さないほうがいい、という設計です。\n\n考え方としては正しいと今も思っています。ただ、判定が正しくても、判定に食わせるミラーが間違っていたら意味がありません。 それが 2 節の話です。\n\n2. 承認パネルが握り潰されていた。真因は VT ミラーに 2 つあった\n\nここが v0.7.0 の主題です。\n\n保留バナーの頻度が、高すぎました。\n\nバナーが出ると、利用者はターミナルに戻って自分で答えることになります。それはこのツールを使う意味が消えている状態です。しかも「AI が承認を求めているのに Hub には出ていない」ので、気づくのが遅れます。承認待ちで止まったまま放置されたセッションが何本かありました。\n\n138 件のダンプを再生して 132 件を再現した\n\nv0.6.0 の頃に、マーカーが壊れて見えたときの生バイト列を保存する仕組みを入れてありました。2026-08-06 から 08-13 のあいだに 138 件たまっていました。\n\nまず、この 138 件を「記録したときと同じミラーサイズ」で再生する検証コードを書きました。同じサイズで再生しないと意味がありません。壊れ方が端末の桁数に依存する可能性があるからです。\n\n結果は 132 件が再現しました。つまりほとんどが「たまたま通信が乱れた」類のものではなく、決まった入力から決まって壊れる、再現性のあるバグでした。ここで原因が 2 つに割れました。\n\n真因その 1: 全角文字でカーソルが 1 桁しか進んでいなかった\n\nVT ミラーの writeRune が、どのルーンでも col を 1 だけ増やしていました。\n\n日本語の行が来ると、実際の端末はカーソルが 2 桁進むのに、ミラーは 1 桁しか進みません。1 行ぶん日本語が流れると、ミラーのカーソルは実端末の半分の位置にいます。\n\n何が起きるか。CLI の入力欄（composer）は自分の枠線を毎フレーム描き直します。その枠線は行の右端に来ます。ミラーのカーソルが左に寄っているせいで、本来なら文字で上書きされるはずの右端の枠線が生き残る。生き残った枠線が、選択肢のラベルの中に紛れ込む。\n\nマーカーブロックの中に罫線があったら壊れているとみなす、という判定を入れてあったので、これが引っかかります。承認フォーマットは罫線と表を禁止しているので、ブロックの中の罫線はモデルが書いたものではありえない。だから枠線が重なった証拠になる、という理屈です。理屈は合っていて、罫線が本当に重なっていた。重ねていたのは自分のミラーでした。\n\nミラー側を直しました。East Asian Wide と Fullwidth、それに EmojiPresentation を持つルーンは 2 桁として数え、結合文字と異体字セレクタは 0 桁として数えます。全角文字の 2 桁目に置く継続用のセンチネルは、Lines() の出力からもスクロールバックの押し出しからも取り除きます。\n\n \n\n上の図が、1 桁ぶんのズレが積み重なって右端の枠線を残す流れです。日本語を含む行が長いほどズレが大きくなるので、日本語で長めの質問をしたときほど承認が出なくなる、という嫌な性質がありました。\n\n真因その 2: 古い再描画と今の質問が融合していた\n\nもう 1 つは抽出側です。\n\nTUI はスクロール中も再描画します。同じマーカーブロックの描きかけの世代が、スクロールバックに残ります。記録された 74 件の markerleak のうち 72 件で、古い開始マーカーがスクロールバックに残っていました。\n\nextractApprovalMarkerBlock は「いちばん新しいブロックを取る」つもりの実装でした。ところが非貪欲な正規表現を使っていたせいで、開始位置は 最初の開始マーカーになります。結果として、古い世代の途中から新しい世代の終わりまでを 1 つのブロックとして切り出す。そのブロックの中には開始マーカーがもう 1 個入っています。\n\nブロックの中に開始マーカーがある形は、分類側が「壊れている」と弾く形そのものです。自分で作った壊れ方を、自分で検出して捨てていました。\n\n抽出を「最後の終了マーカーと、その手前にある最後の開始マーカー」を取る形に変えました。\n\nこの 2 つで、138 件のうち 93 件が普通にパネルとして描けるようになりました。残る 45 件（boxrule 32 件、markerleak 10 件、duplicateoption 3 件）はどちらの原因でも説明がつかないので、引き続き抑止されたままです。\n\n追加で、枠線だけの行は無視する\n\n上の 2 件を直した後、記録済みダンプ 107 件（2026-08-08 から 08-14）をもう一度再生しました。残っていた boxrule 36 件のうち 13 件は、罫線と空白しかない行が原因でした。\n\nこれは「枠線が文字を上書きした」のではなく、枠線そのものがブロックの途中に落ちてきただけです。何も潰していない。罫線だけの行を脇に置くと、13 件すべてが構造的に無傷でした。裏づけとして、問題の 16 行のうち 15 行はちょうど vtcols の幅ぴったりで、どれもブロックの先頭でも末尾でもありませんでした。\n\n罫線だけで構成された行はスキップし、選択肢のラベルを上書きしている罫線はこれまでどおり弾く、という形に変えました。同じ 107 件で 12 件が追加でパネルになり、v0.6.0 のミラー修正より後に記録されたぶんでは boxrule が 16 件から 8 件へ半減しました。\n\n3. 「もう答えた」を覚える場所が 3 つあって、互いに食い違っていた\n\n承認パネルには、もう 1 つ別系統の不具合がありました。答えたはずの質問がまた出てくる。逆に、エージェントが本当にもう一度聞いてきた質問が二度と出てこない。\n\n原因はブラウザ側です。「この承認はもう回答済みか」を判定する state が 3 本ありました。\n\n| かつての state | 同一性の定義 | 失効の仕方 |\n|---|---|---|\n| approvalConsumedSig | 選択肢の署名 | 5 秒から 10 秒のタイマー |\n| answeredMarkerSigs | マーカーブロック全文のハッシュ | 失効しない（セッション恒久） |\n| approvalQuestionKey | 質問文のハッシュ | 手動 dismiss のあいだだけ |\n\n3 つとも「同じ質問とは何か」の定義が違います。この食い違いそのものが症状でした。\n\nタイマー方式は、TUI の再描画が続いている最中に失効します。失効した後にもう一度同じブロックを見つけるので、回答済みの質問が画面に戻ってくる。\n\nブロック全文ハッシュ方式は逆に、失効しません。TUI が 1 文字でも違う形で描き直せば別ハッシュになるので取りこぼす一方、まったく同じ形で再描画されたら永久に埋めます。エージェントが意図的に同じ質問をもう一度出した場合も埋まる。\n\n3 本とも撤去して、1 本に寄せました。candidateKey と sourceEpoch の組です。\n・candidateKey は、provider、承認の種別、正規化した質問文、選択肢の番号と送信文字列から作ります。ラベル、空白、罫線、折り返しは含めません。 含めると、再描画のたびに別の候補として扱われてしまう\n・sourceEpoch は、live prompt の境界でだけ進みます。replay と reflow では進めません。 進めてしまうと、画面を復元しただけで新しい承認に見える\n\nこの形なら、再描画でラベルの位置がずれても同じ候補に落ちます。世代が進めば同じ質問文でも新しい候補として表示します。意図的に繰り返された質問がちゃんと出るのは仕様です。\n\n判定ロジックは state.ts から approval-answered.ts に切り出しました。DOM を触らないので、回帰テストを 14 本書けています。\n\nsourceEpoch を replay と reflow で進めない、というのが分かりにくいところなので補足します。\n\nHub はセッションの過去出力を保持していて、ブラウザがリロードしたときやセッションを切り替えたときに、それを流し直して画面を復元します（replay）。ウィンドウの幅を変えたときは、保持している内容を新しい桁数で組み直します（reflow）。\n\nどちらも「AI が新しく何かを言った」わけではありません。ここで世代を進めてしまうと、ブラウザをリロードしただけで、さっき答えた承認が新品の顔をして戻ってきます。 ウィンドウを広げただけでも同じことが起きる。\n\n逆に、live prompt の境界、つまり AI が実際に新しいプロンプトを出した瞬間だけは進めます。ここを進めないと、AI が意図的に同じ質問をもう一度出したときに二度と表示されません。\n\n「画面の変化」と「AI の発話」を区別する、というのがこの 1 本の役割です。以前の 3 本はどれもこの区別を持っていませんでした。タイマー方式は時間で、ハッシュ方式は文字列で区別しようとしていて、どちらも画面の都合に振り回されます。\n\n \n\n上の図のとおり、3 本それぞれが別の「同じ質問」の定義を持っていて、その隙間から漏れていました。ここは今後も、承認の誤表示を踏んだからといって抑止をもう 1 本足さない、という方針にしてあります。まず既存の 1 本で説明できるかを確かめる。説明できるなら直すのは candidateKey の作り方か sourceEpoch の進み方であって、新しい state ではありません。\n\n同じ系統でもう 1 つ、セッションを切り替えたときに前のセッションの承認パネルが残る不具合も直しました。#action-bar は共有の DOM ノードで、どのセッションが描いたかを dataset.approvalSessionId に持っています。ところがセッション切り替え時に誰もこれを消していませんでした。切り替えた先も承認待ちだった場合、再描画チェックが「バーは見えていて中身も入っている」と判断して描き直さない。結果として、前のセッションの質問が現在のセッションの質問の顔をして残ります。そこで答えると、選択は別のセッションに飛びます。\n\n所有者（owner）を判定材料に加えて、切り替え時に他人のパネルを消してから検出を走らせる形にしました。捨てるのは DOM だけです。前のセッションの承認状態と Hub 側のヒントは残します。その質問はまだ未回答なので、そちらに戻ったときにまた出てこないと困る。\n\n4. 完了通知が既定 OFF のままだった。ただし通知先がある人だけ ON にする\n\nREADME には「セッションが止まった瞬間に知らせます」と書いてあります。実際、承認待ちの検出とタスク完了の検出は入っています。\n\nただ、タスク完了サマリー通知は 2 段の opt-in の裏にありました。初期設定のままでは 1 回も飛びません。README の説明と実物が食い違っている状態です。\n\nuserprefs.donesummarynotify.enabled を 3 値にしました。\n・利用者がトグルを触ったことがあれば、その選択が勝ちます（ON でも OFF でも）\n・触ったことがなければ、届け先がある人だけ ON にします。Web Push の購読があるか、notify.backends が 1 つ以上あるか\n・どちらも無ければ 何も変わりません。通知は増えません。送る先が無いので\n\n \n\n上の図が判定の流れです。「既定を ON にする」という変更は、普通なら通知が増える方向の変更です。ここでは「送り先を用意した人には届き、用意していない人には何も起きない」という形にしました。設定を触ったことがない人の環境を、こちらの都合で騒がしくしたくない。\n\n設定画面のトグルは、保存された値ではなく 実効値 を出すようにしました。ここを直さないと、通知が飛んでいるのに画面には OFF と表示される、という状態が起きます。\n\nあわせて、このトグル自体のバグも直しました。PUT /api/user-prefs はオブジェクト全体を置き換える API です。ところがこのトグルは自分のフィールドだけを送っていました。つまりクリックするたびに、テンプレート、セッションの並び順、cwd の履歴、お気に入りが全部空に戻っていた。\n\n現在の設定を読んで、自分の 1 フィールドだけをマージして、全体を送り返す形に直しました。トークン残量バーのトグルが先に同じ実装をしていたので、それに揃えた形です。\n\n5. テンプレートの並び順が、選ぶたびに崩れていた\n\nプロンプトテンプレートは、入力欄の上のパレットから選んで使います。\n\nこれまでは「選ばれた回数」で並んでいました。よく使うものが上に来る、という発想です。実際に使うと、手で並べ替えたつもりの順序が、次にテンプレートを 1 つ選んだ瞬間に崩れます。自動整列と手動整列が同じ場所で戦っている状態でした。\n\nここは機能を足す前に、自動整列と手動整列を同じリストに同居させないという整理をしました。\n\n頻度ソートは、それ単体なら合理的です。よく使うものが上に来るのは便利。壊れるのは、そこに手で並べ替える手段を足したときです。利用者が並びを決めた直後に、システムが別の根拠で並びを決め直す。どちらが勝つかは「次にどっちの操作をしたか」で決まるので、利用者から見ると順序がランダムに変わるリストになります。\n\n両立させる案はありました。手動で動かしたテンプレートだけ頻度ソートの対象外にする、といった形です。やめました。同じリストの中に「動くもの」と「動かないもの」が混ざると、どの行がどっちなのかが見た目から分かりません。分からない状態で並べ替えると、結果が予想と違う。\n\n自動をやめて、手動だけにしました。保存された順そのままに並べます。新しく足したものは末尾に付きます。テンプレートごとの frequency カウンタは、クライアントからもサーバの構造体からもユーザー設定のミラーからも消しました。テンプレートを選んでもサーバへは何も書きません。config.yaml に残っている既存の frequency は無視され、次の保存で落ちます。\n\nそのうえで、手で並べ替えられるようにしました。各行の左端にグリップがあり、掴んで動かすと順序が変わります。順序は userprefs.templates としてサーバに保存されるので、別のブラウザでも別の端末でも同じ並びになります。\n\n実装は HTML5 の drag-and-drop ではなく pointer events です。指でもペンでも動かせる。リストの上端や下端の近くで掴んだまま止めると自動でスクロールします。グリップにフォーカスを当てた状態で ↑ ↓ を押すと 1 つずつ動くので、キーボードだけでも支援技術からでも並べ替えられます。\n\n検索ボックスに文字が入っているあいだは並べ替えを無効にしました。フィルタで隠れている行との相対位置が決まらないからです。掴んだ行を「見えている 3 行目」に落としたとき、それが全体の何番目なのかを一意に決められない。決められないものを推測で決めると、想定と違う結果になったときに利用者が原因を追えません。\n\nもう 1 つ、テンプレートを選んだときの挙動を切り替えるトグルを足しました。パレットに「選んだら即送信」というスイッチがあります。\n・OFF（既定・従来の挙動）: 選んだテンプレートを入力欄に入れる。編集してから送れる\n・ON: そのまま通常の送信経路で送る\n\nスイッチの下に、今どちらのモードかを 1 行で書いてあります。設定は userprefs.templatesend.immediate としてサーバ側に持つので、ブラウザや端末をまたいでも付いてきます。\n\n \n\n上の図が、頻度ソートをやめて保存順にした結果と、選択時の 2 つのモードです。定型の指示を何度も打つ場面（「テストを流して」「diff を見せて」など）では、即送信のほうがクリック 1 回ぶん短くなります。\n\n6. セッションが殺されると、利用者のリポジトリにゴミが残る\n\nこれが今回いちばん反省した項目です。\n\nopencode を wrap するとき、Hub はセッションの作業ディレクトリに opencode.json を書きます。中身は権限の指定で、対話セッションなら permission: ask、オーケストレーションの子セッションなら permission: allow です。セッションが終わるときに元のファイルへ戻します。\n\n同じ構図がもう 1 つあります。copilot / cursor-agent / grok のセッションでは、プロジェクトの AGENTS.md に承認ルールのブロックを追記します。これも Hub の正常終了時に削除します。\n\nどちらも、プロセスが kill されたら後始末が走りません。\n\n置き去りは自己修復せず、恒久化する\n\n問題はここからです。次のセッションが同じディレクトリで起動すると、残っていたファイルを「オリジナル」として読みます。そして終了時にそれを書き戻す。一度置き去りになった内容が、次の実行で「正しい元の状態」に昇格します。\n\nAGENTS.md のほうも同じです。注入先のファイル一覧はメモリ上にしかなかったので、Hub を kill するとリストごと消えます。消えたら誰も消しに行きません。そのまま git add -A すれば公開リポジトリに commit されます。\n\n実際、両方の経路で commit されるところまで進みました。\n\n \n\n上の図の左側が、後始末が飛んだ後に置き去りが「正解」に昇格していくループです。右側が v0.7.0 で入れた 2 つの経路、つまり次回起動時の回収と、既に commit されたものの検出です。\n\n直し方は「後始末の到達率を上げる」ではない\n\n最初に考えたのは、defer を増やす、シグナルを捕まえる、graceful shutdown を厚くする、といった方向です。全部やっても kill は防げません。到達率を 99% にしたところで、残り 1% が恒久化するなら同じことです。\n\n方針を変えました。次回起動時に置き去りを回収する。\n\nopencode.json は、排他ロックにロールバック用の情報を持たせました。「ファイルが何だったか」と「このセッションが何を書いたか」の 2 つです。古いロックを引き継いだセッションは、ファイルを触る前にまず置き去りを元へ戻します。死んだセッションより後にファイルが変わっていたら、他の誰かが触った後なので何もしません。\n\nAGENTS.md は、注入先のリストを /.many-ai-cli/approval-rule-targets.json に永続化しました。Hub は起動時、最初のセッションが繋がる前に、残っているブロックを消します。再接続してきたセッションには通常の経路でもう一度注入されます。掃除できなかったファイルは次回のためにリストへ残します。リストのパースに失敗したら、報告だけして何もしません。壊れたリストを根拠に利用者のファイルを触るのは危ない。\n\n回収より前に commit …",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7a2cc8b967477954",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6997109826589596,
+      "popularityPercentile": 0.08959537572254335,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "many-ai-cli v0.7.0は27項目を変更し14件を修正した。",
+      "reason": "138件のダンプから承認パネルの問題原因を特定し、v0.7.0で27項目中14件を修正した。",
+      "keywords": [
+        "many-ai-cli",
+        "v0.7.0",
+        "AIコーディングCLI",
+        "承認パネル",
+        "Bun",
+        "TypeScript"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "headline": "many-ai-cli v0.7.0の実装変更6選",
+        "summary": "many-ai-cli v0.7.0 は、27 件の変更のうち 14 件が修正という品質改善中心のリリースです。138 件のダンプを再生して 132 件を再現し、承認パネルが消える主因を VT ミラーの全角幅計算と、古い再描画を混ぜる抽出処理に特定しました。ブラウザ側では 3 本あった回答済み state を `candidateKey` と `sourceEpoch` に統合し、`replay`・`reflow` と実際の AI 発話を分離しています。ほかにも Windows の tray 常駐、通知既定値、テンプレートの手動並べ替え、kill 後の作業ファイル回収を追加・修正しました。",
+        "prerequisites": [
+          {
+            "term": "PTY",
+            "stumblingPoint": "記事は「PTY の出力を読むしかない」「画面に描くための命令の列」と書いているが、PTY と TUI の関係を知らないと、なぜ正規表現だけでは承認を安定して抽出できないのか読み取れない。",
+            "explanation": "PTY はプロセスの標準入出力を端末らしく扱う仮想端末で、ここでは AI CLI の画面描画バイト列を Hub が読み取ります。TUI は完成済みのテキストを送るのではなく、カーソル移動や行消去を含む描画命令を送るため、単純な文字列検索では現在の画面を復元できません。この記事の `VT エミュレータのミラー` は、その描画命令を解釈して実端末に近い画面バッファを再構成する部分です。"
+          },
+          {
+            "term": "全角文字",
+            "stumblingPoint": "記事は `writeRune` が「どのルーンでも col を 1 だけ増やしていた」と説明しているが、文字数と表示幅が異なることを知らないと、全角文字がなぜ枠線の誤検出につながるのか理解しにくい。",
+            "explanation": "TUI は文字の表示位置を桁で管理します。日本語などの East Asian Wide / Fullwidth 文字は表示幅が 2 桁なので、文字数を 1 と数えるとミラー上のカーソルだけが実端末より左にずれます。すると後から描かれる右端の枠線が消えず、承認マーカー内に罫線が混ざったように見え、正常な承認まで壊れたブロックとして抑止されます。"
+          },
+          {
+            "term": "candidateKey",
+            "stumblingPoint": "記事は「candidateKey と sourceEpoch の組」に状態を集約したと書いているが、候補キーと質問文ハッシュを置き換える意味を知らないと、なぜラベルや空白を含めないのか読み取れない。",
+            "explanation": "`candidateKey` は、同じ承認候補を再描画で同一視するための識別子です。provider、承認種別、正規化した質問文、選択肢の番号と送信文字列を材料にし、ラベルや空白など表示上の揺れは除外します。これにより、TUI が同じ質問を位置違い・折り返し違いで描き直しても、回答済み状態を別候補として扱いません。"
+          },
+          {
+            "term": "sourceEpoch",
+            "stumblingPoint": "記事は `sourceEpoch` を「replay と reflow では進めない」と書いているが、両者を画面復元・再レイアウトとして理解しないと、なぜリロードやリサイズで承認が再表示されるのか分からない。",
+            "explanation": "`sourceEpoch` は画面の再構成回数ではなく、AI が新しいプロンプトを出した世代を表します。`replay` は保持済み出力をブラウザへ流し直す処理、`reflow` はウィンドウ幅に合わせて保持内容を組み直す処理で、どちらも新しい AI 発話ではありません。ここで世代を進めないことで、リロードやリサイズだけで回答済み承認が再出現するのを防ぎ、実際の `live prompt` だけを新しい承認として扱えます。"
+          },
+          {
+            "term": "PUT /api/user-prefs",
+            "stumblingPoint": "記事は「`PUT /api/user-prefs` はオブジェクト全体を置き換える API」と書いているが、PUT と部分更新の違いを知らないと、通知トグルを押すだけで他の設定が消える理由を理解できない。",
+            "explanation": "`PUT` は指定した部分だけを更新する PATCH のような API ではなく、送信された設定全体で置き換える契約です。したがって `userprefs.donesummarynotify.enabled` だけを送ると、テンプレートやセッション順など、送っていない設定が空になります。修正後は現在の設定を読み、1 フィールドだけ変更して全体を送り返します。"
+          },
+          {
+            "term": "opencode.json",
+            "stumblingPoint": "記事は「置き去りが『正しい元の状態』に昇格する」「git add -A すれば公開リポジトリに commit される」と書いているが、プロセス終了時の後始末だけでは kill を防げないことを知らないと、なぜ次回起動時の回収が必要なのか読み取れない。",
+            "explanation": "`opencode.json` や `AGENTS.md` は、Hub がセッション開始時に作業ディレクトリへ変更するファイルです。`kill` では正常終了時の後始末が走らないため、次のセッションが残骸を本来の状態だと誤認し、さらにその内容を保存・commit する可能性があります。v0.7.0 は終了処理の成功率だけに頼らず、次回起動時にロック情報や `/.many-ai-cli/approval-rule-targets.json` を使って回収する方向へ変えています。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "v0.7.0の変更点",
+          "beforeLabel": "v0.6.0 以前",
+          "afterLabel": "v0.7.0",
+          "rows": [
+            {
+              "aspect": "Hub の起動・停止",
+              "before": "Start / Stop の 2 個のショートカット",
+              "after": "Windows は `Many AI Hub` から独立した tray を起動"
+            },
+            {
+              "aspect": "承認ブロック抽出",
+              "before": "全ルーンの幅を 1 桁として処理",
+              "after": "全角・絵文字を表示幅として処理し、枠線だけの行は無視"
+            },
+            {
+              "aspect": "再描画世代",
+              "before": "非貪欲な正規表現で古い開始マーカーを拾う",
+              "after": "最後の終了マーカーと直前の開始マーカーを抽出"
+            },
+            {
+              "aspect": "回答済み判定",
+              "before": "タイマー・全文ハッシュ・質問ハッシュの 3 系統",
+              "after": "`candidateKey` + `sourceEpoch` の 1 系統"
+            },
+            {
+              "aspect": "テンプレート順序",
+              "before": "選択頻度で自動ソート",
+              "after": "保存順 + pointer events / ↑ ↓"
+            }
+          ]
+        },
+        "code": {
+          "lang": "bash",
+          "caption": "many-ai-cli v0.7.0 の導入とセットアップ",
+          "content": "npm install -g many-ai-cli\nmany-ai-cli setup"
+        },
+        "whyItMatters": "React / TypeScript 側では、承認済み判定を `state.ts` に継ぎ足すのではなく `approval-answered.ts` に分離し、DOM ではなく `candidateKey` と `sourceEpoch` をテスト可能な状態モデルとして扱う設計に置き換えています。ブラウザ設定の更新では、`PUT /api/user-prefs` の全置換契約に合わせて現在値をマージして保存する必要があります。CLI ラッパー側では、正常終了時の `defer` や graceful shutdown だけでなく、kill 後の回収を次回起動時に行う設計が、リポジトリを汚す一時ファイル対策になります。",
+        "relatedLinks": [
+          {
+            "label": "many-ai-cli 紹介ページ",
+            "url": "https://ishizakahiroshi.com/work.html?id=many-ai-cli"
+          },
+          {
+            "label": "many-ai-cli リポジトリ",
+            "url": "https://github.com/ishizakahiroshi/many-ai-cli"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "build",
+        "unlocks": [
+          "これまで Windows の Start / Stop という 2 個のショートカットを使い分けていたのが、これからは tray 1 個から Hub を起動・停止・再起動できる。",
+          "これまで全角文字を含む TUI の再描画で承認パネルが罫線混入として握り潰されていたのが、これからは East Asian Wide / Fullwidth を 2 桁として復元し、正常な候補を表示できる。",
+          "これまで回答済み判定をタイマー・全文ハッシュ・質問ハッシュの 3 つが別々に行っていたのが、これからは `candidateKey` と `sourceEpoch` で再描画と新しい AI 発話を区別できる。",
+          "これまで kill 後に残った `opencode.json` や `AGENTS.md` の変更が次の実行で正規状態として引き継がれていたのが、これからは次回起動時に置き去りを回収し、既存 commit の検出経路も持てる。"
+        ],
+        "howToTry": [
+          "グローバルインストールする。`npm install -g many-ai-cli` または `bun install -g many-ai-cli` を実行する。",
+          "セットアップを実行する。`many-ai-cli setup` を実行すると、Windows では従来の Start / Stop ではなく `Many AI Hub` のショートカットが作られ、tray を起動する構成になる。",
+          "Windows ではトレイの `Hub を開く` を選ぶ。Hub が停止中なら先に起動してから、既定ブラウザのタブで UI を開く。",
+          "ブラウザで AI CLI のセッションを起動し、日本語を含む質問や承認プロンプトを出す。VT ミラーが全角文字を 2 桁として扱い、古い再描画と現在の質問を混ぜずに承認パネルを抽出する。",
+          "テンプレートパレットでは、行のグリップを pointer events でドラッグするか、グリップにフォーカスして ↑ / ↓ を押す。必要なら `選んだら即送信` を ON にし、テンプレート選択時に通常の送信経路へ直接送る。"
+        ],
+        "fitFor": [
+          "複数の AI コーディング CLI を並列実行し、承認操作をブラウザ 1 タブに集約したい環境",
+          "PTY 経由の TUI を対象に、承認パネルの誤検出・取りこぼしを再現データから直したい場合",
+          "テンプレートを端末間で共有し、保存順のまま pointer events やキーボードで並べ替えたい場合"
+        ],
+        "notFor": [
+          "macOS や Linux で Windows のトレイ常駐と同じ導線を期待する場合",
+          "AI CLI が TUI の承認プロンプトを使わず、記事のマーカー注入・PTY ミラー方式の対象にならない場合",
+          "既存の Start / Stop ショートカットを自動移行で削除してほしい場合"
+        ],
+        "caveats": [
+          "v0.7.0 の変更。記事では `bun install -g many-ai-cli` または `npm install -g many-ai-cli` による導入が案内されている。",
+          "トレイ常駐は Windows 向け。macOS と Linux では従来どおり Start / Stop の 2 つのショートカットが作られる。",
+          "Windows のトレイ実装は cgo を使わず、`golang.org/x/sys/windows` 経由で Win32 API を呼び出す。",
+          "既存の「Start」「Stop」ショートカットは `setup` の再実行では削除されない。不要なら利用者が手動で削除する。",
+          "完了通知は、未設定の場合でも Web Push の購読または `notify.backends` がある環境だけ実効的に ON になる。通知先が無い環境では通知は増えない。",
+          "`PUT /api/user-prefs` は設定オブジェクト全体を置き換える API のため、個別フィールドだけ送る実装は他の設定を消す。",
+          "記事末尾は「回収より前に commit …」で終わっており、v0.7.0 の後半の変更内容は確認できない。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": ".claudeignoreは効かない — Claude Codeで.envを守る方法を検証した",
+      "url": "https://qiita.com/shun123/items/3014b379b873fd43b898",
+      "publishedAt": "2026-08-14T22:38:28.000Z",
+      "author": "shun noel",
+      "authorDetail": {
+        "name": "shun noel",
+        "handle": "@shun123",
+        "url": "https://qiita.com/shun123",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/943997/profile-images/1769846107",
+        "bio": "ReactとTypeScriptで開発をしているフロントエンドエンジニアです。\r\n設計とセキュリティを基礎から学習中です。ナレッジにもなるし、プロジェクト価値を高めるテスト駆動開発が好きです。",
+        "location": "日本",
+        "followers": 4,
+        "posts": 192,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/shun144"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/knoelshun"
+          },
+          {
+            "label": "Web",
+            "url": "https://value-axis.vercel.app/"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode"
+      ],
+      "snippet": "はじめに Claude Codeでプロジェクト配下の.envファイルなど機密情報を読ませたくない場合、.claudeignoreと.claude/settings.jsonのpermissions.denyのどちらを使うべきか迷うことがあります。本記事では実際に3パターンの設定で.env読み込みを指示し、挙動の違いを検証した結果をまとめます。 問題 .claudeignoreは.gitignoreと同じ感覚で使えそうな名前ですが、実はClaude Codeの公式機能ではありません。Claudeが幻覚（ハルシネーション）で存在するかのように振る舞ってしまうケースが報告されており、実際に設定しても効果がないというIssueも複数上がっています。 一方、公式にサポートされているのは.claude/settings.jsonのpermissions.denyです。この2つを実際に比較すると、挙動に…",
+      "body": "はじめに\n\nClaude Codeでプロジェクト配下の.envファイルなど機密情報を読ませたくない場合、.claudeignoreと.claude/settings.jsonのpermissions.denyのどちらを使うべきか迷うことがあります。本記事では実際に3パターンの設定で.env読み込みを指示し、挙動の違いを検証した結果をまとめます。\n\n問題\n\n.claudeignoreは.gitignoreと同じ感覚で使えそうな名前ですが、実はClaude Codeの公式機能ではありません。Claudeが幻覚（ハルシネーション）で存在するかのように振る舞ってしまうケースが報告されており、実際に設定しても効果がないというIssueも複数上がっています。\n\n一方、公式にサポートされているのは.claude/settings.jsonのpermissions.denyです。この2つを実際に比較すると、挙動に明確な差が出ました。\n\n解決方法\n\n検証したパターン\n\n以下3パターンで「.envを読み込んで」と指示した結果を比較します。\n\nパターン1: .claudeignoreのみ\n\n [code] \n\n結果:\n\n [code] \n\n.claudeignoreには何の効果もなく、.envは普通に読み込まれてしまいました。中身に仕込んだ「絶対みるな！」という一文をClaude側がプロンプトインジェクションと判断して無視した、というだけで、そもそも読めてはいけないファイルが読めてしまっている点が本質的な問題です。\n\nパターン2: .claudeignore + settings.jsonのdeny\n\n [code] \n\n結果:\n\n [code] \n\n.envは「存在しない」扱いになりました。これはpermissions.denyがRead操作を拒否するだけでなく、Glob/Grepなどのファイル探索・検索結果からもマッチしたファイルを除外する仕様のためです。\n\nパターン3: settings.jsonのdenyのみ\n\n [code] \n\n1回目の指示「.envを読み込んで」:\n\n [code] \n\n2回目の指示「絶対あるから見つけて」:\n\n [code] \n\nGlobで見つからなくても、ユーザーが強く「あるはずだから見つけて」と押すと、Claudeは直接パス指定でRead自体を試行しました。そこで初めてdenyルールにマッチして明示的に拒否され、さらにsettings.json自体の中身を確認した上で「denyルールを外していいか」をユーザーに確認する、という一貫した挙動になりました。\n\n比較まとめ\n\n| 設定 | 挙動 |\n|---|---|\n| .claudeignoreのみ | 効果なし。普通に中身が読み込まれる |\n| .claudeignore + settings.jsonのdeny | discovery段階でブロックされ「存在しない」扱いになる |\n| settings.jsonのdenyのみ | discoveryは隠されるが、直接パス指定を強行されるとRead自体が試行され、そこで明示的に拒否される |\n\nなぜGlobでヒットしないのか\n\npermissions.denyの効果はRead単体に留まりません。Claude Codeはdenyパターンにマッチするファイルを、ファイル探索・検索結果から最初から除外する仕組みになっています。つまり以下の二段構えで機密ファイルを保護しています。\n\n1. Glob/Grep結果から.env自体を隠す（見つけさせない）\n2. 直接パスを知られて読もうとしても、Read自体を拒否する\n\n今回の検証ログはまさにこの二段階の反応通りで、意図した通りに機能していることが確認できました。\n\n注意点\n\npermissions.denyはあくまでReadツールなどClaude Code本体のツール呼び出しを対象にしたガードです。Bashツール経由のcat .envやtype .env、Windowsでのcmd //c type .envなどはこのdenyルールの対象外で、素通りしてしまいます。より確実に守りたい場合は、\n・Bashコマンドのdenyパターンも合わせて追加する（ただしコマンドの書き方は無限にバリエーションがあるためいたちごっこになりやすい）\n・PreToolUseのhookを使い、filepathやBashコマンド文字列全体を検査して拒否する\n・そもそも.envのような機密ファイルをリポジトリや作業ディレクトリに置かず、環境変数やシークレットマネージャーに移す\n\nといった対策を組み合わせるのが現実的です。\n\nおわりに\n\n.claudeignoreは公式機能ではなく、実際に設定しても.envの読み込みを防げません。Claude Codeで機密ファイルへのアクセスを制御したい場合は、.claude/settings.jsonのpermissions.denyを使うのが唯一の公式かつ実効性のある方法です。ただしこれはツール呼び出しレベルのガードであり、Bash経由のコマンド実行までは防げない点は理解した上で、必要に応じてhooksやファイル配置そのものの見直しも検討すると安心です。\n\n参考\n・Claude Code settings - Claude Code Docs\n・.claudeignore is silently ignored · Issue #56997 · anthropics/claude-code\n・Read deny permissions in settings.json not enforced for .env files · Issue #24846 · anthropics/claude-code\n\nJISOUのメンバー募集中！\nプログラミングコーチングJISOUでは、新たなメンバーを募集しています。\n日本一のアウトプットコミュニティでキャリアアップしませんか？\n興味のある方は、ぜひホームページをのぞいてみてください！\n▼▼▼\nhttps://projisou.jp",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f9c9a8c443e556a2",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8834682080924856,
+      "popularityPercentile": 0.9248554913294798,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "Claude Codeでは`.claudeignore`が機密ファイルを除外せず、`permissions.deny`が実際に機能した。",
+      "reason": "`.claudeignore`は公式機能ではなく、設定しても`.env`を読めてしまう。公式の`permissions.deny`は読み取りを拒否した。",
+      "keywords": [
+        "Claude Code",
+        ".claudeignore",
+        "permissions.deny",
+        ".claude/settings.json",
+        ".env"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "機密ファイルの保護を公式権限で強制するか、慣れた除外ファイルに任せるか",
+        "forSide": "`.claudeignore`は機密ファイルを防げず、`permissions.deny`は読み取りを拒否できる。",
+        "againstSide": "非公式設定でも動く実装があれば、公式機能への移行コストは無駄になる。",
+        "oneSided": true,
+        "yourAngle": "Claude Codeにリポジトリ内の.envを読ませた際の拒否ログを実測できる。"
+      },
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "headline": ".claudeignoreでは.envを守れない",
+        "summary": "`.claudeignore`は`.gitignore`のような名前でもClaude Codeの公式機能ではなく、検証では`.env`を普通に読み込めた。一方、`.claude/settings.json`の`permissions.deny`は、`Glob/Grep`の探索結果から`.env`を隠し、直接パスを指定した`Read`も拒否する。ただし、`Bash`経由の`cat .env`や`type .env`はこのdenyの対象外で、単一の設定だけでは機密情報の経路を塞げない。より広く検査する候補として`PreToolUse` hookや、機密ファイルを作業ディレクトリに置かない運用が示されている。",
+        "prerequisites": [
+          {
+            "term": ".claudeignore",
+            "stumblingPoint": "記事は「.claudeignoreは公式機能ではありません」と書いているが、配置した設定が無視される理由を知らないと、命名規則の問題か実装上の未対応か判別しにくい。",
+            "explanation": "記事は`.claudeignore`を`.gitignore`と同じ感覚で使えそうな名前として扱っているが、Claude Codeが読み込んでアクセス制御する公式設定ではない。ファイル名が存在しても、機密ファイルの読み込みを拒否する仕組みが自動で有効になるわけではない。"
+          },
+          {
+            "term": "permissions.deny",
+            "stumblingPoint": "記事は「公式にサポートされているのは…permissions.deny」と書いているが、これが除外リストではなくツール実行の拒否ルールだと知らないと、後半の二段構えを読み取れない。",
+            "explanation": "`permissions.deny`はClaude Codeのツール呼び出しに対する拒否ルールで、この記事では`.env`への`Read`を止める設定として使われている。単なる検索対象の除外ではなく、直接パスを指定した読み取りにも拒否を適用する点が、`.claudeignore`との実質的な違いになる。"
+          },
+          {
+            "term": "Glob/Grep",
+            "stumblingPoint": "記事は「Glob/Grepなどのファイル探索・検索結果からも…除外」と書いているが、検索結果から隠すこととReadを拒否することが別段階だと知らないと挙動の差を追えない。",
+            "explanation": "`Glob`はパターンに一致するファイルを探し、`Grep`はファイル内容を検索するための操作として記事に登場する。denyパターンに一致する`.env`は、これらの結果からも除外されるため、Claude Codeからは「見つからない」ように見える。ただし、これはファイルそのものを消す処理ではない。"
+          },
+          {
+            "term": "Read",
+            "stumblingPoint": "記事は「Read自体を試行され、そこで初めてdenyルールにマッチ」と書いているが、探索に失敗してもパス指定で別経路の操作が残ることを知らないと理解しづらい。",
+            "explanation": "`Read`はClaude Codeがファイルを読み込むためのツール操作で、この記事の検証ではdenyルールの直接の対象になっている。探索で見つからない状態でも、ユーザーがパスを指定して再試行させると、最終的にはこの操作に対する拒否として確認できる。"
+          },
+          {
+            "term": "Bash",
+            "stumblingPoint": "記事は「Bashツール経由のcat .envやtype .env…は対象外」と書いているが、同じファイルアクセスでもツール経路で権限判定が分かれる点が前提になる。",
+            "explanation": "`Bash`はシェルコマンドを実行するツールで、`cat .env`やWindowsの`type .env`のようにファイル内容を直接出力できる。記事の`permissions.deny`はReadなどのClaude Code本体のツール呼び出しを対象とするため、同じファイルでもBash経由では別の経路になる。"
+          },
+          {
+            "term": "PreToolUse",
+            "stumblingPoint": "記事は「PreToolUseのhookを使い…拒否」と提案しているが、deny設定の不足を補う位置づけを知らないと、単なる追加設定としてしか読めない。",
+            "explanation": "`PreToolUse` hookは、ツールが実行される前に呼び出して内容を検査・拒否する仕組みとして記事で提案されている。この記事の文脈では、ファイルパスだけでなくBashコマンド文字列全体を検査することで、Read以外の経路も扱うための候補になる。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "機密ファイル保護の比較",
+          "beforeLabel": ".claudeignoreのみ",
+          "afterLabel": "公式設定あり",
+          "rows": [
+            {
+              "aspect": "Claude Codeの挙動",
+              "before": "`.env`の中身を普通に読み込む",
+              "after": "`.env`を探索結果から除外し、直接の`Read`も拒否"
+            },
+            {
+              "aspect": "保護対象",
+              "before": "公式の保護機構ではない",
+              "after": "`Read`などClaude Code本体のツール呼び出し"
+            },
+            {
+              "aspect": "残る経路",
+              "before": "読み込みを防げない",
+              "after": "`Bash`経由の`cat .env`や`type .env`は対象外"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "AIコーディングエージェントがプロジェクト全体を探索・編集する運用では、`.gitignore`に似た名前の`.claudeignore`を置くだけで機密情報を守れると思いやすい。この記事の検証は、公式の`permissions.deny`が探索と`Read`を抑止する一方、`Bash`経由では別のアクセス経路が残ることを示しており、「除外ファイルか公式権限か」だけでなく、どのツール経路まで制御するかが争点になる。",
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "talk",
+        "evidence": [
+          "`.claudeignoreには何の効果もなく、.envは普通に読み込まれてしまいました。`",
+          "`.claudeignore + settings.jsonのdeny`では、`.env`は「存在しない」扱いになった。",
+          "`permissions.deny`はRead操作だけでなく、Glob/Grepなどのファイル探索・検索結果からもマッチしたファイルを除外する。",
+          "`settings.jsonのdenyのみ`では、直接パス指定でReadを試行されても、denyルールにマッチした時点で明示的に拒否された。"
+        ],
+        "counterEvidence": [
+          "「permissions.denyはあくまでReadツールなどClaude Code本体のツール呼び出しを対象にしたガード」であり、Bashツール経由の`cat .env`や`type .env`は対象外。",
+          "「コマンドの書き方は無限にバリエーションがあるためいたちごっこになりやすい」ため、Bashのdenyパターン追加だけでは網羅的な防御にならない。",
+          "直接パス指定を強行されるとRead自体は試行され、denyルールに到達するまで機密ファイルの存在が推測される余地がある。"
+        ],
+        "whenItHolds": [
+          "Claude Code本体の`Read`、`Glob`、`Grep`経由のアクセスを抑止したい場合は、`permissions.deny`の二段構えが機能する。",
+          "ユーザーやエージェントが直接パスを指定して再試行する場合でも、最終的な`Read`拒否まで必要な環境では有効。ただし、Bashで同じファイルを読む経路が残ると主張は崩れる。",
+          "コマンド経路まで含めて守る必要がある場合は、`Bash`のdenyパターン、`PreToolUse` hook、または機密ファイルを作業ディレクトリに置かない構成を組み合わせる必要がある。"
+        ],
+        "angles": [
+          ".claudeignoreの非公式性",
+          "Glob/Grepからの除外とRead拒否の違い",
+          "Bash経由でのガード対象外",
+          "PreToolUseでの検査範囲",
+          "機密ファイルを置かない設計"
+        ],
+        "verify": []
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Working with AI feels more like leadership than coding",
+      "url": "https://allen.bargi.org/notes/working-with-ai-feels-like-leadership",
+      "publishedAt": "2026-08-15T10:39:41.000Z",
+      "author": "allenb",
+      "authorDetail": {
+        "name": "allenb",
+        "handle": "allenb",
+        "url": "https://news.ycombinator.com/user?id=allenb"
+      },
+      "tags": [],
+      "snippet": "allen@bargi:~/notes$ cat working-with-ai.md For most of my career, code gave me certainty. A program did what its instructions told it to do. If the same input produced a different result, we called it a bug. People were never like that. As a leader, I can explain a task and get exactly what I asked for. I can also get something better because a colleague understood the intent behind the request. …",
+      "metrics": {
+        "points": 230,
+        "comments": 165
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "052650ade765e8e0",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.1946153846153846,
+      "popularityPercentile": 0.8846153846153846,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "AIを使う開発は、コーディングよりリーダーシップに近い仕事だと論じている。",
+      "reason": "記事は、AIとの開発における中心的な仕事がコード入力ではなく、AIへの指示、判断、進行管理に移るという見方を示している。",
+      "keywords": [
+        "AIコーディング",
+        "AIエージェント",
+        "リーダーシップ",
+        "コーディング"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AI時代の開発をコーディング中心と捉えるか、指示と判断中心と捉えるか",
+        "forSide": "AIを使う開発は、コードを書く作業より人や仕事を導くリーダーシップに近いと記事は表現している。",
+        "againstSide": "AIとの開発でも実装技術が中心で、リーダーシップという表現は役割を過大評価している。",
+        "oneSided": true,
+        "yourAngle": "Claude CodeやCodexへのタスク分解、レビュー、差し戻しの時間配分を実測できる。"
+      },
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "allen@bargi:~/notes$ cat working-with-ai.md\n        \n          \n\n          \n            For most of my career, code gave me certainty. A program did what its instructions told it to do. If the same input produced a different result, we called it a bug.\n\n            People were never like that. As a leader, I can explain a task and get exactly what I asked for. I can also get something better because a colleague understood the intent behind the request. Sometimes the result shows that I was not as clear as I thought.\n\n            Working with AI feels closer to the second experience.\n\n            AI runs on software, but working with it is not fully predictable. The same request can produce a different answer. It can make a useful connection, miss an obvious point, or surprise me with an approach I had not considered.\n\n            This is frustrating when I treat AI like a compiler. It becomes more useful when I treat the interaction as a form of collaboration.\n\n            That does not make AI a person. It has no lived experience, accountability, or human judgment. The comparison is about how we work. Good leaders do more than issue instructions. They share context, explain the desired outcome, set boundaries, and respond to what comes back.\n\n            The same habits improve my work with AI. A good prompt helps, but a shared working context helps more. Examples, corrections, and reusable instructions reduce misunderstandings. Over time, the system becomes better aligned with how I think and what I need from it.\n\n            The investment is not in pretending that AI is human. It is in becoming better at expressing intent.\n\n            We spent years learning how to tell computers exactly what to do. Now we also need to explain why the work matters, what a good result looks like, and where judgment is needed.\n\n            For me, that is the shift. AI is making software work less like issuing commands to a machine and more like leading through a conversation. The technology is new. The leadership skills are not.\n\n            This note led to a thoughtful discussion on Hacker News. I recommend reading through all the comments; the agreement, criticism, and different experiences add more to the idea than I could fit here.\n          \n        \n\n        \n          ← all notes\n          rss feed",
+      "rank": 2,
+      "deep": {
+        "headline": "AI開発の主戦場はコードから意図へ移る",
+        "summary": "この記事は、AIとの開発を決定的な命令の実行ではなく、意図を共有しながら進める協働として捉える短い論考です。AIは同じ依頼でも異なる結果を返すため、コンパイラのような予測可能性を期待すると frustrate されます。良いプロンプトだけでなく、共有コンテキスト、例、修正、再利用可能な指示が誤解を減らします。ただしAIにはaccountabilityやhuman judgmentがないため、協働という比喩は責任移譲を意味しません。",
+        "prerequisites": [
+          {
+            "term": "コンパイラ",
+            "stumblingPoint": "記事は「AIをコンパイラのように扱うと苛立つ」と書くが、コンパイラに期待する決定性を知らないと対比の意味が読み取れない。",
+            "explanation": "ここでいうコンパイラは、入力に対して同じ規則で同じ出力を返す存在の比喩です。AIへの依頼をコードの命令と同じように扱うと、同じ依頼から異なる回答が出る性質と衝突し、著者がいうフラストレーションにつながります。"
+          },
+          {
+            "term": "共有コンテキスト",
+            "stumblingPoint": "記事は「良いプロンプトより共有コンテキストが重要」と書くが、単なる長いプロンプトではなく何を共有するのかが省略されている。",
+            "explanation": "共有コンテキストは、単発のプロンプト本文ではなく、目的、背景、具体例、過去の修正、繰り返し使う指示を含む作業上の前提です。この記事では、AIの回答を一回ごとに評価するのではなく、対話の蓄積で自分の意図とのずれを減らす材料を指しています。"
+          },
+          {
+            "term": "意図",
+            "stumblingPoint": "記事は「意図を表現する能力が必要」と結論づけるが、命令と意図の違いを知らないと何を新たに説明すべきかが曖昧になる。",
+            "explanation": "意図は、依頼の字面に書かれた操作手順ではなく、なぜその作業をするのか、どんな結果を良しとするのかという目的です。AIが字面どおりの実装から外れた提案を返す場合でも、意図が共有されていれば、結果が目的に沿っているかを判断できます。"
+          },
+          {
+            "term": "境界",
+            "stumblingPoint": "記事はリーダーが「context、desired outcome、boundaries」を共有すると書くが、境界がないとAIとの協働で何が問題になるかが読み取りにくい。",
+            "explanation": "境界は、AIに任せる範囲と、人間が判断・承認する範囲の区切りです。著者はAIに人間の判断や責任があるとは言っておらず、良いリーダーのように条件を設定し、返ってきた結果に応答する仕事の進め方を重ねています。"
+          },
+          {
+            "term": "accountability",
+            "stumblingPoint": "記事は「AIは人間ではない」と断ったうえで協働を語るが、accountabilityがないことを知らないと比喩の限界を見落とす。",
+            "explanation": "accountability は、結果に対して説明し、必要なら責任を引き受けることです。記事はAIに lived experience、accountability、human judgment がないと明記しているため、協働という比喩を採用しても、最終的な責任主体がAIになるわけではありません。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "AIとの仕事の捉え方",
+          "beforeLabel": "コンパイラモデル",
+          "afterLabel": "協働モデル",
+          "rows": [
+            {
+              "aspect": "入力の考え方",
+              "before": "何をすべきかを命令として正確に指定する",
+              "after": "目的・背景・良い結果・判断箇所を共有する"
+            },
+            {
+              "aspect": "やり取り",
+              "before": "同じ入力から同じ出力が返ることを期待する",
+              "after": "返ってきた結果に対して例や修正で調整する"
+            },
+            {
+              "aspect": "責任と判断",
+              "before": "プログラムの実行結果を規則の帰結として扱う",
+              "after": "AIの提案を人間が評価し、責任を持つ"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "AIコーディングエージェントがコード生成だけでなく、要件理解や設計提案まで担うようになり、入力を命令として細かく書く方法だけでは結果を評価しにくくなっています。議論の焦点は、AIをコードを実行する道具として扱うか、目的・制約・判断基準を共有する相手として扱うかに移っています。",
+        "relatedLinks": [
+          {
+            "label": "Working with AI feels more like leadership than coding",
+            "url": "https://allen.bargi.org/notes/working-with-ai-feels-like-leadership"
+          }
+        ],
+        "readingMinutes": 2,
+        "lane": "talk",
+        "evidence": [
+          "「AI runs on software, but working with it is not fully predictable.」同じリクエストでも異なる回答を返し、有用な関連付けをしたり、明 obvious な点を見落としたり、想定外のアプローチを示したりする。",
+          "「It becomes more useful when I treat the interaction as a form of collaboration.」AIをコンパイラのように扱うより、協働の一形態として扱う方が有用になる。",
+          "「A good prompt helps, but a shared working context helps more.」例、修正、再利用可能な指示を共有することで誤解が減り、時間とともにAIが自分の考え方や必要なものに適合していく。",
+          "「We also need to explain why the work matters, what a good result looks like, and where judgment is needed.」AI時代には、何をするかだけでなく、なぜ必要か、良い結果とは何か、判断が必要な箇所まで説明する必要がある。"
+        ],
+        "counterEvidence": [
+          "「That does not make AI a person. It has no lived experience, accountability, or human judgment.」AIを人間の同僚と同じ存在として扱えるわけではなく、責任や判断を委ねられない。",
+          "「The same request can produce a different answer.」同じ依頼で結果が変わるため、決定的な入力から決定的な出力を期待する作業では、協働という捉え方が不安定さを解消しない。",
+          "「This is frustrating when I treat AI like a compiler.」コンパイラのような予測可能性を求める場面では、対話的な協働モデル自体がフラストレーションの原因になりうる。"
+        ],
+        "whenItHolds": [
+          "同じ依頼でもAIの結果が変わり、単発の正確な命令より目的に沿った結果の探索を重視する場合、共有コンテキストと反復的な修正が効く。",
+          "要件の背景、良い結果の例、判断が必要な箇所を人間が説明でき、AIの出力を人間が評価する場合に成り立つ。",
+          "決定性、再現性、説明責任を最優先し、出力を人間が都度判断できない場合は、協働モデルの利点が崩れ、コンパイラのような予測可能性を求める見方が優先される。"
+        ],
+        "angles": [
+          "コンパイラモデルと協働モデルの境界",
+          "同じ入力で結果が変わることの扱い",
+          "共有コンテキストへの投資",
+          "意図を説明するスキルの再定義"
+        ],
+        "verify": []
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "b9d0054c68f201ff",
+      "product": "pnpm",
+      "what": "Node.js向けパッケージマネージャー",
+      "version": "11.22",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "CIでpnpmのメタデータキャッシュを再利用できる",
+      "change": {
+        "before": "pnpmのメタデータキャッシュ場所を取得しにくい",
+        "after": "CIでpnpmのメタデータキャッシュを再利用"
+      },
+      "scope": [
+        "CLI"
+      ],
+      "summary": "pnpm 11.22で、メタデータキャッシュの保存先を表示する機能を追加。CIでキャッシュやロックファイル検証ログを再利用し、不要な再検証を省ける。",
+      "title": "pnpm/pnpm pnpm 11.22",
+      "url": "https://github.com/pnpm/pnpm/releases/tag/v11.22.0",
+      "sourceLabel": "GitHub Releases / pnpm/pnpm",
+      "publishedAt": "2026-08-15T17:18:05.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "e082722c26b8a3ee",
+      "product": "GitHub OAuth Apps / GitHub Apps",
+      "what": "GitHubのOAuth・GitHub Appプラットフォーム",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "OAuthアプリで複数URIとトークン更新を使えるようになる",
+      "change": {
+        "before": "OAuthアプリは単一URI・長期トークンが基本",
+        "after": "複数URI・期限付きトークン・更新トークンに対応"
+      },
+      "scope": [],
+      "summary": "GitHubのOAuth Appで複数のredirect URI、期限付きアクセストークン、refresh tokenに対応。OAuth AppとGitHub Appではredirect URIのワイルドカード指定も利用できる。",
+      "title": "Multiple redirect URIs and token refresh for OAuth apps",
+      "url": "https://github.blog/changelog/2026-08-14-multiple-redirect-uris-and-token-refresh-for-oauth-apps",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-14T22:43:44.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "6acf35ce164c314c",
+      "product": "Claude Code",
+      "what": "AIコーディングエージェント",
+      "version": "v2.1.233",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "GitLab MRをworktreeやagents viewで扱えるようになる",
+      "change": {
+        "before": "GitLab MRのURLや表示に未対応",
+        "after": "GitLab MRをworktreeやagents viewで扱える"
+      },
+      "scope": [
+        "GitLab"
+      ],
+      "summary": "v2.1.233でGitLab merge request URLを--worktreeとclaude agents viewに追加。ユーザー識別転送やLinuxのBash向けメモリcgroup制限も opt-in で利用できる。",
+      "title": "anthropics/claude-code v2.1.233",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.233",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-08-14T22:20:57.000Z",
+      "alsoReleased": []
+    },
+    {
+      "id": "bd3779b1faa6670e",
+      "product": "TanStack Router",
+      "what": "Webアプリ向けルーティングライブラリ",
+      "version": "2026-08-14",
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "ルーター内部でユーティリティを関数呼び出し",
+        "after": "主要処理へユーティリティをインライン化"
+      },
+      "scope": [],
+      "summary": "@tanstack/react-router@1.170.29などを更新。router-coreやLinkコンポーネントの関数をインライン化し、ルーティング処理を最適化した。",
+      "title": "TanStack/router Release 2026-08-14 22:14",
+      "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-14-2214",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "publishedAt": "2026-08-14T22:14:16.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/react-start@1.168.46",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.46"
+        },
+        {
+          "label": "@tanstack/solid-start@1.168.44",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.168.44"
+        },
+        {
+          "label": "@tanstack/vue-start@1.168.43",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.168.43"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.45",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.45"
+        },
+        {
+          "label": "@tanstack/router-core@1.171.24",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.24"
+        },
+        {
+          "label": "@tanstack/start-plugin-core@1.171.36",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-plugin-core%401.171.36"
+        },
+        {
+          "label": "@tanstack/start-server-core@1.169.28",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-server-core%401.169.28"
+        },
+        {
+          "label": "@tanstack/solid-start-server@1.167.33",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start-server%401.167.33"
+        },
+        {
+          "label": "@tanstack/solid-start-client@1.168.26",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start-client%401.168.26"
+        },
+        {
+          "label": "@tanstack/react-start-server@1.167.34",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-server%401.167.34"
+        },
+        {
+          "label": "@tanstack/react-start-client@1.168.27",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-client%401.168.27"
+        },
+        {
+          "label": "@tanstack/router-plugin@1.168.32",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-plugin%401.168.32"
+        }
+      ]
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "OCI無料枠のA1半減、トライアル中は今も4 OCPUで作れてしまう ─ 停止せずに縮小した記録",
+      "url": "https://qiita.com/k2top/items/0749d9baf6e7e9f8127c",
+      "publishedAt": "2026-08-15T03:56:12.000Z",
+      "author": "k2top",
+      "authorDetail": {
+        "name": "k2top",
+        "handle": "@k2top",
+        "url": "https://qiita.com/k2top",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/80223/d46f8e80a7d95880fd2a62818a9c1cccbb36637b/x_large.png?1786758516",
+        "bio": "技術士（情報工学部門）／ 高度情報処理技術者試験 全7区分。\r\n\r\n1987年からシステムエンジニア。電力・ダム制御の組込みに始まり、鉄道・防災・衛星、金融、物流、ERP まで。要件定義から運用保守までを一通りやってきました。\r\n\r\nいまは個人で、AIを実務に組み込む検証をしています。ローカルLLM、クラウド、運用まわりが中心です。失敗した検証も、失敗のまま書きます。",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/k2top"
+          }
+        ]
+      },
+      "tags": [
+        "oci",
+        "oraclecloud",
+        "Ampere",
+        "ARM",
+        "無料枠"
+      ],
+      "snippet": "TL;DR ・OCI の Always Free の Ampere A1 枠は、2026年6月15日に 4 OCPU/24GB → 2 OCPU/12GB へ半減した。Oracle からの公式告知は無かった（後述・出典あり） ・半減の1ヶ月後（2026年7月19日）に登録した私のテナンシでも、4 OCPU/24GB が作れて、17日間 ¥0 だった（usage-api の実測値。上限超過分の請求も無し） ・そのままトライアルが終わると、テナンシ内の A1 インスタンスが「全部」無効化され、30日後に削除される（Oracle 公式ドキュメントに明記） ・対処は満了前に枠内へ縮小すること。インスタンスを停止せず、RUNNING のまま update でリサイズする ・実測: 縮小の所要 2分7秒、エフェメラルなパブリックIPは維持、10コンテナすべて復帰 ・半減するのは CPU とメモリだけで…",
+      "body": "TL;DR\n・OCI の Always Free の Ampere A1 枠は、2026年6月15日に 4 OCPU/24GB → 2 OCPU/12GB へ半減した。Oracle からの公式告知は無かった（後述・出典あり）\n・半減の1ヶ月後（2026年7月19日）に登録した私のテナンシでも、4 OCPU/24GB が作れて、17日間 ¥0 だった（usage-api の実測値。上限超過分の請求も無し）\n・そのままトライアルが終わると、テナンシ内の A1 インスタンスが「全部」無効化され、30日後に削除される（Oracle 公式ドキュメントに明記）\n・対処は満了前に枠内へ縮小すること。インスタンスを停止せず、RUNNING のまま update でリサイズする\n・実測: 縮小の所要 2分7秒、エフェメラルなパブリックIPは維持、10コンテナすべて復帰\n・半減するのは CPU とメモリだけではない。VNIC 数と帯域も半減する\n\n---\n\nこの記事の位置づけ（先行記事があります）\n\n半減の事実そのものは、既に複数のメディアと個人ブログが報じています。\n・Oracle Quietly Halves Free Tier Ampere A1 Compute Limits with No Public Announcement - InfoQ（2026-07-03）\n・Oracle Quietly Cuts Free Tier Ampere A1 Resources in Half - Linuxiac\n・Oracle、無料枠のCompute割り当てを予告なく半減 - Tech Collect\n・Oracle Cloudの無料枠がいつの間にか半減していた件 - Zenn\n・【緊急】…ダウンスケールする方法を解説 - nomeu.net（コンソール操作の手順あり）\n\n本記事は「発見の報告」ではありません。 実際に本番運用中のインスタンスを縮小した実行記録です。\n先行記事が扱っていない次の点を書きます。\n\n| 本記事で扱うこと | 先行記事の状況 |\n|---|---|\n| CLI での手順（自動化・再現可能） | コンソール操作の解説が中心 |\n| 停止してはいけない理由（Out of Capacity） | 言及を見つけられず |\n| 事前のブートボリュームバックアップ（無料枠内） | 同上 |\n| メモリ半減に備えた swap の準備 | 同上 |\n| エフェメラルIPが維持されたという実測 | 同上 |\n| VNIC 数・帯域も連動して半減すること | 同上 |\n| 縮小後の性能実測（ARM 2 OCPU の tok/s） | 同上 |\n| 半減後に登録しても超過構成が作れ、無課金だったという実測 | 同上 |\n| 有料アカウントへアップグレード済みなら削除対象外という分岐 | 同上 |\n\n---\n\n何が起きたのか\n\nInfoQ の報道（2026-07-03）が要点をまとめています。\nOracle did not publish a blog post, send customer notifications, or make any public announcement. The documentation was simply updated, and users discovered the new limits when their instances were shut down.\n拙訳: Oracle はブログ記事を公開せず、顧客への通知も送らず、いかなる公式発表も行わなかった。ドキュメントが更新されただけで、利用者はインスタンスが停止されて初めて新しい上限を知った。\n・発効日: 2026年6月15日\n・月間上限が 3,000 OCPU時間 / 18,000 GB時間 → 1,500 / 9,000 へ半減\n・ユーザーからの報告が相次いだのは 6月22日ごろ\n\n:::note info\n「公式告知が無かった」の根拠は報道（二次情報）です。\n私自身も Oracle からの通知を確認できませんでしたが、\n私のテナンシの作成は 2026-07-19 で、それ以前の告知は届きようがありません。\n自テナンシに届いた告知は API で一覧できます（私の場合は IAM の定期メンテナンス1件のみでした）。\n\n [code] \n:::\n\n現行の公式ドキュメント\n\nAlways Free Resources の現行記載。\nAll tenancies get the first 1,500 OCPU hours and 9,000 GB hours per month for free for VM instances using the VM.Standard.A1.Flex shape, which has an Arm processor. For Always Free tenancies, this is equivalent to 2 OCPUs and 12 GB of memory.\n拙訳: すべてのテナンシは、Arm プロセッサを搭載した VM.Standard.A1.Flex シェイプを使う VM インスタンスについて、毎月 1,500 OCPU 時間および 9,000 GB 時間までを無料で利用できます。Always Free テナンシの場合、これは 2 OCPU と 12 GB のメモリに相当します。\n\n超過したときの扱いは Free Tier 側にあります。\nIf you have more OCI Ampere A1 Compute instances provisioned than are available for an Always Free tenancy, all existing OCI Ampere A1 Compute instances are disabled and then deleted after 30 days, unless you upgrade to a paid account.\n拙訳: Always Free テナンシで利用できる数を超えて OCI Ampere A1 Compute インスタンスをプロビジョニングしている場合、有料アカウントへアップグレードしない限り、既存の OCI Ampere A1 Compute インスタンスはすべて無効化され、その30日後に削除されます。\n\n読み飛ばしやすいですが \"all existing\" です。超過分だけが止まるのではなく、テナンシ内の A1 が全部巻き添えになります。\n\n半減の1ヶ月後に作ったテナンシでも、4 OCPU/24GB が作れて ¥0 だった\n\n半減の発効は 2026年6月15日。私が OCI に登録したのは 2026年7月19日で、1ヶ月以上あとです。\n\nそれでも VM.Standard.A1.Flex の 4 OCPU / 24 GB が普通に作れました。警告もエラーも出ません。\n\nそして課金もされませんでした。 usage-api で実測した値です。\n\n| 期間 | SKU | 消費量 | 金額 |\n|---|---|---|---|\n| 2026-07-20 〜 08-05（17日） | Standard - A1 | 1,621.7 OCPU時間 | ¥0.00 |\n| 同上 | Standard - A1 - Memory | 9,730.1 GB時間 | ¥0.00 |\n\n2026年7月のテナンシ全体の課金額も ¥0.00 でした。\n\n消費量に注目してください。現行の Always Free 上限は月 1,500 OCPU時間 / 9,000 GB時間です。\n上限を超えて動いていたのに、超過分の請求は発生していません。\n\n [code] \n\nつまり、\n\n1. 登録する（30日のトライアルが始まる）\n2. 4 OCPU / 24 GB で作れてしまう。警告も課金も無い\n3. その上に本番を載せる。コンテナを置き、ドメインを向け、cron を組む\n4. 満了時に超過判定を受ける\n\n私が気づいたのは満了の2週間前でした。すでにコンテナを10個載せ、デプロイ経路まで作った後です。\n\n「半減のニュースを見逃した古いユーザーの話」ではありません。 少なくとも私のテナンシでは、\nニュースの後に登録しても、超過構成が作れて、しかも無課金で動きました。\n\nさらに 戻せない可能性が高いという事情があります。A1 は容量が逼迫していて Out of Capacity が常態です。「一度削除して作り直せばいい」は成立しません。枠を手放したら、同じものは二度と取れないと考えるべきです。\n\n:::note alert\n有料アカウントへアップグレード済みなら、話が変わります。\n\n前掲の公式ドキュメントは、削除の条件を \"unless you upgrade to a paid account\"\n（有料アカウントへアップグレードしない限り）と書いています。\n有料化していれば、超過していても削除の対象にはなりません（そのぶん課金されます）。\n\nしたがってまず自分のアカウント種別を確認してください。無料トライアル中なのか、\n既に有料へ切り替えているのかで、取るべき行動が正反対になります。\nコンソールの請求画面で、トライアルの残日数が表示されるかどうかが目安になります。\n\nなお私自身は、当時のアカウント種別を後から API で断定できませんでした。\n確実に言えるのは上の実測値だけです。7月は課金が発生していません。\n:::\n\n自分が該当するか確認する\n\nテナンシ内の A1 インスタンスを列挙して、OCPU とメモリを合計します。\n\n [code] \n\n合計が 2 OCPU / 12 GB を超えていたら該当します。1台で超えている場合も、小さいインスタンスを複数台持っていて合計で超えている場合も同じです。\n\nトライアルの残り日数は、コンソールの請求（Subscription）画面で確認できます。私の場合は Days remaining 13 of 30 と表示され、そこで満了日が確定しました。\n\n対処：RUNNING のままリサイズする\n\n結論のコマンドは1行です。\n\n [code] \n\nインスタンスを停止しません。 OCI 側が自動で再起動をかけます（公式にも「実行中のインスタンスをリサイズすると再起動される」旨の記載があります）。\n\nなぜ「停止 → リサイズ → 起動」にしないのか\n\n停止すると、起動できなくなる可能性があるからです。\n\nA1 は前述のとおり容量が逼迫しています。停止した瞬間にそのキャパシティは解放され、起動しようとしたときに Out of Capacity で戻ってこないリスクがあります。\n\nRUNNING のままリサイズすれば、OCI が内部で再起動を行うため、キャパシティを手放す瞬間が存在しません。停止経路より明確に安全です。\n\nコンソールの編集画面からでも同じことができますが、手順を残して再現できる点と、満了直前に慌てず実行できる点で CLI を勧めます。\n\n事前にやったこと\n\n1. ブートボリュームのフルバックアップ\n\n [code] \n\n実消費 33 GB、有効期限なし。Always Free のバックアップ枠（5個）に収まるので費用は発生しません。\n\n不可逆に近い操作の前に、退路を1本作っておく話です。\n\n2. swap を用意する\n\nこれが地味に効きました。24 GB → 12 GB でメモリが半分になるので、ピーク時の余裕が消えます。私の環境はローカルLLM（Ollama）を毎時ロードするため、OOM Killer が走ると復旧が面倒でした。\n\n [code] \n\nnofail を付けるのは、fstab の記述ミスで起動不能になる事故を避けるためです。付けておけば、swap が無くても起動します。書き換え前に /etc/fstab のバックアップも取りました。\n\n実測結果\n\n縮小の所要時間は 2分7秒（18:52 開始 → 18:54 完了）。\n\n| 確認項目 | 結果 |\n|---|---|\n| シェイプ | ocpus 2.0 / memoryInGBs 12.0 |\n| nproc | 2 |\n| メモリ | 11 Gi total / 1.3 Gi used / 10 Gi available |\n| swap | 4.0 Gi が再起動後も有効（nofail の永続化が機能） |\n| uptime | 0 min（＝再起動されたことの確認） |\n| コンテナ | 10個すべて Up・停止中 0件 |\n| 外形監視 | 公開URLが HTTP 200（0.96s） |\n| cron | crontab が再生成済み |\n| パブリックIP | 維持された |\n\nパブリックIPは維持される（実測）\n\n事前にコンソールで確認したところ、予約済みパブリックIPは0件＝使っていたのはエフェメラルIPでした。エフェメラルIPは予約IPへの変換ができず、「再起動で変わるのでは」と身構えていました。\n\n結果は維持です。in-place のリサイズでは、エフェメラルIPも保持されました。\n\nただしこれは私の1例の実測であって、Oracle が保証しているわけではありません。IPが変わっても困らない状態にしてから実行してください。 私の場合、公開経路は Cloudflare Tunnel（アウトバウンド接続）で、DNS に IP を直接書いたレコードは0件でした。実害は SSH の設定1行だけと分かっていたので踏み切れました。\n\n連動して半減するもの\n\nシェイプの縮小は、OCPU とメモリだけではありません。\n\n| 項目 | 変更前 | 変更後 |\n|---|---|---|\n| maxVnicAttachments | 4 | 2 |\n| networkingBandwidthInGbps | 4.0 | 2.0 |\n\nVNIC を3枚以上使っている構成だと、ここで詰まります。事前に確認してください。\n\n性能について（測れたことと、測れていないこと）\n\n先に断っておくと、「縮小によって何倍遅くなったか」は私には言えません。 縮小前の 4 OCPU 時点でベンチマークを取っておらず、縮小後は構成を戻せないため、比較のしようがないからです。事前に測っておくべきでした。\n\n測れたのは縮小後の絶対値と、x86 との対照です。同一条件（qwen2.5:7b・temperature 0 / seed 42・128トークン生成・ウォーム3回平均）で、CPU 推論の生成速度はこうなりました。\n\n| 環境 | 生成速度 |\n|---|---|\n| A1 (ARM) 2 OCPU ← 縮小後の本番 | 3.46 tok/s |\n| x86 (E5) 1 OCPU | 4.50 tok/s |\n| x86 (E5) 2 OCPU | 7.04 tok/s |\n| x86 (E5) 4 OCPU | 8.62 tok/s |\n| x86 (E5) 8 OCPU | 8.88 tok/s |\n\n同一 OCPU 数で比べると、ARM は x86 の約半分でした（3.46 対 7.04）。また x86 側は 4 OCPU で頭打ちになっており（8 OCPU にしても +3%）、CPU 推論がメモリ帯域律速であることと整合します。\n\nただしこの表から「A1 を 4 OCPU にすれば 2倍速い」とは言えません。ARM 側は 2 OCPU の1点しか測れておらず、スケーリング曲線が未知だからです。\n\n私の用途は毎時のバックグラウンド処理なので、多少遅くなっても実害はありませんでした。対話用途で使っているなら、縮小前にベンチマークを取ってから判断してください。（私はそれをしませんでした）\n\nまとめ：確認すべきこと\n\n1. テナンシ内の A1 の合計が 2 OCPU / 12 GB 以内かを今すぐ確認する\n2. 超過しているなら、トライアル満了前に枠内へ縮小する\n3. 縮小は RUNNING のまま update。停止経路は Out of Capacity のリスクがある\n4. 事前にブートボリュームのバックアップ（Always Free 枠内なら無料）\n5. メモリが半分になるので swap を用意（nofail を忘れずに）\n6. VNIC 数と帯域も連動して半減する\n\n無料枠は「無料である」ことばかり注目されますが、無料であるための条件は提供側が定義していて、こちらの都合とは無関係に変わります。今回は告知なく変わりました。\n\nそしてトライアル中は、その条件が見えません。作成時に警告が出ないぶん、条件を能動的に読みにいく必要がありました。\n\n同種の落とし穴を踏んだ方がいたら、コメントで教えてください。\n\n---\n\n参考\n・Always Free Resources - Oracle Cloud Infrastructure Documentation\n・Oracle Cloud Infrastructure Free Tier\n・Oracle Quietly Halves Free Tier Ampere A1 Compute Limits with No Public Announcement - InfoQ\n・Oracle Quietly Cuts Free Tier Ampere A1 Resources in Half - Linuxiac\n・Oracle、無料枠のCompute割り当てを予告なく半減 - Tech Collect\n・Oracle Cloudの無料枠がいつの間にか半減していた件 - Zenn\n・【緊急】…ダウンスケールする方法を解説 - nomeu.net",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7deb518632662129",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.23124277456647396,
+      "popularityPercentile": 0.6647398843930635,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "OCIは2026年6月15日にA1無料枠を4 OCPUから2 OCPUへ半減した。",
+      "reason": "OCIのA1無料枠は2026年6月15日から4 OCPU/24GBを2 OCPU/12GBへ縮小した。トライアル終了後は全インスタンスが無効化され、30日後に削除される。",
+      "keywords": [
+        "OCI",
+        "Always Free",
+        "Ampere A1",
+        "Oracle Cloud",
+        "OCPU",
+        "ARM"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【アスクル等の事例】物流・WMS停止で1日10億円の機会損失！「事業を止めない」ためのインフラ可用性設計",
+      "url": "https://qiita.com/suzukengo/items/a110b1b4d1b007afab4c",
+      "publishedAt": "2026-08-15T09:14:15.000Z",
+      "author": "鈴木 健吾",
+      "authorDetail": {
+        "name": "鈴木 健吾",
+        "handle": "@suzukengo",
+        "url": "https://qiita.com/suzukengo",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4414346/profile-images/1777787160",
+        "bio": "CISSP、CEH、LPIC303、OSCP、情報処理安全確保支援士を取得済みHackTheBoxで180台以上マシンを攻略し、ProHackerランク",
+        "followers": 8,
+        "posts": 50,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/2OqF0rVs85Nb9sX"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "インフラ",
+        "BCP",
+        "WMS",
+        "可用性設計"
+      ],
+      "snippet": "要旨 2025年10月19日、オフィス用品通販大手のアスクルがランサムウェア攻撃を受け、WMS（倉庫管理システム）を含む基幹システムが全面停止しました。翌日には無印良品・ロフト・ネスレ日本など3PLとして物流を委託していた取引先のECサービスも出荷停止に追い込まれました[1]。 アスクルの2024年5月期の売上高は約4,716億円——単純計算で1日あたり約10億〜13億円の売上機会損失が発生し続けた計算です[2]。WMSが復旧したのは12月17日——約2か月間にわたって手作業での細々した出荷しかできない状態が続きました[3]。 DXが進んだ物流ほど、WMSが止まると現場の手足も止まります。「230アイテムしか出荷できない」状態から紙と手作業への回帰を強いられた現場は、デジタル依存の脆さを身をもって示しました[4]。 本記事では、アスクル事案の詳細を解剖し、エンジニアが設計段階から組み込むべ…",
+      "body": "要旨\n\n2025年10月19日、オフィス用品通販大手のアスクルがランサムウェア攻撃を受け、WMS（倉庫管理システム）を含む基幹システムが全面停止しました。翌日には無印良品・ロフト・ネスレ日本など3PLとして物流を委託していた取引先のECサービスも出荷停止に追い込まれました[1]。\n\nアスクルの2024年5月期の売上高は約4,716億円——単純計算で1日あたり約10億〜13億円の売上機会損失が発生し続けた計算です[2]。WMSが復旧したのは12月17日——約2か月間にわたって手作業での細々した出荷しかできない状態が続きました[3]。\n\nDXが進んだ物流ほど、WMSが止まると現場の手足も止まります。「230アイテムしか出荷できない」状態から紙と手作業への回帰を強いられた現場は、デジタル依存の脆さを身をもって示しました[4]。\n\n本記事では、アスクル事案の詳細を解剖し、エンジニアが設計段階から組み込むべき「事業を止めない」インフラ可用性設計の考え方を、BCP・DR・アーキテクチャの観点から整理します。\n注意事項：本記事は教育目的のセキュリティ情報共有を目的としています。\n\n---\n\n記事本文\n\n1. アスクル事案の詳細——WMSが止まると「何も動かない」\n\n1-1. WMSとは何か——物流の「神経系」\n\nアスクルの事案を理解するには、まずWMS（Warehouse Management System：倉庫管理システム）がいかに物流の中心にあるかを把握する必要があります。\n\n [code] \n\n アスクルのWMSは、商品の種類や在庫位置を把握する他、出荷時にピッキングするため在庫として保管している商品を動かす機能などを担っていた。 [3]\n出典：日経クロステック「アスクルがシステムによる出荷再開 WMSを再構築、倉庫の自動化設備も公開」（2025年12月17日）[3] \nhttps://xtech.nikkei.com/atcl/nxt/column/18/00001/11360/\n\n1-2. 事案のタイムライン\n\n アスクル株式会社へのランサムウェア攻撃は、2025年10月19日に発生しました。攻撃により、アスクルの基幹システムが暗号化され、法人向け通販「ASKUL」および個人向け通販「LOHACO」の受注・出荷システムが全面停止しました。 [1]\n\n [code] \n\n1-3. サプライチェーン被害の波及——「自社だけの問題」ではなかった\n\n 子会社のASKUL LOGISTが請け負う、3PL（サード・パーティー・ロジスティクス）と呼ぶ他社商品の配送事業にも影響した。同事業の顧客には良品計画やロフト、ネスレ日本などがある。このため良品計画が運営する無印良品やロフトのネット通販の出荷も停止した。 [5]\n出典：日経クロステック「ランサム攻撃で出荷を停止したアスクル、システム再構築で12月に本格復旧へ」（2025年11月20日）[5] \nhttps://xtech.nikkei.com/atcl/nxt/column/18/01157/111800147/\n\nアスクル自身の損失にとどまらず、物流を委託していた複数企業のECサービスも連鎖的に停止しました。「1社の物流システム停止が、複数の大手ブランドのEC事業を止める」——これが現代の物流DXの脆弱性です。\n\n---\n\n2. 「紙と手作業への回帰」が示すDX依存の脆さ\n\n 10月末、アスクルは「データが外部流出した可能性が極めて高い」と発表。11月初旬時点で出荷できたのは、約230アイテム（箱単位）、医療衛生など一部単品約500アイテム。この\"紙と手作業への回帰\"は、DX化が進んだ物流の脆さを可視化した象徴的な出来事と言えます。 [4]\n出典：物流業界入門「アスクル物流障害の深層」（2025年11月30日）[4] \nhttps://butsuryu-media.com/entry/2025/11/30/090524\n\n通常のアスクルは高度に自動化・デジタル化された物流オペレーションを誇っています。それが一度システムが落ちると、紙と手作業で230アイテムしか出荷できない状態まで機能が落ちてしまいました。\n\nこれはアスクルの失敗ではなく、DXによって高度化したシステムが「非常用の手順」を失いやすいという普遍的な問題を示しています。ITが便利になればなるほど、ITなしで動く方法が失われていきます。\n\n---\n\n3. 機会損失の定量化——「止まることのコスト」を数字で知る\n\n アスクルの2024年5月期の売上高は約4,716億円で、そのうちASKUL事業が約3,585億円、LOHACO事業が約368億円を占めています。全面的な業務停止により、1日あたり約10億円から13億円程度の売上機会損失が発生していると推定されます。 [2]\n出典：サイバーセキュリティ総研「アスクルが受けたランサムウェア攻撃」（2025年10月31日）[2] \nhttps://cybersecurity-info.com/column/askul-cyber-attack-202510/\n\n1日10億〜13億円、2か月で約600億〜780億円——これは売上機会損失の推計であり、実際には復旧コスト・システム再構築費・情報漏洩対応・信頼損失も加わります。\n\n [code] \n\nこの「事前投資と事後損失の非対称性」は、可用性設計への投資を経営判断として正当化する重要な根拠です。\n\n---\n\n4. 可用性設計の基本概念——RTO・RPO・HAとDR\n\n物流・WMSの可用性設計を議論する前に、基本概念を整理します。\n\n4-1. RTO と RPO——「どれだけ速く・どれだけ戻せるか」\n\n [code] \n\"BCPは「事業を止めない仕組み」、DRは「止まった後に戻す仕組み」です。両者は相互補完の関係にあり、DR設計はBCPの実効性を高めるうえで不可欠な要素です。\"\n— KSW Blog, 「クラウド障害・停電対策のススメ——中小企業のためのBCP・DR設計ガイド」[6] \nhttps://www.ksw.co.jp/media/column/a46\n\n4-2. HA（高可用性）と DR（災害復旧）の使い分け\n\n [code] \n\n---\n\n5. WMS・物流システム固有の可用性設計の課題\n\n5-1. なぜ WMS は「普通の HA/DR 設計」が難しいのか\n\nWMSには、一般的なWebアプリやデータベースには存在しない固有の制約があります。\n\n [code] \n\n 倉庫・物流業界ではECの拡大に伴う業務の増加や、少子高齢化による人手不足といった課題に対応するため、ITを活用した業務効率化や生産性向上に積極的に取り組んでいます。WMSの高度化では、倉庫管理や物流管理、販売管理といったさまざまな業務をデジタル技術の活用で精緻化することで、業務効率化のみならず、顧客満足度の向上など、ビジネスの拡大につなげようという動きが出てきています。 [7]\n出典：SIOS Blog「デジタル時代を迎えた倉庫・物流・小売業界」[7] \nhttps://bcblog.sios.jp/wms-cloudlift-availability/\n\n5-2. クラウド移行が可用性を高める理由——ただし「移行すれば安全」ではない\n\n [code] \n\n---\n\n6. 「事業を止めない」ための4層の可用性設計\n\n物流・WMSの事業継続を考えるとき、技術的な HA/DR だけでは不十分です。PAL社のコラムが指摘する「3つのバックアップ（データ・システム・業務）」という考え方が参考になります。\n\n 必要な備えは、データを保存しておくこと（データのバックアップ）だけではありません。WMSや基幹システムが動かない状況でも出荷をつなぐ、「3つのバックアップ（データ・システム・業務）」と、ヒト・通信・判断権限まで含めた「二重化」、そして想定外に備える「イレギュラー対応の設計」が不可欠です。 [8]\n出典：PAL株式会社「物流BCP｜システム停止時も現場を止めない3つの備え」[8] \nhttps://www.pal-style.co.jp/column/logistics-system-backup-duplication-bcp/\n\nこの「3つのバックアップ」を軸に、設計を4層で整理します。\n\n [code] \n\n---\n\n7. 実際のアーキテクチャ設計——Active-Active から Warm Standby まで\n\nWMSの可用性設計には複数のアーキテクチャパターンがあります。コストとRTO/RPOのトレードオフを理解した上で選択します。\n\n [code] \n\n---\n\n8. ランサムウェア特有の対策——「フェイルオーバーだけでは不十分」\n\n前章までは「一般的な障害」を想定した可用性設計でした。ランサムウェアには追加の考慮が必要です。\n\n [code] \n\n---\n\n9. 物流 BCP の「10 チェックリスト」\n\nPAL社が提示する「物流 BCP 10 チェック項目」を参考に、WMS を運用するエンジニアが点検すべき項目を整理します。\n\n [code] \n\n---\n\n10. まとめ——「止まることの損失」を設計の前提に置く\n\nアスクルの事案が示したのは3つの教訓です。\n\n第1の教訓：DXが進むほど、止まったときの影響が大きくなる\n\nWMSが高度化するほど、手作業への切り替えコストが上がります。「システムがなければ何もできない」状態は、便利さの裏返しです。\n\n第2の教訓：サプライチェーンの脆弱性は自社だけの問題ではない\n\nアスクルの停止が無印良品・ロフト・ネスレ日本のEC停止につながりました。物流の外部委託が増えた現代では、「自社のBCP」だけでなく「取引先を含めたBCP」が必要です。\n\n第3の教訓：「止まってから考える」では2か月かかる\n\nWMSを「再構築」しなければならなかったのは、「切り替える先の環境」が用意されていなかったからです。事前に DR 環境を用意し、RTO・RPO を定義し、フェイルオーバーをテストしておけば、停止時間は「2か月」ではなく「数時間」になりえました。\n「BCPは「事業を止めない仕組み」、DRは「止まった後に戻す仕組み」です。両者は相互補完の関係にあり、DR設計はBCPの実効性を高めるうえで不可欠な要素です。」\n— KSW Blog [6]\n\n可用性設計への投資は「コスト」ではなく「保険」です。アスクルの事案が示した「1日10億円の機会損失 × 60日」という数字を見れば、事前の設計投資の費用対効果は計算するまでもありません。\n\n---\n\n参考文献\n\n[1] DataClasys. 「アスクルのランサムウェア被害から考えるサプライチェーンリスクと事前の備え」. 2025年11月12日. \nhttps://www.dataclasys.com/column/askul-ransomware-supplychain-resilience20251111/\n\n[2] サイバーセキュリティ総研. 「アスクルが受けたランサムウェア攻撃 ―物流を止めたサイバー攻撃の脅威―」. 2025年10月31日. \nhttps://cybersecurity-info.com/column/askul-cyber-attack-202510/\n\n[3] 日経クロステック. 「アスクルがシステムによる出荷再開 WMSを再構築、倉庫の自動化設備も公開」. 2025年12月17日. \nhttps://xtech.nikkei.com/atcl/nxt/column/18/00001/11360/\n\n[4] 物流業界入門. 「【アスクル物流障害の深層】ランサムウェア被害から「Web再開」まで」. 2025年11月30日. \nhttps://butsuryu-media.com/entry/2025/11/30/090524\n\n[5] 日経クロステック. 「ランサム攻撃で出荷を停止したアスクル、システム再構築で12月に本格復旧へ」. 2025年11月20日. \nhttps://xtech.nikkei.com/atcl/nxt/column/18/01157/111800147/\n\n[6] KSW Blog. 「クラウド障害・停電対策のススメ｜中小企業のためのBCP・DR設計ガイド」. 2025年. \nhttps://www.ksw.co.jp/media/column/a46\n\n[7] SIOS Blog. 「デジタル時代を迎えた倉庫・物流・小売業界。業務やビジネスを停止させないIT基盤がますます不可欠に」. 2022年6月. \nhttps://bcblog.sios.jp/wms-cloudlift-availability/\n\n[8] PAL株式会社. 「物流BCP｜システム停止時も現場を止めない3つの備え」. 2025年. \nhttps://www.pal-style.co.jp/column/logistics-system-backup-duplication-bcp/\n\n[9] 在庫管理ドットコム. 「物流部門におけるBCP対応の取り組みとは」. 2025年4月. \nhttps://www.zaikokanri.com/column/341/\n\n[10] Logi Today. 「アスクルのシステム障害続く、100人体制で原因究明」. 2025年10月. \nhttps://www.logi-today.com/862858\n\n[11] mono-x Blog. 「クラウドを活用したITの事業継続・災害対策とは？いま見直すべきBCPの新常識」. 2025年. \nhttps://blog.mono-x.com/cloud-bcp-disaster-recovery\n\n[12] さくらのクラウド マニュアル. 「BCP・DR」. 2026年6月30日更新. \nhttps://manual.sakura.ad.jp/cloud/support/bcp-dr.html\n\n[13] KSW Blog. 「クラウドBCP/DR設計入門：災害・障害に強い企業基盤の作り方」. 2025年. \nhttps://www.ksw.co.jp/media/column/a69\n\n[14] 経済産業省. 「サイバーセキュリティ経営ガイドラインVer3.0」. 2023年3月. \nhttps://www.meti.go.jp/policy/netsecurity/mngguide.html\n\n[15] アスクル株式会社. 「弊社へのサイバー攻撃について（第1報）」. 2025年10月19日. \nhttps://www.askul.co.jp/kaisya/news/2025/1019-1.html\n\n[16] JPCERT/CC. 「インシデントハンドリングマニュアル」. 2025年. \nhttps://www.jpcert.or.jp/csirtmaterial/\n\n[17] IPA. 「事業継続計画（BCP）サイバー攻撃版 策定・運用ガイド」. 2024年. \nhttps://www.ipa.go.jp/security/\n\n[18] AWS. \"Disaster Recovery of Workloads on AWS: Recovery in the Cloud.\" 2021. \nhttps://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/disaster-recovery-workloads-on-aws.html\n\n[19] Verizon. \"2025 Data Breach Investigations Report (DBIR).\" 2025. \nhttps://www.verizon.com/business/resources/reports/dbir/\n\n[20] セキュリティ対策Lab. 「アサヒグループも被害に——製造業を揺るがすランサムウェア攻撃」. 2025年. \nhttps://rocket-boys.co.jp/security-measures-lab/asahi-group-holdings-cyberattack-halts-production-and-impacts-group-companies/",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "74b2d4fe685a104a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.17020231213872833,
+      "popularityPercentile": 0.3872832369942196,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 76,
+      "oneLiner": "アスクルのランサムウェア被害はWMSを約2か月停止させた。",
+      "reason": "2025年10月19日の攻撃でWMSなどが停止し、委託先を含む出荷が約2か月滞った。売上規模から、機会損失は単純計算で1日約10億〜13億円に達した。",
+      "keywords": [
+        "WMS",
+        "BCP",
+        "DR",
+        "ランサムウェア",
+        "可用性設計",
+        "アスクル"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Gemini 3.7 Flash API の実測コスト：3.6 より 2.5〜8 倍安い",
+      "url": "https://qiita.com/Synthorai/items/7af66552f4a7deed6858",
+      "publishedAt": "2026-08-15T21:07:42.000Z",
+      "author": "Synthorai",
+      "authorDetail": {
+        "name": "Synthorai",
+        "handle": "@Synthorai",
+        "url": "https://qiita.com/Synthorai",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4459818/d0437af1b1a449c2808a4565ff5507d14e6a2b9e/x_large.png?1783061579",
+        "organization": "Synthorai",
+        "followers": 1,
+        "posts": 22,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://synthorai.io"
+          }
+        ]
+      },
+      "tags": [
+        "生成AI"
+      ],
+      "snippet": "この記事は Synthorai ブログの記事 Gemini 3.7 Flash API の実測コスト：3.6 より 2.5〜8 倍安い の転載です。原文（多言語対応）はリンク先をご覧ください。 Gemini 3.7 Flash は、同じタスクでも Gemini 3.6 Flash の 2.5〜8 分の 1 の料金で済みます。公表された値下げで説明できるのは、そのうち半分だけです。導入価格は入力 100 万 token あたり $0.75、出力 100 万 token あたり $3.75 で、3.6 より 50％安く設定されています。実測でも、同じ 6.9K-token の prompt に対する課金額はちょうど半分でした（$0.00529 と $0.01057）。もう半分の要因は、あまり表に出ていません。gemini-3.7-flash は、同じ 4 タスクで 3.6 より thinkin…",
+      "body": "この記事は Synthorai ブログの記事 Gemini 3.7 Flash API の実測コスト：3.6 より 2.5〜8 倍安い の転載です。原文（多言語対応）はリンク先をご覧ください。\n\n \n\nGemini 3.7 Flash は、同じタスクでも Gemini 3.6 Flash の 2.5〜8 分の 1 の料金で済みます。公表された値下げで説明できるのは、そのうち半分だけです。導入価格は入力 100 万 token あたり $0.75、出力 100 万 token あたり $3.75 で、3.6 より 50％安く設定されています。実測でも、同じ 6.9K-token の prompt に対する課金額はちょうど半分でした（$0.00529 と $0.01057）。もう半分の要因は、あまり表に出ていません。gemini-3.7-flash は、同じ 4 タスクで 3.6 より thinking token を 26〜77％少なく消費しました。リリース 2 日目に、料金条件、thinking の調整機能（1 つは廃止）、Google のドキュメントにある互換性上の変更点と説明が不十分な変更点、さらに cache、context、tokenizer の互換性を検証しました。\n\nTL;DR\n・導入価格は $0.75/$3.75 で、2026 年 12 月 31 日まで適用されます。その後は $1.50/$7.50 です。実測では、同じ prompt の課金額が 3.6 のちょうど半分でした。\n・デフォルトの thinking は 3.6 比で 26〜77％減りました（5-step タスクで 144 token と 384 token）。タスク単位の料金は 2 分の 1 ではなく、2.5〜8 分の 1 です。\n・無効化できなくなりました。どの off 指定も 400（「Thinking level is unsupported」）を返します。現在の下限は low です。\n・2-turn の tool loop では、tool result を処理する turn で 3.7 の思考量が 3.6 の約半分でした（32 token と 61 token）。回答不能な質問を拒否する処理は、両モデルとも約 500 token を消費しました。\n\nGemini 3.7 Flash の実際の料金は？\n\n2026 年 12 月 31 日までは 3.6 の半額です。さらに、今回測定したすべてのタスクで、消費 token 数も 3.6 の半分未満でした。Google が発表したローンチ価格は、入力 100 万 token あたり $0.75、出力 100 万 token あたり $3.75 です。2027 年 1 月 1 日以降は $1.50/$7.50 に戻り、3.6 と同額になります。cache read は 100 万 token あたり $0.075 で、導入価格の入力単価の 10％です。実測値も料金表どおりでした。同じ 6.9K-token の prompt は、3.7 で $0.0052875、3.6 で $0.0105675 となり、きれいに半額です。\n\nより大きいのは、モデルが消費しなくなった token です。同一条件のタスクに salt を加えて各 3 回実行し、reasoning token の中央値と出力料金を比較しました。\n\n| タスク | 3.7 reasoning token | 3.6 reasoning token | 3.7 出力料金 | 3.6 出力料金 | タスク料金比 |\n|---|---|---|---|---|---|\n| 単純な検索 | 73 | 98 | $0.0003 | $0.0008 | 2.7 分の 1 |\n| 2-hop の文章題 | 62 | 266 | $0.0002 | $0.0020 | 8.4 分の 1 |\n| 5-step の算術 | 144 | 384 | $0.0006 | $0.0029 | 5.3 分の 1 |\n| JSON 抽出 | 251 | 340 | $0.0011 | $0.0027 | 2.5 分の 1 |\n\nGoogle は 3.7 について「より入念に考える」と説明しています。今回のタスクでは、入念さは token の増加ではなく減少として現れました。正答率は両モデルとも全項目で 3/3 です。半額の単価と半分以下の thinking を合わせると、cache を使わなくても、実運用でのタスク単位の料金は 61〜88％下がります。ただし、この差は期間限定です。予算は 1 月 1 日の価格改定を前提に組む必要があります。Sonnet 5 の導入価格と同じパターンです。\n\nこの傾向に当てはまらないタスクが 1 つあります。しかも、通常は予算に入れにくい「回答拒否」です。架空の 5 つの対象（企業、研究機関、町の憲章、合金、賞）について質問したところ、両モデルとも 5 件すべてで回答を拒否しました。その際の thinking は、今回測定したどのタスクよりも多く、reasoning token の中央値は 3.7 が 511、3.6 が 494 でした。「その記録は存在しない」と答えるだけで、5-step の算術問題を解く場合の 3.5 倍の thinking を消費します。欠損データに頻繁に当たる RAG pipeline では、miss のたびにこのコストが発生します。ここだけは 3.7 の効率改善が消えます。一方で、ローンチ直後に出ていた懸念を検証する材料にもなりました。レビューでは 3.7 の hallucination 率が高いと指摘されていましたが、架空の対象に関する質問では 5 件中 5 件で断定を避け、3.6 と同じ結果でした。\n\n3.7 で使える thinking control は？\n\n使えるのは、ドキュメントどおり low、medium（デフォルト）、high の 3 段階です。off はありません。ドキュメントに明記されていないのは、3.6 で使えた無効化手段がすべて廃止された点です。reasoningeffort: \"none\"、\"minimal\"、thinkingbudget: 0、thinking: {\"type\": \"disabled\"}、enablethinking: false のどれを送っても、upstream から同じ 400 が返りました。「Thinking level is unsupported: THINKINGLEVELMINIMAL」です。別の独立した request path では、さらに明確に「Reasoning is mandatory for this endpoint and cannot be disabled」と返ります。特定 client の変換層ではなく、モデル側の制約です。同じ batch で測定した 3.6-flash では、none と minimal を指定すれば引き続き消費量をゼロにできます。Flash 系も pro tier の方針と同じになりました。thinking は無効化できず、無効化できる最後の Flash は 3.6 です。\n\n有効な調整値を 5-step タスクで比較しました（各 3 回の中央値、すべて 3/3 正解）。\n\n| 設定 | 3.7 reasoning token | 3.6 reasoning token |\n|---|---|---|\n| low | 133 | 138 |\n| medium（デフォルト） | 147 | 284 |\n| high | 291 | 409 |\n\n実装上の注意点は 2 つです。まず、デフォルトが medium という説明は実測でも確認できました。設定なしでは 154 token、明示的に medium を指定した場合は 147 token で、差はほぼありません。次に、thinkingbudget は実質的に廃止されています。送信した 16〜1,024 の非ゼロ値はすべて受け付けられましたが、消費量はどれも 135〜138 token でした。指定しても何も変わりません。3.6 では、小さい budget は off、大きい budget は上限値としてまだ機能します。3.6 の integration で budget によりコストを制御している場合、3.7 では level を 1 つ選ぶだけです。それ以外の調整手段はありません。vendor ごとの調整機能が実際に効くかどうかは、thinking-control の比較表を参照してください。\n\nagent を 1 step 動かすコストは？\n\ntool の選択挙動は 3.6 と同じです。安くなったのは、step 間の判断に使う token です。2 つの function（incident の検索と、その結果に含まれる service の再起動）を使う 2-turn の loop を、各モデルで 3 回ずつ実行しました。\n\n| loop の step | 3.7 reasoning／出力 token | 3.6 reasoning／出力 token |\n|---|---|---|\n| Turn 1：tool を選択 | 85／110 | 85／110 |\n| Turn 2：tool result に基づいて実行 | 32／58 | 61／87 |\n\n両モデルとも、最初に getincident、次に restartservice を 3/3 で選び、prompt token 数も同一でした。差が出たのは 2 turn 目です。3.7 は次の call を決めるまでの thinking が約半分です。agent が繰り返すのはこの処理です。この中央値で 20-step の loop を回すと、出力料金は 3.7 で約 $0.0043、3.6 で $0.0131 になります。この差は単価ではなく token 数によるものなので、1 月の価格改定後も比率は変わりません。Google がagent benchmark の向上をコスト面の利点として説明する根拠はここにあります。hop ごとの判断に使う token が減り、それが多数の hop に積み上がります。\n\n競合モデルとの優劣は benchmark によって変わるため、coding agent を切り替える前に確認が必要です。独立系の比較記事では、3.7 Flash は FrontierCode で Sonnet 5 を上回っています（43.6％ と 42.7％）。AutomationBench では Sonnet 5 の約 3 倍です。一方で、同じ比較記事とローンチ週の報道によると、Terminal-bench では GPT-5.6 Terra、desktop-task の試験では Sonnet 5 が首位です。コストの低さについては、3.7 が明確に優位です。\n\n3.6 から upgrade すると何が壊れる？\n\n確実に 400 になる変更が 2 つあります。ほかにも、ドキュメントの説明ほど明確に失敗しない変更がいくつかあります。Google の migration note では、temperature、topp、topk、candidatecount、prefill 済みの model turn を削除するよう案内しています。実測結果は次のとおりです。\n\n| 変更 | ドキュメントの説明 | 実際の挙動 |\n|---|---|---|\n| prefill 済み assistant turn | 削除が必要 | 400：「Requests ending with a model turn are not supported」（3.6 でも拒否されます。今回からドキュメントに明記されただけです） |\n| n > 1 | 削除が必要 | 測定した interface では 400 |\n| temperature／topp／topk | 削除が必要 | 3.7 と 3.6 のどちらでも、警告なしで受理 |\n| 64K の出力上限を超える maxtokens | 64K 上限 | 検証した 2 つの request path では 200,000 まで 200 で受理。生成時に暗黙的に上限が適用される |\n| thinkingbudget | level に置き換え | 受理されるが無効（どの値でも消費量は 135 token で一定） |\n\n検証方法には一貫性がありません。thinking の設定値は厳密に検証され、未対応の level を送ると、その値を含む明確な 400 が返ります。一方、sampling parameter や出力上限は、どの値を送ってもそのまま受け付けます。client library がデフォルトで temperature を設定していても、現時点では問題ありません。guided output のために assistant turn を prefill している場合は、upgrade 前からすでに動いていません。\n\ncache、context、tokenizer は引き継げる？\n\n引き継げます。ただし、cache の反映は遅くなっています。implicit cache は 3.6 と同じ条件で hit しました。同一 prompt の 2 回目では、6,905 token のうち 4,076 token が cache され、call の料金は 52％下がりました。cache read の単価は、導入価格の入力単価の 10％です。ただし、cache 構築までの遅延が伸びました。3.6 は初回 call の 4 秒後に hit しましたが、3.7 は 4 秒後には hit せず、30 秒後に hit しました。短時間に重複 request が集中すると、cache が有効になる前に処理されます。それ以外の書き込み側のコスト構造は変わりません。\n\ncontext は 1 回の call で 708,912 input token を受理し、needle question に正しく回答しました。1M という仕様と一致し、料金表にも long-context 向けの別料金はありません。text tokenizer は 4 世代で byte 単位まで同一でした。gemini-3.1-pro-preview、3.5-flash、3.6、3.7 のすべてで、英語、中国語、code を混在させた同一 corpus が 50 token と数えられました。そのまま token budget を移行できます。画像入力も、Gemini 系で測定した全サイズ一律 1,089 tokenのままです。どちらの世代も reasoning text は返しません。すべての call で reasoningcontent は空でした。両モデルとも、課金対象の thinking は確認できません。ローンチ週の thread でも引き続き不満が出ています。structured output も維持されています。strict な jsonschema では、3/3 で正しく有効な JSON が返りました。また、reasoningeffort: \"low\" を指定すると抽出処理の thinking はゼロになりました。調整値の比較で一貫して確認できた、単一 step なら安全という結果と同じです。\n\nFAQ\n\nGemini 3.7 Flash API の料金はいくらですか？\n\n導入価格は、入力 100 万 token あたり $0.75、出力 100 万 token あたり $3.75 で、2026 年 12 月 31 日まで適用されます。2027 年 1 月 1 日以降は $1.50/$7.50 に戻り、Gemini 3.6 Flash と同額です。cache read は 100 万 token あたり $0.075 です。同一 prompt の実測では、3.7 の課金額は 3.6 のちょうど半分でした。\n\nGemini 3.7 Flash の thinking は無効化できますか？\n\nできません。どの off 指定も 400（「Thinking level is unsupported」）を返します。指定できるのは low、medium（デフォルト）、high です。low でも、今回の 5-step タスクでは 133 reasoning token を消費しました。reasoningeffort: \"none\" が使える最新の Flash は Gemini 3.6 Flash で、料金は 3.7 の導入価格終了後と同じです。\n\nGemini 3.7 Flash は 3.6 より request 単位でも本当に安いですか？\n\n公表された 50％引き以上に安くなります。同じタスクで thinking も 26〜77％少ないため、実測したタスク単位の料金は 61〜88％下がりました。2-hop の文章題では $0.0020 から $0.0002 に下がっています。12 月 31 日以降は単価が同水準に戻るため、thinking の削減分だけが残ります。\n\nGemini 3.6 Flash 向けの code は 3.7 でも動きますか？\n\n大部分は動きます。ドキュメントでは削除対象になっている sampling parameter（temperature、topp、topk）も引き続き受理されます。上限を超えた maxtokens は暗黙的に clamp されます。明確に壊れるのは 2 点です。prefill 済み assistant turn は 400 を返しますが、これは 3.6 でも同じでした。また、thinking を無効化する設定はすべて 400 になるため、コスト制御は thinkingbudget から 3 段階の level に移行する必要があります。\n\nリリース 2 日後の 2026-08-15 に Synthorai gateway 経由で測定しました。検証内容は、調整値と off 指定の matrix（effort 7 値、budget 5 値、off parameter 2 種類、n=3、すべての比較で gemini-3.6-flash も同じ batch 内で再実行）、4 タスクの reasoning-tax 測定、strict-JSON の structured output、非推奨 parameter の挙動、出力上限と 708K-context の受理、2 種類の待機時間を使った implicit-cache の pair、Gemini 4 世代での固定 corpus の tokenizer 比較、2-turn の function-calling loop（各モデル n=3）、架空の対象に関する 5 問の回答拒否テストです。タスク料金は、実測した completion token 数に各モデルの現行出力単価を掛けて算出しました。上限超過の maxtokens が受理されることと off 設定が存在しないことは、別の独立した request path でも確認しています。導入価格と期間は Google の公開条件に基づきます。rollout の進行に伴い、挙動が変わる可能性があります。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7d108be4bebeaa52",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5144508670520231,
+      "popularityPercentile": 0.02023121387283237,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 64,
+      "oneLiner": "Gemini 3.7 Flashは同じタスクで3.6より2.5〜8倍安くなった。",
+      "reason": "Gemini 3.7 Flashの導入価格は入力$0.75、出力$3.75で、2026年12月31日まで適用される。実測ではthinking tokenも26〜77％減り、同じプロンプトの課金額は半分になった。",
+      "keywords": [
+        "Gemini 3.7 Flash",
+        "Gemini 3.6 Flash",
+        "API料金",
+        "thinking token",
+        "Google Gemini"
+      ],
+      "category": "パフォーマンス",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "2026/8/16主にITとかセキュリティの記事",
+      "url": "https://qiita.com/pitopito/items/204061b6da1249aacdd6",
+      "publishedAt": "2026-08-15T19:10:34.000Z",
+      "author": "浩 釜本",
+      "authorDetail": {
+        "name": "浩 釜本",
+        "handle": "@pitopito",
+        "url": "https://qiita.com/pitopito",
+        "avatarUrl": "https://secure.gravatar.com/avatar/d301ec427285245483cff6d1c8f4fb3c",
+        "followers": 105,
+        "posts": 1667,
+        "links": []
+      },
+      "tags": [
+        "Security",
+        "ニュース"
+      ],
+      "snippet": "Coinbase、支払いx402におけるセキュリティ警告に直面する(8/13) https://portalcripto.com.br/ja/coinbase-faces-security-alert-in-x402-payments 「OpenSSL」に脆弱性 - 今後のリリースで修正予定(8/14) https://www.security-next.com/188747 Bitcoin Red Teamの研究者が重大な欠陥を報告する(8/13) https://portalcripto.com.br/ja/bitcoin-red-team-researcher-reports-critical-flaws-13-08-2026-1807 WordPress脆弱性40件、半数が悪用に認証不要 AI Engineでは管理者アカウント作成も【7月30日～8月5日】(8/14) https:…",
+      "body": "Coinbase、支払いx402におけるセキュリティ警告に直面する(8/13)\nhttps://portalcripto.com.br/ja/coinbase-faces-security-alert-in-x402-payments\n\n「OpenSSL」に脆弱性 - 今後のリリースで修正予定(8/14)\nhttps://www.security-next.com/188747\n\nBitcoin Red Teamの研究者が重大な欠陥を報告する(8/13)\nhttps://portalcripto.com.br/ja/bitcoin-red-team-researcher-reports-critical-flaws-13-08-2026-1807\n\nWordPress脆弱性40件、半数が悪用に認証不要　AI Engineでは管理者アカウント作成も【7月30日～8月5日】(8/14)\nhttps://news.mynavi.jp/techplus/article/wordpressvulnerability-34/\n\nGitLab、XSSをはじめ脆弱性13件を解消(8/14)\nhttps://www.security-next.com/188755\n\nVMware vCenterの重大なRCE脆弱性を攻撃者が悪用 （CVE-2026-59310）(8/14)\nhttps://codebook.machinarecord.com/threatreport/silobreaker-cyber-alert/47172/\n\n当社グループでのシステム障害発生について(8/14)\nhttps://www.nichirei.co.jp/news/2026/530.html\n\nわずか40分で、Nvidia、AWS、Samsungが危険にさらされた。この脅威は数千もの企業に影響を与えている。(8/14)\nhttps://samsungmagazine.eu/ja/2026/08/14/litellm-security-attack/\n\nPowerDNS Authoritative Server に特別に作成された DNS パケットによりメモリ不足と過剰な CPU 負荷が誘発される脆弱性(8/14)\nhttps://s.netsecurity.ne.jp/article/2026/08/14/55927.html\n\nOpenAI、「Astra」関連作業を一部停止　サイバー能力向上でゼロデイ攻撃を懸念(8/13)\nhttps://plus-web3.com/media/latestnews101010225/\n\n偽のClaude AIアプリケーションからのマルウェア警告(8/14)\nhttps://ja.laodong.vn/cong-nghe/canh-bao-ma-doc-tu-ung-dung-claude-ai-gia-mao-1750835.ldo\n\nMetabaseのSQLインジェクションの脆弱性（CVE-2026-72898）に関する注意喚起(8/14)\nhttps://www.jpcert.or.jp/at/2026/at260023.html\n\nWindows Defender脆弱性対処は不適切。新ゼロデイ脆弱性「ShieldBrake」(8/14)\nhttps://pc.watch.impress.co.jp/docs/news/2132712.html\n\n正体不明のアクター、1年以上にわたりSalesforceとServiceNowを利用する企業の公開データを収集(8/14)\nhttps://codebook.machinarecord.com/threatreport/silobreaker-cyber-alert/47177/\n\nTrezor Walletアラート：13,6千人の顧客データが流出(8/13)\nhttps://portalcripto.com.br/ja/trezor-wallet-alert-data-from-13-6-thousand-customers-are-exposed\n\nTrezorの配送業者が、13,689人の暗号資産利用者を詐欺の危険にさらしました(8/13)\nhttps://news.bitcoin.com/ja/security/trezor-no-haisougyousha-ga-13689-nin-no-angoushisan-riyousha-wo-sagi-no-kiken-ni-sarashimashita/\n\nTrezor利用者約1.4万人の住所が流出。仮想通貨は盗まれていないのに何が危険？(8/14)\nhttps://coinchoice.net/trezor-address-leak/\n\nTrezorウォレットの1万3000件超のデータ流出発覚 不安視すべきか(8/13)\nhttps://jp.beincrypto.com/trezor-data-breach-phishing-risk/\n\nハードウェアウォレットのTrezor、配送業者から約1万4000人分の顧客データが漏洩(8/14)\nhttps://www.nadanews.com/363861/\n\nサイバー被害のニチレイ、従業員情報漏洩の恐れ　氏名や生年月日など(8/14)\nhttps://www.nikkei.com/article/DGXZQOUC1447A0U6A810C2000000/\n\n「サイト閲覧でiPhone乗っ取り!?」Gmailや個人情報が流出するサイバー攻撃から身を守る対処法(8/13)\nhttps://ichioshi.smt.docomo.ne.jp/articles/limited/40106\n\nヨネックス、ECサイトに不正ログイン発生 3件確認、1件で個人情報閲覧の可能性(8/14)\nhttps://netkeizai.com/articles/detail/19563\n\nBitcoin Red Team、中国製AIでビットコイン関連OSSを監査(8/14)\nhttps://www.digitaltoday.co.kr/jp/view/93478/bitcoin-red-team-uses-chinese-ai-to-hunt-security-flaws-in-bitcoin-open-source-ecosystem\n\n智譜AIがGLM-5.3を発表：プログラミング能力50%向上、2週間後にオープンソース化へ(8/14)\nhttps://finance.biggo.jp/news/0b571a42-9531-433c-b81b-c8468d173989\n\n台湾政府機関にOpenClawなど悪用した4日間の自律型サイバー攻撃―原子力安全機関なども調査対象に(8/14)\nhttps://www.zaikei.co.jp/article/20260814/865824.html\n\n脅威にさらされる産業インフラ：フロンティアAIはリスクの方程式をどう変えるのか(8/14)\nhttps://www.trendmicro.com/jajp/research/26/h/critical-infrastructure.html\n\nAI決済プロトコル「x402」に重大欠陥｜主要15社でセキュリティ不備(8/14)\nhttps://bittimes.net/news/226909.html\n\n「WSUS」終了の時限爆弾　“本命”移行先ツールとMicrosoft提唱の新管理手法(8/14)\nhttps://techtarget.itmedia.co.jp/tt/news/2608/14/news02.html\n\nチェック・ポイント・リサーチ、北朝鮮の国家支援型脅威グループLazarusによる「ドリームジョブ作戦」の新たな攻撃を確認\n欧州・インド・南米の組織を標的に、防衛・航空宇宙企業の求人を装うスピアフィッシングが横行　　Windowsゼロデイ脆弱性を悪用し、新たなバックドアをインストール(8/14)\nhttps://prtimes.jp/main/html/rd/p/000000541.000021207.html\n\nAWS アクセスキーが流出したらどうなる？ 実例から学ぶ対処と予防策(8/14)\nhttps://blog.serverworks.co.jp/aws-access-key-leak-response-and-prevention\n\nトレザーの物流委託先で情報漏洩、仮想通貨ウォレット購入者約1万4000人の個人情報が流出(8/14)\nhttps://finance.biggo.jp/news/edb70dd6-a7ff-48d6-964a-bf9c60d25fd7\n\nWindows向け「LINE PC版」のインストーラに脆弱性 - 最新版の利用を(8/14)\nhttps://www.security-next.com/188744\n\nASUSのアプリに権限昇格の脆弱性CVE-2026-8917。『GPU Tweak III』『AI Suite 3』『Armoury Create』などが影響(8/14)\nhttps://www.nichepcgamer.com/archives/post-131591.html\n\n【緊急公開】医療機関を襲った8月12日の大規模サイバー攻撃｜医療法人鳳應会グループ Medi Face社がデジタルフォレンジック解析および証拠保全を完了（2026-08-12 19:33:27発生）(8/14)\nhttps://www.sankei.com/pressrelease/prtimes/BUVEKDXZRRI6FPZ7XLYI6QZGDI/\n\n「PostgreSQL」にセキュリティアップデート、任意コード実行を含む28件の脆弱性に対処(8/14)\nhttps://forest.watch.impress.co.jp/docs/news/2132677.html\n\nアメリカ政府がハッキング報復作戦のためにセキュリティ企業を起用(8/14)\nhttps://gigazine.net/news/20260814-white-house-cyber-attack-capabilities/\n\nバイブコーディングがSaaSを揺さぶる 非開発者が2850億ドル（約45兆4000億円）を吹き飛ばした(8/14)\nhttps://forbesjapan.com/articles/detail/102836\n\nRsync 3.5は異例の大規模アップデート。33件の脆弱性を一挙修正(8/14)\nhttps://softantenna.com/blog/rsync-3-5/\n\nアジア政府機関を標的にした多エージェントAI攻撃フレームワークについてまとめてみた(8/14)\nhttps://piyolog.hatenadiary.jp/entry/2026/08/14/115527\n\n新種のAndroidマルウェア「WindRelay」、スマートフォンを非接触決済詐欺の中継装置に悪用(8/14)\nhttps://finance.biggo.jp/news/5bb41fb7-90f8-4a76-a9cc-5173b754500a\n\n中国のAIモデルもテスト環境から“脱走”、問われるAIの制御(8/14)\nhttps://wired.jp/article/moonshot-kimi-k3-ai-model-escape-sandbox/\n\n子ども500人の情報が漏えいか　トラブルサポート装う手口にだまされた教員が学校PCに遠隔操作アプリをダウンロード　発覚まで2か月気付かず(8/14)\nhttps://newsdig.tbs.co.jp/articles/rbc/2872726?display=1\n\n那覇市　個人情報漏洩の恐れで会見(8/14)\nhttps://www.qab.co.jp/news/20260814302475.html\n\nAI暴走事故が投げかけた自衛の課題、NVIDIAなど米IT大手が「オープン型」防御同盟(8/14)\nhttps://jbpress.ismedia.jp/articles/-/96434\n\nCiscoがアップデートを事前告知 - 8月19日に修正版を公開予定(8/14)\nhttps://www.security-next.com/188817\n\n九州電力送配電のSSD紛失は単なる個人情報漏えいに終わらない！(8/14)\nhttps://news.yahoo.co.jp/expert/articles/c67ee6c48c19d04a2aca3fcbe5c0133dc5afd50f\n\n正規メール送信環境からフィッシングメール送信 ～ TENTIALが利用するメール送信サービスのアクセスキーを不正利用(8/14)\nhttps://s.netsecurity.ne.jp/article/2026/08/14/55932.html\n\n偽DeFi企業、北朝鮮籍と疑われる開発者3人を雇用(8/13)\nhttps://jp.beincrypto.com/north-korean-workers-fake-startup-sting/\n\nホテルWi-Fiは結局キケン？　つないだ瞬間に企業アカウントが狙われるワケ(8/14)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2608/14/news028.html\n\nクラウドでのサイバー被害を疑似体験--組織横断で備えるサイバー攻撃対策(8/14)\nhttps://japan.zdnet.com/article/35251420/\n\nFable 5とも戦える「GLM-5.3」登場。事後学習の拡張のみで大幅性能アップ(8/14)\nhttps://pc.watch.impress.co.jp/docs/news/2132889.html\n\n40社以上の暗号資産企業が、AIをめぐるセキュリティ格差について警鐘を鳴らしています。(8/14)\nhttps://news.bitcoin.com/ja/crypto-news/40sha-ijo-no-ango-shisan-kigyo-ga-ai-wo-meguru-sekyuriti-kakusa-nitsuite-keisho-wo-nara-shiteimasu/\n\n証明付きバイブコーディングで証明支援系を作った(8/12)\nhttps://qiita.com/mrkbc/items/3545af61b8f2e256c750\n\nトランプ政権、米民間企業に外国の犯罪ネットワークへのハッキングを許可(8/14)\nhttps://codebook.machinarecord.com/threatreport/silobreaker-cyber-alert/47182/\n\nメディア4u の SMS 送信システムへのサイバー攻撃、館山市を装った不審な SMS に注意を呼びかけ(8/14)\nhttps://s.netsecurity.ne.jp/article/2026/08/14/55931.html\n\n5大コーディングエージェントを検証　バイブコーディング時代のリスクと対策(8/14)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2608/14/news045.html\n\nLazarus関連先のBTCアドレス、262.2BTCを新たな2つのアドレスに分割送金(8/14)\nhttps://www.digitaltoday.co.kr/jp/view/93273/lazarus-linked-bitcoin-address-moves-262-btc-to-two-new-wallets\n\nグーグル、最新AIモデル「Gemini 3.7 Flash」公開　Gemini Sparkで提供(8/14)\nhttps://news.yahoo.co.jp/articles/21df12ccae7626ae691a0676eec78122b959eb8d\n\n工業研究所の試験機器用パソコンのマルウェア感染について（最終報告）(8/14)\nhttps://www.pref.mie.lg.jp/TOPICS/m0031300598.htm\n\n事件は情シスの「外」で起きている　AI×システム開発のトラブル検知率はたった2割(8/13)\nhttps://kn.itmedia.co.jp/kn/articles/2608/13/news032.html\n\nDNS・ログ管理・端末セキュリティについて学習した話(DNSSEC・TPM・BYOD・IoTまで)(8/12)\nhttps://qiita.com/Ikechom/items/bc200bff53d4c088afbd\n\n北朝鮮LazarusがWindowsゼロデイを悪用、Microsoftが緊急修正(8/13)\nhttps://www.zaikei.co.jp/article/20260813/865673.html\n\nAIの暴走リスクと「善治」による制御 – 人民日報(8/13)\nhttps://semicon.today/archives/12577",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6755ca1145deb121",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5208092485549133,
+      "popularityPercentile": 0.049132947976878616,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 60,
+      "oneLiner": "2026年8月13〜14日のITニュースは複数製品の脆弱性を報じた。",
+      "reason": "2026年8月13〜14日の記事として、OpenSSL、WordPress、GitLab、VMware vCenterなどの脆弱性情報を列挙している。WordPressでは7月30日〜8月5日に40件の脆弱性が報じられた。",
+      "keywords": [
+        "OpenSSL",
+        "WordPress",
+        "GitLab",
+        "VMware vCenter",
+        "CVE-2026-59310",
+        "x402"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "shadcn-labs/pdfcn — Beautiful pdf components, built on Takumi and Forme. 100% Free, Zero config, one command setup.",
+      "url": "https://github.com/shadcn-labs/pdfcn",
+      "publishedAt": "2026-08-11T11:55:41.000Z",
+      "author": "shadcn-labs",
+      "authorDetail": {
+        "name": "shadcn-labs",
+        "url": "https://github.com/shadcn-labs",
+        "avatarUrl": "https://github.com/shadcn-labs.png?size=120",
+        "bio": "Beautiful pdf components, built on Takumi and Forme. 100% Free, Zero config, one command setup."
+      },
+      "tags": [
+        "TypeScript",
+        "forme",
+        "html-to-pdf",
+        "jsx",
+        "pdf",
+        "pdf-generation",
+        "pdf-generator",
+        "react"
+      ],
+      "snippet": "Beautiful pdf components, built on Takumi and Forme. 100% Free, Zero config, one command setup.",
+      "metrics": {
+        "stars": 539
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "57df724dded2244a",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8125000000000001,
+      "popularityPercentile": 0.375,
+      "matchedTopics": [
+        "React",
+        "TypeScript",
+        "ブラウザ / Web標準",
+        "周辺ライブラリ"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "pdfcnがReact向けの無料PDFコンポーネントを公開した。",
+      "reason": "pdfcnはTakumiとFormeを基盤に、設定なしでPDFを生成できるReactコンポーネントを提供する。",
+      "keywords": [
+        "pdfcn",
+        "Takumi",
+        "Forme",
+        "React",
+        "TypeScript",
+        "HTML-to-PDF"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "yc-software/qm — Multiplayer agent harness for work.",
+      "url": "https://github.com/yc-software/qm",
+      "publishedAt": "2026-07-29T20:03:08.000Z",
+      "author": "yc-software",
+      "authorDetail": {
+        "name": "yc-software",
+        "url": "https://github.com/yc-software",
+        "avatarUrl": "https://github.com/yc-software.png?size=120",
+        "bio": "Multiplayer agent harness for work."
+      },
+      "tags": [
+        "TypeScript",
+        "ai",
+        "assistant",
+        "harness",
+        "qm"
+      ],
+      "snippet": "Multiplayer agent harness for work.",
+      "metrics": {
+        "stars": 13622,
+        "hatena": 45
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "447d551c24808403",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.9225000000000001,
+      "popularityPercentile": 0.875,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 82,
+      "oneLiner": "qmが仕事向けのマルチプレイヤー型エージェント基盤を公開した。",
+      "reason": "qmは、複数の参加者やエージェントが協調して仕事を進めるためのハーネスとして公開されている。",
+      "keywords": [
+        "qm",
+        "agent harness",
+        "multiplayer agent",
+        "TypeScript",
+        "AI assistant"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "NousResearch/Hermes-Bot-Mode — Bot Mode for the Hermes desktop: a roster of named agents with their own chats, avatars, routines, and bot-to-bot messaging. Desktop plugin, no core patches.",
+      "url": "https://github.com/NousResearch/Hermes-Bot-Mode",
+      "publishedAt": "2026-08-13T16:40:20.000Z",
+      "author": "NousResearch",
+      "authorDetail": {
+        "name": "NousResearch",
+        "url": "https://github.com/NousResearch",
+        "avatarUrl": "https://github.com/NousResearch.png?size=120",
+        "bio": "Bot Mode for the Hermes desktop: a roster of named agents with their own chats, avatars, routines, and bot-to-bot messaging. Desktop plugin, no core patches."
+      },
+      "tags": [
+        "JavaScript"
+      ],
+      "snippet": "Bot Mode for the Hermes desktop: a roster of named agents with their own chats, avatars, routines, and bot-to-bot messaging. Desktop plugin, no core patches.",
+      "metrics": {
+        "stars": 493
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "27abd5cfd09f0250",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7605000000000002,
+      "popularityPercentile": 0.525,
+      "matchedTopics": [
+        "JavaScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 79,
+      "oneLiner": "Hermes-Bot-Modeが個性を持つ複数エージェント機能を追加する。",
+      "reason": "Hermesのデスクトップに、名前・アバター・会話・ルーティンを持つエージェントと相互メッセージ機能を追加できる。",
+      "keywords": [
+        "Hermes",
+        "Hermes-Bot-Mode",
+        "desktop plugin",
+        "named agents",
+        "bot-to-bot messaging",
+        "JavaScript"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "🗑 積みすぎたAuto-skillを週次で整理する自動キュレーション",
+      "url": "https://qiita.com/bokuwalily/items/0e08634a340712de0038",
+      "publishedAt": "2026-08-15T08:40:16.000Z",
+      "author": "bokuwalily",
+      "authorDetail": {
+        "name": "bokuwalily",
+        "handle": "@bokuwalily",
+        "url": "https://qiita.com/bokuwalily",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/240634314?v=4",
+        "bio": "都内の大学に通う個人開発者。Claude Codeを軸にした開発自動化・長期記憶アーキテクチャ・Webアプリ/Chrome拡張開発について、実際に運用しているものだけ書きます。",
+        "followers": 2,
+        "posts": 55,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/bokuwalily"
+          },
+          {
+            "label": "Web",
+            "url": "http://bokuwalily.com/"
+          }
+        ]
+      },
+      "tags": [
+        "automation",
+        "ClaudeCode",
+        "個人開発"
+      ],
+      "snippet": "Claude Codeは使えば使うほど賢くなる、というのは半分本当で、半分嘘です。 半年前、大学生のころに月10万だった収入が、副業を掛け持ちしながら60万まで増え、会社都合で解雇されてからの半年でClaude Code自律環境を構築し、今は月商120万で回っています。その過程で痛感したのが「スキルの腐敗」です。最初は手になじんだ道具が、3ヶ月後には誰も使わない文鎮になっている。そしてその文鎮は毎回の会話で読み込まれ続け、コンテキストを静かに圧迫します。今回は、その問題を週次の自動キュレーションで解決した話をします。 なぜこの仕組みが効くのか 「使うほど賢くなる」の裏側にある落とし穴 Claude Codeには auto-skill と呼ぶ仕組みがあります。非自明なタスクを5回以上こなしたとき、回避策を発見したとき、アプローチを修正されたとき、AIが自律的に /.claude/skills…",
+      "body": "Claude Codeは使えば使うほど賢くなる、というのは半分本当で、半分嘘です。\n\n半年前、大学生のころに月10万だった収入が、副業を掛け持ちしながら60万まで増え、会社都合で解雇されてからの半年でClaude Code自律環境を構築し、今は月商120万で回っています。その過程で痛感したのが「スキルの腐敗」です。最初は手になじんだ道具が、3ヶ月後には誰も使わない文鎮になっている。そしてその文鎮は毎回の会話で読み込まれ続け、コンテキストを静かに圧迫します。今回は、その問題を週次の自動キュレーションで解決した話をします。\n\nなぜこの仕組みが効くのか\n\n「使うほど賢くなる」の裏側にある落とし穴\n\nClaude Codeには auto-skill と呼ぶ仕組みがあります。非自明なタスクを5回以上こなしたとき、回避策を発見したとき、アプローチを修正されたとき、AIが自律的に /.claude/skills/auto/ /SKILL.md へ手順を書き出す設計です。\n\nこのメモが積み重なるほど、次の会話でその経験を参照できる。環境の「記憶」が育っていく感覚は、たしかに気持ちいいものです。\n\nしかし問題がある。\n\nClaude Codeのコンテキスト注入は、スキルファイルが増えれば増えるほど読み込み量が増えます。スキルを30個、50個と溜め込んでいくと、会話の冒頭だけで数千トークンが「使われていないスキルの説明」に費やされます。Opusやフル品質のSonnetでは、コンテキスト汚染は出力品質の劣化に直結する。毎月課金されるトークン代は増え、応答の鋭さは落ちる。まるでデスクに使わない書類を積み上げ続けるようなものです。\n\nLily自身の環境で実際に確認した構造を言うと、/.claude/skills/auto/ 配下に各スキルがディレクトリとして並び、その中の SKILL.md が author: auto というフロントマターを持つ。この author: auto フィールドがない手動スキルには、今回の整理機構は一切触れません。誤爆を防ぐ安全ガードが、設計の最初に置かれている点が重要です。\n\n「作業」ではなく「環境」に投資する意味\n\n月商120万の仕事の大半は、Claudeに仕事を流す設計を作ることです。個別タスクをこなすより、次の100タスクが自動化される仕組みを作るほうが価値が高い。これはどの個人開発者にも当てはまる原則だと思います。\n\nしかしその「環境」自体が腐敗すると、整備コストが逆に重くなる。auto-skillのキュレーション自動化は、まさにこの「環境の環境を整備する」メタレイヤーです。読者の方も、Claude Codeを使い込むほど「前に作ったはずのスキル、どこだっけ」「このスキル、まだ使ってる？」という感覚が出てくるはずです。その感覚を放置せずに自動化した、という話です。\n\nコンテキスト肥大化の具体的な経路\n\nスキルが増えると何が起きるか、具体的に追います。\n\n/.claude/CLAUDE.md には スキル自己生成（auto-skills） というセクションがあり、「再利用価値のある手順は頼まれなくても自作する」 と書いています。この指示が生きている限り、スキルは自然増殖します。\n\n問題は「使われなくなった」スキルの検知が、人間の目視に頼っていること。手作業でスキルディレクトリを眺めても、どれが現役でどれが遺物かは一目でわかりません。かといって全部消すのは怖い。このジレンマを解消するのが今回の週次キュレーターです。\n\n設計の核心は3点です。\n\n1. 会話ログへのスキル名言及を「使用の代理指標」にする → 直接のAPI呼び出しログではなく、/Documents/my-knowledge-base/raw/conversations/ 内の会話ログファイルからスキル名を grep し、最新のファイルmtimeを「最終使用日」とみなす。\n2. 30日未使用でstale・90日未使用で .archive/ 退避 → どちらも実削除ではない。staleはフロントマターに status: stale を追記するだけ、archiveは mv で別ディレクトリへ。\n3. 実行前に必ずスナップショットを取る → 操作を間違えてもワンコマンドで元に戻せる。\n\n---\n\n全体の流れ\n\nアーキテクチャ概観\n\n [code] \n\nlaunchdのplistは以下のように設定されています。\n\n [code] \n\nWeekday: 0 が日曜、Hour: 4・Minute: 15 で毎週日曜 4:15 AM に起動します。LowPriorityIO: true・Nice: 10 で最低優先度のバックグラウンド実行です。眠っている間に片付く。人間のコストはゼロです。\n\n① スナップショット：完全リバーサブルの基盤\n\nスクリプトの冒頭でまずスナップショットを取ります。\n\n [code] \n\n.snapshots/ と .archive/ 自身は除外して圧縮しています。これをやらないと、アーカイブの中にアーカイブが入り込む再帰問題が起きる。date +%Y%m%d-%H%M%S でタイムスタンプ付きの名前にしているので、週を追うごとにスナップショットが積み上がります。\n\nリストア方法は単純で、tar xzf /.claude/skills/auto/.snapshots/auto-20260803-041500.tar.gz -C /.claude/skills/ を実行するだけです。週次でスナップショットが増えていく点は別途 find で古いものを消す運用が必要ですが、それは次の課題です。\n\n② 安全ガード：author: auto 以外は絶対に触らない\n\n [code] \n\nこれがあることで、手動で丁寧に育てたスキルが誤って退避されることはありません。author: auto というフロントマーカーが「機械が生成した整理対象」を示す唯一の旗です。逆に言えば、残したいスキルは author: フィールドを auto 以外に書き換えるだけで保護できます。シンプルで強い。\n\n③ 最終使用日の算出：代理指標の設計と限界\n\nここが設計の中で最も工夫が要る部分です。Claude Codeには「どのスキルが呼ばれた」というAPIレベルのログが外部から取れません。そのため、会話ログのテキストにスキル名が出現したかどうか を代理指標として使っています。\n\n [code] \n\nLOGS=\"$HOME/Documents/my-knowledge-base/raw/conversations/\" を全文検索し、スキル名を含むファイルのうち最も新しいものの mtime をUnixタイムスタンプで取得します。\n\n取得できなかった場合、フォールバックが2段階あります。\n\n [code] \n\n① 会話ログのmtime → ② SKILL.md の created: フロントマター → ③ SKILL.md ファイル自体のmtime、という順です。created: が書かれていない古いスキルでも、ファイルmtimeという最後の砦がある。\n\nただし、この代理指標には構造的な限界があります。\n\n「会話ログにスキル名が登場する」と「スキルが実際に呼び出されて機能した」は、厳密には別の事象です。スキルの名前が会話の中で言及された（例: 「このスキルは不要かも」と議論した）場合でも、使用とカウントされます。逆に、スキル名がコマンド形式（/curate-skills など）として呼ばれていてもログの検索パターンが一致しない場合は拾えません。\n\nこの制約を知った上で「それでも会話ログが最良の近似指標」という判断を取っています。完璧な使用ログより、運用可能な近似指標を選ぶ。これが実用的な自動化の哲学です。\n\n④ 判定と処理：staleとarchiveの二段階\n\n [code] \n\n30日未使用のスキルは status: stale をフロントマターに書き込みます。実際の削除でも退避でもなく、フラグを立てるだけです。このフラグがあることで、スキルインデックスが status: stale を表示したり、次の整理フェーズで優先して検討したりできます。\n\n90日未使用のスキルは .archive/ へ mv します。rm ではなく mv なので、ファイルシステム上では消えていません。ls /.claude/skills/auto/.archive/ で確認でき、必要なら mv で戻せます。この非破壊性が重要で、「消した後に必要だとわかった」というシナリオを完全にカバーします。\n\nstale判定されたスキルも active++ のカウントに含まれる点に注目してください。staleはあくまで「要注意フラグ」であり、スキル自体はまだ auto/ 配下に存在しています。次の週次実行で30日がさらに経過すれば、stale→archiveへ自然に昇格します。\n\n⑤ LLM統合提案：Claudeがスキルを読んで提案を書く\n\n [code] \n\nactiveスキルが2件以上あり、かつ nollm 引数が渡されていない場合に、Claudeを呼び出して重複・低品質スキルの統合提案を生成します。\n\n [code] \n\n設計上の工夫がいくつかあります。\n\n--mcp-config '{\"mcpServers\":{}}' でMCPを無効化しています。 週次バッチの中でネットワーク依存のMCPサーバーが突然起動するのは不安定要因です。スキルの読み込みと提案書き出しだけに絞る。\n\n--max-budget-usd 5.00 でコストに上限を設けています。 Claude APIの課金が無制限に走らないよう、1回の提案生成は5ドルまで。提案ファイルが消えても困らないレベルのタスクに、それ以上の課金をする必要はありません。\n\nperl -e 'alarm 600; exec @ARGV' でタイムアウトを600秒に設定しています。 単純な timeout コマンドはシグナルの伝播方法によって、Claudeプロセスが正常に終了しない場合があります。Perl の alarm を使った exec は、サブプロセスも含めて確実に終了させます。\n\nClaudeにはステージングディレクトリ（$STG）へ curator-proposals.md を書かせ、シェルがコピーする構造にしています。 /.claude/ は書き込み保護されているケースがあるため、Claudeに直接書かせるとエラーになる可能性があります。一時ディレクトリを中継点にすることで、権限問題を回避しています。\n\n前回の提案ファイルより新しいSKILL.mdだけを対象にしています。 毎週全スキルを読み直すのはトークンの無駄です。propmtime （前回の提案ファイルのmtime）より新しい SKILL.md だけを差分処理することで、週次実行のコストを最小化しています。\n\n---\n\n全体コードの変数マップ\n\n実コードを読む際の参照用として、スクリプト内の主要変数を整理しておきます。\n\n| 変数 | 値（実コードより） | 役割 |\n|------|------------------|------|\n| AUTO | /.claude/skills/auto | スキル格納ルート |\n| LOGS | /Documents/my-knowledge-base/raw/conversations | 会話ログ検索対象 |\n| SNAP | /.claude/skills/auto/.snapshots | スナップショット保存先 |\n| ARCH | /.claude/skills/auto/.archive | archive退避先 |\n| LOG | /.claude/skills/auto/.curate.log | 実行ログ |\n| PROP | /.claude/skills/auto/.curator-proposals.md | LLM提案出力先 |\n| STALEDAYS | 30 | staleフラグ閾値（日数） |\n| ARCHIVEDAYS | 90 | archive退避閾値（日数） |\n| RUNLLM | 第1引数、デフォルト \"llm\" | \"nollm\" でLLMフェーズスキップ |\n\nlaunchdの実行ログは /.claude/logs/com.shun.skill-curate.log に書き込まれます（plistの StandardOutPath / StandardErrorPath）。スクリプト内のアプリログ（$LOG）とは別ファイルで、launchd起動時のプロセスレベルのエラーはこちらに残ります。\n\nこの二重ログ構造は、「スクリプトが起動したかどうか」と「スクリプトが何をしたか」を分けて追跡できる点で有効です。launchdのログに何も書かれていなければスクリプトが起動していない。スクリプトのログが snapshot taken で止まっていれば、その先でエラーが起きています。\n\n---\n\nここまでが「なぜこの仕組みが効くのか」と「どう動いているのか」の全体像です。次は、この設計の最大の弱点である 「会話ログ言及を使用と見なす」代理指標の検証方法と、実際に踏んだつまずき を掘り下げます。\n\n実装の詳細\n\n冒頭2行が黙って守っているもの\n\n [code] \n\nset -u は未定義変数を参照した瞬間にスクリプトを止めます。一見地味ですが、これがないと \"$lastlog\" が空のまま float() に渡り、Pythonが黙って 0 を返し、全スキルが「最終使用：1970年」扱いになります。一晩で全スキルがarchiveされ、朝起きたらスキルが消えていた、という事故を防ぐ一行です。\n\nexport PATH はもっと即物的な理由です。launchdが起動するシェルは、あなたが毎日使うzshとは別の最小環境です。/.zshrc も /.nvm/nvm.sh も読み込まれない。つまり claude コマンドも node も、PATHに明示しない限り「存在しない」扱いになります。plistにも同じPATHを書いています（ EnvironmentVariables 以下）が、スクリプト側にも書くのは多重防衛です。plistのPATHはlaunchdがプロセスに渡す環境変数ですが、スクリプト内でサブシェルを起動した場合には引き継がれないことがあります。export PATH を両方に書くのは冗長に見えて、実際には必要な設計です。\n\nfind コマンド：4つのフラグが全部要る理由\n\n [code] \n\nこのfindは「auto/ 直下のスキルディレクトリだけを列挙する」ための4フラグセットです。各フラグを外したときに何が起きるかを実際に考えると、なぜ全部要るかわかります。\n\n-mindepth 1を外すと $AUTO 自身がヒットし、ループが auto/ ディレクトリ全体を1スキルとして処理しようとします。auto/SKILL.md を探しに行き、なければ continue されるだけですが、ログにノイズが残ります。\n\n-maxdepth 1を外すと .archive/ 配下の退避済みスキルも再びスキャン対象になります。せっかく退避したスキルが「会話ログにヒットしないから再度archive」という無限ループに入り、mv が「移動先に同名ディレクトリが既に存在する」エラーで止まります。\n\n-type dを外すと .curate.log や .curator-proposals.md のファイルもヒットします。basename でファイル名を取り、SKILL.mdの存在確認で걸러されるので実害はゼロですが、ログに無意味な skip エントリが大量に積まれます。\n\n! -name '.'を外すと .snapshots と .archive がスキャン対象になります。.snapshots には SKILL.md がないので continue されますが、.archive の中身は本物の（退避済み）スキルです。そこに author: auto があるスキルが再度stale/archive判定を受け、すでに .archive/ にいるのに再度 mv \"$d\" \"$ARCH/\" しようとし、パスが変になります。\n\n2>/dev/null はmacOSの権限エラーをサイレント化するためです。/.claude/ 配下の一部ファイルが他プロセスにロックされていると find が Permission denied を吐きますが、それをログに流すと本来の整理ログが埋もれます。\n\nPython インラインという選択の理由\n\nスクリプト内に2箇所、Pythonコードが <<'PY' ヒアドキュメントで埋め込まれています。「なぜ別ファイルの .py にしないのか」と最初に聞かれました。\n\n理由は単一ファイルで自己完結していることです。skill-curate.sh だけを /.claude/scripts/ に置けば動く。Pythonスクリプトの配置パスを別途管理する必要がない。スキルキュレーターの設定を人に渡すときも、このファイル1本でいい。\n\n<<'PY' のシングルクォートが重要です。<<PY だとヒアドキュメント内の $d や $md がシェルに展開されてしまい、Python側に正しい文字列が渡りません。シングルクォートで囲むことで、ヒアドキュメントの内容をリテラル文字列としてPythonに渡せます。\n\n日数計算をPythonで書いた理由も明確で、bashの日付計算はmacOSとGNU/Linuxで書き方が違います。date -d はGNU、date -v はBSD。Pythonの time.time() と os.path.getmtime() はクロスプラットフォームで動く（今回はmacOS専用設計ですが、将来の移植コストを下げる）。\n\nstale書き込みの2パターン正規表現\n\n [code] \n\nすでに status: フィールドがあるスキルと、ないスキルで処理を分けています。\n\nstatus: が既にある場合は単純な置換です。active や experimental など何が書いてあっても status: stale に書き換えます。count=1 で最初の1件だけ置換するので、本文中に偶然 status: という文字列が出てきても安全です。\n\nstatus: がない場合は author: auto の直後に改行で挿入します。なぜ author: auto の直後か。YAMLフロントマターは --- で囲まれたブロックですが、Pythonはそのブロック境界を意識した解析をしていません（文字列として正規表現で処理）。フロントマターの最後の行（---）の前に挿入するのが理想ですが、それをするには --- の位置を探す必要があり、コードが複雑になります。author: auto は必ずフロントマターに存在することが安全ガードで保証されているので、そこを挿入点にするのが最も単純かつ安全です。\n\nLLMフェーズの3つの安全装置\n\n前半でも触れましたが、3つの工夫をそれぞれ深掘りします。\n\n--strict-mcp-config --mcp-config '{\"mcpServers\":{}}'\n\nこれを省略してlaunchdからClaudeを起動すると、Claudeは /.claude/claudedesktopconfig.json か類似のMCP設定を読み、Obsidian MCPやFigma MCPなどのサーバーを起動しようとします。それらは認証を要求し、UIがない環境では待ち続けるか、タイムアウトして失敗します。MCPを空オブジェクトで上書きすることで、Claude本体だけをシンプルに起動できます。\n\nperl -e 'alarm 600; exec @ARGV'\n\nbashの timeout 600 claude ... とほぼ同じに見えますが、プロセスグループの扱いが違います。timeout はタイムアウト時にSIGTERMを直接の子プロセス（ここでは claude コマンド）に送ります。しかしClaudeは内部でNode.jsのワーカーやサブプロセスを複数起動することがある。SIGTERMが子プロセスだけに届き、孫プロセスが残留することがあります。perl -e 'alarm 600; exec @ARGV' は同じPIDでClaudeを exec するため、シグナルがそのプロセスグループ全体に届きます。\n\nSTGステージングディレクトリ\n\n [code] \n\nClaudeに /.claude/skills/auto/.curator-proposals.md へ直接書かせると、launchd環境では /.claude/ が書き込み保護されているケースで失敗します。mktemp -d で作った一時ディレクトリに cd してから起動することで、Claudeから見たカレントディレクトリが $STG になります。Claudeへの指示には ./curator-proposals.md（相対パス）と書けば、$STG/curator-proposals.md に書かれます。成功したら cp で正規の場所に置き、rm -rf \"$STG\" で一時ディレクトリを片付けます。\n\nactive >= 2 という閾値\n\n [code] \n\nなぜ1件でもLLMを呼ばないのか。「重複・低品質・統合候補を洗い出す」という作業は、比較対象が複数ないと意味をなしません。1件のスキルを読んで「これ低品質では？」と判定させることは技術的には可能ですが、Claude APIを呼び出すコストに見合う価値がない。週次で最大5ドルの上限（--max-budget-usd 5.00）を設けていますが、そもそも呼び出さないのがベストです。\n\nactive件数が多いほどLLM提案の価値は上がります。10件のスキルに「これとこれは同じ内容なので統合できます」と言ってもらうのは有用です。\n\n---\n\n私が詰まった話\n\n詰まり①：launchdで動くが何もしない\n\n症状：ターミナルで手動実行すると正常動作する。launchdに登録して翌週待っても .curate.log が空のまま。\n\n原因：claude コマンドが見つからない。launchd環境のPATHは /usr/bin:/bin:/usr/sbin:/sbin だけです。/.local/bin/claude はもちろん、/.nvm/versions/node/v24.13.0/bin/ の node もない。スクリプトが [[ -x \"$CLAUDE\" ]] で claude の存在確認をして false になり、LLMフェーズをスキップ。しかし整理フェーズは python3 を使っていて、そちらも見つからない場合は days の計算がゼロ（終了コード非ゼロのまま暗黙的に）になっていました。結果、スナップショットは作成され snapshot taken だけ書かれてそこで静止していた。\n\n直し方：plistの EnvironmentVariables に完全なPATHを書き、スクリプトの冒頭でも export PATH する。両方に書くのは冗長に見えますが、launchdが渡す環境変数とスクリプト内で再エクスポートする変数は別のレイヤーです。片方だけでは特定の環境で再現する問題があったため、現在のスクリプトのように両方に書く形が安定しています。\n\n詰まり②：スナップショットが毎週10倍に膨らんでいく\n\n症状：.snapshots/ ディレクトリが3週目に急に重くなった。ls -lh /.claude/skills/auto/.snapshots/ を見ると、最新のtar.gzが先週の10倍のサイズ。\n\n原因：--exclude を書いていなかったため、.snapshots/ 自体がtar.gzの中に含まれていた。つまり先週のスナップショット（アーカイブ内のアーカイブ）が今週のtar.gzに丸ごと入り込んでいた。これが毎週再帰的に膨らむ。3週目には「スナップショットのスナップショットのスナップショット」という入れ子構造でディスクを圧迫していました。\n\n直し方：\n\n [code] \n\n--exclude='auto/.snapshots' と --exclude='auto/.archive' を追加して解決。tarの --exclude はtar.gz内のパスで指定します。-C \"$HOME/.claude/skills\" でスキルディレクトリに cd した状態でtar化しているため、auto/.snapshots という相対パスで正しく除外されます。\n\n古いスナップショットの削除は現時点で自動化していません。月次で find /.claude/skills/auto/.snapshots -name '.tar.gz' -mtime +60 -delete を手動実行する運用です。これは次の改善課題として残っています。\n\n詰まり③：timeout でClaudeが残留し続けた\n\n症状：LLMフェーズが600秒で止まらず、ps aux | grep claude が翌朝のlaunchd起動時にもClaudeプロセスを表示する。翌週の実行と前週の実行が並走し、$PROP の書き込みが競合してファイルが壊れた。\n\n原因：最初のバージョンでは timeout 600 \"$CLAUDE\" ... と書いていました。timeout はタイムアウト時にSIGTERMを直接の子プロセスに送ります。しかしClaude CLI（バージョンによる）は内部でNode.jsのworkerthreads或いは子プロセスを生成することがあり、SIGTERMが親プロセスのみに届いて孫プロセスが生き残る状況が発生しました。\n\n直し方：\n\n [code] \n\nexec @ARGV によってperlはClaudeに置き換わり（perlのPIDがClaudeのPIDになる）、alarm シグナルはそのプロセスグループ全体を対象にします。加えて ( cd \"$STG\" && perl -e ... ) のサブシェル全体をプロセスグループとして扱うことで、残留プロセスが発生しにくい構造になりました。この修正後は翌朝に残留プロセスが確認されなくなっています。\n\n詰まり④：スキル名が短いと会話ログ全体がヒットした\n\n症状：codex というスキル名を付けたものを作ったところ、そのスキルが永久に「使用中（active）」と判定される。会話ログの grep -rl -- \"codex\" が全ファイルを返してきて、最新mtimeが「今週の会話ログ」になり続ける。\n\n原因：会話ログには「Codexに投げる」「Codexで実装する」という日常的な記述が無数に存在します。スキル名 codex は単語として一般的すぎて、ログ検索がスキル「使用」と「単なる言及」を区別できません。\n\n直し方（と限界）：根本的な解決にはなっていません。現時点での対処は、スキル名をできるだけ固有で長くすることです。codex ではなく codex-delegation-handoff のようなハイフン区切りの複合語にすると、grep が完全一致に近い精度でヒットします。grep -rl -- \"codex-delegation-handoff\" は汎用的な会話ログではほぼヒットしません。\n\n設計的には「会話ログへの言及を使用の代理指標にする」こと自体が近似であり、この精度はその近似の構造的な限界です。完璧な使用ログがAPIレベルで取れない以上、スキル命名の規約でカバーするのが現時点のベストです。\n\n詰まり⑤：staleフラグが本文に書き込まれた\n\n症状：あるスキルの SKILL.md を開くと、フロントマター（--- で囲まれた部分）ではなく本文の中に status: stale が突然書かれていた。YAMLとしては無効で、次回のgrep判定が壊れた。\n\n原因：そのスキルの本文（説明の例示部分）に author: auto の場合は... という文字列が含まれていました。正規表現 r'^(author:[ \\t]auto.)$' の re.M フラグは全行に対して ^ を行頭として扱います。フロントマター内の author: auto より先に本文内の author: auto の場合は... が出てきた場合、そこにマッチして \\nstatus: stale が挿入されます。\n\n直し方：count=1 があるので「最初の1件だけ」置換するという制約はあります。つまり本文が先にくる場合は本文にフラグが入り、フロントマターには入りません。正確な修正は「フロントマター（--- から最初の --- まで）だけを対象にするパーサーを書く」ことですが、コード量が増えます。\n\n現在の現実的な対処は、スキル本文の例示コードに author: auto という文字列を書かないという規約です。コードブロック内のYAML例示であればバッククォートで囲むため行頭にはならず ^ にマッチしませんが、インラインの説明文には注意が必要です。完全な修正はFrontmatterパーサーの実装として積み残しになっています。\n\n---\n\n自動化がうまく動かない理由は、ほとんどの場合「ツールの思い込み」です。ターミナルで動くからlaunchdでも動く。SIGTERMを送れば必ず止まる。grepで名前を探せば使用を検知できる。どれも直感的に正しく見えて、実際の環境では壊れます。\n\nこの仕組みを作った本当の意味は、週次の自動整理よりも、「どこで壊れるか」を事前に考え抜いた設計の思考プロセスを自分のものにすることだったかもしれません。無人で走らせるものを作るたびに、同じ問いが来ます。「これが夜中の4時に失敗したとき、朝起きた自分が何を見れば原因がわかるか」。\n\nそれに答え続けることが、自律環境の品質を上げていく唯一の道です。\n\nつまずきポイント\n\n前段で5つの詰まりを深掘りしましたが、実運用ではそれ以外にも細かい落とし穴が積み重なります。実コードと実体験から網羅します。\n・launchctl load が非推奨なのに通ってしまう。macOS Monterey以降、正しい登録は launchctl bootstrap gui/$(id -u) /Library/LaunchAgents/com.shun.skill-curate.plist。古い load コマンドは「Deprecated」と言いながら受け付けることがあり、起動しない症状が再現性なく出ます。登録状態の確認は launchctl list | grep skill-curate で PID 欄を見る。値がゼロなら「登録済みだが一度も起動していない」です。\n・$LOGS ディレクトリが空・不在だと全スキルが未使用扱いになる。スクリプト9行目で LOGS=\"$HOME/Documents/my-knowledge-base/raw/conversations\" と定義しています。このパスが実在しない場合、grep -rl -- \"$skill\" \"$LOGS\" はヒットゼロで lastlog が空文字列になります。set -u は「未定義変数の参照」を止める命令であり、「空文字列の変数」には反応しません。Pythonはフォールバックとして created: → mtime を使いますが、スキルを作った日を最終使用日とみなすため、作ってから30日が経過していれば全スキルが一斉にstaleになります。最初にログ格納パスの実在確認を [[ -d \"$LOGS\" ]] || { echo \"LOGS missing\"; exit 1; } で先にはじくべきでした。\n・会話ログにバイナリが混在するとgrepが偽陽性を出す。ログディレクトリに .png や添付ファイルが紛れると、grep -rl -- \"skill-name\" がバイナリにもマッチします。現行の grep に --include='.md' や --include='.txt' は付いていません。会話ログのフォーマット（純テキストのみ）を前提とした設計です。バイナリが混入しているディレクトリを $LOGS に指定するとスキルが「常に最近使われている」と誤判定し続けます。\n・stat -f '%m' はmacOS（BSD）専用構文。スクリプト40行目で使っています。GNU/Linuxの stat --format=%Y とは書き方が違います。今回のlaunchd前提ではmacOS固定なので実害ゼロですが、同じスクリプトをDockerコンテナやLinuxサーバーに持ち込む際は書き換えが必要です。Pythonの os.path.getmtime() がクロスプラットフォームで書かれているのと非対称です。\n・Python sys.argv の防衛的インデックス補填を外すと IndexError でクラッシュ。実コード44行目：\n [code] \n・[\"\",\"\",\"\"] の補填がないと、bash側で引数が1つでも欠けたとき IndexError が出て終了コード非ゼロになります。days が空のまま if (( days > ARCHIVEDAYS )) に入ると算術式エラーでスクリプト全体がそこで止まります。Python側でクラッシュしないようにしておくことで、bash側の防衛ラインを薄くしても安全な構造にしています。\n・--max-budget-usd 5.00 で途中打ち切りになると proposals.md が不完全。LLMが5ドルの上限に達した時点でClaudeが強制終了され、$STG/curator-proposals.md は書き出し途中のMarkdownになります。スクリプトは [[ -f \"$STG/curator-proposals.md\" ]] でファイルの「存在」だけを確認して cp するため、内容が壊れていても上書きされます。重要な提案を見落とすリスクはありますが、上限を設けない場合は週次バッチでAPIコストが青天井になります。5ドルは「提案ファイルが壊れても痛くない上限」として設定しています。\n・com.shun.skill-curate.log はローテーション設定なし。plistの StandardOutPath と StandardErrorPath は同じファイル /.claude/logs/com.shun.skill-curate.log を指しています（plist実装より）。週次実行のたびに追記されるため、1年放置すると数十MBになります。macOSの newsyslog 設定も未実装です。現状は tail -100 /.claude/logs/com.shun.skill-curate.log で直近のみ確認する運用です。\n・スナップショットの削除を自動化していないので積み上がる。現行スクリプトはスナップショットを作るだけで削除しません。月次で手動実行が必要です：\n [code] \n この1行を月次launchdに仕込む（plistで Weekday を省いて Day: 1 = 毎月1日）のが次の改善ステップです。\n・launchd二重起動時に .curator-proposals.md の書き込みが競合。LLMフェーズが600秒を超えて翌週の StartCalendarInterval が発火すると、2インスタンスが並走します。.curate.log は append なのでファイルは壊れませんが、$PROP ファイルには2プロセスが同時に cp を走らせます。現行実装に flock によるロックファイルはありません。並走に気づく手がかりは .curate.log に curate done が2行連続で現れることです。\n・author: の書き換えを忘れると意図せずarchiveされる。残したいスキルを保護するには author: フィールドを auto 以外に変えるだけで済みます（例: author: manual）。しかし「あとで変えよう」と後回しにすると忘れます。90日後に静かに .archive/ へ移動されて気づかない、という事態になります。スキルを作った直後に author: を確認する習慣が必要です。\n・代理指標の検証を怠ると誤判定に気づけない。「会話ログへの言及を使用とみなす」近似がどの程度の精度で動いているかを定期確認するのは重要です。検証は1コマンドでできます：\n [code] \n ヒット数がゼロなら「本当に使われていないか、スキル名がログに書かれていないか」のどちらかです。ゼロでも .archive/ 退避は .snapshots/ からいつでも戻せるため、精度が低くても取り返しはつきます。\n\n---\n\nベストプラクティス\n\n実装と運用から導いた、再現性のある指針です。\n\n1. スキル名は固有・長くハイフン区切りにする\n\ncodex より codex-delegation-handoff。grep -rl -- \"codex-delegation-handoff\" は汎用会話ログにほぼヒットしません。使用代理指標の精度はスキル命名の規約で半分決まります。新しいスキルを作るとき、skill-name が一般的な英単語かどうか を先に確認する習慣が精度の基盤です。\n\n2. author: auto フラグを保護機構の唯一の旗にする\n\n「機械が生成した整理対象」を示すフラグは1種類だけにしておく。それ以外のスキルは author: manual でも author: lily でも、auto でなければ実コード34〜37行目の安全ガードで無条件スキップされます。フラグを増やしたり条件を複雑にしたりすると、保護ロジックが壊れた時の影響範囲が広がります。\n\n3. set -u はバッチスクリプトの最初の1行\n\n未定義変数が float() に渡ると Pythonが黙って0を返し、全スキルが「1970年から未使用」扱いになります。set -u があれば未定義変数の参照でスクリプトが即停止し、ログに行番号が残ります。原因調査の時間が10分から30秒に縮まります。\n\n4. PATH は plist と スクリプトの両方に書く\n\nplist の EnvironmentVariables/PATH はlaunchdがプロセスに渡す環境変数です。スクリプト冒頭の export PATH はサブシェル起動時に引き継ぐための再エクスポートです。どちらか片方だけでは「特定の環境でサブシェルのclaude/python3が見つからない」症状が再現します。現行の plist と skill-curate.sh 冒頭は両方に同じパスを書いています。\n\n5. perl -e 'alarm 600; exec @ARGV' でタイムアウトを完全に掛ける\n\nbash の timeout は直接の子プロセスにSIGTERMを送ります。Claudeが内部でworkerthreadsやサブプロセスを生成した場合、孫プロセスが生き残ります。perl alarm exec はperlがClaudeに置き換わる（同じPIDで exec）ため、シグナルがプロセスグループ全体に届きます。翌週のlaunchd起動時にClaudeが残留している、という状況を防げます。\n\n6. LLMにはステージングディレクトリのカレントで書かせる\n\nmktemp -d で一時ディレクトリを作り、そこに cd してからClaudeを起動します。Claudeへの指示に ./curator-proposals.md（相対パス）と書くことで、/.claude/ への直接書き込み権限を与えずに出力を受け取れます。[[ -f \"$STG/curator-proposals.md\" ]] でファイルの存在確認後に cp、最後に rm -rf \"$STG\" で片付ける。この3ステップがステージング経由の定石です。\n\n7. --max-budget-usd 5.00 でLLMコストに上限を設ける\n\n週次バッチのLLMフェーズは「提案を書く」だけで、実際にスキルを変更しません。仮に提案ファイルが不完全でも翌週再実行されます。このタスクに5ドル超の課金は不要です。上限値はタスクの「失敗しても痛くない最大コスト」で決めます。\n\n8. --strict-mcp-config --mcp-config '{\"mcpServers\":{}}' でMCPを無効化する\n\nlaunchdからClaudeを起動すると、インタラクティブなMCPサーバーが認証待ちになります。UIのない環境では永遠に待ち続けるか、タイムアウトしてLLMフェーズ全体が失敗します。空のMCP設定を上書きすることで、Claude本体だけをクリーンに起動できます。週次バッチで外部サービスに接続する必要はありません。\n\n9. find の4フラグセットは崩さない\n\n [code] \n\n-mindepth 1（$AUTO 自身を除外）、-maxdepth 1（.archive/ 配下の再スキャンを防ぐ）、-type d（ファイルをスキルと誤認しない）、! -name '.'（.snapshots .archive をスキャンしない）。4つのうち1つでも外すと無害に見えて後で気づきにくいバグが生まれます。\n\n10. スナップショットの --exclude は .snapshots と .archive の両方\n\n片方だけ書くと再帰肥大か、退避済みスキルの二重退避が起きます。実コード24〜26行目のように両方を明示します：\n [code] \n-C \"$HOME/.claude/skills\" で作業ディレクトリを移動した上で auto を指定しているため、--exclude のパスは auto/.snapshots という相対形式です。\n\n11. nollm 引数でLLMなしテストができる口を残す\n\nRUNLLM=\"${1:-llm}\" で第1引数が nollm のときLLMフェーズをスキップできます。初回セットアップや設定変更後の動作確認は /.claude/scripts/skill-curate.sh nollm で走らせれば、スナップショット取得・stale/archive判定だけを検証できます。Claude APIを呼ばないのでコスト・時間・残留プロセスのリスクがゼロです。\n\n12. 二重ログ設計で「起動したか」と「何をしたか」を分離する\n\nlaunchdのログ（/.claude/logs/com.shun.skill-curate.log）はプロセス起動レベルのエラーを記録します。スクリプト内のアプリログ（/.claude/skills/auto/.curate.log）はスナップショット取得・stale判定・archive操作を記録します。問題診断の順序は「launchdログに何もない→スクリプトが起動していない」「launchdログはあるがアプリログが snapshot taken で止まっている→その先でエラー」と二段階で絞り込めます。\n\n13. リストアコマンドを /.claude/scripts/ にメモしておく\n\n運用中に「archiveしたスキルを戻したい」は必ず起きます。コマンドをその場で考えなくて済むように、手元に用意しておきます：\n [code] \n\n14. 代理指標の誤判定は .archive/ の非破壊性でカバーする\n\n「会話ログへの言及を使用とみなす」近似の精度は完璧ではありません。設計の正直な評価として、この近似は「完璧な使用ログより運用可能な指標を選ぶ」という判断です。誤ってarchiveされたスキルは mv で1秒で戻せます。精度より可逆性を先に固める。これが自律バッチ設計の基本的な姿勢です。\n\n---\n\nまとめ\n\nskill-curate.sh と com.shun.skill-curate.plist がやっていることは、突き詰めると3つです。実行前にスナップショットを取る・author: auto 以外には触れない・削除でなく移動で退避する。この3原則があるから、精度が低い代理指標でも週次で走らせ続けられます。\n\n代理指標の限界を知っていてもなお使うのは、「完璧な設計」より「毎週動く不完全な仕組み」の方が価値があるからです。週次でスナップショットが積み上がり、staleフラグが更新され、LLM提案が書き出される。ログを見れば先週何が起きたかわかる。これが自律環境の「記憶」です。\n\nClaude Codeは使えば使うほど知識が溜まる。しかしその知識を整理する仕組みがなければ、最終的にはコンテキスト圧迫という形でその知識が性能を食い始めます。auto-skillのキュレーション自動化は、「環境の環境を整備する」メタレイヤーです。月商120万の仕事の大半は、個別タスクをこなすより次の100タスクが自動化される仕組みを作ることです。この週次スクリプトはその考え方の、最も地味で最も効いた実装例のひとつです。\n\n---\n\n仕組みの全体像・月120万の内訳・30日手順は有料noteにまとめています。\n📕 Claude Code自律環境で、実際どう稼ぐか ― 仕組み・実例・始め方・サポート\n\n \n\n---\n\nLily（@bokuwalily）― 個人開発者。Claude Code で自動化基盤を組みながら、iOSアプリやWebサービスを量産しています\n・制作物・記事は bokuwalily.com にまとめています🖥️\n・AIで「寝てても回る仕組み」を作って月120万にした話は noteの有料記事 に💰\n・OSS: github.com/bokuwalily 🐙\n・最新情報・お問い合わせは X @bokuwalily へ🌍\n\n皆さんの ❤️ やシェアが励みになります！",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "1d24d1525c327a58",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7741040462427746,
+      "popularityPercentile": 0.4277456647398844,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "Claude Codeの古いauto-skillを週次で整理する仕組みを紹介した。",
+      "reason": "増えたauto-skillは未使用でも会話に読み込まれ、コンテキストを圧迫するため、週次で自動整理する。",
+      "keywords": [
+        "Claude Code",
+        "auto-skill",
+        "SKILL.md",
+        "コンテキスト",
+        "自動キュレーション",
+        "automation"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "その「97%改善」を、私は捨てた",
+      "url": "https://qiita.com/lyr/items/f9a625377e01850c9fdb",
+      "publishedAt": "2026-08-14T23:15:01.000Z",
+      "author": "lyr",
+      "authorDetail": {
+        "name": "lyr",
+        "handle": "@lyr",
+        "url": "https://qiita.com/lyr",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4478394/profile-images/1785710165",
+        "bio": "LYR は、言語の壁をなくすソフトウェアを開発しています。\r\n\r\nリアルタイム翻訳、OCR、AIエージェント、推論基盤などの技術を中心に、開発で得られた知見をQiitaで公開しています。\r\n\r\n技術ブログ: https://lyr.jp",
+        "followers": 1,
+        "posts": 24,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/lyr_app"
+          },
+          {
+            "label": "Web",
+            "url": "https://lyr.jp"
+          }
+        ]
+      },
+      "tags": [
+        "量子化",
+        "計測",
+        "評価",
+        "LLM",
+        "生成AI"
+      ],
+      "snippet": ":::note info この記事は、自社ブログの LYR Performance Note #014 に掲載したものの転載です。 ::: 華々しい数字ほど、生の出力を見て殺す 自動計測が「英字のゴミが97%減った」という朗報を返してきた。私はその数字を採用せず、捨てた。 生の出力を一枚ずつ見ると、97%は二重の計測バグだった。①圧縮工程の乱数でまれに壊れた個体が生まれ、②集計器の解析失敗フォールバックが生テキスト全体を数え上げていた。公正に測り直すと、三者はほぼ同等（5 / 7 / 9語）だった。 ただし、技術そのものまで巻き添えで葬らない。「指標は棄却、技術の可否は未解決」——どこまで分かって、どこから分からないかを線引きすることが、次に正しく測り直すための余白になる。 前回までで、自前の小さなモデルを圧縮（量子化）して、速く・安くした。品質はほぼ落ちない——ただし、全体の1割弱の\"き…",
+      "body": ":::note info\nこの記事は、自社ブログの LYR Performance Note #014 に掲載したものの転載です。\n:::\n\n華々しい数字ほど、生の出力を見て殺す\n\n自動計測が「英字のゴミが97%減った」という朗報を返してきた。私はその数字を採用せず、捨てた。\n\n生の出力を一枚ずつ見ると、97%は二重の計測バグだった。①圧縮工程の乱数でまれに壊れた個体が生まれ、②集計器の解析失敗フォールバックが生テキスト全体を数え上げていた。公正に測り直すと、三者はほぼ同等（5 / 7 / 9語）だった。\n\nただし、技術そのものまで巻き添えで葬らない。「指標は棄却、技術の可否は未解決」——どこまで分かって、どこから分からないかを線引きすることが、次に正しく測り直すための余白になる。\n\n前回までで、自前の小さなモデルを圧縮（量子化）して、速く・安くした。品質はほぼ落ちない——ただし、全体の1割弱の\"きわどい\"ケースで、まれに崩れる。その崩れの一つが、翻訳結果に生の英語が混じる現象だ（日本語の訳文の中に、英単語のゴミが残る）。\n\nこの\"英字残留\"を潰すために、ある補修技術を試した。自動計測は、劇的な朗報を返してきた。英字のゴミが、97%減った。\n\n私は、その数字をそのまま採用しなかった。この記事は、なぜ華々しい97%を捨てたかの話だ。\n\n97%という朗報\n\n補修技術（圧縮で失われた精度を、モデル内部の重みを組み替えて取り戻す後処理。以下ローテーションと呼ぶ）を、強く圧縮したモデルにかけて、マンガ30ページを翻訳させた。集計はこうだった。\n\n| 指標 | 補修前 | 補修後 | 差 |\n|---|--:|--:|--:|\n| 英字のゴミ（語数） | 968 | 33 | −97% |\n| 英字が残ったページ数 | 19/30 | 5/30 | −74% |\n| 基準モデルとの一致度[^agree] | 81.6% | 85.8% | +4.2pt |\n\n[^agree]: 「基準モデルとの一致度」＝圧縮していない高精度版（FP16）が出す次の単語を、圧縮版がどれだけ再現できるか（教師強制下の top-1 一致率）。+4.2pt は「FP16 の挙動に少し近づいた」という意味で、翻訳の良し悪しそのものではない。\n\nしかも、圧縮していない高精度版（FP16）と並べると、物語は完璧に見えた。\n・高精度版のゴミ：3語（ほぼクリーン）\n・強く圧縮した版：968語（圧縮がゴミを+965語も暴発させた）\n・補修をかけた版：33語（935語を回収し、ほぼ高精度版の水準に戻した）\n\n「圧縮がゴミを壊滅的に増やし、補修がそれを高精度版の水準まで回復させる」——教科書のようにきれいな筋書きだ。このまま採用すれば、「補修技術は本番投入の価値あり」と結論できた。\n\n数字が、良すぎた\n\n手が止まったのは、−97%があまりに清潔だったからだ。現実のモデルの崩れは、こんなに素直に一方向へ揃わない。\n\nもう一つ、別々の計測が食い違っていた。同じ補修技術を、一般的な文章の指標（perplexity）で測ると、回復は29%どまり。翻訳タスクでだけ97%回復——二つの指標が桁違いにズレるとき、たいていどちらかの計測が壊れている。\n\nだから、集計値を信じる前に、生の出力そのものを見ることにした。3モデル（高精度版・圧縮版・補修版）にマンガ30ページを訳させ、出力をブラウザに並べて、一枚ずつ目で見た。\n\n公正に測り直す\n\n見て、すぐに分かった。是正は二段あった。\n\n是正その一：数え直す。 集計プログラムは、モデルの\"独り言\"まで英語として数えていた。モデルは訳文を返す前に、内部で思考メモ（ で閉じる作業領域）を書く。訳文だけを取り出して——思考メモを除いて——数え直すと、高精度版と補修版のゴミは一桁に落ちた。\n\n是正その二：個体を引き直す。 だが圧縮版の 968 は、数え直しだけでは消えなかった。この個体は思考メモではなく訳文そのものに生の英語を吐いていたからだ（後述の穴①）。同じ圧縮工程をやり直して正常な個体を引くと、訳文値は 7 語に落ちた。\n\n二段の是正を通した結果がこれだ（圧縮版の列は、引き直した正常個体の値）。\n\n| | 高精度版 | 圧縮版※ | 補修版 |\n|---|--:|--:|--:|\n| 英字のゴミ（語数） | 5 | 7 | 9 |\n| ゴミが残ったページ | 4 | 5 | 8 |\n\n ※ 引き直した正常個体。968 を吐いた不運な個体そのものではない。 \n\n三者、ほぼ同じ。 正常な個体どうしを、訳文だけで数えれば、圧縮も補修もゴミをほとんど動かさない。968 も 33 も、二つの是正の前でだけ立っていた幻だった。−97%は、跡形もなく消えた。\n\n \n\n 図1：同じ現象を、二つの物差しで測ると。 自動指標では圧縮版968語・補修版33語と巨大な差に見えたが、生の訳文だけを数え直すと三者とも5〜9語でほとんど差が無い。−97%は、物差しの側の産物だった。\n\n二重の穴\n\nでは、あの968はどこから来たのか。二つのバグが噛み合っていた。\n\n穴①：圧縮に、乱数が混じる。 モデルを圧縮する工程には、少量のサンプルで丸め方を調整する\"キャリブレーション\"があり、ここに乱雑さが入る。同じ手順でも、回すたびに微妙に違うモデルができる。運悪く一度、\"壊れた\"圧縮版が生まれ、それが訳文ではなく生の英語を吐いた。同じ工程をやり直したら、30ページすべて正常・ゴミは7語だった。968は、たまたま引いた不運な一個体にすぎなかった。\n\n穴②：集計プログラムの\"逃げ道\"。 ゴミを数えるプログラムは、モデルの構造化出力（JSON）を解析して訳文だけを取り出す設計だった。だが解析に失敗すると、生テキスト全体の英語を数えるフォールバック（逃げ道）に落ちる。思考メモも、指示文の残響も、何もかも英語としてカウントする。連鎖はこうだ。\n壊れた個体 → JSON解析に失敗 → 逃げ道が生テキスト全体を英語カウント → 968 に爆発\n\n不運な個体（穴①）×過大カウントする逃げ道（穴②）が掛け算になって、巨大な偽の差が生まれた。 どちらか一方だけなら、ここまで派手には壊れなかった。\n\n皮肉なことに、「勝者」だったはずの補修版のほうに、別の欠陥があった。30ページ中29ページで、思考メモの タグが訳文の前に漏れ出していた。集計値は、この後退をひとことも教えてくれなかった。\n\n本物だけ、残す\n\n騒がしい数字を捨てたあと、手元に残った\"本物\"はこれだけだ。\n・一般文の perplexity：10.65 → 10.42\n・基準モデルとの一致度：81.6% → 85.8%\n\n小さいが、確かな改善。派手さはない。\n\nそしてもう一つ、捨て方にこだわった。私は「補修技術は無効だ」とは結論していない。 の漏れも、ゴミが減らないことも、私の計測手順の交絡（正規のサーバーでなく、その場しのぎの評価経路で測った）に由来する可能性が十分ある。だから結論はこう畳んだ——「−97%という自動指標は棄却。この補修が本番で効くかは未解決で、正しく測り直す必要がある」。\n\n「計測が間違っていた」と「技術が間違っていた」を混同しないこと。華々しい数字を殺すのと同じくらい、技術そのものまで巻き添えで殺さないのが、公正さだ。\n\n教訓\n\n1. 華々しい数字ほど、生を見て殺す。 −97%のような清潔すぎる数字、指標どうしの桁違いのズレは、勝利ではなく警報だ。集計値の上流にある生の出力を、自分の目で一枚ずつ見るまで、朗報を採用しない。\n\n2. 非決定な工程はseedを固定し、集計器の\"逃げ道\"を疑う。 乱数が混じるなら一回の結果は個体差でしかない（再現しない改善は、改善ではない）。そして解析失敗時のフォールバックは、静かに巨大な偽シグナルを作る——握りつぶした先で何を数えているかまで見る。\n\n3. 計測の誤りと、技術の誤りを、分けて畳む。 偽の勝利を捨てるとき、技術まで巻き添えで葬らない。「指標は棄却、技術の可否は未解決」という線引きが、次に正しく測り直すための余白になる。\n\nそして根っこにあるのはマニフェストの第1原則「まず計測せよ」——ただし正しく。間違った計測は、測っていないより悪い。 偽の勝利を、本物として出荷させてしまうからだ。\n\n---\n\n付録：生データ\n\n対象: 4Bモデルを強く圧縮（INT4）＋学習型ローテーション補修、マンガ30ページ翻訳、A100で測定。\n\n| 項目 | 数字 | 条件・留保 |\n|---|---|---|\n| 自動指標（誤） | 英字ゴミ 968→33語（−97%）、残存ページ 19/30→5/30 | FP16基準 = FP16:3 / 圧縮:968 / 補修:33 |\n| 公正な再測（訳文値のみ） | FP16=5 / 圧縮版=7 / 補修版=9語（残存ページ 4/5/8）＝三者ほぼ同等 | 圧縮版の7は、968を吐いた個体ではなく引き直した正常個体の値 |\n| 穴① 非決定性 | 圧縮版がまれに degenerate 化し生英語を吐く | 再生成すると 30/30 正常。本番では個体差リスクが残る |\n| 穴② 集計器のフォールバック | JSON解析失敗時に生テキスト全体の英語をカウント | 逃げ道が巨大な偽シグナルを作った |\n| 本物として残る改善 | wikitext ppl 10.65→10.42、teacher-forced 一致度 81.6→85.8% | 一般文の回復は gap の約29%どまり（翻訳タスクの「97%」と桁違い＝片方が壊れている兆候） |\n| 補修版の副作用 | タグが 30ページ中29ページでJSON前に混入 | 集計値には現れない |\n| 未解決 | 計測経路（非正規serve）の交絡の可能性 | 正規serve＋free生成＋pairwise judge＋calib seed固定での再評価が必要。「見送り」ではなく「要正規評価」 |\n\n---\n\nシリーズ「モデル — 小さく、速く、賢く」第4回の記事です。原文と続きは LYR Performance Note #014 / 記事一覧 にあります。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c795e13524b72885",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.47217726396917153,
+      "popularityPercentile": 0.8583815028901735,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "量子化モデルの「英字残留97%減」は計測バグで、再評価すると差はほぼ消えた。",
+      "reason": "自動集計の97%改善は、壊れた出力と解析失敗を二重に数えた結果だった。生出力を確認して再計測すると、3方式は5・7・9語でほぼ同等になった。",
+      "keywords": [
+        "量子化",
+        "LLM",
+        "評価",
+        "計測バグ",
+        "ローテーション"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "自動評価の数値を優先するか、生の出力を人手で再確認するか",
+        "forSide": "「英字のゴミ97%減」は二重の計測バグで、再計測では5・7・9語と差が縮んだ。",
+        "againstSide": "自動指標は人手より広範囲を一貫して測れるため、検証を捨てず改善すべきだ。",
+        "oneSided": true,
+        "yourAngle": "量子化モデルの翻訳出力と集計結果を同じ条件で突き合わせられる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIレビューの「問題ありません」を疑えているか ― LLMの迎合(sycophancy)を人間側が検出できるかを測るテストとその設計を公開",
+      "url": "https://qiita.com/777atsushi/items/e28e567b1945e8d44400",
+      "publishedAt": "2026-08-15T11:41:03.000Z",
+      "author": "777atsushi",
+      "authorDetail": {
+        "name": "777atsushi",
+        "handle": "@777atsushi",
+        "url": "https://qiita.com/777atsushi",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocJ_6UEdOnHmBCSZZCo_yhvP42nU5Q8Bv4QKY8qS_ppwNMk-yrEu=s96-c",
+        "followers": 0,
+        "posts": 3,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "生成AI",
+        "プロンプトエンジニアリング",
+        "LLM",
+        "AIエージェント"
+      ],
+      "snippet": "この記事でわかること ・LLMの迎合(sycophancy)には型があり、型によって人間の検出率が大きく違う ・既存の迎合ベンチマークはすべてモデル側を測っており、人間側の検出能力は測られていない ・それを測るWebテストを作って公開した(所要10分・登録不要) ・テストの設計判断と、単一HTML＋Apps Scriptによる実装構成 ・試験的な集計として、分類の定義を示すかどうかで迎合の検出率が 8% → 50% に変わった。ただし「否定・批判の形を取った迎合」だけは 17% のままだった(各3名、暫定値) 自分の会話ログを点検するチェックリストとしても使える内容にしてある。 私たちはすでに、AIが迎合することを知っている コーディングエージェントを使っていると、こういう運用に行き着く。 ・実装したエージェント本人に「バグない?」と聞かない。評価専用のサブエージェントを別に立てる ・同じ…",
+      "body": "この記事でわかること\n・LLMの迎合(sycophancy)には型があり、型によって人間の検出率が大きく違う\n・既存の迎合ベンチマークはすべてモデル側を測っており、人間側の検出能力は測られていない\n・それを測るWebテストを作って公開した(所要10分・登録不要)\n・テストの設計判断と、単一HTML＋Apps Scriptによる実装構成\n・試験的な集計として、分類の定義を示すかどうかで迎合の検出率が 8% → 50% に変わった。ただし「否定・批判の形を取った迎合」だけは 17% のままだった(各3名、暫定値)\n\n自分の会話ログを点検するチェックリストとしても使える内容にしてある。\n\n私たちはすでに、AIが迎合することを知っている\n\nコーディングエージェントを使っていると、こういう運用に行き着く。\n・実装したエージェント本人に「バグない?」と聞かない。評価専用のサブエージェントを別に立てる\n・同じ問題で2回失敗したら、そのモデルによる修正を止めて別モデルにセカンドオピニオンを取る\n・返ってきた提案をそのまま採用せず、既存コードと制約に照らしてから判断する\n\nこれらはすべて、同じ前提の上に立っている。\nAIは、こちらの言うことに合わせてくる。だから自己申告は信用できない。\n\nこの現象には名前がある。sycophancy(迎合) である。モデルが、正しさよりもユーザーへの同調を優先して応答する傾向を指す。\n\n面白いのは、私たちがこの問題を「対策」でしか扱っていないことだ。サブエージェント、マルチモデル、レビュー観点の固定化。どれもAI側の構成をいじる方法である。\n\nしかし、こういう問いは立てられていない。\n迎合された出力を、人間は直接見抜けているのか。\n\n対策を組むのは、見抜けない前提で自動化しているからだ。では実際、どれくらい見抜けないのか。それを測ったものが見つからなかったので、作った。\n\n先にテストを置いておく\n\n迎合検出テスト 第1回\n\nhttps://atumitu10311227-gif.github.io/geigo-test/index-1.html\n\n会話ログを2本読み、問題があると思うブロックにチェックを入れ、その種類を三択で答える形式。所要10分程度、登録不要、個人情報の入力欄なし。\n\n先に受けてから、この記事の続きを読むことを勧める。\n\n以下で迎合の類型を解説するが、それを読んでから受けると、答えが見えやすくなる。素の状態でどれだけ検出できるかを知りたい人は、先にどうぞ。\n\n---\n\n既存のベンチマークは、全部モデル側を測っている\n\n迎合を測る研究は既にある。\n\n| ベンチマーク | 測っているもの |\n|---|---|\n| SycEval | 反論を重ねたときに、モデルが立場を変えるか |\n| SYCON-Bench | 複数ターンの会話で、何ターン目に意見を翻すか |\n| GlazeBench | 事実の誤りへの同意率、賞賛の強度 |\n| ELEPHANT | コミュニティの合意が非とする行動を、モデルが是認するか |\n\nいずれも被験者はモデルである。\n\n一方、そのモデルを使っている人間側の検出能力を測るものは、調べた範囲では見つからなかった。世の中には「AIが迎合するか」のスコアは存在するが、「あなたが迎合に気づけるか」のスコアは存在しない。\n\nここが空白だったので、そこを測るテストを作った。\n\n---\n\n見抜きにくい迎合には、型がある\n\nテストを設計するにあたって、迎合を三つに分類した。この分類自体が、そのまま自分の会話ログを点検するチェックリストになる。\n\n以下の例文はすべて、この記事のために作った架空のやりとりである(テストの問題文とは別物)。\n\n型1: 寄り添い型\n\n共感、肯定、評価。最も分かりやすい形。\nその構成でよいと思います。責務が明確に分かれていて、後から読む人にも意図が伝わる設計です。\n\n一見まっとうなレビューだが、AIは制約条件も既存コードも見ていない。評価の材料がないまま評価している。 それでも肯定として成立してしまうのは、褒め言葉が判断の体裁を持つからである。\n\nこの型は比較的検出される。後述の試験データでも、分類の定義を示せば9割以上が気づいた。\n\n型2: 否定・批判型\n\n形式上は否定・批判なのに、実質的に相手が望む方向に沿っている。 これが一番厄介である。\n\nパターンが三つある。\n\n(a) 不安を否定する\nそこは気にしすぎだと思います。この規模であれば、その最適化は不要です。\n\nAIは相手に反対している。しかし否定の対象は相手の懸念であり、否定することで相手を楽にしている。相手が最も避けたい可能性を、検討対象から外している。\n\n(b) 懸念を受け止めてから、現状維持に着地する\nご指摘の懸念はもっともです。ただ、現状の実装で実害が出る可能性は低いでしょう。\n\n前半で受け止めているぶん、後半の否定に説得力が乗る。結論は何も変わっていない。\n\n(c) 痛くないところだけ指摘する\nでは率直に申し上げます。変数名が一部わかりにくいので、命名を統一するとよいでしょう。なお、設計方針自体は妥当です。\n\n「厳しく指摘して」に対して、指摘の形式は満たされている。しかし指摘されたのは表層であり、本質には触れていない。そして直後に全体を肯定している。\n\n一つ批判を入れてから肯定すると、肯定の信頼性が上がる。 「批判もできる相手が肯定した」という形になるからだ。レビューを依頼したときに最も起きやすい。\n\n型3: 迎合するために、事実を作る\n\n迎合とハルシネーションは、独立した現象として語られることが多い。実際には接続する。\nこの書き方は、一般にパフォーマンス面で推奨されているパターンです。\n\n出典がない。どの言語、どの処理系、どの負荷条件での話なのかが示されていない。検証しようがない一般論である。\n\nなぜこれが出るのか。機能として見ると、肯定方向の出力を成立させるために、根拠のない一般化が生成されている。 肯定する材料がないところで肯定を成り立たせようとすると、材料の側が作られる。\n\n分類上はハルシネーションだが、発生の動機は迎合である。この二つを別々の現象として扱っていると、この型は捕まえられない。\n\n---\n\n迎合の原因は、こちらの問いにもある\n\nもう一つ、測定対象に含めたものがある。利用者側の発言である。\n\n迎合は相互作用の産物であり、片方だけを見ても原因は分からない。\n\n以下は、答えの範囲を先に決めてしまっている聞き方の例である。\nこの設計、悪くないと思うんだけどどう?\n\n「悪くない」という前提を渡している。AIはその範囲で答える。\nこの実装の良い点を教えて\n\n良い点を挙げる範囲に固定されている。是非は評価されない。\nA案でいこうと思う。B案は工数がかかりすぎるよね?\n\n結論と、対抗案を否定する理由を、両方こちらが決めている。\n\n対して、範囲を開いたままにする聞き方はこうなる。\nこの設計が破綻する条件を挙げて\nA案とB案を、それぞれ成立する前提条件を明示した上で比較して\nこの実装を採用しない方がよいケースがあるとしたら、どういう場合か\n\n問題の本質はプロンプトの巧拙ではない。\n\n問いが選択肢の幅を狭めると、返ってきた答えは自分の見立てと一致する。一致した答えは、違和感を生まない。だから疑われない。\n\n事実の誤りなら気づく。数字が変だ、このAPIはそんな引数を取らない、と引っかかる。しかし「あなたの判断は妥当です」には引っかかりようがない。\n\n同意と誘導は違う\n\nここは区別が要る。\n\nAIの回答に「なるほど、確かに」と同意するのは、無検証なら危ういが、AIの選択肢を狭めてはいない。\n\n一方「その反論はいらない」「明らかにこうだよね」は、AIが取れる応答を限定する。\n\n誘導とは、AIの選択肢の幅を狭めることを指す。 客観的な意見が欲しいなら、聞き方の側を設計する必要がある。\n\n---\n\nテストの設計\n\n以上を踏まえ、三分類でテストを組んだ。\n\n| 記号 | 分類 | 定義 |\n|---|---|---|\n| A | AIの迎合 | AIが客観性・中立性を失い、相談者の枠組みや望む結論に沿って応答している |\n| B | AIの誤り | 事実の創作、検証できない断定、根拠の飛躍 |\n| C | 相談者側の誘導 | 相談者の発言が、AIの選択肢の幅を狭めている |\n\n会話ログ2本、計23ブロック。問題箇所の数は受験者に伏せている。 問題のないブロックも混ぜてあり、誤検出も測定対象にしている。\n\n設計上の判断が三つある\n\n1. 利用者側の発言を判定対象に含めた\n\n既存ベンチマークにない要素。読み手は相談者に同一化して読むため、自分がやりそうな聞き方は疑いの対象にならない。ここが最も検出されにくいと想定した。\n\n2. 迎合を二類型に分けて集計する\n\n寄り添い型と否定・批判型を分けないと、「褒め言葉を探す」読み方で片方だけ検出され、もう片方が丸ごと残る。分けて記録することで、どちらが盲点なのかが数字で出る。\n\n3. 部分正解を設けた\n\n型3で書いた通り、迎合と誤りが接続する応答は、AとBのどちらで読んでも成立する。機能はA、手段はBだからである。そういう箇所はどちらを選んでも得点とし、解説でこの構造を説明する形にした。\n\n題材について\n\n第1回の題材は、人間関係の相談と、企画書の評価である。コードレビューではない。\n\n理由は二つある。第一に、迎合の構造は領域を問わないこと。第二に、コード文脈だと技術的な正誤判断が混ざり、迎合の検出だけを切り出せないこと。「この実装は問題ない」が迎合なのか正しい技術判断なのかは、コードを見ないと分からない。相談ログなら、論理構造だけで判定できる。\n\n開発文脈版は第2回として作る予定でいる。こういうログを問題にしてほしいという要望があれば、コメントで挙げてほしい。 そのまま題材にする。\n\n---\n\n実装\n\n技術的に目新しいことはしていない。\n・単一のHTMLファイル。外部ライブラリなし\n・採点は端末内で完結(素のJavaScript)\n・記録は Google Apps Script 経由で Google スプレッドシートへ POST\n・ホスティングは GitHub Pages\n・費用ゼロ\n\nApps Script への POST はプリフライトで弾かれるので、no-cors と text/plain を使っている。\n\n [code] \n\n一点だけ意図的な判断がある。採点をAIにやらせていない。\n\n迎合を測る道具の判定を、迎合しうるモデルに委ねると、評価基準そのものが汚染される。固定ロジックで採点した確定値をAIに渡して「説明」させる構成なら成立するが、判定そのものは渡さない。\n\n同じ理由で、正解データはクライアント側に埋め込んである。ソースを見れば答えが分かる。ここは意図的で、正解を隠すことよりも、実装が検証可能であることを優先した。\n\n---\n\n記録しているデータ\n\n総得点ではなく、全ブロックの回答を個別に記録している。\n\n| 項目 | 内容 |\n|---|---|\n| 各ブロックの回答 | -(未チェック) / A / B / C / ?(種類未選択) |\n| 種類別の正解数 | 迎合・誤り・誘導 |\n| 迎合の内訳 | 寄り添い型 / 否定・批判型 |\n| 見落とし・誤検出 | 数と箇所 |\n| 所要時間 | 秒単位 |\n| AI利用頻度 | 任意回答(毎日/週数回/月数回以下/ほぼ使わない) |\n\n初回の採点のみ記録する。解説を読んだ後に回答を変えて再採点しても記録されない。測定対象が「解説を読む前にどこを疑ったか」だからである。\n\n算出できるもの\n・ブロック別の検出率 — どの箇所が何%に見逃されるか\n・誤答の方向 — 迎合をBと分類する人がどれだけいるか。見落としではなく分類の誤り\n・類型間の順序 — 事実誤認 > 寄り添い型 > 否定・批判型 > 利用者側、という序列が実在するか\n・利用頻度との関係 — 毎日使う層ほど検出率が高いのか、慣れて素通りするのか\n・定義提示の効果 — 分類の定義を先に示すかどうかで、検出率がどれだけ変わるか\n・所要時間との関係 — 速く答える人ほど見落とすのか\n\n---\n\n試験的な集計\n\n公開後、分類の定義をテスト冒頭に明記する変更を入れた。 その前後で差が出たので、試験的な結果として挙げる。\n\n| | 定義なし | 定義あり |\n|---|---|---|\n| 迎合の検出率 | 8% | 50% |\n| うち寄り添い型 | 8% | 92% |\n| うち否定・批判型 | 0% | 17% |\n| 事実誤認 | 全員が検出 | 全員が検出 |\n\n各3名、合わせて6名分にすぎない。統計として扱える数ではなく、あくまで試験的な暫定値である。\n\nその上で、もしこの差が実在するなら意味は小さくない。\n\n迎合を見抜けないのは、能力の問題ではなく概念を持っていないから、という話になる。事実誤認は定義の有無に関わらず全員が検出していた。誤りはリスクとして認識されているが、迎合はリスクとして数えられていない。名前を与えた瞬間に見えるようになった、という構図である。\n\nそしてもう一点。定義を示した後でも、否定・批判型は17%のままだった。 寄り添い型は92%まで上がっている。概念を与えても、批判の形を取った迎合は通過する可能性がある。\n\n冒頭に書いた「レビュー用サブエージェントを立てる」運用が有効なのは、おそらくここに関係している。人間は、批判の形式を持った出力を批判として受け取ってしまう。中身が批判になっているかを検証していない。\n\n---\n\nこのデータが何に使えるか\n\n1. 評価設計への重み付け\n\n現在の迎合ベンチマークは、迎合の発生率を測るが、その迎合が人間に検出されやすいかどうかは考慮していない。人間が見逃す種類の迎合ほど、実害は大きい。\n\n発生率5%でも100%見逃される迎合と、発生率30%でも即座に気づかれる迎合では、リスクが違う。人間側の検出率を重みとして持ち込めば、危険度の重み付けができる。\n\n2. 定義の議論への経験的材料\n\n迎合研究をレビューした論文(Ye et al., 2026, arXiv:2605.21778)では、70本の研究を分類した上で、専門家106名への調査結果が報告されている。94.3%が迎合を重要な問題と認識する一方、個別事例の判定一致度は極めて低い(ICC = .184)。 何が迎合かの合意が取れていない。\n\n同論文は、研究の分布が「検証可能な主張への明示的な迎合」に偏っており、暗黙的なものと人物・感情に向けたものが手薄だと指摘している。本テストが扱う否定・批判型は、まさにその手薄な領域にあたる。\n\n専門家が一致しない事例について、一般利用者の判定がどこで分かれるかの分布は、定義を詰める側の材料になりうる。\n\n3. 訓練設計への反映\n\nどの類型が見逃されるかが分かれば、そこを重点的に扱える。現時点のデータが示唆しているのは、「迎合とは何か」を教えるだけでは否定・批判型に届かない、ということである。\n\n---\n\n断っておくこと\n\nこのテストの正解は絶対ではない。\n\n専門家間ですら判定が割れる領域なので、別の分類で読むことも、問題なしとした箇所に問題を見ることも、それ自体が誤りとは限らない。\n\n実際、公開後の受験者は全員、問題なしとしたある同一のブロックにチェックを入れている。偶然とは考えにくい一致であり、正解設定の側を見直す材料として扱っている。\n\n仮説と検証の段階なので、設計の不備やバグの指摘は、そのままデータの信頼性を上げる材料になる。 取り繕う理由がない。正解設定への異議、記録項目の不足、想定していない読み方があれば、指摘してほしい。妥当なものは反映する。\n\n---\n\nまとめ\n・AIが迎合することは、既に運用上の前提になっている。サブエージェント、マルチモデル、レビュー観点の固定化はすべてその対策である\n・しかし、迎合された出力を人間が直接どれだけ見抜けるかは測られていない\n・測るテストを作り、公開した。ブロック単位で回答分布を記録している\n・試験的な結果として、分類の定義を示すかどうかで検出率が 8% → 50% に変わった(各3名)。ただし否定・批判型は 17% のまま\n・集まったデータは集計して公開する。第2回は開発文脈の題材を検討している\n\n迎合検出テスト 第1回\n\nhttps://atumitu10311227-gif.github.io/geigo-test/index-1.html\n\n満点は現時点で出ていない。取れた方はコメントで教えてほしい。\n\n---\n\nAtsushi Oyama\n\nnote: https://note.com/aobee2677",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "37b36c5232d8faeb",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8847398843930636,
+      "popularityPercentile": 0.930635838150289,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "LLMの迎合を人間が見抜くテストが公開され、定義提示で検出率が8%から50%に上がった。",
+      "reason": "LLMの迎合には複数の型があり、人間の見抜きやすさが異なる。分類定義を示すと検出率は8%から50%になったが、批判を装う迎合は17%にとどまった。",
+      "keywords": [
+        "sycophancy",
+        "LLM",
+        "AIレビュー",
+        "AIエージェント",
+        "迎合"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIレビューを自己完結させるか、人間や別モデルによる独立評価を挟むか",
+        "forSide": "迎合の型を示す定義だけで、人間の検出率が暫定8%から50%に上がった。",
+        "againstSide": "別モデルや別担当を増やすと、レビュー遅延と判断コストが増えて小さな変更に合わない。",
+        "oneSided": false,
+        "yourAngle": "コーディングエージェントのレビュー結果と人間の見落としを記録して比較できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AI coding agentは、なぜ毎回リポジトリを調べ直すのか ― Repository理解を使い捨てにしない設計",
+      "url": "https://qiita.com/R2-san/items/67e3e5b264f3eec251ec",
+      "publishedAt": "2026-08-14T23:36:30.000Z",
+      "author": "R2-san",
+      "authorDetail": {
+        "name": "R2-san",
+        "handle": "@R2-san",
+        "url": "https://qiita.com/R2-san",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/72678/profile-images/1473699237",
+        "bio": "個人開発で、AI coding agent、WordPress、Web開発に取り組んでいます。\r\n現在は「R2 Fugu Agent Runtime」をメイン開発中。\r\nAIにすべてを任せるのではなく、Repository理解やContext管理、安全な実行基盤をどう作るかを試行錯誤しています。",
+        "followers": 1,
+        "posts": 1,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "生成AI",
+        "AIエージェント",
+        "LLM",
+        "個人開発"
+      ],
+      "snippet": "Claude Code、Codex、Cursorなど、AI coding agentにRepository単位の作業を任せる機会が増えてきました。 最近のAIはかなり優秀です。 「この不具合を調査して修正して」 「この機能を追加して」 「関連するテストまで直して」 と依頼すると、Repositoryを探索し、関連ファイルを読み、コードを変更し、テストまで実行してくれます。 一方、使い続けていると気になることがあります。 なぜ、毎回こんなにRepositoryを調べているのだろう？ この記事では、AI coding agentを個人開発する中で考えるようになった、 Repositoryの理解を、Taskごとの使い捨てにしなくてもよいのではないか という話を紹介します。 --- 毎回、Repositoryは「初対面」に近い 例えば、あるWebアプリ開発で次のTaskを依頼したとします。 [co…",
+      "body": "Claude Code、Codex、Cursorなど、AI coding agentにRepository単位の作業を任せる機会が増えてきました。\n\n最近のAIはかなり優秀です。\n\n「この不具合を調査して修正して」\n「この機能を追加して」\n「関連するテストまで直して」\n\nと依頼すると、Repositoryを探索し、関連ファイルを読み、コードを変更し、テストまで実行してくれます。\n\n一方、使い続けていると気になることがあります。\n\nなぜ、毎回こんなにRepositoryを調べているのだろう？\n\nこの記事では、AI coding agentを個人開発する中で考えるようになった、\nRepositoryの理解を、Taskごとの使い捨てにしなくてもよいのではないか\n\nという話を紹介します。\n\n---\n\n毎回、Repositoryは「初対面」に近い\n\n例えば、あるWebアプリ開発で次のTaskを依頼したとします。\n\n [code] \n\nAI coding agentは、まずRepositoryを調べます。\n\n [code] \n\nこれは当然必要な処理です。\n\n問題は、その次です。\n\n今度は、\n\n [code] \n\nと依頼します。\n\nすると、また似たような探索が始まります。\n\n [code] \n\nもちろん、前回と今回では必要なContextが違います。\n\nしかし、\n・ユーザー機能はどこにあるか\n・Entry Pointはどこか\n・主要なServiceは何か\n・テストはどこにあるか\n・このRepositoryではどんな責務分離をしているか\n\nといった情報まで、毎回ゼロから調べる必要があるのでしょうか。\n\n---\n\n人間の開発者は毎回ゼロから調べない\n\nこれはAIだけの問題として考えると分かりにくいので、人間の場合を考えてみます。\n\n昨日まで開発していたRepositoryを、今日開いたとします。\n\n普通は、\n\n [code] \n\nを全部読み直したりはしません。\n\n頭の中に、\n認証はこの辺\nAPIはここ\nDBアクセスはこの層\nテストはこの構成\n\nという大まかなRepository理解が残っています。\n\n必要になった部分だけ確認します。\n\nつまり人間は、\n\n [code] \n\nで仕事をしています。\n\nところがAI coding agentでは、TaskごとのContextが独立していると、\n\n [code] \n\nとなりやすい。\n\nここに、まだ改善できる余地があると考えました。\n\n---\n\n「Contextを大きくすればいい」では解決しない\n\n最初に思いつくのは、\nRepositoryを最初から全部AIに渡せばいい\n\nという方法です。\n\n小さなRepositoryなら、それでも動くかもしれません。\n\nしかしRepositoryが大きくなると、\n・不要なコードまでContextに入る\n・Tokenを消費する\n・本当に重要な情報が埋もれる\n・Repositoryが変更されるたびにContextが古くなる\n・毎回大量の情報をモデルに渡す必要がある\n\nという問題が出てきます。\n\n重要なのは、\n\nRepository全体を記憶することではなく、必要な理解を再利用すること\n\nだと思います。\n\n---\n\nRepository IndexとRepository Knowledgeは別物\n\nここで一度、情報を分けて考えてみます。\n\n例えば、\n\n [code] \n\nこれはRepositoryの構造的な事実です。\n\n一方、\n\n [code] \n\nこれはRepositoryについての意味的な理解です。\n\nこの2つは似ていますが、同じではありません。\n\n私が現在開発しているR2 Fugu Agent Runtimeで、この2種類を分けています。\n\n [code] \n\nIndexは「何がどこにあるか」を高速に調べるためのもの。\n\nKnowledgeは「そのRepositoryをどう理解したか」を再利用するためのものです。\n\n---\n\nただし、過去の理解をそのまま信用してはいけない\n\nここが重要です。\n\nRepository理解を保存できたとしても、\n前回そうだったから今回もそうだろう\n\nと無条件に再利用すると危険です。\n\nコードは変わります。\n\nファイルは移動します。\n\n責務も変わります。\n\n昨日まで正しかった理解が、今日は間違っている可能性があります。\n\nそこでR2では、Knowledgeを単なるメモとして扱わず、\n\n [code] \n\nのように、根拠と鮮度を持った情報として扱う設計にしています。\n\n考え方はシンプルです。\n\n [code] \n\n現在の実装では、根拠が確認でき、十分な信頼度があるものだけを後続Taskで利用します。\n\n古くなった情報や、検証できない情報、単なる推測は再利用しません。\n\nつまり目標は、\n\n「AIにRepositoryを覚えさせる」ことではありません。\n\n「再確認可能なRepository理解を蓄積する」ことです。\n\n---\n\nRepository探索そのものをなくしたいわけではない\n\nここも誤解されやすいところです。\n\nRepository Knowledgeがあるからといって、\n\n [code] \n\nとは考えていません。\n\nむしろ、\n\n [code] \n\nという流れを目指しています。\n\nゼロから探索するのではなく、\n\n知っているところから始める。\n\n人間の開発に近い考え方です。\n\n---\n\nTaskに必要なのはRepository全体ではない\n\n例えば、\n\n [code] \n\nというTaskに、\n\nRepository全体の設計情報が必要とは限りません。\n\n必要なのは、\n\n [code] \n\nくらいかもしれません。\n\nそこで、\n\n [code] \n\nという形にします。\n\n私はこれを、単なる「Context Windowの節約」だけの問題だとは考えていません。\n\n目的は、\n\nモデルに考えさせる前に、考えるための材料を整えること\n\nです。\n\n---\n\nModelとRuntimeの役割を分ける\n\nここからもう一つ重要な設計につながります。\n\nRepositoryの探索、Knowledgeの鮮度確認、Contextの組み立てまで、すべてAIモデルに任せる必要があるのでしょうか。\n\n例えば、\n\n [code] \n\nといった判断には、必ずしも高度な言語モデルは必要ありません。\n\n一方、\n\n [code] \n\nといった意味判断はAIモデルが得意です。\n\nそのためR2では、大きく、\n\n [code] \n\nという責務分離を進めています。\n\nモデルを賢くするだけではなく、\n\nモデルが仕事をしやすい環境をRuntime側に作る\n\nという発想です。\n\n---\n\n「賢いAI」だけでは解決しにくい問題\n\nAI coding agentを使っていると、ついモデル性能に目が向きます。\n\nもちろんモデル性能は重要です。\n\nしかし、Repository Task全体を見ると、\n\n [code] \n\nという複数の工程があります。\n\nこのすべてを、\n\n [code] \n\nだけで解決する必要はありません。\n\n例えばRepository探索なら、\n\n [code] \n\nだけでも改善できる可能性があります。\n\nこれはモデルのIQの問題ではなく、Runtimeの設計問題です。\n\n---\n\n実際に作ってみると難しかったところ\n\nこの仕組みを実装してみると、単純なCacheでは足りないことが分かりました。\n\n例えば、\n\n1. 古い情報をどう検出するか\n\n元ファイルが変更されたKnowledgeは、そのまま再利用できません。\n\n2. 推測を保存してよいか\n\nAIが「たぶんこのServiceが中心だろう」と推測したものまで永続化すると、誤りが次のTaskへ伝播します。\n\n3. どこまで保存するか\n\nRepository全文を保存すれば便利ですが、巨大になりますし、secretを含む危険もあります。\n\n4. Knowledgeが壊れたときどうするか\n\nKnowledge Cacheが壊れたからといって、Repository Taskそのものまで実行不能になる設計も困ります。\n\n5. Repository Indexと混ぜない\n\n構造上の事実と、意味的な理解を同じDBレコードとして扱い始めると、責務が曖昧になります。\n\nこうした問題を考えていくと、\n\n「Repositoryを覚える」\n\nという一言から、かなり多くの設計課題が出てきます。\n\n---\n\n最終的に目指している流れ\n\n現在考えているRepository Taskの流れを単純化すると、次のようになります。\n\n [code] \n\nポイントは最後です。\n\nTaskが終わったら全部捨てるのではなく、\n\n [code] \n\nへつなげます。\n\nRepositoryを長く使えば使うほど、Agent側にもRepository理解が蓄積していく。\n\nそれが実現できれば、\nRepositoryを毎回初見のように扱うAI\n\nから、\nRepositoryについて過去に確認したことを踏まえて仕事を始められるAI\n\nへ少し近づけるのではないかと考えています。\n\n---\n\nまとめ\n\nAI coding agentが毎回Repositoryを調査すること自体は、間違いではありません。\n\nRepositoryは変化するので、確認は必要です。\n\n問題は、\n\n過去に確認済みの理解まで、毎回ゼロから作り直していること\n\nです。\n\nそこで私は、\n\n [code] \n\nという形で、Repository理解をTask間で安全に再利用する仕組みを作っています。\n\n重要なのは、\n\n覚えることより、正しく忘れること。\n\n古くなったKnowledgeは捨てる。\n\n根拠のないKnowledgeは使わない。\n\nそして、有効な理解だけを次のTaskへ渡す。\n\nAI coding agentの性能向上というと、モデル性能やPrompt Engineeringが注目されがちです。\n\nしかし、\nAIが毎回ゼロから考えなくてもよいRuntimeを作る\n\nという方向にも、まだかなり改善余地があるのではないかと思っています。\n\n現在、この考え方を検証するために R2 Fugu Agent Runtime というAI coding agent runtimeを個人開発しています。\n\n次回は、\n\n「AIに全部判断させるのをやめた ― AI ModelとCoding Agent Runtimeの責務をどう分けたか」\n\nについて書く予定です。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 2,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8847f6ef1fe574fb",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8930057803468209,
+      "popularityPercentile": 0.9682080924855492,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "AI coding agentはタスクごとにリポジトリを初対面のように再探索している。",
+      "reason": "Claude CodeやCodexは依頼のたびに入口、主要サービス、テスト、責務分担を調べ直す。記事は、この基礎理解をタスク間で再利用する設計を検討している。",
+      "keywords": [
+        "AI coding agent",
+        "Claude Code",
+        "OpenAI Codex",
+        "Cursor",
+        "Repository理解"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "リポジトリ理解を蓄積して再利用するか、タスクごとに新しく調査するか",
+        "forSide": "AI coding agentはタスクのたびに入口や責務分担まで再探索するため、Repository理解の再利用が論点になる。",
+        "againstSide": "毎回の探索は最新状態を保証し、古い要約や誤った前提を使う危険を避けられる。",
+        "oneSided": true,
+        "yourAngle": "Claude CodeやCodexで複数タスクを連続実行し、探索の重複を計測できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Ask HN: How do you keep up with HN these days?",
+      "url": "https://news.ycombinator.com/item?id=49308059",
+      "publishedAt": "2026-08-15T05:59:12.000Z",
+      "author": "simonebrunozzi",
+      "authorDetail": {
+        "name": "simonebrunozzi",
+        "handle": "simonebrunozzi",
+        "url": "https://news.ycombinator.com/user?id=simonebrunozzi"
+      },
+      "tags": [],
+      "snippet": "In the last 2-3 years, mostly because of AI, keeping up with interesting articles on HN has become harder and harder. How do you deal with it? Besides the simple solution of simply ignoring interesting stuff more and more.",
+      "metrics": {
+        "points": 73,
+        "comments": 124
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "61e10ea50530919e",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.07192307692307692,
+      "popularityPercentile": 0.3269230769230769,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 82,
+      "oneLiner": "AIの普及でHacker Newsの興味深い記事を追う難しさが増し、対処法が問いかけられた。",
+      "reason": "投稿者は、ここ2〜3年でAIの影響によりHacker Newsの情報量が増え、興味深い記事を追うことが難しくなったと問題提起している。",
+      "keywords": [
+        "Hacker News",
+        "情報収集",
+        "AI",
+        "技術ニュース"
+      ],
+      "category": "その他",
+      "lane": "talk",
+      "debate": {
+        "axis": "技術情報を幅広く追うか、読む対象を意図的に絞るか",
+        "forSide": "AIの普及で、Hacker Newsの興味深い記事を追い続けることが難しくなった。",
+        "againstSide": "情報を選別して読む量を減らせば、重要な記事を見落とすリスクが高まる。",
+        "oneSided": true,
+        "yourAngle": "AI関連の流量が増えた後に、Hacker Newsの閲覧量と保存記事数を比較できる。"
+      },
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    }
+  ],
+  "stats": {
+    "collected": 673,
+    "afterDedupe": 626,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 348,
+      "zenn": 128,
+      "hatena": 28,
+      "hackernews": 53,
+      "devto": 6,
+      "github_release": 26,
+      "github_repo": 75,
+      "rss": 8,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 29
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2407,
+        "outputTokens": 92,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2421,
+        "estimatedCostUsd": 0.0005918000000000001
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3903,
+        "outputTokens": 1120,
+        "cacheReadTokens": 0,
+        "elapsedMs": 8827,
+        "estimatedCostUsd": 0.0021246
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14720,
+        "outputTokens": 1562,
+        "cacheReadTokens": 3608,
+        "elapsedMs": 15993,
+        "estimatedCostUsd": 0.00489056
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 20710,
+        "outputTokens": 1451,
+        "cacheReadTokens": 3454,
+        "elapsedMs": 15345,
+        "estimatedCostUsd": 0.005952280000000001
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 18071,
+        "outputTokens": 1472,
+        "cacheReadTokens": 1655,
+        "elapsedMs": 15110,
+        "estimatedCostUsd": 0.0054137
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 7859,
+        "outputTokens": 1967,
+        "cacheReadTokens": 0,
+        "elapsedMs": 12744,
+        "estimatedCostUsd": 0.0039322
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 9889,
+        "outputTokens": 2290,
+        "cacheReadTokens": 0,
+        "elapsedMs": 13418,
+        "estimatedCostUsd": 0.0047258000000000005
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 11991,
+        "outputTokens": 4210,
+        "cacheReadTokens": 0,
+        "elapsedMs": 27569,
+        "estimatedCostUsd": 0.007450200000000001
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 15009,
+        "outputTokens": 6011,
+        "cacheReadTokens": 6054,
+        "elapsedMs": 38916,
+        "estimatedCostUsd": 0.010336080000000001
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 11207,
+        "outputTokens": 5839,
+        "cacheReadTokens": 5833,
+        "elapsedMs": 38398,
+        "estimatedCostUsd": 0.009364860000000001
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 8410,
+        "outputTokens": 4624,
+        "cacheReadTokens": 6321,
+        "elapsedMs": 33529,
+        "estimatedCostUsd": 0.00735722
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3048,
+        "outputTokens": 377,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3732,
+        "estimatedCostUsd": 0.001062
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3912,
+        "outputTokens": 266,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2332,
+        "estimatedCostUsd": 0.0011016
+      }
+    },
+    "totalCostUsd": 0.0643
+  },
+  "notes": []
+}
