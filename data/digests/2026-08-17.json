@@ -1,0 +1,1929 @@
+{
+  "date": "2026-08-17",
+  "generatedAt": "2026-08-16T22:16:44.054Z",
+  "window": {
+    "start": "2026-08-15T22:00:00.000Z",
+    "end": "2026-08-16T22:00:00.000Z"
+  },
+  "summary": [
+    "AI・エージェント関連が7件と目立ち、開発支援から業務アプリや音楽生成まで広がった。",
+    "エージェントの実行境界や認証情報の保護など、安全に使うための設計が複数項目で焦点になった。",
+    "Claude Codeでは新モデルでTodo系ツールが標準無効化され、既存フックやスキルへの影響に注意が必要だ。",
+    "音声認識やデータ読み取りでは、処理速度だけでなく精度や実測結果を重視する動きが見られた。"
+  ],
+  "outlook": "AIエージェントは並列実行や外部連携を備えた開発・業務基盤として定着しつつある一方、権限境界や認証情報、検証と復旧の設計はなお揺れている。この先は、モデル性能より安全な実行制御と実測可能な評価を組み込む仕事へ焦点が移りそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.233｜TodoWrite が Fable 5 / Sonnet 5 で無効に｜毎日Changelog解説",
+      "url": "https://qiita.com/moha0918_/items/b604352231f9a8a76a38",
+      "publishedAt": "2026-08-15T22:03:51.000Z",
+      "author": "moha0918_",
+      "authorDetail": {
+        "name": "moha0918_",
+        "handle": "@moha0918_",
+        "url": "https://qiita.com/moha0918_",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3977355/profile-images/1784793752",
+        "location": "Tokyo",
+        "followers": 1,
+        "posts": 102,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "AI",
+        "生成AI",
+        "LLM"
+      ],
+      "snippet": ":::note info Claude Codeの公式Changelogをリリースから最速で翻訳・解説しています。 ::: v2.1.233 で TodoWrite / TaskCreate などの Todo 系ツールが、Opus 4.8・Sonnet 5・Fable 5・Mythos 5 以降のモデルでは渡されなくなりました。TodoWrite を PostToolUse hook や statusline で拾っている設定は、モデルを切り替えた瞬間に何も起きなくなる。戻すには CLAUDECODEENABLETODOTOOLS=1 を立てるだけです。 | 変更 (すべて v2.1.233) | 効く人 | |---|---| | Todo / Task ツールが新モデルで無効化。CLAUDECODEENABLETODOTOOLS=1 で復活 | TodoWrite を hook / s…",
+      "body": ":::note info\nClaude Codeの公式Changelogをリリースから最速で翻訳・解説しています。\n:::\n\nv2.1.233 で TodoWrite / TaskCreate などの Todo 系ツールが、Opus 4.8・Sonnet 5・Fable 5・Mythos 5 以降のモデルでは渡されなくなりました。TodoWrite を PostToolUse hook や statusline で拾っている設定は、モデルを切り替えた瞬間に何も起きなくなる。戻すには CLAUDECODEENABLETODOTOOLS=1 を立てるだけです。\n\n| 変更 (すべて v2.1.233) | 効く人 |\n|---|---|\n| Todo / Task ツールが新モデルで無効化。CLAUDECODEENABLETODOTOOLS=1 で復活 | TodoWrite を hook / statusline の前提にしている人 |\n| Windows の Bash 権限判定を v2.1.232 から一部巻き戻し。auto mode が止まり続ける regression も修正 | v2.1.232 で Windows の auto mode が使い物にならなかった人 |\n| NT の \\??\\ プレフィックスで UNC 検証を素通りする穴を修正 (NTLM 認証情報の漏洩経路) | Windows で動かしている全員 |\n| --worktree に GitLab の MR URL を渡せる | GitLab 運用のチーム |\n| Bash ツールのコマンドをメモリ cgroup で制限する CLAUDECODETOOLMEMORYLIMIT | Linux でビルドを回すセルフホスト / CI |\n\nTodoWrite / TaskCreate が新モデルでは出てこない\n\n:::note alert\n対象: Opus 4.8 / Sonnet 5 / Fable 5 / Mythos 5 以降を使っていて、TodoWrite や TaskCreate を hook・statusline・カスタムスキルの前提にしている人。v2.1.233 に上げた時点で、ツール自体がモデルに渡らなくなります。\n:::\n\n対象モデルでは TaskCreate / TaskGet / TaskUpdate / TaskList / TodoWrite がツール一覧から外れます。 それより前のモデルは従来通り。理由は changelog に書かれていません。画面上で見えるのは「Claude がタスクリストを作らなくなる」だけです。\n\n困るのは、TodoWrite をトリガーにしていた周辺のほう。\n・PostToolUse の matcher に TodoWrite を書いている hook。呼ばれる相手が消えるので一度も発火しない\n・statusline や外部ダッシュボードで進捗を Todo から読み取っている仕組み\n・サブエージェントの結果を TaskUpdate で集約させているカスタムスキル\n\n戻すのは環境変数 1 つ。\n\n [code] \n\nsettings.json の env に書けばプロジェクト単位で固定されます。デフォルトから外れた以上この環境変数がいつまで残るかは、changelog には書かれていません。\n\nWindows は v2.1.232 の巻き戻しと NTLM 漏洩の穴塞ぎ\n\nv2.1.232 の Windows で、auto mode が cd && > file のような普通の Bash コマンドで毎回手動承認に落ちる問題がありました。v2.1.233 で修正済み。あわせて v2.1.232 で入れた Bash 権限の変更のうち、Cygwin 形式のシンボリックリンクと入力リダイレクト (< file) の分は丸ごと revert されています。「もっと絞った版を後のリリースで戻す」とのことなので、この扱いはまだ動きます。\n\n:::note warn\nv2.1.232 で Windows の権限判定が変わったのを見て allow ルールを書き足した場合の話。シンボリックリンクと < リダイレクトの判定は、v2.1.232 より前の挙動に戻りました。\n:::\n\nもう 1 件、セキュリティ寄りの修正。NT の \\??\\ デバイスプレフィックスで書いたパスが UNC パス検証を素通りしていて、NTLM 認証情報が外に漏れる経路になっていた。v2.1.233 で塞がれています。影響範囲は Windows で Claude Code を動かしている環境すべて。\n\nサーバーや CI で回している人向けの追加設定\n\nv2.1.233 で入った設定はどれも opt-in で、書かなければ何も変わりません。\n\n| 追加されたもの | 何が変わるか | 誰向け |\n|---|---|---|\n| CLAUDECODETOOLMEMORYLIMIT | Linux で Bash ツールのコマンドをメモリ cgroup に入れる。暴走したビルドがセッションごと固まるのを防ぐ | Linux のセルフホスト / CI |\n| CLAUDECODEWEBFETCHCACHETTLMS | WebFetch のセッション内 URL キャッシュ TTL。デフォルトは 15 分のまま | 更新頻度の高いページを WebFetch する人 |\n| forwarduseridentity (apps gateway) | Anthropic upstream にサインイン中ユーザーの識別情報をヘッダで付ける。gateway 裏の proxy でユーザー別に課金集計できる | 社内 gateway 経由で使っている組織 |\n| [claude-code:unrecognizedmodel] (print mode) | 未知のモデル ID でリクエストが出たとき stderr に 1 行出す。modelOverrides で対応付ければ消える | -p を CI に組み込んでいる人 |\n\nGitLab の MR URL と、静かに直った不具合\n\nclaude --worktree に GitLab のマージリクエスト URL を渡せるようになりました。claude agents の一覧では MR が !N 表記で並びます。origin が gitlab.com / bitbucket.org のリポジトリでは GitHub app のセットアップ tip も出なくなったので、GitLab 勢が毎回スルーしていた表示が 1 つ減る。\n\n他に直った不具合で、CI やエディタ連携に響くもの。\n・MCP v2 で、長時間ストリームを固定タイムアウトで切るサーバー (serverless など) に対して subscriptions/listen を無限に開き直していた\n・Claude Desktop / VS Code 経由だと、権限プロンプトで Notification hook が発火していなかった\n・Linux でサンドボックス有効時、アイドル中のセッションが CPU 1 コアを 100% で握り続けることがあった\n・/review /checkup のような同梱スキルの alias が、ユーザー / プロジェクト側に同名スキルがあると -p モードで \"Unknown command\" になっていた\n・スキル引数の置換で、引数の値がもう一度テンプレートマーカーとして展開されていた\n\nこのリリースの位置づけ\n\nTodo 系ツールの無効化は、モデル世代によって使えるツールが変わる最初の例。旧世代との差が機能ではなくツール一覧に出た形です。Windows の権限判定は v2.1.232 で広げた範囲を v2.1.233 で戻しており、2 リリース続けて動いています。\n\n前回: Claude Code v2.1.232｜サブエージェントの fork がデフォルトON｜毎日Changelog解説",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8a4bd24b8b4c78c1",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8577650429799427,
+      "popularityPercentile": 0.8080229226361032,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 72,
+      "oneLiner": "Claude Code v2.1.233は新モデルでTodo系ツールを無効化した。",
+      "reason": "v2.1.233以降、Opus 4.8・Sonnet 5などではTodoWriteが渡されない。環境変数で復活でき、Windowsの権限判定やUNC検証も修正された。",
+      "keywords": [
+        "Claude Code v2.1.233",
+        "TodoWrite",
+        "TaskCreate",
+        "CLAUDECODEENABLETODOTOOLS",
+        "GitLab MR",
+        "Windows"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "headline": "新モデルで Todo ツールが標準無効化",
+        "summary": "v2.1.233 では、Opus 4.8・Sonnet 5・Fable 5・Mythos 5 以降で TodoWrite / TaskCreate などがツール一覧から標準で外れます。TodoWrite を `PostToolUse` hook、`statusline`、カスタムスキルのトリガーや状態源にしている構成は、モデル切り替えだけで連動処理が止まります。必要なら `CLAUDECODEENABLETODOTOOLS=1` で復活できますが、提供期限は不明です。加えて Windows の権限判定回帰と NTLM 漏洩経路が修正され、Linux CI 向けの `CLAUDECODETOOLMEMORYLIMIT` などが追加されました。",
+        "prerequisites": [
+          {
+            "term": "ツール一覧",
+            "stumblingPoint": "記事は「Todo 系ツールがモデルでは渡されなくなりました」と書いているが、ツール一覧から外れることが hook やカスタムスキルまで止める理由を知らないと影響範囲が読み取れない。",
+            "explanation": "モデルに渡されるツール一覧は、モデルが呼び出せる操作の集合です。ここから Todo 系ツールが外れると、Claude がタスクリストを更新しなくなるだけでなく、ツール呼び出しを監視していた外部処理も入力を受け取れません。今回の変更は API の呼び出し方ではなく、そもそもモデルから見えるツールの有無がモデル世代で変わる点にあります。"
+          },
+          {
+            "term": "PostToolUse",
+            "stumblingPoint": "記事は「PostToolUse の matcher に TodoWrite」と書いているが、TodoWrite が呼ばれないと設定不備がなくても hook が一度も発火しない仕組みを知らないと判断できない。",
+            "explanation": "`PostToolUse` hook は、ツール実行後に指定した matcher に一致したとき起動する処理です。TodoWrite の実行自体が発生しなければ、hook の設定が正しくても発火しません。したがって、hook のエラーではなく、トリガーとなるツールの消失として切り分ける必要があります。"
+          },
+          {
+            "term": "statusline",
+            "stumblingPoint": "記事は「statusline や外部ダッシュボードで進捗を Todo から読み取る」と書いているが、表示処理ではなく状態更新の発生源が消える点を知らないと原因を誤認する。",
+            "explanation": "`statusline` や外部ダッシュボードが Todo の状態を読み取る構成では、表示側が壊れたのではなく、更新元のイベントが消えます。対象モデルでセッションを開始した後に進捗が固定されるなら、この変更と整合します。別の進捗ソースへ切り替えるか、環境変数で Todo 系ツールを戻す必要があります。"
+          },
+          {
+            "term": "CLAUDECODEENABLETODOTOOLS",
+            "stumblingPoint": "記事は「環境変数 1 つ」で戻せると書いているが、単発のシェル設定と `settings.json` の `env` 設定で適用範囲がどう変わるかを知らないと運用方法を選べない。",
+            "explanation": "`CLAUDECODEENABLETODOTOOLS=1` は、標準では無効になった Todo 系ツールを明示的に復活させる環境変数です。プロジェクトの `settings.json` の `env` に置けば、そのプロジェクトでの利用を固定できます。ただし記事では、この互換設定がいつまで提供されるかは示されていません。"
+          },
+          {
+            "term": "auto mode",
+            "stumblingPoint": "記事は「v2.1.232 の巻き戻し」と「auto mode の regression」を併記しているが、全機能が同じ状態に戻るのではなく、対象の権限判定だけが戻る点を知らないと差分を読み違える。",
+            "explanation": "Windows の auto mode は、コマンドを毎回手動承認にせず実行できる権限判定モードです。v2.1.232 では `cd && > file` のような通常の Bash コマンドでも承認に落ち続ける回帰があり、v2.1.233 で修正されました。一方、Cygwin 形式のシンボリックリンクと入力リダイレクトは v2.1.232 の変更が丸ごと revert されています。"
+          },
+          {
+            "term": "NTLM",
+            "stumblingPoint": "記事は「NT の \\??\\ デバイスプレフィックス」と「NTLM 認証情報」を突然出しているが、パス検証の抜け道が認証情報漏洩につながる関係を知らないと修正の対象範囲がわからない。",
+            "explanation": "`\\??\\` は Windows NT のデバイスパスに使われるプレフィックスです。今回の修正前は、この形式で書かれたパスが UNC パスの検証を通り抜け、NTLM 認証情報が外部へ送られる経路になり得ました。Windows 版を使う読者は、アプリのコードを変更しなくても Claude Code の更新対象になります。"
+          },
+          {
+            "term": "メモリ cgroup",
+            "stumblingPoint": "記事は「Bash ツールのコマンドをメモリ cgroup に入れる」と書いているが、セッション全体ではなくコマンドを制限して暴走ビルドの影響を抑える設定だと知らないと適用範囲を誤る。",
+            "explanation": "メモリ cgroup は、Linux のプロセスをグループ化してメモリ使用量を制限・監視する仕組みです。`CLAUDECODETOOLMEMORYLIMIT` を設定すると、Bash ツールが起動するコマンドをその制限下に置けます。記事の記述では opt-in なので、設定していないセルフホストや CI の挙動は変わりません。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "v2.1.233の変更点",
+          "beforeLabel": "v2.1.232 以前",
+          "afterLabel": "v2.1.233",
+          "rows": [
+            {
+              "aspect": "Todo ツールの扱い",
+              "before": "対象モデルでも Todo 系ツールが渡される",
+              "after": "対象モデルでは Todo 系ツールが標準で渡されない"
+            },
+            {
+              "aspect": "互換策",
+              "before": "環境変数による復活は不要",
+              "after": "`CLAUDECODEENABLETODOTOOLS=1` で復活可能"
+            },
+            {
+              "aspect": "Windows 権限判定",
+              "before": "v2.1.232 で判定範囲を拡大し回帰が発生",
+              "after": "Windows の auto mode 回帰を修正。Cygwin 形式リンクと `< file` は変更を revert"
+            },
+            {
+              "aspect": "Windows セキュリティ",
+              "before": "検証を素通りする経路が存在",
+              "after": "`\\??\\` による UNC 検証回避と NTLM 漏洩経路を修正"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "これを知らずに対象モデルへ切り替えると、Claude がタスク管理をしなくなっただけだと思い、実際には `PostToolUse` hook や `statusline`、サブエージェント集約が無入力のまま1週間動く可能性があります。Windows では v2.1.232 向けに追加した allow ルールが一部不要になったり、更新前の NTLM 漏洩経路を残したまま運用したりします。Linux CI では `CLAUDECODETOOLMEMORYLIMIT` を設定しない限り、暴走ビルド対策が追加されたと誤解してしまいます。",
+        "relatedLinks": [
+          {
+            "label": "元記事（Qiita）",
+            "url": "https://qiita.com/moha0918_/items/b604352231f9a8a76a38"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "know",
+        "impact": [
+          "v2.1.233 で Opus 4.8 / Sonnet 5 / Fable 5 / Mythos 5 以降を使う構成では、TaskCreate / TaskGet / TaskUpdate / TaskList / TodoWrite がモデルに渡されない。それより前のモデルは従来通り。",
+          "TodoWrite を `PostToolUse` hook や `statusline` の入力にしている設定、TaskUpdate をサブエージェントの結果集約に使うカスタムスキルは、対象モデルへ切り替えた時点で連動処理が動かなくなる。",
+          "Windows で Claude Code を動かす環境には、NT の `\\??\\` デバイスプレフィックスによる UNC パス検証回避と NTLM 認証情報漏洩経路の修正が適用される。Windows の auto mode 回帰も v2.1.233 で修正された。",
+          "Linux のセルフホスト / CI では、`CLAUDECODETOOLMEMORYLIMIT` を設定した場合に限り Bash ツールのコマンドがメモリ cgroup の制限対象になる。未設定なら挙動は変わらない。"
+        ],
+        "timeline": [
+          "2026-08-15：v2.1.233 の解説記事が公開された。",
+          "v2.1.233：Opus 4.8 / Sonnet 5 / Fable 5 / Mythos 5 以降で Todo 系ツールが標準無効化された。",
+          "v2.1.233：v2.1.232 で発生した Windows の auto mode 回帰を修正し、Cygwin 形式のシンボリックリンクと `< file` の権限判定変更を revert した。",
+          "v2.1.233：Windows の `\\??\\` による UNC 検証回避と NTLM 認証情報漏洩経路を修正した。"
+        ],
+        "checkNow": [
+          "`claude --version` で v2.1.233 以降か確認し、対象モデル（Opus 4.8 / Sonnet 5 / Fable 5 / Mythos 5 以降）を使うセッションで TodoWrite / TaskCreate などがツール一覧から外れているか確認する。",
+          "プロジェクトの `settings.json` の `env` に `CLAUDECODEENABLETODOTOOLS` が設定されているか確認する。TodoWrite を維持する必要がある場合は値を `1` にする。",
+          "TodoWrite を matcher に指定した `PostToolUse` hook、Todo を読む `statusline`、TaskUpdate を使うカスタムスキルを検索し、対象モデルへの切り替え後に発火・更新される前提が残っていないか確認する。",
+          "Windows では v2.1.233 に更新後、auto mode の Bash コマンドが不要に手動承認へ落ちないこと、Cygwin 形式のシンボリックリンクと `< file` の権限判定が v2.1.232 より前の挙動に戻っていることを確認する。"
+        ],
+        "unknowns": [
+          "Todo 系ツールを無効化した理由は、記事内の changelog に記載されていない。",
+          "`CLAUDECODEENABLETODOTOOLS=1` による互換動作がいつまで提供されるかは、記事内で示されていない。",
+          "Windows の NTLM 漏洩経路について、記事内では悪用条件や影響する具体的なバージョン範囲までは説明されていない。"
+        ]
+      }
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn",
+      "title": "HPACKの可変長整数デコードのDoS脆弱性(GHSA-8v8h-hg4w-mvq2) 解説",
+      "url": "https://zenn.dev/nishino_hiroki/articles/eef9109afa8eec",
+      "publishedAt": "2026-08-16T06:00:44.742Z",
+      "author": "nishino",
+      "authorDetail": {
+        "name": "nishino",
+        "handle": "@nishino_hiroki",
+        "url": "https://zenn.dev/nishino_hiroki",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocJt9bbMfh1UCKJWdG3eRpsU2oZZWHS84Bam5FzeRI5IkWBpe1EVuw=s96-c",
+        "links": []
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "HPACKの可変長整数デコードのDoS脆弱性(GHSA-8v8h-hg4w-mvq2)について PythonのHTTP/2 HPACK実装としてよく使われている python-hyper/hpack の可変長整数デコードに上限チェックがなく、悪意ある入力でO(n^2)の計算量が発生しDoSに繋がる脆弱性を先日発見、報告し、 Advisoryが発出された （CWE-400、CVSSv4 6.3 Moderate）。 修正バージョンとして v4.2.0 がリリースされており、アップデートが推奨されている。 影響範囲 hpack は python-hyper/h2 （HTTP/2プロトコルスタック）の依存先であり、h2は encode/httpx のHTTP/2サポート（ httpx[h2] ）や pgjones/Hypercorn が依存している。 h2を利用するASGI/WSGIサーバー等で…",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "132b0904294de8ac",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.5026890756302521,
+      "popularityPercentile": 0.7394957983193278,
+      "matchedTopics": [
+        "ブラウザ / Web標準"
+      ],
+      "buzz": false,
+      "score": 64,
+      "oneLiner": "HPACKの可変長整数デコードにDoS脆弱性が報告された。",
+      "reason": "本文が提供されていないため、GHSA-8v8h-hg4w-mvq2に関する脆弱性の詳細や影響範囲は確認できない。",
+      "keywords": [
+        "HPACK",
+        "HTTP/2",
+        "可変長整数",
+        "DoS",
+        "GHSA-8v8h-hg4w-mvq2"
+      ],
+      "category": "Web標準/ブラウザ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "HPACKの可変長整数デコードのDoS脆弱性(GHSA-8v8h-hg4w-mvq2)について\n\n PythonのHTTP/2 HPACK実装としてよく使われている python-hyper/hpack の可変長整数デコードに上限チェックがなく、悪意ある入力でO(n^2)の計算量が発生しDoSに繋がる脆弱性を先日発見、報告し、 Advisoryが発出された （CWE-400、CVSSv4 6.3 Moderate）。\n\n修正バージョンとして v4.2.0 がリリースされており、アップデートが推奨されている。\n\n \n 影響範囲\n\n hpack は python-hyper/h2 （HTTP/2プロトコルスタック）の依存先であり、h2は encode/httpx のHTTP/2サポート（ httpx[h2] ）や pgjones/Hypercorn が依存している。\n\n h2を利用するASGI/WSGIサーバー等でHTTP/2サーバーを公開している場合、外部の攻撃者が細工したヘッダーを送り込めるため、CPUを占有される可能性がある。\n\nh2の CONTINUATION_BACKLOG （後述）によりhpackへの入力は約1MB（デフォルト設定）に制限されるが、リクエストの大きさに対しO(n^2)の計算量となり、スペックにもよるが1リクエストで約1.5分のCPU時間を消費させることができる。\n\n httpxをHTTP/2クライアントとして使っている場合、デコードするのはサーバーからの応答であり、悪意あるサーバーに接続しない限り攻撃は成立しない。\n\n \n httpxについての余談\n\n httpxは、2024年12月を最後に新バージョンがリリースされておらず、メンテナからの メンテ終了宣言? が出ていることに注意が必要。pydanticがメンテを引き継いだ pydantic/httpx2 を出しており、starletteなどは切り替え始めているので、そちらに切り替えることが良いと思われる。\n\n \n \n 対応\n\n 修正バージョンであるhpack v4.2.0へのバージョンアップを行うことで対応できる。\n\n uv pip install --upgrade hpack \n \n\n \n 以降、この脆弱性の技術的な詳細を解説する。\n\n \n 問題の所在である可変長整数エンコーディングの仕組み\n\n python-hyper/hpackに欠けていた上限チェックと、Pythonの任意精度整数がなぜO(n^2)の計算量を生むのか\n\n 他言語の実装がどう対処しているか\n\n \n \n 可変長整数エンコーディング\n\n HTTP/2ではヘッダー圧縮に HPACK （ RFC 7541 ）が使われている。\n\nHPACKはヘッダー圧縮にあたって、テーブルインデックス、文字列長、テーブルサイズ変更値など様々な整数値を扱う必要がある。\n\nこの整数を効率的にエンコードするのが、 RFC 7541 Section 5.1 で定義される 可変長整数エンコーディング であり、今回の脆弱性はこのデコード処理に起因する。\n\n 名前の通り、可変長の整数をエンコードする仕組みである。\n\n小さい値は少ないバイト数で、大きい値は必要なだけバイトを伸ばして表現する。Protocol BuffersのvarintやLEB128と同じ発想である。\n\n \n バイトの構造\n\n 各バイトの最上位ビット（MSB）を継続フラグとして使い、残りの7ビットで値を表現する。\n\nMSBが1なら「まだ次のバイトに続く」、0なら「このバイトで終端」を意味する。\n\n ←1bit→ ←──── 7bit ────→ \n +-------+----------------+ \n |継続? | 値（0〜127） | \n | 1=続く | | \n | 0=終端 | | \n +-------+----------------+ \n \n\n \n シフトによる値の組み立て\n\n 後続バイトが複数ある場合、各バイトの7ビットの値はリトルエンディアン順（下位から上位へ）に並べられる。\n\n1バイト目の7ビットはそのまま（×2^0）、2バイト目の7ビットは7ビット左にシフト（×2^7）、3バイト目はさらに7ビット左（×2^14）…と積み上げていく。\n\n byte 0: 値₀ × 2^0 ← シフトなし \n byte 1: 値₁ × 2^7 ← 7ビット左 \n byte 2: 値₂ × 2^14 ← 14ビット左 \n ... \n \n\n \n エンコードとデコード\n\n RFC 7541はエンコードとデコードの両方の疑似コードを示している。まずエンコード側を見る。\n\n if I < 2^N - 1, encode I on N bits \n else \n encode (2^N - 1) on N bits \n I = I - (2^N - 1) \n while I >= 128 \n encode (I % 128 + 128) on 8 bits \n I = I / 128 \n encode I on 8 bits \n \n\n 疑似コード中のNは先頭バイトのうち整数に使えるビット数を表す。HPACKでは先頭バイトの上位数ビットがヘッダー種別のフラグに使われるため、整数に使えるのは残りのNビット（ プレフィックス と呼ばれる）だけである [1] 。\n\n 値がプレフィックスに収まらない場合の while ループが本脆弱性に関わる部分である。\n\n128で割りながら後続バイトに書き出していく。 I % 128 で下位7ビットを取り出し、 + 128 でMSBを1にして「まだ続く」ことを示す。最後のバイトはMSBが0のまま書き出す。\n\n RFCに載っている例として、N=5のとき1337をエンコードする場合を示す。プレフィックスの最大値は2^5 - 1 = 31なので、1337 - 31 = 1306を128で繰り返し割る。\n\n \n 1306 % 128 = 26 → 26 + 128 = 154 （MSB=1、継続）\n\n 1306 / 128 = 10 → 10 （MSB=0、終端）\n\n \n 0 1 2 3 4 5 6 7 \n +---+---+---+---+---+---+---+---+ \n | X | X | X | 1 1 1 1 1 | ← 31（プレフィックス満杯） \n +---+---+---+---+---+---+---+---+ \n | 1 | 0 0 1 1 0 1 0 | ← 154, MSB=1（継続） \n +---+---+---+---+---+---+---+---+ \n | 0 | 0 0 0 1 0 1 0 | ← 10, MSB=0（終端） \n +---+---+---+---+---+---+---+---+ \n \n\n 結果は [0x1F, 0x9A, 0x0A] の3バイトになる。\n\n デコードはこの逆操作になる。RFC 7541が示すデコード側の疑似コードは次のとおりである。\n\n decode I from the next N bits \n if I < 2^N - 1, return I \n else \n M = 0 \n repeat \n B = next octet \n I = I + (B & 127) * 2^M \n M = M + 7 \n while B & 128 == 128 \n return I \n \n\n ループの終了条件はMSBが0のバイトに到達することだけで、値やバイト数の上限チェックは含まれていない。\n\n ただし、RFCはこの疑似コードの直後に 次のように述べており 、実装側での上限チェックを求めている。\n\n \n This integer representation allows for values of indefinite size.\n\nIt is also possible for an encoder to send a large number of zero values, which can waste octets and could be used to overflow integer values.\n\nInteger encodings that exceed implementation limits -- in value or octet length -- MUST be treated as decoding errors.\n\n \n Section 7.4（Implementation Limits） でも、整数の値とエンコード長に上限を設けることが求められている。\n\n \n python-hyper/hpackに欠けていたもの\n\n まさに修正前の python-hyper/hpack では、この上限設定が欠けていた。\n\nv4.1.0以前の decode_integer は、RFCの疑似コードをほぼそのままPythonに落としたものだった。\n\n while True : \n next_byte = data[index] \n index += 1 \n if next_byte >= 128 : \n number += (next_byte - 128 ) << shift \n else : \n number += next_byte << shift \n break \n shift += 7 \n \n\n ループの脱出条件はMSBが0のバイトだけで、値にもバイト数にも上限チェックがない。\n\n攻撃者が 0xFF のバイト列を大量に送ると、MSBは常に1なのでループは終わらない。\n\n 入力長自体は無限ではない。python-hyper/h2はCONTINUATIONフレーム数を最大64に制限しており、（1 HEADERS + 64 CONTINUATION）× デフォルトの MAX_FRAME_SIZE （16,384バイト）≈ 約1MBがhpackに渡される入力の上限となる。\n\nしかし、Pythonの int は 任意精度整数 （多倍長整数）であるため、この約1MBの入力から100万桁レベルの巨大整数を生成してしまう。固定幅整数（ uint32 や uint64 ）であればオーバーフローで止まるところを、Pythonではオーバーフローが起きない。\n\n そして問題は、この巨大整数の演算コストがO(n^2)になることである。\n\n 固定幅整数の加算やビットシフトは、CPUの1命令で完了する定数時間の操作である。\n\nループがn回まわっても、各回の演算がO(1)なら全体はO(n)で済む。\n\n しかしPythonの任意精度整数は内部的には配列として実装されており [2] 、演算コストが値のサイズに比例する。\n\nkビットの整数どうしの加算はO(k)、kビットの整数をsビット左シフトする操作はO(k + s)の時間がかかる。\n\n 問題のループでは、i回目の反復で shift = 7i であり、次の二つの操作が走る。\n\n \n \n (next_byte - 128) << shift ：7ビットの値を7iビット左にシフトする。結果は約7iビットの整数になる。コストはO(i)。\n\n \n number += ... ：約7iビットの number に約7iビットの値を加算する。コストはO(i)。\n\n \n n回の反復での合計コストは次のようになる。\n\n Σ (i=0 to n-1) O(i) = O(n²) \n \n\n 具体的に見てみる。\n\n入力が1,000バイトの 0xFF なら、最後の反復では shift = 6,993 であり、約7,000ビット（870バイト超）の整数どうしの演算が走る。\n\n合計の計算量はおよそ500,000回分のワードレベル演算になる。\n\n 入力が10,000バイトなら、最終的な number は約70,000ビットの整数に膨れ上がり、合計の計算量は約50,000,000回に増える。\n\n10倍の入力で100倍のCPU消費、これがO(n^2)の意味するところである。\n\n 実際にhpack v4.1.0相当のデコード処理をCPython 3で計測すると、実測値が理論的なO(n^2)の曲線にほぼ一致する。\n\n \n\n 入力を2倍にすると所要時間は約4倍になっている。\n\nデフォルト設定での入力上限である約1MBでは、1リクエストでCPUを約1.5分間占有できる計算になる。\n\n \n 他の実装はどう対処しているか\n\n 同じRFCの同じ疑似コードを実装していながら、他の言語の主要な実装ではこの問題が起きなかった。\n\n各実装がどのように上限を設けているかを比較する。\n\n \n nghttp2（C言語）\n\n nghttp2はHTTP/2のリファレンス実装であり、Apacheのmod_http2が内部で使っている。\n\n整数デコード関数 decode_length は uint32_t 型で値を保持し、3段階のオーバーフローチェックを行う。\n\n uint32_t add = * in & 0x 7f ; \n \n if (shift >= 32 ) { /* シフト量が32bit以上 */ \n return - 1 ; \n } \n if ((UINT32_MAX >> shift) < add) { /* シフト後にuint32を超える */ \n return - 1 ; \n } \n \n add <<= shift; \n \n n += add; \n if (UINT32_MAX - add < n) { /* 加算でuint32を超える */ \n return - 1 ; \n } \n \n\n \n Go（golang.org/x/net/http2/hpack）\n\n Go標準ライブラリの readVarInt は uint64 型で値を保持し、シフト量が63以上になったらエラーを返す。\n\n i += uint64 (b & 127 ) << m \n if b & 128 == 0 { \n return i, p, nil \n } \n m += 7 \n if m >= 63 { // TODO: proper overflow check. making this up. \n return 0 , origP, errVarintOverflow \n } \n \n\n \n 比較\n\n \n \n \n 実装 \n 言語 \n 整数型 \n 上限の仕組み \n 実効上限 \n\n \n \n \n nghttp2 \n C \n 32ビット固定長 \n 型 + 明示的3段チェック \n 約4.3×10^9 \n\n \n Go stdlib \n Go \n 64ビット固定長 \n shift量 ≥ 63で打ち切り \n 約2^63 \n\n \n hpack \n Python \n 任意精度 \n なし（v4.1.0以前） \n 無制限 \n\n \n \n \n v4.2.0での修正\n\n hpack v4.2.0では、読み取りバイト数で上限を設けるアプローチが採用された。\n\n VARINT_MAX_LENGTH = 5 \n \n # ... \n while True : \n next_byte = data[index] \n index += 1 \n \n if next_byte >= 128 : \n number += (next_byte - 128 ) << shift \n else : \n number += next_byte << shift \n break \n shift += 7 \n \n if index > VARINT_MAX_LENGTH : \n msg = f \"Variable integer representation is too long: { data !r } \" \n raise HPACKDecodingError(msg) \n \n\n ループ内に index > VARINT_MAX_LENGTH のチェックが追加され、後続バイトが5バイトを超えた時点で HPACKDecodingError が送出される。\n\nHPACKの整数が表す値（テーブルインデックス、文字列長、テーブルサイズ）はいずれも数万のオーダーに収まるため、5バイト（約2^28）で十分である。\n\n \n 考察\n\n 今回の脆弱性は、他の言語の主要な実装では作り込まれておらず、Python HPACKでのみ発生していた。\n\n背景には、固定幅整数を前提として設計された仕様を任意精度整数の言語で実装する際に、上限設定が抜け落ちやすいという構造的な問題がある。\n\n GoやRust、Cで可変長整数デコードの疑似コードを素直に書くと、値は uint64 や uint32_t といった固定幅整数に格納される。\n\n型の上限に達すればオーバーフローが発生するため、明示的なチェックがなくても暗黙の上限が存在する。\n\nnghttp2はそのうえで明示的チェックを重ねている。\n\nまた、固定幅整数の演算は定数時間であるため、仮に上限チェックが漏れてもループ全体の計算量はO(n)のままであり、DoSには至りにくい。\n\n 一方、Pythonの int は任意精度整数であるため、オーバーフローが発生せず、上限の必要性が見落とされやすい。\n\n型の上限がないからループが止まらず、演算コストが値のサイズに比例するからループ全体がO(n^2)になる。\n\n 任意精度整数の言語で外部入力を処理する際は、他の言語では型の上限によって暗黙に制約されている値が、自言語では制約なく膨張しうることを意識する必要がある。\n\n \n 脚注 \n \n \n プレフィックス幅はヘッダー表現の種類によって4〜7ビットの間で変わるが、本脆弱性の理解には直接関係しない。詳細は RFC 7541 Section 6 を参照。 ↩︎ \n\n \n CPython実装では、 int は30ビット単位の digit 配列（ ob_digit ）として格納されている。桁数が増えると配列が伸びる。[ https://levelup.gitconnected.com/how-python-represents-integers-using-bignum-f8f0574d0d6b:title ] ↩︎",
+      "rank": 2,
+      "deep": {
+        "headline": "HTTP/2公開サーバーはhpack更新が必要",
+        "summary": "PythonのHTTP/2ヘッダー圧縮実装 `hpack` v4.1.0以前には、可変長整数の値・長さの上限チェックがなかった。細工したHPACK入力により、`任意精度整数` の生成と演算が膨張し、`O(n^2)` のCPU消費でDoSにつながる。`h2` でHTTP/2サーバーを外部公開している構成が主な確認対象で、`hpack` v4.2.0への更新が修正となる。",
+        "prerequisites": [
+          {
+            "term": "hpack",
+            "stumblingPoint": "記事は「hpack は python-hyper/h2 の依存先」と書いているが、直接依存していないアプリでも間接依存で影響を受けることが読み取りにくい。",
+            "explanation": "`hpack` はHTTP/2のヘッダー圧縮方式であるHPACKをPythonで処理する実装で、`h2` から依存される。したがって、アプリケーションが直接 `hpack` をimportしていなくても、HTTP/2サーバーを構成する依存関係の中で脆弱なコードが実行されうる。"
+          },
+          {
+            "term": "CONTINUATION_BACKLOG",
+            "stumblingPoint": "記事は「CONTINUATION_BACKLOG により入力は約1MBに制限」と書いているが、制限があるのにDoSが成立する理由を知らないと危険度を読み違える。",
+            "explanation": "`CONTINUATION_BACKLOG` は、HTTP/2のHEADERSに続くCONTINUATIONフレームを `h2` が受け付ける量の制限として記事で使われている。入力が無制限でなくても、約1MBを悪意あるヘッダーとして処理させるだけで、Pythonの整数演算コストが問題になる。"
+          },
+          {
+            "term": "任意精度整数",
+            "stumblingPoint": "記事は「Pythonの int は任意精度整数」と書いているが、固定幅整数なら暗黙に止まる処理がPythonでは止まらない点が脆弱性に直結する。",
+            "explanation": "`任意精度整数` は、`uint32` や `uint64` のような固定幅ではなく、必要に応じて桁数を増やせるPythonの `int` を指す。今回のデコーダーでは、継続ビットが立ったバイトを大量に処理してもオーバーフローで止まらず、巨大な整数の生成と演算が続く。"
+          },
+          {
+            "term": "O(n^2)",
+            "stumblingPoint": "記事は「合計の計算量は O(n²)」と書いているが、可変長整数のサイズ増加が各反復のシフト・加算コストを増やす推論が必要になる。",
+            "explanation": "`O(n^2)` は、入力を10倍にしたとき処理量が概ね100倍になる関係を表す。各反復で扱う整数のビット長が増え、シフトと加算のコストも反復回数に比例して増えるため、単に「長い入力を読むので遅い」という問題ではない。"
+          },
+          {
+            "term": "HPACKDecodingError",
+            "stumblingPoint": "記事は「5バイトを超えた時点で HPACKDecodingError」と書いているが、これは通信の失敗ではなく、CPUを使い切る前に不正なHPACK入力を打ち切る変更だと理解する必要がある。",
+            "explanation": "`HPACKDecodingError` は、`hpack` v4.2.0が可変長整数の表現長超過を検出したときに送出するデコードエラーである。攻撃データを巨大な整数として処理し続ける代わりに、5バイトを超えた時点で入力を拒否する。"
+          },
+          {
+            "term": "httpx[h2]",
+            "stumblingPoint": "記事は「httpxをHTTP/2クライアントとして使っている場合」と書いているが、サーバー利用時と異なり、攻撃入力がレスポンスとして届く点を区別しないと影響範囲を広く見積もってしまう。",
+            "explanation": "`httpx[h2]` は `httpx` にHTTP/2対応の依存関係を加えた構成を指す。ここでは受信したレスポンスヘッダーを `hpack` がデコードするため、HTTP/2サーバーを公開する場合とは攻撃者の位置が逆になり、接続先が悪意あるサーバーであることが条件になる。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "hpackの修正前後",
+          "beforeLabel": "hpack v4.1.0以前",
+          "afterLabel": "hpack v4.2.0",
+          "rows": [
+            {
+              "aspect": "可変長整数の上限",
+              "before": "値・バイト数の上限チェックなし",
+              "after": "5バイト超過でHPACKDecodingError"
+            },
+            {
+              "aspect": "悪意ある0xFF列",
+              "before": "MSB=1が続く限り処理",
+              "after": "巨大な整数の生成を打ち切る"
+            },
+            {
+              "aspect": "CPU消費",
+              "before": "任意精度整数の演算でO(n^2)",
+              "after": "入力をデコードエラーとして拒否"
+            }
+          ]
+        },
+        "code": {
+          "lang": "bash",
+          "caption": "hpackを修正版へ更新",
+          "content": "uv pip install --upgrade 'hpack>=4.2.0'"
+        },
+        "whyItMatters": "これを知らずに1週間過ごすと、`h2` の間接依存だから自分のコードは無関係だと判断し、HTTP/2公開サーバーを `hpack` v4.1.0以前のまま運用し続ける可能性がある。入力上限が約1MBあることだけを見て安心すると、細工した1リクエストでCPUを約1.5分消費されるという記事の試算を見落とす。",
+        "relatedLinks": [],
+        "readingMinutes": 4,
+        "lane": "know",
+        "impact": [
+          "`hpack` v4.1.0以前を使う構成が対象。修正版は `hpack` v4.2.0。",
+          "`h2` を利用してHTTP/2サーバーを公開するASGI/WSGIサーバーでは、外部攻撃者が細工したヘッダーを送れるため、CPUを占有される可能性がある。",
+          "`h2` の `CONTINUATION_BACKLOG` により、デフォルト設定では `hpack` への入力は約1MBに制限されるが、入力長に対して `O(n^2)` の計算量が発生し、記事の試算では1リクエストで約1.5分のCPU時間を消費しうる。",
+          "`httpx[h2]` をHTTP/2クライアントとして使う場合、デコード対象はサーバーからの応答。悪意あるサーバーへ接続しない限り、記事の攻撃条件は成立しない。"
+        ],
+        "timeline": [
+          "2026-08-16に記事公開。",
+          "修正版 `hpack` v4.2.0がリリース済み。記事にはリリース日の記載なし。",
+          "記事では、`hpack` の修正前バージョンを v4.1.0以前として扱っている。"
+        ],
+        "checkNow": [
+          "依存関係を確認し、`hpack` が `4.2.0` 未満、特に `4.1.0` 以前になっていないか確認する。例: `uv pip show hpack h2 httpx`、または `uv pip tree | grep -E 'hpack|h2|httpx'`。",
+          "`h2` を使うASGI/WSGIサーバーでHTTP/2を外部公開しているか確認する。HTTP/2を無効化できる構成なら、アップデートまでの暫定回避になる。",
+          "HTTP/2クライアントとして `httpx[h2]` を使っている場合は、接続先が信頼できないサーバーになっていないか確認する。攻撃入力はサーバーからの応答として届く。"
+        ],
+        "unknowns": [
+          "記事では `httpx` について、2024年12月を最後に新バージョンがなく、メンテナからメンテ終了宣言が出ている可能性を「?」付きで記載している。メンテナンス終了が確定しているかは、この記事だけでは判断できない。",
+          "`h2` や各上位ライブラリがどのバージョンで `hpack` v4.2.0へ切り替わるか、記事には記載がない。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "senv: uvを安全なサンドボックスにする方法",
+      "url": "https://qiita.com/Koukyosyumei/items/d092acea271781a23da9",
+      "publishedAt": "2026-08-16T21:30:30.000Z",
+      "author": "Hideaki Takahashi",
+      "authorDetail": {
+        "name": "Hideaki Takahashi",
+        "handle": "@Koukyosyumei",
+        "url": "https://qiita.com/Koukyosyumei",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/2959953/36c4ee113027133d31a42234afa81815a5172109/x_large.png?1782688765",
+        "bio": "ニューヨークのコロンビア大学でAI エージェント・ソフトウェア工学の研究をしています。",
+        "organization": "Columbia University",
+        "location": "New York",
+        "followers": 153,
+        "posts": 39,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/Koukyosyumei"
+          },
+          {
+            "label": "Web",
+            "url": "https://x.com/Koukyosyumei"
+          }
+        ]
+      },
+      "tags": [
+        "Python",
+        "Security",
+        "CLI",
+        "AIエージェント",
+        "AI駆動開発"
+      ],
+      "snippet": "TL;DR： senvは、uvのワークフローにOSレベルのセキュリティ境界を追加します。パッケージのインストール中は接続先をレジストリに限定し、Pythonコードの実行中はネットワークをデフォルトで遮断するとともに、コード自身による環境の書き換えを防ぎます。 uvに代表されるPythonの仮想環境は、依存関係を整理するための優れた仕組みです。しかし、その中に入れたコードを安全に隔離する仕組みではありません。 近年、多くの開発者はClaude CodeやCodexといったAI コーディングエージェントにパッケージの選択や実行を任せていますが、このような.venvに入ったコードも、通常は開発者と同じ権限でファイル、環境変数、認証情報、ネットワークへアクセスできます。 この問題を解決するために開発されているのが、uvにOSレベルのサンドボックスを追加するCLIツール、senvです。 https:…",
+      "body": "TL;DR： senvは、uvのワークフローにOSレベルのセキュリティ境界を追加します。パッケージのインストール中は接続先をレジストリに限定し、Pythonコードの実行中はネットワークをデフォルトで遮断するとともに、コード自身による環境の書き換えを防ぎます。\n\nuvに代表されるPythonの仮想環境は、依存関係を整理するための優れた仕組みです。しかし、その中に入れたコードを安全に隔離する仕組みではありません。\n\n近年、多くの開発者はClaude CodeやCodexといったAI コーディングエージェントにパッケージの選択や実行を任せていますが、このような.venvに入ったコードも、通常は開発者と同じ権限でファイル、環境変数、認証情報、ネットワークへアクセスできます。\n\nこの問題を解決するために開発されているのが、uvにOSレベルのサンドボックスを追加するCLIツール、senvです。\n\nhttps://github.com/h5i-dev/senv\n\nsenvとuvの関係\n\nsenvはuvのリゾルバやロックファイルを置き換えません。senvのプロジェクトも、通常のpyproject.tomlとuv.lockを使います。senvを導入していないチームメンバーは、引き続きuvを直接利用できます。普段の操作もほとんど変わりません。\n\n| uv | senv |\n| --- | --- |\n| uv sync | senv sync |\n| uv lock | senv lock |\n| uv add requests | senv add requests |\n| uv run pytest | senv run pytest |\n| .venvをactivate | senv shell |\n\nインストールと実行の分離\n\n依存関係のインストールやアプリケーションの実行では、必要な権限が違います。例えば、両方に同じ権限を与えると、インストールに必要だったネットワークアクセスを、後から動くすべてのPythonコードにも与えることになります。\n\nsenvはこの2つを別のフェーズとして扱います。\n\nsenv sync、senv add、senv lockの実行中は、次のポリシーが適用されます。\n・接続先はPyPIと設定済みのインデックスのみ\n・プロジェクトのソースは読み取り専用\n・開発者の認証情報は渡さない\n・パッケージを追加するためPython環境は書き込み可能\n\n一方、senv runとsenv shellでは次のようになります。\n・プロジェクトは書き込み可能\n・インストール済み環境は読み取り専用\n・ネットワークはデフォルトで拒否\n・明示的に宣言したsecretだけを渡す\n\nこれにより、インストール時のビルドコードにリポジトリやSSH鍵を見せず、実行時のコードには不要な外部通信や環境の永続的な改変を許さない、という分離ができます。\n\n使用例\n\nsenvはPATH上のuvを利用します。Cargoからインストールするか、GitHub Releasesのバイナリを利用できます。\n\n [code] \n\n新しいプロジェクトは、次のように始められます。\n\n [code] \n\n既存のuvプロジェクトでは、現在のpyproject.tomlとuv.lockをそのまま利用します。\n\n [code] \n\nsenv doctorを実行すると、そのマシンで利用できる保護機構を確認できます。LinuxではLandlock、seccomp-bpf、namespace、ネットワークルールなどを組み合わせ、macOSでは組み込みのSeatbeltを利用します。WindowsではWSL2上で動作します。より強い隔離が必要な場合は、オプションのcontainerやmicroVM tierも選択できます。\n\nまとめ\n\nsenvは、不正なコードや誤操作の影響範囲を小さくするツールです。ただし、パッケージが安全かどうかを判定するものでも、依存関係のレビューを不要にするものでもありません。また、標準のOSレベルtierはホストカーネルを共有するため、カーネル自体に脆弱性がある場合は攻撃が可能になる可能性があります。\n\nまた、保護されるのはsenv経由で起動したコマンドだけです。ホスト上で.venvをactivateしたり、エディタから.venv/bin/pythonを直接実行したりすると、runtimeの境界を迂回できてしまいます。\n\nuvはPythonプロジェクトの管理を大幅にシンプルにしました。senvはその使いやすさを保ったまま、Pythonコードへマシン全体の権限を自動的に渡さないためのレイヤーを追加します。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "e4f2f21c40c690f2",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6362227111474962,
+      "popularityPercentile": 0.017191977077363897,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 85,
+      "oneLiner": "senvがuvの実行環境にOSレベルのサンドボックスを追加する。",
+      "reason": "senvはuvの依存解決を保ったまま、インストール先をレジストリに制限し、実行時のネットワークと環境書き換えを遮断する。AIエージェントが動かすPythonコードを開発者権限から隔離できる。",
+      "keywords": [
+        "senv",
+        "uv",
+        "Python",
+        "サンドボックス",
+        "Claude Code",
+        "Codex"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "headline": "uvにOSレベルの実行境界を追加する",
+        "summary": "senvは、uvの依存管理を維持したまま、インストールと実行を別の権限フェーズに分けるCLIです。`senv sync`などのインストール時は接続先をPyPIなどに限定し、プロジェクトのソースや開発者の認証情報を保護します。`senv run`や`senv shell`ではネットワークをデフォルト拒否し、インストール済み環境を読み取り専用にして、明示したsecretだけを渡します。AIエージェントが実行するPythonコードの影響範囲を、uvの使い勝手を保ったまま狭められます。",
+        "prerequisites": [
+          {
+            "term": "uv",
+            "stumblingPoint": "記事は「uvに代表されるPythonの仮想環境」を安全に隔離する仕組みではないと書いているが、仮想環境が権限分離まで行わないことを知らないと問題の所在が読み取れない。",
+            "explanation": "uvの仮想環境は依存関係を分離する仕組みであり、実行プロセスの権限を制限する仕組みではない。したがって、.venv内のPythonコードは通常、開発者と同じファイル、環境変数、認証情報、ネットワークへ到達できる。この記事のsenvはuvを置き換えるのではなく、その実行経路にOSレベルの制約を追加する。"
+          },
+          {
+            "term": "senv",
+            "stumblingPoint": "記事は「senvはuvのリゾルバやロックファイルを置き換えません」と書いているが、senvが依存管理ツールではなくuvの操作に境界を付けるCLIだと知らないと役割分担が読み取れない。",
+            "explanation": "senvは依存関係の解決やロックファイルの形式を独自化しない。`pyproject.toml`と`uv.lock`を使い続け、`uv sync`を`senv sync`、`uv run pytest`を`senv run pytest`に置き換える薄いCLIレイヤーとして動く。そのため、senvを導入していないチームメンバーも同じプロジェクトをuvで扱える。"
+          },
+          {
+            "term": "senv sync",
+            "stumblingPoint": "記事は「senv sync、senv add、senv lockの実行中」のポリシーを列挙しているが、インストール時だけPython環境を書き込み可能にする理由を知らないと実行時制限との違いが読み取れない。",
+            "explanation": "`senv sync`、`senv add`、`senv lock`はインストール側のフェーズで、パッケージ取得のためPython環境には書き込みを許す。一方、接続先はPyPIと設定済みインデックスに限定し、プロジェクトのソースは読み取り専用、開発者の認証情報は渡さない。ビルド時にコードが動くパッケージでも、リポジトリやSSH鍵を見せないための設計である。"
+          },
+          {
+            "term": "senv run",
+            "stumblingPoint": "記事は「senv runとsenv shellでは次のようになります」と書いているが、インストールフェーズと異なりネットワークを拒否し環境を読み取り専用にする意味を知らないと境界設計を読み取れない。",
+            "explanation": "`senv run`と`senv shell`は実行側のフェーズで、プロジェクトは書き込み可能だが、インストール済み環境は読み取り専用になる。ネットワークはデフォルト拒否で、必要なsecretも明示的に宣言したものだけが渡される。実行したコードが依存環境そのものを書き換えたり、不要な外部通信をしたりする範囲を狭める。"
+          },
+          {
+            "term": "Landlock",
+            "stumblingPoint": "記事はLinuxの保護機構として「Landlock、seccomp-bpf、namespace」を列挙しているが、それぞれがOSレベルのアクセス制御であることを知らないと、uvの機能との差分が読み取れない。",
+            "explanation": "LandlockはLinuxでファイルシステムなどへのアクセスを制限する仕組みで、ここではsenvがプロセスのアクセス範囲を狭めるために利用する。seccomp-bpfやnamespace、ネットワークルールと組み合わせて、単一の制御だけに依存せず実行環境を制約する。利用可能な保護機構は`senv doctor`で確認できる。"
+          },
+          {
+            "term": "Seatbelt",
+            "stumblingPoint": "記事は「macOSでは組み込みのSeatbeltを利用します」とだけ書いているが、LinuxのLandlockをmacOSでも使うわけではないことを知らないと対応環境の差を読み取れない。",
+            "explanation": "SeatbeltはmacOSに組み込まれているサンドボックス機構で、senvはLinuxのLandlockなどとは異なるOS標準の仕組みを使う。つまり、OSごとに隔離の実装は異なるが、senvのCLI操作で実行時のアクセスを制限する点は共通している。macOSでLinux向けの保護機構がそのまま使われるわけではない。"
+          },
+          {
+            "term": "WSL2",
+            "stumblingPoint": "記事は「WindowsではWSL2上で動作します」と書いているが、Windowsの通常のシェルからネイティブに動くと考えると、必要な実行環境を誤る。",
+            "explanation": "WindowsではsenvがネイティブWindows上で同じ方式を提供するのではなく、WSL2上で動作する。WSL2はWindows上でLinux環境を動かす仕組みなので、senvを試すにはその実行場所が前提になる。Windows開発環境での導入可否を判断する際は、ホストOSだけでなくWSL2側の環境を見る必要がある。"
+          },
+          {
+            "term": "ホストカーネル",
+            "stumblingPoint": "記事は「標準のOSレベルtierはホストカーネルを共有する」と注意しているが、サンドボックスがカーネル脆弱性まで防ぐものではないと知らないと安全性の限界を読み取れない。",
+            "explanation": "ホストカーネル共有とは、標準のOSレベルtierでサンドボックス内のプロセスがホストと同じカーネルを使うことを指す。ファイルやネットワークの通常アクセスは制限できても、カーネル自体の脆弱性を悪用するリスクまで消えるわけではない。より強い隔離が必要なら、記事が挙げるcontainerやmicroVM tierを検討する。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "uvとsenvの権限境界",
+          "beforeLabel": "uvのみ",
+          "afterLabel": "senv",
+          "rows": [
+            {
+              "aspect": "インストール時",
+              "before": "uvの通常権限で実行。記事では追加のOS境界は示されない",
+              "after": "senv sync / add / lock。PyPI等に限定、ソース読み取り専用、認証情報なし、環境は書き込み可能"
+            },
+            {
+              "aspect": "実行時",
+              "before": "通常は開発者と同じファイル・環境変数・認証情報・ネットワークへアクセス可能",
+              "after": "senv run / shell。ネットワーク拒否、環境読み取り専用、明示したsecretのみ"
+            },
+            {
+              "aspect": "隔離の範囲",
+              "before": ".venvを直接activate、または`.venv/bin/python`を直接起動すると保護なし",
+              "after": "senv経由のコマンドのみ保護。containerやmicroVM tierも選択可能"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "Claude CodeやCodexにパッケージ操作やテスト実行を任せるとき、uvだけではコードが開発者のファイル・認証情報・ネットワークへ到達できる。senvはuvの依存管理を置き換えず、`senv sync`と`senv run`の境界で、インストールに必要な権限と実行時の権限を分離する。React / Next.js / TypeScriptの開発環境からPythonツールやスクリプトを呼ぶ場合にも、ホスト全体の権限をそのまま渡さない実行レイヤーとして位置づけられる。",
+        "relatedLinks": [
+          {
+            "label": "senv GitHubリポジトリ",
+            "url": "https://github.com/h5i-dev/senv"
+          }
+        ],
+        "readingMinutes": 4,
+        "lane": "build",
+        "unlocks": [
+          "これまでuvの仮想環境内のコードが開発者と同じ権限で動いていたのが、これからsenv run経由でネットワーク拒否・環境読み取り専用の境界内で実行できる。",
+          "これまで依存関係のインストールとPythonコードの実行に同じ権限を与えていたのが、これからsenv syncとsenv runで権限ポリシーを分離できる。",
+          "これまでAIエージェントに実行環境の認証情報やSSH鍵が見えていたのが、これから実行時に明示したsecretだけを渡せる。",
+          "これまで既存のuvプロジェクトへサンドボックスを導入するには管理方式を変える必要があったのが、これから`pyproject.toml`と`uv.lock`を維持したままsenvのコマンドへ置き換えられる。"
+        ],
+        "howToTry": [
+          "senvをCargoまたはGitHub Releasesからインストールし、PATH上で`uv`が利用できる状態にする。記事中のインストール用コードは欠落しているため、導入コマンドはリンク先のREADMEで確認する。",
+          "新規または既存のPythonプロジェクトのディレクトリで、依存関係を` senv sync `で同期する。既存プロジェクトでは現在の`pyproject.toml`と`uv.lock`をそのまま使う。",
+          "テストやスクリプトを` senv run pytest `のように実行する。実行時はネットワーク拒否、インストール済み環境の読み取り専用、明示したsecretのみの受け渡しが適用される。",
+          "` senv doctor `を実行し、現在のマシンでLandlock、seccomp-bpf、namespace、ネットワークルールなどの保護機構が利用可能か確認する。",
+          "対話的な開発環境が必要なら` senv shell `を使う。.venvを直接activateしたり、`.venv/bin/python`を直接起動したりせず、senv経由でコマンドを実行する。"
+        ],
+        "fitFor": [
+          "Claude CodeやCodexなどに依存パッケージの選択・実行を任せるPythonプロジェクト",
+          "外部パッケージや生成コードを実行するが、実行時のネットワーク・認証情報・環境変更を制限したい開発環境",
+          "既存のuvプロジェクトに、チーム全体のワークフローを大きく変えずにOSレベルの境界を追加したい場合"
+        ],
+        "notFor": [
+          "senv経由で起動しないPythonプロセスまで一括して保護したい場合",
+          "パッケージの信頼性評価や依存関係レビューそのものを置き換えたい場合",
+          "ホストカーネル共有を許容できず、標準のOSレベルtierより強い隔離が必須の場合"
+        ],
+        "caveats": [
+          "senvはパッケージの安全性を判定したり、依存関係のレビューを不要にしたりするツールではない。",
+          "標準のOSレベルtierはホストカーネルを共有するため、カーネル脆弱性による攻撃可能性は残る。より強い隔離にはオプションのcontainerやmicroVM tierを使う。",
+          "保護されるのはsenv経由で起動したコマンドだけ。.venvをactivateしたり、エディタから.venv/bin/pythonを直接実行したりするとruntimeの境界を迂回できる。",
+          "LinuxではLandlock、seccomp-bpf、namespace、ネットワークルールを組み合わせ、macOSではSeatbeltを利用する。WindowsではWSL2上で動作する。",
+          "senvはPATH上のuvを利用する。プロジェクトは通常のpyproject.tomlとuv.lockをそのまま使う。",
+          "記事中のインストール用コードブロックは欠落しているため、CargoまたはGitHub Releasesから導入する具体的なコマンドは本文だけでは確定できない。"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "Anionex/dsh-vision-toolkit — 让纯文本模型更好地做视觉任务的DeepSeek Harness插件：带意图的图片问答、长截图 OCR、UI 还原等｜DeepSeek Harness-native integration for agent-vision-toolkit: image Q&A, long-screenshot OCR, UI restoration, grounding, pixel diff, Artifacts, and Web UI.",
+      "url": "https://github.com/Anionex/dsh-vision-toolkit",
+      "publishedAt": "2026-08-13T12:36:34.000Z",
+      "author": "Anionex",
+      "authorDetail": {
+        "name": "Anionex",
+        "url": "https://github.com/Anionex",
+        "avatarUrl": "https://github.com/Anionex.png?size=120",
+        "bio": "让纯文本模型更好地做视觉任务的DeepSeek Harness插件：带意图的图片问答、长截图 OCR、UI 还原等｜DeepSeek Harness-native integration for agent-vision-toolkit: image Q&A, long-screenshot OCR, UI restoration, grounding, pixel diff, Artifacts, and Web UI."
+      },
+      "tags": [
+        "TypeScript",
+        "agent-skills",
+        "agent-vision-toolkit",
+        "computer-vision",
+        "deepseek",
+        "deepseek-harness",
+        "dsh",
+        "dsh-plugin"
+      ],
+      "snippet": "让纯文本模型更好地做视觉任务的DeepSeek Harness插件：带意图的图片问答、长截图 OCR、UI 还原等｜DeepSeek Harness-native integration for agent-vision-toolkit: image Q&A, long-screenshot OCR, UI restoration, grounding, pixel diff, Artifacts, and Web UI.",
+      "metrics": {
+        "stars": 525
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "7a9abfce1e29af37",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8235000000000001,
+      "popularityPercentile": 0.425,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "dsh-vision-toolkitがテキストモデルに画像認識機能を提供する。",
+      "reason": "dsh-vision-toolkitはDeepSeek Harness向けに、画像質問応答、長いスクリーンショットのOCR、UI復元、ピクセル差分などの視覚タスクを追加する。",
+      "keywords": [
+        "DeepSeek Harness",
+        "dsh-vision-toolkit",
+        "agent-vision-toolkit",
+        "TypeScript",
+        "OCR",
+        "UI restoration"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "body": "DSH Vision Toolkit\n\n \n \n \n \n \n\nA more powerful vision toolkit—give text-only models in DeepSeek Harness eyes: image Q&A, long-screenshot OCR, UI restoration, and GUI visual tasks in one toolkit and Skill.\n\n🚀 Paste an image and ask directly | Install with one command | Built-in free quota | Broad use cases\n\n🌐 English | 中文\n\n \n\nIf you use DeepSeek or another text-only model in DeepSeek Harness (DSH), you may have run into the same problems: the model cannot see a screenshot, generic descriptions miss the point, buttons have no usable coordinates, and a rebuilt page can look “close enough” without a way to measure the remaining difference.\n\n🏆 This project is the first comprehensive vision-tool plugin in the DeepSeek Harness ecosystem: it was initiated before internal beta and built during the beta with reference to agent-vision-toolkit.\nOriginal work: The system and division of responsibilities behind these visual tools, together with the vision-tools Skill, were personally created and continuously refined by the author through long-term real-world use and repeated iteration.\n\nHighlights\n・Paste and use it immediately. Paste an image in DSH Web and the text-only route switches to its (Vision Toolkit) variant without manual path copying or model changes.\n・A seamless image workflow. Native thumbnails, session history, and workspace paths stay intact; Web can preview artifacts and Headless can continue using the same structured results.\n・One command to install. The built-in free Groq Qwen3.6 vision service is ready after installation, with no API key required.\n・Built-in free quota. The shared service includes 100 requests per client per day, 3,000 requests globally per day, and a 60-request burst per 60 seconds, with readable errors when a limit is reached.\n・Vision guided by intent. The agent extracts evidence for the task at hand, such as “Where is the error?” or “Where is the button?”, instead of returning a generic caption.\n・A complete screenshot-to-verification loop. Reference images, HTML screenshots, difference regions, and pixel comparison work together for UI restoration.\n\nagent-vision-toolkit gives an agent more than image captions: it can read, locate, crop, trace, rebuild, and verify visual work. DSH Vision Toolkit is its native DeepSeek Harness integration, bringing that workflow into Web and Headless Profiles.\n\nThis project has two layers:\n\n1. Visual tools and a Skill: the agent learns when to inspect, ground, OCR, crop, trace, or compare pixels.\n2. Native DSH integration: those capabilities live inside Profiles, sessions, Settings, Artifacts, and the Web UI, with a free Groq Qwen3.6 vision service ready after installation.\nInstall and use it immediately. The default setup includes a free Qwen3.6 vision service and requires no API key. Cropping, pixel diffing, color analysis, foreground extraction, SVG tracing, and HTML screenshots run locally without spending vision API requests.\n\n [code] \n\nUpstream toolkit: Anionex/agent-vision-toolkit · Project website: agent-vision.anionex.me\n\n \n Table of contents \n・Highlights\n・Recent updates\n・Who it is for\n・See it in action\n・Quick start: three steps\n・Common workflows\n・Toolbox\n・Configuration and limits\n・Troubleshooting\n・Development and community\n\n \n\nRecent updates\n・2026-08-16 · Windows Python: Added Microsoft Store Python support, fixing first-time isolated-runtime setup failures for affected Windows users.\n・2026-08-16 · Better free vision: Switched the built-in no-key service to Groq Qwen3.6, improving image understanding without adding setup steps.\n・2026-08-16 · Image paste: Text-only routes now switch to a (Vision Toolkit) variant and keep a workspace path, fixing blocked pastes and images that could not be reused later.\n・2026-08-16 · Higher free quotas: Raised the shared service ceiling to 3,000/day and 60/minute to make better use of the three-account Groq pool while keeping the per-client limit at 100/day.\n・2026-08-16 · Real model test: Added a full image-request test in Settings, fixing the false confidence caused by a successful /models request to a model that still cannot process images.\n\nWho it is for\n\n| The problem | What Vision Toolkit delivers |\n|---|---|\n| A text-only model cannot see a screenshot | Paste an image in DSH Web; the plugin obtains visual evidence and returns the task-relevant parts to the text model |\n| The description is long but misses the point | Ask “Where is the error?” or “What color is the submit button?” and receive an answer focused on that question |\n| The model knows an element exists but cannot act on it | Get original-image pixel coordinates and an optional labeled or numbered preview |\n| Long-screenshot OCR skips or duplicates lines | Split and audit the image while preserving Markdown, chunks, manifests, and resumable run state |\n| UI restoration is judged by feel | Compare the reference and implementation screenshots to get a difference percentage, ranked regions, a heatmap, and JSON |\n| Screenshot assets cannot be reused | Produce a crop, transparent PNG, color palette, or editable SVG instead of stopping at prose |\n\nSee it in action\n\nPaste an image directly into DSH\n\n \n \n \n\nPaste an image into the conversation. A text-only model can switch to its Vision Toolkit variant and inspect the image in the context of the user's question.\n\nScreenshot to editable page\n\n \n \n \n \n\nLeft: the reference screenshot. Right: an editable HTML/CSS result. The result can continue into screenshot rendering and pixel comparison instead of ending as an image description.\n\nSketch to working interface\n\n \n \n \n \n\nLeft: a hand-drawn reference. Right: the working interface reconstructed from it.\n\nTurn “looks close” into a verifiable result\n\nThe repository includes a reproducible UI-restoration example: the agent renders the reference and implementation, then uses difference regions, a heatmap, and a JSON report to guide the next correction.\n\n \n \n \n \n\nQuick start: three steps\n\n1. Install\n\n [code] \n\nYou can install it into a Headless Profile too:\n\n [code] \n\n2. Restart and check it\n\nRestart a running Web Profile, then open Settings → Vision Toolkit. The free provider is already configured; run Test vision model to confirm it is reachable.\n\nThe first start prepares an isolated runtime, so it needs access to the Python package cache or the network. A normal installation does not require an agent-vision-toolkit source checkout or a local path setting.\n\n3. Paste an image and describe the outcome you want\n\nPaste a screenshot into the conversation or place an image in the session workspace, then invoke /vision-tools. For example:\n\n [code] \n\nCommon workflows\n\n| Task | Recommended workflow |\n|---|---|\n| Image Q&A or screenshot debugging | Inspect → answer around the current question → locate details when needed |\n| Find a button, icon, or text region | Ground the target → return pixel box → create a labeled preview |\n| Extract an icon from a screenshot | Ground → crop → trace to SVG |\n| Read a long webpage screenshot | Split → OCR → merge Markdown → audit boundaries |\n| Recreate a page or component | Reference → implementation → HTML screenshot → pixel diff → iterate |\n| Extract brand visuals | Crop region → analyze dominant colors → extract foreground → export transparent PNG |\n\nToolbox\n\nThe plugin provides 10 tools that can be called independently or composed into a workflow:\n\n| Tool | Best question to ask | Main result |\n|---|---|---|\n| visionglance | “What is happening in this image?” | Focused answer, description, OCR, or multi-image comparison |\n| visionground | “Where is the thing I need?” | Original pixel coordinates and optional boxed preview |\n| visiondetect | “Which buttons, icons, or elements are present?” | Numbered element inventory, coordinates, and optional preview |\n| visioncrop | “Extract this region as its own image” | PNG or JPEG crop |\n| visiontrace | “Turn this shape into an editable vector” | SVG |\n| visionpixeldiff | “Where does the implementation differ from the reference?” | Difference percentage, ranked regions, heatmap, and JSON |\n| visionlongscreenshotocr | “Read this entire long screenshot” | Markdown, chunks, manifest, and audit output |\n| visionextractforeground | “Remove the background from this subject” | Transparent PNG |\n| visiondominantcolors | “Which colors dominate this area?” | Palette or ranked candidate colors |\n| visionhtmlscreenshot | “Render this local page at an exact viewport or capture the full page” | PNG and optional CSS pageHeight |\n\nCoordinates always use original-image pixels in x1,y1,x2,y2 form, so grounding output can feed directly into cropping, tracing, or later automation.\n\nFor a long HTML document, pass fullPage=true. The requested width and height remain the layout viewport, while the resulting PNG covers the complete document and reports pageHeight in CSS pixels.\n\nHow it works\n\nThe plugin keeps image understanding and deterministic local image processing in one Agent workflow. Expand the flow below for the implementation boundary.\n\n \n Architecture and image-input behavior \n\n [code] \n\nThe visual capabilities come from a packaged, pinned agent-vision-toolkit snapshot. The DSH plugin handles installation, session-scoped tool exposure, Credentials, path checks, cancellation, timeouts, result files, and Web presentation. The runtime never fetches upstream main in the background.\n\nFor routes that DSH positively identifies as text-only, the plugin registers a sibling (Vision Toolkit) variant. By default, pasting an image in DSH Web switches to that variant and gives the model both a reusable workspace path and a visual description focused on the current task.\n\n \n\nConfiguration and limits\n\nBuilt-in free service\n\nThe default setup uses:\n\n [code] \n\nThis is a shared zero-configuration entry point, not an unlimited private endpoint. Current limits are:\n\n| Limit | Current value |\n|---|---:|\n| Per client | 100 requests per UTC day |\n| Whole service | 3,000 requests per UTC day |\n| Burst | 60 requests per 60 seconds |\n| Image size | 4 MiB per image |\n| Decoded pixels | 20,000,000 per image |\n| Output | 512 tokens per request |\n\nThe limits protect shared capacity and prevent unusually large images from monopolizing memory or request time. When a limit is reached, the service returns a readable reason and error code. Rate-limit responses also include Retry-After instead of collapsing into an unexplained model failure.\n\nBring your own vision model\n\nFor higher quotas, private endpoints, or another model, change the provider in Settings → Vision Toolkit and store the API key as a DSH Credential. Settings stores the Credential reference and never reads the saved secret back into the browser.\n\nYou can also configure a Profile patch:\n\n [code] \n\nOpenAI Chat Completions-compatible endpoints and Anthropic Messages are supported. The Web Settings panel exposes the full provider, runtime, timeout, image-limit, and image-input-variant configuration.\n\nRequirements\n・A DeepSeek Harness Web or Headless Profile.\n・Node.js ^22.19.0 or >=24.0.0.\n・Python 3.11+; the plugin prepares an isolated environment by default.\n・Only visionhtmlscreenshot requires Chrome, Chromium, or Edge.\n・Inputs must be PNG, JPEG, GIF, or WebP files in the session workspace or an explicitly allowed directory.\n\n \n Install, upgrade, disable, and uninstall \n\n [code] \n\nIf you are migrating from the retired @dsh-external/dsh-vision-toolkit, remove the old package first and install @anionex/dsh-vision-toolkit.\n\nTo disable the bundle temporarily, set this in the Profile patch:\n\n [code] \n\nRestart the Web Profile and refresh the page after enabling or upgrading the Web plugin.\n\n \n\nPlugin updates\n\nIn Settings → Vision Toolkit, Check for updates queries the Profile's npm registry. For a direct registry installation, Update and restart installs only the exact version you confirmed, verifies it, and restarts an explicitly opted-in POSIX Web process on a fixed --port. Local/workspace/file/git/URL installs, Windows, dynamic ports, read-only…",
+      "rank": 2,
+      "deep": {
+        "headline": "DeepSeek Harnessに視覚タスクを追加",
+        "summary": "DSH Vision Toolkit は、DeepSeek Harness の text-only model に画像を扱わせるための Vision Toolkit Plugin です。DSH Web に画像を貼ると、画像パスやモデルを手動で切り替えずに Vision Toolkit variant へ切り替わり、質問の意図に沿った視覚情報を返します。visionground、長いスクリーンショットの OCR、画像の crop・SVG trace、HTML スクリーンショット、pixel diff までを一つの Agent workflow で構成できます。標準の Groq Qwen3.6 vision service は API key 不要ですが、共有クォータと画像サイズ制限があります。",
+        "prerequisites": [
+          {
+            "term": "text-only model",
+            "stumblingPoint": "「text-only model に eyes を与える」とあるが、モデル自体が画像を読めない場合に、どこで画像理解が行われるのか読み取れない。",
+            "explanation": "本文の「text-only model」は、画像を直接入力できないモデルを指します。そのため、モデル自体を画像対応モデルへ置き換えるのではなく、Vision Toolkit が画像から質問に必要な証拠を抽出し、その結果をモデルへ渡します。DSH Web で画像を貼ると、text-only route の sibling (Vision Toolkit) variant へ切り替わる設計です。"
+          },
+          {
+            "term": "DeepSeek Harness",
+            "stumblingPoint": "「native DeepSeek Harness integration」「Profiles, sessions, Settings, Artifacts」と書かれているが、単独の画像処理ライブラリではなく DSH の実行単位に組み込まれることが分からない。",
+            "explanation": "DSH は DeepSeek Harness の略で、このリポジトリが統合対象にしている実行環境です。DSH Vision Toolkit は単なる CLI ではなく、Profiles、sessions、Settings、Artifacts、Web UI にツールを組み込む Plugin です。したがって、画像のパスを手作業で別プロセスへ渡すより、DSH のセッション内で結果を再利用できます。"
+          },
+          {
+            "term": "visionground",
+            "stumblingPoint": "「original-image pixel coordinates」とあるが、座標が何に使えるのかを知らないと、画像説明との差が読み取れない。",
+            "explanation": "visionground は画像内の対象を見つけ、元画像のピクセル座標を返すツールです。座標は x1,y1,x2,y2 形式で、後続の crop や trace、GUI 自動化に渡せます。単なる「右上にボタンがある」という説明ではなく、次の処理で使える機械的な位置情報になる点が要点です。"
+          },
+          {
+            "term": "pixel diff",
+            "stumblingPoint": "「UI restoration is judged by feel」から「difference percentage」へ進むが、pixel diff が UI 再現のどの工程を置き換えるのかが省略されている。",
+            "explanation": "pixel diff は、参照画像と実装画像の各ピクセルを比較して、見た目の違いを定量化する処理です。この記事では visionpixeldiff が差分率、差分の大きい領域、heatmap、JSON を返すため、「見た目が近い」という主観を修正箇所の優先順位に変えられます。HTML/CSS の再現結果を反復改善するための検証段階に相当します。"
+          },
+          {
+            "term": "Headless Profile",
+            "stumblingPoint": "「You can install it into a Headless Profile too」とあるが、Web Profile と何が違い、画像ワークフローにどう影響するかが読み取りにくい。",
+            "explanation": "Headless Profile は、Web UI を操作せずに DSH の実行環境として使う構成です。本文では Web Profile と同じ Vision Toolkit を Headless Profile にもインストールでき、構造化された結果を後続処理で利用できます。ブラウザ画面への貼り付けを必須にせず、セッションワークスペース上の画像を扱う用途に対応します。"
+          },
+          {
+            "term": "Profile patch",
+            "stumblingPoint": "「You can also configure a Profile patch」「set this in the Profile patch」とあるが、設定画面の値をどこに上書きする仕組みか分からない。",
+            "explanation": "Profile patch は、Profile 単位の設定差分を記述する仕組みです。本文では provider 設定や Plugin の一時無効化に使われています。設定画面だけでなく、Profile の起動設定として vision model、runtime、timeout、画像入力 variant などを固定したい場合に使うものです。"
+          },
+          {
+            "term": "isolated runtime",
+            "stumblingPoint": "「first start prepares an isolated runtime」とあるが、インストール済みの Node.js だけで直ちに動くのか、初回に何が必要なのか判断できない。",
+            "explanation": "isolated runtime は、Plugin が Python 依存関係をシステム環境へ直接インストールせず、専用の実行環境に分離して準備する方式です。そのため通常は agent-vision-toolkit のソースチェックアウトやローカルパス設定は不要です。一方、初回起動時には依存パッケージの取得が発生するため、ネットワークまたはキャッシュへのアクセスが必要になります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "視覚タスクの実行経路",
+          "beforeLabel": "従来のtext-only route",
+          "afterLabel": "DSH Vision Toolkit導入後",
+          "rows": [
+            {
+              "aspect": "画像入力",
+              "before": "スクリーンショットを直接見られず、手動で説明やパスを渡す",
+              "after": "画像貼り付けで Vision Toolkit variant へ切り替え、意図に沿った回答を返す"
+            },
+            {
+              "aspect": "要素の位置",
+              "before": "要素の存在説明で止まり、処理に使える座標がない",
+              "after": "visionground が元画像ピクセルの x1,y1,x2,y2 を返す"
+            },
+            {
+              "aspect": "UI再現の検証",
+              "before": "実装が参照画像に近いかを目視で判断する",
+              "after": "visionhtmlscreenshot → pixel diff → heatmap / JSON で反復検証"
+            },
+            {
+              "aspect": "結果の再利用",
+              "before": "画像説明を会話内の文章として扱う",
+              "after": "Web と Headless Profile で構造化された結果や Artifacts を再利用する"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "React / Next.js / TypeScript の画面をスクリーンショットから再現・検証する際、目視確認や汎用的な画像キャプションを、DSH 内の Agent workflow として置き換えられます。Claude Code や OpenAI Codex のような既存のコーディングエージェントそのものではなく、DeepSeek Harness の text-only model に視覚的な証拠、座標、差分レポートを供給する補助レイヤーです。",
+        "relatedLinks": [
+          {
+            "label": "DSH Vision Toolkit",
+            "url": "https://github.com/Anionex/dsh-vision-toolkit"
+          },
+          {
+            "label": "agent-vision-toolkit プロジェクトサイト",
+            "url": "https://agent-vision.anionex.me"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "これまで text-only model にスクリーンショットを説明文として渡していたのが、これから DSH Web に画像を貼って質問の意図に沿った視覚情報を返せる。",
+          "これまで「ボタンは画面右上」などの説明で止まっていたのが、これから visionground で元画像のピクセル座標を取得し、crop や後続の GUI 処理へ渡せる。",
+          "これまで長いスクリーンショットの OCR を一度に読ませて行抜けや重複を確認しにくかったのが、これから分割・OCR・Markdown 統合・境界監査・再開可能な状態保存まで実行できる。",
+          "これまで UI 再現の品質を「見た目が近い」で判断していたのが、これから visionhtmlscreenshot と pixel diff で差分率、差分領域、heatmap、JSON report を使って修正箇所を検証できる。"
+        ],
+        "howToTry": [
+          "DeepSeek Harness の Web または Headless Profile と、Node.js ^22.19.0 または >=24.0.0、Python 3.11+ を用意する。提示本文ではインストールコマンドが欠落しているため、本文中の Quick start にある実際のコマンドをそのまま実行する。",
+          "実行中の Web Profile を再起動し、Settings → Vision Toolkit を開く。標準の free provider が設定済みなので、Test vision model を押して画像リクエストまで疎通確認する。",
+          "画像を DSH Web の会話へ貼り付けるか、画像ファイルを session workspace に置き、会話内で /vision-tools を呼び出す。",
+          "例えば「Where is the error?」「Where is the button?」のように目的を指定して画像を質問する。必要なら visionground で座標を取得し、visioncrop や visiontrace に結果をつなぐ。",
+          "UI 再現を試す場合は、参照画像と実装ページを用意し、visionhtmlscreenshot で実装を PNG 化してから visionpixeldiff に渡し、差分率・差分領域・heatmap・JSON report を確認する。"
+        ],
+        "fitFor": [
+          "DeepSeek Harness の text-only model にスクリーンショットを読ませ、質問に関係する視覚情報だけを返したい場合。",
+          "参照スクリーンショットから HTML/CSS を再現し、visionhtmlscreenshot と visionpixeldiff で差分を検証したい場合。",
+          "長いページの OCR、UI 要素の座標取得、画像からのアイコン抽出やブランド素材の再利用を一つの Agent workflow にまとめたい場合。"
+        ],
+        "notFor": [
+          "高頻度・大容量の画像処理を共有の free provider だけで安定運用したい場合。",
+          "DeepSeek Harness を使わず、単独の画像モデルや通常の Web アプリから直接ビジョン機能を呼び出したい場合。",
+          "Windows、動的ポート、読み取り専用環境など、本文末尾の更新機能に関する未記載の制約を含め、Plugin update の全条件を確認せず自動更新したい場合。"
+        ],
+        "caveats": [
+          "DeepSeek Harness の Web または Headless Profile が必要です。",
+          "Node.js は ^22.19.0 または >=24.0.0、Python は 3.11 以上が必要です。初回起動時に Python の隔離ランタイムを準備するため、Python パッケージキャッシュまたはネットワークへのアクセスが必要です。",
+          "標準の Groq Qwen3.6 vision service は API key 不要ですが、共有サービスです。1クライアントあたり UTC 日次 100 リクエスト、全体で日次 3,000 リクエスト、60 秒あたり 60 リクエストまでです。",
+          "画像は PNG、JPEG、GIF、WebP に対応し、1画像 4 MiB、デコード後 20,000,000 ピクセル、出力 512 tokens の制限があります。",
+          "visionhtmlscreenshot の利用には Chrome、Chromium、または Edge が必要です。",
+          "画像理解部分は pinned agent-vision-toolkit snapshot を使い、実行時に upstream の main をバックグラウンド取得しません。",
+          "高いクォータ、プライベートエンドポイント、別モデルを使う場合は、Settings → Vision Toolkit で provider を変更し、API key を DSH Credential として保存します。",
+          "提示された本文ではインストール用コードブロックの内容が欠落しているため、正確な npm install コマンドは記載できません。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "TTSで作った音声では「互角」だった。生の会議音声で測り直したら、前回の結論がひっくり返った話",
+      "url": "https://qiita.com/macchan_ai_dev/items/eb8c584aa9b10f81ccd8",
+      "publishedAt": "2026-08-16T11:20:20.000Z",
+      "author": "松永 康彦",
+      "authorDetail": {
+        "name": "松永 康彦",
+        "handle": "@macchan_ai_dev",
+        "url": "https://qiita.com/macchan_ai_dev",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4456914/ab8dbe1b29599b4eda572ec3d0adf9bcb2e65123/x_large.png?1782717751",
+        "bio": "松永康彦。自宅のミニPCでAIエージェント環境を構築・運用しています。ローカルLLM／Claude Code／業務自動化が得意。お仕事・ご相談はお気軽にどうぞ。",
+        "followers": 0,
+        "posts": 8,
+        "links": []
+      },
+      "tags": [
+        "さくらのAI",
+        "whisper",
+        "音声認識",
+        "ClaudeCode",
+        "生成AI"
+      ],
+      "snippet": "3次記事で、私はさくらのAI Engineの文字起こしとローカルWhisperを比べ、「一致率88.8%で実質互角」と書きました。その検証には、自分でTTSに喋らせて作った音声を使いました。 今回、生の会議音声で測り直しました。結論は変わりました。 TL;DR ・ローカルの議事録パイプライン（faster-whisper medium / CPU）は、15分の音声に10分40秒かかります。遅い。一方 さくらのAI Engineの文字起こしは同じ長さを18.1秒——約35倍速い。 ・速いなら乗り換えたい。でも生の会議音声で精度を測ったら、速度以外はローカルが勝ちました。結果、採用は見送り。 ・決め手になったのは2種類の失敗です。ハルシネーション（言っていないことを書く）と、脱落（言ったことを書かない）。今回さくら側で、同じ語が144回連続で出力される箇所と、発言まるごとの消失が十数箇所ありま…",
+      "body": "3次記事で、私はさくらのAI Engineの文字起こしとローカルWhisperを比べ、「一致率88.8%で実質互角」と書きました。その検証には、自分でTTSに喋らせて作った音声を使いました。\n今回、生の会議音声で測り直しました。結論は変わりました。\n\nTL;DR\n・ローカルの議事録パイプライン（faster-whisper medium / CPU）は、15分の音声に10分40秒かかります。遅い。一方 さくらのAI Engineの文字起こしは同じ長さを18.1秒——約35倍速い。\n・速いなら乗り換えたい。でも生の会議音声で精度を測ったら、速度以外はローカルが勝ちました。結果、採用は見送り。\n・決め手になったのは2種類の失敗です。ハルシネーション（言っていないことを書く）と、脱落（言ったことを書かない）。今回さくら側で、同じ語が144回連続で出力される箇所と、発言まるごとの消失が十数箇所ありました。両テキストの一致率は47.9%。\n・そして重要なのは、脱落のほうが実害が大きいということです。ハルシネーションは読めば異常だと分かりますが、脱落した議事録は、自然な文章として普通に読めてしまいます。\n・なぜ3次記事では気づけなかったのか。検証に使ったのがTTS合成音声＝ノイズなし・単一話者・無音区間なしの\"きれいすぎる\"データだったからです。ハルシネーションは、まさにその\"きれいでない部分\"で起きます。\n・そしてTTS音声を使ったのは、「会議の内容を第三者のサーバーに出さない」という自分の方針の帰結でした。方針を守る限り実音声はAPIに投げられないので、非機密の合成音声で代用するしかない。つまり——機密を守るために本番データを避けた結果、本番でしか起きない失敗が見えなくなっていました。これは私の不注意というより、機密データを扱う人が外部サービスを検証しようとすると必ずぶつかる壁だと思います。\n・おまけに、途中で「機密データの線引き」の定義そのものを間違えていたことにも気づきました。「クラウドか、ローカルか」ではありません。「自分の管理下から出るか、第三者に渡るか」です。\n・※ 本記事の結論は実会議音声2本の実測（N=2）です。追加の1本でも同種のハルシネーション（今度は849回連続）が再現しましたが、それでもサンプル数としては小さく、「さくらのWhisperは精度が低い」という一般化はしていません。理由は後述します。\n・おまけに、N=1をN=2に増やそうとしただけで、大量のエラーに阻まれました。 手元にある複数の実会議音声を次々に試したところ、22回中、成功したのはたった1本（同じファイルで6/6）。それ以外の11種類・16回は、ファイルサイズを変えても分割してもすべて失敗しました。原因は最後まで特定できませんでしたが、「精度を測る以前に、安定して処理を通すこと自体が壁だった」という、もう一つの発見になりました。詳しくは後述します。\n\n1. きっかけ：うちの議事録、遅すぎないか\n\n私は自宅のミニPC上で、AIエージェントの\"会社\"を運用しています（第1弾）。その一機能に議事録の自動生成があります。録音ファイルを所定のフォルダに置くと、こう流れます。\n\n \n \n\n依頼文は書きません。フォルダに音声を置くこと自体が起動の合図です。常駐している watcher が5秒間隔で見張っていて、新しいファイルを見つけたら書き込みが終わるのを待ってから .processing/ へ移動し（二重処理の防止）、別プロセスとして切り離して起動します。文字起こしは重いので、待ってしまうと watcher 本体のチケット監視まで止まるからです。\n\nこれがずっと遅いとは思っていました。どのくらい遅いのか、今回きちんと計りました。\n\n| 音声の長さ | ローカル（medium / CPU）の所要時間 |\n|---|---|\n| 15分14秒 | 約10分40秒 |\n| 1時間30分 | 10分以上待っても終わらず、途中で中止 |\n\n音声の長さの0.7倍前後の時間がかかります。GPUがないので当然といえば当然ですが、1時間半の会議を回すと1時間近く待つ計算になります。実用上、これはつらい。\n\nそこで、さくらのAI Engineの文字起こし（whisper-large-v3-turbo）に投げたらどうなるか、を試すことにしました。\n\n図の④にある話者判別（resemblyzerで声質をクラスタリングし、参照音声と近ければ実名、遠ければ「話者A」のように匿名で分離する仕組み）は、今回の主題ではないので詳細は別記事に譲ります。ここで押さえておきたいのは1点だけです。この話者判別はfaster-whisper自体の機能ではなく、パイプラインが別途足している後処理だということ。理由は後述しますが、さくらとの精度比較ではこの工程を使いません。faster-whisper単体とさくらのWhisper単体を、文字起こしのみで比べます（第4章）。\n\n2. その前に：私は「機密」の定義を間違えていた\n\nここが今回いちばんの収穫かもしれないので、先に書きます。\n\n議事録は機密です。だからローカルで文字起こししている——私はずっとそう説明してきました。さくらに投げるのはダメだ、と。\n\nところが、上のパイプラインをよく見てください。[5] で逐語録の全文をGoogle Chatに投稿しています。\n\nつまり、「完全ローカル」ではありませんでした。文字起こしはローカルでも、成果物はGoogleのサーバーに渡っています。この時点で「ローカルだから安全」という説明は破綻しています。\n\nでは、これはアウトなのか。アウトではない、というのが私の結論です。ただし理由が違いました。\n\n| | 実態 | 判定 |\n|---|---|---|\n| ローカルのWhisper | 自分のPC内 | OK |\n| Google Chat（自分のアカウントのプライベートスペース） | Googleのサーバー上だが、自分のアカウント内。第三者には公開されない | OK |\n| さくらのAI Engine | 他社（さくらインターネット社）の管理下に音声そのものを渡す | NG |\n\n線引きは「クラウドか、ローカルか」ではありませんでした。「自分の管理下から出るか、第三者に渡るか」です。\n\nこの整理をしたことで、逆に判断がはっきりしました。Google Driveも、自分のアカウント内なら同じ扱いでいい。一方で、便利だからといって外部のAPIに機密音声を流すのは、ローカル/クラウドの区別とは無関係にNG。\n\n……という方針を立てた上で、今回の検証に限っては、精度を確かめるために一度だけ実音声を送るという判断をしました（自分のデータについて、自分で決めた例外です）。以下の精度比較は、その一度きりの実測結果です。\n\n3. 速度の実測：機密を出さずに測る\n\nまず速度です。ここは機密音声を使わずに測れるので、そうしました。\n\nさくらのAI EngineのTTS（東北イタコ）に架空の会議進行テキストを喋らせて、約14.7分の非機密ダミー音声を合成し、それを文字起こしAPIに投げます。\n\nここで1つ壁がありました。\n\n [code] \n\n1リクエストあたり30MB（約30分）の上限があります。生成した24kHzのWAVは42.4MBで、そのままでは通りません。16kHzにダウンサンプリングして28.3MBに落とし、通しました。\n長い会議を投げるなら、そもそも分割前提で組む必要があります。ここは実装コストとして見込んでおくべきポイントです。\n\n結果です。\n\n| | 音声 | 所要時間 |\n|---|---|---|\n| ローカル（medium / CPU） | 実会議 15分14秒 | 約640秒 |\n| さくらのAI Engine | ダミー 14.7分 | 約31秒 |\n\n約20倍。後述する実会議音声での実測では18.1秒＝約35倍でした。\n\n速度に関しては、議論の余地なくさくらの圧勝です。 ここは自宅のCPUがどうこうという話ではなく、単純に土俵が違います。\n\n4. 精度の実測：ここで結論がひっくり返った\n\nさて本題です。実会議の音声（15分14秒）を両者に通し、話者ラベルとタイムスタンプを除いた\"地の文\"どうしで比較しました。\n比較の公平性について（訂正）\n最初、私は「ローカル版は話者分離ができる」ことをローカルの長所として比較表に入れていました。これは不公平です。話者分離は faster-whisper の機能ではなく、私のパイプラインが別途 resemblyzer で足している処理だからです。指摘を受けて、文字起こしのみの対等比較に直しました。\n\n4-1. 最初、私は「ほぼ同等」と書いた\n\nラベルを除いて読み比べた最初の印象は、「速度以外はだいたい同じ」でした。そう報告しました。\n\nこれも間違いでした。 「ちゃんと読んだか」と指摘され、difflib.SequenceMatcher で機械的に差分を取り直しました。\n\n [code] \n\n一致率 47.9%。 「ほぼ同等」どころではありませんでした。印象で語ってはいけないという、ごく当たり前のことを踏み直しました。\n\n4-2. 出てきた差\n\n差分を1件ずつ見ると、性質の違う失敗が3種類ありました。\n\n| 項目 | 結果 |\n|---|---|\n| 速度 | さくらが約35倍速い（640秒 vs 18.1秒） |\n| 句読点・可読性 | ローカル優位。さくらは長区間で句読点がほぼ入らず、一続きの文になる |\n| 内容の完全性（脱落） | ローカル優位。さくら側に発言まるごとの消失が十数箇所 |\n| ハルシネーション | ローカル優位。さくら側のみ、同じ語が144回連続 |\n\n4-3. 山場：ハルシネーションより「脱落」が怖い\n\nここが今回いちばん書きたかったことです。\n\nハルシネーションは有名です。今回もはっきり出ました。不明瞭な区間で、同じ短い語が144回連続で出力される——Whisper系で知られている繰り返しループです。ローカル側（vadfilter を有効にしている）では、同じ箇所で発生しませんでした。\n追加検証（後日）：「N=1では心もとない」と思い、手元にあった別の会議音声（同日の別セッション、約14分）でもう1本試しました。結果はさらに極端でした。「あ」という1文字が849回連続で出力され、一致率は18.8%。同じ音声をローカル（medium）で処理した方には、この反復は一切出ませんでした。2本中2本で、さくら側だけにハルシネーションが発生しています。\n\nでも、より怖いのはもう一方でした。\n\n| | ハルシネーション | 脱落（オミッション） |\n|---|---|---|\n| 何が起きるか | 言っていないことを書く | 言ったことを書かない |\n| 見た目 | 明らかにおかしい。同じ語の連打、文脈から浮いた文 | 完全に自然。普通の議事録に見える |\n| 気づけるか | 気づける | 気づけない |\n| 議事録での実害 | 「これは誤りだ」と分かるので、被害は限定的 | 合意事項や条件が丸ごと消えていても、誰も気づかない |\n\n今回、さくら側で発言まるごとが消えている箇所が十数箇所ありました。しかも消えたあとのテキストは、日本語として何の違和感もありません。「誰かが何かを言った」という痕跡すら残らない。\n\n議事録の用途では、これは致命的です。 議事録は「何が話されたか」を後から参照するために作ります。参照できない部分があること自体に気づけないのなら、その議事録は信頼できません。\n\n「AIの出力は間違えることがあるから確認しよう」という一般論は、ハルシネーションには効きますが、脱落には効きません。確認しようにも、原文と突き合わせない限り\"無いもの\"は見えないからです。突き合わせるなら、そもそも自動化した意味が薄れます。\n\n4-4. N=1を増やそうとして分かった、もう一つの壁\n\n「N=1は心もとない」という自覚は最初からありました。幸い、機密性の低い別の会議音声が手元に複数本（同日の別会議、それぞれ独立した内容）あったので、追加で試すことにしました。\n\n最初の8本を続けて投げたところ、成功したのは1本だけでした。残りは429 rate limit exceeded（リクエスト過多）。呼び出し間隔を90秒に広げ、失敗時は30秒→60秒→120秒→240秒と伸ばしながら4回まで再試行しても、状況は変わりませんでした。\n\n念のため、さくらの利用量画面も確認しました。この時点で文字起こしの消費は13リクエスト、料金は0円。月あたりの無料枠（50リクエスト）には全く余裕があります。「送りすぎて怒られた」わけではなさそうでした。\n\n \n \n\nちょうどこのとき、社内の別の監視の仕組み（さくら経由の判断ルーティングが正常に動いているかを見張っているもの）が「さくら側の障害が続いている」と検知していたので、サービス側の一時的な不調を疑いました。実際、チャット（gpt-oss-120b）と読み上げ（TTS）は問題なく動いていたので、障害は文字起こしのエンドポイントだけに絞られていることも確認できました。\n\nただ、話はそこで終わりませんでした。\n\n時間を空けても、エラーの種類を変えても（429→500 Upstream server error）、ファイルサイズを変えても、30MBの上限に収まるよう分割しても——結果はほとんど変わりませんでした。手元にある実会議音声を次々に試した最終集計がこちらです。\n\n| 対象 | 試行回数 | 成功 |\n|---|---|---|\n| 通常サイズの音声（12〜14MB、6種類） | 各1〜2回 | 0/7 |\n| 30MB超の音声を2分割したもの（2本×2セット＝4ファイル） | 各1〜2回 | 0/8 |\n| 同じ1本の音声（約13MB） | 6回 | 6/6 |\n| 合計 | 22回 | 6/22 |\n\n22回中、成功したのは特定の1本だけで、それが6回中6回とも成功しました。 それ以外は、サイズを変えても、分割しても、時間を置いても、一度も通りませんでした。\n\n「じゃあその1本だけ何か特別なのでは」と思い、無音区間の割合や音量レベルを実際に解析して比べました。 「冒頭が無音だと失敗するのでは」という仮説も立てましたが、これは測って否定されました。むしろ成功した音声の方が、無音の割合（冒頭10秒で25% vs 8%）も全体の無音割合（7.7% vs 4.8%）も多かったのです。音量レベルはほぼ同一。単純な音響的特徴では、成功と失敗を説明できませんでした。\n\n正直に言うと、原因は最後まで特定できていません。 ただ、現象としては非常にはっきりしています。同じ形式・同じような長さのファイルでも、通るものと通らないものが、はっきり決まって（毎回同じ結果で）いる。 これはもう「たまたま混雑していた」では片づけられない挙動です。\n\nこれは実運用の観点でも重い意味を持ちます。精度が仮に良かったとしても、「送ったファイルが処理されるかどうか自体が読めない」のでは、パイプラインとして組み込めません。 議事録は「今日の会議を今日中に記録する」ことに価値があります。22回中20回失敗するサービスに、大事な会議の記録を預ける判断はできません。\n\n5. なぜ3次記事では気づけなかったのか\n\n冒頭に書いた通り、私は3次記事で「一致率88.8%で実質互角」と結論しました。今回は47.9%。同じ2つのエンジンを比べて、なぜこれほど違うのか。\n\n答えは検証データです。\n\n| | 3次記事の検証 | 今回の検証 |\n|---|---|---|\n| 音声 | TTSで合成した読み上げ | 実際の会議の録音 |\n| 話者 | 1人 | 複数人 |\n| 音質 | クリーン（ノイズなし） | 生活音・マイク距離のばらつきあり |\n| 無音・不明瞭区間 | ほぼ無い | たくさんある |\n| 発話の重なり | 無い | ある（相槌、かぶせ気味の返事） |\n| 正解データ | ある（元の原稿） | 無い（相対比較のみ） |\n\n念のため補足すると、3次記事のTTS検証でローカル側が無傷だったわけでもありません。あちらでは「助成金」を「女性菌」と書くような、意味が壊れる誤りがローカル側に出ていました（さくら側の誤りは「三件→3件」のような表記の正規化で、意味は保たれていました）。同じ2つのエンジンでも、データを変えると出る弱点が変わる——これも今回の趣旨そのものです。\n\nなぜTTS音声を使ったのか——「機密を外に出さない」の帰結\n\nここは弁解ではなく、構造の話として書いておきたいところです。\n\n私は会議の音声も逐語録も、第三者のサーバーには出さないという方針でやっています（第2章の線引き）。この方針を守る限り、さくらのAPIに実会議音声を投げて精度を測ることは、そもそもできません。\n\nだから3次記事では、TTSに喋らせた非機密の合成音声を使いました。正解テキストが既知で、繰り返し再現でき、何より外に出しても誰にも迷惑がかからない。検証データとしては理想的に見えました。判断として間違っていたとは、今でも思いません。\n\nただ、結果的にこうなりました。\n機密を守るために本番データを避けた結果、本番でしか起きない失敗が見えなくなっていた。\n\nハルシネーションも脱落も、まさに\"きれいでない部分\"——無音・不明瞭・複数人の重なり——で起きます。そしてTTS合成音声には、それが構造的に存在しません。守るべきものを守った結果として、検証の網に穴が空いていたわけです。\n\nこれは私の不注意というより、「機密データを扱う人が、外部サービスの精度を検証しようとすると必ずぶつかる壁」だと思います。本番データは出せない。出せるデータは本番と違う。この矛盾は、方針を守る限り消えません。\n\n今回それでも測れたのは、「一度だけ、精度確認のために実音声を送る」と自分で決めて例外を切ったからです。自分のデータについて自分で決めた例外なので誰にも咎められませんが、会社の業務データなら同じ手は使えません。その場合は「ダミーではなく、本番に近い雑音・複数話者・言い淀みを含んだ非機密の音声を、検証用にわざわざ作る」くらいしか手がないと思います。そこまでやって初めて、検証は本番の代理になります。\n\nつまり私は、自分が想定した失敗しか起きないデータで検証して、「問題ない」と結論していたわけです。\n自分で作ったテストデータで測れるのは、自分が想定した失敗だけ。\n\nこれは音声認識に限った話ではないと思います。「テストは通っています」と言うとき、そのテストが本番の何を再現していないかのほうが、たぶん重要です。\n\n6. 結論と、正直に書いておくこと\n\n決めたこと\n\n議事録パイプラインのさくら移行は見送ります。 速度は35倍魅力的ですが、脱落する議事録は使えないからです。\n\nそしてこれは、機密性の線引き（第2章）とは独立した判断です。仮に「機密でない会議なら外に出してよい」と整理できたとしても、精度の理由で採用しません。当初は「機密のものはローカル、そうでないものはさくら」と使い分けるつもりでしたが、その分岐自体が不要になりました。\n\n「さくらのWhisperは精度が低い」とは書きません\n\nここは慎重に書きます。私の実測は実会議音声2本・N=2です。\n\n同じ whisper-large-v3-turbo でも、録音環境・話者の数・言い淀みの量が変われば結果は変わり得ます。 私の音声は無音・不明瞭区間が比較的多い録音だった可能性があり、それがハルシネーションを誘発しやすい条件だったのかもしれません。また、私は逐語レベルで全文を突き合わせて脱落を数えましたが、「聞いた印象」だけの評価では、脱落はそもそも見えません（原文と突き合わせない限り、無くなった部分には気づけないからです）。\n\nだから正しい結論は「さくらは精度が低い」ではなく、「私の2回の実測ではハルシネーションと脱落を観測した。一般的な傾向は不明で、複数音声・複数環境での再現確認が必要」です。\n\nこの記事を読んで「さくらのWhisperはダメらしい」と受け取らないでください。 読み取ってほしいのは、あなたの用途の本番データで測ってください、ということです。\n\n用途が違えば、判断も違います\n\n今回の結論は「議事録」という用途に紐づいています。\n\n| 用途 | 脱落の許容度 | 35倍の速度 | 向き |\n|---|---|---|---|\n| 議事録・記録として後から参照 | 許容できない | あれば嬉しい | ローカル向き |\n| 大量音声のざっくり検索・タグ付け | 許容できる（漏れても再検索できる） | 効く | さくら向き |\n| リアルタイム字幕・下書き（人が直す前提） | 許容できる | 必須 | さくら向き |\n\n35倍の速度は、それ自体が機能です。 「多少漏れてもいいから全部の音声に索引をつけたい」なら、ローカルCPUで実時間の0.7倍かけるのは非現実的で、さくら一択でしょう。私が採らなかったのは、議事録という用途では、速さで買えないものが欠けていたからにすぎません。\n\nまとめ\n・ローカル（CPU / medium）は音声の長さの0.7倍かかる。さくらのAI Engineは約35倍速い。速度は勝負にならない。\n・しかし生の会議音声で精度を測ると、速度以外はローカルが優位だった（1本目：一致率47.9%、ハルシネーション144回連続、発言の脱落が十数箇所。追加の2本目：一致率18.8%、ハルシネーション849回連続）。議事録用途としては見送り。\n・N=1を増やそうとしただけで22回中16回が失敗した（成功はすべて特定の1本、6/6）。エラーの種類（429→500）もサイズ（12MB台〜22MB分割）も様々に変えたが改善せず、無音区間・音量を解析しても違いを説明できなかった。原因不明のまま、成功・失敗がファイルごとに固定されるという不可解な挙動が残った。\n・ハルシネーションより脱落のほうが怖い。 前者は読めば分かるが、後者は自然な文章として読めてしまうので、消えたことに気づけない。「AIは間違えるから確認しよう」は、脱落には効かない。\n・3次記事で「互角」と書けたのは、TTS合成音声で検証していたから。 ノイズも無音も話者の重なりも無いデータでは、そこで起きる失敗は原理的に観測できない。自分で作ったテストデータで測れるのは、自分が想定した失敗だけ。\n・そのTTS音声を使った理由は「会議の内容を第三者に渡さない」という方針だった。 守るべきものは守ったが、その結果本番でしか出ない失敗が検証の網から漏れた。機密を扱う人が外部サービスを検証しようとすると、必ずこの矛盾にぶつかります——本番データは出せない、出せるデータは本番と違う。抜けるとしたら「本番に近い雑音・複数話者・言い淀みを含んだ、非機密の検証用音声をわざわざ作る」あたりだと思います。\n・機密の線引きは「クラウドかローカルか」ではなく「自分の管理下から出るか、第三者に渡るか」。この定義に直したら、自分のパイプラインが最初から\"完全ローカル\"ではなかったことに気づいた。\n・そして今回、私は3回間違えて、3回撤回しました。「ローカルは話者分離できる」を長所として比較に混ぜたこと、読んだ印象で「ほぼ同等」と言ったこと（difflibで測ったら47.9%）、そして固有名詞の正確さを「ローカルの強み」として比較に入れたこと（実際は後処理辞書の効果で、さくら側に同等の後処理を与えていない不公平な比較だった）。印象で書いて、測って撤回する——この工程が要るということ自体が、たぶん今回いちばん実務的な学びです。\n\n質問・ツッコミ歓迎です。特に次の2つは、ぜひ教えていただきたいです。\n・「うちの会議音声では違う結果だった」という報告。 サンプル数をもっと増やしたいので。\n・話者判別（第1章）の改善案。 ここはまだ模索中です。合成音声では綺麗に分かれるのに実会議では崩れる、という典型的なところで止まっています。pyannote.audio に移すべきか、そもそもアプローチから変えるべきか、実運用されている方の知見をいただけると助かります。\n\n余興：「見送り」と書かれた側に、講評してもらった\n\nこのシリーズでは毎回、記事そのものを gpt-oss-120b（さくらのAI Engine上のモデル）に読ませて講評をもらっています。今回は特に意地の悪いお願いになりました。\n\n同じサービス群の一員に、「お前のところの文字起こしは、精度で見送られた上に、22回中16回も処理自体が失敗した」という記事を読ませて、感想を聞く——という構図です。身内をかばうのか、それとも卑下するのか。\n\n条件はいつも通り（temperature=0 / maxtokens=1500）。今回は、精度検証の直後（N=1の時点）と、可用性の調査まで終えた最終版の、2段階で講評をもらいました。\n\n1回目（精度検証の直後・N=1時点）：\n筆者はTTSと実音声で2回測定し、結果が大きく変わった点を正直に示している点は評価できるが、N=1かつ比較対象の前処理差が残るため統計的妥当性は低い。読者は、テストデータは本番に近いノイズ・多話者条件を必ず含め、評価指標に脱落率も加えて検証すべきだと学ぶべきである。\n\n2回目（22回の可用性検証を終えた最終版）：\n本件で示された22回中6回しか成功しないという可用性の低さは、実運用で致命的です。API側の安定性とエラーハンドリング、リトライ・バックオフ設定の改善が必須です。読者は、速度だけでなく成功率・障害耐性を評価指標に入れ、実データでの耐障害性を検証することを教訓とすべきです。\n— gpt-oss-120b（さくらのAI Engine）\n\n両方とも、かばいも卑下もしませんでした。 それどころか、1回目は私の検証の弱点（N=1、前処理差の不公平さ、脱落率を独立指標にしていないこと）を、2回目は自分たちのサービス側の問題（可用性・エラーハンドリング）を「致命的」と言い切っています。\n・1回目の「評価指標に脱落率も加えて」は、今回まさに刺さりました。可用性という、精度以前の指標が抜け落ちていたことに気づいたのは、その後の追加検証があったからです\n・2回目の「実運用で致命的」は、身内をかばうどころか、私よりも踏み込んだ評価です。私は「議事録用途では見送り」と書きましたが、gpt-oss-120bは用途を限定せず「実運用で致命的」と言っています\n\n自分の同僚（同じ基盤の音声認識）に、精度の欠点も可用性の欠点も両方読ませて、返ってきたのが2回とも擁護でも謝罪でもなく、具体的な弱点の指摘だった——これが一番実務的な反応だと思います。\n\n関連記事\n・1次記事：月3,400円のAI会社の\"判断エンジン\"を、無料のさくらAI Engine（gpt-oss-120b）に載せ替えた話\n・2次記事：無料で選んだgpt-oss-120bが、本番で\"黙った\"話\n・3次記事：無料枠が月50リクエストしかなかったので、AIに\"本当に重要なことだけ\"喋らせることにした",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f64b63f05a0e9b76",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.48820439350525313,
+      "popularityPercentile": 0.9312320916905444,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 92,
+      "oneLiner": "生の会議音声では、さくらのAI Engineが速さで圧勝したが精度で敗れた。",
+      "reason": "15分の音声処理は、ローカルWhisperが10分40秒、さくらのAI Engineが18.1秒だった。一方で実音声の一致率は47.9%に落ち、発言の脱落や同じ語の連続出力が起きた。",
+      "keywords": [
+        "さくらのAI Engine",
+        "Whisper",
+        "faster-whisper",
+        "音声認識",
+        "TTS",
+        "Claude Code"
+      ],
+      "category": "パフォーマンス",
+      "lane": "talk",
+      "debate": {
+        "axis": "認識精度を優先するか、音声を外部へ出さないことを優先するか",
+        "forSide": "実会議では一致率が47.9%まで下がり、速度だけでAPI採用は決められない。",
+        "againstSide": "機密音声を外部APIへ送らない方針なら、精度よりローカル処理を優先せざるを得ない。",
+        "oneSided": true,
+        "yourAngle": "会議音声を扱う業務で、誤認識と情報漏えいの件数を実測できる。"
+      },
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "headline": "速さより、消えた発言に気づけるか",
+        "summary": "TTS音声では一致率88.8%で「実質互角」だったが、実会議音声では結論が逆転した。1本目は、さくらのAI Engineが18.1秒で処理する一方、ローカルのfaster-whisper medium / CPUは約640秒だったが、出力一致率は47.9%にとどまり、ハルシネーションと脱落が観測された。特に脱落は自然な議事録に見えるため、目視確認だけでは検出しにくい。さらに22回の処理で成功は6回にとどまり、記事は議事録用途での移行を見送った。",
+        "prerequisites": [
+          {
+            "term": "TTS",
+            "stumblingPoint": "記事は「TTS合成音声＝ノイズなし・単一話者」と書いているが、なぜ実会議の失敗を見逃すのかが読み取りにくい。",
+            "explanation": "TTSは文章を音声合成する仕組みで、元の原稿がそのまま正解データになります。この記事では単一話者・ノイズなし・無音区間なしの音声になりやすく、実会議で起きる重なりや不明瞭さを評価できない、という意味で使われています。"
+          },
+          {
+            "term": "faster-whisper medium",
+            "stumblingPoint": "記事は「ローカル（medium / CPU）」とだけ書いているが、どのモデルと実行条件の比較なのかを知らないと速度差の範囲が分からない。",
+            "explanation": "faster-whisper medium / CPUは、ローカル環境でWhisperのmediumモデルをCPU実行する構成です。この記事の処理時間約0.7倍という数字は、このモデルと実行環境の組み合わせに対する値であり、ローカルWhisper全般の速度を示すものではありません。"
+          },
+          {
+            "term": "whisper-large-v3-turbo",
+            "stumblingPoint": "記事は「さくらのAI Engineの文字起こし（whisper-large-v3-turbo）」と書くが、ローカル側と同じモデルを比べているのかが分からない。",
+            "explanation": "whisper-large-v3-turboは、さくらのAI Engine側で使われた音声認識モデル名です。ローカル側のfaster-whisper mediumとモデル構成が同一ではないため、この記事の結果はサービス単体の優劣だけでなく、モデル・実行基盤・入力条件を合わせた比較結果として読む必要があります。"
+          },
+          {
+            "term": "difflib.SequenceMatcher",
+            "stumblingPoint": "記事は「difflib.SequenceMatcherで機械的に差分」と書いているが、47.9%が正解率ではなく出力間の一致度だと知らないと数字を誤読する。",
+            "explanation": "difflib.SequenceMatcherは、2つのテキストの共通部分を基に類似度を計算するPythonの機能です。この記事の47.9%は、正解テキストに対する認識率ではなく、話者ラベルとタイムスタンプを除いた2つの出力同士の一致度です。そのため、どちらが正しいかや、脱落した発言の量を単独では確定しません。"
+          },
+          {
+            "term": "ハルシネーション",
+            "stumblingPoint": "記事は「ハルシネーション」と「同じ語が144回連続」を結び付けているが、議事録上どのように検出できる失敗なのかが省略されている。",
+            "explanation": "ハルシネーションは、音声に存在しない内容を認識結果として出力することです。この記事では「あ」や同じ短い語の連続として表れ、文章を読んだ時点で異常に気づける失敗として扱われています。"
+          },
+          {
+            "term": "脱落",
+            "stumblingPoint": "記事は「発言まるごとの消失」と書いているが、なぜ通常の校正や目視確認では見抜きにくいのかが読み取りにくい。",
+            "explanation": "脱落は、実際には話されていた発言が文字起こしから消えることです。記事では、消えた後の文章が自然に読めるため、出力だけを確認しても欠落に気づけない点を問題にしています。原音声や信頼できる逐語録との突き合わせが必要になります。"
+          },
+          {
+            "term": "429 rate limit exceeded",
+            "stumblingPoint": "記事は「429 rate limit exceeded」と無料枠50リクエストを並べているが、利用枠超過とAPIの一時的な制限をどう切り分けたかが必要になる。",
+            "explanation": "429 rate limit exceededは、API側がリクエスト頻度や利用制限を理由に要求を受け付けない時のエラーです。この記事では無料枠50リクエストに余裕があり、90秒間隔や段階的な再試行でも改善しなかったため、単純な月間枠超過とは断定していません。"
+          },
+          {
+            "term": "30MB",
+            "stumblingPoint": "記事は「1リクエストあたり30MB」と書いているが、音声のサンプリングレート変更がサイズと処理単位にどう影響するかを知らないと実装判断につながらない。",
+            "explanation": "1リクエストあたり30MBの上限は、長時間音声をそのまま送れないというAPI入力上の制約です。記事では24kHzのWAVが42.4MBだったため、16kHzにダウンサンプリングして28.3MBに収めています。実運用では分割処理と、分割境界での発話欠落や重複の扱いも設計対象になります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "検証データで変わる結論",
+          "beforeLabel": "TTS合成音声",
+          "afterLabel": "実会議音声",
+          "rows": [
+            {
+              "aspect": "1本目の精度比較",
+              "before": "一致率88.8%、さくら側の誤りは表記正規化中心だった",
+              "after": "一致率47.9%、ハルシネーション144回連続、脱落が十数箇所"
+            },
+            {
+              "aspect": "音声条件",
+              "before": "単一話者、クリーン、無音区間・発話の重なりがほぼない",
+              "after": "複数話者、ノイズ、無音、不明瞭区間、発話の重なりあり"
+            },
+            {
+              "aspect": "処理時間",
+              "before": "さくら約31秒、ローカル約640秒相当の比較",
+              "after": "さくら18.1秒、ローカル約640秒"
+            },
+            {
+              "aspect": "見えた失敗",
+              "before": "本番特有の失敗を観測できなかった",
+              "after": "脱落と反復出力が観測された"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "音声認識サービスの比較軸が、精度と速度だけでなく、脱落の検出可能性と可用性に広がっている。特にTTSでは見えなかった本番特有の失敗が、実会議音声では一致率47.9%や22回中6回成功という形で現れた。機密性の線引きも「クラウドかローカルか」ではなく、「自分の管理下から出るか、第三者に渡るか」と整理し直されている。",
+        "relatedLinks": [],
+        "readingMinutes": 6,
+        "lane": "talk",
+        "evidence": [
+          "実会議音声15分14秒の処理時間は、ローカル（faster-whisper medium / CPU）が約640秒、さくらのAI Engineが18.1秒で、約35倍の差だった。",
+          "話者ラベルとタイムスタンプを除いた地の文をdifflib.SequenceMatcherで比較したところ、1本目の一致率は47.9%だった。TTS音声での前回結果は88.8%だった。",
+          "1本目の実会議音声では、さくら側で同じ短い語が144回連続し、発言まるごとの消失が十数箇所あった。追加の2本目では「あ」が849回連続し、一致率は18.8%だった。",
+          "可用性検証では22回中成功が6回。特定の1本は6回中6回成功した一方、他の音声はサイズ変更・分割・待機・再試行を行っても成功しなかった。"
+        ],
+        "counterEvidence": [
+          "実会議音声1本目では、さくらのAI Engineが18.1秒、ローカルのfaster-whisper medium / CPUが約640秒で、さくら側が約35倍速かった。",
+          "用途が「大量音声のざっくり検索・タグ付け」なら、多少の脱落があっても再検索できるため、35倍の速度が有効だと記事は整理している。",
+          "「リアルタイム字幕・下書き（人が直す前提）」では、脱落を人が補えるため、速度の高いさくら側が向く可能性がある。",
+          "記事の実測は実会議音声2本・N=2であり、「さくらのWhisperは精度が低い」という一般化はしていない。"
+        ],
+        "whenItHolds": [
+          "議事録・記録として後から参照する用途で、合意事項や条件の脱落を許容できず、原音声との突き合わせを常時行わない場合は、速度より内容の完全性を優先する判断が成り立つ。",
+          "大量音声の検索・タグ付けや、人が修正する前提のリアルタイム字幕では、多少の脱落を許容でき、さくらの約35倍の速度が価値を持つ。",
+          "外部サービスを評価する場合、本番音声を第三者に渡せない制約があり、TTSだけで検証するなら、実会議特有のノイズ・複数話者・無音・重なりを再現した非機密データを別途用意できる場合に限って結果を一般化しやすい。"
+        ],
+        "angles": [
+          "TTS検証と実会議検証の乖離",
+          "脱落とハルシネーションの発見容易性",
+          "一致率47.9%の測定条件",
+          "22回中6回成功の可用性",
+          "機密性と本番データ検証の両立",
+          "35倍速と記録完全性の優先順位"
+        ],
+        "verify": [
+          "実会議音声を複数本用意し、同一ファイルをローカルとさくらのAI Engineに入力する。話者ラベルとタイムスタンプを除いた地の文を保存し、`difflib.SequenceMatcher`で出力間の一致率を比較する。",
+          "一致率だけでなく、音声を再生しながら発言単位でローカル出力・さくら出力を確認し、ハルシネーションの反復回数と発言の脱落箇所を別々に記録する。",
+          "同じ音声を複数回処理し、成功率・エラーコード・ファイルサイズ・分割有無・リトライ間隔を表にする。記事では22回中6回成功し、特定の1本だけ6/6成功だった。",
+          "30MBを超える音声について、サンプリングレート変更と分割を行い、分割前後で処理成功率と発話の欠落・重複が変わるかを確認する。"
+        ]
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "The Case Against Formal Verification, 50 Years Later",
+      "url": "https://ivan-gavran.github.io/0-social-processes-paper",
+      "publishedAt": "2026-08-16T20:38:58.000Z",
+      "author": "ghuntley",
+      "authorDetail": {
+        "name": "ghuntley",
+        "handle": "ghuntley",
+        "url": "https://news.ycombinator.com/user?id=ghuntley"
+      },
+      "tags": [],
+      "snippet": "Engineers are getting excited about software verification! This may come as a surprise, since verification has long been considered useful only in very niche cases (at best; and impractical, useless or a complete waste of time at worst). Yet, the hype around it is clearly here: Google Trends shows a large spike in searches for formal verification/formal methods in the last two years, everybody’s l…",
+      "metrics": {
+        "points": 48,
+        "comments": 40
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "1d66a730b2b065db",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.18408163265306124,
+      "popularityPercentile": 0.8367346938775511,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "記事は、形式検証に反対する議論を50年後の視点から扱っている。",
+      "reason": "本文の抜粋がなく、形式検証に反対する議論を50年後の視点から扱う記事だとタイトルから確認できる。",
+      "keywords": [
+        "形式検証",
+        "Formal Verification",
+        "ソフトウェア検証"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "aware",
+      "durability": "foundational",
+      "body": "Engineers are getting excited about software verification! This may come as a surprise, since verification has long been considered useful only in very niche cases (at best; and impractical, useless or a complete waste of time at worst). Yet, the hype around it is clearly here: Google Trends shows a large spike in searches for formal verification/formal methods in the last two years, everybody’s learning Lean, new specification languages are popping up regularly, and there are efforts to verify major applications end-to-end (e.g., the Signal Shot project).\n\nThe main driver of this excitement is AI coding. First, AI agents leave a hole in our understanding of the programs they write, thus creating the need for other means of correctness assurance. Second, they make verification itself faster and easier to incorporate into real-world software development. Third, and perhaps the most important for business, if writing programs is made super fast, all future gains will be in the area of software correctness assurance.\n\nWill Wilson of Antithesis declares the victory for this traditionally niche area in his talk titled We won, what now? (The talk, delivered as the opening to Bug Bash 2026, is great, and it gives some good ideas for the future of verification community, given the mainstream adoption.)\n\nIn that victorious context, it is interesting to return to one of the classic papers arguing against formal verification, Social Processes and Proofs of Theorems and Programs. Writing in 1979, its authors say:\n\n“We believe that (…) program verification is bound to fail. We can’t see how it’s going to be able to affect anyone’s confidence about programs.”\n\nI will go through the arguments in the paper and examine what recent developments (if any) invalidate them. This is a fun exercise rather than a completely serious one: the paper does not actually claim that all formal methods efforts are doomed (but only full verification). Furthermore, it is far from clear that verification is going to become a regular part of software engineering (what we are seeing are only early signs of interest). Nonetheless, re-examining in 2026 obstacles that were seen as fundamental 50 years ago will hopefully be useful and interesting.\n\nIn this argument, the authors of the paper argue against the idea that programming should become more like mathematics in terms of each program corresponding to a theorem that needs a proof. They say: Hold on, it is not the case even in mathematics that proofs of theorems are the end of the process. Instead, the proof is the first step and a means of communication. The really important part happens when other mathematicians internalize the proof, and the claim makes contact with other branches of mathematics or physical reality. This whole process contributes to the claim’s believability.\n\nNothing to object to here: proofs of programs do not need to correspond to mathematics exactly. (The argument is against a particular motivation, rather than against fundamentals of software verification.)\n\nArgument 2: Problems with the specification\nThe first part of the argument goes like this: There is some real-world requirement that is informal (the people involved have a shared intuitive understanding of what the requirement is). This intuitive, informal requirement needs to be translated into a formal specification, which in itself is an informal process. In that process, which is unverified, a lot can be lost or misinterpreted.\n\nThat is a fair point. The counterpoint is that specifications are closer to informal requirements than implementations are (and thus a mistake is easier to spot). Additionally, modern specification languages (such as Quint) enable examining the specification and all its edge-cases interactively, to make sure it really corresponds to our intuition.\n\nThe second part of the argument says that the specification is only valuable if it is independent of the implementation. Given the iterative nature of software development, that is almost impossible. Once the independence is lost, we are really just aligning the specification and implementation (and potentially introducing to both similar mistakes).\n\nI don’t think this was a strong argument even in the past, and especially not with coding agents in the loop.\nWhenever additional understanding is gained, this is good overall for the development process. Humans, as the final arbiters, decide which way to change the specification, re-examining initial assumptions.\nCoding agents may be allowed to produce and change code, and to produce proofs. If, however, there is a need to modify the specification, only a human can do that as the final arbiter of what correct means - which brings us back to the first part of Argument 2.\n\nArgument 3: Fully automatic verification is out of reach\nHaving argued for why verification is bad as a means of communication, the authors shift their attention to the potential of fully automatic verifiers (in which case, we could be happy with the fact that a program was proven correct, even if the proof did not trigger a social process among colleagues). Fully automatic verifiers, the authors argue, are very unlikely to ever be built.\n\nIn the meantime, there has been some in developing automatic verifiers, though human effort (either writing proofs, or writing a suitable model to be model checked) remains crucial. However, LLM-powered tools are closing this gap quickly. Igor Konnov, in his post Formal proofs for distributed protocols with AI may be closer than you think, describes his experience proving the safety of the Ben-Or protocol in Lean.\n\nArgument 4: Even if fully automatic verification were within reach, it would be detrimental\nThe authors claim that verifiers that simply respond with “VERIFIED” or “NOT VERIFIED” do not contribute to understanding and would leave programmers clueless about how to modify the program further.\nFurthermore, they argue, having a verified program may reduce the incentive for other layers of defense (e.g., monitoring, rate-limiting and similar).\n\nThis is a weak argument, relying on the worst possible assumptions about how verification tools and programmers’ behaviors would look in the presence of automatic verification.\n\nArgument 5: Real-world systems are too messy to be specified\nThere is a huge difference, it is correctly noted, between algorithms and real-world systems. Whereas a specification for an algorithm can often be concise and tidy, specifications of real-world systems are ad-hoc, unstable, and messy. Furthermore, in most real-world systems, the algorithms are simple and easy (and thus verifying them is not of great value).\n\nIt is true that not all systems need to be verified. However, in last decades and years, there are changes that push for more verification:\n\n  As software is entering critical infrastructure and the world of finance, the stakes get higher.\n  If we have any hope that a coding agent creates what we want, we should better be able to describe what we want. Of course, this does not always need to be a formal specification, but the goal of precisely specifying our intent becomes more important when we work with coding agents. (This does not imply full verification, but the art of specification too is one of the formal methods tools.)\n\nArgument 6: Software reliability is much more than verification\n\n“The desire to make programs correct is constructive and valuable. But the monolithic view of verification is blind to the benefits that could result from accepting a standard of correctness like the standard of correctness for real mathematical proofs, or a standard of reliability like the standard for real engineering structures. The quest for workability within economic limits, the willingness to channel innovation by recycling successful design, the trust in the functioning of a community of peers–all the mechanisms that make engineering and mathematics really work are obscured in the fruitless search for perfect verifiability.”\n\nI am fully onboard with this argument. Indeed, full verification of a system is rarely the best way to go about reliability. All other efforts towards software correctness are equally valuable. And those two are not competitors: the increased focus on best methods to bring about correctness is what matters.\n\n## Conclusion\n This was quite a fun paper to read. The authors make a good point that formal verification is not a magic wand that solves all the correctness issues. Indeed, as they point out, there is much more to software correctness than verification: engineering processes, business considerations, additional layers of defense, and so on.\n\nBecause of their focus on full verification, the authors of the paper wrongly dismiss how useful different parts of formal methods are for overall understanding, better design choices, or higher velocity. All that gets amplified with AI coding agents writing the code, leaving humans with the task of specifying what needs to be written and checking that it was written according to the given specification. This makes the work of coding agents easier, too: verification gives them a way to close the loop and tell whether what they wrote was correct.\n\nThanks to two fellow FM practitioners, Thomas Pani and Ranadeep Biswas, for useful discussions about the paper and this post. It would also be interesting to hear from people outside the bubble who still find formal methods useless.",
+      "rank": 2,
+      "deep": {
+        "headline": "AI時代の検証は万能薬ではなく制御ループ",
+        "summary": "AI coding agents によってコード生成が速くなり、生成物を理解・保証する手段として formal verification への関心が高まっている。1979年の論文は、仕様化の損失、fully automatic verifiers の困難さ、現実のシステムの複雑さを理由に、プログラムの完全検証を批判した。記事は、これらの懸念の一部は残る一方、formal specification や部分的な formal methods は設計理解と正しさのループに役立つと再評価する。ただし full verification は信頼性の万能策ではなく、工学的プロセスや多層防御と併用する位置づけである。",
+        "prerequisites": [
+          {
+            "term": "formal methods",
+            "stumblingPoint": "記事は「formal methods tools」と書くが、full verification との範囲の違いを知らないと主張の対象が曖昧になる。",
+            "explanation": "形式手法は、プログラムの性質を数学的・機械的に扱うための総称で、完全な証明だけを指さない。この記事では、仕様化、モデル検査、証明などを含む広い実践として扱われている。そのため、full verification への批判が、部分的な仕様化や検証の価値まで否定するとは限らない。"
+          },
+          {
+            "term": "formal specification",
+            "stumblingPoint": "記事は「formal specification」と「informal requirement」の変換を前提にするが、両者の違いを知らないと仕様化の損失が理解しづらい。",
+            "explanation": "形式仕様は、自然言語で書かれた要求を、状態・性質・制約など検査可能な形にしたもの。実装の正しさを証明する前に、そもそも何を正しいとするかを明示する役割がある。この記事では、AI coding agents に意図を伝えるための精密な要求記述としても位置づけられている。"
+          },
+          {
+            "term": "AI coding agents",
+            "stumblingPoint": "記事は「coding agents may be allowed to produce and change code」と書くが、仕様変更だけ人間に残る理由が読み取りにくい。",
+            "explanation": "AI coding agents はコードを書くだけでなく、証明や仕様の変更案も扱えるという文脈で使われている。ただし、この記事の整理では「何が正しいか」の最終決定は人間に残る。したがって、検証は自動化された最終判定というより、人間が定めた意図と生成物を照合する工程として読める。"
+          },
+          {
+            "term": "fully automatic verifiers",
+            "stumblingPoint": "記事は「fully automatic verifiers are out of reach」とAIによる進展を続けて述べるため、到達済みか進行中かを区別しないと誤読する。",
+            "explanation": "fully automatic verifiers は、証明の作成やモデルの構築を人間に頼らず、プログラムが性質を満たすかを自動判定する検証器を指す。1979年の論文は実現困難だと論じたが、記事は現在も人間の証明作成・モデル作成が重要であると認めている。つまり、AIで距離は縮まっているが、完全自動化が達成されたという報告ではない。"
+          },
+          {
+            "term": "full verification",
+            "stumblingPoint": "記事は「full verification」と「different parts of formal methods」を対比するが、全体検証と部分利用の差を知らないと結論が強く見える。",
+            "explanation": "full verification は、システム全体を形式的に検証し尽くすという強い目標。記事が再評価している1979年の議論は、主にこの一枚岩の目標を対象にしている。一部のアルゴリズム、プロトコル、重要な性質だけを検証することとは、コストと適用範囲が異なる。"
+          },
+          {
+            "term": "モデル検査",
+            "stumblingPoint": "記事は「writing a suitable model to be model checked」と書くが、検証対象のモデル化が別の作業である点を知らないと自動化の範囲を誤る。",
+            "explanation": "モデル検査は、状態遷移モデルを作り、指定した性質を満たすかを機械的に探索する方法。記事では、適切なモデルを書く人間の努力が必要な例として挙げられている。現実のシステムをそのまま自動検証するのではなく、対象をどのモデルに切り出すかが結果を左右する。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "形式検証をめぐる論点の変化",
+          "beforeLabel": "1979年の論文の主張",
+          "afterLabel": "2026年の記事の再評価",
+          "rows": [
+            {
+              "aspect": "仕様の問題",
+              "before": "非形式的な要求から形式仕様への変換で意味が失われる",
+              "after": "仕様は実装より要求に近く、エッジケースを調べやすい"
+            },
+            {
+              "aspect": "自動化",
+              "before": "fully automatic verifiers は実現困難",
+              "after": "AIで証明・検証のコストは下がるが、人間の作業は残る"
+            },
+            {
+              "aspect": "適用範囲",
+              "before": "現実のシステムは不安定で雑多、検証価値も一様ではない",
+              "after": "重要性の高い領域やAIへの意図伝達で必要性が増す"
+            },
+            {
+              "aspect": "信頼性",
+              "before": "検証だけでは監視・制限・工学的運用を置き換えられない",
+              "after": "full verification 以外の正しさへの取り組みと併用する"
+            }
+          ]
+        },
+        "code": null,
+        "whyItMatters": "AI coding agents によって実装を書く速度が上がり、次のボトルネックが「何を作るかの指定」と「生成物が意図どおりかの確認」に移りつつある。formal verification はこの確認ループを閉じる候補だが、仕様の正しさや現実の運用まで自動で保証するものではない。50年前に full verification へ向けられた批判が、部分的な検証や仕様化にもそのまま当てはまるのかが、いま争点になっている。",
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "talk",
+        "evidence": [
+          "「仕様は実装よりも非形式的な要求に近いため、間違いを見つけやすい」",
+          "Quint のような現代の仕様記述言語では、「仕様とそのすべてのエッジケースをインタラクティブに調べられる」",
+          "AI coding agents がコードと証明を生成できても、仕様を変更する必要がある場合は「人間だけが、何が正しいかを決める最終的な裁定者」になる",
+          "AI coding agents は、書いたものが正しいかどうかを判定する手段として検証を使い、「正しさのループを閉じる」ことができる"
+        ],
+        "counterEvidence": [
+          "「仕様は、実装から独立している場合にのみ価値がある。ソフトウェア開発の反復的な性質を考えると、それはほとんど不可能だ」",
+          "「仕様化の過程自体が未検証の非形式的なプロセスであり、多くのものが失われたり誤解されたりする可能性がある」",
+          "自動検証器の発展後も、「証明を書く、またはモデル検査に適したモデルを書く人間の努力は依然として重要」である",
+          "「full verification of a system is rarely the best way to go about reliability」"
+        ],
+        "whenItHolds": [
+          "AI coding agents が実装速度を押し上げ、人間の主な作業が意図の記述と生成物の確認になる場合、formal specification と検証によるフィードバックが価値を持つ。",
+          "金融や重要インフラのように誤りのコストが高く、対象の性質を明確に切り出せる場合、部分的な formal methods の導入理由が強くなる。",
+          "要求が不安定で、システム全体を一貫した形式モデルにできず、運用・監視・rate-limiting などの多層防御が重要な場合、full verification 単独では信頼性の説明にならない。"
+        ],
+        "angles": [
+          "仕様と実装の独立性",
+          "AI coding agents と人間の最終判断",
+          "fully automatic verifiers の到達点",
+          "full verification と多層防御の分担"
+        ],
+        "verify": []
+      }
+    }
+  ],
+  "releases": [],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Regional NAT Gatewayを検討して見送った話 — 何と比べて「良い」のかを確認する",
+      "url": "https://qiita.com/Omizu-25/items/555c6319df5a97d3c90f",
+      "publishedAt": "2026-08-16T14:02:58.000Z",
+      "author": "Omizu-25",
+      "authorDetail": {
+        "name": "Omizu-25",
+        "handle": "@Omizu-25",
+        "url": "https://qiita.com/Omizu-25",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3762051/profile-images/1786888957",
+        "followers": 10,
+        "posts": 7,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/mz_tech1425"
+          }
+        ]
+      },
+      "tags": [
+        "AWS",
+        "natgateway",
+        "vpc",
+        "Jr.Champions"
+      ],
+      "snippet": "はじめに こんにちは！KDDIアイレット株式会社の水野 永遠です。 この記事は「2026 Japan AWS Jr. Champions 真夏のQiitaリレー」の16日目の記事となります。 過去の投稿（リンク集）はこちらからご覧ください。 https://qiita.com/ys-yoshida/items/6f7c7f85155a993e2c86 --- 2025年11月19日、NAT Gatewayに新しい選択肢が増えました。Regional NAT Gateway です。 AWSのユーザーガイドにはこう書かれています。 Consider using Regional NAT Gateways for all use cases except those that require private connectivity. プライベートNAT Gatewayが必要なケースを除けば、こ…",
+      "body": "はじめに\n\nこんにちは！KDDIアイレット株式会社の水野 永遠です。\n\nこの記事は「2026 Japan AWS Jr. Champions 真夏のQiitaリレー」の16日目の記事となります。\n過去の投稿（リンク集）はこちらからご覧ください。\n\nhttps://qiita.com/ys-yoshida/items/6f7c7f85155a993e2c86\n\n---\n2025年11月19日、NAT Gatewayに新しい選択肢が増えました。Regional NAT Gateway です。\n\nAWSのユーザーガイドにはこう書かれています。\nConsider using Regional NAT Gateways for all use cases except those that require private connectivity.\n\nプライベートNAT Gatewayが必要なケースを除けば、こちらが推奨と言っていい書き方です。なので私も「これは実務でも導入されるやつだな」と思って検討を始め、結果として採用しませんでした。\n\n同じところで迷う人がいると思うので、検討の過程を残しておきます。あわせて、あまり触れられていないVPC Flow Logsへの影響（7章）も書きました。\n\n---\n\n1. 結論から\n\nRegional NAT Gatewayの効き方は、いまNAT Gatewayを何台置いているかで大きく変わります。\n・1台だけ置いている構成 … 効果が大きいです。そのNAT Gatewayが載っているAZが落ちると外向きの通信が全部止まる、という状態が、Zonalをもう1台作るのと変わらない手間で解消されます\n・AZごとに1台ずつ置いている構成 … 効果は小さくなります。ただしゼロではありません。パブリックサブネットの削減・ルートテーブルの本数・IPアドレスの上限の3つは残ります\n\nそのうえで、押さえておきたい点が3つ。\n・コストは「Zonalと同じ」ではありません。NAT Gatewayが立っているAZの数だけかかります\n・可用性は、AZ障害に対しては2台構成と変わりません。ただしポート枯渇に対してはRegionalのほうが強いです\n・VPC Flow Logsの見え方が変わります\n\n判断に使った条件は8章にまとめました。「使うな」という話ではありません。\n\n---\n\n2. Regional NAT Gatewayとは\n\n前提：AZをまたぐ通信には料金がかかる\n\n同じリージョンの中でも、AZをまたぐ通信には送信側と受信側の両方に $0.01/GB かかります。だから通信は同じAZの中で完結させたい。これがNAT Gateway設計の土台にあります。\n\nいままでのNAT Gateway（Zonal）\n\nパブリックサブネットを1つ選んで置きます。置いた場所でAZが決まります。\n\nAZ-aとAZ-cの両方から外に出したければ2台置いて、ルートテーブルもAZごとに用意し、AZ-aのプライベートサブネットはAZ-aのNAT Gatewayへ、AZ-cのプライベートサブネットはAZ-cのNAT Gatewayへ、という振り分けを自分で書く必要がありました。\n\nRegional NAT Gateway\n\n置き場所を指定しません。VPCを指定して1つ作るだけです。作ると、AWSが、\n\n1. そのVPCのどのAZにENIがあるかを見て\n2. そのAZにNAT Gatewayを用意して\n3. そのAZのリソースは同じAZのNAT Gatewayを通って外に出る\n4. そのAZからENIがなくなったら、そのAZのNAT Gatewayを片付ける\n\nというのを勝手にやってくれます。\n\nルートテーブルに書くのは 0.0.0.0/0 → nat-xxxx の1行だけ。AZごとに書き分ける必要がありません。「AZ-aのリソースはAZ-aのNAT Gatewayへ」という振り分けは、AWSが内部でやります。\nZonalは、自分でルートテーブルを書いて経路を決める。\nRegionalは、ENIがどのAZにあるかを見て、AWSが決める。\n\nサブネットに置かないので、NAT Gateway専用にパブリックサブネットを持っていた環境では、それを消せます。Regional NAT Gateway専用のルートテーブルがAWS側で自動的に作られ、そこにインターネットゲートウェイへのルートがあらかじめ入るので、インターネットゲートウェイ自体は引き続き必要です。\n\n---\n\n3. 何が良くなったのか\n\n| 良い点 | 中身 | 出典 |\n|---|---|---|\n| AZが1つ落ちても外向きの通信が止まらない | AZごとにNAT Gatewayが立つ | ユーザーガイド |\n| AZを増やすときに、NAT Gatewayを足す作業がいらない | そのAZにENIができれば自動で立つ | ユーザーガイド |\n| NAT Gateway専用のパブリックサブネットがいらない | サブネットに置かない作り | ユーザーガイド |\n| ルートテーブルの数が減る | AZごとに分ける必要がなく、1つで済む | ユーザーガイド |\n| IPアドレスの上限が上がる | 1AZあたり最大32個（Zonalは最大8個。ただしZonalのデフォルトは2個で、8個は申請して緩和した値） | ユーザーガイド／VPCクォータ |\n| 混んできたらIPアドレスが自動で増える | 同一宛先への同時接続が約40,000を超えると追加を開始。完了まで約5分 | 公式ブログ（ユーザーガイドには記載なし） |\n\nIPアドレスの自動追加とAZの自動展開は「自動モード」の挙動で、AWSは自動モードを推奨しています。手動モードにすると、AZとElastic IPを自分で指定します。\n\n---\n\n4. ただし、比べている相手は「1台構成」です\n\n上の表を、何と比べて良いと言っているのかを補って読み直します。\n\n| 良い点 | 比べている相手 | AZごとに1台置いている構成では |\n|---|---|---|\n| AZが落ちても止まらない | NAT Gatewayが1台だけの構成 | もともと止まらない。変わらない |\n| NAT Gatewayを足す作業がいらない | AZが増えたり減ったりする環境 | AZが固定なら、その作業自体が発生しない |\n| パブリックサブネットがいらない | NAT Gateway専用のパブリックサブネット | インターネット向けALBがいるなら結局残る。いないなら残るメリット |\n| ルートテーブルの数が減る | AZごとに分けている構成 | 減ります。残るメリット（ただし嬉しいのは主に初回作成時） |\n| IPアドレスの上限が上がる | 上限に近い環境 | 32 vs 8の差は残ります（6章のポート枯渇の話につながります） |\n\n1行目です。「AZ障害が起きるとNAT Gatewayに向けていたリソースが通信できなくなる」という説明をよく見かけますが、これはNAT Gatewayが1台しかない構成の話です。2台置いてAZごとにルートテーブルを分けていれば、AZ-aが落ちてもAZ-cは自分のNAT Gatewayで動き続けます。\n\nただし、これはAZが丸ごと落ちる場合の話です。AZは健全なのにNAT機能だけが劣化する場合は別で、6章で扱います。\n\n3行目については、「パブリックサブネットが消せる」が成立するのはそのサブネットに置いてあるのがNAT Gatewayだけのときです。インターネット向けALBや踏み台サーバーが1つでもいれば残ります。検討するときは、まずパブリックサブネットに何が置いてあるかを数えてください。\n\nそしてもう一つ。NAT Gatewayしか置いていなかったとしても、サブネットを消すかどうかは別の判断です。私は「将来使うかもしれないのでCIDRは確保しておきたい」と考えて、サブネットは残し、インターネットゲートウェイへのルートだけ持たせない形にしました。サブネットがパブリックかどうかを決めているのはルートテーブルなので、区画は残したまま経路だけ落とせます。\n\n---\n\n5. コストは「同じ」ではない\n\n時間単価もデータ処理単価もZonalと同じ数値です。ただし同じなのは単価であって、総額ではありません。\n\nAWSの料金ページの例は3AZで、$0.045 × 3 = $0.135/時 と計算されています。つまりENIのあるAZの数だけ倍率がかかります。1台構成から移ると、2AZなら倍、3AZなら3倍です。\n\n「コストは増えない」は AZごとに1台置いている構成との比較です。\n\n1AZに絞ることはできる（ここから手動モードの話です）\n\n自動モードだと、ENIができたAZに勝手にNAT Gatewayが立つので、料金も勝手に増えます。\n\n一方、手動モードでAZとElastic IPを明示指定すると、自動展開が無効になります。これはAPIリファレンスに明記されています。\nIf you specify this parameter, auto-expansion is disabled and you must manually manage AZ coverage.\n\n指定していないAZにENIがあっても、そのAZにNAT Gatewayは立ちません。なので「1AZだけで運用してコストを抑える」はできます。\n\nただし2つ、引き換えになるものがあります。\n\n1つ目。指定していないAZの通信は「ランダムに」流れます。 これは公式ブログの記述です。\nIf RNAT is not enabled in an AZ where you have workloads, internet-bound traffic from those resources will be randomly routed to an AZ where RNAT is enabled.\n\n有効なAZが1つだけならそこへ流れるので、実質ランダムになりません。効いてくるのは3AZ以上で一部だけ有効にした場合で、どのAZを通るかが決まらなくなります。経路を把握しておきたい場合は影響します。\n\n2つ目。1AZに固定すると、そのAZが落ちたときに外向きの通信が止まると考えられます。 ただしこれは私の推測です。手動モードで指定したAZが障害になったときのAWS側の挙動は、公式に説明が見つかりませんでした。もしそうなら、1章で書いた「1台構成の弱点が解消される」を期待して入れる場合、この運用とは両立しません。\n\n補足：そもそも「1台に寄せれば安い」のか\n\nRegionalに限らない話ですが、上の判断の前提になるので置いておきます。\n\nNAT Gatewayを1台に減らすと台数分は安くなりますが、NAT GatewayがいないほうのAZからはAZをまたぐことになります。トラフィックが少ないうちは1台のほうが安く、増えていくとどこかで逆転します。\n\n [code] \n\n前提と導出はこうです。\n・GB/月は「NAT Gatewayが処理する通信量（送受信の合計）」。データ処理料金の課金対象と同じ基準です。 外向きのバイト数だけで計算すると、レスポンス分を数え落として分岐点を大幅に過大評価します\n・NAT Gatewayのデータ処理料金は台数に関係なく同額なので、比較では相殺されて式から消えます\n・AZまたぎ料金は送信側・受信側の両方にかかるので、実効は片方向単価の2倍。ただし対象になるのは片方のAZ分（＝全体の半分）。この「半分」と「2倍」が打ち消し合うので、片方向単価で割る形になります\n・2AZかつ均等分散の前提です。3AZで1台に寄せると、またぐのが全体の2/3になるので係数が変わります\n\n時間単価 $0.045、AZ間データ転送 片方向 $0.01 とすると、分岐点は約3,300GB/月。時間単価はリージョンで違うので、自分の数字を入れてみてください。\n\n---\n\n6. 可用性：AZ障害には効かない。ポート枯渇には効く\n\n見出しを分けたのは、効く領域と効かない領域が混ざっているからです。\n\nAZ障害に対しては、2台構成と差がありません\n\nAZごとに1台置いていれば、AZ-aが落ちてもAZ-cは自分のNAT Gatewayで動き続けます。Regionalも同じです。ここに差はありません。\n\n展開待ちの間はどうなるか\n\n自動モードは、ENIのないAZにはNAT Gatewayを立てません。新しいAZにENIができてから立つまで、平均15〜20分、最大60分かかります（公式ブログ）。\n\nその間の通信については、公式にこう書かれています。\nUntil this expansion is complete, the relevant traffic from this resource is processed across zones by your regional NAT Gateway in one of the existing Availability Zones.\n\n通信が止まるわけではなく、既存AZのNAT Gateway経由で処理されます（AZまたぎ料金は発生します）。ここは誤解されやすいところだと思います。\n\nここから先は私の推測です。 AZ障害でワークロードが別AZに退避する場面では、「既存AZ」が落ちたAZしかない可能性があります。その場合に上の救済が成立するのかは、公式に記載がありません。成立しないなら、Zonalで2台常設しているほうが待ち時間ゼロで有利です。確かめていません。\n\nなお、手動モードで2AZを明示指定すれば、ENIの有無にかかわらず両AZにNAT Gatewayが立ち続けるので、この待ち時間は発生しません。\n\nポート枯渇に対しては、Regionalのほうが強い\n\nこちらは差があります。\n\nNAT Gatewayは、1つのIPアドレスにつき、同じ宛先IP・ポート・プロトコルの組み合わせに対して約55,000接続が上限です。ここに達すると ErrorPortAllocation が出て、AZは健全なままNAT機能だけが実質使えなくなります。\n\n| | ポート枯渇への耐性 |\n|---|---|\n| Zonal | IPアドレスは最大8個（デフォルト2個）。手動で追加する |\n| Regional | 1AZあたり最大32個。同時接続が約40,000を超えると自動で追加（公式ブログ） |\n\n上限が4倍あり、しかも自動です。これはAZごとに1台置いている構成でも取れないメリットなので、2台構成からの移行理由になり得ます。\n\n---\n\n7. VPC Flow Logsの見え方が変わる\n\n導入前に知っておいたほうがいい点なので、独立させました。\n\nRegional NAT Gatewayに紐づくフローについては、interface-id と subnet-id が -（ハイフン）になります。 ユーザーガイドに明記されています。\ninterface-id — Returns a '-' symbol for flows associated with a regional NAT gateway.\nsubnet-id — Returns a '-' symbol for flows associated with regional NAT gateway.\nresource-id — The ID of the regional NAT gateway that contains the network interface for which the traffic is recorded.\n\n代わりに resource-id にRegional NAT GatewayのIDが入ります。問題は、resource-id はフローログのバージョン9で追加されたフィールドで、デフォルトフォーマット（バージョン2の14フィールド）には含まれていないことです。\n・デフォルトフォーマットのままだと、Regional NAT Gateway側のレコードから、どのENI・どのサブネットの通信かを判別できません\n・ENI IDやサブネットIDをキーにした検索・分析・アラートのうち、NAT Gateway側のレコードを対象にしたものは動かなくなります\n・既存のカスタムフォーマットを使っている環境でも、resource-id は新しいフィールドなので入っていないはずです\n・対応するには、resource-id を含むフォーマットを明示的に指定する必要があります\n\nRegional NAT Gatewayを入れるなら、フローログのフォーマット定義もセットで見直してください。セキュリティ診断や監査でフローログを使っている環境だと、ここは影響します。\n\nなお「送信元インスタンス側のENIのレコードは従来どおり出るので、そちらと突合すれば追える」というのは自然な想定ですが、公式にそう書かれた記述は見つけられませんでした。ここは確認していません。\n\n---\n\n8. 入れる前に確認する条件\n\n新規に作るなら\n\nRegionalを選ばない理由は薄いと思います。 ルートテーブルは1本、NAT Gateway用のパブリックサブネットは不要、AZを足すときの作業もありません。AWSの推奨もこちらです。以下は、すでにZonalで構成が決まっている場合の判断です。\n\n条件1：いまNAT Gatewayを1台で済ませているか\n\nはい → Regionalは有力です。落ちたら外向きの通信が全部止まる状態が、Zonalをもう1台作るのと変わらない手間で解消されます。ただしコストはAZ数分になります。\n\nいいえ（すでにAZごとに1台） → 残る検討対象は次の3つです。\n・条件2：パブリックサブネットに置いてあるのがNAT Gatewayだけか（そうなら、そのサブネットを消せる）\n・条件3：AZの構成が動くか（環境ごとにAZ数が違う、将来AZを足す、AZが動的に変わる）\n・条件4：ポート枯渇が視野に入るか（IP上限32 vs 8、自動追加の有無。6章）\n\n私の場合\n・条件1 … すでにAZごとに1台ずつ、計2台\n・条件2 … 満たしていました。 パブリックサブネットにあるのはNAT Gatewayだけです。ただしCIDRは確保しておきたかったのでサブネットは残す判断をし、消せるメリットのほうを取りませんでした\n・条件3 … AZ固定\n・条件4 … 同時接続数が上限に対して2桁小さい水準\n\nつまり移行する理由は1つ残っていて、それを自分の判断で捨てた、というのが正確なところです。残ったのがそれだけだったので、既存構成を変えるコストに見合わないと判断しました。\n\nそもそも使えないケース\n・プライベートNAT Gatewayとして使いたい場合。Regionalは非対応で、公式もZonalを使うよう書いています\n・制約付きAZ（constrained Availability Zones）。公式に非対応と書かれています。ただしこの用語の定義を公式ドキュメント内に見つけられなかったので、自分の環境が該当するかはAWSに確認が必要です\n・AWS GovCloud (US) と中国リージョン。提供対象外です\n\n---\n\n9. 確認できていないこと\n\n1つ目。AZ展開・撤収の判定に使うENIの範囲。\n\n公式の記述は「そのAZにENIがあれば展開する」「アクティブなワークロードがないAZからは撤収する」で、ENIの範囲が限定されていません。VPC内の全ENIなのか、そのRegional NAT Gatewayをデフォルトルートに持つサブネットのENIだけなのか、判別できませんでした。\n\n前者なら、内部ALB・VPCエンドポイント・RDSなどのENIが各AZに常駐している構成では常に全AZに立ったままになり、「使っていないAZからは撤収して安くなる」が成立しません。6章の展開待ちの話が現実的かどうかも、ここで変わります。\n\n2つ目。撤収にかかる時間。 展開に平均15〜20分・最大60分かかることは明記されていますが、撤収側の所要時間は記載がありません。\n\n3つ目。「ランダムにルーティングされる」の粒度。 接続ごとに変わるのか、しばらく固定されるのかは説明がありません。\n\n4つ目。自動モードで増えるIPアドレスとEIPクォータの関係。 自動モードでは「AWSがElastic IPを確保して紐付ける」と書かれていますが、それがアカウントのEIPクォータ（リージョンあたりデフォルト5）を消費するのかは説明が見つかりませんでした。パブリックIPv4アドレスの時間課金（$0.005/時）の対象になるのかも確認できていません。1AZあたり最大32個まで増える機能なので、クォータよりコストの論点かもしれません。\n\n5つ目。手動モードでIPアドレスの自動追加が効くのか。 手動モードで無効になると明記されているのはAZの自動展開です。IPの自動追加も一緒に無効になるのかは書かれていません。\n\nもし確かめるなら、展開に最大60分かかる点に注意してください。作った直後に見て「増えてない、大丈夫だ」と判断すると間違えます。設定が受け付けられたことと、意図したとおりに動くことは別です。\n\n単価は各リージョンの料金ページで、制約は最新のドキュメントで確認してください。\n\n---\n\nおわりに\n\nRegional NAT Gatewayは良い機能で、新規に作るなら素直に選べばいいと思います。\n\n私が引っかかったのは、「新機能が良いかどうか」と「自分の環境で得になるか」が別の問いだったところです。前者だけ読んで進めると、要件に合わせて機能を一つずつオフにしていって、最後に「あれ、これ使う意味あったっけ」となります。実際そうなりかけました。\n\n新機能を見たときは、それが何と比べて「良い」と言われているのかを先に確認するといいと思います。\n\n---\n\n参考\n・AWS NAT Gateway now supports regional availability\n・Regional NAT gateways for automatic multi-AZ expansion (Amazon VPC User Guide)\n・Introducing Amazon VPC Regional NAT Gateway (AWS Networking & Content Delivery Blog)\n・CreateNatGateway (Amazon EC2 API Reference)\n・Flow log records (Amazon VPC User Guide)\n・NAT gateway basics (Amazon VPC User Guide)\n・Amazon VPC quotas\n・Amazon VPC pricing",
+      "metrics": {
+        "likes": 2,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8581ab163f201169",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.38873925501432666,
+      "popularityPercentile": 0.994269340974212,
+      "matchedTopics": [
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 60,
+      "oneLiner": "Regional NAT Gatewayは既存の台数によって効果が変わるため採用を見送った。",
+      "reason": "2025年11月19日に登場したRegional NAT Gatewayは、NAT Gatewayが1台だけならAZ障害対策の効果が大きい。一方、複数台構成では差が小さく、VPC Flow Logsにも影響する。",
+      "keywords": [
+        "AWS Regional NAT Gateway",
+        "NAT Gateway",
+        "Amazon VPC",
+        "VPC Flow Logs",
+        "Availability Zone"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【警告】インドネシア発SEOポイズニング攻撃の全手口と防御策 — 医療サイト21件同時侵害の実例",
+      "url": "https://qiita.com/mediface/items/54af248f4697e8d3fc6e",
+      "publishedAt": "2026-08-16T11:59:37.000Z",
+      "author": "近澤 徹",
+      "authorDetail": {
+        "name": "近澤 徹",
+        "handle": "@mediface",
+        "url": "https://qiita.com/mediface",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4486291/96e959d924dc95492dd74a08f22b825afad6b415/large.png?1786878060",
+        "organization": "医療法人鳳應会グループ｜Medi Face, Ltd.",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://medi-face.co.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "PHP",
+        "SEO",
+        "Security",
+        "WordPress",
+        "cybersecurity"
+      ],
+      "snippet": "【警告】インドネシア発SEOポイズニング攻撃の全手口と防御策 — 医療サイト21件同時侵害の実例 はじめに 2026年8月12〜13日、当社（株式会社メディフェイス）が管理する医療系Webサイト21件が同時にハッキングされました。 攻撃者の目的はシンプルです。「日本の正規医療サイトをGoogleに違法賭博サイトとして認識させ、患者を賭博サイトに誘導する」こと。 本記事では、攻撃の全手口・IOC・検出・防御方法を公開します。同様の被害を受けている医療機関・企業のエンジニアに届けば幸いです。 --- 攻撃の全体像 [code] タイムライン | 日時 | イベント | |------|----------| | 2026-08-12 深夜 | 攻撃開始 / fgh.php 設置 | | 2026-08-12〜13 | WordPress DB 賭博コード注入（21サイト） | | 2026-0…",
+      "body": "【警告】インドネシア発SEOポイズニング攻撃の全手口と防御策 — 医療サイト21件同時侵害の実例\n\nはじめに\n\n2026年8月12〜13日、当社（株式会社メディフェイス）が管理する医療系Webサイト21件が同時にハッキングされました。\n\n攻撃者の目的はシンプルです。「日本の正規医療サイトをGoogleに違法賭博サイトとして認識させ、患者を賭博サイトに誘導する」こと。\n\n本記事では、攻撃の全手口・IOC・検出・防御方法を公開します。同様の被害を受けている医療機関・企業のエンジニアに届けば幸いです。\n\n---\n\n攻撃の全体像\n\n [code] \n\nタイムライン\n\n| 日時 | イベント |\n|------|----------|\n| 2026-08-12 深夜 | 攻撃開始 / fgh.php 設置 |\n| 2026-08-12〜13 | WordPress DB 賭博コード注入（21サイト） |\n| 2026-08-13 午前 | 被害検知（GSC表示回数が1日439,514回に急増） |\n| 2026-08-13 | バックドア削除・コード除去完了 |\n| 2026-08-13 | JPCERT/CC 報告 / Cloudflare abuse 報告 / Netcraft 報告 |\n| 2026-08-14 | Cloudflare が4件すべてを制限（jutsu-seribu-bayangan / wewillrockyou / medi-face.pages.dev / fraise-clinic.pages.dev） |\n| 2026-08-14 | 警視庁サイバー犯罪対策課 被害届提出 |\n\n---\n\n攻撃手法の詳細\n\n1. PHPバックドア（fgh.php）\n\nファイルマネージャー型Webシェル。HTTPSリクエスト経由でサーバー上のファイルを任意に操作できる。\n\n検出方法:\n\n [code] \n\n被害サーバーのパス:\n [code] \n\n---\n\n2. SEOポイズニング（Schema.org LD+JSON注入）\n\nWordPressのDBに直接アクセスし、wppostsテーブルのpostcontentに以下のようなLD+JSONを挿入。\n\n注入されたコードのパターン:\n\n [code] \n\nこのコードは タグ内に埋め込まれているため、\nページ上には何も表示されず、Googlebotだけが読み取る。\n\nDB内での検出（WP-CLI）:\n\n [code] \n\nクリーンアップ:\n\n [code] \n\n---\n\n3. ジオクローキング\n\nIPアドレスで訪問者を判定し、Googlebotには賭博コンテンツを、一般ユーザーには正常ページを返す。\n\n [code] \n\nこれにより:\n・日本からのアクセス → 正常ページが表示される（被害に気づきにくい）\n・Googlebot → 賭博コンテンツがインデックスされる\n\n---\n\n4. Cloudflare Pagesなりすましサイト\n\n攻撃者が作成したなりすましサイト（全てCloudflare Pagesの無料枠）:\n\n [code] \n\nなりすましサイトの内容:\n・Cloudflare Pages の無料枠を使用（コスト0）\n・正規クリニック名を含む日本語タイトル\n・実際のページはインドネシア語の賭博コンテンツへのリダイレクト\n\n---\n\n5. Google Search Console不正操作\n\n手口:\n\n1. 改ざんしたページのHTMLに以下を埋め込む:\n [code] \n2. 攻撃者のGoogleアカウントでGSCに被害者ドメインを追加\n3. 検索インデックスを操作して賭博コンテンツを優先表示\n\n検出:\n\n [code] \n\n [code] \n\n---\n\nIOC（Indicators of Compromise）\n\n [code] \n\n---\n\n被害を受けていないか確認するチェックリスト\n\nWordPressサイト管理者向け\n\n [code] \n\nGoogle検索での確認:\n [code] \n→ 結果が出たら被害あり\n\n---\n\n対応・報告先\n\n| 機関 | URL/連絡先 |\n|------|------------|\n| JPCERT/CC（インシデント対応依頼） | https://www.jpcert.or.jp/form/ |\n| 警察庁サイバー犯罪相談 | #9110 |\n| Cloudflare abuse | https://www.cloudflare.com/abuse/ |\n| Netcraft フィッシング報告 | https://report.netcraft.com/ |\n| Google スパム報告 | https://search.google.com/search-console/report-spam |\n\n---\n\nおわりに\n\n本件は「小規模な医療サイトが狙われた」話ではありません。同一攻撃者が21サイトを同時に侵害した組織的な攻撃です。\n\nWordPressを運用している医療機関・クリニック・企業のエンジニアの方は、今すぐ上記のチェックリストを実行してください。\n\nIOCの詳細・完全技術論文はGitHubで公開しています: https://github.com/ToruCHIKAZAWA/MF-2026-0812\n\n情報提供・類似被害情報: info@medi-face.co.jp\n\n---\n\n医療機関向け関連記事（medi-face.co.jp）\n\n技術者以外の医療関係者（院長・事務長）向けに、同じ攻撃をより平易に解説した記事を公開しています。\n・SEOポイズニングとは？医療サイトが狙われる理由と実例\n・医療サイトがハッキングされているか確認する方法【5ステップ】\n・クリニックのWordPressセキュリティ対策\n・医療機関を狙うサイバー攻撃の最新手口【2026年実例】\n・厚生労働省のサイバーセキュリティ指針とクリニックの対応\n・医療サイト改ざん後の個人情報漏洩報告義務\n・Googleサーチコンソールで医療サイトの改ざんを早期発見する方法",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0bdf607ddcbca12f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.4900955109837632,
+      "popularityPercentile": 0.9398280802292264,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 58,
+      "oneLiner": "インドネシア発の攻撃で医療系WordPressサイト21件が同時侵害された。",
+      "reason": "2026年8月12〜13日、21サイトにfgh.phpと賭博コードが仕込まれた。Google検索表示は1日439,514回まで急増し、翌日に除去と外部報告が行われた。",
+      "keywords": [
+        "SEOポイズニング",
+        "WordPress",
+        "PHP",
+        "Cloudflare",
+        "JPCERT/CC",
+        "IOC"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Cloudflare OSが「Claude CodeやChatGPTの延長線」じゃなかった話",
+      "url": "https://qiita.com/hoge_kawamuro/items/116aeb1fd4f570a8e056",
+      "publishedAt": "2026-08-16T06:46:39.000Z",
+      "author": "kwmr hrkz",
+      "authorDetail": {
+        "name": "kwmr hrkz",
+        "handle": "@hoge_kawamuro",
+        "url": "https://qiita.com/hoge_kawamuro",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4031985/511b1c13eae098dfece48e0b901263e388b2e98c/x_large.png?1765387836",
+        "organization": "株式会社ナハト",
+        "location": "東京都",
+        "followers": 17,
+        "posts": 42,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/hirokazukawamuro"
+          }
+        ]
+      },
+      "tags": [
+        "cloudflare",
+        "MCP",
+        "AIエージェント",
+        "初心者向け",
+        "テックニュース"
+      ],
+      "snippet": "はじめに Cloudflareって「サイトを速く・安全にしてくれる会社」ってイメージだと思います。私もそうでした。 2026年8月4日、そのCloudflareが「Cloudflare OS」というAIワークスペースをオープンソースで公開しました。最初は「またAIエージェントの箱もの?」くらいに思っていたんですが、note.com/kazutさんの解説記事を読んで、Cloudflare公式ブログや社内活用事例のブログまで読み進めるうちに、「これ、Claude CodeやChatGPTの延長線上の話じゃないな」と考えが変わりました。 実際に手元のMacでも動かしてみたので、その感触も混ぜながら、何がどう違うのか・実際に何ができるのかを掘り下げて書いていきます。 (ちなみに同じ月、CloudflareはAIエージェント向けブラウザ「Kitesurf」や、MCPというAI連携プロトコルの仕様変更…",
+      "body": "はじめに\n\nCloudflareって「サイトを速く・安全にしてくれる会社」ってイメージだと思います。私もそうでした。\n\n2026年8月4日、そのCloudflareが「Cloudflare OS」というAIワークスペースをオープンソースで公開しました。最初は「またAIエージェントの箱もの?」くらいに思っていたんですが、note.com/kazutさんの解説記事を読んで、Cloudflare公式ブログや社内活用事例のブログまで読み進めるうちに、「これ、Claude CodeやChatGPTの延長線上の話じゃないな」と考えが変わりました。\n\n実際に手元のMacでも動かしてみたので、その感触も混ぜながら、何がどう違うのか・実際に何ができるのかを掘り下げて書いていきます。\n\n(ちなみに同じ月、CloudflareはAIエージェント向けブラウザ「Kitesurf」や、MCPというAI連携プロトコルの仕様変更も発表しています。この2つは末尾で軽く触れます)\n\nCloudflare OSってどんなもの?\n\n一言でいうと、「エンジニアじゃない社員でも、AIに頼んで自分専用の業務アプリをその場で作れる、会社用のプラットフォーム」です。\n\n営業の人が「今度の商談用にスライド作って」とAIに頼むと、その人専用のスライド作成アプリがその場で生まれる。経理の人が「この集計を自動化して」と頼むと、その人専用の集計アプリが生まれる。これを「Gadget」と呼んでいて、一つひとつが完全に独立した箱(サンドボックス)の中で動きます。\n\nもう一つのキモが「Gatekeeper」という仕組みです。会社の秘書さんをイメージするとわかりやすくて、AIが「Slackにメッセージ送っていいですか」「GitHubのコード書き換えていいですか」と行動するたびに記録が残ります。しかも「今すぐ承認して」ではなく「後でまとめて確認・承認」できる設計なので、AIの作業を止めずに人間があとから安全確認できます。\n\nClaude Code・ChatGPTと何が違うのか\n\nここが一番「なるほど」と思ったポイントです。表面上は「AIとチャットする」という同じ見た目をしていますが、狙っている場所がまるで違います。\n\n| 観点 | Claude Code / ChatGPT | Cloudflare OS |\n|---|---|---|\n| 誰が使う前提か | エンジニア(コマンドラインやコードエディタが前提) | 社員全員(営業・人事・経理も含む) |\n| AIの権限 | ローカル環境で動くので、パソコン内のデータに広くアクセスしうる | ブラウザの中の一時的なクラウド環境だけで動き、そのセッションに持ち込んだデータしか触れない |\n| 外部サービス連携 | MCPサーバーを一度繋ぐと基本フルアクセス | Gatekeeperが仲介し、「この1リポジトリだけ」のように都度・狭く許可する |\n| 処理のたびのコスト | 毎回AIに推論させるので、同じレポートを作るだけでも都度トークンを消費 | 一度「決まった手順(ワークフロー)」をAIにコードとして書かせておけば、2回目以降は推論なしで実行できる |\n| 会社の文脈 | 汎用的な受け答えのみ | 会社ごとの用語・承認フロー・ルールを最初から学習させた状態で使える |\n\n特に「権限」と「処理コスト」の違いは、個人の道具として使っている分には気にしなくていい部分です。ただ「非エンジニアの社員全員に使わせる」となった瞬間に、この2つがそのまま会社としてのリスクとコストに直結します。Cloudflare OSはそこを最初から設計に組み込んでいる、という立て付けです。\n\n実際に何ができるのか(社内活用の実例)\n\nCloudflareが自社で使い倒した結果を公式ブログで公開していて、これが数字込みでけっこう具体的でした。\n・営業チーム: 提案書作成や商圏計画などの手作業を、4ヶ月で1万時間以上削減\n・エンジニア組織: 「Engineering Codex」というコードレビュー基準をGadget化し、4ヶ月で25万件の潜在的な問題を検出、1万6千件のマージをブロック\n・社員全体: 月あたり4,000件以上の自作アプリ・ツールが生まれている\n\n面白いのが、最初から「全社導入」を狙っていたわけではなく、ITヘルプデスクの朝のルーティン(チケットのCSVダウンロード→スプレッドシート集計→グラフ化)を自動化するところから始まった、という下りです。さらに前段階では「やりたくない仕事をメールで送るとAIが代わりにやって返信してくれる」という、社内の\"魔法のメールエイリアス\"みたいな仕組みで社員の困りごとを集めていたそうです。ノリで作った機能ではなく、実際の詰まりポイントを拾って形にした、というのが伝わってきました。\n\nまた実際にコードを覗いてみると、GitHub・Slack・Notion・Google・Confluence・Supabase等への連携(Gatekeeper)が最初から用意されている状態でした。これ、ゼロから自分たちで連携を組む必要がないという意味で、地味に大きい話だと思います。\n\n実際に触ってみた\n\nOSS(無料で公開されているソースコード)なので、実際にダウンロードして手元のMacで動かしてみました。\n\n [code] \n\nこのコマンド1つで、Cloudflareのアカウントすら作らずにローカルで起動できます。数分でログイン画面まで辿り着きました。\n\nただし1回、ここでつまずきました。うちの環境はセキュリティ対策でnpmのミラーサーバーを経由する設定にしているのですが、そのせいで「lockfileのURLが公式と一致しません」というセキュリティチェックに引っかかって起動が止まったんです。lockfileを作り直したら解消しましたが、「最近のパッケージ管理ツールはここまで細かく改ざんチェックしてるのか」と地味に感心しました。\n\nREADME を読む限りまだ「Early Access」を名乗っていて、外部からのコード貢献も現時点では受け付けていません。発表から日が浅いぶん粗さは残っていて、本番の業務基盤として使うにはもう少し様子見が必要、というのが正直な感触です。\n\nついでに: 同じ月に出たもう2つの発表\n\nKitesurf(8/7発表)\n\n「人間のことを一切考えていない、AI専用のブラウザ」です。タブもテーマも拡張機能もいらないAIエージェントのために作られていて、普通のChromiumと比べてCPU・メモリの使用量が3分の1から7分の1で済むそうです。まだベータ版で、今のところ無料で使えます。\n\nMCPの新ルール(7/28〜)\n\nMCPは「AIと外部サービスが会話するための共通言語」です。この文法が新しくなり、古い接続方式(SSE)が使われなくなりました。実際に古いURLで繋ごうとしたら「410 Gone(このURLはもう使われていません)」というエラーに本当にぶつかりました。正しいURL(/mcpで終わる方)に変えたら一瞬で繋がりましたが、ブログ記事のURLをそのままコピペすると詰まる、というのは実際にやってみないと分からなかった発見です。\n\nおわりに\n\n「CDNとセキュリティの会社」だと思っていたCloudflareが、ここまで「非エンジニアが安全にAIを使う土台」に踏み込んでくるとは正直思っていませんでした。\n\n同じようにローカルでCloudflare OSを触ってみた人がいたら、他にどんなエラーにぶつかったか、ぜひコメントで教えてください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "61bdaef22cd5a88b",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7896848137535817,
+      "popularityPercentile": 0.498567335243553,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 54,
+      "oneLiner": "Cloudflareは非エンジニアが業務アプリを生成できるCloudflare OSを公開した。",
+      "reason": "2026年8月4日公開のCloudflare OSでは、AIが作る業務アプリをGadgetという独立サンドボックスで動かす。Gatekeeperが社内データや操作へのアクセスを仲介する。",
+      "keywords": [
+        "Cloudflare OS",
+        "Gadget",
+        "Gatekeeper",
+        "MCP",
+        "AIエージェント",
+        "Cloudflare"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "エージェントに AWS の鍵を渡さず AWS を叩かせる方法",
+      "url": "https://qiita.com/ryoji9702/items/8fdef34e0a55e7f4d558",
+      "publishedAt": "2026-08-16T12:07:14.000Z",
+      "author": "ryoji9702",
+      "authorDetail": {
+        "name": "ryoji9702",
+        "handle": "@ryoji9702",
+        "url": "https://qiita.com/ryoji9702",
+        "avatarUrl": "https://secure.gravatar.com/avatar/65c0455db493f27c10335d0a05a6242a",
+        "followers": 5,
+        "posts": 28,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "AWS",
+        "AIエージェント"
+      ],
+      "snippet": "はじめに AI コーディングエージェントに aws s3 ls を叩かせたい、という場面は珍しくありません。ところがその瞬間、こちらは二択を迫られます。 ・渡す: AWSSECRETACCESSKEY を環境変数のまま子プロセスに継承させる。動くけれど、エージェントが読んだログ・生成したファイル・送信したリクエストのどこに鍵が転がるか、こちらは制御できない ・渡さない: 環境変数を落とす。安全だが、AWS を触るタスクは全部できなくなる 筆者はこの二択がずっと気持ち悪く、結局「AWS 関連は手で叩く」に落ち着いていました。ところが Claude Code のサンドボックス設定を読み直したところ、この二択の外側に 第三の選択肢（mask）があることに気づきました。 要点はサンドボックスの中のプロセスには偽の鍵（sentinel）を見せておき、外に出ていくリクエストを中継するプロキシが、許可し…",
+      "body": "はじめに\n\nAI コーディングエージェントに aws s3 ls を叩かせたい、という場面は珍しくありません。ところがその瞬間、こちらは二択を迫られます。\n・渡す: AWSSECRETACCESSKEY を環境変数のまま子プロセスに継承させる。動くけれど、エージェントが読んだログ・生成したファイル・送信したリクエストのどこに鍵が転がるか、こちらは制御できない\n・渡さない: 環境変数を落とす。安全だが、AWS を触るタスクは全部できなくなる\n\n筆者はこの二択がずっと気持ち悪く、結局「AWS 関連は手で叩く」に落ち着いていました。ところが Claude Code のサンドボックス設定を読み直したところ、この二択の外側に 第三の選択肢（mask）があることに気づきました。\n\n要点はサンドボックスの中のプロセスには偽の鍵（sentinel）を見せておき、外に出ていくリクエストを中継するプロキシが、許可したホスト宛のときだけ本物に差し替える。AWS の場合は差し替えるだけでは足りないので、プロキシが SigV4 署名を計算し直す。\n\n本記事はこの仕組みを一次情報（公式ドキュメント）から読み解き、設定の判断軸とハマりどころを整理したものです。\n\n背景: サンドボックスは2層で、デフォルトでは鍵を守らない\n\nClaude Code のサンドボックスは Bash ツールとその子プロセスに対して OS レベルの境界を張ります。実装は macOS が Seatbelt、Linux / WSL2 が bubblewrap です。ここで押さえるべきなのは、境界が独立した2層でできている点です。\n・ファイルシステム分離: どのパスを読めるか／書けるか\n・ネットワーク分離: どのドメインに出られるか（サンドボックス外のプロキシが判定）\n\nそして公式ドキュメントは、この2層の片方だけでは意味がないとはっきり書いています。ネットワーク分離がなければ、侵害されたエージェントは SSH 鍵を持ち出せる。ファイルシステム分離がなければ、/.bashrc や $PATH 上の実行ファイルを書き換えて次回の実行で権限を広げられる、という理屈です。\n\nここで最初の落とし穴です。読み取りのデフォルトは「マシン全体が読める」（一部の拒否ディレクトリを除く）。つまり /.aws/credentials も /.ssh/ も、何も設定しなければサンドボックス内から読めます。ドキュメントも「組み込みのクレデンシャル拒否リストは存在しない」と明記しています。\n\n環境変数も同様で、サンドボックス内の Bash コマンドは親プロセスの環境をそのまま継承します。ターミナルで export AWSSECRETACCESSKEY=... している人は、その時点で鍵をエージェントに渡しています。\n\nつまり「サンドボックスに入れたから安全」ではなく、鍵については明示的に設定して初めて守られる、というのが出発点です。\n\ndeny と mask — 動かなくなるか、動いたまま守るか\n\nクレデンシャルの保護は sandbox.credentials ブロックで宣言します（Claude Code v2.1.187 以降）。ファイルと環境変数のそれぞれにモードを指定する形です。\n\ndeny: 単純に落とす\n\n [code] \n\nファイルは読み取り拒否、環境変数はコマンド実行前に unset されます。安全ですが、当然ながら gh も npm publish も動かなくなります。冒頭の「渡さない」がこれです。\n\ndeny には運用上ありがたい性質があります。どのスコープからでも追加できるが、どのスコープからも取り消せない。deny は必ず権限を狭める方向にしか働かないため、マージ時に「誰かが緩めた」が起きません。\n\nmask: sentinel を見せて、出口で差し替える\n\nmask は環境変数が v2.1.199 以降、ファイルが v2.1.221 以降で使えます。動きはこうです。\n\n1. サンドボックス内のコマンドには、セッションごとの sentinel 値（偽の値）が見える\n2. リクエストがサンドボックスの外に出るとき、プロキシが sentinel を本物に差し替える\n3. 差し替え先のホストは injectHosts で絞る（省略時は allowedDomains 全体が対象）\n\n [code] \n\nコマンド自身も、それが吐くログも、本物の値を一度も保持しません。それでいて api.github.com 宛のリクエストは正しく認証されます。「動いたまま守る」がこれです。\n\nなお injectHosts の各エントリは network.allowedDomains に含まれている必要があります。ネットワーク許可リストが上位の境界で、injectHosts はその内側をさらに絞るもの、という関係です。\n\ntlsTerminate が必須になる理由\n\nmask はリクエストの中身（ヘッダとボディ）を書き換える処理なので、プロキシが中身を見られなければ成立しません。ところが Claude Code の組み込みプロキシは、デフォルトでは TLS を終端しません。許可判定はクライアントが申告したホスト名だけで行い、中身は覗かない設計です。\n\nそこで network.tlsTerminate を設定してプロキシ自身に TLS を終端させます。ドキュメントでは実験的機能とされています（v2.1.199 以降）。\n\n重要なのはフェイルセーフの向きです。tlsTerminate を忘れた場合の挙動は「漏れる」ではなく「認証が失敗する」になります。コマンドが見るのは sentinel のままで、その sentinel がそのままサーバに届いて弾かれるだけで、秘密は露出しません。この設定ミスは起動時に報告されます。倒れる方向が正しく設計されている、と読めます。\n\n設定を書ける場所が絞られている\n\nmask は「プロキシに本物のクレデンシャルを指定ホストへ送る権限を与える」宣言なので、リポジトリの .claude/settings.json からは効きません。ユーザー設定・managed settings・--settings CLI フラグでのみ有効です。network.tlsTerminate と credentials.allowPlaintextInject も同様です。\n\nクローンしてきたリポジトリの設定ファイルが「自分のトークンを勝手なホストへ注入させる」ことができない、という設計です。同じ変数がどこかのスコープで deny されていれば deny が勝ちます。\n\nAWS だけ特別扱いになる理由\n\nここからが本題です。GitHub や npm のトークンは「ヘッダに載っている値をそのまま差し替える」で済みます。ところが AWS は済みません。\n\nSigV4 は、シークレットキーそのものをリクエストに載せません。シークレットキーから導出した鍵で、リクエストの内容（メソッド、パス、ヘッダ、ボディのハッシュ、日時）に対する HMAC 署名を計算し、その署名を Authorization ヘッダに載せます。\n\nつまりサンドボックス内で sentinel を使って署名を計算した時点で、その署名は「偽の鍵から導出された、正しくない署名」です。プロキシが後から文字列置換しても直りません。署名し直す以外にないわけです。\n\n [code] \n\nプロキシは access key ID の sentinel を手がかりに「これは SigV4 リクエストだ」と検出し、値を実物に置き換えたうえで署名を計算し直します。ここから、設定上のルールが素直に導けます。\n\nAWSACCESSKEYID と AWSSECRETACCESSKEY はセットで mask する。\n\nシークレットだけを mask すると、検出の手がかりである access key ID の sentinel が出てこないため、プロキシは SigV4 リクエストだと気づけません。結果として偽の署名のまま AWS に届いて失敗します。このケースは起動時に警告が出ます。一方で access key ID だけを mask した場合は警告が出ないとドキュメントは明記しています。警告の有無が非対称なので、設定を書くときは必ず2つを並べて書きます。\n\nもうひとつ、AWS 特有の注意点があります。再署名が行われるのは access key ID 側のエントリに書いた injectHosts のホストです。シークレット側に injectHosts を書いても再署名先は変わらないので、ホストの絞り込みは access key ID のエントリに書きます。\n\n慣例的な AWSACCESSKEYID / AWSSECRETACCESSKEY / AWSSESSIONTOKEN の3つは、値を丸ごと mask していれば自動で1つのクレデンシャルとして紐付けられます。独自の変数名を使っている場合は credentials.awsPairs で明示的にグルーピングします（v2.1.224 以降）。\n\n [code] \n\nawsPairs はあくまで「mask 済みの envVars エントリ同士を紐付ける」設定なので、envVars 側で3つを丸ごと mask してあることが前提です。awsPairs だけを書いても効きません。sessionTokenVar を指定した場合は、再署名したリクエストに実トークンが x-amz-security-token として載ります。\n\n再署名できない3つの形態\n\n署名を計算し直す方式には原理的な限界があります。ドキュメントは再署名できない形態を3つ挙げています。\n\n| リクエスト形態 | sigv4 キー | 再署名できない理由 |\n|---|---|---|\n| aws-chunked ストリーミングアップロード | streaming | チャンクごとの署名が seed 署名から連鎖するため、再署名にはボディの書き換えが要る |\n| 署名済み URL（presigned URL） | presigned | 署名が URL 自体に埋まっており、Authorization ヘッダが存在しない |\n| SigV4A（非対称署名） | sigv4a | 再計算できる共有鍵の HMAC が存在しない |\n\nデフォルトでは、これらは壊れた署名を送るのではなくプロキシエラーで落ちます。落ちるのは mask したペアの sentinel で署名されたリクエストだけで、mask していないクレデンシャルで署名されたリクエストは影響を受けません。credentials.sigv4 で形態ごとに passthrough を指定すると、プロキシエラーの代わりに AWS 側の拒否レスポンスがそのままツールに返るようになります（v2.1.224 以降）。本番は既定のまま（プロキシエラー）にしておき、原因を切り分けたいときだけ passthrough に倒す、という使い分けが無難だと思います。\n\nなお x-amz-date ヘッダが欠けているなど、検出はできたが再署名に必要な情報が足りないリクエストも同様にプロキシエラーになります。\n\nファイルの mask と extract\n\nファイルにも mask が使えますが、プラットフォームで挙動が違います。\n・Linux / WSL2: 秘密の部分を placeholder に置き換えた sentinel コピーを読ませ、egress でプロキシが実値に差し替える\n・macOS: sentinel コピーは作られず、そのファイルは読めなくなる（実質 deny と同じ）\n\nつまり macOS では「ファイルに入った鍵で認証しつつ守る」はできません。/.aws/credentials を使う運用なら、macOS では環境変数方式に寄せるか、deny で割り切るかの判断が要ります。なお macOS のこの読み取りブロックは、deny エントリと違ってファイルシステム分離を切っても外れません。\n\nもうひとつ気をつけたいのが、mask が安全にマスクできないときは deny にフォールバックする点です。ドキュメントはその条件を4つ挙げています。\n・ディレクトリのパス（/.aws のようにディレクトリごと指定した場合）\n・glob パターン\n・8 MiB を超えるファイル\n・UTF-8 テキストでないファイル\n\nmask は1ファイル単位なので、クレデンシャルファイルは1つずつ列挙します。ディレクトリを守りたいなら、最初から deny として書いた方が意図が明確です。\n\n構造化ファイルには extract で「どこが秘密か」を正規表現のグループ1で教えます。これがないとファイル全体が1つの sentinel に置き換わり、設定をパースするツールが壊れます。\n\n [code] \n\nextract が何にもマッチしなかったときの挙動は onExtractNoMatch で決めます。既定は warn（警告して素通し = マスクされていない本物が読める）なので、「秘密は存在するはずだがパターンが外れるかもしれない」ケースでは deny か error に倒すべきです。既定値が緩い方向なので、ここは意識して上書きする箇所だと思います。\n\nただし macOS では、ファイルシステム分離が有効なかぎり mask エントリはパターンを走らせる前に deny として適用されます。つまり extract も onExtractNoMatch も、macOS で効くのは分離を切っているときだけです。\n\n判断軸の整理\n\n「どの鍵をどう扱うか」を決めるときの軸を、ここまでの内容から表にしておきます。\n\n| 状況 | 選ぶモード | 理由 |\n|---|---|---|\n| エージェントがそのサービスを触る必要がない | deny | 最も単純で、どのスコープからも取り消せない |\n| 触る必要があり、値がヘッダやボディにそのまま載る（GitHub / npm 等） | mask + tlsTerminate + injectHosts | コマンド側は本物を一度も持たない |\n| 触る必要があり、AWS SigV4 | mask を access key ID とシークレットのペアで | プロキシが検出して再署名する |\n| 秘密がファイルにあり、macOS 中心のチーム | deny（または環境変数方式へ移行） | macOS では file mask が実質 deny になる |\n| ストリーミングアップロードや presigned URL が主用途 | mask は不向き | 再署名できない形態にあたる |\n\nそのうえで、ネットワーク側は「許可ドメインをどれだけ狭くできるか」が実質的な防御力になります。strictAllowlist（v2.1.219 以降）を true にすると、許可リスト外のホストはプロンプトを出さずに拒否されます。これも mask と同じくリポジトリの .claude/settings.json からは効かず、ユーザー設定・managed settings・--settings でのみ有効です。プロンプトが出る運用は、結局のところ「面倒になった人が Yes を押す」導線なので、無人実行に寄せるほど strict 側に倒す価値が上がります。\n\nまとめ\n・Claude Code のサンドボックスは ファイルシステム分離とネットワーク分離の2層で、片方だけでは境界にならない\n・デフォルトではクレデンシャルは守られない。読み取りはマシン全体が許可され、環境変数は親から継承される\n・deny（落とす）と mask（sentinel を見せて出口で差し替える）の2モードがあり、mask は「動いたまま守る」ための道具\n・mask はプロキシが中身を書き換えるので tlsTerminate が必須。忘れても漏れはせず、認証が失敗する方向に倒れる\n・AWS は SigV4 のため差し替えだけでは足りず、プロキシが再署名する。検出の手がかりが access key ID の sentinel なので、access key ID とシークレットは必ずセットで mask する\n・再署名できない形態（streaming / presigned / SigV4A）があり、既定ではプロキシエラーで落ちる\n・組織展開では boolean はロックできるが配列はマージされる。excludedCommands にはロックがない\n\n「エージェントに鍵を渡すか渡さないか」という二択で止まっていたところに、鍵の保持場所をエージェントの外（プロキシ）に置くという第三の解があった、というのが筆者にとっての一番の収穫でした。これは Claude Code に限った話ではなく、エージェントに外部サービスを触らせる仕組み全般に効く設計だと思います。クレデンシャルを持つのはエージェントではなく、エージェントの外に立つ中継点である、という置き方です。\n\n次は実際に tlsTerminate を有効にして、aws sts get-caller-identity が sentinel のまま通るかどうかを自分の環境で確かめてみるつもりです。\n\n参考\n・Configure the sandboxed Bash tool — Claude Code Docs — 本記事の設定・挙動・バージョン要件はすべてこのページに基づく\n・Sandbox environments — Claude Code Docs — 組み込みサンドボックスと dev container / VM など他の分離手段の比較\n・Settings — Claude Code Docs — sandbox 配下の設定キー一覧\n・anthropic-experimental/sandbox-runtime — 同じ OS プリミティブを単体パッケージ化したもの\n・containers/bubblewrap — Linux / WSL2 でファイルシステム分離を担う非特権サンドボックスツール\n・Domain fronting — Wikipedia — TLS を検査しない許可リストが回避されうる仕組み",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "1df5489cefa43873",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7436676217765044,
+      "popularityPercentile": 0.28939828080229224,
+      "matchedTopics": [
+        "AI / LLM",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 52,
+      "oneLiner": "Claude Codeは本物のAWS鍵を渡さず署名付きリクエストを実行できる。",
+      "reason": "サンドボックス内には偽の認証情報を見せ、許可先への通信だけプロキシが本物へ差し替える。AWSではプロキシがSigV4署名も再計算するため、鍵を子プロセスへ渡さずに済む。",
+      "keywords": [
+        "Claude Code",
+        "AWS",
+        "AWS IAM",
+        "SigV4",
+        "sandbox",
+        "sentinel"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Zenn CLIをMCPツール化するzenn-mcpを作った・使ってみた",
+      "url": "https://qiita.com/kannkyo/items/c9bce474d6dcfd9ee134",
+      "publishedAt": "2026-08-16T00:45:15.000Z",
+      "author": "閑居",
+      "authorDetail": {
+        "name": "閑居",
+        "handle": "@kannkyo",
+        "url": "https://qiita.com/kannkyo",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/114392/profile-images/1619918149",
+        "bio": "Full stack engineer.\r\n\r\n\r\n(投稿はすべて個人の見解です)",
+        "location": "Japan",
+        "followers": 45,
+        "posts": 158,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kannkyo"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/kannkyoshi"
+          },
+          {
+            "label": "Web",
+            "url": "https://kannkyo.hatenablog.com/about"
+          }
+        ]
+      },
+      "tags": [
+        "MCP",
+        "Zenn",
+        "TypeScript",
+        "CLI",
+        "ClaudeCode"
+      ],
+      "snippet": "Claude CodeなどのAIエージェントからZennの記事・本を直接作成させたいとき、選択肢は大きく2つあります。ひとつはエージェントに npx zenn new:article をBashツールで直接叩かせる方法、もうひとつはMCP（Model Context Protocol）サーバー経由でツールとして公開する方法です。今回は後者の実装である zenn-mcp を、導入手順とアーキテクチャの両面から紹介します。 zenn-mcpとは Zenn CLI の主要コマンドをMCPツールとしてラップした、stdio方式のMCPサーバーです。TypeScript製、MITライセンスで公開されています。 提供されるツールは次の5つで、いずれも対応するzenn-cliコマンドに1:1で対応します。 | ツール名 | 対応するzenn-cliコマンド | 主な引数 | | --- | --- | …",
+      "body": "Claude CodeなどのAIエージェントからZennの記事・本を直接作成させたいとき、選択肢は大きく2つあります。ひとつはエージェントに npx zenn new:article をBashツールで直接叩かせる方法、もうひとつはMCP（Model Context Protocol）サーバー経由でツールとして公開する方法です。今回は後者の実装である zenn-mcp を、導入手順とアーキテクチャの両面から紹介します。\n\nzenn-mcpとは\n\nZenn CLI の主要コマンドをMCPツールとしてラップした、stdio方式のMCPサーバーです。TypeScript製、MITライセンスで公開されています。\n\n提供されるツールは次の5つで、いずれも対応するzenn-cliコマンドに1:1で対応します。\n\n| ツール名 | 対応するzenn-cliコマンド | 主な引数 |\n| --- | --- | --- |\n| zenninit | npx zenn init | projectDir |\n| zennnewarticle | npx zenn new:article | projectDir, slug?, title?, type?, emoji?, published? |\n| zennnewbook | npx zenn new:book | projectDir, slug? |\n| zennlistarticles | npx zenn list:articles | projectDir |\n| zennlistbooks | npx zenn list:books | projectDir |\n\nZenn CLIには、zenn preview（ローカルプレビューサーバーの起動）の機能がありますが、意図的にスコープ外としました。プレビューサーバーは常駐プロセスであり、MCPのリクエスト・レスポンス型のツール呼び出しモデルとは相性が悪いためです[^1]。\n\nこのリポジトリ自体は記事や本のデータを一切持ちません。各ツール呼び出し時に引数として渡される projectDir（操作対象のZennプロジェクトの絶対パス）に対して動作する、汎用的なラッパーとして設計されています。\n\nセットアップ\n\nインストールとビルド\n\n [code] \n\nMCPクライアントへの登録\n\nClaude CodeなどのMCPクライアントの設定ファイルに、以下のように登録します。npx -y github:kannkyo/zenn-mcp の形式なので、事前に手元でclone・buildしていなくても、npxがGitHub上のリポジトリを直接取得して実行してくれます。\n\n [code] \n\n登録後、Claude Codeなどのエージェントから zenninit や zennnewarticle といったツール名で呼び出せるようになります。\n\n開発時のコマンド\n\nリポジトリを手元でいじる場合は、以下のコマンドが使えます。\n\n [code] \n\n使い方\n\nMCPクライアント側からは、たとえば次のような呼び出しでZennプロジェクトを操作できます。\n\n [code] \n\nslug や title などのオプション引数は、指定しなければzenn-cli側の自動生成に委ねられます。実体としては npx zenn new:article --slug my-new-article-slug --title \"新しい記事のタイトル\" --type tech --emoji \"🎉\" --published false というコマンドライン引数が組み立てられ、projectDir をカレントディレクトリとして実行される形です。\n\nzennlistarticles / zennlistbooks は、zenn-cliのコンソール出力をそのままテキストとして返します。構造化してパースし直すことはしていません。これはzenn-cli側の出力フォーマットが変わったときに壊れにくくするための、あえての判断です。\n\nアーキテクチャ\n\n全体構成\n\nソースコードはコンパクトで、以下の3層に分かれています。\n\n [code] \n\nindex.ts は各ツールの登録を並べているだけです。\n\n [code] \n\nzenn-cliのロジックには一切手を入れない\n\n設計ドキュメント[^1]で明確に書かれていますが、「zenn-cli自体のロジックには一切手を入れない」という方針で作っています。各ツールは内部で childprocess.spawn を使って npx zenn を呼び出すだけの薄いラッパーに徹しています。\n\n [code] \n\nnpx --yes -p zenn-cli zenn ... という呼び出し方をしている点がポイントです。zenn-cliを依存関係として組み込まず、あえてコマンド呼び出しを使うことでCLIから分離して疎結合にしました。\n\n-p zenn-cli でzenn-cliパッケージを明示的に指定しつつ、zenn コマンドを実行するため、事前に zenn-cli をグローバルインストールしていない環境でも動作します。また process.platform === \"win32\" の分岐で npx.cmd を使うようにしており、Windows環境も考慮されています。\n\nこのアプローチのメリットは、zenn-cliのアップデートに対してメンテナンスコストがほぼゼロで追従できる点です。zenn-cli側でサブコマンドの挙動が変わっても、zenn-mcp側の対応するコードは「どの引数をどう組み立てるか」のロジックだけなので影響範囲が小さくなります。\n\nprojectDirの検証\n\nコマンドを実行する前に、projectDir が実在し、かつZennプロジェクトらしいディレクトリであることを検証しています。\n\n [code] \n\narticles/ ディレクトリか package.json のどちらかが存在すればZennプロジェクトとみなす、という緩めの判定です。zenninit だけは「これから初期化するディレクトリ」を扱うため、この検証をスキップして validateProjectDir（存在確認のみ）にとどめている点も理にかなっています。\n\n引数の組み立てとエラーハンドリング\n\nbuildNewArticleArgs は、渡されたオプションのうち値が存在するものだけをCLI引数に変換する、素直な実装です。\n\n [code] \n\nspawn に配列で引数を渡しているため、シェルを経由しないコマンド実行になり、title に空白や記号が含まれていてもシェルインジェクションのリスクなく安全に渡せます。\n\nエラー処理も一貫しています。projectDir が不正な場合はコマンドを実行せずに ZennCliError を返し、npx 自体の実行に失敗した場合（Node.js/npm未インストール環境など）は spawn の error イベントを拾ってエラーメッセージに変換し、npx zenn が非0終了コードで終わった場合はstderrの内容をそのままMCPのエラーレスポンスとして返します。\n\n [code] \n\nテスト戦略\n\nテストは test/tools/ 配下の各ツールのユニットテストと、test/integration/zennCli.integration.test.ts の統合テストに分かれています。ユニットテストでは childprocess をモック化して引数組み立てロジックとバリデーションを検証し、統合テストでは実際に一時ディレクトリに対して init → new:article が成功することを確認する、という軽量な構成にとどめています[^1]。ネットワークやzenn-cli本体の内部実装に依存しすぎないテスト設計です。\n\n:::note info\nこのリポジトリの docs/superpowers/ 配下には、実装前に書かれた要件定義書（spec）と実装計画（plan）が残っています。「なぜpreviewをスコープ外にしたか」「なぜlist系を構造化パースしないか」といった設計判断の理由が、コードだけでなくドキュメントとしても追えるようになっています。\n:::\n\nまとめ\n\nzenn-mcpは、Zenn CLIの機能をそのままMCPツールとして薄くラップした、割り切りの効いた実装としています。\n・npx zenn を spawn で呼び出すだけの薄いラッパーに徹し、zenn-cli本体のロジックには手を入れない\n・projectDir の検証と、配列渡しによる安全な引数組み立てで、最低限の堅牢性を確保している\n・zenn preview のような常駐プロセス系のコマンドは、MCPのツール呼び出しモデルと相性が悪いため明示的にスコープ外としている\n・list: 系は構造化パースをあえてせず、zenn-cli側の出力フォーマット変更への耐性を優先している\n\nMCPクライアントからAIエージェントに記事作成を任せたい場合、npx -y github:kannkyo/zenn-mcp で登録するだけで導入できる手軽さも魅力です。似たようなCLIラッパー型のMCPサーバーを自作する際の設計リファレンスとしても参考になる規模のコードなので、気になった方はソースを覗いてみることをおすすめします。\n\n参考リンク\n\n[^1]: docs/superpowers/specs/2026-08-15-zenn-cli-mcp-design.md - kannkyo/zenn-mcp",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "1be556fd2cb216a1",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8375931232091691,
+      "popularityPercentile": 0.7163323782234957,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "zenn-mcpがZenn CLIの主要操作をMCPツールとして公開する。",
+      "reason": "zenn-mcpはZenn CLIの初期化、記事・本の作成、一覧取得をstdio方式のMCPサーバーから実行できるようにする。Claude CodeがBash経由ではなく専用ツールとしてZennを操作できる。",
+      "keywords": [
+        "zenn-mcp",
+        "Zenn CLI",
+        "MCP",
+        "Claude Code",
+        "TypeScript"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "オープンウェイトの音楽生成AI MiniMax-Music3 を RunPod で動かして13曲作った（実測値まとめ）",
+      "url": "https://qiita.com/masafy/items/93f699c349d48b4f27b2",
+      "publishedAt": "2026-08-16T17:02:38.000Z",
+      "author": "masafy",
+      "authorDetail": {
+        "name": "masafy",
+        "handle": "@masafy",
+        "url": "https://qiita.com/masafy",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/196891/profile-images/1684838948",
+        "followers": 5,
+        "posts": 16,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/masafyorg"
+          }
+        ]
+      },
+      "tags": [
+        "Minimax",
+        "RunPod",
+        "音楽生成",
+        "diffusers",
+        "生成AI"
+      ],
+      "snippet": "オープンウェイトの音楽生成AI MiniMax-Music3 を RunPod で動かして13曲作った（実測値まとめ） 2026年8月14日にオープンウェイト公開された音楽生成モデル MiniMax-Music3 を、RunPodでGPUを借りて動かしてみました。 環境構築から生成まで一通りやって、1.72時間・約137円で13曲できました。VRAMやRAMの実際の使用量、生成にかかる時間、ハマりどころをまとめます。 --- TL;DR ・歌詞＋音楽の説明文から、最長5分のフル楽曲（歌入り）を生成するモデル ・既存曲を参考にしたカバー生成はできない（音声を入力するパラメータが存在しない） ・実測: VRAM 23.3GB・システムRAM 26GB・リアルタイム比 0.47倍 ・VRAMは曲の長さに依存しないので、24GBのGPUで足りる ・ただしシステムRAMは32GB以上必要。ここを見落…",
+      "body": "オープンウェイトの音楽生成AI MiniMax-Music3 を RunPod で動かして13曲作った（実測値まとめ）\n\n2026年8月14日にオープンウェイト公開された音楽生成モデル MiniMax-Music3 を、RunPodでGPUを借りて動かしてみました。\n\n環境構築から生成まで一通りやって、1.72時間・約137円で13曲できました。VRAMやRAMの実際の使用量、生成にかかる時間、ハマりどころをまとめます。\n\n---\n\nTL;DR\n・歌詞＋音楽の説明文から、最長5分のフル楽曲（歌入り）を生成するモデル\n・既存曲を参考にしたカバー生成はできない（音声を入力するパラメータが存在しない）\n・実測: VRAM 23.3GB・システムRAM 26GB・リアルタイム比 0.47倍\n・VRAMは曲の長さに依存しないので、24GBのGPUで足りる\n・ただしシステムRAMは32GB以上必要。ここを見落とすと最安GPUを選んで詰む\n・出力は 44.1kHz / 16bit / ステレオ（READMEの「32kHz」は誤り）\n・5分の曲1本あたり 約14円\n\n---\n\nMiniMax-Music3 とは\n\n約11Bパラメータの音楽生成モデルです。構成が特徴的で、\n\n [code] \n\n離散トークンだけからデコードするのではなく、Global / Local 両LLMの最終隠れ状態を融合してFlow Matchingに渡します。この連続表現が発声のニュアンスや楽器の質感を保つ、という設計です。\n\nできること\n・歌詞 + 音楽説明文 → 最長5分のフル楽曲。イントロ〜Aメロ〜サビ〜間奏〜アウトロの構造が崩れない\n・歌詞に構造タグを書ける: [intro] [verse] [pre-chorus] [chorus] [post-chorus] [bridge] [instrumental] [solo] [outro]\n・日本語の歌詞も歌う\n・シード指定で再現可能\n\n説明文は3層の Structured Caption で書くと制御が効きます。\n・Global Metadata: ジャンル / BPM / キー / 感情の推移 / 聴取シーン / 音質\n・Vocal Details: 声の性別 / 音色 / 歌い方 / ハモリ / エフェクト\n・Arrangement: 主要楽器 / セクションごとの変化 / グルーヴ / 空間処理\n\nできないこと\n\n既存の曲を読み込んで、それを参考に新しい曲を作ることはできません。\n\n期待している人が多そうなので実装を確認しました。diffusersパイプラインが受け付ける入力は次の4つだけです。\n\n [code] \n\n音声を渡すパラメータが存在しません。\n\n紛らわしいのが conditionencoder/config.json で、\n\n [code] \n\nいかにも音声を食いそうに見えますが、実装は forward(hiddenstates) で、これはLLMのフレームレートを潜在フレームレートに変換するための係数でした。音声入力ではありません。\n\nカバー生成はMiniMaxの商用APIにある music-cover という別モデルの機能（audiourl / audiobase64 / coverfeatureid を受け取る）で、オープンウェイト化されていません。公式クラウドの music-3.0 エンドポイントですら歌詞＋説明文のみです。\n\nその他の制約\n・CUDA必須（CPU推論不可）\n・ストリーミング生成は非対応\n・プロンプトは5,000トークンまで、生成は9,000フレーム（6分）まで\n・タグやBPM指定は「誘導」であって「保証」ではない（公式が明記）\n\n---\n\nなぜRunPodを使ったか\n\nウェイトが約26GBあり、これがシステムRAMに乗るためです。\n\n公式READMEには「CPUオフロードを使えば8GBのビデオカードでも動く」とありますが、これはVRAMの話です。CPUオフロードはVRAMに載りきらないウェイトをシステムRAMに置く仕組みなので、VRAMを節約した分はそのままRAMの消費になります。\n\n手元のRTX 3060機（VRAM 12GB / システムRAM 30GB）では、RAM側が先に限界に達しました。VRAMではなくシステムRAMがボトルネックになるというのが、このモデルを動かす上での最重要ポイントです。\n\n---\n\nGPU選定\n\nRunPodの当日価格（VRAM 24GB以上）です。\n\n| GPU | VRAM | RAM | vCPU | Community | Secure |\n|---|---|---|---|---|---|\n| RTX A5000 | 24GB | 25GB | 9 | $0.16/h | $0.27/h |\n| RTX 3090 | 24GB | 125GB | 16 | $0.22/h | $0.50/h |\n| RTX A6000 | 48GB | 50GB | 9 | $0.33/h | $0.53/h |\n| RTX 4090 | 24GB | 41GB | 6 | $0.34/h | $0.74/h |\n| A40 | 48GB | 50GB | 9 | $0.35/h | $0.44/h |\n| L4 | 24GB | 50GB | 12 | $0.44/h | $0.49/h |\n| L40 | 48GB | 94GB | 8 | $0.69/h | $0.82/h |\n\n選定条件は2つ。VRAMだけで決めてはいけません。\n\n1. VRAM ≥ 24GB\n2. システムRAM ≥ 32GB（ウェイト26GBがホストRAMを通過するため）\n\nこの2条件を掛けると、最安の RTX A5000 は RAM 25GB なので脱落します。単価だけ見て選ぶと、ウェイトが載らずに詰みます。\n\n第一候補は RTX 4090 Community（$0.34/h）にしましたが、当日は 4090 / A6000 / A40 / L40 の Community が全滅していて、実際に取れたのは RTX A6000 / Secure / $0.53/h でした。VRAM 48GBあるのでオフロード設定が一切不要になり、結果的に検証がシンプルになりました。\n\n割り当てリソースは cgroup で確認する\n\nfree や nproc はホスト全体の値を見せてくるので当てになりません。\n\n [code] \n\nディスク速度\n\n [code] \n\nネットワーク側は5倍遅いですが、27GBのロードで50秒程度の差にしかなりません。そもそも30GBのコンテナディスクには27GBのモデルが入らないので、モデルは /workspace に置きます。\n\n---\n\n環境構築\n\nイメージ\n\n [code] \n\n確定した構成:\n\n| パッケージ | バージョン |\n|---|---|\n| Python | 3.12.13 |\n| torch | 2.8.0+cu128 |\n| CUDA | 12.8 |\n| transformers | 5.15.0 |\n| diffusers | 0.40.0.dev0 |\n\nインストール\n\ndiffusersは未マージのPRブランチが必要です（2026年8月時点）。所要22秒。\n\n [code] \n\nハマりどころ① python と python3 が別物\n\nこのイメージには torchが入った /usr/local/bin/python と、素の /usr/bin/python3 が両方あります。pip は前者に紐づいています。\n\n [code] \n\nセットアップスクリプトを python3 で書いていて、「pip installは成功しているのにimportできない」で少し悩みました。\n\nハマりどころ② リポジトリの半分は diffusers では使わない\n\n素直に全部落とすと 54GB になります。\n\n [code] \n\nmodularmodelindex.json が参照するのはサブフォルダの7コンポーネントだけなので、除外すれば 54GB → 27GB です。ダウンロード自体は65秒でした。\n\n [code] \n--exclude \"qwen7B/\" \".pth\" と続けて書くと、2つ目が「そういう名前のファイル」と解釈されて404になります。--exclude は都度書いてください。\n\nハマりどころ③ ローカルパスを渡してもHubから再ダウンロードされる\n\nmodularmodelindex.json の7コンポーネント全部に、こうハードコードされています。\n\n [code] \n\nこのため、\n\n [code] \n\nとしても中身はHubを見に行き、27GBを再ダウンロードします。これに気づかずディスクを埋めました。\n\n対策は2つセットで打ちます。\n\n [code] \n\n [code] \n\nハマりどころ④ 公式READMEのサンプルコードが落ちる\n\nREADMEにはこう書いてあります。\n\n [code] \n\nしかし実際に返ってくるのは torch tensorではなくnumpy配列なので、\n\n [code] \n\nで落ちます。生成を60秒かけて完走した後、最後の1行で死ぬので注意してください。\n\n [code] \n\nハマりどころ⑤ サンプリングレートがREADMEと違う\n\nREADMEは全編を通して「32 kHz 16-bit stereo」と書いていますが、pipe.samplingrate が返すのは 44100 です。出力WAVを確認しても、\n\n [code] \n\nでした。44.1kHz / 16bit / ステレオが正しい値です。\n\n---\n\n生成\n\nコード\n\n [code] \n\n歌詞の書き方\n\n構造タグは必ず単独行に置きます。実装のコメントに明記があります。\nStructure tags such as [verse] or [chorus] must each be on their own line; text on the same line as a leading tag is dropped by the checkpoint's input contract.\n\n [code] \n\n[verse] ぼくは まだ... のようにタグと同じ行に書くと、その本文は黙って捨てられます。\n\n説明文の書き方（実際に使ったもの）\n\n [code] \n\nBPMやキーは効きますが、あくまで誘導です。厳密に一致するとは限りません。\n\n---\n\n実測値\n\nロード時間\n\n| 工程 | 秒 |\n|---|---|\n| frompretrained | 0.2 |\n| loadcomponents | 5.7 |\n| to(\"cuda\") | 31.9 |\n| 合計 | 37.8 |\n\nロード直後で VRAM 21.87GB、ホストRAM 28.64GB。\n\nなおロード時間はページキャッシュの状態で大きく変動します（実測で 10.6秒 〜 91.0秒）。ネットワークストレージから27GBを読むと、それだけで約50秒かかるためです。\n\n生成\n\n| ジャンル | 指定尺 | 実際の尺 | 生成秒 | リアルタイム比 | VRAMピーク |\n|---|---|---|---|---|---|\n| 英語アコースティックポップ | 30s | 30.02s | 62.3 | 0.482 | 23.12 GB |\n| 日本語J-POPバラード | 90s | 70.88s | 150.1 | 0.472 | 23.23 GB |\n| 日本語シティポップ | 90s | 64.76s | 138.4 | 0.468 | 23.23 GB |\n| Lo-fiインスト | 90s | 75.69s | 160.9 | 0.470 | 23.28 GB |\n| ミュージカル | 180s | 144.9s | 321.3 | 0.451 | 23.3 GB |\n| ミュージカル | 300s | 239.7s | 553.8 | 0.433 | 23.3 GB |\n\nここから3つのことが読み取れます。\n\n① VRAMは曲の長さに依存しない\n\n23.1〜23.3GBでほぼ一定です。Flow Matchingを200フレームの窓に区切ってdenoiseしているため、5分の曲でもVRAMは増えません。\n\nつまり 48GBは過剰で、24GBのGPUで足ります。RTX 3090（$0.22/h）や RTX 4090（$0.34/h）で同じことができるはずです。ただしシステムRAM 32GB以上は必須です。\n\n② audioduration は「上限」であって「目標」ではない\n\n90秒を指定して出てきたのは 64.76〜75.69秒、300秒指定で 239.7秒でした。公式の説明通りです。\nGeneration may finish before this limit when the model emits an end-of-audio token.\n\n狙った尺にしたいなら、audioduration を長めに取った上で歌詞の分量で調整します。 尺の指定だけで曲を伸ばすことはできません。\n\n③ 生成時間は尺にほぼ比例する\n\nリアルタイム比が 0.43〜0.48 に収まっているので、「欲しい秒数 ÷ 0.47」で所要時間を見積もれます。\n\n5分（300秒）のフル楽曲なら約640秒 ≒ 10.6分。A6000 なら 約14円/曲です。\n\n---\n\n費用と後片付け\n\n実費\n\n| 項目 | 値 |\n|---|---|\n| GPU | RTX A6000 / Secure Cloud |\n| 単価 | $0.53/h |\n| 稼働時間 | 1.72 時間 |\n| 実費 | 約 $0.91（約137円） |\n| 生成 | 13曲・合計約24分 |\n\n環境構築に約6分（pip 22秒 + モデルDL 65秒 + 不要ファイル削除とパス修正）、残りは生成と試行錯誤です。1曲あたり約10円。\n\nRunPodは stop では課金が止まらない\n\nここは要注意です。 停止中のPodもストレージ課金が続き、しかも稼働中の倍単価（$0.20/GB/月）になります。以前これでPodを放置して月$121（約18,000円）を発生させたことがあります。\n\n終わったら必ず terminate（DELETE） して、残り0件を確認するまでがセットです。\n\n [code] \n\nセッションが切れても課金が止まるよう、Podの外にタイムアウト強制terminateを置いておくと安心です。Podの中に置くと、terminate時に自分ごと消えて後始末が完了しません。\n\nモデルDLはGPUを借りる前にできるか\n\nできます。ネットワークボリュームを先に作り、CPU専用PodでダウンロードしてからGPU Podに付け替えれば、GPUの課金時計はモデルが揃ってから回り始めます。\n\nただし単発なら割に合いません。\n・DL 65秒 = $0.53/h × 65s ≒ $0.01\n・ネットワークボリューム 60GB = 月$4.2 が置くだけで発生し続ける\n・ボリュームはデータセンター固定なので、そのDCに空きGPUが無いと詰む（今回まさにCommunityが全滅した）\n\n繰り返し使うならボリューム、単発なら都度DL で良いと思います。\n\n---\n\nRunPod APIの注意点\n\n新しい rpa 形式のAPIキーは GraphQL では 403 になります。 RESTを使ってください。\n\n [code] \n\nエンドポイント一覧は GET /v1/openapi.json で取れますが、GPU価格を引くAPIはRESTには無いので、価格は料金ページを見るしかありません。\n\nPod作成時、条件を厳しくしすぎると落ちます。\n\n [code] \n\n特に minVCPUPerGPU に注意。RTX 4090は6 vCPUしかないので、8を要求すると弾かれます。実用的には、候補GPUを安い順に並べて空きがあるものを順に試すのが確実です。\n\n [code] \n\n---\n\nまとめ\n\nMiniMax-Music3 は「歌詞と説明文からフル楽曲を作る」ことに特化したモデルで、そこはよくできています。日本語の歌詞も歌ってくれました。一方で既存曲を参考にする用途には対応していないので、そこが必要なら商用APIの music-cover を見ることになります。\n\n環境構築で一番効いた知見は、VRAM要件だけを見てGPUを選ばないことでした。CPUオフロード系のモデルはVRAMをシステムRAMに逃がす仕組みなので、ローVRAM構成ほどRAMを食います。「8GBのGPUでも動く」という記述は、RAMが潤沢にあることが暗黙の前提になっています。\n\n実測値をまとめておきます。\n\n| 項目 | 実測 |\n|---|---|\n| 必要VRAM | 23.3GB（曲の尺に依存しない） |\n| 必要システムRAM | 26GB＋α（32GB以上を推奨） |\n| ロード時間 | 37.8秒（キャッシュ次第で10〜91秒） |\n| 生成速度 | リアルタイム比 0.47倍 |\n| 出力 | 44.1kHz / 16bit / ステレオ |\n| コスト | 5分の曲で約14円 |\n\nなお商用利用する場合は MiniMax-Music3 COMMUNITY LICENSE により UI上に「MiniMax-Music3」の表示が必要です。ストック素材や動画制作に使う場合は確認してください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "53276973dff7a1b2",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.4470630372492837,
+      "popularityPercentile": 0.10028653295128939,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "MiniMax-Music3が24GB GPUで歌入り楽曲を生成できた。",
+      "reason": "MiniMax-Music3は歌詞と説明文から最長5分の楽曲を生成し、実測では24GB GPUと32GB以上のシステムRAMが必要だった。RunPodでは13曲を約137円、5分曲1本を約14円で作成できた。",
+      "keywords": [
+        "MiniMax-Music3",
+        "RunPod",
+        "音楽生成AI",
+        "GPU",
+        "diffusers"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "criptogus/HermesOffice — AI-native office suite (Docs, Sheets, Slides, PDF) where the Hermes Agent is the brain — open standards, byte-preserving round-trip, 100% local.",
+      "url": "https://github.com/criptogus/HermesOffice",
+      "publishedAt": "2026-08-04T15:55:03.000Z",
+      "author": "criptogus",
+      "authorDetail": {
+        "name": "criptogus",
+        "url": "https://github.com/criptogus",
+        "avatarUrl": "https://github.com/criptogus.png?size=120",
+        "bio": "AI-native office suite (Docs, Sheets, Slides, PDF) where the Hermes Agent is the brain — open standards, byte-preserving round-trip, 100% local."
+      },
+      "tags": [
+        "TypeScript",
+        "agent",
+        "ai-native",
+        "docx",
+        "electron",
+        "hermes",
+        "local-first",
+        "mcp"
+      ],
+      "snippet": "AI-native office suite (Docs, Sheets, Slides, PDF) where the Hermes Agent is the brain — open standards, byte-preserving round-trip, 100% local.",
+      "metrics": {
+        "stars": 503
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "6b15d201b9b6cbbf",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7300000000000001,
+      "popularityPercentile": 0,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "oneLiner": "HermesOfficeがローカル動作のAIネイティブオフィス環境を提供する。",
+      "reason": "HermesOfficeはHermes Agentを中核に、文書、表計算、スライド、PDFを扱うローカルファーストのオフィススイートとして公開された。オープン標準とバイト単位の往復保持を掲げている。",
+      "keywords": [
+        "HermesOffice",
+        "Hermes Agent",
+        "TypeScript",
+        "Electron",
+        "MCP",
+        "local-first"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【2026年最新・保存版】Microsoft Agent Frameworkとは？AutoGen × Semantic Kernelの後継、その全貌をやさしく解説",
+      "url": "https://qiita.com/Sakaaaaai/items/a0b356cb413822ea7ee9",
+      "publishedAt": "2026-08-16T01:47:39.000Z",
+      "author": "Sakaaaaai",
+      "authorDetail": {
+        "name": "Sakaaaaai",
+        "handle": "@Sakaaaaai",
+        "url": "https://qiita.com/Sakaaaaai",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/132359636?v=4",
+        "followers": 4,
+        "posts": 49,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/Sakaaaaai"
+          }
+        ]
+      },
+      "tags": [
+        "MicrosoftAgentFramework",
+        "AutoGen",
+        "Python"
+      ],
+      "snippet": "Semantic KernelとAutoGen、結局どっち使えばいいの？ ——その悩み、Microsoftが2025年に公式に終わらせました。 こんにちは。この記事では、いま.NET / Python界隈で最もアツいAIエージェント開発SDK、Microsoft Agent Framework (MAF) について、これ1本読めば概要をつかめる保存版としてまとめました。 ブックマーク推奨です。 --- TL;DR（3行まとめ） ・Microsoft Agent Framework (MAF) は、AutoGen（研究寄り）と Semantic Kernel（エンタープライズ寄り）を統合したオープンソースのAIエージェント開発SDK ・2025年10月2日にGA（1.0）を迎え、.NET / Python / Go に対応。プロダクション利用OK ・単一エージェントからマルチエージェントのW…",
+      "body": "Semantic KernelとAutoGen、結局どっち使えばいいの？\n——その悩み、Microsoftが2025年に公式に終わらせました。\n\nこんにちは。この記事では、いま.NET / Python界隈で最もアツいAIエージェント開発SDK、Microsoft Agent Framework (MAF) について、これ1本読めば概要をつかめる保存版としてまとめました。\n\nブックマーク推奨です。\n\n---\n\nTL;DR（3行まとめ）\n・Microsoft Agent Framework (MAF) は、AutoGen（研究寄り）と Semantic Kernel（エンタープライズ寄り）を統合したオープンソースのAIエージェント開発SDK\n・2025年10月2日にGA（1.0）を迎え、.NET / Python / Go に対応。プロダクション利用OK\n・単一エージェントからマルチエージェントのWorkflow（グラフベース）、MCP、OpenTelemetry、セッション状態管理まで全部入り\n\n公式ドキュメント：Microsoft Agent Framework Overview\nGitHub：microsoft/agent-framework\n\n---\n\n1. Microsoft Agent Frameworkとは何者か\n\n一言で言うと、\n\nAIエージェントとマルチエージェントワークフローを、本番運用レベルで構築するための統合SDK\n\nです。\n\nMicrosoftはこれまでAIエージェント系のOSSを2本走らせていました。\n\n| プロジェクト | 特徴 | 立ち位置 |\n| :-- | :-- | :-- |\n| AutoGen | 抽象度が高くシンプル、マルチエージェント研究の先駆け | 実験・PoC寄り |\n| Semantic Kernel (SK) | エンタープライズ機能（型安全・テレメトリ・ミドルウェア） | プロダクション寄り |\n\nこの2つを同じチームが融合させたのがAgent Frameworkです。公式は、Semantic Kernel と AutoGen の直接の後継と明言しています。Microsoft Learn\n\n [code] \n\n---\n\n2. なぜ今、注目すべきなのか\n\n2025年10月にGA、APIが安定\n1.0リリースでAPIが安定し、後方互換性の約束付き。個人開発から企業導入までスケールできるフェーズに入りました。DevBlogs\n\nマルチ言語対応（.NET / Python / Go）\n.NETとPythonが一級市民、Goもサポート。チームの技術スタックを問わず採用しやすいのが大きな強みです。\n\nMicrosoft Foundryとの深い統合\nAzure AI Foundry / Azure OpenAI / OpenAI / Anthropic / Ollama など、主要モデルプロバイダーをほぼ網羅。ローカルLLMからフロンティアモデルまで同じコードで切り替えられます。\n\nMCP（Model Context Protocol）をネイティブサポート\nAnthropicが提唱し、2025〜2026年にデファクトになったMCPを、ホスト側・クライアント側どちらも標準機能で扱えます。\n\nOpenTelemetryによる可観測性\nエージェントの推論・ツール呼び出し・ワークフロー実行をOTel標準でトレース。Azure Monitor でも、他のOTLPバックエンドでも受け止められます。Microsoft Tech Community\n\n---\n\n3. アーキテクチャの4本柱\n\nMAFの機能は大きく4つの領域に整理されています。\n\n| 領域 | 概要 |\n| :-- | :-- |\n| Agents | LLMで入力を処理し、ツール／MCPを呼び出して応答を返す単体エージェント |\n| Harness Agent | 長時間タスク向けの全部入りエージェント。TODO追跡・コンテキスト圧縮・ファイル/メモリ・承認フロー・可観測性を内蔵 |\n| Workflows | 関数ベースおよびグラフベースのマルチエージェントオーケストレーション |\n| Integrations | モデル・ツール・コンテキスト・UI・評価サービスへのコネクタ群 |\n\nさらに基礎ブロックとして、モデルクライアント、セッション状態管理、コンテキストプロバイダー（メモリ）、ミドルウェア、MCPクライアントが用意されています。Microsoft Learn\n\n---\n\n4. コードで見るMAF：Hello Agent\n\nPython版\n\n [code] \n\nインストールはたった1行。\n\n [code] \n\n.NET (C#)版\n\n [code] \n\nこの抽象度の低さは扱いやすく、ここからツール追加・マルチターン化・ワークフロー化へ自然にスケールできます。\n\n---\n\n5. AgentとWorkflow、いつどう使い分ける？\n\nMAFで最初に迷うのがここ。公式に判断基準が明記されています。\n\n| Agent を使う | Workflow を使う |\n| :-- | :-- |\n| タスクがオープンエンド／会話的 | 手順が明確に決まっている |\n| ツール使用と計画を自律的に任せたい | 実行順を明示的に制御したい |\n| 単一LLMコール（+ツール）で足りる | 複数エージェント／関数の連携が必要 |\n\n関数で書けるなら、AIエージェントではなく関数を書け——これは本当に大事なので額縁に入れておきましょう。\n\n---\n\n6. マルチエージェント：5つのオーケストレーションパターン\n\nMAFのWorkflowが本当に強いのはここ。5つの標準パターンが用意されています。Microsoft Learn\n\n| パターン | ユースケース |\n| :-- | :-- |\n| Sequential | ドキュメント作成 → レビュー → 校閲のような直列処理 |\n| Concurrent | 複数の観点で並列に分析（財務・法務・技術など） |\n| Handoff | 一次受付エージェントが専門エージェントへ引き継ぐ（カスタマーサポート型） |\n| Group Chat | 複数エージェントが議論して結論を出す |\n| Magentic | オーケストレータが動的に計画し、専門エージェントを呼ぶ（AutoGen由来） |\n\nこれらをグラフとして組み合わせ、Human-in-the-loop の承認ステップも差し込めます。\n\n---\n\n7. 移行するべき人／今から学ぶ人\n\nSemantic Kernelユーザー\n移行対象です。公式にSKからの移行ガイドあり。SKの資産（プラグイン、フィルター）は概念的にほぼ引き継げます。\n\nAutoGenユーザー\nこちらも移行対象。AutoGenからの移行ガイドを参照。AgentChatの思想はそのままに、より堅牢になっています。\n\nこれからAIエージェントを学ぶ人\n迷ったらMAF一択でOK。SKとAutoGenを別々に学ぶ必要はもうありません。\n\n---\n\n8. 保存版チートシート\n\n [code] \n\n---\n\n9. これから追うべき情報源\n・公式ドキュメント（日本語版あり）\n・microsoft/agent-framework (GitHub)\n・Agent-Framework-Samples（Python & .NET のサンプル集）\n・Microsoft DevBlogs (Agent Framework)\n\n---\n\n10. まとめ\n\nMicrosoft Agent Frameworkは、単なる新しいSDKではなく、Microsoftが数年かけて分岐させてきたエージェント技術を1本に束ねた到達点です。\n・AutoGenのシンプルさ\n・Semantic Kernelの堅牢性\n・Workflowによる明示的オーケストレーション\n・MCP / OpenTelemetry / マルチプロバイダー対応\n\nいま新規でAIエージェントを作るなら、MAFから始めるのが最短距離です。\n\n読んで理解したを作れるに変えるには、手を動かすのが一番の近道です。\n\n---\n\n【PR】手を動かして学びたい方へ\n\n概念は分かったけど、実際に作れるようにならないと意味ないよね？ ということで、演習ベースで学べる講座を用意しています。\n\nUdemy講座を割引価格で受講する\n・全講座が演習型：読むだけ・見るだけでは終わらせません\n・手を動かしながらエージェント・テスト・実装力が身につく設計\n・上記リンクから割引価格で購入可能\n\n今日読んだMAFを、来週には自分の手で動かしている——そんな学習体験を作りたい方は、ぜひ覗いてみてください。\n\n---\n\nこの記事が役に立ったら、ストックといいねをよろしくお願いします。\nコメントでMAFで作ってみたものもぜひ教えてください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8f8eea1fc14137ce",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6606590257879656,
+      "popularityPercentile": 0.6848137535816619,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 76,
+      "oneLiner": "Microsoft Agent FrameworkがAutoGenとSemantic Kernelを統合した。",
+      "reason": "Microsoft Agent FrameworkはAutoGenとSemantic Kernelを統合し、単一エージェントからグラフ型のマルチエージェント処理まで同じSDKで構築できる。2025年10月2日に1.0となり、.NET・Python・Go、MCP、状態管理に対応した。",
+      "keywords": [
+        "Microsoft Agent Framework",
+        "AutoGen",
+        "Semantic Kernel",
+        "MCP",
+        "OpenTelemetry",
+        "マルチエージェント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Models Are Getting Dumber on Purpose",
+      "url": "https://w4g1.dev/blog/models-are-getting-dumber-on-purpose",
+      "publishedAt": "2026-08-16T19:04:26.000Z",
+      "author": "hruvhwe",
+      "authorDetail": {
+        "name": "hruvhwe",
+        "handle": "hruvhwe",
+        "url": "https://news.ycombinator.com/user?id=hruvhwe"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 188,
+        "comments": 119
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "1df2f0de7d0eae3d",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.22,
+      "popularityPercentile": 1,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 88,
+      "oneLiner": "記事は、AIモデルが意図的に低性能化される現象を論じている。",
+      "reason": "本文の抜粋がなく、AIモデルが意図的に低性能化されているという主張を扱う記事だとタイトルから確認できる。",
+      "keywords": [
+        "LLM",
+        "AIモデル",
+        "モデル性能"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "ephemeral"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIに株で勝つ方法を4つ作らせて、全部捨てた話",
+      "url": "https://qiita.com/HawkClaws/items/41b9b9d131c2041792af",
+      "publishedAt": "2026-08-16T08:44:39.000Z",
+      "author": "HawkClaws",
+      "authorDetail": {
+        "name": "HawkClaws",
+        "handle": "@HawkClaws",
+        "url": "https://qiita.com/HawkClaws",
+        "avatarUrl": "https://avatars2.githubusercontent.com/u/62013138?v=4",
+        "bio": "寿司とナンが好き  \r\n趣味でいろいろ作ってます  \r\n社畜です",
+        "followers": 29,
+        "posts": 29,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/HawkClaws"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/suzuki_se_00"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "株",
+        "バックテスト",
+        "Python",
+        "投資"
+      ],
+      "snippet": "AIに株で勝つ方法を4つ作らせて、全部捨てた話 「Claude Codeで株の自動売買を作った」という記事をいくつか読んだ。勝率82%、2日で+10%。すごい。ただ、肝心の検証結果は有料部分に隠れていて、証拠として出ているのは1回の売買だけだった。証券会社の取引明細は出てこない。 嘘だと言いたいわけではない。ただ、ああいう記事を10本読んでも、自分が同じことをやって儲かるかは分からない。分からないものを増やしても仕方ないので、逆のものを作ることにした。 その戦略が儲からないことを、お金を出す前に確かめる装置である。 AI（Claude Code）に書かせて、日本株を過去データで試すためのプログラムができた。動作を保証するテストが139本ついている。以下は、その上で「勝てそうな方法」を4つ試して、全部捨てるまでの記録になる。 そもそも「過去データで試す」は簡単に嘘をつく 過去の株価データを使…",
+      "body": "AIに株で勝つ方法を4つ作らせて、全部捨てた話\n\n「Claude Codeで株の自動売買を作った」という記事をいくつか読んだ。勝率82%、2日で+10%。すごい。ただ、肝心の検証結果は有料部分に隠れていて、証拠として出ているのは1回の売買だけだった。証券会社の取引明細は出てこない。\n\n嘘だと言いたいわけではない。ただ、ああいう記事を10本読んでも、自分が同じことをやって儲かるかは分からない。分からないものを増やしても仕方ないので、逆のものを作ることにした。\n\nその戦略が儲からないことを、お金を出す前に確かめる装置である。\n\nAI（Claude Code）に書かせて、日本株を過去データで試すためのプログラムができた。動作を保証するテストが139本ついている。以下は、その上で「勝てそうな方法」を4つ試して、全部捨てるまでの記録になる。\n\nそもそも「過去データで試す」は簡単に嘘をつく\n\n過去の株価データを使って「この方法なら儲かったはず」を計算することを、バックテストという。ここで一番よくある失敗は、手数料の計算ミスではない。\n\n未来のデータをうっかり覗いてしまうことである。\n\nたとえば「その日の終値を見てから、その日の朝に買ったことにする」。書いてしまえば当たり前におかしいのだが、プログラムが複雑になると、こういう混入は簡単に起きる。しかもタチが悪いことに、未来を覗くと成績が良く出る。だから自分では気づけない。「すごい戦略を見つけた」と思ったまま実際のお金を入れて、そこで初めて気づくことになる。\n\nこれは「気をつけて書く」で防げるものではないと思った。なので、戦略に渡すデータそのものを、その日までしか取り出せない形にした。\n\n [code] \n\nさらに、1日の中の処理の順番を固定した。朝の寄り付きで前日出した注文を約定させる → 配当を受け取る → その日の終値で資産を評価する → そのあとで戦略に「今日はどうする?」と聞く。戦略が出した注文は翌営業日の朝まで実行されない。この1日のズレが唯一の防波堤なので、絶対に動かさない。\n\nそのうえで、決定的なテストを1本置いた。\nあとから未来のデータを追加しても、過去の結果は1円も変わってはならない。\n\n2020年までのデータで計算した結果と、2026年までのデータで計算した結果の「2020年までの部分」が、完全に一致するかを確かめる。もしどこかで未来を覗いていたら、データを足した瞬間に過去の成績が変わるので、必ずバレる。\n\nこのテストがあるおかげで、あとから機能を足すときに手が止まらなかった。実際、あとで「その日の終値で売る注文」を追加して1日の処理順をいじったときも、これが通ったことで安心して進められた。\n\n1つ目：移動平均クロス\n\n短期の平均株価が長期の平均株価を上に抜いたら買う、という有名な方法。パラメータ（何日平均を使うか）を24通り試して、一番成績が良かったものを選んだ。\n\n結果は年利14.17%。悪くなさそうに見える。\n\nでもこれは成績ではない。24通り試して一番良かったものを選んだのだから、その数字は「たまたま当たったもの」を選んだ結果になっている。宝くじを24枚買って、一番当たった1枚だけ見せているのと同じだ。\n\n正しくは、その時点までの情報だけでパラメータを決めて、その先の期間で試す。これを期間をずらしながら繰り返す。\n\n [code] \n\n選び方をズルするだけで3.71%も上乗せされる。 そして上乗せしてもなお、何もしない場合に7.97%も負けている。\n\nしかも、期間ごとに「その時点でのベストなパラメータ」を並べてみると、毎回バラバラだった。同じ値が選ばれた割合は21.4%。つまりこの方法に、これが正解と言える設定は存在しない。\n\n2つ目：上がっている株を買う\n\n次は、複数の銘柄を比べて、直近1年で一番上がったものを買う方法。「勢いのある株についていく」という発想で、これも教科書に載っている。\n\n結果は年利9.90%。やはり負けた。\n\n面白かったのは中身のほうで、勝率は75.34%あった。169回売買して、4回に3回は勝っている。それでもトータルで負ける。\n\n理由は、負ける少数の回が大きく負けるから。実際、-18.79%と-15.53%の年が全体を打ち消していた。勝率と儲けは別物、というのは知識としては知っていたけれど、自分のデータで見ると納得の仕方が違う。\n\n一番高かった時点からどれだけ減ったかを見ると、-45.80%。何もしない場合は-31.26%だった。リターンは低くて、減り方は大きい。 一番いらないやつだ。\n\n3つ目：デイトレは、試すことすらできなかった\n\nここでデイトレを試そうとして、データの壁にぶつかった。\n\nデイトレをちゃんと検証するには、1分ごとの値動きデータが要る。無料で取れる場所があるので取ってみたのだが、中身を検査したら使い物にならなかった。\n\n [code] \n\n東京証券取引所は9時から15時半まで開いているのに、データは9時5分から15時24分までしかない。取引が一番多い朝一と大引けが、まるごと抜けている。 その結果、その日に取引された株数の13.8%〜42.0%がデータから消えていた。\n\n一番効くのは右の2列で、1分足から計算した「その日の始値・終値」が、正しい値と最大0.55%ずれている。デイトレで売り買いする値段そのものが違うということになる。\n\nこのズレがどれくらい致命的かというと、あとで測るのだが、狙っているもうけ幅は1週間で0.08%程度しかない。誤差のほうが10倍大きい。 この上で何を計算しても、測っているのは誤差である。\n\nそれでも1つだけ、日足のデータで表現できるデイトレがある。「前日に大きく下げた株を、翌朝の寄り付きで買って、その日の終値で売る」だ。これは朝の値段と終わりの値段しか使わないので検証できる。プログラムに「終値で売る注文」を追加して試した。\n\n結果は年利-4.38%。300万円が164万円に減る。\n\n一応、コストを変えて何度か試した。売買のたびに引かれるコストをゼロにすると、どうなるか。\n\n| 売買コスト | 年利 |\n|---|---|\n| ゼロ（現実にはありえない） | +0.85% |\n| 少なめ | -0.24% |\n| 標準的な想定 | -1.67% |\n| 多め | -4.39% |\n\n手数料もコストも一切ないという不可能な条件で、ようやく+0.85%。 コストに食われて負けているのではなく、もうけの種そのものが存在しない。\n\nちゃんとした1分足データは有料で買える（月7,150円）。ただし過去2年分しか手に入らない。2年のデータで「この戦略は本物だ」と言い切るには、かなり優秀な成績が必要になる。目安は計算できて、2年分だと「何もしない場合の約2倍の効率」がないと、運と区別がつかない。それが分かった時点で買うのをやめた。\n\n寄り道：「10万円を1週間でいくらにできる?」\n\n途中で、この質問を測ってみた。この手の問いに「○円になります」と答えるのは無理なので、過去に実際どうだったかの散らばりを出すことにした。\n\nまず10万円だと、そもそも買えるものがない。日本株は100株単位でしか買えないので、株価1,000円の会社を買うのに10万円かかる。試している10銘柄のうち9銘柄は買えなかった。買えた1銘柄も1単元16,270円なので、残りの83,730円は現金のまま置いておくことになる。戦略以前の問題だ。\n\nその1銘柄を1週間持った場合の、2010年以降の全4,079パターンがこれ。\n\n| | |\n|---|---|\n| 真ん中の結果 | -0.06% |\n| 勝った割合 | 49.0%（コイン投げ） |\n| 9割はこの範囲に入る | -4.35% 〜 +4.53% |\n| 一番ひどかった1週間 | -16.09% |\n\n平均するとわずかにプラスなのだが、そのプラスが「たまたま」ではないと言い切るには、2,544年分のデータが必要だった。1週間の結果は、増えても減っても運である。\n\n100万円に増やすと少しマシになる。3銘柄に分けられて（それでも31%は現金のまま）、真ん中の結果は+800円、9割が-37,800円〜+40,500円に収まる。運と区別するのに必要な年数は124年に縮む。それでも人生より長い。\n\n持つ期間を変えると数字が動くのが面白かった。1週間なら2,544年、1ヶ月なら23年、1年なら11年。増やしたいなら、期間を短くするより長くするほうが理屈に合っている。\n\n4つ目：銘柄を224に増やしたら、初めて勝った\n\n3つとも負けた原因は、方法ではなく選べる銘柄が少なすぎることかもしれないと思った。10銘柄しかないと、その中で「一番上がっているもの」を選ぶことに意味が出にくい。\n\nそこで銘柄を224に増やした。日経平均に入っている会社を全部持ってきて、データがおかしいものを検査で弾く。ここで面白いものが引っかかった。\n\n [code] \n\n2010年の経営破綻、上場廃止、2012年の再上場が、1本の株価データとしてつながっていた。「1日でこんなに動くのは制度上ありえない」という検査に引っかかって弾かれた。\n\n224銘柄で計算し直すと、ついに勝った。年利17.77%。何もしない場合が11.71%、日経平均が14.30%。3,000万円が2億7,507万円になる計算になる。\n\nここで喜ばずに、3つ確かめた。\n\n確認1：もうけ方が効率的か。\n\n年利だけ見ても意味がない。値動きの荒さ（＝どれだけヒヤヒヤするか）で割って比べる。\n\n| | 年利 | 値動きの荒さ | 効率（年利÷荒さ） |\n|---|---|---|---|\n| 224銘柄の戦略 | 17.77% | 27.25% | 0.73 |\n| ただ買って持つ | 11.71% | 14.64% | 0.83 |\n\n荒さを倍近く引き受けて、もうけを1.5倍にしただけだった。 効率ではむしろ負けている。同じことは、お金を借りて日経平均を買っても実現できる。つまりこれは腕ではない。\n\n確認2：たまたまの1回に頼っていないか。\n\n14回に分けて検証したうち、2025年4月からの1年だけが+103.93%だった。この1回を除いて計算し直すと、資産が9.17倍から4.50倍に落ちる。何もしなかった場合が4.48倍なので、ほぼぴったり同じになる。\n\n13年半のうち、日経平均を上回った分は、ほぼ全部が直近1年の当たり1回だった。\n\n確認3：そもそも銘柄の選び方は公平か。\n\n使ったのは「2026年4月時点で日経平均に入っている会社」である。つまり、過去に伸びて今も生き残っている会社しか入っていない。倒産した会社も、消えた会社も最初からいない。\n\n「上がっている株を買う」という戦略にとって、これは決定的に有利な条件だ。破綻した日本航空は、検査で弾かれる以前に、そもそも224社のリストに載っていない。\n\n3つとも引っかかったので、この17.77%は保留にした。銘柄の選び方を公平に直すまで、成績として扱わないことにしている。\n\nAIに戦略を考えさせること自体の落とし穴\n\n作りながら気づいたことで、これは書いておく価値があると思う。\n\nさんざん「未来を覗かない」仕組みを作ったが、あれが保証しているのは「プログラムが動くときに未来のデータを読まない」ことだけである。「戦略を考えた人（AI）が未来を知らない」ことは、まったく保証していない。\n\n使ったデータは16.6年分で、そのうち約16.4年はAIの学習期間に含まれている。「この期間の日本株では、この手法は効かなかった」と知っている状態で戦略を選べば、それは結果を見てから答えを書いているのと同じだ。そして私が書いたどのテストでも、それは検出できない。\n\nこれは研究でも指摘されている。AIを使った投資エージェントの好成績は、実は過去の株価を記憶していることによるもので、記憶を使えない条件にすると「ただ買って持つ」に勝てなくなる、という論文がある（Profit Mirage）。GPT-4oは学習期間中のアメリカ株の終値を、誤差1%未満で言い当てられるらしい。\n\n対策として決めたのは2つ。誰でも知っている古典的な手法から試すこと。そして、AIが提案した戦略が good な成績を出したときこそ疑うこと。今回4つとも負けたのは、その意味ではむしろ健全な結果だった。\n\n身も蓋もない結論\n\n4つ試して0勝だった。しかも相手が強い。何もせずただ買って持っていた場合が、同じ期間で年11.7%〜18.4%出ている。2013年以降の日本株は歴史的に強い時期で、何もしない人が一番強かった。\n\n日経平均をどれだけ上回れたかで並べると、こうなる。\n\n| 戦略 | 日経平均を上回った分 |\n|---|---|\n| 移動平均クロス | -1.83% |\n| 上がっている株を買う（10銘柄） | -2.38% |\n| デイトレ | 論外 |\n| 上がっている株を買う（224銘柄） | +3.47%（ただし効率では負け） |\n\n上回った分がゼロなら、資金をいくら増やしても意味がない。1億円運用しても、日経平均と同じ成績なら、上回った分は0円である。「大きく稼ぐ」以前に、そもそも上回れていない。\n\nでは作った意味がなかったかというと、そうは思っていない。この装置が生んだのは利益ではなく、張らずに済んだ損だ。\n\nデイトレの戦略を300万円でそのまま運用していたら、実際の損が13万円、それに加えて「日経平均を買っていれば得られたはずの43万円」を逃すことになる。合わせて年56万円のマイナス。これを、1円も使う前に潰せた。\n\nもう1つ、年利17.77%という「勝ったように見えるもの」を3つの確認で潰せたのも大きい。あれを信じて実際のお金を入れていたら、最大で資産が半分近くまで減るリスクを引き受けて、日経平均と同じかそれ以下のリターンを取りに行っていたことになる。\n\n5つ目はやらない\n\nまだ試していない道はある。決算書類が公表日時つきで手に入る金融庁のEDINETとか、1分ごとのデータを月7,150円で買うとか。株価と出来高だけで勝てないのは、考えてみれば当然で、誰でも無料で手に入るデータだからだ。他の情報を足せば違う結果になるかもしれない。\n\nそれでもやめることにした。\n\n理由は単純で、4つ試して0勝という結果は、5つ目で急に変わるものではないからだ。そして相手が強すぎる。何もしないだけで年11.7%〜18.4%出ている相手に、探す手間とリスクを足して勝ちに行く。上回った分がゼロなら、資金をいくら積んでも1円にもならない。かけた時間はなおさら戻ってこない。\n\nこれは「株はダメだ」という話ではない。何もせず持っていた人が一番強かったという話である。自分のデータがそう言っているのに、それを無視して探し続けるのは、この装置を作った意味がない。\n\nただ、得たものはあった。人の書いた「この手法で勝てます」を読んだときに、何を聞けばいいかが分かるようになった。\n・同じ期間、ただ買って持っていたらいくらだったのか\n・値動きの荒さで割っても勝っているのか\n・成績の大半が、たまたま当たった1回に乗っていないか\n・銘柄はどう選んだのか。今生き残っている会社だけを見ていないか\n・パラメータは、その時点の情報だけで決められたのか\n\nこの5つを聞いて全部答えられる記事に、まだ出会っていない。自分で作ってみて分かったのは、答えられないのが普通だということだった。\n\n儲けは出なかった。ただ、儲からないと自分のデータで言えるようになった。そのために作った装置なので、これで完成ということにしておく。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "3350d18c20c34776",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6412343089098104,
+      "popularityPercentile": 0.9598853868194842,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 85,
+      "oneLiner": "Claude Codeに株式戦略を4つ作らせたが、検証の末にすべて不採用にした。",
+      "reason": "AIに日本株のバックテストプログラムを作らせ、139本のテストを添えて4戦略を検証した。未来のデータを混ぜると成績が不正に良くなるため、入力データを当日までに制限した。",
+      "keywords": [
+        "Claude Code",
+        "バックテスト",
+        "Python",
+        "日本株",
+        "先読みバイアス",
+        "自動売買"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIに投資戦略の実装を任せるか、検証設計を人間が厳格に管理するか",
+        "forSide": "バックテストへ未来のデータを渡さない構造を作り、139本のテストで検証した。",
+        "againstSide": "過去データで再現できても、将来の相場や実運用の約定までは保証しない。",
+        "oneSided": true,
+        "yourAngle": "Claude Codeに生成させた売買ロジックで、テストや実運用との差を確認できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable"
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "なぜ、ITの職場において低スキル者を排除することが成功のために重要だと誰も言わないのか？",
+      "url": "https://zenn.dev/pdfractal/articles/c7af0a168c0552",
+      "publishedAt": "2026-08-16T03:25:37.000Z",
+      "tags": [
+        "テクノロジー",
+        "IT",
+        "あとで読む",
+        "仕事",
+        "労働",
+        "エンジニア",
+        "スキル",
+        "マネジメント",
+        "企業",
+        "education",
+        "work"
+      ],
+      "snippet": "はじめに ITの職場では、低スキル者を重要な仕事から排除することが、実はかなり重要な職場づくりの条件の一つです。ここでいう排除とは、要件定義、設計、顧客折衝、品質判断、技術的意思決定、レビュー承認のような高い認知負荷を伴う仕事に、適性を満たさない人を置かないという配置上の判断を指します。人格の否定や...",
+      "metrics": {
+        "hatena": 613
+      },
+      "sourceWeight": 3,
+      "id": "859b8ad3a59c9fcb",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.39,
+      "popularityPercentile": 1,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 85,
+      "oneLiner": "記事は、IT職場で高負荷な仕事から低スキル者を外す重要性を説く。",
+      "reason": "記事は「排除」を人格否定ではなく、要件定義や設計、品質判断などの高負荷業務を適性者に任せる配置判断と定義している。",
+      "keywords": [
+        "IT組織",
+        "スキル",
+        "人員配置",
+        "マネジメント",
+        "エンジニア"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "高負荷な仕事を適性者に限定するか、育成を兼ねて広く任せるか",
+        "forSide": "要件定義や品質判断などの高負荷業務は、適性を満たす人に限定する必要がある。",
+        "againstSide": "高スキル者だけで固めると、育成機会と多様な視点を失い組織が硬直する。",
+        "oneSided": true,
+        "yourAngle": "チームのレビュー承認や顧客折衝を誰が担い、手戻りがどこで生じたかを語れる。"
+      },
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「並列化すれば速くなるはず」を実測したら、まさかの結果になった話(SwiftData + ModelActor + TaskGroup)",
+      "url": "https://qiita.com/qahwa_qaliil/items/3c201a5111f950641adc",
+      "publishedAt": "2026-08-16T00:21:48.000Z",
+      "author": "qahwa_qaliil",
+      "authorDetail": {
+        "name": "qahwa_qaliil",
+        "handle": "@qahwa_qaliil",
+        "url": "https://qiita.com/qahwa_qaliil",
+        "avatarUrl": "https://pbs.twimg.com/profile_images/2072376101498912769/4O1Ue6Qc_bigger.jpg",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/qahwa_qaliil"
+          }
+        ]
+      },
+      "tags": [
+        "Swift",
+        "SwiftData",
+        "iOS",
+        "並列処理",
+        "個人開発"
+      ],
+      "snippet": "「並列化すれば速くなるはず」を実測したら、まさかの結果になった話(SwiftData + ModelActor + TaskGroup) この記事で分かること ・ModelActorとTaskGroupを使ったSwiftDataの並列読み取り実装 ・「並列化=速くなる」が必ずしも成り立たないことを、実測データで確認した話 ・並列化が効く条件・効かない条件を、原因まで切り分けて特定した過程 ・「クエリ本数を減らす」別の最適化案も試したら、これも失敗した話 なぜこれをやろうと思ったか 個人でiOSアプリを開発しながら、並行して転職活動の準備もしています。応募したい求人票を見ていて気づいたのが、「歓迎スキル」欄にこういう項目が並んでいたことでした。 ・アーキテクチャ(MVVM等)やDIコンテナ、非同期処理(Coroutines/Flow等)の実装経験 ・USB/Bluetooth等を利用した周辺…",
+      "body": "「並列化すれば速くなるはず」を実測したら、まさかの結果になった話(SwiftData + ModelActor + TaskGroup)\n\nこの記事で分かること\n・ModelActorとTaskGroupを使ったSwiftDataの並列読み取り実装\n・「並列化=速くなる」が必ずしも成り立たないことを、実測データで確認した話\n・並列化が効く条件・効かない条件を、原因まで切り分けて特定した過程\n・「クエリ本数を減らす」別の最適化案も試したら、これも失敗した話\n\nなぜこれをやろうと思ったか\n\n個人でiOSアプリを開発しながら、並行して転職活動の準備もしています。応募したい求人票を見ていて気づいたのが、「歓迎スキル」欄にこういう項目が並んでいたことでした。\n・アーキテクチャ(MVVM等)やDIコンテナ、非同期処理(Coroutines/Flow等)の実装経験\n・USB/Bluetooth等を利用した周辺機器制御の開発経験\n・低レイヤーへの深い理解\n\n正直に言うと、普段のアプリ開発では「動けばOK」で済ませてしまいがちな領域です。画面を作って、データを保存して、表示する。これだけなら非同期処理の深いところまで踏み込まなくても大体なんとかなってしまいます。\n\nでも、この手の「歓迎スキル」で問われているのは、まさに\"なんとかなってしまう\"領域の一歩先、つまり 「なぜそう動くのか」「速くする/安全にするには何が必要か」 という部分だと思っています。ここは実務でハードな課題にぶつからないと、なかなか自分から手を伸ばさない部分でもあります。\n\nそこで、ちょうど個人開発してるiOSアプリ「ボンガレコード」(アーケードゲーム「ボンバーガール」の戦績記録アプリ)のコードに、「ここ、非効率だな」と自分でコメントを残したまま放置していた箇所があったので、これを教材にして、あえて遠回りに、深いところまで検証してみることにしました。それが今回の話です。\n\n対象のコード: なんとなく「遅そう」で放置していた処理\n\n自作アプリ「ボンガレコード」に、キャラクター(ゲーム内キャラ)ごとの練度(試合数・勝率)を一覧表示するプロフィール画面があります。ここで、キャラの数だけ(今回は33体)、SwiftDataに「このキャラの試合数は?」「勝った数は?」と1体につき2回ずつ問い合わせる処理がありました。合計すると66〜68回のクエリです。\n\n [code] \n\n見ての通り、asyncと書いてはあるものの、中でやっていることは1体ずつ順番に問い合わせる、ただの直列処理です。「33体分、順番に待つくらいなら、一気に並列で問い合わせればいいのでは?」というのが今回の出発点でした。\n\nやってみた: ModelActorで並列化\n\nSwiftDataのModelContext(データベースへの窓口のようなもの)は、実はスレッドセーフではありません。特定のスレッド(多くの場合メイン画面を描画してるMainActor)に紐づいている前提で作られているので、これを複数のスレッドから同時に触ると、クラッシュするか、もっと厄介なことに「クラッシュせず、こっそり壊れた値を返す」ことがあります。\n\nこれを安全に並列化する仕組みとして、SwiftDataにはModelActorというものが用意されています。「このactor専用の、安全に使えるデータベース窓口」を自動生成してくれるイメージです。\n\n [code] \n\n落とし穴その1: actorを1個作るだけでは、実は並列にならない\n\nここで最初にハマったポイントがあります。「ModelActorを1個作って、TaskGroupで33回分投げれば並列になるだろう」と思って実装したのですが、これは間違いでした。\n\nactorという仕組みは、「1つの実行を完了させてから次を処理する」という性質を持っています。これはデータ競合を防ぐための重要な安全装置なのですが、裏を返すと「actorが1個しかなければ、いくらタスクを並列に投げても、そのactorの中では結局1個ずつ順番に処理される」ということでもあります。\n\nつまり、MainActorから解放されて画面は固まらなくなる、というメリットは得られますが、集計そのものの速度は変わりません。\n\n本当に並列化するには、独立したModelActorのインスタンスを複数用意し(今回は4つ)、33体のキャラをそれぞれのactorに振り分ける「プール」という構成にする必要がありました。\n\n [code] \n\nこれでようやく「実際に4並列で動く」実装になりました。\n\n計測してみた: 速くなったのか?\n\nここまで来て、いよいよ本題です。XCTestで、ダミーの戦績データを大量に仕込んだ環境を作り、「元の直列版(Legacy)」と「並列版(Pool)」を比較しました。\n\n(補足: XCTestのmeasure{}は非同期処理に対応していないため、CFAbsoluteTimeGetCurrent()で計測時間を手動計算する自前のベンチマーク関数を作って使っています)\n\n| データ量 | 直列版(Legacy) | 並列版(Pool、4並列) |\n|---|---|---|\n| 1,000件 | 5.8ms | 6.1ms |\n| 50,000件 | 104.7ms | 108.1ms |\n| 500,000件 | 1024.8ms | 1033.4ms |\n\n結果、どのデータ量でも並列版が直列版を上回ることは、一度もありませんでした。\n\n並列数(プールのサイズ)を1個から16個まで変えて計測しても、実行時間はほぼ横ばい。正直、拍子抜けする結果でした。「並列化すれば速くなるはず」という前提そのものを、疑わなければいけない状況です。\n\nなぜ効かなかったのか? 1個ずつ原因を潰していく\n\nここで「並列化は意味がなかった」と結論づけるのは早計です。憶測で終わらせず、考えられる原因を1つずつ実測で確認していきました。\n\n疑惑1: actorを毎回作り直すコストが乗っているのでは?\n\nProficiencyCalculatorPool.computeAll()は、呼ばれるたびに新しく4つのModelActorを生成しています。これ自体が重いのでは?と疑い、「actorを使い回す版」と「毎回作り直す版」を比較しました。\n\n→ 結果はほぼ同じ(598.6ms vs 597.7ms)。この仮説は外れでした。\n\n疑惑2: そもそも本当に並列実行できているのか?\n\nコード上は並列に見えても、実際には何かの理由で1個ずつ順番に処理されているだけかもしれません。これを確かめるため、「同時に何個のタスクが動いているか」を実測するための、専用の監視役actorを作りました。\n\n [code] \n\n各タスクの実行前後でenter()/exit()を呼ぶようにして計測した結果、実測の最大同時実行数は「4」。プールサイズ通り、ちゃんと並列に動いていることが確認できました。この仮説も外れです。「並列に書いたつもりで実は直列」という、ありがちな失敗パターンではなかったということです。\n\n疑惑3: CPU時間を無駄に消費しているだけでは?\n\n経過時間(体感の速さ)だけでなく、CPU時間(全コアが実際にどれだけ働いたか)も測ってみました。getrusageというC言語由来のAPIで、プロセス全体のCPU使用時間を取得できます。\n\n| | 経過時間 | CPU時間 | 比率(CPU時間÷経過時間) |\n|---|---|---|---|\n| 直列版(Legacy) | 1048.8ms | 1046.5ms | 1.00 |\n| 並列版(Pool、4並列) | 1035.8ms | 1373.2ms | 1.33 |\n\nこれが今回の核心でした。並列版は、経過時間はほとんど変わらないのに、CPU時間だけ33%多く消費しているのです。つまり「4つのコアを使って頑張って計算しているのに、その頑張りが最終的な速さに反映されていない」状態。SwiftData/SQLiteの内部で、複数のactorが同じデータストアに同時アクセスする際に、何らかの競合(ロック待ちなど)が起きていると推測できます。\n\n発想の転換: 実際のディスク上で測ってみたら\n\nここまでの計測は全部、isStoredInMemoryOnly: trueという、メモリ上にだけデータを置く設定でテストしていました。ふと「これって、そもそも待ち時間が発生しない環境なのでは?」と気づきました。\n\n並列化がうまみを発揮するのは、本来「何かを待っている間に、別の作業を進められる」場面です。ディスクへの読み書きは、メモリ上の操作に比べて圧倒的に時間がかかります。メモリ上だけで完結する環境では、隠せる待ち時間そのものが存在しないので、並列化のメリットが出にくいのでは、という仮説です。\n\nそこで実際にファイルへ書き出すストア(本番のアプリと同じ条件)で再計測したところ——\n\n| | 直列版(Legacy) | 並列版(Pool、4並列) |\n|---|---|---|\n| 実ディスク上300,000件 | 717.8ms | 296.6ms |\n\n約2.4倍、速くなりました。 ここでようやく、並列化が期待通りの効果を発揮してくれました。\n\nつまり今回分かったのは、「並列化は無意味」ではなく、「メモリ上だけで完結する処理には効かないが、実際のディスクI/Oが絡む(=本番相当の)条件では明確に効く」ということです。テスト環境(in-memory)でしか計測していなかったら、この結論には辿り着けませんでした。\n\n別の作戦も試してみた: そもそもクエリ回数を減らせないか\n\n並列化とは別の切り口として、「68回もクエリを投げるのをやめて、1回のfetchで全部取ってきて、Swift側で集計すればいいのでは?」というアイデアも試しました。\n\n [code] \n\nこれは実装前から「怪しいな」と思っていました。というのも、fetchCountはSQLのCOUNT()だけで完結する軽い処理(該当件数を数えるだけで、データの実体は作らない)なのに対して、fetch()は該当する全データを、アプリ側で扱えるオブジェクトの形に1件ずつ組み立て直す必要があるからです。件数が多いと、この組み立てコストがバカにならないのでは、という予感がありました。\n\n実測した結果——\n\n| データ量 | 直列版 | 並列版 | クエリ削減版 |\n|---|---|---|---|\n| 500,000件 | 525.4ms | 524.3ms | 3380.9ms |\n| 2,000,000件 | 2388.5ms | 2532.4ms | 14984.9ms |\n\n予感は的中し、全データ量で明確に負けました。クエリの往復を減らすメリットより、大量のデータをオブジェクトとして組み立て直すコストの方が、圧倒的に重かったということです。\n\nまとめ\n・ModelActorを1個だけ作っても並列にはならない。actorは「1つずつ処理する」仕組みなので、本当に並列化したいなら複数のactorを用意する「プール」構成が必要\n・「並列化した」という実装の正しさと、「実際に速くなるか」は別問題。今回はメモリ上のテスト環境では効果ゼロ、実際のディスクI/Oが絡む環境でのみ約2.4倍という、環境に強く依存する結果になった\n・「速くなった/ならなかった」で終わらせず、実際に何個並列で動いているか・CPU時間はどうなっているかまで測ることで、なぜそうなったのかの理由まで踏み込める\n・クエリ回数を減らす、という一見合理的に見える最適化も、何を代償にしているか(今回はオブジェクト生成コスト)を見ずに適用すると簡単に逆効果になる\n\n一番の学びは、パフォーマンス改善って「こうすれば速くなるはず」という直感だけでは全然当たらなくて、測って、疑って、また測るの繰り返しでしか正解に辿り着けない、という当たり前のようで身にしみる話でした。転職活動のための\"素振り\"のつもりで始めたことでしたが、想像以上に実務っぽい壁にいくつもぶつかれて、良い経験になりました。\n\n今後の課題\n・今回の計測は全てシミュレータ上で行っています。シミュレータのCPUコア数はホストMacの値であり、実機(iPhone)とはコア数もスケジューリングの特性も異なるため、実機での再検証が必要です\n・「CPU時間が33%増える」という現象が、SwiftData/SQLite固有のロック競合によるものなのか、それともSwift Concurrencyでタスクを分割すること自体の一般的なオーバーヘッドなのかは、まだ切り分けられていません。SwiftDataを使わない純粋な並列計算と比較する対照実験が必要です\n・PlayerInfoのような集計専用のフィールドを別途持たせて、戦績の登録・編集のタイミングで数値をインクリメントする方式(読み取り時にクエリ自体を発生させない設計)も、次の一手として検討しています\n\n---\n\n今回検証に使ったアプリは、ボンバーガールというアーケードゲームの戦績記録アプリ「ボンガレコード」として公開しています。よかったら見てみてください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d14bc4d1e6fcaeaf",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.15948424068767908,
+      "popularityPercentile": 0.7249283667621776,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 84,
+      "oneLiner": "SwiftDataの読み取りを並列化したが、実測では必ずしも高速化しなかった。",
+      "reason": "ModelActorとTaskGroupでSwiftDataの読み取りを並列化し、効く条件と効かない条件を切り分けた。クエリ本数を減らす別案も試したが、こちらも改善しなかった。",
+      "keywords": [
+        "SwiftData",
+        "ModelActor",
+        "TaskGroup",
+        "Swift",
+        "iOS",
+        "並列処理"
+      ],
+      "category": "パフォーマンス",
+      "lane": "talk",
+      "debate": {
+        "axis": "処理を並列化するか、処理量そのものを減らすか",
+        "forSide": "SwiftDataの並列読み取りは、並列化すれば速くなるという予想を実測で否定した。",
+        "againstSide": "並列化の複雑さを増やすより、クエリ削減やデータ取得方法の変更が堅実な場合もある。",
+        "oneSided": true,
+        "yourAngle": "アプリの実データ量と端末上の計測結果を、並列化前後で比較できる。"
+      },
+      "readingMinutes": 9,
+      "payoff": "apply",
+      "durability": "durable"
+    }
+  ],
+  "stats": {
+    "collected": 656,
+    "afterDedupe": 593,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 350,
+      "zenn": 126,
+      "hatena": 29,
+      "hackernews": 50,
+      "devto": 3,
+      "github_repo": 81,
+      "rss": 16,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 34
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2407,
+        "outputTokens": 64,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2684,
+        "estimatedCostUsd": 0.0005582
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3130,
+        "outputTokens": 191,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3468,
+        "estimatedCostUsd": 0.0008552000000000001
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 22563,
+        "outputTokens": 1607,
+        "cacheReadTokens": 1727,
+        "elapsedMs": 18157,
+        "estimatedCostUsd": 0.00647554
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 16435,
+        "outputTokens": 1783,
+        "cacheReadTokens": 3310,
+        "elapsedMs": 20710,
+        "estimatedCostUsd": 0.0054928
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 16609,
+        "outputTokens": 2058,
+        "cacheReadTokens": 3608,
+        "elapsedMs": 24644,
+        "estimatedCostUsd": 0.00586356
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 10116,
+        "outputTokens": 1908,
+        "cacheReadTokens": 0,
+        "elapsedMs": 12896,
+        "estimatedCostUsd": 0.0043128
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 9708,
+        "outputTokens": 1872,
+        "cacheReadTokens": 0,
+        "elapsedMs": 12579,
+        "estimatedCostUsd": 0.004188
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 11975,
+        "outputTokens": 3501,
+        "cacheReadTokens": 0,
+        "elapsedMs": 24876,
+        "estimatedCostUsd": 0.0065962
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18070,
+        "outputTokens": 5752,
+        "cacheReadTokens": 0,
+        "elapsedMs": 41580,
+        "estimatedCostUsd": 0.010516399999999999
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 10054,
+        "outputTokens": 6762,
+        "cacheReadTokens": 6054,
+        "elapsedMs": 46526,
+        "estimatedCostUsd": 0.01024628
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 16511,
+        "outputTokens": 5630,
+        "cacheReadTokens": 6321,
+        "elapsedMs": 40588,
+        "estimatedCostUsd": 0.010184619999999998
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2819,
+        "outputTokens": 247,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3034,
+        "estimatedCostUsd": 0.0008602000000000001
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3704,
+        "outputTokens": 263,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2393,
+        "estimatedCostUsd": 0.0010564
+      }
+    },
+    "totalCostUsd": 0.0672
+  },
+  "notes": []
+}
