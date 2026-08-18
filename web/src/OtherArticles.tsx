@@ -2,17 +2,17 @@ import { useMemo, useState } from 'react';
 import { navigate } from './App';
 import { AskClaudeButton } from './AskClaudeButton';
 import { askContextForItem } from './askClaude';
-import { BuzzChip, Chip, ShareButtons } from './components';
+import { BuzzChip, Chip, ShareButtons, Takeaways } from './components';
 import { DebateScaffold } from './DebateScaffold';
 import { FeedbackButtons } from './FeedbackButtons';
-import { metricSummary, safeUrl } from './format';
+import { metricSummary, safeUrl, takeawayLines } from './format';
 import { groupByLane } from './lanes';
 import type { Payoff, RankedItem } from './types';
 
 /**
  * その他の注目記事。
  *
- * 目的（潮目／手札／論点）をタブで切り替える。
+ * 目的（知る／作る／話す）をタブで切り替える。
  * 混ぜて 1 列に並べると件数の多い目的が上を占めてしまい、
  * 「今日は何を書けるか」を探しにきた時に見つからない。収集側でも
  * レーンごとに枠を確保している。
@@ -37,12 +37,7 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
           </a>
         </p>
         <p className="row__summary">{item.oneLiner}</p>
-        {item.reason && (
-          <p className="row__lens">
-            <span className="row__lens-label">読みどころ</span>
-            {item.reason}
-          </p>
-        )}
+        <Takeaways lines={takeawayLines(item)} compact />
         {/* 一覧でも争点まで見せる。開かないと立場が決められないなら足場にならない */}
         {item.debate && <DebateScaffold debate={item.debate} compact />}
         <div className="row__meta">

@@ -16,6 +16,7 @@ import {
   type KnowDeepDiveResult,
   type TalkDeepDiveResult,
 } from './schemas.js';
+import { pickTopDiverse } from './prescore.js';
 import { DURABILITIES, LANES, LANE_LABELS, PAYOFFS } from './types.js';
 import type {
   Debate,
@@ -299,12 +300,12 @@ ${LANE_RUBRICS[lane]}
 const LANE_DESCRIBE_BLOCKS: Record<Lane, string> = {
   know: `# このレーンについて
 これらは「知っておかないと判断を間違えるもの」として選ばれている。
-reason には規模が伝わる具体を必ず入れる——何に、いつから、どれくらいの範囲で効くのか。
+takeaways には規模が伝わる具体を必ず入れる——何に、いつから、どれくらいの範囲で効くのか。
 「重要な変更があった」で終わらせない。期限があるなら日付を、範囲があるなら対象を書く。`,
 
   build: `# このレーンについて
 これらは「試してみたくなるもの」として選ばれている。
-reason には「これまでできなかった何ができるようになるか」を入れる。
+takeaways には「これまでできなかった何ができるようになるか」を入れる。
 できるようになることが無く、既存のやり方が楽になるだけなら、それを率直にそう書く。
 無理に「新しくできること」をひねり出さない。`,
 
@@ -347,7 +348,7 @@ ${readerContext(topics, feedbackNote)}
 # 出力
 - すべて日本語で書く。
 - oneLiner は「何が起きたか」を主語述語のある1文で。「〜について」のような曖昧な書き方は禁止。
-- reason は記事が明らかにした事実そのもの。詳しくは下の節を参照。
+- takeaways は「忙しい人のための3行」。詳しくは下の節を参照。
 - keywords は後から検索するためのもの。製品名・API名・バージョン番号などの固有名詞を優先する。
 - 入力されたすべての ref に対して、必ず1件ずつ結果を返す。
 
@@ -357,10 +358,27 @@ ${CATEGORIES.join(' / ')}
 「その他」はどれにも当てはまらないときだけ。迷ったら主題に一番近いものを選ぶ。
 （スキーマの制約は生成時に効いていないので、ここの指示で選ぶこと）
 
-# reason（読みどころ）
-記事が明らかにした事実を、**その分野を知らない人にも通じる言葉で**書く。
+# takeaways（3行で要約）
+記事が言っていることを、**その分野を何も知らない人にも通じる言葉で 3 行**書く。
 
-## いちばん大事なこと: 読者を主語にしない
+## いちばん大事なこと: 専門用語を使わない
+この 3 行は、記事を開くかどうかを決めるためのものではなく、
+**開かなくてもその記事の話が分かるためのもの**。だから語彙で足を止めさせない。
+
+- **専門用語・略語・API 名・オプション名・設定名・コマンド名は書かない。**
+  普通の言葉に言い換える。名前が知りたい人はカードを開けば要約に出てくる。
+- **製品名・サービス名は、主題を特定するのに要るものだけ 1〜2 個まで。**
+  それ以外は「あるコード生成ツール」ではなく「文章を書くための道具」のように、
+  何をするものかで書く。
+- 迷ったら「これを自分の親に読ませて通じるか」を考える。通じないなら言い換える。
+
+✗「MCP サーバーの stdio トランスポートが SSE に置き換わり、後方互換は 1 年維持される」
+✓「AI ツールと外部サービスをつなぐ仕組みの通信方式が新しくなった。古い方式も1年は使える。」
+
+✗「Durable Objects の WebSocket Hibernation で 3 つの罠を踏んだ」
+✓「常時つなぎっぱなしの通信を安く保つ仕組みには、知らないと詰まる癖が3つある。」
+
+## 読者を主語にしない
 読者に呼びかけると、必ず「〜しているなら、〜が参考になる」の形に落ちて、
 何も言っていない文になる。**事実の側を主語にする。**
 
@@ -375,30 +393,53 @@ ${CATEGORIES.join(' / ')}
 ✗「エージェント設計の現在地を把握し、自分のコードがどの段階にいるかを見直す軸になる。」
 ✓「エージェントの作り方を Prompt → Context → Harness → Loop → Graph の 5 段階に整理している。上の段ほど自由度が上がり、制御が難しくなる。」
 
-## 言葉づかい
-- **平易に書く。** 読者は有能なエンジニアだが、その記事の分野は専門外かもしれない。
-  知らない固有名詞が並ぶと、読みどころがただのノイズになる。
-- **固有名詞・関数名・環境変数名は、何をするものか 1〜3 語で添えられるときだけ出す。**
-  添えられないなら普通の言葉に言い換える。名前そのものは記事を開けば分かる。
+## 3 行の組み立て
+**ちょうど 3 項目。1 項目 1 文。句点で終わらせる。**
+
+  ・XXXXXXXX。
+  ・OOOOOOO。
+  ・AAAAAAA。
+
+**1 項目に読点（、）を使わない。40 字以内。**
+読点を挟みたくなったら、それは 1 文に 2 つのことを詰めている合図である。片方を捨てる
+（捨てられないなら、それはもう 1 項目ぶんの内容なので、3 項目のどれかと入れ替える）。
+PC の幅なら 1 項目が 1 行に収まる長さである（スマホでは 2 行になる）。
+ここを超えると 3 項目が 9 行以上になり、「3 行で読み切れる」という約束が崩れる。
+
+✗「AIが書いたコードは見た目は正しく動いても、実は遅かったり危なかったり、保守しにくいことがある。」
+　読点 2 つ・49 字。「動く」「遅い」「危ない」「保守しにくい」の 4 つを 1 文に詰めている。
+✓「AIが書いたコードは動いてもセキュリティは別問題だった。」（読点なし・28 字）
+
+体言止め・箇条書きの断片（「〜の3つの罠」）にしない。
+
+役割を分けると書きやすい。記事によって順番は変えてよい。
+1. **何が起きたか / 何の話か** — 主題を一言で
+2. **その中身** — いちばん具体的な一点（数字があるならここ）
+3. **だから何が変わるか** — 結果・影響・締切
+
 - **数字は残す。** 前提知識が要らないので、専門外にも効く唯一の具体。
-  「大幅に速い」ではなく「1.2 秒 → 40ms」、「先月廃止」ではなく「7月31日に廃止済み」。
+  「大幅に速い」ではなく「1.2 秒から 40ms」、「先月廃止」ではなく「7月31日に廃止済み」。
 - 「A だと思われがちだが実は B」「原因は X ではなく Y だった」の形にできるなら、それが一番強い。
 - 煽らない。「驚きの」「必見」は禁止。答えを伏せるのも禁止。
-- **2 文以内・100 字以内。** 詰め込むより削る。
+- 3 行で同じことを言い換えない。1 行削れるなら、その行には情報が無い。
 
 ## 発見が無い記事のとき
 入門記事や淡々とした告知には意外性が無い。**無理に作らない。**
-何が書いてあるかを 1 文で率直に書く。
+何が書いてあるかを率直に書く。3 行に届かないなら 2 行でよい。
 記事に書かれていないことを推測で足すのは、この項目で一番やってはいけないこと。
 
-## もう 2 例
-✗「.map ファイルからコメント付きの全 TypeScript / React コードが復元でき、GraphQL / REST の Read-Only トークンで下書き・非公開コンテンツ全件取得が可能で、Mangle 程度の難読化は数秒で解読される、という実装レベルの脆弱性。」
-　記事の語彙をそのまま持ってきた抜粋。長すぎて一息で読めない。
-✓「ビルド時に出力されるソースマップから、元のコードがコメントごと復元できてしまう。公開設定を見落とすと、下書き記事も外から読める。」
+## 完成例
+記事: あるサービスのソースマップ公開と API トークン権限の不備を突いた調査記事
 
-✗「この構成を使っているなら、source map の公開設定と Token 権限を今日中に確認すべき。」
-　読者への指示になっている。何が起きるのかを書く。
-✓「読み取り専用のはずのトークンで、下書きや非公開の記事まで全部取れてしまう。権限を絞ったつもりでも防げていない。」
+✗ 悪い例（記事の語彙をそのまま持ってきている / 読者への指示になっている / 1 項目に 2 文）
+　・「.map ファイルから全 TypeScript / React コードが復元できる」
+　・「GraphQL / REST の Read-Only トークンで非公開コンテンツを全件取得できる」
+　・「この構成を使っているなら、公開設定と Token 権限を今日中に確認すべき」
+
+✓ 良い例（1 項目 1 文・句点で終わる・専門用語なし）
+　・「公開されていたファイルから、内部プログラムが丸ごと復元できた。」
+　・「読み取り専用のはずの鍵で、下書き記事まで全部取り出せた。」
+　・「難読化は数秒で解けたので、防御になっていなかった。」
 
 ${LANE_DESCRIBE_BLOCKS[lane]}
 
@@ -504,7 +545,7 @@ function isPrimarySource(item: PreScoredItem): boolean {
 function ruleBasedFields(item: PreScoredItem, lane: Lane, note: string) {
   return {
     oneLiner: truncate(item.snippet.replace(/\s+/g, ' ').trim(), 80) || item.title,
-    reason: note,
+    takeaways: note ? [note] : [],
     keywords: item.matchedTopics.slice(0, 5),
     category: 'その他',
     lane,
@@ -672,6 +713,87 @@ export async function rankItems(
   return perLane.flat();
 }
 
+/** 「3行で要約」1 項目の上限。これを超えると画面で 1 行に収まらない */
+const TAKEAWAY_CHAR_BUDGET = 40;
+
+/**
+ * 予算を超えた「3行で要約」を実行ログに出す。
+ *
+ * 切り詰めはしない——文の途中で切ると読めなくなるし、ここは読者が最初に読む場所である。
+ * 一方で黙って通すと「3 行で読み切れる」という約束だけが静かに崩れる。
+ *
+ * 字数の指示はモデルが守りきれない（実測で中央値 43 字・最大 84 字だった日がある）。
+ * だからプロンプト側は字数ではなく「読点を使わない」という数えられる制約に寄せてあり、
+ * ここでは結果として守れているかを毎回ログに出す。
+ */
+function warnLongTakeaways(lane: Lane, described: Map<string, DescribeItem>): void {
+  let over = 0;
+  let total = 0;
+  let longest = 0;
+  for (const r of described.values()) {
+    for (const line of r.takeaways ?? []) {
+      total++;
+      const n = line.trim().length;
+      longest = Math.max(longest, n);
+      if (n > TAKEAWAY_CHAR_BUDGET) over++;
+    }
+  }
+  if (over === 0 || total === 0) return;
+  log.warn(
+    `  [${LANE_LABELS[lane]}] 3行で要約が長すぎます: ${over}/${total} 項目が ` +
+      `${TAKEAWAY_CHAR_BUDGET} 字超（最長 ${longest} 字）`,
+  );
+}
+
+/**
+ * 2 段目（要約）に回す候補を選ぶ。
+ *
+ * **不変条件: ベスト N に選ばれうる項目は、必ずここに入っていること。**
+ * 要約されなかった項目がベストに選ばれると、ルールベースの値で埋められる——
+ * 3 行要約もキーワードも空、カテゴリは「その他」——のに、画面上はカードとして
+ * 成立してしまう。ログを見ないと気づけない壊れ方なので、選抜側の到達範囲を
+ * ここで先回りして覆っておく。
+ *
+ * 覆うべき経路は 2 つある。どちらも「スコア順の上位 n 件」の外に出る。
+ * 1. 枠確保（一次情報・長く効くもの・今日試せるもの）
+ * 2. 「1 ソース 1 件」の多様化
+ */
+export function describeShortlist<T extends PreScoredItem>(
+  items: readonly T[],
+  scoreOf: (item: T) => number,
+  topN: number,
+  otherN: number,
+): T[] {
+  const byScore = [...items].sort((a, b) => scoreOf(b) - scoreOf(a));
+  const laneOtherN = Math.ceil(otherN / LANES.length);
+  const base = byScore.slice(0, topN + laneOtherN + 6);
+  const taken = new Set(base.map((i) => i.id));
+  const extra: T[] = [];
+
+  const add = (list: readonly T[]) => {
+    for (const i of list) {
+      if (taken.has(i.id)) continue;
+      taken.add(i.id);
+      extra.push(i);
+    }
+  };
+
+  // 枠確保でスコア順の外から拾われる分
+  add(byScore.filter(isPrimarySource).slice(0, topN + 2));
+
+  /*
+   * 「1 ソース 1 件」の多様化が到達しうる分。
+   *
+   * 上位が同じソースで埋まっている日、多様化はスコア順のずっと下から拾う。実測で
+   * 話すレーンの上位 5 件が全部 Qiita だった日に 6 番目（60 点）が繰り上がり、
+   * それが base に入っていなかったため要約されず、3 行要約が空のカードが出た。
+   * 多様化が触れるのは各ソースの最上位だけなので、先頭から topN ソース分を足す。
+   */
+  add(pickTopDiverse(byScore.map((i) => ({ ...i, score: scoreOf(i) })), topN) as T[]);
+
+  return [...base, ...extra];
+}
+
 async function rankLane(
   b: LlmBackend,
   lane: Lane,
@@ -698,17 +820,11 @@ async function rankLane(
    * 選ばれると、要約が本文の切り出しになり durability も既定値になる
    * （判定していないのに枠を満たしてしまう）。その分だけ候補を広げておく。
    */
-  const byScore = [...items].sort((a, b2) => scoreOf(b2) - scoreOf(a));
-  const laneOtherN = Math.ceil(cfg.otherN / LANES.length);
-  const base = byScore.slice(0, cfg.topN + laneOtherN + 6);
-  const baseIds = new Set(base.map((i) => i.id));
-  const extra = byScore
-    .filter((i) => !baseIds.has(i.id) && isPrimarySource(i))
-    .slice(0, cfg.topN + 2);
-  const shortlist = [...base, ...extra];
+  const shortlist = describeShortlist(items, scoreOf, cfg.topN, cfg.otherN);
 
   const described = await describePass(b, lane, shortlist, topics, cfg, feedbackNote);
   log.info(`  [${LANE_LABELS[lane]}] 要約: ${described.size}/${shortlist.length} 件`);
+  warnLongTakeaways(lane, described);
 
   return items.map((item) => {
     const r = described.get(item.id);
@@ -724,7 +840,7 @@ async function rankLane(
       ...item,
       score,
       oneLiner: r.oneLiner?.trim() || item.title,
-      reason: r.reason?.trim() ?? '',
+      takeaways: clean(r.takeaways).slice(0, 3),
       keywords: (r.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 8),
       category: CATEGORIES.includes(r.category) ? r.category : 'その他',
       lane,
@@ -751,49 +867,126 @@ const LANE_DEEP_BLOCKS: Record<Lane, string> = {
 これは規模の大きい話として選ばれている。読者が知りたいのは使い方ではなく、
 **自分がどう巻き込まれるか** である。手順を書く項目も「試す」ではなく「確認する」に寄せる。
 
-- **impact** — 誰の・どの構成に効くか。対象バージョン、対象環境、成立条件。
-  「広く影響する」で済ませない。範囲が特定できないなら、特定できないと書く。
-- **timeline** — いつ起きたか、いつから効くか、期限はいつか。廃止・移行・サポート終了は
-  日付が本体なので、記事にあれば必ず拾う。無ければ空配列にする。
-- **checkNow** — 自分が該当するかを確認する方法。調べるコマンド、見るべき設定、暫定回避。
-- **whyItMatters** — 「これを知らないまま1週間過ごしたとき、読者は何を間違えるか」。
-  一般的な重要性ではなく、間違える具体を書く。
+**このレーンの箇条書きは、読み物ではなく一覧表として書く。**
+誰に・いつから・何をするか、を目で拾えることが価値なので、
+1 項目 1 行で、条件と日付と動作だけを置く。理由や背景は summary の仕事である。
+
+- **impact**（画面では「関係がある人」）— **「〜な人」の形で淡々と列挙する。
+  2〜4 個、各 30 字以内。** 読者が自分が該当するかを目で拾うためだけの一覧なので、
+  影響の内容も理由も書かない。「〜なので」「〜のため」「〜になる」が入ったら書きすぎで、
+  それは summary の仕事である。
+  ✗「many-ai-cli に OpenRouter 対応を追加・検討している開発者が対象。OpenRouter は独立した
+  　7 つ目の CLI／プロバイダではなく、Ollama と同じ既存 CLI の backend として扱う設計になる。」
+  ✓「many-ai-cli に OpenRouter を足そうとしている人」
+  ✓「厳密な JSON 抽出をしている人」
+  「広く影響する」で済ませない。特定できないなら「範囲不明」の 1 項目だけにする。
+- **timeline** — **日付が本体の情報だけ。1 行・40 字以内。0〜3 個。**
+  「2026-08-31 サポート終了」のように、日付＋出来事だけを置く。
+  **報道・資金調達・買収協議の経緯は書かない。** 読者の期限（いつから効くか、
+  いつまでに動くか）だけを拾う。時期の記述が無ければ空配列。
+- **checkNow** — 読者がいま取るアクション。**1 行・60 字以内。2〜3 個。**
+  打てるコマンド、開く設定ファイル名、暫定の回避策まで具体化する。
+  「注意する」「確認しておく」のように、何をするか決まらない書き方は禁止。
 - **unknowns** — 進行中の事象なら、判明していることと推測の境目を書く。
-  ここを空にしたまま推測を impact に混ぜるのが、このレーンで一番まずい。
-- 図は comparison（前後の対比）が合うことが多い。`,
+  **1 行・40 字以内。0〜3 個。** ここを空にしたまま推測を impact に混ぜるのが、
+  このレーンで一番まずい。
+- 同じ事実を impact と timeline と unknowns に三重に書かない。
+  未確定なら unknowns にだけ書く。
+- 図は、事故の経緯や移行のスケジュールのように時間の前後があるものなら flow、
+  どこを通って何が漏れた・何が影響を受けるという経路の話なら architecture が合う。`,
 
   build: `# このカードの目的:「作る」
 これは試してみたくなるものとして選ばれている。読者はこのカードを読んで、
 そのまま手を動かし始める。
 
-- **unlocks** — **「これまで◯◯だったのが、これから△△できる」の差分の形で書く。**
-  この形にすれば「何ができるか」と「何が変わるか」を 1 項目で言えるので、分けない。
-  「速くなる」「便利になる」は程度の改善であって、できるようになることではない。
-  差分が無いなら無理に作らず、何が楽になるのかを率直に書く。
+# このカードの中心の問い
+**「読んだ人が『そんなことができるのか、試したい』と思うか」**
+
+**仕組みの解説を書く場所ではない。** 仕組みが分かっても手は動かない。動くのは、
+自分の手元で何が起きるかが**絵として浮かんだ**ときである。だから unlocks は
+機能の列挙ではなく、読者が思い描ける一点にする。
+
+そのうえで「これは自分に関係があるか」「関係があるなら、どう始めるか」に答える。
+判定と手順が埋もれると、面白そうでも結局試されない。
+
+- **unlocks** — **読んだ人が「試したい」と思う一点。1〜2 個、各 45 字以内。**
+  **目に浮かぶ具体で書く。** 読者が頭の中で動いている絵を思い描けなければ失敗である。
+  ✓「録画を投げると、話者ごとに分けた字幕がそのまま返ってくる」（絵が浮かぶ）
+  ✗「音声処理をパイプライン経由の話者分離モジュールにも型付きで開放できる」
+  　（仕組みの説明。何が嬉しいのか浮かばない）
+
+  **例はあくまで書き方の見本である。** 記事の内容に置き換えて書くこと——
+  見本の題材をそのまま流用してはいけない。
+  **仕組みの名前を主語にしない。読者が何をできるかを主語にする。**
+  「速くなる」「便利になる」「効率化できる」は程度の改善であって、
+  できるようになることではない。
+  **付随的な機能を並べない。** 2 個目を書くなら、1 個目と種類が違うことだけ。
+  本当に新しくできることが無い記事なら、何が楽になるのかを 1 つだけ率直に書く。盛らない。
+- **fitFor / notFor**（画面では「使える場面 / 向かない場面」）— **読者が自分の環境を見て
+  YES / NO で即答できる条件**を書く。人物像を書くと、誰にでも当てはまって判定に使えない。
+  ✗「効率化したい開発者に向いている」「本格的な用途には向かない」（判定できない）
+  ✓「CI のビルドが 5 分を超えているとき」
+  ✓「Windows で動かすとき（未対応）」
+  ✓「月 1 万リクエスト未満なら手作業のままでよい」
+  notFor には、使えない（未対応）ものと、使えるが不適なものの両方を入れてよい。
+  書いたあと 1 項目ずつ、「読者はこれに YES / NO で答えられるか」を確認する。
+  答えられないものは書き直すか落とす。各 50 字以内、それぞれ 1〜3 個。
 - **howToTry** — インストールから最初の結果が出るまでを、読者が調べ直さずに済む粒度で。
-- **fitFor / notFor** — 向いている場面と向いていない場面。新しい道具ほど適用範囲は狭いのに、
-  そこが書かれないことが多い。記事から読み取れる範囲で書き、推測で広げない。
-- **whyItMatters** — 読者の既存のやり方の何を置き換えるか。プロフィールにある
-  技術スタックの上での位置づけを書く。
-- **caveats** — 試す前に知っておくべき制約。前提ツール、対応環境、料金、成熟度。
-- 図は flow（仕組み）か metrics（実測値）が合うことが多い。`,
+  **1 個目は必ずコピペで実行できる 1 行にする**（インストールコマンド、
+  クローン、\`npx\` の一撃）。読者が最初に踏む段を、判断ではなく貼り付けにする。
+  記事にコマンドが無いなら、公式の入手先 URL を 1 個目に置く。
+- **caveats** — **最重要の 1 つだけ。0〜1 個、50 字以内。**
+  次のどれかに当たるもののうち、**いちばん起こりやすく損害が大きい 1 つ**を選ぶ:
+  (1) 知らずに始めると詰まる前提（別ツールの導入、未対応の環境）
+  (2) 想定外にお金がかかる (3) データや既存の設定が壊れる。
+  **仕様の細部はここに書かない。**
+  ✗「style: react は動作するが非推奨警告あり、将来的に reactcore への移行が必要」
+  ✗「dcp の上限はモデル構造依存: GQA は KV ヘッド数まで、MLA は TP と同数まで」
+  　（どちらも仕様の説明であって、知らずに始めて困ることではない。
+  　　そういう情報は「使える場面 / 向かない場面」か「試し方」の側に属する）
+  ✓「Node.js 22.13 未満だとローカル起動の時点でつまずく」
+  ✓「通信は HTTPS 経由だがエンドツーエンドでは暗号化されない」
+  「まだ新しいので注意」「本番利用は慎重に」のような、どの新しい道具にも言える
+  一般論も書かない。該当が無ければ空配列にする——**埋めるために書かない。**
+- 図は、何をどこに差すかという構成なら architecture、動く順序なら flow、
+  記事に実測値があるなら metrics。`,
 
   talk: `# このカードの目的:「話す」
 これは読者が自分の意見を発信するための素材として選ばれている。
 **意見の下書きを書かないこと。** 読者自身の言葉で書けるための材料だけを渡す。
 
-- **evidence / counterEvidence** — それぞれの立場を支える具体を、**そのまま引用できる粒度**で。
-  「効果があった」ではなく「p95 が 1.2 秒から 40ms」。反対側を藁人形にしない——
-  実際にその立場を取る人が挙げる根拠を書く。記事の外から補ったものは
-  文頭に「（記事外）」と付ける。付けずに混ぜると、読者が記事の主張として引用してしまう。
-- **whenItHolds** — 成り立つ条件と崩れる条件。賛否の本質は正誤ではなく優先順位の違い
-  （速さ vs 安全、自動化 vs 制御）なので、その分かれ目を条件の形にする。
-- **angles** — 書ける切り口の**名前だけ**を並べる。**文にしない。主張を書かない。**
+# このカードの中心の問い
+**「この争点に、読者は自分の経験から何を足せるか」**
+
+両側の言い分が分かっても、人は発信しない。それで得られるのは「詳しくなった」状態である。
+発信が起きるのは、**自分の手元にある事実がこの議論の材料になると気づいた瞬間**。
+「賛成です」「反対です」は誰でも書けて、投稿する価値が無い。
+
+- **clashes** — 争点を論点ごとに分解し、**「こう言われる（claim）／こう返せる（counter）」を
+  対で**書く。2〜3 組。
+  **claim と counter は必ず噛み合わせること。** ここがこの項目の全部である。
+  ✗ claim「ボトルネックは実装ではなく境界の設計」/ counter「ハルシネーションは完全になくならない」
+  　（別の話をしている。読者は対応づけられない）
+  ✗ counter に、記事と同じ立場の補強を書く（反論になっていない）
+  ✓ claim「ボトルネックは実装ではなく境界の設計」/ counter「境界を先に固めても、
+  　公開 API や DB 移行の変更コストは下がらない」
+  記事からの引用を長く貼らない。各 50 字で、自分の言葉に詰めること。
+  **成り立つ条件・崩れる条件は独立した項目にせず、この対の中に入れる**
+  （「小規模なら前者、CI が遅いチームなら後者」）。賛否の本質は正誤ではなく
+  優先順位の違い（速さ vs 安全、自動化 vs 制御）なので、その分かれ目が対の中に出る。
+  反対側が記事に書かれていないなら counterInArticle を false にする。
+- **firsthand** — **この項目が中心の問いに直接答える。**
+  読者が自分の経験からこの争点に足せることを、**切り口（angle）と、なぜ読者が
+  それを言えるのか（why）の対で**書く。1〜3 組。
+  angle は**名詞句だけ。文にしない。主張を書かない。**
   ✗「レビューの自動化には慎重であるべきだ」（意見の代筆になっている）
-  ✓「40万件という母数の偏り」「見逃し率3倍という数字の測定条件」
-- **verify** — 読者が自分の環境で真偽を確かめる方法。無ければ空配列。
-- **whyItMatters** — なぜ今この争点なのか。何が変わったから議論になっているのか。
-- 図は comparison を、賛成側と反対側の対比に使うとよい。`,
+  ✓「生成量とレビュー負荷の実測」「見逃し率3倍という数字の測定条件」
+  why は、読者プロフィールにある技術・立場・日常の作業と結びつける。
+  ✓「同じ構成を業務で毎日動かしているので、手戻りの頻度を実測値として出せる」
+  **切り口だけを渡してはいけない。** 発信の最大の障壁は「これを自分が言っていいのか」で、
+  それに答えるのは why の側である。接点が本当に無ければ空配列にする。ひねり出さない。
+- **verify** — 読者が自分の環境で真偽を確かめる方法。0〜2 個。無ければ空配列。
+- 図は、賛成側と反対側の対比なら comparison。ただし clashes と同じ内容になるなら null。`,
 };
 
 function deepSystemPrompt(lane: Lane, topics: TopicsConfig): string {
@@ -866,11 +1059,39 @@ ${LANE_DEEP_BLOCKS[lane]}
 - 記事側の表記をそのまま使う。言い換えない（router.refresh() を「Next の refresh 関数」にしない）。
 
 # visual（図）の選び方
-- comparison / flow / metrics のうち、記事の中身に最も合うものを1つだけ選ぶ。
-- 記事の主題が「変更」なら comparison、「手順・仕組み」なら flow、「性能改善」なら metrics。
-- metrics は記事に実際の数値が書かれている場合のみ。数値を推測で作らない。
-- どれも当てはまらない、または図にしても情報が増えないなら null にする。無理に図を作らない。
-- 図は本文の要約ではなく、文章では伝わりにくい構造（対比・順序・量）を担当させる。`;
+
+## 先に「何を図にするか」を決める。形式は後から選ぶ
+図にするのは、**記事のいちばん重要な構造**であって、書きやすい部分ではない。
+順番を逆にすると、大事でないところが図になる。まず次を自問する。
+
+**「この記事で、文章だと読み取りにくいものは何か」**
+
+- 事故・障害の記事 → 何が起きて何が漏れたかの**経緯**（時間の順序）
+- 仕組みや構成の記事 → どこからどこへデータや処理が流れるかの**経路**
+- 変更・移行の記事 → 変更前と変更後の**対比**
+- 性能改善の記事 → 記事に書かれている**実測値**
+
+## 箇条書きの言い換えは図ではない
+**上の箇条書き（impact / unlocks / evidence など）に書いたことを表に組み替えただけなら、
+図を作らずに null にする。** これが一番多い失敗で、読者は同じ内容を 2 回読むことになる。
+書き終えたら、図の各行が箇条書きのどれかと同じことを言っていないか照合する。
+
+## 形式の選び方
+- **architecture** — **何がどこを経由してどこへ届くか。** 登場するものが 3 つ以上あって、
+  それらの間に「呼ぶ / 経由する / 差し替える」の関係があるならこれ。
+  上から下へ 2〜4 層に積み、**層と層の間に「何が渡るか」（via）を書く。**
+  層は「呼ぶ側 → 経由するもの → 実体」の順にする。
+  記事が論じている当のものに highlight を立てて、「この記事は構成のどこの話か」を示す。
+  例: 自作 CLI → 既存 CLI（via: OpenAI 互換 API）→ 中継サービス（via: 従量課金）→ 各社のモデル
+  **層の中の並び順には意味がある。** 画面では層をまたいで同じ位置が縦に揃うので、
+  n 番目には上の層の n 番目から繋がるものを置く。経路が 2 本ある構成なら、
+  左の列で 1 本・右の列で 1 本の経路になるように並べる。1 本しかない層は 1 個だけにする。
+- **flow** — **時間の順序があるもの。** 事故が起きた経緯、移行のスケジュール、手順。
+  「同時に存在するものの配置」は時間ではないので architecture を使う。
+- **comparison** — 二つの状態の対比。変更前と変更後、賛成側と反対側。
+  **「観点ごとの一覧表」を作るために使ってはいけない**（それは箇条書きの言い換え）。
+- **metrics** — 記事に実際の数値が書かれている場合のみ。数値を推測で作らない。
+- どれも当てはまらない、または図にしても情報が増えないなら null。無理に図を作らない。`;
 }
 
 export async function deepDive(
@@ -938,13 +1159,26 @@ export async function deepDive(
         return {
           ...toBase(p, item),
           lane: 'talk',
-          evidence: clean(p.evidence),
-          counterEvidence: clean(p.counterEvidence),
-          whenItHolds: clean(p.whenItHolds),
+          /*
+           * 片側だけの対は噛み合いにならないので落とす。半端な対は、
+           * 無い対より読者を迷わせる（一覧の debate を丸ごと null にするのと同じ判断）。
+           */
+          clashes: (p.clashes ?? [])
+            .filter((c) => c?.point?.trim() && c?.claim?.trim() && c?.counter?.trim())
+            .map((c) => ({
+              point: c.point.trim(),
+              claim: c.claim.trim(),
+              counter: c.counter.trim(),
+              counterInArticle: c.counterInArticle === true,
+            })),
           /*
            * 角度は名詞句だけにさせている。文で返ってきたものは意見の代筆なので落とす。
+           * why は逆に文でよい（読者自身の状況の説明であって、主題への意見ではない）。
            */
-          angles: clean(p.angles).filter((a) => !looksLikeOpinion(a)),
+          firsthand: (p.firsthand ?? [])
+            .filter((f) => f?.angle?.trim() && f?.why?.trim())
+            .filter((f) => !looksLikeOpinion(f.angle.trim()))
+            .map((f) => ({ angle: f.angle.trim(), why: f.why.trim() })),
           verify: clean(p.verify),
         };
       }
@@ -961,14 +1195,12 @@ function toBase(
   item: RankedItem,
 ) {
   return {
-    headline: parsed.headline?.trim() || item.oneLiner,
     summary: parsed.summary?.trim() || item.oneLiner,
     prerequisites: (parsed.prerequisites ?? [])
       .filter((p) => p?.term && p?.explanation)
       .map((p) => ({ ...p, stumblingPoint: p.stumblingPoint ?? '' })),
     visual: normalizeVisual(parsed.visual as DeepDive['visual']),
     code: parsed.code ?? null,
-    whyItMatters: parsed.whyItMatters?.trim() ?? '',
     relatedLinks: (parsed.relatedLinks ?? []).filter((l) => l?.url?.startsWith('http')),
     readingMinutes: Number.isFinite(parsed.readingMinutes)
       ? Math.max(1, Math.min(30, Math.round(parsed.readingMinutes)))
@@ -1022,6 +1254,14 @@ function normalizeVisual(visual: DeepDive['visual']): DeepDive['visual'] {
       if (items.length === 0) return null;
       return { ...visual, items };
     }
+    case 'architecture': {
+      const layers = (visual.layers ?? [])
+        .map((l) => ({ ...l, nodes: (l.nodes ?? []).filter((n) => n?.name) }))
+        .filter((l) => l?.label && l.nodes.length > 0);
+      // 1 層だけのものは構成ではない（要素の並びを層と呼んでいるだけ）
+      if (layers.length < 2) return null;
+      return { ...visual, layers };
+    }
     default:
       return null;
   }
@@ -1035,12 +1275,10 @@ function normalizeVisual(visual: DeepDive['visual']): DeepDive['visual'] {
  */
 function fallbackDeepDive(item: RankedItem): DeepDive {
   const base = {
-    headline: item.oneLiner,
     summary: truncate((item.body || item.snippet).replace(/\s+/g, ' ').trim(), 500),
     prerequisites: [],
     visual: null,
     code: null,
-    whyItMatters: item.reason,
     relatedLinks: [],
     readingMinutes: 5,
   };
@@ -1060,15 +1298,7 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
         caveats: [failed],
       };
     case 'talk':
-      return {
-        ...base,
-        lane: 'talk',
-        evidence: [],
-        counterEvidence: [],
-        whenItHolds: [],
-        angles: [],
-        verify: [],
-      };
+      return { ...base, lane: 'talk', clashes: [], firsthand: [], verify: [] };
   }
 }
 
@@ -1173,7 +1403,7 @@ function renderDigestSummaryContext(top: TopItem[], releases: ReleaseItem[], oth
 
   const topLines = top.map(
     (t) =>
-      `- [ベスト/${LANE_LABELS[t.lane]}/${t.category}] ${t.deep.headline}\n  ${t.deep.summary}`,
+      `- [ベスト/${LANE_LABELS[t.lane]}/${t.category}] ${t.title}\n  ${t.deep.summary}`,
   );
   const releaseLines = releases
     .slice(0, 20)
@@ -1211,7 +1441,7 @@ function fallbackDigestSummary(top: TopItem[], releases: ReleaseItem[], others: 
 
   const firstTop = top[0];
   if (firstTop) {
-    lines.push(`いちばんの注目は「${firstTop.deep.headline}」。`);
+    lines.push(`いちばんの注目は「${firstTop.oneLiner}」。`);
   }
 
   if (lines.length === 0 && (top.length > 0 || releases.length > 0 || others.length > 0)) {

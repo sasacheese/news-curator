@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { EMPTY_LANE_CONTEXT, assignLane, laneAffinity, selectLaneCandidates } from './lanes.js';
-import type { LaneContext } from './lanes.js';
+import { assignLane, laneAffinity, selectLaneCandidates } from './lanes.js';
 import type { PreScoredItem } from './types.js';
 
 /*
@@ -45,7 +44,7 @@ describe('laneAffinity', () => {
       matchedTopics: [],
       preScore: 0.05,
     });
-    const a = laneAffinity(big, EMPTY_LANE_CONTEXT);
+    const a = laneAffinity(big);
     assert.ok(a.know >= THRESHOLDS.know, `know=${a.know} がしきい値に届いていない`);
   });
 
@@ -58,46 +57,51 @@ describe('laneAffinity', () => {
       id: 'branch',
       title: 'サプライチェーン攻撃の続報: 個別パッケージのパッチが公開された',
     });
-    const t = laneAffinity(trunk, EMPTY_LANE_CONTEXT).know;
-    const b = laneAffinity(branch, EMPTY_LANE_CONTEXT).know;
+    const t = laneAffinity(trunk).know;
+    const b = laneAffinity(branch).know;
     assert.ok(t > b, `幹 ${t} が枝 ${b} を上回っていない`);
   });
 
   it('複数のプラットフォームで同時に浮上したものを規模の証拠として扱う', () => {
     const base = { id: 'x', title: '主要クラウドで大規模障害が発生している' };
-    const single = laneAffinity(item({ ...base, foundIn: ['qiita'] }), EMPTY_LANE_CONTEXT).know;
-    const multi = laneAffinity(
-      item({ ...base, foundIn: ['qiita', 'hackernews', 'hatena'] }),
-      EMPTY_LANE_CONTEXT,
-    ).know;
+    const single = laneAffinity(item({ ...base, foundIn: ['qiita'] })).know;
+    const multi = laneAffinity(item({ ...base, foundIn: ['qiita', 'hackernews', 'hatena'] })).know;
     assert.ok(multi > single);
   });
 
-  it('build は既出の語ばかりの記事より初出の語を含む記事を高く見る', () => {
-    // 新しさとキーワード一致は逆を向く。名前がまだ語彙に無いから新しい
-    const ctx: LaneContext = {
-      seenTerms: new Set(['react', 'nextjs', 'typescript']),
-      recentTopicCounts: new Map(),
-    };
+  /*
+   * 以前は「過去のダイジェストに出ていない語の割合」に最大の重みを与えていた。
+   * あれは新しさではなく無名さを測っていて、誰も知らない個人リポジトリが満点を取り、
+   * 有名なツールの重要なリリースが沈んでいた。同じ壊れ方に戻らないよう固定する。
+   */
+  it('build は語が無名なだけでは加点しない', () => {
+    const unknown = item({ id: 'u', title: 'Zigmond と Quarrelo を組み合わせて動かしてみた' });
     const known = item({ id: 'k', title: 'React と Nextjs と TypeScript の構成を見直す' });
-    const fresh = item({ id: 'f', title: 'Zigmond と Quarrelo を組み合わせて動かしてみた' });
-    const kv = laneAffinity(known, ctx).build;
-    const fv = laneAffinity(fresh, ctx).build;
-    assert.ok(fv > kv, `初出 ${fv} が既知 ${kv} を上回っていない`);
+    assert.equal(laneAffinity(unknown).build, laneAffinity(known).build);
+  });
+
+  it('build は「今日動かせる形か」をいちばん強い証拠にする', () => {
+    // 触れる実体（0.4）が、新しさの語彙（0.35）より強く効くこと
+    const tangible = item({ id: 't', snippet: 'npm install して使い方を見る' });
+    const announced = item({ id: 'a', snippet: 'introducing 新しい仕組みを announcing' });
+    assert.ok(
+      laneAffinity(tangible).build > laneAffinity(announced).build,
+      '試せるものが、告知だけのものを上回っていない',
+    );
   });
 
   it('build はリポジトリそのものを「触れる実体」として扱う', () => {
     const repo = item({ id: 'r', source: 'github_repo', sourceLabel: 'GitHub 新着リポジトリ' });
     const post = item({ id: 'p' });
-    assert.ok(laneAffinity(repo, EMPTY_LANE_CONTEXT).build > laneAffinity(post, EMPTY_LANE_CONTEXT).build);
+    assert.ok(laneAffinity(repo).build > laneAffinity(post).build);
   });
 
   it('talk は支持数の割にコメントが多いものを論争として拾う', () => {
     // 賛同だけなら star が伸びてコメントは伸びない。割れるとコメント側が伸びる
     const quiet = item({ id: 'q', metrics: { points: 300, comments: 8 } });
     const loud = item({ id: 'l', metrics: { points: 300, comments: 240 } });
-    const qv = laneAffinity(quiet, EMPTY_LANE_CONTEXT).talk;
-    const lv = laneAffinity(loud, EMPTY_LANE_CONTEXT).talk;
+    const qv = laneAffinity(quiet).talk;
+    const lv = laneAffinity(loud).talk;
     assert.ok(lv > qv, `論争 ${lv} が静か ${qv} を上回っていない`);
   });
 
@@ -105,7 +109,7 @@ describe('laneAffinity', () => {
     const opinion = item({ id: 'o', title: 'モノレポをやめた。本当に必要だったのかを再考する' });
     const neutral = item({ id: 'n', title: 'モノレポの構成手順' });
     assert.ok(
-      laneAffinity(opinion, EMPTY_LANE_CONTEXT).talk > laneAffinity(neutral, EMPTY_LANE_CONTEXT).talk,
+      laneAffinity(opinion).talk > laneAffinity(neutral).talk,
     );
   });
 });
@@ -134,7 +138,7 @@ describe('selectLaneCandidates', () => {
         metrics: i % 5 === 0 ? { points: 100, comments: 90 } : {},
       }),
     );
-    const { candidates } = selectLaneCandidates(items, 5, EMPTY_LANE_CONTEXT, THRESHOLDS);
+    const { candidates } = selectLaneCandidates(items, 5, THRESHOLDS);
     const ids = [...candidates.know, ...candidates.build, ...candidates.talk].map((i) => i.id);
     assert.equal(new Set(ids).size, ids.length, '同じ記事が複数のレーンに入っている');
   });
@@ -143,7 +147,7 @@ describe('selectLaneCandidates', () => {
     // 空になるのは「その日は該当が無かった」ではなく「しきい値がずれていた」
     // 可能性が高い。LLM に見せる前に枠を捨ててしまうと、そもそも判定できない
     const items = Array.from({ length: 20 }, (_, i) => item({ id: `i${i}` }));
-    const { candidates } = selectLaneCandidates(items, 3, EMPTY_LANE_CONTEXT, THRESHOLDS);
+    const { candidates } = selectLaneCandidates(items, 3, THRESHOLDS);
     assert.ok(candidates.know.length > 0, 'know が空のまま');
     assert.ok(candidates.talk.length > 0, 'talk が空のまま');
   });
@@ -152,7 +156,6 @@ describe('selectLaneCandidates', () => {
     const { candidates } = selectLaneCandidates(
       [item({ id: 'a' }), item({ id: 'b' })],
       10,
-      EMPTY_LANE_CONTEXT,
       THRESHOLDS,
     );
     const total = candidates.know.length + candidates.build.length + candidates.talk.length;

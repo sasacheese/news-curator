@@ -168,6 +168,7 @@ body {
  */
 .datebar__date,
 .card__headline,
+.row__title,
 .section-title,
 .archive-day__date,
 .rel__product,
@@ -179,8 +180,7 @@ body {
 
 /* 英数と日本語が混ざる本文で、和欧間のアキをブラウザに入れさせる */
 .card__summary,
-.card__lens,
-.row__lens,
+.takeaways__list,
 .rel__summary,
 .hero__lead,
 .prereq__item dd {
@@ -1006,12 +1006,23 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * 見出しは元記事のタイトルそのもの。サイト側で 40 字に丸めた headline を出していた
+ * 頃と違い、長さを制御できない——GitHub リポジトリは説明文がそのままタイトルになり、
+ * 実測で 280 字のものがあった。3 行で打ち切る。全文は本文側の ↗ リンクで読める。
+ */
 .card__headline {
-  font-size: 20px;
-  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font-size: 18px;
+  line-height: 1.55;
   font-weight: 700;
   letter-spacing: -0.015em;
-  margin: 0 0 8px;
+  margin: 0 0 10px;
+  /* 英語の長い識別子（ysr666/dsh-vision-router）が枠を割らないように */
+  overflow-wrap: anywhere;
 }
 
 .card__title-link {
@@ -1510,6 +1521,106 @@ textarea {
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.6;
+}
+
+/*
+ * architecture: 何がどこを経由してどこへ届くか。
+ *
+ * 任意の位置のノード＋矢印にはしていない（座標が要るうえ線が交差すると読めない）。
+ * 層を縦に積み、層と層の間に「何が渡るか」を置く。狭い画面では層の中の要素が
+ * 折り返すだけなので、レイアウトが崩れる余地が無い。
+ */
+
+.arch {
+  padding: 14px;
+}
+
+.arch__layer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.arch__layer-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+/*
+ * 1 層に複数あるものは横並び。列数は全層の最大値に揃える（インラインで指定）。
+ * 揃えるのは、並び順を「上の層のどれから繋がるか」として読ませるため。
+ */
+.arch__nodes {
+  display: grid;
+  gap: 6px;
+}
+
+/* 狭い画面では列を維持できないので素直に積む。潰れた 3 列より積んだ方が読める */
+@media (max-width: 520px) {
+  .arch__nodes {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.arch__node {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 7px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* 記事が論じている当のもの。色だけでなく ◆ と読み上げ名も付けている */
+.arch__node--focus {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.arch__node-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.arch__node-mark {
+  margin-right: 4px;
+  font-size: 9px;
+  vertical-align: 1.5px;
+  color: var(--accent);
+}
+
+.arch__node-note {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* 層の間。矢印だけでも向きが分かるので、via が無くても出す */
+.arch__via {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.arch__via-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
 }
 
 /* metrics: 2 本の棒グラフにせず stat tile にする */
@@ -2020,14 +2131,6 @@ textarea {
   transform: rotate(-135deg);
 }
 
-/* 畳んだ状態で出す元記事タイトル。開くと本文側の ↗ リンクに引き継ぐ */
-.card__source-title {
-  margin: 2px 0 0;
-  font-size: 12.5px;
-  line-height: 1.7;
-  color: var(--text-faint);
-}
-
 .card__origin {
   display: flex;
   flex-direction: column;
@@ -2159,37 +2262,66 @@ textarea {
   color: var(--accent-ink);
 }
 
-/* ---------------- 読みどころ ---------------- */
+/* ---------------- 3行で要約 ---------------- */
 
 /*
- * 要約（何が書いてあるか）とは別に、「どこに注目して読むか」を出す。
- * 要約と混ざらないよう、左の罫線とラベルで別種の情報だと示す。
+ * 専門用語を使わない 3 行。畳んだカードと一覧に出て、開かなくても話が分かる側を
+ * 引き受ける。カード内の要約（.card__summary）とは役割が違うので、左の罫線と
+ * ラベルで別種の情報だと示す（以前の「読みどころ」から引き継いだ形）。
+ *
+ * ラベルを行の上に置いて箇条書きと縦に積む。1 行目の頭にラベルを差し込むと、
+ * 3 行の左端が揃わず、行数を目で数えられなくなる。
  */
-.card__lens,
-.row__lens {
+.takeaways {
   margin: 0 0 12px;
   padding-left: 11px;
   border-left: 2px solid var(--accent);
+}
+
+.takeaways--compact {
+  margin: 4px 0 8px;
+}
+
+.takeaways__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.takeaways__list {
+  margin: 0;
+  /* 記号は擬似要素で自前で置く。ネイティブの ・ は行頭が揃わない */
+  padding: 0;
+  list-style: none;
   font-size: 13px;
   line-height: 1.8;
   color: var(--text-muted);
 }
 
-.row__lens {
-  margin: 4px 0 8px;
+.takeaways--compact .takeaways__list {
   font-size: 12.5px;
   line-height: 1.75;
 }
 
-.card__lens-label,
-.row__lens-label {
+.takeaways__list li {
+  padding-left: 13px;
+  text-indent: -13px;
+}
+
+.takeaways__list li + li {
+  margin-top: 3px;
+}
+
+.takeaways__list li::before {
+  content: '·';
   display: inline-block;
-  margin-right: 7px;
-  font-size: 10.5px;
+  width: 13px;
+  text-indent: 0;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--accent);
-  vertical-align: 1px;
+  color: var(--text-faint);
 }
 
 /* ---------------- その他の注目記事のグループ ---------------- */
@@ -2698,7 +2830,7 @@ a.btn {
     padding-inline: 16px;
   }
   .card__headline {
-    font-size: 18px;
+    font-size: 16.5px;
   }
   .datebar__meta {
     margin-left: 0;
@@ -2943,6 +3075,140 @@ a.btn {
  * 賛成側と反対側を左右に並べる。縦に積むと上が結論に見えてしまい、
  * 「どちらを選んでもよい」という前提が形から伝わらない。
  * ------------------------------------------------------------------ */
+
+/*
+ * 項目を組み立てられなかったことを示す一文。
+ *
+ * 空のカードを出すより、なぜ空なのかを書く。実測で、本文が実質ジョークの記事に対して
+ * モデルが正しく生成を拒み、カード本体が丸ごと空になった日があった。
+ */
+.card__empty {
+  margin: 0 0 18px;
+  padding: 11px 13px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-muted);
+}
+
+/* ---------------- 争点（論点ごとの噛み合い） ---------------- */
+
+/*
+ * 「賛成側の根拠」「反対側の根拠」を別々の箇条書きで並べていたときの置き換え。
+ * 平行な 2 つのリストは噛み合いを表現できず、読者が頭の中で対応づける必要があった。
+ * 論点を見出しにして、左右に対で置く。左右にするのは DebateScaffold と同じ理由——
+ * 縦に積むと上が結論に見える。
+ */
+
+.clashes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.clash {
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.clash__point {
+  margin: 0 0 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.clash__sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+/* 横並びが窮屈になったら素直に積む。読めない 2 カラムより積んだ方がよい */
+@media (max-width: 560px) {
+  .clash__sides {
+    grid-template-columns: 1fr;
+  }
+}
+
+.clash__side {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.clash__side-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.clash__side--counter .clash__side-label {
+  color: var(--warn);
+}
+
+.clash__side-body {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text);
+  text-autospace: normal;
+}
+
+/* ---------------- 一次情報を出すとしたら？ ---------------- */
+
+/*
+ * 切り口だけを並べていたときの置き換え。発信の最大の障壁は「これを自分が
+ * 言っていいのか」なので、切り口と「なぜ自分が言えるのか」を対で見せる。
+ * 切り口を強く、根拠を弱く組んで、目が先に切り口へ行くようにしている。
+ */
+
+.firsthand {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.firsthand li + li {
+  margin-top: 10px;
+}
+
+.firsthand__angle {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.firsthand__why {
+  display: block;
+  margin-top: 2px;
+  padding-left: 11px;
+  border-left: 2px solid var(--border-strong);
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--text-muted);
+  text-autospace: normal;
+}
+
+/* 「争点」項目の頭に置く 1 行。この下に論点ごとの対が並ぶ */
+.clashes__axis {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.7;
+  text-autospace: normal;
+}
 
 .debate {
   margin: 14px 0;

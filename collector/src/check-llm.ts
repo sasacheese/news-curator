@@ -53,7 +53,7 @@ const CASES: Case[] = [
     prompt: '[0] TSKaigi 2026 登壇者募集（LT 5分 × 6枠）\n\n以上 1 件を判定してください。',
   },
   {
-    // 論点レーンだけ要約に「意見の足場」5 項目が乗るので、別スキーマになっている
+    // 「話す」レーンだけ要約に「意見の足場」5 項目が乗るので、別スキーマになっている
     name: 'describe/talk',
     schema: TalkDescribeResultSchema,
     prompt: '[0] テスト記事 — モノレポをやめた理由\n\n以上 1 件を要約してください。',

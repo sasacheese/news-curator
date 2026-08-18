@@ -189,6 +189,13 @@ const NAMED_ENTITIES: Record<string, string> = {
   amp: '&',
 };
 
+function safeCodePoint(code: number): string {
+  if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return '';
+  // サロゲート単体は文字にならない
+  if (code >= 0xd800 && code <= 0xdfff) return '';
+  return String.fromCodePoint(code);
+}
+
 /**
  * 実体参照をほどく。
  *
@@ -199,24 +206,28 @@ const NAMED_ENTITIES: Record<string, string> = {
  * &amp; は最後に処理する。先に解くと「&amp;lt;」が「<」まで戻ってしまう。
  */
 export function decodeEntities(text: string): string {
-  return text
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
-      safeCodePoint(Number.parseInt(hex, 16)),
-    )
-    .replace(/&#(\d+);/g, (_, dec: string) => safeCodePoint(Number.parseInt(dec, 10)))
-    .replace(/&(nbsp|lt|gt|quot|apos);/g, (_, name: string) => NAMED_ENTITIES[name] ?? _)
-    .replace(/&amp;/g, '&');
+  return (
+    text
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
+        safeCodePoint(Number.parseInt(hex, 16)),
+      )
+      .replace(/&#(\d+);/g, (_, dec: string) => safeCodePoint(Number.parseInt(dec, 10)))
+      .replace(/&(nbsp|lt|gt|quot|apos);/g, (_, name: string) => NAMED_ENTITIES[name] ?? _)
+      /*
+       * 二重エスケープされたアンパサンドだけは 2 段ぶんまとめてほどく。
+       *
+       * ここを一般化して「変化しなくなるまで繰り返す」にしてはいけない。
+       * それをやると、下の `&amp;lt;`（「&lt;」という文字列を書きたくて
+       * エスケープしたもの）が `<` まで戻り、著者が書いた文字列が消える。
+       * 一方 `&amp;amp;` は「&」を書きたくて二重にエスケープされた形しか無いので、
+       * これだけは安全に 1 文字まで戻せる——実測で、製品名 `O&amp;amp;O ShutUp` が
+       * `O&amp;O` のまま要約に入り、画面に「&amp;」がそのまま出ていた。
+       */
+      .replace(/&amp;amp;/g, '&')
+      .replace(/&amp;/g, '&')
+  );
 }
 
-/** 不正なコードポイントで String.fromCodePoint が投げるのを防ぐ */
-function safeCodePoint(code: number): string {
-  if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return '';
-  // サロゲート単体は文字にならない
-  if (code >= 0xd800 && code <= 0xdfff) return '';
-  return String.fromCodePoint(code);
-}
-
-/** HTML からタグを落としてプレーンテキストにする（簡易） */
 export function stripHtml(html: string): string {
   // 実体参照はタグを落とした後にほどく。先にほどくと &lt;script&gt; が
   // タグとして除去され、文字列として書かれていた内容が消える。
@@ -322,39 +333,6 @@ export function isHttpUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * 「まだ見たことがない固有名詞」の判定に使う語を切り出す。
- *
- * 新しさとキーワード一致は逆を向く——新しいツールは、名前がまだどの語彙にも
- * 無いから新しい。だから「関心トピックに一致するか」ではなく「過去のダイジェストに
- * 出てきた語かどうか」で測る。取りこぼしより取りすぎのほうが安全なので、
- * ASCII 語とカタカナ語だけを粗く拾い、ありふれた語だけ落とす。
- */
-const COMMON_TERMS = new Set([
-  'this', 'that', 'with', 'from', 'have', 'about', 'your', 'what', 'when', 'how',
-  'why', 'the', 'and', 'for', 'not', 'you', 'are', 'was', 'can', 'will', 'new',
-  'using', 'use', 'used', 'make', 'made', 'build', 'built', 'introduction',
-  'guide', 'tutorial', 'part', 'update', 'updates', 'release', 'version',
-  'https', 'http', 'www', 'com', 'github', 'json', 'html', 'code',
-  'エンジニア', 'アプリ', 'システム', 'サービス', 'ツール', 'データ', 'ファイル',
-  'プロジェクト', 'コード', 'テスト', 'サーバー', 'クライアント', 'ユーザー',
-  'メソッド', 'パターン', 'ライブラリ', 'フレームワーク', 'アップデート', 'リリース',
-]);
-
-export function extractTerms(text: string): string[] {
-  const lower = text.toLowerCase();
-  const ascii = lower.match(/[a-z][a-z0-9.\-_]{2,}/g) ?? [];
-  // カタカナの連なりは、そのまま製品名であることが多い
-  const katakana = text.match(/[ァ-ヴ][ァ-ヴー]{2,}/g) ?? [];
-  const out = new Set<string>();
-  for (const t of [...ascii, ...katakana]) {
-    const term = t.replace(/[.\-_]+$/, '');
-    if (term.length < 3 || COMMON_TERMS.has(term)) continue;
-    out.add(term);
-  }
-  return [...out];
 }
 
 /** タイトルの近似重複判定用のキー */

@@ -1,4 +1,4 @@
-import { formatPublished, safeUrl } from './format';
+import { formatPublished, safeUrl, takeawayLines } from './format';
 import type { Debate, Prerequisite, RankedItem, ReleaseItem, TopItem } from './types';
 
 /**
@@ -39,8 +39,6 @@ export interface AskContext {
   url: string;
   sourceLabel: string;
   publishedAt?: string;
-  /** サイト側で付けた見出し。元題と違う切り口になっていることがある */
-  headline?: string;
   /** サイト側の要約。行ごとに渡す */
   summary?: string[];
   prerequisites?: Prerequisite[];
@@ -95,10 +93,7 @@ export function buildAskPrompt(
    * 数十文字しか使わないのに話題の範囲が伝わって割がいいから。
    */
   const optional = [
-    block('# このサイトの要約', [
-      ctx.headline,
-      ...(ctx.summary ?? []).map((line) => clamp(line, 260)),
-    ]),
+    block('# このサイトの要約', (ctx.summary ?? []).map((line) => clamp(line, 260))),
     block(
       '# 記事を読むのに必要な前提知識（このサイトが補ったもの）',
       (ctx.prerequisites ?? [])
@@ -143,15 +138,40 @@ export function askContextForTop(item: TopItem): AskContext {
     url: item.url,
     sourceLabel: item.sourceLabel,
     publishedAt: item.publishedAt,
-    headline: item.deep.headline,
-    summary: [item.deep.summary],
+    // 3 行要約（平易な側）と summary（記事の語彙のまま詳しい側）の両方を渡す
+    summary: [...takeawayLines(item), item.deep.summary],
     prerequisites: item.deep.prerequisites,
     debate: item.debate,
     keywords: item.keywords,
-    note: item.deep.whyItMatters
-      ? { heading: 'このサイトが書いた「なぜ重要か」', body: item.deep.whyItMatters }
-      : undefined,
+    note: topNote(item),
   };
+}
+
+/**
+ * カードの中でいちばん会話の役に立つ 1 節を選んで渡す。
+ *
+ * 話す レーンは論点ごとの噛み合いを持っているので、それを渡すと Claude が
+ * 「どちらの立場で書くか」から会話を始められる。他のレーンは whyItMatters が
+ * 残っていればそれを使う（いまは旧形式の日だけが持っている）。
+ */
+function topNote(item: TopItem): AskContext['note'] {
+  const deep = item.deep;
+  if (deep.lane === 'talk' && deep.clashes?.length) {
+    return {
+      heading: 'このサイトが整理した論点ごとの噛み合い',
+      body: deep.clashes
+        .map(
+          (c) =>
+            `【${c.point}】こう言われる: ${c.claim} / こう返せる: ${c.counter}${
+              c.counterInArticle === false ? '（記事の外からの補い）' : ''
+            }`,
+        )
+        .join('\n'),
+    };
+  }
+  return deep.whyItMatters
+    ? { heading: 'このサイトが書いた「なぜ重要か」', body: deep.whyItMatters }
+    : undefined;
 }
 
 export function askContextForItem(item: RankedItem): AskContext {
@@ -161,7 +181,7 @@ export function askContextForItem(item: RankedItem): AskContext {
     url: item.url,
     sourceLabel: item.sourceLabel,
     publishedAt: item.publishedAt,
-    summary: [item.oneLiner],
+    summary: [item.oneLiner, ...takeawayLines(item)],
     debate: item.debate,
     keywords: item.keywords,
     note: item.snippet ? { heading: '原文の抜粋', body: item.snippet } : undefined,
