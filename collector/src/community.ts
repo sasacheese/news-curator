@@ -10,6 +10,7 @@ import type {
   TopicsConfig,
 } from './types.js';
 import {
+  cleanUrl,
   fetchJson,
   hashId,
   jstDateString,
@@ -311,7 +312,7 @@ function toItem(
     id: hashId('community', normalizeUrl(ev.url)),
     action,
     title: ev.title.replace(/\s+/g, ' ').trim(),
-    url: normalizeUrl(ev.url),
+    url: cleanUrl(ev.url),
     organizer: ev.organizer?.trim() || null,
     startsAt: ev.startsAt.toISOString(),
     endsAt:
@@ -437,9 +438,10 @@ export function buildBoard(
 
     const item = toItem(ev, action, scale, venue, matchTopics(ev, topics.topics), now);
     // 同じイベントが 2 つのソースに出ることがある。構造化データが厚い connpass を残す
-    const existing = byUrl.get(item.url);
+    const key = normalizeUrl(item.url);
+    const existing = byUrl.get(key);
     if (existing && existing.sourceLabel.startsWith('connpass')) continue;
-    byUrl.set(item.url, item);
+    byUrl.set(key, item);
   }
 
   const out = ACTION_ORDER.flatMap((action) => {
@@ -855,7 +857,7 @@ export async function judgeSpeakItems(
   const body = speak
     .map((item, ref) => {
       const excerpt = truncate(
-        (descriptions.get(item.url) ?? item.what).replace(/\s+/g, ' ').trim(),
+        (descriptions.get(normalizeUrl(item.url)) ?? item.what).replace(/\s+/g, ' ').trim(),
         700,
       );
       return [

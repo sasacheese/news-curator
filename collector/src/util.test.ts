@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  cleanUrl,
   decodeEntities,
   isHttpUrl,
   jstDateString,
@@ -69,6 +70,31 @@ describe('jstDateString', () => {
   });
 });
 
+/*
+ * cleanUrl は保存・表示に使う URL、normalizeUrl は突き合わせ用のキー。
+ * ここを混ぜると `www.` を落とした URL が画面に出て、ITmedia や日経のように
+ * apex ドメインがトップページへ飛ばすサイトの記事に辿り着けなくなる。
+ */
+describe('cleanUrl', () => {
+  it('トラッキングパラメータとフラグメントを落とす', () => {
+    assert.equal(
+      cleanUrl('https://example.com/a?utm_source=x&utm_medium=y&id=7#top'),
+      'https://example.com/a?id=7',
+    );
+  });
+
+  it('www と末尾スラッシュは配信元の形のまま残す', () => {
+    assert.equal(
+      cleanUrl('https://www.itmedia.co.jp/news/article/2608/17/2000000563/'),
+      'https://www.itmedia.co.jp/news/article/2608/17/2000000563/',
+    );
+  });
+
+  it('URL として壊れていれば原文をそのまま返す', () => {
+    assert.equal(cleanUrl('not a url'), 'not a url');
+  });
+});
+
 describe('normalizeUrl', () => {
   it('トラッキングパラメータを落とす', () => {
     assert.equal(
@@ -87,6 +113,13 @@ describe('normalizeUrl', () => {
 
   it('URL として壊れていれば原文をそのまま返す', () => {
     assert.equal(normalizeUrl('not a url'), 'not a url');
+  });
+
+  it('www の有無だけが違う URL は同じキーになる', () => {
+    assert.equal(
+      normalizeUrl('https://www.itmedia.co.jp/news/article/2608/17/2000000563/'),
+      normalizeUrl('https://itmedia.co.jp/news/article/2608/17/2000000563'),
+    );
   });
 });
 
