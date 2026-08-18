@@ -267,15 +267,41 @@ export function detectLang(text: string): 'ja' | 'en' | 'unknown' {
   return 'unknown';
 }
 
-/** URL を比較しやすい形に正規化（トラッキングパラメータ除去など） */
-export function normalizeUrl(raw: string): string {
+/**
+ * 保存・表示する URL を整える。
+ *
+ * ここでやるのはフラグメントとトラッキングパラメータを落とすことだけ。
+ * ホスト名とパスは配信元が返した形のまま残す（`www.` と末尾スラッシュを
+ * 落とすと開けなくなるサイトがある。ITmedia と日経はパスを無視して
+ * トップページへ飛ばすので、記事に辿り着けなくなる）。
+ */
+export function cleanUrl(raw: string): string {
   try {
     const u = new URL(raw);
     u.hash = '';
     for (const key of [...u.searchParams.keys()]) {
-      if (/^(utm_|ref|ref_src|source|fbclid|gclid|mc_cid|mc_eid|__twitter)/i.test(key)) {
+      if (/^(utm_|ref_src|fbclid|gclid|mc_cid|mc_eid|__twitter)/i.test(key)) {
         u.searchParams.delete(key);
       }
+    }
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * URL を比較用のキーに落とす。
+ *
+ * `www.` の有無・末尾スラッシュ・大文字小文字だけが違う URL を同じ記事として
+ * 扱うための関数で、**この戻り値を保存したり画面に出したりしてはいけない**
+ * （開けない URL になる）。保存する URL は cleanUrl を使う。
+ */
+export function normalizeUrl(raw: string): string {
+  try {
+    const u = new URL(cleanUrl(raw));
+    for (const key of [...u.searchParams.keys()]) {
+      if (/^(ref|source)/i.test(key)) u.searchParams.delete(key);
     }
     u.hostname = u.hostname.replace(/^www\./, '').toLowerCase();
     if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '');

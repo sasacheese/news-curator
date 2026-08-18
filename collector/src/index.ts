@@ -38,7 +38,7 @@ import type {
   TopItem,
 } from './types.js';
 import { COMMUNITY_ACTIONS, LANES, LANE_LABELS } from './types.js';
-import { formatJst, log, mapLimit, resolveWindow, safe } from './util.js';
+import { formatJst, log, mapLimit, normalizeUrl, resolveWindow, safe } from './util.js';
 
 interface Args {
   date?: string;
@@ -148,7 +148,7 @@ async function main(): Promise<void> {
    * id が releases から消えるので、id だけで突き合わせると一覧に再登場してしまう。
    */
   const releaseUrls = new Set(
-    releases.flatMap((r) => [r.url, ...r.alsoReleased.map((a) => a.url)]),
+    releases.flatMap((r) => [r.url, ...r.alsoReleased.map((a) => a.url)]).map(normalizeUrl),
   );
 
   /* コミュニティ情報 -------------------------------------------------- */
@@ -340,7 +340,7 @@ async function main(): Promise<void> {
     rankedByLane(lane).filter(
       (item) =>
         !topIds.has(item.id) &&
-        !releaseUrls.has(item.url) &&
+        !releaseUrls.has(normalizeUrl(item.url)) &&
         item.score >= runtime.minOtherScore,
     ),
   );

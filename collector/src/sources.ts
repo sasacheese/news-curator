@@ -2,6 +2,7 @@ import type { SourcesConfig } from './config.js';
 import { fetchFeed } from './rss.js';
 import type { AuthorDetail, RawItem, SourceKind } from './types.js';
 import {
+  cleanUrl,
   detectLang,
   fetchJson,
   fetchText,
@@ -29,11 +30,13 @@ function inWindow(d: Date | null, w: Window): boolean {
 }
 
 function makeItem(partial: Omit<RawItem, 'id' | 'lang'> & { lang?: RawItem['lang'] }): RawItem {
-  const url = normalizeUrl(partial.url);
+  // 保存する URL は配信元の形を保つ。ID は正規化キーから作る（`www.` の有無で
+  // 同じ記事が別 ID になり、過去に出したものが再登場するのを防ぐ）。
+  const url = cleanUrl(partial.url);
   return {
     ...partial,
     url,
-    id: hashId(partial.source, url),
+    id: hashId(partial.source, normalizeUrl(url)),
     lang: partial.lang ?? detectLang(`${partial.title} ${partial.snippet}`),
     snippet: truncate(partial.snippet.replace(/\s+/g, ' ').trim(), 400),
   };
