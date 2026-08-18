@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DATA_DIR } from './config.js';
 import type { CommunityBoard, Digest, IndexEntry, Manifest } from './types.js';
-import { extractTerms, log, normalizeUrl } from './util.js';
+import { log, normalizeUrl } from './util.js';
 
 const DIGEST_DIR = resolve(DATA_DIR, 'digests');
 const INDEX_DIR = resolve(DATA_DIR, 'index');
@@ -48,58 +48,6 @@ export async function loadSeenUrls(days = 90): Promise<Set<string>> {
     for (const e of entries) seen.add(normalizeUrl(e.url));
   }
   return seen;
-}
-
-/**
- * レーン判定に使う「直近の記憶」を集める。
- *
- * - seenTerms: 過去に一度でも出てきた固有名詞。build レーンはこの補集合を
- *   「初出＝新しい」とみなす。関心キーワードでは新しいものを測れない
- *   （新しいものは、名前がまだ語彙に無いから新しい）ため、履歴で測る。
- * - recentTopicCounts: 直近で何をどれだけ扱ったか。同じテーマの続報を
- *   押し下げるのに使う。seenUrls は URL 一致しか見ないので、同じ話題が
- *   毎日別 URL で来ると素通りしていた。
- */
-export async function loadLaneContext(
-  beforeDate: string,
-  termDays = 60,
-  topicDays = 7,
-): Promise<{ seenTerms: Set<string>; recentTopicCounts: Map<string, number> }> {
-  await ensureDirs();
-  const seenTerms = new Set<string>();
-  const recentTopicCounts = new Map<string, number>();
-
-  let files: string[] = [];
-  try {
-    files = (await readdir(INDEX_DIR)).filter((f) => f.endsWith('.json')).sort().reverse();
-  } catch {
-    return { seenTerms, recentTopicCounts };
-  }
-
-  const topicCutoff = shiftDate(beforeDate, -topicDays);
-  const termCutoff = shiftDate(beforeDate, -termDays);
-  // 月別シャードなので、日数から必要なファイル数を割り出す
-  const limit = Math.max(2, Math.ceil(termDays / 30) + 1);
-
-  for (const file of files.slice(0, limit)) {
-    const entries = await readJsonOr<IndexEntry[]>(resolve(INDEX_DIR, file), []);
-    for (const e of entries) {
-      if (e.date >= beforeDate) continue;
-      if (e.date >= termCutoff) {
-        for (const t of extractTerms(e.title)) seenTerms.add(t);
-        for (const k of e.keywords ?? []) {
-          for (const t of extractTerms(k)) seenTerms.add(t);
-        }
-      }
-      if (e.date >= topicCutoff) {
-        for (const t of e.topics ?? []) {
-          recentTopicCounts.set(t, (recentTopicCounts.get(t) ?? 0) + 1);
-        }
-      }
-    }
-  }
-
-  return { seenTerms, recentTopicCounts };
 }
 
 /** YYYY-MM-DD を日数ぶんずらす */
@@ -182,7 +130,7 @@ export function toIndexEntries(digest: Digest): IndexEntry[] {
     url: item.url,
     source: item.source,
     sourceLabel: item.sourceLabel,
-    summary: item.deep.headline || item.oneLiner,
+    summary: item.oneLiner,
     keywords: item.keywords,
     topics: item.matchedTopics,
     category: item.category,

@@ -68,7 +68,13 @@ export interface RankedItem {
   matchedTopics: string[];
   score: number;
   oneLiner: string;
-  reason: string;
+  /**
+   * 「3行で要約」。専門用語を使わずに書いた 3 行。
+   * この機能より前の日は undefined で、代わりに reason（1 本の文）が入っている。
+   */
+  takeaways?: string[];
+  /** 旧「読みどころ」。takeaways 導入より前の日にだけ入っている */
+  reason?: string;
   keywords: string[];
   category: string;
   /** どの目的で選ばれたか。この機能より前の日は undefined */
@@ -131,17 +137,43 @@ export type Visual =
         direction: 'up-good' | 'down-good' | 'neutral';
         note: string | null;
       }[];
+    }
+  | {
+      /**
+       * 構成図。「何がどこを経由してどこへ届くか」。
+       * 任意のグラフにはしない——座標を生成させると線が交差して読めなくなるので、
+       * 上から下へ積む層に限っている。描画は層の数だけで一意に決まる。
+       */
+      type: 'architecture';
+      title: string;
+      layers: {
+        label: string;
+        nodes: {
+          name: string;
+          note: string | null;
+          /** 記事が論じている当のもの。「構成のどこの話か」を示す */
+          highlight: boolean;
+        }[];
+        /** 次の層へ何が渡るか。最後の層は null */
+        via: string | null;
+      }[];
     };
 
 export interface DeepDiveBase {
-  headline: string;
+  /** 記事の語彙をそのまま使った詳しい要約。平易な側は takeaways が引き受ける */
   summary: string;
   prerequisites?: Prerequisite[];
   visual?: Visual | null;
   code: { lang: string; caption: string; content: string } | null;
-  whyItMatters: string;
+  /**
+   * 「なぜ重要か」。いまは talk レーン（なぜ今この争点か）と
+   * レーン導入前の日だけが持つ。know / build では summary と重複していたので落とした。
+   */
+  whyItMatters?: string;
   relatedLinks: { label: string; url: string }[];
   readingMinutes: number;
+  /** 旧: サイト側で付けていた見出し。廃止したので過去日にだけ入っている */
+  headline?: string;
 }
 
 export interface KnowDeepDive extends DeepDiveBase {
@@ -161,14 +193,41 @@ export interface BuildDeepDive extends DeepDiveBase {
   caveats: string[];
 }
 
+/** 争点を論点ごとに分解した対。「A と言われるが B だ」の噛み合いを表す */
+export interface Clash {
+  point: string;
+  /** こう言われる（記事の立場） */
+  claim: string;
+  /** こう返せる（反対の立場） */
+  counter: string;
+  /** false なら counter は記事の外から補ったもの。記事の主張として引用させない */
+  counterInArticle?: boolean;
+}
+
+/** 読者が足せること。切り口と「なぜ自分が言えるか」の対 */
+export interface Firsthand {
+  /** 切り口の名前。名詞句のみ */
+  angle: string;
+  /** なぜこの読者がそれを言えるのか */
+  why: string;
+}
+
 export interface TalkDeepDive extends DeepDiveBase {
   lane: 'talk';
-  evidence: string[];
-  counterEvidence: string[];
-  whenItHolds: string[];
-  /** 語れる角度。名詞句のみ。文にはしない */
-  angles: string[];
+  /** 論点ごとの噛み合い（画面では「争点」）。この形より前の日は undefined */
+  clashes?: Clash[];
+  /** 読者が足せること（画面では「一次情報を出すとしたら？」） */
+  firsthand?: Firsthand[];
   verify: string[];
+  /* 以下は clashes / firsthand 導入より前の日にだけ入っている */
+  /** 旧: 賛成側の根拠 */
+  evidence?: string[];
+  /** 旧: 反対側の根拠 */
+  counterEvidence?: string[];
+  /** 旧: 成り立つ条件・崩れる条件 */
+  whenItHolds?: string[];
+  /** 旧: 語れる角度（名詞句のみ、根拠なし） */
+  angles?: string[];
 }
 
 /**

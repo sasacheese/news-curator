@@ -159,6 +159,14 @@ describe('decodeEntities', () => {
     assert.equal(decodeEntities('A&amp;B'), 'A&B');
   });
 
+  it('二重エスケープされた & だけは 1 文字まで戻す', () => {
+    // 元 HTML が二重エスケープしていた製品名。1 段だけだと画面に「&amp;」が出る
+    assert.equal(decodeEntities('O&amp;amp;O ShutUp 10'), 'O&O ShutUp 10');
+    assert.equal(decodeEntities('Apple Intelligence &amp;amp; Siri'), 'Apple Intelligence & Siri');
+    // 「&lt;」を書きたかったケースは巻き込まない
+    assert.equal(decodeEntities('&amp;lt;div&amp;gt;'), '&lt;div&gt;');
+  });
+
   it('壊れた参照は落とさずそのまま残す', () => {
     assert.equal(decodeEntities('&nope; &# &#x;'), '&nope; &# &#x;');
   });

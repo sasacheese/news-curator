@@ -85,3 +85,16 @@ export const SOURCE_LABELS: Record<string, string> = {
   changelog: 'CHANGELOG',
   rss: '公式ブログ / RSS',
 };
+
+/**
+ * 「3行で要約」の行を取り出す。
+ *
+ * takeaways 導入より前の日は reason（1 本の文）しか持っていないので、
+ * それを 1 行として扱う。過去日を開いたときに何も出ないのを避けるため。
+ */
+export function takeawayLines(item: { takeaways?: string[]; reason?: string }): string[] {
+  const lines = (item.takeaways ?? []).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 0) return lines;
+  const legacy = item.reason?.trim();
+  return legacy ? [legacy] : [];
+}

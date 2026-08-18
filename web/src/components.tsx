@@ -36,6 +36,32 @@ export function BuzzChip() {
   );
 }
 
+/**
+ * 「3行で要約」。
+ *
+ * 専門用語を一切使わずに、記事が何を言っているかだけを 3 行で置く。畳んだカードでも
+ * 一覧でもこれが出るので、**開かなくても話が分かる**ことをここが引き受ける。
+ * 対になっているのはカード内の要約（summary）で、あちらは記事の語彙をそのまま使って
+ * 詳しく書く（分からない語は前提知識としてその場で開ける）。
+ *
+ * 以前は「読みどころ」という 1 本の文だったが、名前と中身が合っておらず——
+ * 実際に返ってきていたのは要約——カード内の要約と二重に読ませていた。
+ * 平易さと詳しさで役割を割り直したのがこの形。
+ */
+export function Takeaways({ lines, compact }: { lines: string[]; compact?: boolean }) {
+  if (lines.length === 0) return null;
+  return (
+    <div className={compact ? 'takeaways takeaways--compact' : 'takeaways'}>
+      <span className="takeaways__label">3行で要約</span>
+      <ul className="takeaways__list">
+        {lines.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** 全期間を選んだことを表す値。月の文字列と混ざらないようにしている */
 export const ALL_MONTHS = '*';
 

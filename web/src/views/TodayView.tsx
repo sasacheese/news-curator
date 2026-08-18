@@ -10,12 +10,21 @@ import { Annotated } from '../Annotated';
 import { AskClaudeButton } from '../AskClaudeButton';
 import { askContextForTop } from '../askClaude';
 import { BuzzChip } from '../components';
-import { Chip, CopyButton, Empty, Notice, ShareButtons } from '../components';
+import { Chip, CopyButton, Empty, Notice, ShareButtons, Takeaways } from '../components';
 import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
 import { groupByLane } from '../lanes';
-import type { DeepDive, Digest, Manifest, Prerequisite, RankedItem, TopItem } from '../types';
-import { formatDateLabel, formatPublished, metricSummary, safeUrl } from '../format';
+import type {
+  Clash,
+  Debate,
+  DeepDive,
+  Digest,
+  Manifest,
+  Prerequisite,
+  RankedItem,
+  TopItem,
+} from '../types';
+import { formatDateLabel, formatPublished, metricSummary, safeUrl, takeawayLines } from '../format';
 
 /**
  * 読み込み中の骨組み。
@@ -337,7 +346,7 @@ function Toc({ digest }: { digest: Digest }) {
   for (const g of groupByLane(digest.top, 'top')) {
     entries.push({ id: g.id, label: `${g.label} ${g.items.length}` });
     for (const item of g.items) {
-      entries.push({ id: cardDomId(item.id), label: item.deep.headline, nested: true });
+      entries.push({ id: cardDomId(item.id), label: item.title, nested: true });
     }
   }
   if (digest.releases?.length) {
@@ -369,6 +378,7 @@ function Toc({ digest }: { digest: Digest }) {
 function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
   const d = item.deep;
   const pr = d.prerequisites ?? [];
+  const takeaways = takeawayLines(item);
   return (
     /*
      * 畳んだ状態を既定にする。カード 1 枚が長く、6 枚並ぶとスクロール量が多いため。
@@ -387,14 +397,13 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           <Chip>約 {d.readingMinutes} 分</Chip>
           {metricSummary(item.metrics) && <Chip>{metricSummary(item.metrics)}</Chip>}
         </div>
-        <h3 className="card__headline">{d.headline}</h3>
-        <p className="card__source-title">{item.title}</p>
-        {item.reason && (
-          <p className="card__lens">
-            <span className="card__lens-label">読みどころ</span>
-            {item.reason}
-          </p>
-        )}
+        {/*
+          * 見出しは元記事のタイトルそのもの。以前はサイト側で付けた headline を
+          * 大きく出し、その下に元題を小さく添えていたが、headline は oneLiner・
+          * 3行要約・summary に続く 4 つ目の要約で、読まれていなかった。
+          */}
+        <h3 className="card__headline">{item.title}</h3>
+        <Takeaways lines={takeaways} />
         <span className="card__toggle" aria-hidden="true" />
       </summary>
 
@@ -414,8 +423,15 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           <Annotated text={d.summary} prerequisites={pr} idPrefix={`${item.id}-sum`} />
         </p>
 
-        {/* 争点は要約のすぐ下に置く。カードを開いた時点で立場を決められるように */}
-        {item.debate && <DebateScaffold debate={item.debate} />}
+        {/*
+          * 新しい形（clashes を持つ日）では、争点は下の「争点」項目がまとめて担う
+          * ——1 行の争点も論点ごとの対も同じ見出しの下に置く。ここに二列ブロックを
+          * 出すと、同じ対立を 2 回読ませることになる。
+          * 旧形式の日は、従来どおりここで二列ブロックを出す。
+          */}
+        {item.debate && !(d.lane === 'talk' && d.clashes?.length) && (
+          <DebateScaffold debate={item.debate} />
+        )}
 
         {(d.prerequisites?.length ?? 0) > 0 && (
           <details className="prereq">
@@ -442,7 +458,7 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
 
         {d.visual && <VisualFigure visual={d.visual} />}
 
-        <CardBody deep={d} itemId={item.id} prerequisites={pr} />
+        <CardBody deep={d} itemId={item.id} prerequisites={pr} debate={item.debate} />
 
         {d.relatedLinks.length > 0 && (
           <Detail label="関連リンク">
@@ -478,7 +494,7 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
         </a>
         {/* 読んだ直後に詰まったところを聞く動線なので、元記事リンクの隣に置く */}
         <AskClaudeButton context={askContextForTop(item)} />
-        <ShareButtons url={item.url} tweetText={d.headline} />
+        <ShareButtons url={item.url} tweetText={item.oneLiner} />
         <FeedbackButtons
           target={{
             id: item.id,
@@ -553,10 +569,13 @@ function CardBody({
   deep,
   itemId,
   prerequisites,
+  debate,
 }: {
   deep: DeepDive;
   itemId: string;
   prerequisites: Prerequisite[];
+  /** 話す レーンのとき、「争点」項目の頭に置く 1 行として使う */
+  debate?: Debate | null;
 }) {
   const list = (label: string, items: string[], key: string, caveat = false) =>
     items.length > 0 ? (
@@ -583,6 +602,7 @@ function CardBody({
       </Detail>
     ) : null;
 
+  /** いまは talk（なぜ今この争点か）と、レーン導入前の日だけが使う */
   const why = (label: string) =>
     deep.whyItMatters ? (
       <Detail label={label}>
@@ -602,8 +622,8 @@ function CardBody({
         <>
           {list('誰に効くか', deep.impact, 'impact')}
           {list('いつから', deep.timeline, 'when')}
-          {steps('今日の確認', deep.checkNow)}
-          {why('知らないと何を間違えるか')}
+          {/* 「確認する」だけで終わらせず、何をするかまで書かせている */}
+          {steps('必要なアクション', deep.checkNow)}
           {/* 進行中の事象で、推測を確定として読ませないための枠 */}
           {list('まだ確定していないこと', deep.unknowns, 'unknown', true)}
         </>
@@ -612,24 +632,58 @@ function CardBody({
       return (
         <>
           {list('できるようになること', deep.unlocks, 'unlock')}
+          {/*
+            * 「自分に関係があるか」を先に決められるよう、試し方より上に置く。
+            * 中身は人物像ではなく、読者が YES / NO で即答できる条件。
+            */}
+          {list('効く条件', deep.fitFor, 'fit')}
+          {list('効かない条件', deep.notFor, 'notfit')}
           {steps('試し方', deep.howToTry)}
-          {list('向いている場面', deep.fitFor, 'fit')}
-          {list('向いていない場面', deep.notFor, 'notfit')}
-          {why('既存の何を置き換えるか')}
           {list('注意点', deep.caveats, 'caveat', true)}
         </>
       );
     case 'talk':
+      // clashes を持たない日（この形より前）は、下の旧形式で描く
+      if (deep.clashes?.length) {
+        return (
+          <>
+            <Detail label="争点">
+              {/* 争点の 1 行 → 論点ごとの対。見出しを 2 つに割らず 1 つにまとめる */}
+              {debate?.axis && <p className="clashes__axis">{debate.axis}</p>}
+              <ClashList clashes={deep.clashes} />
+            </Detail>
+            {/*
+              * 中心の問い「この争点に、自分の経験から何を足せるか」に直接答える項目。
+              * 切り口だけでは足りない——発信の障壁は「これを自分が言っていいのか」なので、
+              * なぜ言えるのかを対で見せる。
+              */}
+            {(deep.firsthand?.length ?? 0) > 0 && (
+              <Detail label="一次情報を出すとしたら？">
+                <ul className="firsthand">
+                  {deep.firsthand!.map((f, i) => (
+                    <li key={i}>
+                      <span className="firsthand__angle">{f.angle}</span>
+                      <span className="firsthand__why">{f.why}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="angles__note">切り口だけです。どう書くかはご自身の言葉でどうぞ。</p>
+              </Detail>
+            )}
+            {steps('確かめられること', deep.verify)}
+          </>
+        );
+      }
       return (
         <>
-          {list('賛成側の根拠', deep.evidence, 'ev')}
-          {list('反対側の根拠', deep.counterEvidence, 'cev')}
-          {list('成り立つ条件・崩れる条件', deep.whenItHolds, 'when')}
+          {list('賛成側の根拠', deep.evidence ?? [], 'ev')}
+          {list('反対側の根拠', deep.counterEvidence ?? [], 'cev')}
+          {list('成り立つ条件・崩れる条件', deep.whenItHolds ?? [], 'when')}
           {/* 名詞句だけを並べる。文にすると意見の代筆になり、読者の言葉でなくなる */}
-          {deep.angles.length > 0 && (
+          {(deep.angles?.length ?? 0) > 0 && (
             <Detail label="語れる角度">
               <ul className="angles">
-                {deep.angles.map((a, i) => (
+                {deep.angles!.map((a, i) => (
                   <li key={i}>{a}</li>
                 ))}
               </ul>
@@ -654,6 +708,44 @@ function CardBody({
         </>
       );
   }
+}
+
+/**
+ * 論点ごとの噛み合い。
+ *
+ * 以前は「賛成側の根拠」「反対側の根拠」を別々の箇条書きで並べていた。平行な 2 つの
+ * リストは噛み合いを表現できず、読者が頭の中で対応づける必要があった（実測では
+ * 対応していない項目も混ざっていた）。論点を見出しにして左右に対で置く。
+ *
+ * 左右に並べるのは DebateScaffold と同じ理由——縦に積むと上が結論に見える。
+ */
+function ClashList({ clashes }: { clashes: Clash[] }) {
+  return (
+    <div className="clashes">
+      {clashes.map((c, i) => (
+        <div className="clash" key={i}>
+          <p className="clash__point">{c.point}</p>
+          <div className="clash__sides">
+            <div className="clash__side">
+              <p className="clash__side-label">こう言われる</p>
+              <p className="clash__side-body">{c.claim}</p>
+            </div>
+            <div className="clash__side clash__side--counter">
+              <p className="clash__side-label">
+                こう返せる
+                {/*
+                  記事に無い反論をそのまま引用すると「記事にはこう書いてある」と
+                  誤って紹介することになる。出所が違うことは形として見せる。
+                */}
+                {c.counterInArticle === false && <span className="debate__tag">記事の外</span>}
+              </p>
+              <p className="clash__side-body">{c.counter}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function CodeBlock({ code }: { code: DeepDive['code'] }) {

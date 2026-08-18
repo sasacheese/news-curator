@@ -92,8 +92,8 @@ function selection(a: Digest, b: Digest): void {
     if (!counterpart || shown >= 3) continue;
     shown++;
     console.log(`\n  ${i.title.slice(0, 60)}`);
-    console.log(`    A: ${counterpart.reason || '(空)'}`);
-    console.log(`    B: ${i.reason || '(空)'}`);
+    console.log(`    A: ${counterpart.takeaways?.join(' / ') || '(空)'}`);
+    console.log(`    B: ${i.takeaways?.join(' / ') || '(空)'}`);
   }
 }
 

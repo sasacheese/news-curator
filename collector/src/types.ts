@@ -93,6 +93,7 @@ export interface PreScoredItem extends RawItem {
 export const LANES = ['know', 'build', 'talk'] as const;
 export type Lane = (typeof LANES)[number];
 
+/** 実行ログ・LLM への指示・画面で共通の表示名 */
 export const LANE_LABELS: Record<Lane, string> = {
   know: '知る',
   build: '作る',
@@ -142,7 +143,15 @@ export type Durability = (typeof DURABILITIES)[number];
 export interface RankedItem extends PreScoredItem {
   score: number;
   oneLiner: string;
-  reason: string;
+  /**
+   * 「3行で要約」。専門用語・固有名詞を使わずに、記事が何を言っているかだけを書く。
+   *
+   * 深掘りカードの summary とは**書く語彙が違う**。あちらは記事の語彙をそのまま使って
+   * 詳しく書き（分からない語は prerequisites でその場で開ける）、こちらは開かなくても
+   * 誰でも読めることだけを引き受ける。以前は 1 つの `reason` が両方を兼ねようとして、
+   * 結果どちらでもない中間の文になっていた。
+   */
+  takeaways: string[];
   keywords: string[];
   category: string;
   /** どの目的で選ばれたか。選定・表示の単位 */
@@ -188,6 +197,7 @@ export interface UsageReport {
  * - comparison: 変更前後の対比。テキストの対比なのでチャートではなく 2 カラム表
  * - flow: 処理や手順の流れ。ステップ図
  * - metrics: 数値の改善。2 本だけの棒グラフはアンチパターンなので stat tile
+ * - architecture: 何がどこを経由してどこへ届くか。層を縦に積む
  */
 export type Visual =
   | {
@@ -213,27 +223,53 @@ export type Visual =
         direction: 'up-good' | 'down-good' | 'neutral';
         note: string | null;
       }[];
+    }
+  | {
+      /**
+       * 構成図。「何がどこを経由してどこへ届くか」。
+       * 任意のグラフにはしない——座標を生成させると線が交差して読めなくなるので、
+       * 上から下へ積む層に限っている。描画は層の数だけで一意に決まる。
+       */
+      type: 'architecture';
+      title: string;
+      layers: {
+        label: string;
+        nodes: {
+          name: string;
+          note: string | null;
+          /** 記事が論じている当のもの。「構成のどこの話か」を示す */
+          highlight: boolean;
+        }[];
+        /** 次の層へ何が渡るか。最後の層は null */
+        via: string | null;
+      }[];
     };
 
 /**
  * 深掘りカードの共通部分。
  *
- * 「何が変わるか」と「何ができるようになるか」は、以前は別項目だったが
- * 同じ差分を二度書いていた。3 レーンとも見ているのは同じ差分で、見る向きが
- * 違うだけなので、レーンごとに 1 項目へ統合してある。
+ * 差分（何が変わるか / 何ができるようになるか）はレーンごとに 1 項目へ統合してある。
+ * 3 レーンとも見ているのは同じ差分で、見る向きが違うだけ。
  *
  * - know : 自分への影響として見る → impact
  * - build: 可能性の広がりとして見る → unlocks（「これまで◯◯ → これから△△」の形）
  * - talk : そもそも差分ではなく立場の対立なので、どちらも持たない
+ *
+ * headline は廃止した。oneLiner・takeaways・summary と 4 つ目の要約になっていて、
+ * 実測で 1 つの事実が 5 箇所に書かれていた。カードの見出しは元記事のタイトルにする。
  */
 export interface DeepDiveBase {
-  headline: string;
+  /**
+   * 記事の内容の要約。**記事の語彙をそのまま使って詳しく書く。**
+   *
+   * 平易さは takeaways（3行で要約）が引き受けるので、ここでは易しくしない。
+   * 分からない語は prerequisites がその場で開ける形で補う——だから
+   * prerequisites.term は「summary で自分が使った語」と揃えさせている。
+   */
   summary: string;
   prerequisites: Prerequisite[];
   visual: Visual | null;
   code: { lang: string; caption: string; content: string } | null;
-  /** レーンごとに問いを変える。know なら「知らないと何を間違えるか」 */
-  whyItMatters: string;
   relatedLinks: { label: string; url: string }[];
   readingMinutes: number;
 }
@@ -241,11 +277,14 @@ export interface DeepDiveBase {
 /** 知る: 読者が知りたいのは使い方ではなく「自分がどう巻き込まれるか」 */
 export interface KnowDeepDive extends DeepDiveBase {
   lane: 'know';
-  /** 誰の・どの構成に効くか。バージョン範囲・対象環境・条件 */
+  /** 誰の・どの構成に効くか。1 行ずつ・条件だけ */
   impact: string[];
-  /** いつ起きた / いつから効く / 期限。廃止や移行は日付が本体 */
+  /** 日付が本体の情報だけ。1 行ずつ。報道の経緯ではなく読者の期限 */
   timeline: string[];
-  /** 該当するか調べる方法・見るべき設定・暫定回避。「試す」ではなく「確認する」 */
+  /**
+   * 読者がいま取るアクション（画面では「必要なアクション」）。
+   * 該当するか調べるコマンド・見るべき設定・暫定回避。「試す」ではなく「確認して対処する」。
+   */
   checkNow: string[];
   /** 進行中の事象で、事実と推測の境目。確定していないことを確定として書かせない */
   unknowns: string[];
@@ -254,31 +293,75 @@ export interface KnowDeepDive extends DeepDiveBase {
 /** 作る: 読者はこのカードを読んでそのまま手を動かす */
 export interface BuildDeepDive extends DeepDiveBase {
   lane: 'build';
-  /** できるようになること。「これまで◯◯ → これから△△」の差分形で書く */
+  /**
+   * できるようになること。「これまで◯◯ → これから△△」の差分形で、
+   * **いちばん重要なものだけ**。付随機能を並べると、何が新しいのか分からなくなる。
+   */
   unlocks: string[];
   howToTry: string[];
-  /** 向いている場面。新しい道具ほど適用範囲が狭いのに、そこが書かれない */
+  /**
+   * 「自分に効くか」を読者が YES / NO で答えられる条件（画面では「効く条件」）。
+   *
+   * 以前は「向いている場面」で、人物像（「効率化したい開発者」）が返ってきていた。
+   * それは誰にでも当てはまるので判定に使えない。観測できる状態で書かせる。
+   */
   fitFor: string[];
-  /** 向いていない場面 */
+  /** 当てはまったら読まなくてよい条件（画面では「効かない条件」） */
   notFor: string[];
+  /** 知らないと詰まる・金がかかる・壊れる、のどれかに当たるものだけ */
   caveats: string[];
 }
 
-/** 話す: 投稿に引用できる粒度の具体を渡す。意見の下書きは作らない */
+/**
+ * 争点を論点ごとに分解した対。
+ *
+ * 以前は賛成側の根拠と反対側の根拠を別々の平行なリストで持っていた。読者が頭の中で
+ * 対応づけないと噛み合いが見えず、実測では対応していない項目も混ざっていた
+ * （記事と同じ立場の補強が「反対側の根拠」に入っていた）。議論の形は
+ * 「A と言われるが B だ」という噛み合いなので、対で持つ。
+ */
+export interface Clash {
+  /** 何について争っているか。名詞句 */
+  point: string;
+  /** こう言われる（記事の立場） */
+  claim: string;
+  /** こう返せる（反対の立場）。claim と必ず噛み合っていること */
+  counter: string;
+  /**
+   * その反論が記事の中にあるか。false のとき counter は記事の外から補ったものなので、
+   * 記事の主張として引用してはいけないことを画面で示す。
+   */
+  counterInArticle: boolean;
+}
+
+/**
+ * 読者が自分の経験からこの争点に足せること（画面では「一次情報を出すとしたら？」）。
+ *
+ * 発信の最大の障壁は「これを自分が言っていいのか」なので、切り口の名前だけでは足りない。
+ * **なぜこの読者がそれを言えるのか**を対で持たせる。
+ */
+export interface Firsthand {
+  /** 書ける切り口の名前。**名詞句だけ**。文にすると意見の代筆になる */
+  angle: string;
+  /** なぜこの読者がそれを言えるのか。読者プロフィールとの接点 */
+  why: string;
+}
+
+/**
+ * 話す: 発信するための材料を渡す。意見の下書きは作らない。
+ *
+ * このレーンの行動変容は「発信したくなること」で、カードの中心の問いは
+ * **「この争点に、自分の経験から何を足せるか」**。両側の言い分が分かっても人は発信しない
+ * （それで得られるのは「詳しくなった」状態）。発信が起きるのは、自分の手元にある事実が
+ * この議論の材料になると気づいた瞬間なので、そこを名指しする。
+ */
 export interface TalkDeepDive extends DeepDiveBase {
   lane: 'talk';
-  /** 賛成側が引ける数字・事例 */
-  evidence: string[];
-  /** 反対側が引ける具体。記事の外から補ったものは明示する */
-  counterEvidence: string[];
-  /** 成り立つ条件 / 崩れる条件。優先順位の対立を条件の形にする */
-  whenItHolds: string[];
-  /**
-   * 語れる角度。**名詞句だけ**を並べ、文にしない。
-   * 文にすると意見の代筆になり、読者自身の言葉でなくなる。
-   */
-  angles: string[];
-  /** 自分の環境で主張の真偽を確かめる方法。無ければ空 */
+  /** 論点ごとの噛み合い（画面では「争点」） */
+  clashes: Clash[];
+  /** 読者が足せること（画面では「一次情報を出すとしたら？」） */
+  firsthand: Firsthand[];
+  /** 自分の環境で主張の真偽を確かめる方法（画面では「確かめられること」）。無ければ空 */
   verify: string[];
 }
 

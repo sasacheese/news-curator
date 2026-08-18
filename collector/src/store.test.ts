@@ -31,7 +31,7 @@ function ranked(over: Partial<RankedItem> & { id: string }): RankedItem {
     matchedTopics: [],
     score: 50,
     oneLiner: `${over.id} の要約`,
-    reason: '関心に近い',
+    takeaways: ['関心に近い'],
     keywords: [],
     category: 'AI/エージェント',
     lane: 'know',
@@ -43,15 +43,13 @@ function ranked(over: Partial<RankedItem> & { id: string }): RankedItem {
   };
 }
 
-function deep(headline: string): KnowDeepDive {
+function deep(): KnowDeepDive {
   return {
     lane: 'know',
-    headline,
     summary: '',
     prerequisites: [],
     visual: null,
     code: null,
-    whyItMatters: '',
     relatedLinks: [],
     readingMinutes: 3,
     impact: [],
@@ -62,7 +60,7 @@ function deep(headline: string): KnowDeepDive {
 }
 
 function top(over: Partial<RankedItem> & { id: string }, rank = 1): TopItem {
-  return { ...ranked(over), rank, deep: deep(`${over.id} の見出し`) };
+  return { ...ranked(over), rank, deep: deep() };
 }
 
 function release(over: Partial<ReleaseItem> & { id: string }): ReleaseItem {
@@ -133,7 +131,7 @@ describe('toIndexEntries', () => {
     assert.ok(entry);
     assert.equal(entry.rank, 2);
     assert.equal(entry.score, 62);
-    assert.equal(entry.summary, 'dup の見出し');
+    assert.equal(entry.summary, 'dup の要約');
   });
 
   it('落とす側の keyword は拾う', () => {

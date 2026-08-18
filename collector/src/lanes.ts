@@ -1,6 +1,5 @@
 import type { Lane, PreScoredItem } from './types.js';
 import { LANES } from './types.js';
-import { extractTerms } from './util.js';
 
 /* ------------------------------------------------------------------ *
  * レーンの事前フィルタ
@@ -11,7 +10,7 @@ import { extractTerms } from './util.js';
  *
  *   - 大きな話題は読者の関心と独立に成立する（サプライチェーン攻撃も
  *     ハードウェアの価格高騰も topics.json には無い）→ 一致で測れない
- *   - 新しいものは、名前がまだ語彙に無いから新しい → 一致とは逆を向く
+ *   - 試したくなるかは「今日動かせる形か」で決まる → 一致では測れない
  *   - 意見が言える記事は二次情報が多い → 一次情報優遇と逆を向く
  *
  * なので目的ごとに別の信号で絞る。3 レーン × 50 件で、LLM に渡す総数は
@@ -91,18 +90,6 @@ export interface LaneAffinity {
   talk: number;
 }
 
-export interface LaneContext {
-  /** 直近のダイジェストに出てきた語。build レーンの「初出性」に使う */
-  seenTerms: ReadonlySet<string>;
-  /** 直近のダイジェストで扱ったトピック名の頻度。know レーンの続報抑制に使う */
-  recentTopicCounts: ReadonlyMap<string, number>;
-}
-
-export const EMPTY_LANE_CONTEXT: LaneContext = {
-  seenTerms: new Set(),
-  recentTopicCounts: new Map(),
-};
-
 function haystack(item: PreScoredItem): string {
   // 本文の頭だけ見る。長いリリースノートの末尾まで拾うと語彙判定が当たらなくなる
   return `${item.title} ${item.tags.join(' ')} ${item.snippet} ${(item.body ?? '').slice(0, 2000)}`.toLowerCase();
@@ -161,25 +148,28 @@ function knowScore(item: PreScoredItem, hay: string): number {
  * build: 可能性の差分 × 触れる実体。
  *
  * 「速くなった・便利になった」は程度の改善で、差分ではない。それを語彙で
- * 見分けるのは無理なので、ここでは「初出であること」「今日試せる形をしていること」
- * までを機械的に測り、可能性の差分そのものの判定は LLM に渡す。
+ * 見分けるのは無理なので、ここでは「今日試せる形をしていること」までを機械的に測り、
+ * 可能性の差分そのものの判定は LLM に渡す。
+ *
+ * **「初出性」（過去のダイジェストに出ていない語の割合）は使わない。**
+ * 以前は最大の重み（0.3）を与えていたが、あれは新しさではなく**無名さ**を測っていた。
+ * 無名な語だけで構成されたタイトル——個人の小さなリポジトリ——が満点を取り、
+ * 有名なツールの重要なリリースは語が既知なので沈む。実測で 1 位が誰も知らない
+ * 個人リポジトリになったのはこれが原因で、出たことのない単語だから価値がある、
+ * という前提そのものが成り立っていなかった。
+ *
+ * 重みは「触れる実体」に寄せてある。このレーンの行動変容は「試したくなる」なので、
+ * 今日インストールして動かせる形をしているかが、いちばん効く証拠になる。
  *
  * どのレーンにも寄らなかったものが落ちてくる既定のレーンでもあるので、
  * 既存の関心トピック一致（preScore）もここで効かせる。従来の
  * 「自分のスタックの実装ノウハウ」はこのレーンに吸収される。
  */
-function buildScore(item: PreScoredItem, hay: string, ctx: LaneContext): number {
+function buildScore(item: PreScoredItem, hay: string): number {
   const debut = saturate(hits(hay, DEBUT_TERMS), 1);
   const tangible = item.source === 'github_repo' ? 1 : saturate(hits(hay, TANGIBLE_TERMS), 1);
 
-  // タイトルに含まれる語のうち、過去のダイジェストで一度も見ていない割合
-  const terms = extractTerms(item.title);
-  const unseen = terms.filter((t) => !ctx.seenTerms.has(t)).length;
-  const novelty = terms.length === 0 ? 0 : unseen / terms.length;
-
-  return clamp01(
-    novelty * 0.3 + debut * 0.25 + tangible * 0.2 + item.preScore * 0.25,
-  );
+  return clamp01(tangible * 0.4 + debut * 0.35 + item.preScore * 0.25);
 }
 
 /**
@@ -207,11 +197,11 @@ function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
 }
 
-export function laneAffinity(item: PreScoredItem, ctx: LaneContext): LaneAffinity {
+export function laneAffinity(item: PreScoredItem): LaneAffinity {
   const hay = haystack(item);
   return {
     know: knowScore(item, hay),
-    build: buildScore(item, hay, ctx),
+    build: buildScore(item, hay),
     talk: talkScore(item, hay),
   };
 }
@@ -256,10 +246,9 @@ export interface LaneSelection {
 export function selectLaneCandidates(
   items: readonly PreScoredItem[],
   perLane: number,
-  ctx: LaneContext,
   thresholds: LaneThresholds,
 ): LaneSelection {
-  const scored = items.map((item) => ({ item, affinity: laneAffinity(item, ctx) }));
+  const scored = items.map((item) => ({ item, affinity: laneAffinity(item) }));
 
   const buckets: Record<Lane, typeof scored> = { know: [], build: [], talk: [] };
   for (const entry of scored) buckets[assignLane(entry.affinity, thresholds)].push(entry);

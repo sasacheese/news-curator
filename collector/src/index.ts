@@ -20,7 +20,6 @@ import { collectReleaseCandidates, extractReleases, sortReleases } from './relea
 import { collectAdvisories } from './advisories.js';
 import { collectAll } from './sources.js';
 import {
-  loadLaneContext,
   loadPreviousCommunityIds,
   loadRecentSummaries,
   loadSeenUrls,
@@ -160,8 +159,7 @@ async function main(): Promise<void> {
    * コミットされ、過去日を開いたときに終わったイベントが並ぶ。画面も
    * 「今日」ではなく専用タブに出す。
    *
-   * 記事の重複排除にも検索インデックスにも通さない（イベントのタイトルで
-   * seenTerms が汚れると、build レーンの「初出性」判定がずれる）。
+   * 記事の重複排除にも検索インデックスにも通さない。
    */
   log.step('コミュニティ');
   const community = await communityTask;
@@ -197,16 +195,9 @@ async function main(): Promise<void> {
    * 絞っていたことになる。大きな話題も新しい道具も、その網には掛からない。
    * 絞り込みは preScored 全件を母集団にして、目的ごとに行う。
    */
-  const laneCtx = await safe('lane-context', () => loadLaneContext(date), {
-    seenTerms: new Set<string>(),
-    recentTopicCounts: new Map<string, number>(),
-  });
-  log.info(`  既出の語 ${laneCtx.seenTerms.size} 件を「新しさ」の判定に使用`);
-
   const selection = selectLaneCandidates(
     preScored,
     runtime.laneCandidates,
-    laneCtx,
     runtime.laneThresholds,
   );
   const candidates = LANES.flatMap((lane) => selection.candidates[lane]);
@@ -330,7 +321,7 @@ async function main(): Promise<void> {
   const top: TopItem[] = await mapLimit(topCandidates, 3, async (item) => {
     const withBody = { ...item, ...(enrichedById.get(item.id) ?? {}) } as RankedItem;
     const deep = await deepDive(withBody, topics, runtime);
-    log.info(`  [${LANE_LABELS[item.lane]}] #${rankOf.get(item.id)} ${deep.headline}`);
+    log.info(`  [${LANE_LABELS[item.lane]}] #${rankOf.get(item.id)} ${item.oneLiner}`);
     return { ...withBody, rank: rankOf.get(item.id) ?? 1, deep };
   });
 
@@ -353,7 +344,7 @@ async function main(): Promise<void> {
 
   // 選定は ranked 全体に届くので、要約対象の外から拾うことが原理的にありうる。
   // 起きたら気づけるようにしておく（黙って本文の切り出しが出るのが一番まずい）
-  const undescribed = [...top, ...others].filter((i) => !i.reason);
+  const undescribed = [...top, ...others].filter((i) => i.takeaways.length === 0);
   if (undescribed.length > 0) {
     log.warn(
       `  要約されていない項目が ${undescribed.length} 件選ばれました: ${undescribed
