@@ -620,7 +620,8 @@ function CardBody({
     case 'know':
       return (
         <>
-          {list('誰に効くか', deep.impact, 'impact')}
+          {/* 「〜な人」を淡々と並べる。該当するかを目で拾うためだけの一覧 */}
+          {list('関係がある人', deep.impact, 'impact')}
           {list('いつから', deep.timeline, 'when')}
           {/* 「確認する」だけで終わらせず、何をするかまで書かせている */}
           {steps('必要なアクション', deep.checkNow)}
@@ -636,15 +637,30 @@ function CardBody({
             * 「自分に関係があるか」を先に決められるよう、試し方より上に置く。
             * 中身は人物像ではなく、読者が YES / NO で即答できる条件。
             */}
-          {list('効く条件', deep.fitFor, 'fit')}
-          {list('効かない条件', deep.notFor, 'notfit')}
+          {list('使える場面', deep.fitFor, 'fit')}
+          {list('向かない場面', deep.notFor, 'notfit')}
           {steps('試し方', deep.howToTry)}
           {list('注意点', deep.caveats, 'caveat', true)}
         </>
       );
     case 'talk':
-      // clashes を持たない日（この形より前）は、下の旧形式で描く
-      if (deep.clashes?.length) {
+      /*
+       * clashes フィールドの有無で新旧を分ける（長さでは分けない）。
+       *
+       * 空配列は「新しい形で、かつモデルが争点を組み立てられなかった」を意味する。
+       * 実測で、本文が実質ジョークの記事（1,714 字あるので長さでは弾けない）に対して
+       * モデルが正しく生成を拒み、clashes も firsthand も 0 件で返ってきた日があった。
+       * これを長さで旧形式へ落とすと、旧項目も無いのでカード本体が丸ごと空になる。
+       * もっともらしい空の箇条書きを並べるより、組み立てられなかったことを見せる。
+       */
+      if (deep.clashes) {
+        if (deep.clashes.length === 0 && !deep.firsthand?.length) {
+          return (
+            <p className="card__empty">
+              この記事からは争点を組み立てられませんでした。元記事とコメントを直接ご覧ください。
+            </p>
+          );
+        }
         return (
           <>
             <Detail label="争点">
