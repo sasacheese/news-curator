@@ -87,6 +87,17 @@ export const SOURCE_LABELS: Record<string, string> = {
 };
 
 /**
+ * 見出しに出す題を選ぶ。
+ *
+ * 英語の記事には収集側で日本語の見出し（titleJa）を作っている。日本語の要約が
+ * 並ぶ画面で見出しだけ英語だと、そこで読むのが止まるため。原題が日本語の記事と
+ * この機能より前の日は titleJa を持たないので、原題をそのまま出す。
+ */
+export function displayTitle(item: { title: string; titleJa?: string | null }): string {
+  return item.titleJa?.trim() || item.title;
+}
+
+/**
  * 「3行で要約」の行を取り出す。
  *
  * takeaways 導入より前の日は reason（1 本の文）しか持っていないので、

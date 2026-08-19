@@ -4,7 +4,14 @@ import { AskClaudeButton } from '../AskClaudeButton';
 import { askContextForIndexEntry } from '../askClaude';
 import { loadIndexByMonth, loadIndexShard } from '../api';
 import { ALL_MONTHS, Chip, Empty, Highlight, LoadingCards, MonthPicker } from '../components';
-import { SOURCE_LABELS, daysPerMonth, formatDateShort, formatMonthLabel, safeUrl } from '../format';
+import {
+  SOURCE_LABELS,
+  daysPerMonth,
+  displayTitle,
+  formatDateShort,
+  formatMonthLabel,
+  safeUrl,
+} from '../format';
 import type { IndexEntry, Manifest } from '../types';
 
 interface Props {
@@ -21,7 +28,16 @@ function tokenize(q: string): string[] {
 }
 
 function haystack(e: IndexEntry): string {
-  return [e.title, e.summary, e.keywords.join(' '), e.topics.join(' '), e.sourceLabel, e.category]
+  // 日本語の見出しと原題の両方を入れる。英語の記事は原題の語でしか引けないことがある
+  return [
+    e.title,
+    e.titleJa ?? '',
+    e.summary,
+    e.keywords.join(' '),
+    e.topics.join(' '),
+    e.sourceLabel,
+    e.category,
+  ]
     .join(' ')
     .toLowerCase();
 }
@@ -29,7 +45,7 @@ function haystack(e: IndexEntry): string {
 /** マッチした語数とヒット位置で並べるための簡易スコア */
 function relevance(e: IndexEntry, terms: string[]): number {
   if (terms.length === 0) return e.score;
-  const title = e.title.toLowerCase();
+  const title = `${e.title} ${e.titleJa ?? ''}`.toLowerCase();
   const keywords = e.keywords.join(' ').toLowerCase();
   const hay = haystack(e);
 
@@ -229,8 +245,14 @@ export function SearchView({ manifest, initialQuery }: Props) {
               <div className="row__score">{entry.score}</div>
               <div className="row__main">
                 <p className="row__title">
-                  <a href={safeUrl(entry.url)} target="_blank" rel="noreferrer noopener">
-                    <Highlight text={entry.title} terms={terms} />
+                  {/* 原題が日本語でないときは日本語の見出しを出す。原題は title 属性に残す */}
+                  <a
+                    href={safeUrl(entry.url)}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    title={entry.titleJa ? entry.title : undefined}
+                  >
+                    <Highlight text={displayTitle(entry)} terms={terms} />
                   </a>
                 </p>
                 <p className="row__summary">

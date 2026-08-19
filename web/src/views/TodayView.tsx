@@ -33,7 +33,14 @@ import type {
   RankedItem,
   TopItem,
 } from '../types';
-import { formatDateLabel, formatPublished, metricSummary, safeUrl, takeawayLines } from '../format';
+import {
+  displayTitle,
+  formatDateLabel,
+  formatPublished,
+  metricSummary,
+  safeUrl,
+  takeawayLines,
+} from '../format';
 
 /**
  * 読み込み中の骨組み。
@@ -355,7 +362,7 @@ function Toc({ digest }: { digest: Digest }) {
   for (const g of groupByLane(digest.top, 'top')) {
     entries.push({ id: g.id, label: `${g.label} ${g.items.length}` });
     for (const item of g.items) {
-      entries.push({ id: cardDomId(item.id), label: item.title, nested: true });
+      entries.push({ id: cardDomId(item.id), label: displayTitle(item), nested: true });
     }
   }
   if (digest.releases?.length) {
@@ -417,8 +424,12 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           * 見出しは元記事のタイトルそのもの。以前はサイト側で付けた headline を
           * 大きく出し、その下に元題を小さく添えていたが、headline は oneLiner・
           * 3行要約・summary に続く 4 つ目の要約で、読まれていなかった。
+          *
+          * 例外は原題が日本語でないときだけ。そこは収集側で作った日本語の見出しに
+          * 差し替える（原題は下の元記事リンクに出る）。4 つ目の要約を復活させた
+          * わけではない——日本語の記事の見出しは今までどおり原題そのものである。
           */}
-        <h3 className="card__headline">{item.title}</h3>
+        <h3 className="card__headline">{displayTitle(item)}</h3>
         <Takeaways lines={takeaways} />
         {thumb && <Thumbnail src={thumb} onFailed={() => setThumbFailed(true)} />}
         <span className="card__toggle" aria-hidden="true" />

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { navigate } from '../App';
 import { loadIndexShard } from '../api';
 import { Chip, Empty, LoadingCards, MonthPicker } from '../components';
-import { daysPerMonth, formatDateLabel } from '../format';
+import { daysPerMonth, displayTitle, formatDateLabel } from '../format';
 import type { IndexEntry, Manifest } from '../types';
 
 /**
@@ -96,7 +96,7 @@ export function ArchiveView({ manifest }: { manifest: Manifest | null }) {
               {items.length > 0 ? (
                 <ol className="archive-day__list">
                   {items.map((e) => (
-                    <li key={e.id}>{e.summary || e.title}</li>
+                    <li key={e.id}>{e.summary || displayTitle(e)}</li>
                   ))}
                 </ol>
               ) : (
