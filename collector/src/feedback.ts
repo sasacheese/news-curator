@@ -1,5 +1,5 @@
+import { getAdminDb } from './firebaseAdmin.js';
 import type { TopicsConfig } from './types.js';
-import { log } from './util.js';
 
 const LOOKBACK_DAYS = 14;
 /** Laplace 平滑化の強さ。1〜2 票の偏りでは重みがほぼ動かないようにする */
@@ -13,29 +13,6 @@ interface Tally {
 export interface FeedbackSignal {
   totalVotes: number;
   byTopic: Map<string, Tally>;
-}
-
-/**
- * firebase-admin は FIREBASE_SERVICE_ACCOUNT_JSON が無ければ読み込まない。
- * 未設定の環境（この機能を使わない fork など）でトップレベル import が
- * 失敗しないよう、動的 import にする。
- */
-async function getAdminDb() {
-  const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!json) return null;
-
-  try {
-    const [{ cert, getApps, initializeApp }, { getFirestore, Timestamp }] = await Promise.all([
-      import('firebase-admin/app'),
-      import('firebase-admin/firestore'),
-    ]);
-    const credentials = JSON.parse(json);
-    const app = getApps()[0] ?? initializeApp({ credential: cert(credentials) });
-    return { db: getFirestore(app), Timestamp };
-  } catch (err) {
-    log.warn(`Firebase 初期化に失敗しました: ${err instanceof Error ? err.message : err}`);
-    return null;
-  }
 }
 
 /** 直近 LOOKBACK_DAYS 分の投票を取得し、トピック名ごとに集計する */
