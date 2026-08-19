@@ -32,7 +32,7 @@ import type {
   UsageReport,
   UsageStat,
 } from './types.js';
-import { log, mapLimit, truncate } from './util.js';
+import { hasKana, log, mapLimit, truncate } from './util.js';
 
 export { CATEGORIES };
 
@@ -349,6 +349,7 @@ ${readerContext(topics, feedbackNote)}
 
 # 出力
 - すべて日本語で書く。
+- titleJa は画面の見出しに出す日本語のタイトル。詳しくは下の節を参照。
 - oneLiner は「何が起きたか」を主語述語のある1文で。「〜について」のような曖昧な書き方は禁止。
 - takeaways は「忙しい人のための3行」。詳しくは下の節を参照。
 - keywords は後から検索するためのもの。製品名・API名・バージョン番号などの固有名詞を優先する。
@@ -359,6 +360,31 @@ ${readerContext(topics, feedbackNote)}
 ${CATEGORIES.join(' / ')}
 「その他」はどれにも当てはまらないときだけ。迷ったら主題に一番近いものを選ぶ。
 （スキーマの制約は生成時に効いていないので、ここの指示で選ぶこと）
+
+# titleJa（日本語の見出し）
+画面のカードの見出しは元記事のタイトルをそのまま出す。日本語の記事はそれでよいが、
+外国語の記事はそこだけ外国語で残り、日本語の要約の中で読めない塊になる。
+その差し替え用の見出しなので、**書くかどうかは仮名の有無だけで決める。**
+
+- 元タイトルに仮名（ひらがな・カタカナ）が **1 文字も無いなら、必ず書く。**
+  英語だけでなく、中国語・韓国語・漢字だけのタイトルもすべてここに入る。
+- 元タイトルに仮名が **あるなら null。** 原題が一番正確な題なので、書き換えない
+  （英単語が混ざっていても、仮名があるなら日本語のタイトルである）。
+
+書くときは、次の形にする。
+- **1 行・40 字以内。句点で終わらせない。** 体言止めでよい。
+- 直訳ではなく「何の話か」が分かる言葉にする。原題の語順に引っぱられない。
+- **製品名・リポジトリ名・組織名・バージョン番号は原語のまま残す。** 訳すと検索で引けなくなる。
+- GitHub のリポジトリ（owner/repo — 英語の説明文）は「repo 名 — 何をするものか」にする。
+  owner 名は落とす。説明文をぜんぶ入れようとしない——主な用途 1 つに絞る。
+- 煽らない。「必見」「話題の」「〜が凄い」は書かない。
+
+✗「Buyer-run, ad-neutral shopping-agent MCP software with deterministic ranking」（英語のまま）
+✗「購入者が実行する広告中立のショッピングエージェント MCP ソフトウェア」（直訳。何をするものか分からない）
+✓「northcinder — 買い物を代行する AI エージェントの土台」
+
+✗「Plugin and skin collection for DeepSeek Harness (DSH) Web UI - task board, git graph...」（英語のまま・長い）
+✓「dsh-web-ui — DeepSeek Harness の画面を拡張する部品集」
 
 # takeaways（3行で要約）
 記事が言っていることを、**その分野を何も知らない人にも通じる言葉で 3 行**書く。
@@ -546,6 +572,8 @@ function isPrimarySource(item: PreScoredItem): boolean {
 /** LLM を使わないときのフォールバック値 */
 function ruleBasedFields(item: PreScoredItem, lane: Lane, note: string) {
   return {
+    // 訳す手段が無いので原題のまま出す（この経路は要約も空なので、画面上も劣化が見える）
+    titleJa: null,
     oneLiner: truncate(item.snippet.replace(/\s+/g, ' ').trim(), 80) || item.title,
     takeaways: note ? [note] : [],
     keywords: item.matchedTopics.slice(0, 5),
@@ -660,6 +688,24 @@ async function describePass(
   });
 
   return described;
+}
+
+/**
+ * 見出しに出す日本語のタイトルを決める。
+ *
+ * 置き換えるのは「原題が日本語として読めないとき」だけにする。原題が日本語なら
+ * それが一番正確な題で、要約で書き換えると情報が落ちるだけである。
+ *
+ * モデルの出力も仮名の有無で検算する。英語のタイトルをそのまま写して返すことが
+ * あり（原題が日本語かどうかの判断はモデル側でも間違える）、それを採用すると
+ * 「日本語の見出しを入れた」つもりで英語が残る。訳せていないものは捨てて、
+ * 原題を出す方に倒す——英語の原題のほうが、中途半端な見出しよりは読める。
+ */
+function pickTitleJa(item: PreScoredItem, raw: string | null | undefined): string | null {
+  if (hasKana(item.title)) return null;
+  const titleJa = raw?.replace(/\s+/g, ' ').trim();
+  if (!titleJa || !hasKana(titleJa)) return null;
+  return titleJa;
 }
 
 /**
@@ -828,7 +874,7 @@ async function rankLane(
   log.info(`  [${LANE_LABELS[lane]}] 要約: ${described.size}/${shortlist.length} 件`);
   warnLongTakeaways(lane, described);
 
-  return items.map((item) => {
+  const result = items.map((item) => {
     const r = described.get(item.id);
     const score = scoreOf(item);
     if (!r) {
@@ -841,6 +887,7 @@ async function rankLane(
     return {
       ...item,
       score,
+      titleJa: pickTitleJa(item, r.titleJa),
       oneLiner: r.oneLiner?.trim() || item.title,
       takeaways: clean(r.takeaways).slice(0, 3),
       keywords: (r.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 8),
@@ -854,6 +901,33 @@ async function rankLane(
       durability: DURABILITIES.includes(r.durability) ? r.durability : 'durable',
     };
   });
+
+  warnMissingTitleJa(lane, shortlist, result);
+  return result;
+}
+
+/**
+ * 日本語の見出しが付かなかった候補を実行ログに出す。
+ *
+ * 掲載されうるのは要約対象（shortlist）だけなので、母数はそこに限る。
+ * 付かなかった項目は英語のタイトルのまま画面に出る——落ちずに劣化する形なので、
+ * 何件そうなったかをここで見えるようにしておく。
+ */
+function warnMissingTitleJa(lane: Lane, shortlist: PreScoredItem[], ranked: RankedItem[]): void {
+  const ids = new Set(shortlist.map((i) => i.id));
+  const foreign = ranked.filter((i) => ids.has(i.id) && !hasKana(i.title));
+  if (foreign.length === 0) return;
+  const done = foreign.filter((i) => i.titleJa).length;
+  log.info(`  [${LANE_LABELS[lane]}] 日本語の見出し: ${done}/${foreign.length} 件`);
+  if (done < foreign.length) {
+    log.warn(
+      `  [${LANE_LABELS[lane]}] ${foreign.length - done} 件は英語のタイトルのまま出ます: ` +
+        foreign
+          .filter((i) => !i.titleJa)
+          .map((i) => i.title.slice(0, 40))
+          .join(' / '),
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ *

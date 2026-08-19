@@ -150,6 +150,15 @@ export type Durability = (typeof DURABILITIES)[number];
 /** LLM によるランク付け結果 */
 export interface RankedItem extends PreScoredItem {
   score: number;
+  /**
+   * 画面の見出しに出す日本語のタイトル。原題が日本語のときは null。
+   *
+   * カードの見出しは元記事のタイトルそのものだが、GitHub のトレンドや
+   * 海外の記事は題が英語のままで、日本語の要約が並ぶ画面でそこだけ読めない
+   * （「owner/repo — English description」の形が特にひどい）。原題は
+   * title に残したまま、見出しだけ日本語に差し替えるためのフィールド。
+   */
+  titleJa: string | null;
   oneLiner: string;
   /**
    * 「3行で要約」。専門用語・固有名詞を使わずに、記事が何を言っているかだけを書く。
@@ -636,6 +645,8 @@ export interface IndexEntry {
   date: string;
   rank: number | null;
   title: string;
+  /** 日本語の見出し。原題が日本語の記事とリリース情報では null */
+  titleJa: string | null;
   url: string;
   source: SourceKind;
   sourceLabel: string;

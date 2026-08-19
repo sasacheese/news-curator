@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   cleanUrl,
   decodeEntities,
+  hasKana,
   isHttpUrl,
   jstDateString,
   normalizeUrl,
@@ -199,5 +200,25 @@ describe('titleKey', () => {
 
   it('別の記事は別のキーになる', () => {
     assert.notEqual(titleKey('React 19 の新機能'), titleKey('Vue 4 の新機能'));
+  });
+});
+
+/*
+ * 見出しを日本語に差し替えるかどうかの判定に使う。
+ * 中国語のタイトル（漢字だけ）を「もう日本語」と見なすと差し替えが効かないので、
+ * 漢字ではなく仮名で見ている——そこが detectLang との違い。
+ */
+describe('hasKana', () => {
+  it('日本語のタイトルは true', () => {
+    assert.equal(hasKana('React 19 の新機能'), true);
+    assert.equal(hasKana('ソフトウェア設計'), true);
+  });
+
+  it('英語のタイトルは false', () => {
+    assert.equal(hasKana('cinderline/northcinder — ad-neutral shopping-agent MCP software'), false);
+  });
+
+  it('漢字だけの中国語のタイトルは false', () => {
+    assert.equal(hasKana('轻量级前端框架'), false);
   });
 });
