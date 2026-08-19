@@ -62,6 +62,33 @@ export function Takeaways({ lines, compact }: { lines: string[]; compact?: boole
   );
 }
 
+/**
+ * 元記事のサムネイル。
+ *
+ * 出るのは配信元が置いた本物の画像があるときだけで、出ない日のほうが多い
+ * （収集側でタイトルを描いただけの自動生成カードを落としているため）。
+ * **無いことが既定**なので、カードの他の要素はこれが無い前提で並んでいる。
+ *
+ * 画像はサイトに持たず配信元を直接参照する。つまり向こうが消せばここも消えるので、
+ * 失敗を呼び出し側に返して、画像の列ごと畳めるようにしている——画像だけ消して
+ * 列が残ると、右に空白の帯が出たままになる。この状態を自分で持たないのはそのため。
+ * 見出しと 3 行要約が同じことをすでに伝えているので、読み上げ上は装飾として扱う。
+ */
+export function Thumbnail({ src, onFailed }: { src: string; onFailed: () => void }) {
+  return (
+    <img
+      className="card__thumb"
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      /* 読者がどのダイジェストを開いたかを配信元に渡さない */
+      referrerPolicy="no-referrer"
+      onError={onFailed}
+    />
+  );
+}
+
 /** 全期間を選んだことを表す値。月の文字列と混ざらないようにしている */
 export const ALL_MONTHS = '*';
 

@@ -1,5 +1,6 @@
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
+import { resolveImage } from './image.js';
 import { fetchGithubReadme, fetchHatenaCounts, fetchZennBody } from './sources.js';
 import type { RawItem, SourceKind } from './types.js';
 import { fetchText, log, mapLimit, safe, truncate } from './util.js';
@@ -37,43 +38,68 @@ function extractArticle(html: string, url: string): string {
   return '';
 }
 
-async function fetchBody(item: RawItem): Promise<string> {
-  if (item.source === 'zenn') return await fetchZennBody(item.url);
-  if (item.source === 'github_repo') return await fetchGithubReadme(item.url);
+/**
+ * 取得できたもの。html を返すのは、同じページからサムネイルも決めるため
+ * （記事ページを 2 回取りに行かないように、本文抽出に使った HTML をそのまま渡す）。
+ */
+interface Fetched {
+  body: string;
+  html?: string;
+}
+
+async function fetchBody(item: RawItem): Promise<Fetched> {
+  if (item.source === 'zenn') return { body: await fetchZennBody(item.url) };
+  if (item.source === 'github_repo') return { body: await fetchGithubReadme(item.url) };
 
   const html = await fetchText(item.url, {
     timeoutMs: 20_000,
     retries: 1,
     headers: { accept: 'text/html,application/xhtml+xml' },
   });
-  return extractArticle(html, item.url);
+  return { body: extractArticle(html, item.url), html };
 }
 
 /**
- * 深掘り対象候補の本文を取得する。
- * 収集時点で本文が取れているソースはスキップする。
+ * 深掘り対象候補の本文とサムネイルを取得する。
+ *
+ * 本文の取得は、収集時点で本文が取れているソースをスキップする。
+ * サムネイルは全件を対象にする——本文が既にあっても画像はまだ無いため。ただし
+ * og:image が常に自動生成カードのソース（Qiita など）は image.ts 側で最初に外れるので、
+ * そのぶんの取得は発生しない。
  */
-export async function enrichBodies(items: RawItem[], charLimit: number): Promise<RawItem[]> {
+export async function enrichTopItems(items: RawItem[], charLimit: number): Promise<RawItem[]> {
   const need = items.filter(
     (i) => !AUTHORITATIVE_BODY.has(i.source) && (!i.body || i.body.length < 400),
   );
-  if (need.length === 0) return items;
 
   const bodies = new Map<string, string>();
+  const pages = new Map<string, string>();
   await mapLimit(need, 5, async (item) => {
-    const body = await safe(`body(${item.url})`, () => fetchBody(item), '');
-    if (body.length >= 200) bodies.set(item.id, body);
+    const got = await safe(`body(${item.url})`, () => fetchBody(item), { body: '' } as Fetched);
+    if (got.body.length >= 200) bodies.set(item.id, got.body);
+    if (got.html) pages.set(item.id, got.html);
   });
+  if (need.length > 0) log.info(`  本文取得: ${bodies.size}/${need.length} 件`);
 
-  log.info(`  本文取得: ${bodies.size}/${need.length} 件`);
+  const images = new Map<string, string>();
+  await mapLimit(items, 5, async (item) => {
+    const url = await resolveImage(item, pages.get(item.id));
+    if (url) images.set(item.id, url);
+  });
+  log.info(`  サムネイル取得: ${images.size}/${items.length} 件`);
 
   return items.map((item) => {
     const body = bodies.get(item.id) ?? item.body;
-    if (!body) return item;
+    const imageUrl = images.get(item.id);
     return {
       ...item,
-      body: truncate(body, charLimit),
-      snippet: item.snippet || truncate(body.replace(/\s+/g, ' ').trim(), 400),
+      ...(imageUrl ? { imageUrl } : {}),
+      ...(body
+        ? {
+            body: truncate(body, charLimit),
+            snippet: item.snippet || truncate(body.replace(/\s+/g, ' ').trim(), 400),
+          }
+        : {}),
     };
   });
 }

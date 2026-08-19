@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { collectCommunity } from './community.js';
 import { loadCommunity, loadRuntimeConfig, loadSources, loadTopics } from './config.js';
-import { enrichBodies, enrichHatenaCounts } from './enrich.js';
+import { enrichHatenaCounts, enrichTopItems } from './enrich.js';
 import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
 import {
   deepDive,
@@ -306,7 +306,7 @@ async function main(): Promise<void> {
     log.info(`  ${LANE_LABELS[lane]}: ${picked.length} 件（候補 ${pool.length}）`);
     return picked;
   });
-  const enriched = await enrichBodies(topCandidates, runtime.bodyCharLimit);
+  const enriched = await enrichTopItems(topCandidates, runtime.bodyCharLimit);
   const enrichedById = new Map(enriched.map((i) => [i.id, i]));
 
   // rank はレーン内で 1 から振る（画面上も「知る のベスト」「作る のベスト」で分かれる）

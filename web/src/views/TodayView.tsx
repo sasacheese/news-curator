@@ -10,7 +10,7 @@ import { Annotated } from '../Annotated';
 import { AskClaudeButton } from '../AskClaudeButton';
 import { askContextForTop } from '../askClaude';
 import { BuzzChip } from '../components';
-import { Chip, CopyButton, Empty, Notice, ShareButtons, Takeaways } from '../components';
+import { Chip, CopyButton, Empty, Notice, ShareButtons, Takeaways, Thumbnail } from '../components';
 import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
 import { groupByLane } from '../lanes';
@@ -379,6 +379,13 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
   const d = item.deep;
   const pr = d.prerequisites ?? [];
   const takeaways = takeawayLines(item);
+  /*
+   * 画像がある日だけ右に列を足す。無い日は今までどおりの 1 列で、余白も空かない。
+   * 配信元から画像が消えていたときも同じ 1 列に戻すため、失敗をここで持つ
+   * （画像だけ消すと、列の幅が空白の帯として残る）。
+   */
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const thumb = thumbFailed ? undefined : safeUrl(item.imageUrl);
   return (
     /*
      * 畳んだ状態を既定にする。カード 1 枚が長く、6 枚並ぶとスクロール量が多いため。
@@ -387,7 +394,7 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
      * 元記事リンクと著者は本文側に移してある。
      */
     <details className="card" id={cardDomId(item.id)}>
-      <summary className="card__head">
+      <summary className={thumb ? 'card__head card__head--thumb' : 'card__head'}>
         <div className="card__meta">
           <span className="rank">{item.rank}</span>
           <Chip accent>{item.category}</Chip>
@@ -404,6 +411,7 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           */}
         <h3 className="card__headline">{item.title}</h3>
         <Takeaways lines={takeaways} />
+        {thumb && <Thumbnail src={thumb} onFailed={() => setThumbFailed(true)} />}
         <span className="card__toggle" aria-hidden="true" />
       </summary>
 
