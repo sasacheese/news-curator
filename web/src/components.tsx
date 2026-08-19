@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { formatMonthLabel } from './format';
+import { formatMonthLabel, safeUrl } from './format';
+import type { Figure } from './types';
 
 export function Chip({
   children,
@@ -86,6 +87,43 @@ export function Thumbnail({ src, onFailed }: { src: string; onFailed: () => void
       referrerPolicy="no-referrer"
       onError={onFailed}
     />
+  );
+}
+
+/**
+ * 解説の中で引用した、記事内の画像。
+ *
+ * サムネイル（Thumbnail）と役割が違う。あちらは「どの記事か」を示すだけなので装飾として
+ * 扱い alt を空にしているが、こちらは**読むための画像**——実行結果や構成図や計測グラフ——
+ * なので、キャプションを本文として先に読ませ、alt も記事側のものを渡す。
+ * 引用しない記事のほうが多いので、この枠が出ない日が既定。
+ *
+ * 画像は配信元を直接参照している。向こうが消せばここも消えるので、落ちた 1 枚だけを
+ * 畳む（枠だけ残るとキャプションが何も指さない）。全部落ちたら見出しごと消える。
+ */
+export function Figures({ figures }: { figures: Figure[] }) {
+  const [failed, setFailed] = useState<readonly string[]>([]);
+  const shown = figures.filter((f) => safeUrl(f.url) && !failed.includes(f.url));
+  if (shown.length === 0) return null;
+  return (
+    <div className="figquotes">
+      <span className="figquotes__label">記事の中の画像</span>
+      {shown.map((f) => (
+        <figure className="figquote" key={f.url}>
+          <img
+            className="figquote__img"
+            src={f.url}
+            alt={f.alt || f.caption}
+            loading="lazy"
+            decoding="async"
+            /* 読者がどのダイジェストを開いたかを配信元に渡さない */
+            referrerPolicy="no-referrer"
+            onError={() => setFailed((prev) => [...prev, f.url])}
+          />
+          <figcaption className="figquote__caption">{f.caption}</figcaption>
+        </figure>
+      ))}
+    </div>
   );
 }
 

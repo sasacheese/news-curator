@@ -49,6 +49,7 @@ function deep(): KnowDeepDive {
     summary: '',
     prerequisites: [],
     visual: null,
+    figures: [],
     code: null,
     relatedLinks: [],
     readingMinutes: 3,
