@@ -9,12 +9,14 @@ import { CommunityView } from './views/CommunityView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
 import { TodayView } from './views/TodayView';
+import { TrendView } from './views/TrendView';
 
 export type Route =
   | { name: 'today'; date?: string }
   | { name: 'search'; q?: string }
   | { name: 'archive' }
   | { name: 'community' }
+  | { name: 'trend' }
   | { name: 'settings' };
 
 function parseHash(hash: string): Route {
@@ -30,6 +32,8 @@ function parseHash(hash: string): Route {
       return { name: 'archive' };
     case 'community':
       return { name: 'community' };
+    case 'trend':
+      return { name: 'trend' };
     case 'settings':
       return { name: 'settings' };
     case 'today':
@@ -68,6 +72,11 @@ type Tab = { key: Route['name']; label: string; href: string };
  */
 const TABS: Tab[] = [
   { key: 'today', label: '今日', href: '/today' },
+  /*
+   * トレンドは「今日」の隣。日次の差分（今日）と、日をまたいだ状態（トレンド）は
+   * 対になっているので、この 2 つは並べる。
+   */
+  { key: 'trend', label: 'トレンド', href: '/trend' },
   { key: 'community', label: 'コミュニティ', href: '/community' },
   { key: 'archive', label: 'アーカイブ', href: '/archive' },
   { key: 'search', label: '検索', href: '/search' },
@@ -214,6 +223,7 @@ export function App() {
           )}
           {/* 盤面は manifest に依存しない（日付を持たない 1 ファイルなので） */}
           {route.name === 'community' && <CommunityView />}
+          {route.name === 'trend' && <TrendView />}
           {!error && route.name === 'archive' && <ArchiveView manifest={manifest} />}
           {!error && route.name === 'search' && (
             <SearchView manifest={manifest} initialQuery={route.q ?? ''} />

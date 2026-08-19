@@ -697,3 +697,124 @@ export interface TopicsConfig {
   topics: Topic[];
   exclude: { keywords: string[] };
 }
+
+/* ------------------------------------------------------------------ *
+ * トレンド（話題台帳）
+ *
+ * 日次ダイジェストは「その日に公開されたもの」の差分刊行なので、昨日の1位は
+ * 今日には出ない。24 時間ウィンドウと掲載済み URL の除外は差分としては正しいが、
+ * 「まだ続いている話題」を構造的に消している。トレンドはその状態（stock）側で、
+ * ランキングとは別の枠で持つ。
+ *
+ * 台帳（TrendShard）は data/index と同じ月別シャード。盤面（TrendBoard）は
+ * data/community.json と同じく日付を持たない 1 ファイルで、毎回まるごと差し替える。
+ * 過去日のアーカイブに埋めると、3 か月後にその日を開いた人に古い盤面が出てしまう。
+ * ------------------------------------------------------------------ */
+
+/** 話題台帳の 1 日分 */
+export interface TrendDay {
+  date: string;
+  /**
+   * その日に走査した記事数。
+   *
+   * 平常比は生の件数ではなく「その日の母集団に対する比率」で出す。ソースの
+   * 増減や閑散日で母集団が変わると、生の件数の比較は意味を失うため。
+   */
+  pool: number;
+  /** 表記統合キー -> その日に出現した記事数 */
+  counts: Record<string, number>;
+}
+
+/** 台帳の月別シャード。表示名は日ごとに持たず、シャードに 1 つ持つ */
+export interface TrendShard {
+  /** 表記統合キー -> 表示名（観測された実表記のうち最頻のもの） */
+  labels: Record<string, string>;
+  days: TrendDay[];
+}
+
+/** 今日動いた / 追跡中 / 落ち着いた */
+export type TrendState = 'hot' | 'keep' | 'cool';
+
+/** その記事がその日どう扱われたか。none は収集したが載せなかったもの */
+export type TrendPlacement = 'top' | 'other' | 'release' | 'none';
+
+export interface TrendArticle {
+  date: string;
+  title: string;
+  /**
+   * 日本語の見出し。原題が日本語の記事・未掲載のもの・この機能より前の日は null。
+   *
+   * タイムラインにも要る。日本語の一覧に英語のタイトルだけが混ざると、
+   * そこで読むのが止まる（掲載側と同じ判断）。
+   */
+  titleJa: string | null;
+  url: string;
+  placement: TrendPlacement;
+  lane: Lane | null;
+  /** ベストの順位。その他・リリース・未掲載は null */
+  rank: number | null;
+}
+
+export interface TrendTopic {
+  key: string;
+  name: string;
+  /**
+   * 観測された実表記のうち、名前と数字・記号だけの差ではないもの。
+   *
+   * 話題名を固有名詞のまま持つと表記ゆれで繋がらない（Qwen / Qwen3.6 /
+   * Qwen3.8-27B / QwenAudio が全部「累計1本」になる）。かたや抽象カテゴリに
+   * 丸めると情報量が消える。そこで見出しはファミリ、その下に実表記を出す。
+   */
+  variants: string[];
+  state: TrendState;
+  /** 台帳に初めて載った日 */
+  firstSeen: string;
+  /** 最後に出た日 */
+  lastSeen: string;
+  /** 台帳の保持期間ぶんの合計本数 */
+  total: number;
+  today: number;
+  /** 当日の平常比（1.0 が平常）。平常値が取れない初出の日は null */
+  lift: number | null;
+  /**
+   * 直近 5 日の平常比。「続いているか」はこちらで測る。
+   *
+   * 出現日数では測れない。母集団 600 件では大半の語が毎日出るので、
+   * 「7 日のうち 3 日以上」は何も絞れていなかった。
+   */
+  liftRecent: number | null;
+  /** 直近 5 日の本数 */
+  recentCount: number;
+  /** 直近 7 日のうち出現した日数。参考値 */
+  activeDays7: number;
+  /** スパークライン用の日別本数（古い順） */
+  history: number[];
+  articles: TrendArticle[];
+}
+
+export interface TrendBoard {
+  updatedAt: string;
+  date: string;
+  /**
+   * 台帳が何日ぶん貯まっているか。
+   *
+   * 平常比も「落ち着いた」も履歴が要る。走り始めた直後は判定できないので、
+   * 画面側でその旨を出すために持つ。
+   */
+  ledgerDays: number;
+  /** スパークラインと平常比の窓 */
+  windowDays: number;
+  /**
+   * 履歴が足りず、平常比で判定できていない状態。
+   *
+   * このとき hot は「急上昇」ではなく単に「今日よく出ている話題」なので、
+   * 画面側で見出しとバッジを差し替える。走り始めの数日を嘘で埋めないため。
+   */
+  warmingUp: boolean;
+  hot: TrendTopic[];
+  keep: TrendTopic[];
+  cool: TrendTopic[];
+  /** 常時出ている語。トレンドとして扱わないが、何を外したかは見せる */
+  ubiquitous: string[];
+  notes: string[];
+}
