@@ -1,5 +1,5 @@
 import type { RawItem, SourceKind } from './types.js';
-import { fetchText, fetchWithRetry, log, safe } from './util.js';
+import { fetchText, fetchWithRetry, log, safe, stripHtml } from './util.js';
 
 /**
  * ベスト記事のサムネイル画像を決める。
@@ -241,4 +241,221 @@ export async function resolveImage(item: RawItem, html?: string): Promise<string
 
   log.info(`  サムネイル: ${item.title.slice(0, 30)} ← ${new URL(candidate).host}`);
   return candidate;
+}
+
+/* ------------------------------------------------------------------ *
+ * 本文中の画像
+ * ------------------------------------------------------------------ */
+
+/**
+ * 記事本文の中で使われている画像。**サムネイル（og:image）とは目的が違う。**
+ *
+ * サムネイルは「どの記事か」を示す 1 枚で、中身は読まなくていい。こちらは逆に、
+ * 書き手が説明のために置いた画像——実行結果のスクリーンショット、構成の図解、
+ * 計測のグラフ——なので、解説の中で引用すると文章より早く伝わる。だから
+ * 「どこに使うか」を LLM に決めさせるための手がかり（alt と前後の本文）を一緒に持つ。
+ *
+ * 取り込みはせずホットリンクにする点はサムネイルと同じ（理由はこのファイル冒頭）。
+ */
+export interface BodyImage {
+  url: string;
+  /** alt か figcaption。どちらも無い記事が多いので空のことがある */
+  alt: string;
+  /** 画像の前後にあった本文。記事のどこの図なのかを LLM が掴むために渡す */
+  context: string;
+}
+
+/**
+ * 本文の画像で落とすもの。og:image の判定（isGeneratedCard）とは別に持つ。
+ *
+ * og:image では「Qiita の imgix はすべて自動生成カード」で切って正しかったが、本文の画像は
+ * 書き手がアップロードしたスクリーンショットも同じ imgix から出る。ホストで切ると
+ * Qiita の本文画像が全滅するので、文字合成の指示（imgix の txt=、Cloudinary の l_text:）で
+ * 見分ける。逆に、本文にしか出てこない装飾——バッジ、アバター、絵文字——はここで落とす。
+ */
+const NOISE_HOSTS: readonly string[] = [
+  'img.shields.io',
+  'shields.io',
+  'badgen.net',
+  'badge.fury.io',
+  'www.gravatar.com',
+  'secure.gravatar.com',
+  'avatars.githubusercontent.com',
+  'github.githubassets.com',
+  'twemoji.maxcdn.com',
+];
+
+/** ファイル名・パスで装飾だと分かるもの */
+const NOISE_NAME =
+  /(^|[/_-])(icons?|avatars?|badges?|emoji|sprite|spacer|pixel|profile|favicon|thumbnails?|buttons?|banners?)([/_.-]|$)/i;
+
+/** HTML から拾う候補の上限。1 記事に何十枚とある記事もあるので、先に頭を切る */
+const MAX_BODY_IMAGE_CANDIDATES = 6;
+
+/** そのうち実在を確かめて LLM に渡す枚数。確認は 1 枚ずつ通信するので、候補を全部は見ない */
+const MAX_VERIFIED_CANDIDATES = 4;
+
+/** 解説の中で引用する枚数の上限。これ以上並べると読む順序が本文から離れる */
+export const MAX_BODY_IMAGES = 2;
+
+/** 画像の前後から拾う本文の長さ */
+const CONTEXT_CHARS = 140;
+
+/**
+ * 同じ絵かどうかを判定するための識別子。
+ *
+ * URL の一致では足りない。画像 CDN を通すと同じ写真が変換の指定だけ違う別 URL になり
+ * （Substack の og:image は w_1200,h_675、本文側は w_1456 で同じ写真だった）、
+ * 素の比較だとサムネイルと本文で同じ絵を 2 回出すことになる。CDN 越しの URL には
+ * 元の URL がパスに埋まっているので、それを取り出して比べる。
+ */
+export function imageIdentity(imageUrl: string): string {
+  let url: URL;
+  try {
+    url = new URL(imageUrl);
+  } catch {
+    return imageUrl;
+  }
+  let path = url.pathname;
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // 不正なエスケープを含む URL は素のまま比べる
+  }
+  // CDN 越しの URL は、埋まっている元の URL のほうで比べる（変換の指定は無視する）
+  const embedded = /https?:\/\/[^\s]+$/.exec(path);
+  if (embedded) {
+    try {
+      const inner = new URL(embedded[0]);
+      return `${inner.host}${inner.pathname}`;
+    } catch {
+      // 埋まっていたものが URL として壊れていれば、外側の URL で比べる
+    }
+  }
+  return `${url.host}${url.pathname}`;
+}
+
+/** 本文の画像として出す価値が無いもの（装飾・文字合成カード・読めない小ささ）か */
+export function isDecorativeImage(imageUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(imageUrl);
+  } catch {
+    return true;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return true;
+  if (NOISE_HOSTS.includes(url.host)) return true;
+
+  // 文字を焼き込んだ合成画像（タイトルカード）。ホストではなく指示の有無で見る
+  if (url.searchParams.has('txt')) return true;
+  if (url.host.endsWith('cloudinary.com') && url.pathname.includes('l_text:')) return true;
+  if (url.host === 'opengraph.githubassets.com') return true;
+
+  let path = url.pathname + url.search;
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // 不正なエスケープを含む URL は素のまま判定する
+  }
+  return GENERIC_NAME.test(path) || NOISE_NAME.test(path);
+}
+
+/** img タグの width / height 属性から、取りに行く前に小さい画像を落とす */
+function declaredTooSmall(tag: string): boolean {
+  const w = Number.parseInt(attr(tag, 'width'), 10);
+  const h = Number.parseInt(attr(tag, 'height'), 10);
+  return (Number.isFinite(w) && w > 0 && w < MIN_WIDTH) || (Number.isFinite(h) && h > 0 && h < MIN_HEIGHT);
+}
+
+/**
+ * HTML の断片から本文だけを取り出す。
+ *
+ * 画像の前後を固定長で切ると、端がタグの途中になる。そのまま素のテキストに落とすと
+ * 属性値が本文として混ざる（実データで srcset の URL がそのまま出た）ので、
+ * 切れたタグを落としてから落とす。
+ */
+function bodyText(fragment: string, edge: 'before' | 'after'): string {
+  let html = fragment;
+  if (edge === 'before') {
+    const cut = html.indexOf('>');
+    if (cut >= 0) html = html.slice(cut + 1);
+  } else {
+    const cut = html.lastIndexOf('<');
+    if (cut >= 0) html = html.slice(0, cut);
+  }
+  return stripHtml(html).replace(/\s+/g, ' ');
+}
+
+/** 画像の直後にある figcaption。書き手が付けた説明なので alt より情報が多い */
+function nearbyCaption(html: string, from: number): string {
+  const window = html.slice(from, from + 600);
+  const m = /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i.exec(window);
+  return m ? stripHtml(m[1]!).replace(/\s+/g, ' ').trim() : '';
+}
+
+/**
+ * 本文の HTML から、解説で引用できそうな画像の候補を拾う。
+ *
+ * 渡すのは Readability が抜いた本文だけの HTML にする。ページ全体を渡すと、
+ * サイドバーの関連記事のサムネイルやフッターのバナーが混ざる——それらは
+ * 「記事の中で使われている画像」ではない。
+ */
+export function pickBodyImages(contentHtml: string, baseUrl: string): BodyImage[] {
+  const out: BodyImage[] = [];
+  const seen = new Set<string>();
+
+  for (const m of contentHtml.matchAll(/<img\s[^>]*>/gi)) {
+    if (out.length >= MAX_BODY_IMAGE_CANDIDATES) break;
+    const tag = m[0];
+    // 遅延読み込みの画像は src がプレースホルダーなので、data-src 側が本物
+    const raw = decodeEntities(attr(tag, 'data-src') || attr(tag, 'src')).trim();
+    if (!raw || raw.startsWith('data:')) continue;
+    if (declaredTooSmall(tag)) continue;
+
+    let url: string;
+    try {
+      url = new URL(raw, baseUrl).toString();
+    } catch {
+      continue;
+    }
+    // 変換の指定だけ違う同じ写真（記事内で大小 2 つ貼られることがある）もここで 1 枚にする
+    const identity = imageIdentity(url);
+    if (seen.has(identity) || isDecorativeImage(url)) continue;
+    seen.add(identity);
+
+    const at = m.index ?? 0;
+    const before = bodyText(contentHtml.slice(Math.max(0, at - 800), at), 'before');
+    const after = bodyText(contentHtml.slice(at + tag.length, at + tag.length + 800), 'after');
+    out.push({
+      url,
+      alt:
+        nearbyCaption(contentHtml, at + tag.length) ||
+        decodeEntities(attr(tag, 'alt')).replace(/\s+/g, ' ').trim(),
+      context: `${before.slice(-CONTEXT_CHARS).trim()} ▮ ${after.slice(0, CONTEXT_CHARS).trim()}`.trim(),
+    });
+  }
+  return out;
+}
+
+/**
+ * 候補が実際に画面に出せるかを確かめて絞る。
+ *
+ * サムネイルと同じ理由で生成時に落としておく（読者の画面で 404 に当たると、
+ * キャプションだけが残って何を指しているのか分からなくなる）。寸法の下限も同じで、
+ * 本文の中の小さな画像はたいてい装飾か、拡大しないと読めない図。
+ */
+export async function verifyBodyImages(
+  candidates: readonly BodyImage[],
+  excludeUrl?: string,
+): Promise<BodyImage[]> {
+  const out: BodyImage[] = [];
+  const exclude = excludeUrl ? imageIdentity(excludeUrl) : '';
+  for (const candidate of candidates) {
+    if (out.length >= MAX_VERIFIED_CANDIDATES) break;
+    // サムネイルに使った画像は、カードの上下で同じ絵を 2 回出すことになるので外す
+    if (exclude && imageIdentity(candidate.url) === exclude) continue;
+    const usable = await safe(`image(${candidate.url})`, () => verifyImage(candidate.url), false);
+    if (usable) out.push(candidate);
+  }
+  return out;
 }

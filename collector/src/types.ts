@@ -254,6 +254,23 @@ export type Visual =
     };
 
 /**
+ * 記事の中で使われていた画像を、解説の中で引用したもの。
+ *
+ * カード上部のサムネイル（RawItem.imageUrl）とは目的が違う。サムネイルは「どの記事か」を
+ * 示す 1 枚で、中身は読まなくてよい。こちらは書き手が説明のために置いた画像——実行結果の
+ * スクリーンショット、構成の図解、計測のグラフ——なので、**読むためにある**。
+ * 何を指しているのかは caption が引き受け、画像が消えたときは画面側で枠ごと畳む。
+ */
+export interface Figure {
+  /** 配信元の画像 URL（取り込まずにホットリンクする。理由は image.ts 冒頭） */
+  url: string;
+  /** 記事側の alt か figcaption。無い記事が多いので空のことがある */
+  alt: string;
+  /** その画像が何を示しているか。解説の文脈で書く（alt の写しではない） */
+  caption: string;
+}
+
+/**
  * 深掘りカードの共通部分。
  *
  * 差分（何が変わるか / 何ができるようになるか）はレーンごとに 1 項目へ統合してある。
@@ -277,6 +294,13 @@ export interface DeepDiveBase {
   summary: string;
   prerequisites: Prerequisite[];
   visual: Visual | null;
+  /**
+   * 記事の中で使われていた画像のうち、解説で引用したもの。0〜2 枚。
+   *
+   * 引用するのは「文章より画像のほうが早い」ものだけなので、**空が既定**。
+   * 記事に画像が無い日も、装飾しか無い日も空になる。
+   */
+  figures: Figure[];
   code: { lang: string; caption: string; content: string } | null;
   relatedLinks: { label: string; url: string }[];
   readingMinutes: number;

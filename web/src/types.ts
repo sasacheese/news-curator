@@ -167,11 +167,28 @@ export type Visual =
       }[];
     };
 
+/**
+ * 記事の中で使われていた画像を、解説の中で引用したもの。
+ *
+ * カード上部のサムネイル（imageUrl）とは目的が違う。あちらは「どの記事か」を示す 1 枚で
+ * 中身は読まなくてよい。こちらは書き手が説明のために置いた画像（実行結果のスクリーンショット、
+ * 構成図、グラフ）なので、読むためにある。配信元を直接参照するので、消えていたら枠ごと畳む。
+ */
+export interface Figure {
+  url: string;
+  /** 記事側の alt / figcaption。無い記事が多いので空のことがある */
+  alt: string;
+  /** その画像から何が読み取れるか。画像を見る前に読ませる */
+  caption: string;
+}
+
 export interface DeepDiveBase {
   /** 記事の語彙をそのまま使った詳しい要約。平易な側は takeaways が引き受ける */
   summary: string;
   prerequisites?: Prerequisite[];
   visual?: Visual | null;
+  /** 解説で引用した記事内の画像。引用しない日も多く、この形より前の日は undefined */
+  figures?: Figure[];
   code: { lang: string; caption: string; content: string } | null;
   /**
    * 「なぜ重要か」。いまは talk レーン（なぜ今この争点か）と

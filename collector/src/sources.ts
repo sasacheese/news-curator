@@ -244,16 +244,22 @@ export async function fetchGithubReadme(repoUrl: string): Promise<string> {
   return stripMarkdown(await res.text());
 }
 
-/** Zenn は本文を個別 API で取得する */
-export async function fetchZennBody(url: string): Promise<string> {
+/**
+ * Zenn は本文を個別 API で取得する。HTML のまま返すのは、本文中の画像を拾うため
+ * （ページ HTML からだとサイドバーの他記事のサムネイルが混ざる）。
+ */
+export async function fetchZennBodyHtml(url: string): Promise<string> {
   const slug = url.split('/').pop();
   if (!slug) return '';
   const res = await fetchJson<Record<string, unknown>>(
     `https://zenn.dev/api/articles/${encodeURIComponent(slug)}`,
   );
   const article = (res.article ?? res) as Record<string, unknown>;
-  const html = String(article.body_html ?? '');
-  return stripHtml(html);
+  return String(article.body_html ?? '');
+}
+
+export async function fetchZennBody(url: string): Promise<string> {
+  return stripHtml(await fetchZennBodyHtml(url));
 }
 
 /* ------------------------------------------------------------------ *

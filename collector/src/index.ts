@@ -307,7 +307,7 @@ async function main(): Promise<void> {
     return picked;
   });
   const enriched = await enrichTopItems(topCandidates, runtime.bodyCharLimit);
-  const enrichedById = new Map(enriched.map((i) => [i.id, i]));
+  const enrichedById = new Map(enriched.items.map((i) => [i.id, i]));
 
   // rank はレーン内で 1 から振る（画面上も「知る のベスト」「作る のベスト」で分かれる）
   const rankOf = new Map<string, number>();
@@ -320,7 +320,7 @@ async function main(): Promise<void> {
 
   const top: TopItem[] = await mapLimit(topCandidates, 3, async (item) => {
     const withBody = { ...item, ...(enrichedById.get(item.id) ?? {}) } as RankedItem;
-    const deep = await deepDive(withBody, topics, runtime);
+    const deep = await deepDive(withBody, topics, runtime, enriched.bodyImages.get(item.id));
     log.info(`  [${LANE_LABELS[item.lane]}] #${rankOf.get(item.id)} ${item.oneLiner}`);
     return { ...withBody, rank: rankOf.get(item.id) ?? 1, deep };
   });

@@ -10,7 +10,16 @@ import { Annotated } from '../Annotated';
 import { AskClaudeButton } from '../AskClaudeButton';
 import { askContextForTop } from '../askClaude';
 import { BuzzChip } from '../components';
-import { Chip, CopyButton, Empty, Notice, ShareButtons, Takeaways, Thumbnail } from '../components';
+import {
+  Chip,
+  CopyButton,
+  Empty,
+  Figures,
+  Notice,
+  ShareButtons,
+  Takeaways,
+  Thumbnail,
+} from '../components';
 import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
 import { groupByLane } from '../lanes';
@@ -430,6 +439,12 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
         <p className="card__summary">
           <Annotated text={d.summary} prerequisites={pr} idPrefix={`${item.id}-sum`} />
         </p>
+
+        {/*
+          * 記事の中の画像は要約の直後に置く。解説の中の引用なので、前提知識や図より前
+          * ——「記事が何を見せているか」は、こちらが作った図（visual）より先に来る。
+          */}
+        {d.figures && d.figures.length > 0 && <Figures figures={d.figures} />}
 
         {/*
           * 新しい形（clashes を持つ日）では、争点は下の「争点」項目がまとめて担う
