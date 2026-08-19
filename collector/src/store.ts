@@ -1,7 +1,14 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DATA_DIR } from './config.js';
-import type { CommunityBoard, Digest, IndexEntry, Manifest } from './types.js';
+import type {
+  CommunityBoard,
+  Digest,
+  IndexEntry,
+  Manifest,
+  RadarBoard,
+  RadarLedgerEntry,
+} from './types.js';
 import { log, normalizeUrl } from './util.js';
 
 const DIGEST_DIR = resolve(DATA_DIR, 'digests');
@@ -9,6 +16,16 @@ const INDEX_DIR = resolve(DATA_DIR, 'index');
 const MANIFEST_PATH = resolve(DATA_DIR, 'manifest.json');
 /** コミュニティの盤面。日付を持たない 1 ファイルで、毎回差し替える */
 const COMMUNITY_PATH = resolve(DATA_DIR, 'community.json');
+/** 発掘の盤面。ブラウザが読む。コミュニティ盤面と同じ扱い */
+const RADAR_PATH = resolve(DATA_DIR, 'radar.json');
+/**
+ * 発掘の台帳。**ブラウザからは読まない。**
+ *
+ * 盤面と分けているのは転送量のため。台帳は語が増える一方（大半は「道具では
+ * なかった」の記録）で、画面に出るのは 10 件だけなので、同じファイルに入れると
+ * 閲覧者が毎回数百件ぶんを落とすことになる。
+ */
+const RADAR_LEDGER_PATH = resolve(DATA_DIR, 'radar-ledger.json');
 
 async function ensureDirs(): Promise<void> {
   await mkdir(DIGEST_DIR, { recursive: true });
@@ -119,6 +136,71 @@ export async function saveCommunityBoard(board: CommunityBoard): Promise<void> {
     .map(([k, v]) => `${k} ${v}`)
     .join(' / ');
   log.info(`保存: data/community.json (${board.items.length} 件 — ${counts})`);
+}
+
+/**
+ * 直近の検索インデックスをまとめて読む。
+ *
+ * 発掘の候補の母集団になる。keywords は要約段で「固有名詞優先」で抽出させた
+ * ものなので、道具の名前の供給源としてはこれが一番きれいで、しかも
+ * **追加の収集がまったく要らない**（毎日ダイジェストを作った副産物として溜まる）。
+ */
+export async function loadRecentIndexEntries(days = 90): Promise<IndexEntry[]> {
+  await ensureDirs();
+  let files: string[] = [];
+  try {
+    files = (await readdir(INDEX_DIR)).filter((f) => f.endsWith('.json')).sort().reverse();
+  } catch {
+    return [];
+  }
+
+  // 月別シャードなので、日数 / 30 + 1 ファイル読めば必要な期間をカバーできる
+  const limit = Math.max(2, Math.ceil(days / 30) + 1);
+  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+  const out: IndexEntry[] = [];
+  for (const file of files.slice(0, limit)) {
+    const entries = await readJsonOr<IndexEntry[]>(resolve(INDEX_DIR, file), []);
+    for (const e of entries) if (e.date >= cutoff) out.push(e);
+  }
+  return out;
+}
+
+/** 発掘の台帳を読む。無ければ空（初回は候補の同定から始まる） */
+export async function loadRadarLedger(): Promise<RadarLedgerEntry[]> {
+  await ensureDirs();
+  const raw = await readJsonOr<RadarLedgerEntry[]>(RADAR_LEDGER_PATH, []);
+  return Array.isArray(raw) ? raw.filter((e) => e && typeof e.name === 'string') : [];
+}
+
+/**
+ * 前回の盤面に載っていた id。
+ *
+ * 道具は腐らないので、コミュニティのイベントと違って期限では落とさない。
+ * 毎日同じ盤面を眺めることになるので、差分（NEW）が見えるかどうかが
+ * この画面の読みやすさを決める。
+ */
+export async function loadPreviousRadarIds(): Promise<Set<string>> {
+  await ensureDirs();
+  const board = await readJsonOr<Partial<RadarBoard>>(RADAR_PATH, {});
+  return new Set((board.items ?? []).map((i) => i.id));
+}
+
+export async function saveRadarBoard(
+  board: RadarBoard,
+  ledger: readonly RadarLedgerEntry[],
+): Promise<void> {
+  await ensureDirs();
+  await writeJson(RADAR_PATH, board);
+  // 台帳は名前順で書く。日々の差分が並び替えではなく中身の変化だけになるようにする
+  await writeJson(
+    RADAR_LEDGER_PATH,
+    [...ledger].sort((a, b) => a.name.localeCompare(b.name)),
+  );
+  const counts = Object.entries(board.byVerdict)
+    .map(([k, v]) => `${k} ${v}`)
+    .join(' / ');
+  log.info(`保存: data/radar.json (${board.items.length} 件 — ${counts})`);
+  log.info(`保存: data/radar-ledger.json (${ledger.length} 語)`);
 }
 
 export function toIndexEntries(digest: Digest): IndexEntry[] {

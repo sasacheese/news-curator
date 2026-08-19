@@ -425,3 +425,60 @@ export interface TopicsConfig {
   topics: Topic[];
   exclude: { keywords: string[] };
 }
+
+/* ------------------------------------------------------------------ *
+ * 発掘（data/radar.json をそのまま読む）
+ * ------------------------------------------------------------------ */
+
+export type RadarVerdict = 'early' | 'hidden';
+
+export interface RadarMeasure {
+  githubRepo: string | null;
+  githubStars: number | null;
+  githubPushedAt: string | null;
+  githubArchived: boolean | null;
+  npmPackage: string | null;
+  npmVersion: string | null;
+  npmDeprecated: boolean | null;
+  npmWeekly: number | null;
+  /** 直近 7 日 ÷ その前の 7 日。1.0 で横ばい */
+  npmTrend: number | null;
+  abroadMentions: number;
+  qiitaArticles: number | null;
+  qiitaMethod: 'mention' | 'tag' | null;
+  zennArticles: number | null;
+  zennMethod: 'topic' | 'search' | null;
+  /** 件数が総数として確定しているか。false なら下限値 */
+  zennComplete: boolean | null;
+  domesticMentions: number;
+  measuredAt: string;
+}
+
+export interface RadarItem {
+  id: string;
+  name: string;
+  verdict: RadarVerdict;
+  score: number;
+  what: string;
+  pitch: string;
+  insteadOf: string[];
+  firstStep: string | null;
+  fitFor: string[];
+  caution: string | null;
+  measure: RadarMeasure;
+  /** 判定の根拠。数字を含む文で、生成ではなく計測値から組み立てている */
+  evidence: string[];
+  links: { label: string; url: string }[];
+  firstSeenAt: string;
+  isNew: boolean;
+  foundVia: { title: string; url: string } | null;
+}
+
+export interface RadarBoard {
+  updatedAt: string;
+  date: string;
+  items: RadarItem[];
+  byVerdict: Record<string, number>;
+  stats: { ledgerSize: number; measuredToday: number; notTool: number };
+  notes: string[];
+}

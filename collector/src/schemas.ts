@@ -528,3 +528,140 @@ export type KnowDeepDiveResult = z.infer<typeof KnowDeepDiveSchema>;
 export type BuildDeepDiveResult = z.infer<typeof BuildDeepDiveSchema>;
 export type TalkDeepDiveResult = z.infer<typeof TalkDeepDiveSchema>;
 export type DigestSummaryResult = z.infer<typeof DigestSummarySchema>;
+
+/* ------------------------------------------------------------------ *
+ * 発掘（Radar）
+ *
+ * LLM に任せるのは 2 か所だけ。名前解決と紹介文で、どちらも
+ * 「言葉を扱う仕事」に限っている。**判定と数字は一切触らせない**——
+ * 「海外で話題か」を LLM に聞くと必ず知識の記憶で答えるので、
+ * 学習時点の古さがそのまま判定に混ざる。測るのはこちらの仕事。
+ * ------------------------------------------------------------------ */
+
+/**
+ * 1 段目: 語を道具として同定する。
+ *
+ * ダイジェストから拾った語には「Oxlint」も「PreToolUse」も「セキュリティ」も
+ * 混ざっている。計測は 1 語あたり最大 4 リクエストかかるので、道具でない語に
+ * 予算を使わないよう、測る前にここで落とす。結果は台帳に貯めるので、
+ * 同じ語でこの呼び出しが二度走ることはない。
+ */
+export const RadarResolveSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        ref: z.number().int().describe('入力に付与した番号'),
+        isTool: z
+          .boolean()
+          .describe(
+            '**導入して使える道具か。** ライブラリ・フレームワーク・CLI・エディタ拡張・' +
+              'SaaS・API・モデルなら true。' +
+              '次はすべて false: 概念や技術用語（「サーバーコンポーネント」「型推論」）、' +
+              '会社名・組織名（「Vercel 社」）、人名、設定ファイル名（「settings.json」「CLAUDE.md」）、' +
+              'API やフックの個別の名前（「PreToolUse」「useEffect」）、' +
+              'イベント名、記事のジャンル名、一般名詞（「セキュリティ」「パフォーマンス」）。' +
+              '**会社名とその製品名が同じときは true**（例: Turso, Neon）。判断に迷うときは false。',
+          ),
+        canonicalName: z
+          .string()
+          .describe(
+            '公式の表記に直した名前。例: 「oxlint」→「Oxlint」、「tanstack router」→「TanStack Router」。' +
+              '公式の表記が分からなければ入力のままにする。説明を足さないこと。',
+          ),
+        npmPackage: z
+          .string()
+          .nullable()
+          .describe(
+            'npm に公開されているパッケージ名。スコープ付き（@tanstack/react-router）も可。' +
+              '**確実に知っているものだけ書く。** npm に無い道具（Rust / Go の CLI、エディタ拡張、SaaS）は null。' +
+              '推測で埋めないこと——存在しない名前を書くと、そのぶんの計測が丸ごと欠測になる。',
+          ),
+        githubRepo: z
+          .string()
+          .nullable()
+          .describe(
+            'GitHub のリポジトリを owner/repo の形で。例: 「oxc-project/oxc」。' +
+              '確実に知っているものだけ書く。分からなければ null。',
+          ),
+        nameIsCommonWord: z
+          .boolean()
+          .describe(
+            'その名前が、英語または日本語の**一般的な単語と同じ綴り**か。' +
+              'true の例: Effect, Motion, Bun, Turbo, Prisma, Ky, Rush, Nitro, Bruno, Rome。' +
+              'false の例: Oxlint, Valibot, TanStack Router, Biome, unplugin, Arktype。' +
+              '**国内の記事数をどう数えるかがこれで変わる**ので、迷ったら true にする' +
+              '（true 側の数え方のほうが誤って多く数えることが無い）。',
+          ),
+        what: z
+          .string()
+          .describe(
+            'その道具が何をするものか。**日本語 1 文・60 字以内。** ' +
+              '専門用語を避け、「何を入力して何が出てくるか」が分かるように書く。' +
+              '評価（速い・便利・優れている）は書かない。',
+          ),
+      }),
+    )
+    .describe('入力されたすべての ref に対して1件ずつ'),
+});
+
+/**
+ * 2 段目: 人に紹介するための言葉。
+ *
+ * 盤面に載る分（10 件前後）だけに使う。書かせるのは「同僚に言う一言」までで、
+ * **数字は書かせない**（evidence は計測値から機械で組み立てる）。
+ * LLM に数字を書かせると、計測した値とずれたものが画面に出て、
+ * 紹介した相手に指摘される——この機能では致命的な壊れ方になる。
+ */
+export const RadarPitchSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        ref: z.number().int().describe('入力に付与した番号'),
+        pitch: z
+          .string()
+          .describe(
+            '同僚に 30 秒で伝えるときの一言。**日本語 1〜2 文・80 字以内。** ' +
+              '内容は「何ができるようになるか」だけにする。' +
+              '**評価語を使わない**（すごい / 最高 / 革命的 / 便利 / 強力 / 圧倒的 / 話題の / 注目の）。' +
+              '**数字を書かない**（ダウンロード数やスター数はこちらで別に添えるので、二重になる）。' +
+              '✓「ESLint と同じ設定のまま、Rust 製のリンタに置き換えて実行時間を詰められます。」' +
+              '✗「今めちゃくちゃ話題の爆速リンタです。」（評価語だけで中身が無い）',
+          ),
+        insteadOf: z
+          .array(z.string())
+          .describe(
+            'これで置き換えられる、または不要になる既存の道具の**名前だけ**。0〜3 個。' +
+              '文にしない。置き換え対象が無い（新しい種類の道具）なら空配列。' +
+              '相手が既に使っているものの名前が出ると話が一気に通じるので、ここが効く。',
+          ),
+        firstStep: z
+          .string()
+          .nullable()
+          .describe(
+            '最初に打つコマンドを 1 行だけ。入力に npm パッケージ名がある場合はそれを使う' +
+              '（例: 「npx oxlint@latest .」「npm i -D @tanstack/react-router」）。' +
+              '**入力に無い情報から組み立てないこと。** 分からなければ null。',
+          ),
+        fitFor: z
+          .array(z.string())
+          .describe(
+            '「自分に効くか」を読者が YES / NO で答えられる**観測可能な条件**を 1〜3 個。' +
+              '✓「ESLint の実行が CI で 1 分以上かかっている」' +
+              '✗「開発効率を上げたい人」（誰にでも当てはまるので判定に使えない）',
+          ),
+        caution: z
+          .string()
+          .nullable()
+          .describe(
+            '人に紹介する前に知っておくべき最重要の 1 点を 1 文で。' +
+              '「機能が足りない」「本番実績が乏しい」「メンテナが 1 人」「破壊的変更が頻繁」など、' +
+              '**紹介した後に自分が責任を負う類のもの**を選ぶ。仕様の細部は書かない。' +
+              '思い当たらなければ null（埋めるために作らないこと）。',
+          ),
+      }),
+    )
+    .describe('入力されたすべての ref に対して1件ずつ'),
+});
+
+export type RadarResolveResult = z.infer<typeof RadarResolveSchema>;
+export type RadarPitchResult = z.infer<typeof RadarPitchSchema>;

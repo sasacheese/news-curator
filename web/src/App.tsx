@@ -6,6 +6,7 @@ import { Logo } from './Logo';
 import type { Manifest } from './types';
 import { ArchiveView } from './views/ArchiveView';
 import { CommunityView } from './views/CommunityView';
+import { RadarView } from './views/RadarView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
 import { TodayView } from './views/TodayView';
@@ -15,6 +16,7 @@ export type Route =
   | { name: 'search'; q?: string }
   | { name: 'archive' }
   | { name: 'community' }
+  | { name: 'radar' }
   | { name: 'settings' };
 
 function parseHash(hash: string): Route {
@@ -30,6 +32,8 @@ function parseHash(hash: string): Route {
       return { name: 'archive' };
     case 'community':
       return { name: 'community' };
+    case 'radar':
+      return { name: 'radar' };
     case 'settings':
       return { name: 'settings' };
     case 'today':
@@ -68,6 +72,7 @@ type Tab = { key: Route['name']; label: string; href: string };
  */
 const TABS: Tab[] = [
   { key: 'today', label: '今日', href: '/today' },
+  { key: 'radar', label: '発掘', href: '/radar' },
   { key: 'community', label: 'コミュニティ', href: '/community' },
   { key: 'archive', label: 'アーカイブ', href: '/archive' },
   { key: 'search', label: '検索', href: '/search' },
@@ -213,6 +218,7 @@ export function App() {
             <TodayView manifest={manifest} date={route.date} />
           )}
           {/* 盤面は manifest に依存しない（日付を持たない 1 ファイルなので） */}
+          {route.name === 'radar' && <RadarView />}
           {route.name === 'community' && <CommunityView />}
           {!error && route.name === 'archive' && <ArchiveView manifest={manifest} />}
           {!error && route.name === 'search' && (

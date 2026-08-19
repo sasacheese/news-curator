@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AdvisoryConfig } from './advisories.js';
 import type { CommunityConfig } from './community.js';
+import type { RadarConfig } from './radar.js';
 import type { TopicsConfig, Watchlist } from './types.js';
 import { log } from './util.js';
 
@@ -284,6 +285,73 @@ export async function loadCommunity(): Promise<CommunityConfig> {
       attend: clamp(Number(raw.limits?.attend) || COMMUNITY_DEFAULTS.limits.attend, 0, 30),
       work: clamp(Number(raw.limits?.work) || COMMUNITY_DEFAULTS.limits.work, 0, 30),
     },
+  };
+}
+
+/** radar.json の既定値。ファイルが無い / 項目が欠けているときに埋める */
+const RADAR_DEFAULTS: RadarConfig = {
+  enabled: false,
+  domesticThin: 120,
+  domesticKnown: 400,
+  measureBudget: 20,
+  remeasureAfterDays: 14,
+  minMentions: 2,
+  adoption: { npmWeekly: 30_000, stars: 1500 },
+  limits: { early: 5, hidden: 5 },
+  exclude: [],
+};
+
+/**
+ * 発掘の設定を読む。
+ *
+ * watchlist.json と同じく Web エディタから手で編集される前提なので、欠けた項目は
+ * 既定値で埋めて先に進む。ファイルが無い場合は機能ごと無効にする
+ * （この機能より前のチェックアウトで落ちないようにするため）。
+ *
+ * measureBudget にだけ上限を強く効かせている。ここは外部 API の呼び出し数に
+ * 直結し、Qiita は未認証で 60 リクエスト/時しか無いので、うっかり大きい値を
+ * 書くと収集本体（Qiita を 8 リクエスト使う）まで 429 で落ちる。
+ */
+export async function loadRadar(): Promise<RadarConfig> {
+  let raw: Partial<RadarConfig>;
+  try {
+    raw = await readJson<Partial<RadarConfig>>(resolve(CONFIG_DIR, 'radar.json'));
+  } catch {
+    log.warn('config/radar.json が読めないため、発掘を無効にします。');
+    return RADAR_DEFAULTS;
+  }
+
+  const thin = clamp(Number(raw.domesticThin) || RADAR_DEFAULTS.domesticThin, 1, 100_000);
+  return {
+    enabled: raw.enabled !== false,
+    domesticThin: thin,
+    // known は thin より小さくなってはいけない（小さいと全部が「既知」で落ちる）
+    domesticKnown: Math.max(
+      thin,
+      clamp(Number(raw.domesticKnown) || RADAR_DEFAULTS.domesticKnown, 1, 1_000_000),
+    ),
+    measureBudget: clamp(Number(raw.measureBudget) || RADAR_DEFAULTS.measureBudget, 0, 60),
+    remeasureAfterDays: clamp(
+      Number(raw.remeasureAfterDays) || RADAR_DEFAULTS.remeasureAfterDays,
+      1,
+      180,
+    ),
+    minMentions: clamp(Number(raw.minMentions) || RADAR_DEFAULTS.minMentions, 1, 20),
+    adoption: {
+      npmWeekly: clamp(
+        Number(raw.adoption?.npmWeekly) || RADAR_DEFAULTS.adoption.npmWeekly,
+        0,
+        100_000_000,
+      ),
+      stars: clamp(Number(raw.adoption?.stars) || RADAR_DEFAULTS.adoption.stars, 0, 1_000_000),
+    },
+    limits: {
+      early: clamp(Number(raw.limits?.early) ?? RADAR_DEFAULTS.limits.early, 0, 20),
+      hidden: clamp(Number(raw.limits?.hidden) ?? RADAR_DEFAULTS.limits.hidden, 0, 20),
+    },
+    exclude: asArray(raw.exclude)
+      .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+      .map((s) => s.trim()),
   };
 }
 
