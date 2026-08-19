@@ -57,6 +57,14 @@ export interface RankedItem {
   source: SourceKind;
   sourceLabel: string;
   title: string;
+  /**
+   * 見出しに出す日本語のタイトル。原題が日本語の記事と、この機能より前の日は
+   * undefined か null。その場合は title をそのまま見出しにする。
+   *
+   * 原題（title）は捨てない。元記事へのリンクには原題を出す——検索や共有で
+   * 突き合わせるのは原題のほうなので、画面のどこかには残す必要がある。
+   */
+  titleJa?: string | null;
   url: string;
   publishedAt: string;
   author?: string;
@@ -410,6 +418,8 @@ export interface IndexEntry {
   date: string;
   rank: number | null;
   title: string;
+  /** 日本語の見出し。原題が日本語の記事とこの機能より前の日は undefined か null */
+  titleJa?: string | null;
   url: string;
   source: SourceKind;
   sourceLabel: string;

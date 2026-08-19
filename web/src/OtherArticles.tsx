@@ -5,7 +5,7 @@ import { askContextForItem } from './askClaude';
 import { BuzzChip, Chip, ShareButtons, Takeaways } from './components';
 import { DebateScaffold } from './DebateScaffold';
 import { FeedbackButtons } from './FeedbackButtons';
-import { metricSummary, safeUrl, takeawayLines } from './format';
+import { displayTitle, metricSummary, safeUrl, takeawayLines } from './format';
 import { groupByLane } from './lanes';
 import type { Payoff, RankedItem } from './types';
 
@@ -32,8 +32,14 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
       <div className="row__score">{item.score}</div>
       <div className="row__main">
         <p className="row__title">
-          <a href={safeUrl(item.url)} target="_blank" rel="noreferrer noopener">
-            {item.title}
+          {/* 原題が日本語でないときは日本語の見出しを出す。原題は title 属性に残す */}
+          <a
+            href={safeUrl(item.url)}
+            target="_blank"
+            rel="noreferrer noopener"
+            title={item.titleJa ? item.title : undefined}
+          >
+            {displayTitle(item)}
           </a>
         </p>
         <p className="row__summary">{item.oneLiner}</p>

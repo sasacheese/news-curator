@@ -270,6 +270,19 @@ export function truncate(text: string, max: number): string {
   return `${text.slice(0, max)}…`;
 }
 
+/**
+ * 仮名（ひらがな・カタカナ）を含むか。「この文字列は日本語として読めるか」の判定に使う。
+ *
+ * detectLang は漢字も日本語として数えるので、中国語のタイトルまで ja になる。
+ * 見出しを日本語に置き換えるかどうかの判定でそれを使うと、中国語のタイトルが
+ * 「もう日本語だから触らない」側に落ちる。仮名の有無で決めれば、日本語の
+ * タイトルはほぼ必ず仮名を含み（含まないのは漢字だけの短い題だけ）、
+ * 中国語のタイトルは含まない。
+ */
+export function hasKana(text: string): boolean {
+  return /[\u3041-\u3096\u30a1-\u30fa\uff66-\uff9d]/.test(text);
+}
+
 export function detectLang(text: string): 'ja' | 'en' | 'unknown' {
   if (!text) return 'unknown';
   const ja = (text.match(/[぀-ヿ一-龯]/g) ?? []).length;

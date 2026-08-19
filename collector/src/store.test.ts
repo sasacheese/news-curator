@@ -30,6 +30,7 @@ function ranked(over: Partial<RankedItem> & { id: string }): RankedItem {
     popularityPercentile: 0.5,
     matchedTopics: [],
     score: 50,
+    titleJa: null,
     oneLiner: `${over.id} の要約`,
     takeaways: ['関心に近い'],
     keywords: [],
