@@ -741,6 +741,13 @@ export type TrendPlacement = 'top' | 'other' | 'release' | 'none';
 export interface TrendArticle {
   date: string;
   title: string;
+  /**
+   * 日本語の見出し。原題が日本語の記事・未掲載のもの・この機能より前の日は null。
+   *
+   * タイムラインにも要る。日本語の一覧に英語のタイトルだけが混ざると、
+   * そこで読むのが止まる（掲載側と同じ判断）。
+   */
+  titleJa: string | null;
   url: string;
   placement: TrendPlacement;
   lane: Lane | null;

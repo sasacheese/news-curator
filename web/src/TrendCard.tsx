@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { displayTitle } from './format';
 import { LANE_LABELS } from './lanes';
 import type { TrendArticle, TrendTopic } from './types';
 
@@ -169,8 +170,10 @@ export function TrendCard({
                 href={article.url}
                 target="_blank"
                 rel="noreferrer noopener"
+                // 日本語の見出しに差し替えたときは、原題を hover で読めるようにする
+                title={article.titleJa ? article.title : undefined}
               >
-                {article.title}
+                {displayTitle(article)}
               </a>
               <span className="tev__m">
                 {article.date === topic.lastSeen && topic.state !== 'cool' && (

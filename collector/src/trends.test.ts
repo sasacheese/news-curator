@@ -44,6 +44,7 @@ function entry(over: Partial<IndexEntry> & { id: string; date: string }): IndexE
   return {
     rank: null,
     title: `記事 ${over.id}`,
+    titleJa: null,
     url: `https://example.com/${over.id}`,
     source: 'qiita',
     sourceLabel: 'Qiita',
@@ -348,6 +349,28 @@ describe('buildBoard', () => {
     });
     const all = [...b.hot, ...b.keep, ...b.cool].map((t) => t.key);
     assert.ok(all.includes('aaa') && all.includes('bbb'), all.join(','));
+  });
+
+  it('日本語の見出しをタイムラインへ通す（英語の題だけが混ざると読むのが止まる）', () => {
+    const published = new Map<string, IndexEntry[]>([
+      [
+        'cursor',
+        [
+          entry({
+            id: 'en',
+            date: '2026-08-20',
+            title: 'owner/repo — An English description',
+            titleJa: '英語の記事に付けた日本語の見出し',
+          }),
+        ],
+      ],
+    ]);
+    const cursor = board(ledger(), '2026-08-20', { publishedByTopic: published }).hot.find(
+      (t) => t.key === 'cursor',
+    );
+    assert.equal(cursor?.articles[0]?.titleJa, '英語の記事に付けた日本語の見出し');
+    // 原題は残す（画面では hover で読めるようにしている）
+    assert.equal(cursor?.articles[0]?.title, 'owner/repo — An English description');
   });
 
   it('未掲載の記事は placement=none で混ぜる（掲載済みと区別できる）', () => {

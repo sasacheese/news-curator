@@ -552,6 +552,7 @@ function buildTimeline(
   const articles: TrendArticle[] = published.map((entry) => ({
     date: entry.date,
     title: entry.title,
+    titleJa: entry.titleJa ?? null,
     url: entry.url,
     placement: placementOf(entry),
     lane: entry.lane,
@@ -562,6 +563,8 @@ function buildTimeline(
     articles.push({
       date: item.publishedAt.slice(0, 10),
       title: item.title,
+      // 未掲載の記事には日本語の見出しを作っていない（掲載ぶんにだけ付く工程）
+      titleJa: null,
       url: item.url,
       placement: 'none',
       lane: null,
