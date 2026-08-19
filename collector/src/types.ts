@@ -57,6 +57,14 @@ export interface RawItem {
   sourceWeight: number;
   /** 重複排除でまとめた際に、どのソースから見つかったか。話題性の判定に使う */
   foundIn?: SourceKind[];
+  /**
+   * サムネイル画像の URL（配信元を直接参照する）。
+   *
+   * 深掘り対象になった記事にだけ、書き手が自分で置いた画像があるときだけ入る。
+   * タイトルを描いただけの自動生成カードは image.ts で落としているので、
+   * 大半の記事では undefined のまま——**無いほうが既定**。
+   */
+  imageUrl?: string;
 }
 
 export interface PreScoredItem extends RawItem {

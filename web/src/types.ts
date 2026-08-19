@@ -66,6 +66,14 @@ export interface RankedItem {
   metrics: Metrics;
   lang: string;
   matchedTopics: string[];
+  /**
+   * サムネイル画像の URL。配信元のサーバーを直接参照する。
+   *
+   * 入るのは書き手が自分で置いた画像があるときだけで、無い日のほうが多い
+   * （タイトルを描いただけの自動生成カードは収集側で落としている）。
+   * 配信元が消せば表示も消えるので、画面側は読み込みに失敗したら枠ごと畳む。
+   */
+  imageUrl?: string;
   score: number;
   oneLiner: string;
   /**
