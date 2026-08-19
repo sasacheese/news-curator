@@ -1050,6 +1050,85 @@ URL に秘密のパラメータを渡した本人のブラウザだけで表示�
 します。Firebase を未設定のままにしておけば、この処理は丸ごとスキップされ、
 今まで通りの動作になります（LLM バックエンド未設定時にルールベースへフォールバックするのと同じ考え方です）。
 
+## 毎朝のプッシュ通知
+
+ダイジェストが読める状態になったタイミング（Pages のデプロイ完了後）で、
+購読した端末にプッシュ通知を送ります。通知をタップするとサイトが開きます。
+
+- 購読は**端末（ブラウザプロファイル）ごと**です。設定画面（ロゴマークを 3 秒以内に
+  5 回叩く）の「毎朝のプッシュ通知」から購読します
+- **iOS は「ホーム画面に追加」した PWA の中でだけ**購読できます（iOS 16.4 以降）。
+  Safari でサイトを開いただけでは通知 API 自体が生えません。Android は
+  ブラウザのままで購読できます
+- 購読情報（endpoint と暗号鍵）は Firestore の `pushSubscriptions` に保存します。
+  読者フィードバックと同じく、書き込みはブラウザから直接・アクセス制御は
+  Security Rules 側です。失効した購読（アプリ削除や許可の取り消し）は
+  翌朝の送信時に自動で掃除されます
+- 未設定ならこの機能は丸ごと無効になり、設定画面にも出ません
+
+前提として、読者フィードバックのセットアップ（Firebase プロジェクトと
+`FIREBASE_SERVICE_ACCOUNT_JSON` の登録）が済んでいる必要があります。
+フィードバック機能自体（`VITE_FEEDBACK_TOKEN`）は解除していなくても構いません。
+
+### セットアップ
+
+1. VAPID 鍵ペア（プッシュサービスに対して送信者を証明する鍵）を生成する
+
+   ```bash
+   npm run push:keygen
+   ```
+
+2. リポジトリの **Settings → Secrets and variables → Actions** に登録する
+
+   | 種類 | Name | Value |
+   | --- | --- | --- |
+   | Variable | `VITE_VAPID_PUBLIC_KEY` | 生成された Public Key |
+   | Secret | `VAPID_PRIVATE_KEY` | 生成された Private Key |
+   | Variable | `VAPID_SUBJECT` | （任意）`mailto:you@example.com` 形式の連絡先。未登録ならサイト URL が使われます |
+
+   公開鍵はビルド済み JS に入る前提の値なので Variables でよく、秘密鍵だけが Secrets です。
+
+3. Firestore → ルール に `pushSubscriptions` の match ブロックを**追記**して公開する
+   （既存の `feedback` の match と並べて置きます）
+
+   ```
+   match /pushSubscriptions/{subId} {
+     // endpoint は購読者以外に見せない。漏れると第三者がその端末へ通知を送れてしまう
+     allow read, list: if false;
+     // ドキュメント ID は endpoint の SHA-256。ID を知っている＝購読した本人の端末なので、
+     // 解除（削除）はそのまま許す
+     allow delete: if true;
+     allow create, update: if isValidSubscription();
+
+     function isValidSubscription() {
+       let d = request.resource.data;
+       return d.keys().hasOnly(['endpoint', 'p256dh', 'auth', 'updatedAt'])
+         && d.endpoint is string
+         && d.endpoint.matches('^https://.*')
+         && d.endpoint.size() <= 2000
+         && d.p256dh is string && d.p256dh.size() > 0 && d.p256dh.size() <= 300
+         && d.auth is string && d.auth.size() > 0 && d.auth.size() <= 100
+         && d.updatedAt == request.time;
+     }
+   }
+   ```
+
+4. 次のデプロイ後、受け取りたい端末で設定画面から「この端末で受け取る」を押す
+   （iOS は先にホーム画面へ追加し、そのアプリの中で押します）
+
+### 送られ方
+
+`collector/src/send-push.ts` が毎朝のワークフローの最後（Pages デプロイ後）に走り、
+当日のダイジェストから件数と読了目安を本文にした通知を全購読へ送ります。
+通知が朝のうちに届かなかった端末（電源オフなど）では半日で破棄され、
+翌日の通知だけが届きます（TTL 12 時間）。古い通知が夜中に鳴ることはありません。
+
+手元から試し送りもできます（実際に全購読端末へ届くので注意）:
+
+```bash
+FIREBASE_SERVICE_ACCOUNT_JSON=$(cat service-account.json) VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... npm run push:send
+```
+
 ---
 
 ## ローカルで動かす
