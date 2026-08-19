@@ -280,6 +280,7 @@ describe('collectCandidates', () => {
     date: '2026-08-18',
     rank: null,
     title: '記事',
+    titleJa: null,
     url: 'https://example.com/a',
     source: 'qiita',
     sourceLabel: 'Qiita',

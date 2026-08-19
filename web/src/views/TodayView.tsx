@@ -4,13 +4,23 @@ import { AuthorModal } from '../AuthorModal';
 import { OtherArticles } from '../OtherArticles';
 import { ReleaseList } from '../ReleaseList';
 import { VisualFigure } from '../VisualFigure';
+import { TrendBand } from '../TrendBand';
 import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
 import { Annotated } from '../Annotated';
 import { AskClaudeButton } from '../AskClaudeButton';
 import { askContextForTop } from '../askClaude';
 import { BuzzChip } from '../components';
-import { Chip, CopyButton, Empty, Notice, ShareButtons, Takeaways } from '../components';
+import {
+  Chip,
+  CopyButton,
+  Empty,
+  Figures,
+  Notice,
+  ShareButtons,
+  Takeaways,
+  Thumbnail,
+} from '../components';
 import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
 import { groupByLane } from '../lanes';
@@ -24,7 +34,14 @@ import type {
   RankedItem,
   TopItem,
 } from '../types';
-import { formatDateLabel, formatPublished, metricSummary, safeUrl, takeawayLines } from '../format';
+import {
+  displayTitle,
+  formatDateLabel,
+  formatPublished,
+  metricSummary,
+  safeUrl,
+  takeawayLines,
+} from '../format';
 
 /**
  * 読み込み中の骨組み。
@@ -227,6 +244,12 @@ export function TodayView({ manifest, date }: Props) {
       )}
 
       {/*
+        動いている話題の帯。ここは気づきの入口で、追うのはトレンドタブ側。
+        過去日を開いているときは出さない（盤面は日付を持たないので嘘になる）。
+      */}
+      <TrendBand isToday={targetDate != null && targetDate === manifest?.latest} />
+
+      {/*
         同じ数字を文章と数値タイルで二度出していたので、タイルをやめて 1 つの塊にした。
         上段が「結果」、下段が「その結果に至った経緯」。件数はどちらか一方にしか出ない。
       */}
@@ -346,7 +369,7 @@ function Toc({ digest }: { digest: Digest }) {
   for (const g of groupByLane(digest.top, 'top')) {
     entries.push({ id: g.id, label: `${g.label} ${g.items.length}` });
     for (const item of g.items) {
-      entries.push({ id: cardDomId(item.id), label: item.title, nested: true });
+      entries.push({ id: cardDomId(item.id), label: displayTitle(item), nested: true });
     }
   }
   if (digest.releases?.length) {
@@ -379,6 +402,13 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
   const d = item.deep;
   const pr = d.prerequisites ?? [];
   const takeaways = takeawayLines(item);
+  /*
+   * 画像がある日だけ右に列を足す。無い日は今までどおりの 1 列で、余白も空かない。
+   * 配信元から画像が消えていたときも同じ 1 列に戻すため、失敗をここで持つ
+   * （画像だけ消すと、列の幅が空白の帯として残る）。
+   */
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const thumb = thumbFailed ? undefined : safeUrl(item.imageUrl);
   return (
     /*
      * 畳んだ状態を既定にする。カード 1 枚が長く、6 枚並ぶとスクロール量が多いため。
@@ -387,7 +417,7 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
      * 元記事リンクと著者は本文側に移してある。
      */
     <details className="card" id={cardDomId(item.id)}>
-      <summary className="card__head">
+      <summary className={thumb ? 'card__head card__head--thumb' : 'card__head'}>
         <div className="card__meta">
           <span className="rank">{item.rank}</span>
           <Chip accent>{item.category}</Chip>
@@ -401,9 +431,14 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           * 見出しは元記事のタイトルそのもの。以前はサイト側で付けた headline を
           * 大きく出し、その下に元題を小さく添えていたが、headline は oneLiner・
           * 3行要約・summary に続く 4 つ目の要約で、読まれていなかった。
+          *
+          * 例外は原題が日本語でないときだけ。そこは収集側で作った日本語の見出しに
+          * 差し替える（原題は下の元記事リンクに出る）。4 つ目の要約を復活させた
+          * わけではない——日本語の記事の見出しは今までどおり原題そのものである。
           */}
-        <h3 className="card__headline">{item.title}</h3>
+        <h3 className="card__headline">{displayTitle(item)}</h3>
         <Takeaways lines={takeaways} />
+        {thumb && <Thumbnail src={thumb} onFailed={() => setThumbFailed(true)} />}
         <span className="card__toggle" aria-hidden="true" />
       </summary>
 
@@ -422,6 +457,12 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
         <p className="card__summary">
           <Annotated text={d.summary} prerequisites={pr} idPrefix={`${item.id}-sum`} />
         </p>
+
+        {/*
+          * 記事の中の画像は要約の直後に置く。解説の中の引用なので、前提知識や図より前
+          * ——「記事が何を見せているか」は、こちらが作った図（visual）より先に来る。
+          */}
+        {d.figures && d.figures.length > 0 && <Figures figures={d.figures} />}
 
         {/*
           * 新しい形（clashes を持つ日）では、争点は下の「争点」項目がまとめて担う

@@ -56,8 +56,14 @@ export interface RadarConfig {
   exclude: string[];
 }
 
-/** 過去のダイジェストを何日ぶん遡って言及を数えるか */
-const MENTION_WINDOW_DAYS = 90;
+/**
+ * 過去のダイジェストを何日ぶん遡って言及を数えるか。
+ *
+ * 候補の母集団を読む側（index.ts / radar-dry.ts）も同じ日数を渡す必要があるので
+ * 公開している。ここと呼び出し側がずれると、根拠の文の「直近 90 日で」だけが
+ * 実際に読んだ範囲と食い違う。
+ */
+export const MENTION_WINDOW_DAYS = 90;
 
 /**
  * 勢いがあると見なす下限。

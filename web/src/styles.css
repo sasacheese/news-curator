@@ -183,6 +183,7 @@ body {
 .takeaways__list,
 .rel__summary,
 .hero__lead,
+.figquote__caption,
 .prereq__item dd {
   text-autospace: normal;
 }
@@ -993,6 +994,54 @@ textarea {
   margin-bottom: 10px;
 }
 
+/*
+ * サムネイルがある日だけ、見出しと 3 行要約の右に画像の列を足す。
+ *
+ * 画像は「無いほうが既定」なので、この修飾子が付かない日は今までどおりの 1 列で、
+ * 右に空きも出ない。列を足すのは 2 行目からで、上のチップ行は幅いっぱいのまま——
+ * 折り返すチップを狭い列に押し込むと、話題・所要時間が 2 段に割れて読みにくくなる。
+ */
+.card__head--thumb {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  column-gap: 16px;
+}
+
+.card__head--thumb > .card__meta {
+  grid-column: 1 / -1;
+}
+
+.card__head--thumb > .card__headline,
+.card__head--thumb > .takeaways {
+  grid-column: 1;
+}
+
+/*
+ * 画像は 2 行目（見出し）から 3 行目（3行要約）にまたがらせる。
+ *
+ * 行数を span で数えているのは、-1 が「明示グリッドの最終行」を指すため——
+ * この grid は行を宣言していないので -1 だと 1 行目に載り、チップ行を下に押し出す。
+ * 読み込む前から場所を取らせる（aspect-ratio と背景）ので、遅れて出ても下の要約が飛ばない。
+ */
+.card__thumb {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+  align-self: start;
+  width: 100%;
+  aspect-ratio: 1.91 / 1;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+@media (max-width: 560px) {
+  .card__head--thumb {
+    grid-template-columns: minmax(0, 1fr) 88px;
+    column-gap: 12px;
+  }
+}
+
 .rank {
   display: inline-grid;
   place-items: center;
@@ -1392,6 +1441,58 @@ textarea {
   font-size: 12.5px;
   line-height: 1.7;
   color: var(--text-faint);
+}
+
+/* ---------------- 記事の中の画像（解説での引用） ---------------- */
+
+/*
+ * 自分で作った図（.figure）とは見せ方を変えている。あちらはサイト側が組んだ表・図で
+ * カードの部品なので枠で囲むが、こちらは他人の記事からの引用なので、
+ * 左の罫線で「ここは引用」と示し、画像そのものは加工せずに置く（切り抜くと図が読めない）。
+ */
+
+.figquotes {
+  margin: 0 0 20px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
+.figquotes__label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.figquote {
+  margin: 0;
+}
+
+.figquote + .figquote {
+  margin-top: 14px;
+}
+
+/*
+ * 縦横比は画像なりにする（サムネイルと違って中身を読むので、切り抜けない）。
+ * 縦に長い画像で 1 枚がスクロール一画面を超えないよう、高さだけ抑える。
+ */
+.figquote__img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.figquote__caption {
+  margin-top: 7px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
 }
 
 /* ---------------- 図 ---------------- */
@@ -3722,6 +3823,120 @@ a.btn {
   margin-top: 7px;
 }
 
+/* ================================================================== *
+ * トレンド（話題台帳）
+ *
+ * ランキングとは別枠。カード 1 枚が 1 つの話題で、中身は「現在地」——
+ * 平常比・日別の本数・掲載した記事の並び。既存のカードと同じ器を使うが、
+ * 読み物ではなく一覧なので情報密度を上げてある。
+ * ================================================================== */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 「今日」タブに置く帯 ---------- */
+
+.tband {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+.tband__label {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tband__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.tband__all {
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.tband__all:hover {
+  text-decoration: underline;
+}
+
+.tchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tchip:hover {
+  border-color: var(--accent);
+}
+
+.tchip__n {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.tchip--new {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* 追っている話題には印を付ける。★を付ける動機がここに出る */
+.tchip--watched::before {
+  content: '★';
+  font-size: 10px;
+  color: var(--accent);
+}
+
+/* ---------- 話題カード ---------- */
+
+.tcards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tcard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
+}
 /* ---------------- 発掘 ---------------- */
 /*
  * この画面の主役は要約ではなく「海外での使われ方」と「日本語の記事の量」の対比。
@@ -3752,6 +3967,345 @@ a.btn {
   box-shadow: var(--shadow);
 }
 
+/* 落ち着いたものは器から降ろす。追う対象ではないことを見た目で示す */
+.tcard--cool {
+  background: transparent;
+  box-shadow: none;
+}
+
+.tcard--cool .tcard__name,
+.tcard--cool .tev__t {
+  color: var(--text-muted);
+}
+
+/*
+ * 落ち着いたカードでは当日の本数を強調しない。「落ち着いた」と言いながら
+ * 今日の件数がアクセント色で光っていると、読者には矛盾に見える。
+ */
+.tcard--cool .tmeta--now {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.tcard__hd {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.tcard__id {
+  flex: 1;
+  min-width: 0;
+}
+
+.tcard__name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  word-break: break-word;
+}
+
+/*
+ * 実表記。見出しはファミリ（Cursor）で、ここが実際に出た名前（Cursor Origin）。
+ * 固有名詞のまま並べると表記ゆれで繋がらず、抽象カテゴリに丸めると情報量が消える。
+ */
+.tcard__vars {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.tcard__st {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.tbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2.5px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.tbadge b {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tbadge--new {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tbadge--rise {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tbadge--keep {
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+.tbadge--cool {
+  border-color: var(--border);
+  color: var(--text-faint);
+}
+
+.twatch {
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.twatch:hover,
+.twatch[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.twatch[aria-pressed='true'] path {
+  fill: currentColor;
+}
+
+.tcard__meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.tmeta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tmeta__sep {
+  font-size: 12px;
+  color: var(--border-strong);
+}
+
+.tmeta--now {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tmeta--off {
+  color: var(--text-faint);
+}
+
+/*
+ * 日別本数。折れ線は出さない——読者の行動が変わるのは「伸びているか枯れているか」
+ * の形だけで、値の精密な読み取りではない。最後の日だけ色を付けて現在地を示す。
+ */
+.tspark {
+  display: block;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tspark__bar {
+  fill: var(--border-strong);
+}
+
+.tspark__bar--zero {
+  fill: var(--border);
+}
+
+.tspark__bar--now {
+  fill: var(--accent);
+}
+
+/* ---------- タイムライン ---------- */
+
+.tev-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 9px 0 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.tev {
+  display: grid;
+  grid-template-columns: 3.1em 1fr auto;
+  gap: 9px;
+  align-items: baseline;
+  padding: 3px 0;
+}
+
+.tev__d {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * タイトルは 2 行で切る。英語のリポジトリ説明が 3 行に折り返すと、
+ * 1 枚のカードの中で行の高さが揃わず一覧として読めなくなる。
+ */
+.tev__t {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.tev__t:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.tev__m {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ttag {
+  padding: 1.5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-sunken);
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.ttag--rank {
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ttag--new {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tcard__empty {
+  margin: 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.tmore {
+  align-self: flex-start;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tmore:hover {
+  text-decoration: underline;
+}
+
+.tcard__ft {
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+
+.tsearch {
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tsearch:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 背景（常在語） ---------- */
+
+.tbg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 30px;
+  padding: 14px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+.tbg__label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tbg__values {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.tbg__note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+@media (max-width: 560px) {
+  .tcard__hd {
+    flex-wrap: wrap;
+  }
+
+  .tev {
+    grid-template-columns: 3.1em 1fr;
+  }
+
+  .tev__m {
+    grid-column: 2;
+    margin-top: 1px;
+  }
+
+  .tspark {
+    margin-left: 0;
+    width: 100%;
+    max-width: 200px;
+  }
+}
 .radar__head {
   margin-bottom: var(--sp-4);
 }

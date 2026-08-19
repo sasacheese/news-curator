@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { collectCommunity } from './community.js';
 import { loadCommunity, loadRadar, loadRuntimeConfig, loadSources, loadTopics } from './config.js';
-import { enrichBodies, enrichHatenaCounts } from './enrich.js';
+import { enrichHatenaCounts, enrichTopItems } from './enrich.js';
 import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
 import {
   deepDive,
@@ -16,7 +16,7 @@ import {
 import { selectLaneCandidates } from './lanes.js';
 import type { SlotRule } from './prescore.js';
 import { dedupe, pickByLane, pickTopDiverse, preScore } from './prescore.js';
-import { collectRadar } from './radar.js';
+import { MENTION_WINDOW_DAYS, collectRadar } from './radar.js';
 import { collectReleaseCandidates, extractReleases, sortReleases } from './releases.js';
 import { collectAdvisories } from './advisories.js';
 import { collectAll } from './sources.js';
@@ -27,10 +27,25 @@ import {
   loadRecentIndexEntries,
   loadRecentSummaries,
   loadSeenUrls,
+  loadTrendLedger,
   saveCommunityBoard,
   saveDigest,
   saveRadarBoard,
+  saveTrendBoard,
+  saveTrendLedger,
+  toIndexEntries,
 } from './store.js';
+import {
+  LEDGER_DAYS,
+  assignPublished,
+  buildBoard,
+  buildVocabulary,
+  collectUnplaced,
+  countDay,
+  labelsForLedger,
+  mergeLedger,
+  trimLedger,
+} from './trends.js';
 import type {
   CommunityBoard,
   CommunityItem,
@@ -149,7 +164,7 @@ async function main(): Promise<void> {
         return null;
       }
       const [entries, ledger, previousIds] = await Promise.all([
-        loadRecentIndexEntries(90),
+        loadRecentIndexEntries(date, MENTION_WINDOW_DAYS),
         loadRadarLedger(),
         loadPreviousRadarIds(),
       ]);
@@ -348,8 +363,8 @@ async function main(): Promise<void> {
     log.info(`  ${LANE_LABELS[lane]}: ${picked.length} 件（候補 ${pool.length}）`);
     return picked;
   });
-  const enriched = await enrichBodies(topCandidates, runtime.bodyCharLimit);
-  const enrichedById = new Map(enriched.map((i) => [i.id, i]));
+  const enriched = await enrichTopItems(topCandidates, runtime.bodyCharLimit);
+  const enrichedById = new Map(enriched.items.map((i) => [i.id, i]));
 
   // rank はレーン内で 1 から振る（画面上も「知る のベスト」「作る のベスト」で分かれる）
   const rankOf = new Map<string, number>();
@@ -362,7 +377,7 @@ async function main(): Promise<void> {
 
   const top: TopItem[] = await mapLimit(topCandidates, 3, async (item) => {
     const withBody = { ...item, ...(enrichedById.get(item.id) ?? {}) } as RankedItem;
-    const deep = await deepDive(withBody, topics, runtime);
+    const deep = await deepDive(withBody, topics, runtime, enriched.bodyImages.get(item.id));
     log.info(`  [${LANE_LABELS[item.lane]}] #${rankOf.get(item.id)} ${item.oneLiner}`);
     return { ...withBody, rank: rankOf.get(item.id) ?? 1, deep };
   });
@@ -466,6 +481,61 @@ async function main(): Promise<void> {
     notes,
   };
 
+  /* トレンド（話題台帳） --------------------------------------------- */
+  /*
+   * ダイジェストは差分刊行なので、昨日の 1 位は今日どこにも出ない。ここでは
+   * 記事ではなく「話題」を単位に、日をまたいだ状態を持つ。LLM は通さないので
+   * 追加費用はゼロ。落ちてもダイジェストは出す（safe で包む）。
+   *
+   * 数えるのは掲載した 30 件ではなく重複排除後の全件。掲載ぶんだけを母集団に
+   * すると、その日に 10 本出ていた話題が 1 本にしか見えない。
+   */
+  log.step('トレンド');
+  const trend = await safe(
+    'trends',
+    async () => {
+      const [ledger, pastEntries] = await Promise.all([
+        loadTrendLedger(date),
+        loadRecentIndexEntries(date, LEDGER_DAYS),
+      ]);
+      const todayEntries = toIndexEntries(digest);
+      const vocab = buildVocabulary(
+        [...pastEntries, ...todayEntries].flatMap((e) => e.keywords ?? []),
+        preScored,
+      );
+      const counted = countDay(date, preScored, vocab);
+      const days = trimLedger(mergeLedger(ledger.days, counted.day));
+      const publishedUrls = new Set(todayEntries.map((e) => normalizeUrl(e.url)));
+      const board = buildBoard({
+        date,
+        updatedAt: new Date().toISOString(),
+        days,
+        labels: vocab.labels,
+        variantsByTopic: counted.variantsByTopic,
+        publishedByTopic: assignPublished(
+          // 今日ぶんは index にまだ無いので、ここで足してから割り当てる
+          [...todayEntries, ...pastEntries.filter((e) => e.date !== date)],
+          vocab,
+        ),
+        unplacedByTopic: collectUnplaced(counted.itemsByTopic, publishedUrls, normalizeUrl),
+      });
+      const labels = labelsForLedger(days, vocab.labels, ledger.labels);
+      log.info(
+        `  語彙 ${vocab.labels.size} / 話題 ${Object.keys(counted.day.counts).length}` +
+          ` / 台帳 ${days.length} 日`,
+      );
+      for (const topic of board.hot) {
+        const lift = topic.lift == null ? '初出' : `平常比 ${topic.lift.toFixed(1)}`;
+        log.info(`  [動いた] ${topic.name}（今日 ${topic.today} 本・${lift}）`);
+      }
+      return { board, days, labels };
+    },
+    null,
+  );
+  if (!trend) {
+    log.warn('  トレンドの算出に失敗しました。盤面は前回のまま残ります。');
+  }
+
   log.step('使用量');
   logUsage();
 
@@ -491,6 +561,10 @@ async function main(): Promise<void> {
   // 盤面は日付を持たない別ファイル。ダイジェストが落ちた日でも単独で更新される
   await saveCommunityBoard(communityBoard);
   if (radar) await saveRadarBoard(radar.board, radar.ledger);
+  if (trend) {
+    await saveTrendLedger(trend.days, trend.labels);
+    await saveTrendBoard(trend.board);
+  }
   log.info(
     `\n✔ 完了: ベスト${top.length}件 + その他${others.length}件` +
       ` + コミュニティ${community.items.length}件` +

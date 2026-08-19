@@ -8,6 +8,9 @@ import type {
   Manifest,
   RadarBoard,
   RadarLedgerEntry,
+  TrendBoard,
+  TrendDay,
+  TrendShard,
 } from './types.js';
 import { log, normalizeUrl } from './util.js';
 
@@ -26,10 +29,19 @@ const RADAR_PATH = resolve(DATA_DIR, 'radar.json');
  * 閲覧者が毎回数百件ぶんを落とすことになる。
  */
 const RADAR_LEDGER_PATH = resolve(DATA_DIR, 'radar-ledger.json');
+/**
+ * 話題台帳とトレンドの盤面。
+ *
+ * 台帳は data/index と同じ月別シャード（過去月は書き換わらない）。盤面は
+ * コミュニティと同じく日付を持たない 1 ファイルで、毎回まるごと差し替える。
+ */
+const TREND_DIR = resolve(DATA_DIR, 'trends');
+const TREND_BOARD_PATH = resolve(TREND_DIR, 'board.json');
 
 async function ensureDirs(): Promise<void> {
   await mkdir(DIGEST_DIR, { recursive: true });
   await mkdir(INDEX_DIR, { recursive: true });
+  await mkdir(TREND_DIR, { recursive: true });
 }
 
 async function readJsonOr<T>(path: string, fallback: T): Promise<T> {
@@ -138,32 +150,6 @@ export async function saveCommunityBoard(board: CommunityBoard): Promise<void> {
   log.info(`保存: data/community.json (${board.items.length} 件 — ${counts})`);
 }
 
-/**
- * 直近の検索インデックスをまとめて読む。
- *
- * 発掘の候補の母集団になる。keywords は要約段で「固有名詞優先」で抽出させた
- * ものなので、道具の名前の供給源としてはこれが一番きれいで、しかも
- * **追加の収集がまったく要らない**（毎日ダイジェストを作った副産物として溜まる）。
- */
-export async function loadRecentIndexEntries(days = 90): Promise<IndexEntry[]> {
-  await ensureDirs();
-  let files: string[] = [];
-  try {
-    files = (await readdir(INDEX_DIR)).filter((f) => f.endsWith('.json')).sort().reverse();
-  } catch {
-    return [];
-  }
-
-  // 月別シャードなので、日数 / 30 + 1 ファイル読めば必要な期間をカバーできる
-  const limit = Math.max(2, Math.ceil(days / 30) + 1);
-  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
-  const out: IndexEntry[] = [];
-  for (const file of files.slice(0, limit)) {
-    const entries = await readJsonOr<IndexEntry[]>(resolve(INDEX_DIR, file), []);
-    for (const e of entries) if (e.date >= cutoff) out.push(e);
-  }
-  return out;
-}
 
 /** 発掘の台帳を読む。無ければ空（初回は候補の同定から始まる） */
 export async function loadRadarLedger(): Promise<RadarLedgerEntry[]> {
@@ -209,6 +195,7 @@ export function toIndexEntries(digest: Digest): IndexEntry[] {
     date: digest.date,
     rank: item.rank,
     title: item.title,
+    titleJa: item.titleJa ?? null,
     url: item.url,
     source: item.source,
     sourceLabel: item.sourceLabel,
@@ -227,6 +214,7 @@ export function toIndexEntries(digest: Digest): IndexEntry[] {
     date: digest.date,
     rank: null,
     title: item.title,
+    titleJa: item.titleJa ?? null,
     url: item.url,
     source: item.source,
     sourceLabel: item.sourceLabel,
@@ -246,6 +234,8 @@ export function toIndexEntries(digest: Digest): IndexEntry[] {
     date: digest.date,
     rank: null,
     title: item.title,
+    // リリース情報は製品名と日本語の要約で引くので、見出しの差し替えを持たない
+    titleJa: null,
     url: item.url,
     source: 'github_release',
     sourceLabel: item.sourceLabel,
@@ -326,4 +316,120 @@ export async function saveDigest(digest: Digest): Promise<void> {
   log.info(`保存: data/digests/${digest.date}.json`);
   log.info(`保存: data/index/${month}.json (${merged.length} 件)`);
   log.info(`保存: data/manifest.json (${dates.length} 日分)`);
+}
+
+/* ------------------------------------------------------------------ *
+ * 話題台帳（トレンド）
+ * ------------------------------------------------------------------ */
+
+/**
+ * 直近 N 日ぶんの掲載記事を新しい順に返す。
+ *
+ * トレンドの語彙（LLM が付けた keywords）とタイムライン（掲載済みの記事）の
+ * 両方に使う。月別シャードなので、日数ぶんをカバーする最小の枚数だけ読む。
+ */
+export async function loadRecentIndexEntries(date: string, days: number): Promise<IndexEntry[]> {
+  await ensureDirs();
+  const from = shiftDate(date, -(days - 1));
+  let files: string[] = [];
+  try {
+    files = (await readdir(INDEX_DIR))
+      .filter((f) => /^\d{4}-\d{2}\.json$/.test(f))
+      .filter((f) => f.replace('.json', '') >= from.slice(0, 7))
+      .sort();
+  } catch {
+    return [];
+  }
+
+  const entries: IndexEntry[] = [];
+  for (const file of files) {
+    const shard = await readJsonOr<IndexEntry[]>(resolve(INDEX_DIR, file), []);
+    for (const entry of shard) {
+      if (entry.date >= from && entry.date <= date) entries.push(entry);
+    }
+  }
+  entries.sort((a, b) => (a.date < b.date ? 1 : -1));
+  return entries;
+}
+
+function trendShardPath(month: string): string {
+  return resolve(TREND_DIR, `${month}.json`);
+}
+
+/** YYYY-MM-DD の月をひとつ前にずらす */
+function previousMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(Date.UTC(y!, m! - 1, 1));
+  d.setUTCMonth(d.getUTCMonth() - 1);
+  return d.toISOString().slice(0, 7);
+}
+
+/**
+ * 台帳を読む。保持期間（28 日）は月をまたぐので、当月と前月の 2 シャードで足りる。
+ * 表示名は日ごとに持たないので、2 つのシャードのぶんを合わせて返す。
+ */
+export async function loadTrendLedger(
+  date: string,
+): Promise<{ days: TrendDay[]; labels: Record<string, string> }> {
+  await ensureDirs();
+  const month = date.slice(0, 7);
+  const shards = await Promise.all(
+    [previousMonth(month), month].map((m) =>
+      readJsonOr<Partial<TrendShard>>(trendShardPath(m), {}),
+    ),
+  );
+  const days: TrendDay[] = [];
+  let labels: Record<string, string> = {};
+  for (const shard of shards) {
+    days.push(...(shard.days ?? []));
+    labels = { ...labels, ...(shard.labels ?? {}) };
+  }
+  days.sort((a, b) => (a.date < b.date ? -1 : 1));
+  return { days, labels };
+}
+
+/**
+ * 台帳を月別シャードへ書き戻す。
+ *
+ * 保持期間の外に出た日はシャードから消す。過去月のシャードは、そこに残る日が
+ * 無くなるまで（＝月が変わって 28 日経つまで）書き換わり続ける。
+ */
+export async function saveTrendLedger(
+  days: readonly TrendDay[],
+  labels: Readonly<Record<string, string>>,
+): Promise<void> {
+  await ensureDirs();
+  const byMonth = new Map<string, TrendDay[]>();
+  for (const day of days) {
+    const month = day.date.slice(0, 7);
+    const list = byMonth.get(month) ?? [];
+    list.push(day);
+    byMonth.set(month, list);
+  }
+
+  for (const [month, monthDays] of byMonth) {
+    // その月に残る日で使われている表示名だけを持たせる
+    const keys = new Set<string>();
+    for (const day of monthDays) for (const key of Object.keys(day.counts)) keys.add(key);
+    const shardLabels: Record<string, string> = {};
+    for (const key of keys) if (labels[key]) shardLabels[key] = labels[key]!;
+    await writeJson(trendShardPath(month), { labels: shardLabels, days: monthDays });
+  }
+
+  const total = days.reduce((sum, d) => sum + Object.keys(d.counts).length, 0);
+  log.info(`保存: data/trends/*.json (${days.length} 日 / 話題 ${total} 件)`);
+}
+
+/**
+ * 盤面をまるごと差し替える。
+ *
+ * 日次ダイジェストのように日付ごとには残さない。トレンドは「いまの状態」なので、
+ * 3 か月後にその日を開いた人に当時の盤面を見せても嘘になる。
+ */
+export async function saveTrendBoard(board: TrendBoard): Promise<void> {
+  await ensureDirs();
+  await writeJson(TREND_BOARD_PATH, board);
+  log.info(
+    `保存: data/trends/board.json (動いた ${board.hot.length} / 追跡 ${board.keep.length} / 落ち着き ${board.cool.length})`,
+  );
 }

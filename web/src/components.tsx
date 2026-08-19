@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { formatMonthLabel } from './format';
+import { formatMonthLabel, safeUrl } from './format';
+import type { Figure } from './types';
 
 export function Chip({
   children,
@@ -58,6 +59,70 @@ export function Takeaways({ lines, compact }: { lines: string[]; compact?: boole
           <li key={i}>{line}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * 元記事のサムネイル。
+ *
+ * 出るのは配信元が置いた本物の画像があるときだけで、出ない日のほうが多い
+ * （収集側でタイトルを描いただけの自動生成カードを落としているため）。
+ * **無いことが既定**なので、カードの他の要素はこれが無い前提で並んでいる。
+ *
+ * 画像はサイトに持たず配信元を直接参照する。つまり向こうが消せばここも消えるので、
+ * 失敗を呼び出し側に返して、画像の列ごと畳めるようにしている——画像だけ消して
+ * 列が残ると、右に空白の帯が出たままになる。この状態を自分で持たないのはそのため。
+ * 見出しと 3 行要約が同じことをすでに伝えているので、読み上げ上は装飾として扱う。
+ */
+export function Thumbnail({ src, onFailed }: { src: string; onFailed: () => void }) {
+  return (
+    <img
+      className="card__thumb"
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      /* 読者がどのダイジェストを開いたかを配信元に渡さない */
+      referrerPolicy="no-referrer"
+      onError={onFailed}
+    />
+  );
+}
+
+/**
+ * 解説の中で引用した、記事内の画像。
+ *
+ * サムネイル（Thumbnail）と役割が違う。あちらは「どの記事か」を示すだけなので装飾として
+ * 扱い alt を空にしているが、こちらは**読むための画像**——実行結果や構成図や計測グラフ——
+ * なので、キャプションを本文として先に読ませ、alt も記事側のものを渡す。
+ * 引用しない記事のほうが多いので、この枠が出ない日が既定。
+ *
+ * 画像は配信元を直接参照している。向こうが消せばここも消えるので、落ちた 1 枚だけを
+ * 畳む（枠だけ残るとキャプションが何も指さない）。全部落ちたら見出しごと消える。
+ */
+export function Figures({ figures }: { figures: Figure[] }) {
+  const [failed, setFailed] = useState<readonly string[]>([]);
+  const shown = figures.filter((f) => safeUrl(f.url) && !failed.includes(f.url));
+  if (shown.length === 0) return null;
+  return (
+    <div className="figquotes">
+      <span className="figquotes__label">記事の中の画像</span>
+      {shown.map((f) => (
+        <figure className="figquote" key={f.url}>
+          <img
+            className="figquote__img"
+            src={f.url}
+            alt={f.alt || f.caption}
+            loading="lazy"
+            decoding="async"
+            /* 読者がどのダイジェストを開いたかを配信元に渡さない */
+            referrerPolicy="no-referrer"
+            onError={() => setFailed((prev) => [...prev, f.url])}
+          />
+          <figcaption className="figquote__caption">{f.caption}</figcaption>
+        </figure>
+      ))}
     </div>
   );
 }

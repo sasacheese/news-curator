@@ -57,6 +57,14 @@ export interface RankedItem {
   source: SourceKind;
   sourceLabel: string;
   title: string;
+  /**
+   * 見出しに出す日本語のタイトル。原題が日本語の記事と、この機能より前の日は
+   * undefined か null。その場合は title をそのまま見出しにする。
+   *
+   * 原題（title）は捨てない。元記事へのリンクには原題を出す——検索や共有で
+   * 突き合わせるのは原題のほうなので、画面のどこかには残す必要がある。
+   */
+  titleJa?: string | null;
   url: string;
   publishedAt: string;
   author?: string;
@@ -66,6 +74,14 @@ export interface RankedItem {
   metrics: Metrics;
   lang: string;
   matchedTopics: string[];
+  /**
+   * サムネイル画像の URL。配信元のサーバーを直接参照する。
+   *
+   * 入るのは書き手が自分で置いた画像があるときだけで、無い日のほうが多い
+   * （タイトルを描いただけの自動生成カードは収集側で落としている）。
+   * 配信元が消せば表示も消えるので、画面側は読み込みに失敗したら枠ごと畳む。
+   */
+  imageUrl?: string;
   score: number;
   oneLiner: string;
   /**
@@ -159,11 +175,28 @@ export type Visual =
       }[];
     };
 
+/**
+ * 記事の中で使われていた画像を、解説の中で引用したもの。
+ *
+ * カード上部のサムネイル（imageUrl）とは目的が違う。あちらは「どの記事か」を示す 1 枚で
+ * 中身は読まなくてよい。こちらは書き手が説明のために置いた画像（実行結果のスクリーンショット、
+ * 構成図、グラフ）なので、読むためにある。配信元を直接参照するので、消えていたら枠ごと畳む。
+ */
+export interface Figure {
+  url: string;
+  /** 記事側の alt / figcaption。無い記事が多いので空のことがある */
+  alt: string;
+  /** その画像から何が読み取れるか。画像を見る前に読ませる */
+  caption: string;
+}
+
 export interface DeepDiveBase {
   /** 記事の語彙をそのまま使った詳しい要約。平易な側は takeaways が引き受ける */
   summary: string;
   prerequisites?: Prerequisite[];
   visual?: Visual | null;
+  /** 解説で引用した記事内の画像。引用しない日も多く、この形より前の日は undefined */
+  figures?: Figure[];
   code: { lang: string; caption: string; content: string } | null;
   /**
    * 「なぜ重要か」。いまは talk レーン（なぜ今この争点か）と
@@ -385,6 +418,8 @@ export interface IndexEntry {
   date: string;
   rank: number | null;
   title: string;
+  /** 日本語の見出し。原題が日本語の記事とこの機能より前の日は undefined か null */
+  titleJa?: string | null;
   url: string;
   source: SourceKind;
   sourceLabel: string;
@@ -480,5 +515,70 @@ export interface RadarBoard {
   items: RadarItem[];
   byVerdict: Record<string, number>;
   stats: { ledgerSize: number; measuredToday: number; notTool: number };
+  notes: string[];
+}
+
+
+/* ------------------------------------------------------------------ *
+ * トレンド（話題台帳）
+ *
+ * 日次ダイジェストは差分刊行なので、昨日の 1 位は今日には出ない。トレンドは
+ * その状態（stock）側で、ランキングとは別の枠。data/trends/board.json は
+ * コミュニティと同じく日付を持たない 1 ファイルで、毎回まるごと差し替わる。
+ * ------------------------------------------------------------------ */
+
+export type TrendState = 'hot' | 'keep' | 'cool';
+
+/** その記事がその日どう扱われたか。none は収集したが載せなかったもの */
+export type TrendPlacement = 'top' | 'other' | 'release' | 'none';
+
+export interface TrendArticle {
+  date: string;
+  title: string;
+  /**
+   * 日本語の見出し。原題が日本語の記事・未掲載のもの・この機能より前の日は null。
+   *
+   * タイムラインにも要る。日本語の一覧に英語のタイトルだけが混ざると、
+   * そこで読むのが止まる（掲載側と同じ判断）。
+   */
+  titleJa: string | null;
+  url: string;
+  placement: TrendPlacement;
+  lane: Lane | null;
+  rank: number | null;
+}
+
+export interface TrendTopic {
+  key: string;
+  name: string;
+  /** 観測された実表記。見出しがファミリ（Cursor）、ここが実表記（Cursor Origin） */
+  variants: string[];
+  state: TrendState;
+  firstSeen: string;
+  lastSeen: string;
+  total: number;
+  today: number;
+  /** 当日の平常比。平常値が取れない初出は null */
+  lift: number | null;
+  /** 直近 5 日の平常比。「続いているか」はこちら */
+  liftRecent: number | null;
+  recentCount: number;
+  activeDays7: number;
+  /** スパークライン用の日別本数（古い順） */
+  history: number[];
+  articles: TrendArticle[];
+}
+
+export interface TrendBoard {
+  updatedAt: string;
+  date: string;
+  ledgerDays: number;
+  windowDays: number;
+  /** 履歴が足りず平常比で判定できていない。見出しとバッジを差し替える */
+  warmingUp: boolean;
+  hot: TrendTopic[];
+  keep: TrendTopic[];
+  cool: TrendTopic[];
+  ubiquitous: string[];
   notes: string[];
 }

@@ -119,3 +119,34 @@ export function unlockFeedbackFromUrl(): void {
 export function isFeedbackUnlocked(): boolean {
   return localStorage.getItem(FEEDBACK_UNLOCK_KEY) === '1';
 }
+
+/* ------------------------------------------------------------------ *
+ * 追っている話題（トレンド）
+ *
+ * この端末にだけ持つ。サーバーもトークンも要らない設定と同じ扱いで、
+ * 「今日」タブの帯に自分が追っている話題を先に出すためだけに使う。
+ * ------------------------------------------------------------------ */
+
+const WATCHED_TOPICS_KEY = 'news-curator:watched-topics';
+
+export function readWatchedTopics(): string[] {
+  try {
+    const raw = localStorage.getItem(WATCHED_TOPICS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 追加/削除して、更新後の一覧を返す */
+export function toggleWatchedTopic(key: string): string[] {
+  const current = readWatchedTopics();
+  const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+  try {
+    localStorage.setItem(WATCHED_TOPICS_KEY, JSON.stringify(next));
+  } catch {
+    // localStorage が使えない環境では、その場の状態だけ返す
+  }
+  return next;
+}

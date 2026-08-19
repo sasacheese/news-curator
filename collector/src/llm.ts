@@ -2,6 +2,7 @@ import type { LlmBackend } from './backend.js';
 import { selectBackend } from './backend.js';
 import { CATEGORIES } from './categories.js';
 import type { RuntimeConfig } from './config.js';
+import { MAX_BODY_IMAGES, type BodyImage } from './image.js';
 import {
   BuildDeepDiveSchema,
   DescribeResultSchema,
@@ -21,6 +22,7 @@ import { DURABILITIES, LANES, LANE_LABELS, PAYOFFS } from './types.js';
 import type {
   Debate,
   DeepDive,
+  Figure,
   Lane,
   PreScoredItem,
   RankedItem,
@@ -30,7 +32,7 @@ import type {
   UsageReport,
   UsageStat,
 } from './types.js';
-import { log, mapLimit, truncate } from './util.js';
+import { hasKana, log, mapLimit, truncate } from './util.js';
 
 export { CATEGORIES };
 
@@ -347,6 +349,7 @@ ${readerContext(topics, feedbackNote)}
 
 # 出力
 - すべて日本語で書く。
+- titleJa は画面の見出しに出す日本語のタイトル。詳しくは下の節を参照。
 - oneLiner は「何が起きたか」を主語述語のある1文で。「〜について」のような曖昧な書き方は禁止。
 - takeaways は「忙しい人のための3行」。詳しくは下の節を参照。
 - keywords は後から検索するためのもの。製品名・API名・バージョン番号などの固有名詞を優先する。
@@ -357,6 +360,31 @@ ${readerContext(topics, feedbackNote)}
 ${CATEGORIES.join(' / ')}
 「その他」はどれにも当てはまらないときだけ。迷ったら主題に一番近いものを選ぶ。
 （スキーマの制約は生成時に効いていないので、ここの指示で選ぶこと）
+
+# titleJa（日本語の見出し）
+画面のカードの見出しは元記事のタイトルをそのまま出す。日本語の記事はそれでよいが、
+外国語の記事はそこだけ外国語で残り、日本語の要約の中で読めない塊になる。
+その差し替え用の見出しなので、**書くかどうかは仮名の有無だけで決める。**
+
+- 元タイトルに仮名（ひらがな・カタカナ）が **1 文字も無いなら、必ず書く。**
+  英語だけでなく、中国語・韓国語・漢字だけのタイトルもすべてここに入る。
+- 元タイトルに仮名が **あるなら null。** 原題が一番正確な題なので、書き換えない
+  （英単語が混ざっていても、仮名があるなら日本語のタイトルである）。
+
+書くときは、次の形にする。
+- **1 行・40 字以内。句点で終わらせない。** 体言止めでよい。
+- 直訳ではなく「何の話か」が分かる言葉にする。原題の語順に引っぱられない。
+- **製品名・リポジトリ名・組織名・バージョン番号は原語のまま残す。** 訳すと検索で引けなくなる。
+- GitHub のリポジトリ（owner/repo — 英語の説明文）は「repo 名 — 何をするものか」にする。
+  owner 名は落とす。説明文をぜんぶ入れようとしない——主な用途 1 つに絞る。
+- 煽らない。「必見」「話題の」「〜が凄い」は書かない。
+
+✗「Buyer-run, ad-neutral shopping-agent MCP software with deterministic ranking」（英語のまま）
+✗「購入者が実行する広告中立のショッピングエージェント MCP ソフトウェア」（直訳。何をするものか分からない）
+✓「northcinder — 買い物を代行する AI エージェントの土台」
+
+✗「Plugin and skin collection for DeepSeek Harness (DSH) Web UI - task board, git graph...」（英語のまま・長い）
+✓「dsh-web-ui — DeepSeek Harness の画面を拡張する部品集」
 
 # takeaways（3行で要約）
 記事が言っていることを、**その分野を何も知らない人にも通じる言葉で 3 行**書く。
@@ -544,6 +572,8 @@ function isPrimarySource(item: PreScoredItem): boolean {
 /** LLM を使わないときのフォールバック値 */
 function ruleBasedFields(item: PreScoredItem, lane: Lane, note: string) {
   return {
+    // 訳す手段が無いので原題のまま出す（この経路は要約も空なので、画面上も劣化が見える）
+    titleJa: null,
     oneLiner: truncate(item.snippet.replace(/\s+/g, ' ').trim(), 80) || item.title,
     takeaways: note ? [note] : [],
     keywords: item.matchedTopics.slice(0, 5),
@@ -658,6 +688,24 @@ async function describePass(
   });
 
   return described;
+}
+
+/**
+ * 見出しに出す日本語のタイトルを決める。
+ *
+ * 置き換えるのは「原題が日本語として読めないとき」だけにする。原題が日本語なら
+ * それが一番正確な題で、要約で書き換えると情報が落ちるだけである。
+ *
+ * モデルの出力も仮名の有無で検算する。英語のタイトルをそのまま写して返すことが
+ * あり（原題が日本語かどうかの判断はモデル側でも間違える）、それを採用すると
+ * 「日本語の見出しを入れた」つもりで英語が残る。訳せていないものは捨てて、
+ * 原題を出す方に倒す——英語の原題のほうが、中途半端な見出しよりは読める。
+ */
+function pickTitleJa(item: PreScoredItem, raw: string | null | undefined): string | null {
+  if (hasKana(item.title)) return null;
+  const titleJa = raw?.replace(/\s+/g, ' ').trim();
+  if (!titleJa || !hasKana(titleJa)) return null;
+  return titleJa;
 }
 
 /**
@@ -826,7 +874,7 @@ async function rankLane(
   log.info(`  [${LANE_LABELS[lane]}] 要約: ${described.size}/${shortlist.length} 件`);
   warnLongTakeaways(lane, described);
 
-  return items.map((item) => {
+  const result = items.map((item) => {
     const r = described.get(item.id);
     const score = scoreOf(item);
     if (!r) {
@@ -839,6 +887,7 @@ async function rankLane(
     return {
       ...item,
       score,
+      titleJa: pickTitleJa(item, r.titleJa),
       oneLiner: r.oneLiner?.trim() || item.title,
       takeaways: clean(r.takeaways).slice(0, 3),
       keywords: (r.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 8),
@@ -852,6 +901,33 @@ async function rankLane(
       durability: DURABILITIES.includes(r.durability) ? r.durability : 'durable',
     };
   });
+
+  warnMissingTitleJa(lane, shortlist, result);
+  return result;
+}
+
+/**
+ * 日本語の見出しが付かなかった候補を実行ログに出す。
+ *
+ * 掲載されうるのは要約対象（shortlist）だけなので、母数はそこに限る。
+ * 付かなかった項目は英語のタイトルのまま画面に出る——落ちずに劣化する形なので、
+ * 何件そうなったかをここで見えるようにしておく。
+ */
+function warnMissingTitleJa(lane: Lane, shortlist: PreScoredItem[], ranked: RankedItem[]): void {
+  const ids = new Set(shortlist.map((i) => i.id));
+  const foreign = ranked.filter((i) => ids.has(i.id) && !hasKana(i.title));
+  if (foreign.length === 0) return;
+  const done = foreign.filter((i) => i.titleJa).length;
+  log.info(`  [${LANE_LABELS[lane]}] 日本語の見出し: ${done}/${foreign.length} 件`);
+  if (done < foreign.length) {
+    log.warn(
+      `  [${LANE_LABELS[lane]}] ${foreign.length - done} 件は英語のタイトルのまま出ます: ` +
+        foreign
+          .filter((i) => !i.titleJa)
+          .map((i) => i.title.slice(0, 40))
+          .join(' / '),
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -1091,13 +1167,54 @@ ${LANE_DEEP_BLOCKS[lane]}
 - **comparison** — 二つの状態の対比。変更前と変更後、賛成側と反対側。
   **「観点ごとの一覧表」を作るために使ってはいけない**（それは箇条書きの言い換え）。
 - **metrics** — 記事に実際の数値が書かれている場合のみ。数値を推測で作らない。
-- どれも当てはまらない、または図にしても情報が増えないなら null。無理に図を作らない。`;
+- どれも当てはまらない、または図にしても情報が増えないなら null。無理に図を作らない。
+
+# figures（記事の画像の引用）
+
+本文に画像があった記事では、候補が「記事の中の画像」として番号付きで渡される。
+そのうち**解説の中で引用する価値があるものだけ**を選ぶ。**既定は引用しない（空配列）。**
+
+引用するのは、**文章にするより画像のほうが早いもの**だけ。
+
+- 実行結果・UI のスクリーンショット（何がどう見えるかは文章で書き起こしても伝わらない）
+- 書き手が描いた構成図・フローの図解（自分で visual を作るより、記事の図のほうが正確）
+- 計測結果のグラフ（数値の推移は形で見るほうが早い）
+
+引用しないもの。**迷ったら引用しない。**
+
+- アイキャッチ、人物写真、記事の内容と関係のないイラスト（面積を使って情報が増えない）
+- 文字を大きく描いただけの画像（読めばよい）
+- 自分が書いた visual と同じことを示している画像（どちらか一方でよい。記事の図が正確なら visual を null にして画像を引用する）
+- 何が写っているか、渡された alt と前後の本文から判断できないもの（当てずっぽうで説明を付けない）
+
+caption は**その画像から何が読み取れるか**を書く。読者は画像を見る前にキャプションを読むので、
+「何の画像か」ではなく「どこを見ればいいか」を渡す。
+✗「新しい設定画面のスクリーンショット」（見れば分かることしか書いていない）
+✓「上段が従来の並び。モデル選択が展開済みになり、既定が sonnet から opus に変わっている」`;
+}
+
+/**
+ * 本文中の画像の候補を、番号付きで LLM に渡す形にする。
+ *
+ * 本文は素のテキストに落としてから渡しているので、画像の位置は本文からは分からない。
+ * 代わりに alt と画像の前後の本文（▮ が画像の位置）を添えて、記事のどこの図なのかを
+ * 判断できるようにしている。URL は渡さない——選ぶのは番号だけにして、
+ * 存在しない URL を書けないようにするため。
+ */
+function figureCandidateBlock(bodyImages: readonly BodyImage[]): string {
+  if (bodyImages.length === 0) return '';
+  const lines = bodyImages.map(
+    (img, i) =>
+      `[画像${i + 1}] alt: ${img.alt || '(なし)'}\n  前後の本文（▮ が画像の位置）: ${img.context || '(取れなかった)'}`,
+  );
+  return `\n\n--- 記事の中の画像ここから ---\n${lines.join('\n')}\n--- 記事の中の画像ここまで ---`;
 }
 
 export async function deepDive(
   item: RankedItem,
   topics: TopicsConfig,
   cfg: RuntimeConfig,
+  bodyImages: readonly BodyImage[] = [],
 ): Promise<DeepDive> {
   const b = await getBackend();
   if (!b) return fallbackDeepDive(item);
@@ -1125,7 +1242,9 @@ export async function deepDive(
     maxTokens: 12_000,
     effort: cfg.summaryEffort,
     system: deepSystemPrompt(item.lane, topics),
-    prompt: `${meta}\n\n--- 本文ここから ---\n${content}\n--- 本文ここまで ---`,
+    prompt:
+      `${meta}\n\n--- 本文ここから ---\n${content}\n--- 本文ここまで ---` +
+      figureCandidateBlock(bodyImages),
   };
 
   try {
@@ -1134,7 +1253,7 @@ export async function deepDive(
       case 'know': {
         const p = await complete(b, { ...request, schema: KnowDeepDiveSchema });
         return {
-          ...toBase(p, item),
+          ...toBase(p, item, bodyImages),
           lane: 'know',
           impact: clean(p.impact),
           timeline: clean(p.timeline),
@@ -1145,7 +1264,7 @@ export async function deepDive(
       case 'build': {
         const p = await complete(b, { ...request, schema: BuildDeepDiveSchema });
         return {
-          ...toBase(p, item),
+          ...toBase(p, item, bodyImages),
           lane: 'build',
           unlocks: clean(p.unlocks),
           howToTry: clean(p.howToTry),
@@ -1157,7 +1276,7 @@ export async function deepDive(
       case 'talk': {
         const p = await complete(b, { ...request, schema: TalkDeepDiveSchema });
         return {
-          ...toBase(p, item),
+          ...toBase(p, item, bodyImages),
           lane: 'talk',
           /*
            * 片側だけの対は噛み合いにならないので落とす。半端な対は、
@@ -1193,6 +1312,7 @@ export async function deepDive(
 function toBase(
   parsed: KnowDeepDiveResult | BuildDeepDiveResult | TalkDeepDiveResult,
   item: RankedItem,
+  bodyImages: readonly BodyImage[],
 ) {
   return {
     summary: parsed.summary?.trim() || item.oneLiner,
@@ -1200,12 +1320,36 @@ function toBase(
       .filter((p) => p?.term && p?.explanation)
       .map((p) => ({ ...p, stumblingPoint: p.stumblingPoint ?? '' })),
     visual: normalizeVisual(parsed.visual as DeepDive['visual']),
+    figures: pickFigures(parsed.figures, bodyImages),
     code: parsed.code ?? null,
     relatedLinks: (parsed.relatedLinks ?? []).filter((l) => l?.url?.startsWith('http')),
     readingMinutes: Number.isFinite(parsed.readingMinutes)
       ? Math.max(1, Math.min(30, Math.round(parsed.readingMinutes)))
       : 5,
   };
+}
+
+/**
+ * 引用する画像を確定する。
+ *
+ * URL は候補側から取る。LLM が返すのは番号だけなので、候補に無い画像が画面に出ることはない
+ * ——番号を間違えたら、その 1 枚が落ちるだけで済む。存在しない番号・説明の無いものは落とす。
+ */
+function pickFigures(
+  chosen: { index: number; caption: string }[] | undefined,
+  bodyImages: readonly BodyImage[],
+): Figure[] {
+  const out: Figure[] = [];
+  const used = new Set<string>();
+  for (const pick of chosen ?? []) {
+    if (out.length >= MAX_BODY_IMAGES) break;
+    const source = bodyImages[Math.round(pick?.index ?? 0) - 1];
+    const caption = pick?.caption?.trim();
+    if (!source || !caption || used.has(source.url)) continue;
+    used.add(source.url);
+    out.push({ url: source.url, alt: source.alt, caption });
+  }
+  return out;
 }
 
 /** 空文字と余白だけの項目を落とす。箇条書きに空行が出るのを防ぐ */
@@ -1278,6 +1422,7 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
     summary: truncate((item.body || item.snippet).replace(/\s+/g, ' ').trim(), 500),
     prerequisites: [],
     visual: null,
+    figures: [],
     code: null,
     relatedLinks: [],
     readingMinutes: 5,

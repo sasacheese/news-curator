@@ -136,6 +136,9 @@ jobs:
           VITE_FIREBASE_PUBLIC_PROJECT_ID: ${{ vars.VITE_FIREBASE_PUBLIC_PROJECT_ID }}
           VITE_FIREBASE_PUBLIC_APP_ID: ${{ vars.VITE_FIREBASE_PUBLIC_APP_ID }}
           VITE_FEEDBACK_TOKEN: ${{ secrets.VITE_FEEDBACK_TOKEN }}
+          # VAPID の公開鍵。未登録なら設定画面にプッシュ通知の項目が出ない。
+          # 秘密鍵（VAPID_PRIVATE_KEY）とペアで、公開側だけをビルドに埋め込む。
+          VITE_VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
@@ -144,3 +147,16 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+      # デプロイの「後」に送る。先に送ると、通知をタップした先がまだ前日のままになる。
+      # VAPID 鍵か Firebase が未登録ならスクリプト側が黙ってスキップする。
+      # 再デプロイ（skip_collect）の朝に同じ通知を二度出さないよう、そちらでも送らない。
+      - name: プッシュ通知を送信
+        if: ${{ !inputs.skip_collect }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          # 未登録ならサイト URL を subject に使う（連絡先の表明として仕様を満たす）
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
+        run: npm run push:send

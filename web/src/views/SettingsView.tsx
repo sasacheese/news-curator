@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { loadTopicsConfig } from '../api';
 import { CopyButton, LoadingCards, Notice, TagInput } from '../components';
 import { editUrl, isRepoSlug } from '../github';
+import { hasPushConfig } from '../push';
+import { PushSection } from '../PushSection';
 import {
   type Theme,
   clearLocalTopics,
@@ -293,6 +295,10 @@ export function SettingsView({ manifest }: { manifest: Manifest | null }) {
           ))}
         </div>
       </section>
+
+      {/* ---------------- プッシュ通知 ---------------- */}
+      {/* VAPID 鍵か Firebase が未設定のビルドでは、案内も出さず丸ごと隠す */}
+      {hasPushConfig() && <PushSection />}
 
       {/* ---------------- Good / Bad ボタン ---------------- */}
       {/*

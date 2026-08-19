@@ -1,6 +1,6 @@
 import { loadRadar, loadRuntimeConfig, loadTopics } from './config.js';
 import { getBackend, getUsageReport, logUsage, resetUsage } from './llm.js';
-import { collectRadar } from './radar.js';
+import { MENTION_WINDOW_DAYS, collectRadar } from './radar.js';
 import {
   loadPreviousRadarIds,
   loadRadarLedger,
@@ -68,8 +68,9 @@ async function main(): Promise<void> {
     );
   }
 
+  const date = jstDateString(new Date());
   const [entries, ledger, previousIds] = await Promise.all([
-    loadRecentIndexEntries(90),
+    loadRecentIndexEntries(date, MENTION_WINDOW_DAYS),
     loadRadarLedger(),
     loadPreviousRadarIds(),
   ]);
@@ -79,7 +80,7 @@ async function main(): Promise<void> {
     items: [],
     ledger,
     previousIds,
-    date: jstDateString(new Date()),
+    date,
     now: new Date(),
   });
 
