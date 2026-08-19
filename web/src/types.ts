@@ -450,3 +450,60 @@ export interface TopicsConfig {
   topics: Topic[];
   exclude: { keywords: string[] };
 }
+
+/* ------------------------------------------------------------------ *
+ * トレンド（話題台帳）
+ *
+ * 日次ダイジェストは差分刊行なので、昨日の 1 位は今日には出ない。トレンドは
+ * その状態（stock）側で、ランキングとは別の枠。data/trends/board.json は
+ * コミュニティと同じく日付を持たない 1 ファイルで、毎回まるごと差し替わる。
+ * ------------------------------------------------------------------ */
+
+export type TrendState = 'hot' | 'keep' | 'cool';
+
+/** その記事がその日どう扱われたか。none は収集したが載せなかったもの */
+export type TrendPlacement = 'top' | 'other' | 'release' | 'none';
+
+export interface TrendArticle {
+  date: string;
+  title: string;
+  url: string;
+  placement: TrendPlacement;
+  lane: Lane | null;
+  rank: number | null;
+}
+
+export interface TrendTopic {
+  key: string;
+  name: string;
+  /** 観測された実表記。見出しがファミリ（Cursor）、ここが実表記（Cursor Origin） */
+  variants: string[];
+  state: TrendState;
+  firstSeen: string;
+  lastSeen: string;
+  total: number;
+  today: number;
+  /** 当日の平常比。平常値が取れない初出は null */
+  lift: number | null;
+  /** 直近 5 日の平常比。「続いているか」はこちら */
+  liftRecent: number | null;
+  recentCount: number;
+  activeDays7: number;
+  /** スパークライン用の日別本数（古い順） */
+  history: number[];
+  articles: TrendArticle[];
+}
+
+export interface TrendBoard {
+  updatedAt: string;
+  date: string;
+  ledgerDays: number;
+  windowDays: number;
+  /** 履歴が足りず平常比で判定できていない。見出しとバッジを差し替える */
+  warmingUp: boolean;
+  hot: TrendTopic[];
+  keep: TrendTopic[];
+  cool: TrendTopic[];
+  ubiquitous: string[];
+  notes: string[];
+}

@@ -29,6 +29,11 @@ export const LANE_META: { id: Lane; label: string; lead: string }[] = [
   },
 ];
 
+/** レーン -> ラベル。トレンドの掲載バッジのように、単発で名前だけ要る場所で使う */
+export const LANE_LABELS: Record<Lane, string> = Object.fromEntries(
+  LANE_META.map((m) => [m.id, m.label]),
+) as Record<Lane, string>;
+
 /**
  * レーン導入前に生成した日のためのグループ定義。
  *
