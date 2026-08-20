@@ -6,6 +6,7 @@ import { Logo } from './Logo';
 import type { Manifest } from './types';
 import { ArchiveView } from './views/ArchiveView';
 import { CommunityView } from './views/CommunityView';
+import { RadarView } from './views/RadarView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
 import { TodayView } from './views/TodayView';
@@ -17,6 +18,7 @@ export type Route =
   | { name: 'archive' }
   | { name: 'community' }
   | { name: 'trend' }
+  | { name: 'radar' }
   | { name: 'settings' };
 
 function parseHash(hash: string): Route {
@@ -34,6 +36,8 @@ function parseHash(hash: string): Route {
       return { name: 'community' };
     case 'trend':
       return { name: 'trend' };
+    case 'radar':
+      return { name: 'radar' };
     case 'settings':
       return { name: 'settings' };
     case 'today':
@@ -77,6 +81,11 @@ const TABS: Tab[] = [
    * 対になっているので、この 2 つは並べる。
    */
   { key: 'trend', label: 'トレンド', href: '/trend' },
+  /*
+   * 発掘はその次。今日・トレンドが「いま何が起きているか」を時間で見る枠なのに対して、
+   * こちらは時間ではなく**地域の差**を見る枠なので、日次の 2 つのあとに置く。
+   */
+  { key: 'radar', label: '発掘', href: '/radar' },
   { key: 'community', label: 'コミュニティ', href: '/community' },
   { key: 'archive', label: 'アーカイブ', href: '/archive' },
   { key: 'search', label: '検索', href: '/search' },
@@ -222,6 +231,7 @@ export function App() {
             <TodayView manifest={manifest} date={route.date} />
           )}
           {/* 盤面は manifest に依存しない（日付を持たない 1 ファイルなので） */}
+          {route.name === 'radar' && <RadarView />}
           {route.name === 'community' && <CommunityView />}
           {route.name === 'trend' && <TrendView />}
           {!error && route.name === 'archive' && <ArchiveView manifest={manifest} />}

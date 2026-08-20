@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { collectCommunity } from './community.js';
-import { loadCommunity, loadRuntimeConfig, loadSources, loadTopics } from './config.js';
+import { loadCommunity, loadRadar, loadRuntimeConfig, loadSources, loadTopics } from './config.js';
 import { enrichHatenaCounts, enrichTopItems } from './enrich.js';
 import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
 import {
@@ -16,17 +16,21 @@ import {
 import { selectLaneCandidates } from './lanes.js';
 import type { SlotRule } from './prescore.js';
 import { dedupe, pickByLane, pickTopDiverse, preScore } from './prescore.js';
+import { MENTION_WINDOW_DAYS, collectRadar } from './radar.js';
 import { collectReleaseCandidates, extractReleases, sortReleases } from './releases.js';
 import { collectAdvisories } from './advisories.js';
 import { collectAll } from './sources.js';
 import {
   loadPreviousCommunityIds,
+  loadPreviousRadarIds,
+  loadRadarLedger,
   loadRecentIndexEntries,
   loadRecentSummaries,
   loadSeenUrls,
   loadTrendLedger,
   saveCommunityBoard,
   saveDigest,
+  saveRadarBoard,
   saveTrendBoard,
   saveTrendLedger,
   toIndexEntries,
@@ -47,6 +51,8 @@ import type {
   CommunityItem,
   Digest,
   Lane,
+  RadarBoard,
+  RadarLedgerEntry,
   RankedItem,
   RawItem,
   ReleaseItem,
@@ -138,6 +144,41 @@ async function main(): Promise<void> {
   log.info(`過去に掲載済み: ${seenUrls.size} URL`);
   const unique = dedupe(collected, seenUrls);
   log.info(`重複排除後 ${unique.length} 件（-${collected.length - unique.length}）`);
+
+  /*
+   * 発掘。記事のパイプラインに依存しない。
+   *
+   * 母集団は過去 90 日のインデックスの keywords と当日の GitHub リポジトリだけで、
+   * ランキングの結果は使わない——ここで欲しいのは「その道具が今どういう状態に
+   * あるか」で、それは今日どの記事が上位に来たかとは無関係だからだ。
+   *
+   * 外部 API の待ちが長い（1 語あたり最大 4 リクエスト × 24 語）ので、
+   * ここで投げて採点・深掘りと並行させ、保存の直前に受け取る。
+   */
+  const radarTask = safe(
+    'radar',
+    async () => {
+      const cfg = await loadRadar();
+      if (!cfg.enabled) {
+        log.info('発掘は config/radar.json で無効になっています');
+        return null;
+      }
+      const [entries, ledger, previousIds] = await Promise.all([
+        loadRecentIndexEntries(date, MENTION_WINDOW_DAYS),
+        loadRadarLedger(),
+        loadPreviousRadarIds(),
+      ]);
+      return await collectRadar(cfg, runtime, topics, backend, {
+        entries,
+        items: unique,
+        ledger,
+        previousIds,
+        date,
+        now: new Date(),
+      });
+    },
+    null as { board: RadarBoard; ledger: RadarLedgerEntry[] } | null,
+  );
 
   /* 2.5 リリース情報 ------------------------------------------------- */
   // ランキングとは別枠。順位をつけず全件出す。
@@ -369,6 +410,21 @@ async function main(): Promise<void> {
     );
   }
 
+  /* 発掘 -------------------------------------------------------------- */
+  /*
+   * まだ日本で使われていない道具。「海外の熱」と「国内の厚み」を別々に測って
+   * 差が大きいものだけを出す。日次ダイジェストには入れず data/radar.json に持つ
+   * （日ごとの記録として残す意味が無く、日次に埋めると同じ 10 件が毎日
+   * コミットされる。コミュニティ盤面と同じ理由）。
+   */
+  log.step('発掘');
+  const radar = await radarTask;
+  if (radar) {
+    for (const item of radar.board.items.slice(0, 5)) {
+      log.info(`  [${item.verdict}] ${item.name} — ${item.evidence[0] ?? ''}`);
+    }
+  }
+
   /* 6. 冒頭サマリー --------------------------------------------------- */
   log.step('6/7 冒頭サマリー');
   const summary = await summarizeDigest(top, releases, others, topics, runtime);
@@ -485,7 +541,12 @@ async function main(): Promise<void> {
 
   if (args.dryRun) {
     log.info('--dry-run のため保存しません');
-    console.log(JSON.stringify({ digest, community: communityBoard }, null, 2).slice(0, 4000));
+    console.log(
+      JSON.stringify({ digest, community: communityBoard, radar: radar?.board }, null, 2).slice(
+        0,
+        4000,
+      ),
+    );
     return;
   }
 
@@ -499,13 +560,15 @@ async function main(): Promise<void> {
   await saveDigest(digest);
   // 盤面は日付を持たない別ファイル。ダイジェストが落ちた日でも単独で更新される
   await saveCommunityBoard(communityBoard);
+  if (radar) await saveRadarBoard(radar.board, radar.ledger);
   if (trend) {
     await saveTrendLedger(trend.days, trend.labels);
     await saveTrendBoard(trend.board);
   }
   log.info(
     `\n✔ 完了: ベスト${top.length}件 + その他${others.length}件` +
-      ` + コミュニティ${community.items.length}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
+      ` + コミュニティ${community.items.length}件` +
+      ` + 発掘${radar?.board.items.length ?? 0}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
   );
 }
 

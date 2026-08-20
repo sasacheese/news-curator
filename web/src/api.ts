@@ -1,5 +1,6 @@
 import type {
   CommunityBoard,
+  RadarBoard,
   Digest,
   IndexEntry,
   Manifest,
@@ -59,6 +60,17 @@ export function loadDigest(date: string, latestDate?: string | null): Promise<Di
  */
 export function loadCommunityBoard(): Promise<CommunityBoard> {
   return getJson<CommunityBoard>('data/community.json');
+}
+
+/**
+ * 発掘の盤面を読む。
+ *
+ * コミュニティ盤面と同じ、日付を持たない 1 ファイル。台帳
+ * （data/radar-ledger.json）はここからは読まない——語が増える一方のファイルで、
+ * 画面に出るのは 10 件だけなので、閲覧者が毎回落とす意味が無い。
+ */
+export function loadRadarBoard(): Promise<RadarBoard> {
+  return getJson<RadarBoard>('data/radar.json');
 }
 
 /**

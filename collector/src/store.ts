@@ -6,6 +6,8 @@ import type {
   Digest,
   IndexEntry,
   Manifest,
+  RadarBoard,
+  RadarLedgerEntry,
   TrendBoard,
   TrendDay,
   TrendShard,
@@ -17,6 +19,16 @@ const INDEX_DIR = resolve(DATA_DIR, 'index');
 const MANIFEST_PATH = resolve(DATA_DIR, 'manifest.json');
 /** コミュニティの盤面。日付を持たない 1 ファイルで、毎回差し替える */
 const COMMUNITY_PATH = resolve(DATA_DIR, 'community.json');
+/** 発掘の盤面。ブラウザが読む。コミュニティ盤面と同じ扱い */
+const RADAR_PATH = resolve(DATA_DIR, 'radar.json');
+/**
+ * 発掘の台帳。**ブラウザからは読まない。**
+ *
+ * 盤面と分けているのは転送量のため。台帳は語が増える一方（大半は「道具では
+ * なかった」の記録）で、画面に出るのは 10 件だけなので、同じファイルに入れると
+ * 閲覧者が毎回数百件ぶんを落とすことになる。
+ */
+const RADAR_LEDGER_PATH = resolve(DATA_DIR, 'radar-ledger.json');
 /**
  * 話題台帳とトレンドの盤面。
  *
@@ -136,6 +148,45 @@ export async function saveCommunityBoard(board: CommunityBoard): Promise<void> {
     .map(([k, v]) => `${k} ${v}`)
     .join(' / ');
   log.info(`保存: data/community.json (${board.items.length} 件 — ${counts})`);
+}
+
+
+/** 発掘の台帳を読む。無ければ空（初回は候補の同定から始まる） */
+export async function loadRadarLedger(): Promise<RadarLedgerEntry[]> {
+  await ensureDirs();
+  const raw = await readJsonOr<RadarLedgerEntry[]>(RADAR_LEDGER_PATH, []);
+  return Array.isArray(raw) ? raw.filter((e) => e && typeof e.name === 'string') : [];
+}
+
+/**
+ * 前回の盤面に載っていた id。
+ *
+ * 道具は腐らないので、コミュニティのイベントと違って期限では落とさない。
+ * 毎日同じ盤面を眺めることになるので、差分（NEW）が見えるかどうかが
+ * この画面の読みやすさを決める。
+ */
+export async function loadPreviousRadarIds(): Promise<Set<string>> {
+  await ensureDirs();
+  const board = await readJsonOr<Partial<RadarBoard>>(RADAR_PATH, {});
+  return new Set((board.items ?? []).map((i) => i.id));
+}
+
+export async function saveRadarBoard(
+  board: RadarBoard,
+  ledger: readonly RadarLedgerEntry[],
+): Promise<void> {
+  await ensureDirs();
+  await writeJson(RADAR_PATH, board);
+  // 台帳は名前順で書く。日々の差分が並び替えではなく中身の変化だけになるようにする
+  await writeJson(
+    RADAR_LEDGER_PATH,
+    [...ledger].sort((a, b) => a.name.localeCompare(b.name)),
+  );
+  const counts = Object.entries(board.byVerdict)
+    .map(([k, v]) => `${k} ${v}`)
+    .join(' / ');
+  log.info(`保存: data/radar.json (${board.items.length} 件 — ${counts})`);
+  log.info(`保存: data/radar-ledger.json (${ledger.length} 語)`);
 }
 
 export function toIndexEntries(digest: Digest): IndexEntry[] {

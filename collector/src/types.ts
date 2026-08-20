@@ -818,3 +818,269 @@ export interface TrendBoard {
   ubiquitous: string[];
   notes: string[];
 }
+
+
+/* ------------------------------------------------------------------ *
+ * 発掘（Radar）
+ *
+ * 「このライブラリ、あんまり話題じゃないけど便利ですよ」「これ海外で話題だけど
+ * 日本ではまだ誰も使ってない」を人に言えるようにするための枠。
+ *
+ * 記事でもリリースでもイベントでもなく、**道具そのもの**を単位にする。
+ * これは記事のパイプラインでは原理的に作れない。記事の枠は「今日公開されたか」で
+ * 引くが、ここで欲しいのは「その道具が今どういう状態にあるか」で、それは
+ * ある 1 日の出来事ではなく**2 つの物差しの差**として現れるからだ。
+ *
+ *   海外の熱   … npm の週間ダウンロード数、GitHub のスター、英語圏での言及回数
+ *   国内の厚み … Qiita の記事数、Zenn の記事数、日本語での言及回数
+ *
+ * 差が大きいものだけを出す。差が無いもの（両方厚い）は既に知られているので
+ * 紹介する価値が無く、両方薄いものはまだ実体が無い。
+ * ------------------------------------------------------------------ */
+
+/**
+ * 発掘の判定。
+ *
+ * 読者が言いたい 2 つの台詞にそのまま対応させている。台詞が違うので、
+ * 根拠にする信号も違う。
+ *
+ * - early : 「海外で今話題になっているけど日本ではまだ」
+ *           → **勢い**で測る。伸び率・直近の英語圏での言及・更新の新しさ。
+ * - hidden: 「あんまり話題じゃないけどめっちゃ便利」
+ *           → **定着**で測る。話題性ではなく、実際に使われている量そのもの。
+ *
+ * 「両方薄い」は出さない。まだ実体が無いものを人に紹介すると外すので、
+ * どちらかの証拠は必ず要求する。
+ */
+export const RADAR_VERDICTS = ['early', 'hidden'] as const;
+export type RadarVerdict = (typeof RADAR_VERDICTS)[number];
+
+export const RADAR_VERDICT_LABELS: Record<RadarVerdict, string> = {
+  early: '海外で先行',
+  hidden: '静かに使われている',
+};
+
+/** 画面と実行ログで共通の説明。「なぜこの枠に入っているのか」を読者に示す */
+export const RADAR_VERDICT_LEADS: Record<RadarVerdict, string> = {
+  early:
+    '海外で勢いがあるのに、日本語の記事がまだ少ないもの。' +
+    '「海外で話題になってますよ」と言える段階です。',
+  hidden:
+    'どこでも話題になっていないのに、実際にはかなり使われているもの。' +
+    '「知られてないけど便利」と言える段階です。',
+};
+
+/**
+ * 道具 1 つぶんの計測値。
+ *
+ * すべて null 可。外部 API は落ちるし、npm に無い道具も GitHub に無い道具もある。
+ * **測れなかったことと 0 だったことを混同しない**——「Qiita の記事数 0 本」は
+ * 強い主張（誰も書いていない）だが、「測れなかった」はただの欠測で、
+ * それを 0 と扱うと存在しない発見を報告してしまう。
+ */
+export interface RadarMeasure {
+  /* --- 海外の熱 --- */
+  githubRepo: string | null;
+  githubStars: number | null;
+  /** 最後に push された日時。現役かどうかの判定に使う */
+  githubPushedAt: string | null;
+  /**
+   * アーカイブ済みか。
+   * 人に紹介したあとで「それ開発終わってますよ」と返されるのが最悪の壊れ方なので、
+   * 判定の最初にここで落とす。
+   */
+  githubArchived: boolean | null;
+  npmPackage: string | null;
+  /**
+   * npm レジストリ上の最新バージョン。
+   *
+   * これを画面に出すのは、**間違ったパッケージを測っていないか読者が目で確かめる**
+   * ため。実測で LLM が「TanStack Router」に `@tanstack/router` を割り当てたが、
+   * それは 0.0.1-beta.53 で止まった別物だった（本体は @tanstack/react-router）。
+   * 名前が実在する以上、機械では見分けられない——だから隠さずに出す。
+   */
+  npmVersion: string | null;
+  /** 非推奨として公開されているか。非推奨のものは人に紹介してはいけない */
+  npmDeprecated: boolean | null;
+  /** 週間ダウンロード数。「話題」ではなく「実際に使われている量」を測れる唯一の指標 */
+  npmWeekly: number | null;
+  /**
+   * 直近 7 日 ÷ その前の 7 日。1.0 で横ばい。
+   * 単発のリクエストで勢いが取れるので、履歴が無い初日から使える。
+   */
+  npmTrend: number | null;
+  /** 過去 90 日のダイジェストで、英語の記事に出てきた回数 */
+  abroadMentions: number;
+
+  /* --- 国内の厚み --- */
+  /** Qiita でこの語に言及している記事数 */
+  qiitaArticles: number | null;
+  /**
+   * Qiita の数え方。
+   *
+   * 既定はフレーズ検索（`mention`）で、言及した記事を数える。ただし道具の名前が
+   * 英語の一般語と同じ綴りのときは、それでは無関係な記事を大量に数えてしまう
+   * （実測: Effect のフレーズ検索は 12,342 件、タグは 31 件）。その場合は
+   * タグ検索（`tag`）に切り替える。
+   */
+  qiitaMethod: 'mention' | 'tag' | null;
+  /** Zenn の記事数 */
+  zennArticles: number | null;
+  /**
+   * Zenn の数え方。
+   *
+   * `topic` はトピックの正確な記事数。`search` は検索結果の件数で、
+   * **1 ページぶんで打ち切られる**ので下限値でしかない（「TanStack Router」の
+   * ように複数語の名前はトピックが存在せず、こちらに落ちる）。
+   * 数字の意味が違うものを同じ顔で画面に出さないために記録する。
+   */
+  zennMethod: 'topic' | 'search' | null;
+  /**
+   * Zenn の件数が総数として確定しているか。
+   *
+   * 検索は 1 ページ 48 件で、続きがあるかは next_page で分かる。続きがあるときの
+   * 件数は下限値でしかなく、**上から抑えられない**。「日本語ではまだ薄い」は
+   * 上限の主張なので、抑えられないものは薄いと言ってはいけない。
+   */
+  zennComplete: boolean | null;
+  /** 過去 90 日のダイジェストで、日本語の記事に出てきた回数 */
+  domesticMentions: number;
+
+  measuredAt: string;
+}
+
+/** 発掘 1 件。画面のカード 1 枚に対応する */
+export interface RadarItem {
+  id: string;
+  /** 道具の名前。表記は LLM に正規化させる（oxlint → Oxlint） */
+  name: string;
+  verdict: RadarVerdict;
+  /** 紹介価値の順位づけ。レーンのスコアとは無関係な別の尺度 */
+  score: number;
+  /** 何をする道具か。1 文・専門用語なし */
+  what: string;
+  /**
+   * 同僚に言う一言。
+   *
+   * **評価語を禁止している**（「すごい」「最高」「革命的」「便利」）。
+   * 評価は聞いた相手がするもので、こちらが言えるのは「何ができるか」と数字だけ。
+   * 評価語を混ぜた紹介は、聞いた側から見ると中身が無い。
+   */
+  pitch: string;
+  /** これで置き換えられる既存の道具。名詞だけ */
+  insteadOf: string[];
+  /** 最初に打つ 1 コマンド。確実に分かる形だけ。分からなければ null */
+  firstStep: string | null;
+  /** 「自分に効くか」を YES / NO で答えられる観測可能な条件 */
+  fitFor: string[];
+  /** 紹介する前に知っておくべき最重要の 1 点。無ければ null */
+  caution: string | null;
+  measure: RadarMeasure;
+  /**
+   * 判定の根拠を、数字を含んだ人の言葉で。
+   *
+   * **これがこの機能の本体。** 「Qiita 2 本 / Zenn 31 本に対して npm 週 1,355 万 DL」
+   * という文がそのまま紹介の根拠になる。要約と違って、ここは生成させない
+   * （計測値から機械で組み立てる）——数字を LLM に書かせると必ずずれる。
+   */
+  evidence: string[];
+  links: { label: string; url: string }[];
+  /** この語をダイジェストで最初に見かけた日 */
+  firstSeenAt: string;
+  /** 前回の盤面に無かった = 今日はじめて載った */
+  isNew: boolean;
+  /** どの記事から見つけたか */
+  foundVia: { title: string; url: string } | null;
+}
+
+/**
+ * 発掘の台帳（data/radar-ledger.json）。
+ *
+ * 盤面（radar.json）とは別のファイルに分けている。台帳は語が増える一方で、
+ * 画面は 10 件しか出さないので、同じファイルに入れると閲覧者が毎回
+ * 数百件ぶんを転送することになる。台帳はブラウザからは読まない。
+ *
+ * 台帳が果たす役割は 3 つ。
+ * - 名前解決（npm パッケージ名・GitHub リポジトリの特定）の結果を貯めて、同じ語に
+ *   二度と LLM を使わない。「道具ではなかった」という否定の結果も貯める
+ * - 再計測の間隔を管理して、外部 API の呼び出し数を一定に保つ
+ * - 計測の履歴を残して、自分のデータで伸びを見られるようにする
+ */
+export interface RadarLedgerEntry {
+  id: string;
+  name: string;
+  /** 名前解決の結果。null は「まだ解決していない」 */
+  resolved: {
+    /** 導入して使える道具か。概念・会社名・設定ファイル名は false */
+    isTool: boolean;
+    /**
+     * 公式の表記に直した表示名（oxlint → Oxlint）。
+     * 台帳のキーは `name` 側のまま動かさない——キーが変わると、同じ語を
+     * 別の語として二重に持ち、計測も紹介文もやり直しになる。
+     */
+    displayName: string;
+    npmPackage: string | null;
+    githubRepo: string | null;
+    what: string;
+    /** 名前が英語の一般語と同じ綴りか。国内の記事数の数え方を切り替えるのに使う */
+    nameIsCommonWord: boolean;
+    at: string;
+  } | null;
+  measure: RadarMeasure | null;
+  /** 計測の履歴。最大 8 点だけ残す（伸びを見るのに十分で、ファイルが膨らまない） */
+  history: {
+    at: string;
+    npmWeekly: number | null;
+    githubStars: number | null;
+    /** そのときの国内の厚み（Qiita + Zenn） */
+    domestic: number | null;
+  }[];
+  /**
+   * 紹介文のキャッシュ。
+   *
+   * 盤面に載り続けているものへ毎日 LLM を使い直すのは無駄なだけでなく、
+   * 文面が日替わりで変わって「昨日読んだもの」と繋がらなくなる。
+   * 一度書けたら固定する。
+   */
+  pitch: {
+    pitch: string;
+    insteadOf: string[];
+    firstStep: string | null;
+    fitFor: string[];
+    caution: string | null;
+    at: string;
+  } | null;
+  mentions: { abroad: number; domestic: number };
+  firstSeenAt: string;
+  lastSeenAt: string;
+  /** 盤面に初めて載った日。載っていなければ null */
+  featuredAt: string | null;
+  /**
+   * 直近の判定。落とした理由も残す。
+   * どの語がなぜ出てこないのかを後から追えないと、しきい値を調整できない。
+   */
+  lastVerdict: RadarVerdict | null;
+  lastReason: string | null;
+}
+
+/**
+ * 発掘の盤面（data/radar.json）。毎回まるごと差し替える。
+ *
+ * コミュニティ盤面と同じ扱いだが、寿命の考え方は逆。イベントは開催が過ぎたら
+ * 価値が消えるが、道具は腐らない。なので期限で落とさず、**枠を有限にして**
+ * スコアで押し出す。まだ試していないものが黙って消えないようにするため。
+ */
+export interface RadarBoard {
+  updatedAt: string;
+  date: string;
+  items: RadarItem[];
+  byVerdict: Record<string, number>;
+  /** 台帳の規模。「何語を見て 10 件に絞ったのか」を画面に出すために持つ */
+  stats: {
+    ledgerSize: number;
+    measuredToday: number;
+    /** 道具ではないと判定して台帳に記録済みの語数 */
+    notTool: number;
+  };
+  notes: string[];
+}
