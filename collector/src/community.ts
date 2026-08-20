@@ -533,7 +533,18 @@ export async function collectConnpass(
       const data = await fetchJson<{ events?: ConnpassEvent[] }>(url, {
         headers: { 'x-api-key': apiKey },
       });
-      for (const e of data.events ?? []) {
+      /*
+       * レスポンスの形が想定と違うと 0 件として黙って通り過ぎ、
+       * 「その月は該当が無かった」と区別が付かなくなる。v2 の実レスポンスに
+       * 対して検証できていない箇所なので、ここだけは声を上げる。
+       */
+      if (!Array.isArray(data?.events)) {
+        log.warn(
+          `connpass(${ym}): レスポンスに events 配列がありません` +
+            `（トップレベルのキー: ${Object.keys(data ?? {}).join(', ') || 'なし'}）`,
+        );
+      }
+      for (const e of data?.events ?? []) {
         const eventUrl = e.event_url || e.url;
         if (!eventUrl) continue;
         out.push({
