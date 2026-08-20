@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { describeShortlist } from './llm.js';
+import { describeShortlist, sanitizeTrial } from './llm.js';
 import { pickTopDiverse } from './prescore.js';
 import type { PreScoredItem } from './types.js';
 
@@ -79,5 +79,59 @@ describe('describeShortlist', () => {
     );
     const shortlist = describeShortlist(items, (i) => Math.round(i.preScore * 100), TOP_N, OTHER_N);
     assert.equal(new Set(shortlist.map((i) => i.id)).size, shortlist.length);
+  });
+});
+
+/*
+ * ここで固定したいのは「試せないものにボタンを出さない」こと。
+ *
+ * 壊れ方が静かなのが厄介で、install が「公式サイトを開く」の計画でもボタンは出て、
+ * 押した読者はレポートを待ち、20 分後に失敗ログだけが返る。画面には成功と失敗の
+ * 区別が付かない形で残るので、通す前に落とす。
+ */
+describe('sanitizeTrial', () => {
+  const ok = {
+    runner: 'node' as const,
+    install: 'npm i -g foo@latest',
+    verify: 'foo --version',
+    questions: ['README の 3 ステップで最初の出力まで行けるか'],
+  };
+
+  it('コマンドと問いが揃っていれば通す', () => {
+    assert.deepEqual(sanitizeTrial(ok), ok);
+  });
+
+  it('前後の空白は落として通す', () => {
+    const got = sanitizeTrial({ ...ok, install: '  npm i -g foo@latest  ' });
+    assert.equal(got?.install, 'npm i -g foo@latest');
+  });
+
+  it('人間しか踏めない手順が入っていたら落とす', () => {
+    assert.equal(sanitizeTrial({ ...ok, install: '公式サイトからダウンロードする' }), null);
+    assert.equal(sanitizeTrial({ ...ok, verify: 'ブラウザで開いて表示を確認する' }), null);
+    assert.equal(sanitizeTrial({ ...ok, install: 'Sign up for an API key' }), null);
+  });
+
+  it('URL だけの install は入手先の案内であってコマンドではない', () => {
+    assert.equal(sanitizeTrial({ ...ok, install: 'https://example.com/download' }), null);
+  });
+
+  it('複数行の手順書は落とす（半端に実行させない）', () => {
+    assert.equal(sanitizeTrial({ ...ok, install: 'git clone x\ncd x\nnpm i' }), null);
+  });
+
+  it('問いが無ければ落とす（動作確認だけでは読者に残らない）', () => {
+    assert.equal(sanitizeTrial({ ...ok, questions: [] }), null);
+    assert.equal(sanitizeTrial({ ...ok, questions: ['  ', ''] }), null);
+  });
+
+  it('問いは 3 個まで', () => {
+    const got = sanitizeTrial({ ...ok, questions: ['a', 'b', 'c', 'd'] });
+    assert.deepEqual(got?.questions, ['a', 'b', 'c']);
+  });
+
+  it('null / undefined はそのまま落とす', () => {
+    assert.equal(sanitizeTrial(null), null);
+    assert.equal(sanitizeTrial(undefined), null);
   });
 });

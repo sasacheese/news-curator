@@ -447,6 +447,35 @@ export const BuildDeepDiveSchema = z.object({
         '**仕様の細部はここに書かない。** ✗「style: react は動作するが非推奨警告あり」✗「上限はモデル構造依存: GQAはKVヘッド数まで」（どちらも仕様の説明であって、知らずに始めて困ることではない）/ ✓「Node.js 22.13未満だとローカル起動の時点でつまずく」✓「通信はHTTPS経由だがエンドツーエンドでは暗号化されない」。' +
         '「まだ新しいので注意」「本番利用は慎重に」のような、どの新しい道具にも言える一般論も書かない。該当が無ければ空配列にする——**埋めるために書かない。**',
     ),
+  trial: z
+    .object({
+      runner: z
+        .enum(['node', 'python', 'shell'])
+        .describe(
+          '素の Linux コンテナ（通信はパッケージレジストリと GitHub だけ開いている）に何を足せば動くか。node = Node.js と npm、python = Python 3 と pip、shell = curl と git だけで足りる。**Docker は使えない**（コンテナの中なので）ので、docker コマンドが要るものは trial を null にする。',
+        ),
+      install: z
+        .string()
+        .describe(
+          '最初に打つ 1 行。**コピペでそのまま実行できるコマンドだけ**を書く（例: `npm i -g foo@latest`、`pip install foo`、`git clone --depth 1 https://github.com/o/r`）。「公式サイトからダウンロードする」「アカウントを作る」のような、人間しかできない手順は書けない——書けないなら trial 自体を null にする。',
+        ),
+      verify: z
+        .string()
+        .describe(
+          '動いたかを判定するために打つコマンド。**出力を見て成否が決まるもの**を 1 つ（例: `foo --version`、`foo build ./sample && cat dist/out.json`）。画面を目で見る、ブラウザで開く、といった判定は不可。',
+        ),
+      questions: z
+        .array(z.string())
+        .describe(
+          '**試した結果からしか分からない問い。1〜3 個、各 60 字以内。** 記事やドキュメントを読めば分かることは書かない。✗「何ができるツールか」✗「インストール方法」（どちらも記事に書いてある）/ ✓「README の 3 ステップだけで最初の出力まで到達できるか」/ ✓「エラー時のメッセージから原因を特定できるか」/ ✓「1 万行のファイルで実行時間がどうなるか」。**この項目が書けないなら試す価値が無いので trial を null にする。**',
+        ),
+    })
+    .nullable()
+    .describe(
+      'サンドボックス（素の Linux コンテナ・GUI なし・人間の介入なし・対象ツール専用の認証情報なし）で自動実行できるなら、その計画。**できないなら null。** ' +
+        '次のどれかに当たるものは必ず null にする: (1) GUI が本体（エディタ拡張、デスクトップアプリ、ブラウザ拡張、Web サービスの画面）(2) ログイン・サインアップが要る (3) 有料プランや個人の API キーが要る (4) macOS / Windows / GPU / 特定のハードウェアが要る (5) 判定に人間の目（デザインや体感の良さ）が要る (6) 記事が読み物・設計論・体験記で、動かす対象そのものが無い。' +
+        '**迷ったら null にする。** 試せないものを試させると、返ってくるのは失敗ログだけで読者には何も残らない。',
+    ),
 });
 
 /**
@@ -705,3 +734,46 @@ export const RadarPitchSchema = z.object({
 
 export type RadarResolveResult = z.infer<typeof RadarResolveSchema>;
 export type RadarPitchResult = z.infer<typeof RadarPitchSchema>;
+
+/* ------------------------------------------------------------------ *
+ * サンドボックスが書くレポート
+ *
+ * これは LLM への出力指定ではなく、**サンドボックスの中でエージェントが書いた
+ * JSON ファイルを検証するため**のスキーマ。素性が違うので扱いも違う:
+ *
+ * - 中身は対象ツールの README やエラーメッセージを読んだ結果なので、
+ *   指示が混ざりうる（プロンプトインジェクション）。**表示するだけで実行しない**、
+ *   長さを縛る、想定外のキーを落とす——この 3 つで受ける。
+ * - 形が合わなければレポート無しの失敗として扱う。半端なレポートを載せない。
+ * ------------------------------------------------------------------ */
+export const TrialReportSchema = z.object({
+  verdict: z
+    .enum(['worked', 'partly', 'failed'])
+    .describe('worked = 問いに答えが出た / partly = 一部だけ / failed = 動かせなかった'),
+  headline: z.string().max(120).describe('1 行の結論。畳んだ状態で見えるのはここだけ'),
+  answers: z
+    .array(
+      z.object({
+        question: z.string().max(200),
+        answer: z.string().max(400).describe('試した結果からの答え。推測は書かない'),
+      }),
+    )
+    .max(5),
+  steps: z
+    .array(
+      z.object({
+        command: z.string().max(300),
+        ok: z.boolean(),
+        note: z.string().max(300),
+      }),
+    )
+    .max(20),
+  stumbles: z.array(z.string().max(300)).max(5),
+  correction: z
+    .string()
+    .max(400)
+    .nullable()
+    .describe('掲載していた「試し方」とのずれ。無ければ null'),
+});
+
+export type TrialReportResult = z.infer<typeof TrialReportSchema>;
