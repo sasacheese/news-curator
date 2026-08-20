@@ -64,6 +64,14 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 依頼が 0 件の回（15 分ごとに回るので、ほぼ全部の回）はレポートが 1 件も
+          # 書かれず、data/trials そのものが存在しない。git add は存在しないパスを
+          # 指定すると fatal で落ちるので、無いときは何もせずに抜ける。
+          if [ ! -d data/trials ]; then
+            echo "レポートなし"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git add data/trials
           if git diff --cached --quiet; then
             echo "変更なし"
