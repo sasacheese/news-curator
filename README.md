@@ -1255,6 +1255,136 @@ FIREBASE_SERVICE_ACCOUNT_JSON=$(cat service-account.json) VAPID_PUBLIC_KEY=... V
 
 ---
 
+## サンドボックスで試させる
+
+読んで気になった道具を**裏で試させて、レポートを受け取る**機能です。ダイジェストは
+読み終わったらそこで終わりですが、これがあると「投げて仕事に戻り、一服するときに
+開いたら結果が出ている」という時間の使い方ができます。狙いは動作確認ではなく、
+**試した結果からしか分からないこと**（README の手順で本当に最初の出力まで行けるか、
+エラーメッセージから原因が分かるか、実際どれくらい時間がかかるか）を持ち帰ることです。
+
+```
+[🧪 試させる]（作るレーンのカード・自分の端末だけに出る）
+  → Firestore の trials に依頼を置く（鍵だけ。コマンドは載せない）
+  → 15 分ごとの Actions が拾って Managed Agents のサンドボックスで実行
+  → data/trials/board.json にレポートをコミット → Pages へデプロイ
+  → プッシュ通知「試した結果が出ました」→ カードに結果が出る
+```
+
+押してから結果が出るまでは **20〜40 分**です（cron 15 分間隔 + Actions の遅延 +
+実行 5〜15 分）。
+
+### 試せるものにだけボタンが出ます
+
+「試せるか」は要約と同時に LLM が判定し、`trial` として保存します。**素の Linux
+コンテナで `install` の 1 行が通り、`verify` の出力で成否が判定できる**ものだけが
+試せる扱いです。次のどれかに当たると `null` になり、ボタンは出ません。
+
+- GUI が本体（エディタ拡張、デスクトップアプリ、Web サービスの画面）
+- ログイン・サインアップ・有料プラン・個人の API キーが要る
+- macOS / Windows / GPU / 特定のハードウェアが要る
+- 判定に人間の目（デザインや体感）が要る
+- `docker` が要る（サンドボックス自体がコンテナなので入れ子にできない）
+- 記事が読み物・設計論で、動かす対象そのものが無い
+
+判定が甘く出たときの受けとして、`sanitizeTrial()` が「公式サイトからダウンロード」
+「サインアップ」のような**人間しか踏めない手順**や、問いが空の計画を落とします。
+
+### 実行はサンドボックス側で、鍵は渡しません
+
+実行は Anthropic の Managed Agents（エージェントループは Anthropic 側、ツールの実行は
+セッションごとのコンテナ）に任せています。Actions のランナー上で走らせると、
+**未知の npm パッケージの postinstall と `ANTHROPIC_API_KEY` / `GITHUB_TOKEN` が
+同じマシンに載る**ためです。新しい道具を試すたびに、知らない人の書いたコードへ
+鍵を渡すことになります。
+
+コンテナから出られる通信は、パッケージレジストリ（`allow_package_managers`）と
+GitHub だけに絞っています（`collector/src/trials.ts` の `ALLOWED_HOSTS`）。
+
+**依頼が運ぶのは鍵（日付 + 記事 ID）だけです。** 実行する `install` / `verify` は、
+コミット済みの `data/digests/<日付>.json` から読みます。依頼にコマンドを載せると、
+公開サイトの書き込み口がそのまま「誰でも任意のコマンドを CI で実行できる入口」に
+なります。掲載記事に無い依頼や、試せると判定されていない記事の依頼は実行前に落ちます。
+
+レポートは対象ツールの README やエラー文を読んだ結果なので、指示が混ざりうる前提で
+扱います（スキーマで形と長さを縛り、**表示するだけで実行も転送もしない**）。
+
+### 費用の頭打ち
+
+依頼は誰でも置けてしまう（公開サイトなので）ため、**費用の門番は実行側の上限だけ**です。
+
+| 変数 | 既定 | 意味 |
+| --- | --- | --- |
+| `TRIAL_MAX_PER_RUN` | 2 | 1 回の実行で試す件数 |
+| `TRIAL_MAX_PER_DAY` | 4 | 直近 24 時間で試す件数 |
+| `TRIAL_TIMEOUT_MS` | 1200000 | 1 件の上限（20 分）。超えたら中断して失敗として残す |
+| `TRIAL_MODEL` | `claude-opus-5` | 試す担当のモデル |
+
+1 件あたり **$0.3〜1.5 程度**の見込みです（実測ではなく概算）。日次のダイジェストが
+1 日 $0.20 前後なので、既定値でも試した日は費用が数倍になります。**まず
+`TRIAL_MAX_PER_DAY` を 1〜2 にして、数日ぶんの実費を見てから上げてください。**
+
+### セットアップ
+
+読者フィードバック（Firestore）とプッシュ通知のセットアップが済んでいる前提です。
+追加で必要なのは Firestore 側の 2 つだけで、Secrets は既存のものを使います。
+
+1. Firestore → ルール に `trials` の match ブロックを**追記**して公開する
+
+   ```
+   match /trials/{key} {
+     // 1 件ずつの読み取りだけ許す（画面が「試している / 出た」を見るため）。
+     // 一覧・更新・削除は禁止。状態を進めるのはサーバー側（Admin SDK）だけ。
+     allow get: if true;
+     allow list, update, delete: if false;
+     allow create: if isValidTrial(key);
+
+     function isValidTrial(key) {
+       let d = request.resource.data;
+       return d.keys().hasOnly(['digestDate','itemId','title','status','requestedAt','expireAt'])
+         && key.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}__[A-Za-z0-9_-]{1,64}$')
+         && d.digestDate is string && d.digestDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+         && d.itemId is string && d.itemId.size() <= 64
+         && d.title is string && d.title.size() <= 300
+         && d.status == 'queued'
+         && d.requestedAt == request.time
+         && d.expireAt is timestamp
+         && d.expireAt > request.time
+         && d.expireAt < request.time + duration.value(31, 'd');
+     }
+   }
+   ```
+
+   > **`allow create` に `status == 'queued'` を書くのが要点です。** ここが緩いと、
+   > ブラウザから `done` を書き込んで「試したことになっている」状態を作れます。
+   > 状態を進めるのはサーバー側だけ（Admin SDK はルールを通りません）。
+   >
+   > ルールを公開する**前**にボタンを押すと、書き込みが拒否されます。失敗は
+   > `console.warn` に出るだけで画面には出ない（カードは「順番待ち」に変わる）ので、
+   > **ルールを先に公開してからデプロイしてください。**
+
+2. Firestore → TTL で `trials` コレクションの `expireAt` フィールドに TTL ポリシーを
+   設定する（`feedback` とは別に、コレクションごとに設定が必要です）
+
+   実行されなかった依頼が 31 日で消えます。放っておくと、上限に当たって溜まった
+   依頼が古い順にいつまでも拾われ続けます。
+
+ボタンは**合言葉で解除した端末にだけ**出ます（フィードバックと同じ関門）。
+`?fb=<VITE_FEEDBACK_TOKEN>` で解除するか、設定画面（ロゴを 5 回叩く）で入力します。
+**試した結果は解除していない読者にも出ます**——依頼する導線だけを自分に閉じ、
+結果はこの画面でいちばん価値のある中身なので隠しません。
+
+### 手元から動かす
+
+```bash
+ANTHROPIC_API_KEY=... FIREBASE_SERVICE_ACCOUNT_JSON=$(cat service-account.json) npm run trials:run
+```
+
+順番待ちの依頼が無ければ何もせず終わります。走った場合は `data/trials/board.json`
+が書き換わるので、そのままコミットすれば画面に出ます。
+
+---
+
 ## ローカルで動かす
 
 ```bash
@@ -1430,6 +1560,7 @@ npm run radar:dry -- --thin=60 --budget=8
 | `data/radar.json` | 発掘の盤面。日付を持たず、毎朝まるごと差し替わります |
 | `data/radar-ledger.json` | 発掘の台帳（計測済みの語・名前解決の結果・計測履歴）。**ブラウザからは読みません** |
 | `data/index/YYYY-MM.json` | 検索用の月別インデックス（タイトル・要約・キーワード・リンク） |
+| `data/trials/board.json` | サンドボックスで試した結果。日付を持たない盤面で、新しい 40 件だけ残ります |
 | `data/manifest.json` | 生成済みの日付・月の一覧と、生成元リポジトリ（設定編集リンク用） |
 
 **コミュニティ情報はインデックスに入れていません。** イベントは開催が過ぎると価値がゼロに
