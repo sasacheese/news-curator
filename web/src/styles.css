@@ -18,6 +18,11 @@
   --warn: #9a6b12;
   --code-bg: #1e1f22;
   --code-text: #e6e6e3;
+  /*
+   * container の左右の余白。全幅に流したい帯（タブ・チップの列）が
+   * 負のマージンでこの値を打ち消すので、数値を 2 か所に書かない。
+   */
+  --container-pad: 20px;
   --radius: 12px;
   --radius-sm: 7px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.12);
@@ -221,7 +226,7 @@ pre {
   width: 100%;
   max-width: var(--maxw);
   margin-inline: auto;
-  padding-inline: 20px;
+  padding-inline: var(--container-pad);
 }
 
 .site-header {
@@ -434,6 +439,12 @@ pre {
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
+  /*
+   * タブのラベルは絶対に折り返させない。「コミュニティ」が 2 行になると
+   * 帯の高さが倍になり、6 つのタブの高さがラベルの字数で決まってしまう。
+   */
+  white-space: nowrap;
+  flex: 0 0 auto;
   transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
@@ -446,6 +457,44 @@ pre {
   background: var(--bg-elevated);
   color: var(--text);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+/*
+ * 6 つのタブが並びきらない幅（13px で 427px 必要）。字を詰めても 320px 端末で
+ * 溢れるので、並べきるのは諦めて横スクロールにする。
+ *
+ * 器の pill はここでは外す。スクロールする中身を丸い器に入れると、器の縁で
+ * タブが切れて「隠れている」ようにしか見えない。タブ自身を chip にして画面端まで
+ * 流すと、端で切れたタブがそのまま「続きがある」合図になる。
+ */
+@media (max-width: 560px) {
+  .tabs {
+    /* 独立した 1 行として全幅を使う。負のマージンぶんを grow で取り戻して全出し */
+    flex: 1 1 100%;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    padding: 3px var(--container-pad);
+    margin-inline: calc(-1 * var(--container-pad));
+    gap: var(--sp-1);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    /* 帯の中に灰色のバーが出ると、ヘッダーが 2 段組の枠のように見える */
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tabs button {
+    padding: 6px 12px;
+  }
+  /*
+   * 現在地は輪郭でも示す。器が無いぶん背景の白だけでは弱い。border ではなく
+   * inset の影にするのは、選択が移るたびに 1px ぶん幅が動くのを避けるため。
+   */
+  .tabs button[aria-current='true'] {
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), inset 0 0 0 1px var(--border-strong);
+  }
 }
 
 main {
@@ -2923,7 +2972,7 @@ a.btn {
     font-size: 14.5px;
   }
   .container {
-    padding-inline: 14px;
+    --container-pad: 14px;
   }
   .card__head,
   .card__body,
@@ -2975,6 +3024,8 @@ a.btn {
   }
   .site-header__inner {
     padding-block: 8px;
+    gap: 8px;
+    min-height: 0;
   }
 }
 
@@ -3848,7 +3899,8 @@ a.btn {
 .tband {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* 縦は行間ぶんだけ、横はラベルとチップが別物に見えるぶん。同じ値にはしない */
+  gap: 6px 10px;
   flex-wrap: wrap;
   padding: 10px 14px;
   margin-bottom: 14px;
@@ -3864,17 +3916,25 @@ a.btn {
   white-space: nowrap;
 }
 
+/*
+ * チップの箱。`flex: 1`（= flex-basis 0）にすると、狭い画面でこの箱が
+ * ラベルとリンクに挟まれて潰れ、チップが 1 個ずつ縦に積まれてしまう
+ * （4 個で 5 行になっていた）。伸ばさず、中身の幅で置く。
+ */
 .tband__chips {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  flex: 1;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .tband__all {
   font-size: 12.5px;
   white-space: nowrap;
   text-decoration: none;
+  /* 広い画面では右端へ */
+  margin-left: auto;
 }
 
 .tband__all:hover {
@@ -3893,6 +3953,8 @@ a.btn {
   font-size: 12.5px;
   font-weight: 600;
   text-decoration: none;
+  /* 「Claude Code」を途中で折らない。折れると chip が 2 行の塊になる */
+  white-space: nowrap;
 }
 
 .tchip:hover {
@@ -3917,6 +3979,48 @@ a.btn {
   content: '★';
   font-size: 10px;
   color: var(--accent);
+}
+
+/*
+ * 1 行に収まらない幅（ラベル・チップ 4 つ・リンクで 665px 必要）では 2 行に
+ * 組み替える。
+ *
+ * 1 行目にラベルと「トレンド →」、2 行目にチップを横一列。チップは折り返さず
+ * 横スクロールにする——チップの行き先は 4 つとも同じトレンドタブなので、端で
+ * 切れても失うものが無い。上のタブ帯と同じ所作にそろえる意味もある。
+ */
+@media (max-width: 640px) {
+  .tband {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--sp-2) 10px;
+    /* チップの列はカードの右端まで流す。切れ目が枠の内側にあると迷子に見える */
+    padding-right: 0;
+  }
+  .tband__label {
+    grid-area: 1 / 1;
+  }
+  .tband__all {
+    grid-area: 1 / 2;
+    margin-left: 0;
+    padding-right: 14px;
+  }
+  .tband__chips {
+    grid-area: 2 / 1 / 3 / 3;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    padding-right: 14px;
+  }
+  .tband__chips::-webkit-scrollbar {
+    display: none;
+  }
+  .tchip {
+    scroll-snap-align: start;
+  }
 }
 
 /* ---------- 話題カード ---------- */
