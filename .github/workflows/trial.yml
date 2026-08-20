@@ -1,0 +1,117 @@
+name: Sandbox trial
+
+# 「サンドボックスで試させる」の依頼を処理する。
+#
+# 画面のボタンは Firestore に依頼を置くだけで、CI を直接起こせない（静的サイトに
+# トークンを持たせない方針のため）。ここが定期的に取りに来る係。
+#
+# 依頼が無ければ 1 分弱で終わる。public リポジトリの Actions は無料なので、
+# 空振りの費用はゼロ。かかるのは実際に試した回の Claude の実費だけ。
+on:
+  schedule:
+    # 15 分ごと。GitHub Actions の cron は数分〜十数分遅れることがあるので、
+    # 押してから結果が出るまでは 20〜40 分を見込む（「一服したら出ている」の間隔）。
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+# 前の回が長引いているときに重ねない。依頼は running に進めてから走るので
+# 二重実行でも同じ依頼は拾わないが、コミットの衝突は避けたい。
+concurrency:
+  group: trial
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: 試して結果をコミット
+    runs-on: ubuntu-latest
+    # サンドボックスの実行そのものは Anthropic 側で動く。ここは待つだけだが、
+    # 1 件 20 分 × 2 件を待てる長さは要る。
+    timeout-minutes: 55
+    permissions:
+      contents: write
+    outputs:
+      committed: ${{ steps.commit.outputs.committed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 依存関係をインストール
+        run: npm ci
+
+      - name: 依頼を処理する
+        env:
+          # サンドボックスの中には入らない。エージェントループは Anthropic 側で
+          # 走り、コンテナはツールの実行だけをする——未知のパッケージの
+          # postinstall とこの鍵が同じマシンに載らないのが、この方式を選んだ理由。
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 依頼の置き場。未登録ならスクリプトが黙ってスキップする
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          # 上限を絞りたくなったときにワークフローを編集せず変えられるようにしておく
+          TRIAL_MODEL: ${{ vars.TRIAL_MODEL }}
+          TRIAL_MAX_PER_RUN: ${{ vars.TRIAL_MAX_PER_RUN }}
+          TRIAL_MAX_PER_DAY: ${{ vars.TRIAL_MAX_PER_DAY }}
+          TRIAL_TIMEOUT_MS: ${{ vars.TRIAL_TIMEOUT_MS }}
+        run: npm run trials:run
+
+      - name: 結果をコミット
+        id: commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/trials
+          if git diff --cached --quiet; then
+            echo "変更なし"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore(trial): サンドボックスで試した結果を追加"
+            git push
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: GitHub Pages へデプロイ
+    needs: run
+    if: ${{ needs.run.outputs.committed == 'true' }}
+    # ⚠️ 呼ばれた側（deploy.yml）の宣言だけでは足りない。理由は digest.yml と同じ。
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    # 朝のダイジェストの通知はここでは出さない（送るのは試した結果の通知だけ）
+    secrets: inherit
+
+  notify:
+    name: 結果を通知
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # run ジョブが push したレポートを読む
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 依存関係をインストール
+        run: npm ci
+
+      # デプロイの「後」に送る。先に送ると、タップした先にまだ結果が無い。
+      - name: プッシュ通知を送信
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
+        run: npm run trials:notify
