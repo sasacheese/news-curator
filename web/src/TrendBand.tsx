@@ -43,6 +43,10 @@ export function TrendBand({ isToday }: { isToday: boolean }) {
   if (chips.length === 0) return null;
 
   return (
+    /*
+     * ラベル・チップ・リンクの 3 つ。広い画面では 1 行、狭い画面では
+     * 「ラベルとリンクの行」＋「チップの列」の 2 行になる（CSS 側で組み替える）。
+     */
     <section className="tband" aria-label="動いている話題">
       <span className="tband__label">動いている話題</span>
       <div className="tband__chips">

@@ -170,6 +170,33 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [onKey]);
 
+  /*
+   * 狭い画面ではタブが横スクロールになるので、選ばれているタブが枠の外に
+   * 置き去りになることがある（検索は右端）。ルートが変わるたびに引き寄せる。
+   */
+  const tabsRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    /*
+     * 幅が決まるのを 1 フレーム待つ。マウント直後に計算すると帯がまだ
+     * 溢れていない扱いで、#/search を直に開いたとき検索タブが枠外に
+     * 置き去りになっていた。
+     */
+    const frame = requestAnimationFrame(() => {
+      const nav = tabsRef.current;
+      const current = nav?.querySelector<HTMLElement>('[aria-current="true"]');
+      if (!nav || !current) return;
+      /*
+       * scrollIntoView は使わない。縦の位置まで巻き込む余地があるうえ、
+       * 滑らかな移動が無効な環境では何も起きないことがある。帯の中央に
+       * 来る位置を自分で出して、その値を直接入れる。
+       */
+      const offset = current.getBoundingClientRect().left - nav.getBoundingClientRect().left;
+      const centered = nav.scrollLeft + offset - (nav.clientWidth - current.offsetWidth) / 2;
+      nav.scrollLeft = Math.max(0, centered);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [route.name]);
+
   return (
     <div className="app">
       <header className="site-header">
@@ -183,7 +210,7 @@ export function App() {
               <span className="brand__sub"> ／ 毎朝8:00・30分</span>
             </span>
           </a>
-          <nav className="tabs" aria-label="メインナビゲーション">
+          <nav className="tabs" aria-label="メインナビゲーション" ref={tabsRef}>
             {TABS.map((tab) => (
               <button
                 key={tab.key}
