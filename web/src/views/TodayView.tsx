@@ -6,7 +6,7 @@ import { ReleaseList } from '../ReleaseList';
 import { VisualFigure } from '../VisualFigure';
 import { TrendBand } from '../TrendBand';
 import { WatchlistPanel } from '../WatchlistPanel';
-import { loadDigest } from '../api';
+import { loadDigest, loadTrialBoard } from '../api';
 import { Annotated } from '../Annotated';
 import { AskClaudeButton } from '../AskClaudeButton';
 import { askContextForTop } from '../askClaude';
@@ -23,6 +23,8 @@ import {
 } from '../components';
 import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
+import { TrialButton } from '../TrialButton';
+import { TrialReportView } from '../TrialReport';
 import { groupByLane } from '../lanes';
 import type {
   Clash,
@@ -33,7 +35,9 @@ import type {
   Prerequisite,
   RankedItem,
   TopItem,
+  TrialReport,
 } from '../types';
+import { trialKey, type TrialTarget } from '../trial';
 import {
   displayTitle,
   formatDateLabel,
@@ -74,6 +78,37 @@ function TodaySkeleton() {
   );
 }
 
+/**
+ * サンドボックスで試した結果を鍵引きできる形で読む。
+ *
+ * 日付を持たない 1 ファイルなので、日を移動しても読み直さない。まだ 1 件も
+ * 試していないリポジトリでは 404 になるが、それは異常ではないので黙って空にする
+ * （この機能を使っていない fork では常にそうなる）。
+ *
+ * 作るレーンのカードが 1 枚も無い日は読みに行かない——結果が付きうるのは
+ * そのレーンだけなので、他の日に転送量を払わせる意味が無い。
+ */
+function useTrialReports(digest: Digest | null): Map<string, TrialReport> {
+  const [reports, setReports] = useState<Map<string, TrialReport>>(new Map());
+  const needed = digest?.top.some((t) => t.deep.lane === 'build') ?? false;
+
+  useEffect(() => {
+    if (!needed) return;
+    let cancelled = false;
+    loadTrialBoard().then(
+      (board) => {
+        if (!cancelled) setReports(new Map(board.reports.map((r) => [r.key, r])));
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [needed]);
+
+  return reports;
+}
+
 interface Props {
   manifest: Manifest | null;
   date?: string;
@@ -91,6 +126,7 @@ export function TodayView({ manifest, date }: Props) {
    * 素直に出し分けると一瞬だけ差し替わってチラつく。少し待ってから出す。
    */
   const [showSkeleton, setShowSkeleton] = useState(false);
+  const trialReports = useTrialReports(digest);
 
   useEffect(() => {
     if (!targetDate) {
@@ -279,7 +315,12 @@ export function TodayView({ manifest, date }: Props) {
             </h2>
             {g.lead && <p className="section-lead">{g.lead}</p>}
             {g.items.map((item) => (
-              <TopCard key={item.id} item={item} digestDate={digestShown.date} />
+              <TopCard
+                key={item.id}
+                item={item}
+                digestDate={digestShown.date}
+                trialReport={trialReports.get(trialKey(digestShown.date, item.id))}
+              />
             ))}
           </section>
         ))
@@ -398,7 +439,16 @@ function Toc({ digest }: { digest: Digest }) {
   );
 }
 
-function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
+function TopCard({
+  item,
+  digestDate,
+  trialReport,
+}: {
+  item: TopItem;
+  digestDate: string;
+  /** この記事をサンドボックスで試した結果。無ければ undefined */
+  trialReport?: TrialReport;
+}) {
   const d = item.deep;
   const pr = d.prerequisites ?? [];
   const takeaways = takeawayLines(item);
@@ -499,7 +549,14 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
 
         {d.visual && <VisualFigure visual={d.visual} />}
 
-        <CardBody deep={d} itemId={item.id} prerequisites={pr} debate={item.debate} />
+        <CardBody
+          deep={d}
+          itemId={item.id}
+          prerequisites={pr}
+          debate={item.debate}
+          trialTarget={{ digestDate, itemId: item.id, title: displayTitle(item) }}
+          trialReport={trialReport}
+        />
 
         {d.relatedLinks.length > 0 && (
           <Detail label="関連リンク">
@@ -611,12 +668,18 @@ function CardBody({
   itemId,
   prerequisites,
   debate,
+  trialTarget,
+  trialReport,
 }: {
   deep: DeepDive;
   itemId: string;
   prerequisites: Prerequisite[];
   /** 話す レーンのとき、「争点」項目の頭に置く 1 行として使う */
   debate?: Debate | null;
+  /** 作る レーンのとき、サンドボックスへの依頼に載せる鍵 */
+  trialTarget: TrialTarget;
+  /** 試した結果が出ていれば、依頼ボタンの代わりにこれを出す */
+  trialReport?: TrialReport;
 }) {
   const list = (label: string, items: string[], key: string, caveat = false) =>
     items.length > 0 ? (
@@ -681,6 +744,15 @@ function CardBody({
           {list('使える場面', deep.fitFor, 'fit')}
           {list('向かない場面', deep.notFor, 'notfit')}
           {steps('試し方', deep.howToTry)}
+          {/*
+            * 手順を読んだ直後に置く。「面倒だな」と思ったその場所にしか、
+            * 代わりに試させる選択肢の出番は無い。試せない記事では出ない。
+            */}
+          {trialReport ? (
+            <TrialReportView report={trialReport} />
+          ) : (
+            deep.trial && <TrialButton plan={deep.trial} target={trialTarget} />
+          )}
           {list('注意点', deep.caveats, 'caveat', true)}
         </>
       );

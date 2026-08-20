@@ -217,6 +217,64 @@ export interface KnowDeepDive extends DeepDiveBase {
   unknowns: string[];
 }
 
+/* ---------- サンドボックスで試した結果 ---------- */
+
+/** 判定。見出しの色と「読む価値があるか」の第一印象を決める */
+export type TrialVerdict = 'worked' | 'partly' | 'failed';
+
+export interface TrialAnswer {
+  question: string;
+  answer: string;
+}
+
+export interface TrialStep {
+  command: string;
+  ok: boolean;
+  note: string;
+}
+
+/**
+ * 1 件のレポート。data/trials/board.json に新しい順で入っている。
+ *
+ * 依頼したボタンは自分にしか見えないが、**結果は誰にでも見せる**。
+ * 試した結果からしか分からないことは、この画面でいちばん価値のある中身なので、
+ * 隠す理由が無い。
+ */
+export interface TrialReport {
+  key: string;
+  digestDate: string;
+  itemId: string;
+  title: string;
+  url: string;
+  verdict: TrialVerdict;
+  headline: string;
+  answers: TrialAnswer[];
+  steps: TrialStep[];
+  stumbles: string[];
+  correction: string | null;
+  ranAt: string;
+  seconds: number;
+}
+
+export interface TrialBoard {
+  generatedAt: string;
+  reports: TrialReport[];
+}
+
+/**
+ * サンドボックスで試させる計画（collector 側の TrialPlan と同じ形）。
+ *
+ * 素の Linux コンテナで install が通り、verify の出力で成否が判定できるものだけが
+ * 入っている。GUI・要ログイン・要課金・要 GPU のものは collector 側で null に落ちる。
+ */
+export interface TrialPlan {
+  runner: 'node' | 'python' | 'shell';
+  install: string;
+  verify: string;
+  /** 試した結果からしか分からない問い。ボタンの説明文にそのまま出す */
+  questions: string[];
+}
+
 export interface BuildDeepDive extends DeepDiveBase {
   lane: 'build';
   unlocks: string[];
@@ -224,6 +282,11 @@ export interface BuildDeepDive extends DeepDiveBase {
   fitFor: string[];
   notFor: string[];
   caveats: string[];
+  /**
+   * サンドボックスで試させられるか。試せないものは null。
+   * この項目より前に生成した日は undefined（ボタンを出さない）。
+   */
+  trial?: TrialPlan | null;
 }
 
 /** 争点を論点ごとに分解した対。「A と言われるが B だ」の噛み合いを表す */
