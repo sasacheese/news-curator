@@ -52,6 +52,8 @@ const ALLOWED_HOSTS = [
 const MODEL = process.env.TRIAL_MODEL || 'claude-opus-5';
 /** 1 件にかける上限。超えたら中断して「時間切れ」として残す */
 const TIMEOUT_MS = Number(process.env.TRIAL_TIMEOUT_MS) || 20 * 60_000;
+/** プロンプトと失敗理由の両方で使う。数字が食い違うと読者に嘘を言うことになる */
+const TIMEOUT_MINUTES = Math.round(TIMEOUT_MS / 60_000);
 const POLL_MS = 15_000;
 /** 評価と書き直しの往復。増やすほど質は上がるが費用も伸びる */
 const MAX_ITERATIONS = 3;
@@ -80,6 +82,29 @@ export async function claimRequests(
 ): Promise<TrialRequest[] | null> {
   const admin = await getAdminDb();
   if (!admin) return null;
+
+  /*
+   * 途中で止まった依頼を先に片付ける。
+   *
+   * running に進めたあとでジョブごと落ちると（ジョブの制限時間・ランナーの障害）、
+   * 誰もその依頼を終わらせないので **カードは永久に「試しています」のまま**になり、
+   * 押し直しもできない。上限の 2 倍を過ぎて running のままなら、止まったと見なす。
+   */
+  const stale = await admin.db
+    .collection('trials')
+    .where('status', '==', 'running')
+    .limit(20)
+    .get();
+  for (const doc of stale.docs) {
+    const startedAt: number = doc.data().startedAt?.toMillis?.() ?? 0;
+    if (startedAt && Date.now() - startedAt < TIMEOUT_MS * 2) continue;
+    await doc.ref.update({
+      status: 'failed',
+      note: '実行が途中で止まりました。もう一度お試しください',
+      finishedAt: admin.Timestamp.now(),
+    });
+    log.warn(`試行: ${doc.id} が running のまま止まっていたので失敗にしました`);
+  }
 
   const since = admin.Timestamp.fromMillis(Date.now() - 86_400_000);
   const ranToday = await admin.db
@@ -292,6 +317,17 @@ const SYSTEM = `あなたは技術ニュースのキュレーションサイト�
 3. 渡された「問い」に、**実際に見た出力から**答える
 4. 掲載中の「試し方」とずれていたら、ずれを記録する
 
+# 時間の決まり
+- **制限時間は ${TIMEOUT_MINUTES} 分**です。超えると強制的に打ち切られます。
+- **早い段階で一度 report.json を書き、進むたびに上書きしてください。**
+  打ち切られたときに残るのは「最後に書かれたファイル」だけです。何も書いていなければ
+  ${TIMEOUT_MINUTES} 分ぶんの作業が丸ごと無駄になります（実測でそうなりました）。
+  最初のコマンドを打った直後・つまずいた直後・答えが 1 つ出た直後に上書きする、
+  くらいの頻度で構いません。
+- 残り時間が少なくなったら**新しいことを始めないでください。** その時点で分かった
+  ことでレポートを完成させるほうが、読者にとって価値があります。
+  「${TIMEOUT_MINUTES} 分では最初の出力まで到達しなかった」も試した結果です。
+
 # 書き方
 - 推測を書かないこと。試せなかったことは「試せなかった」と書く
 - コマンドは実際に打ったものをそのまま記録する（成功したものも失敗したものも）
@@ -336,7 +372,9 @@ const RUBRIC = `# 採点基準
    （動かせていないのに worked、問いに答えているのに failed になっていない）
 6. \`headline\` が、読者にとっての結論を 1 行で述べている
    （「試しました」「動作確認しました」のような、中身の無い 1 行は不可）
-7. 失敗した場合、\`stumbles\` に**どこで止まったか**が具体的に書かれている`;
+7. 失敗した場合、\`stumbles\` に**どこで止まったか**が具体的に書かれている
+8. 途中で打ち切られても成果が残るよう、レポートを**一度以上は早めに書いてから**
+   上書きして仕上げている（最後にまとめて 1 回だけ書いていない）`;
 
 function buildTask(target: TrialTargetItem): string {
   return [
@@ -440,15 +478,45 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
   log.info(`試行: セッション開始 ${session.id} (${target.title})`);
 
   try {
-    const usage = await waitForIdle(client, session.id, started);
-    const raw = await readReportFile(client, session.id);
+    const { usage, timedOut } = await waitForIdle(client, session.id, started);
+
+    /*
+     * 打ち切った回でもレポートを探す。エージェントには途中でも上書き保存させて
+     * いるので、たいていは「ここまで分かったこと」が残っている。
+     */
+    let raw: unknown;
+    try {
+      raw = await readReportFile(client, session.id);
+    } catch (err) {
+      if (timedOut) {
+        throw new Error(
+          `時間切れ（${TIMEOUT_MINUTES} 分）。レポートも書かれていませんでした`,
+        );
+      }
+      throw err;
+    }
+
     /*
      * 長さや件数で捨てない。切り詰めて通すのが normalizeTrialReport の仕事で、
      * ここで失敗になるのは「中身が何も無い」ときだけ。
      */
     const report = normalizeTrialReport(raw);
     if (!report) {
-      throw new Error('レポートに中身がありませんでした');
+      throw new Error(
+        timedOut
+          ? `時間切れ（${TIMEOUT_MINUTES} 分）。レポートに中身がありませんでした`
+          : 'レポートに中身がありませんでした',
+      );
+    }
+    if (timedOut) {
+      /*
+       * 打ち切ったことを読者に見せる。書かれた verdict は変えない——
+       * 途中までで「動いた」と言えているなら、それはその通りだから。
+       */
+      report.stumbles = [
+        `${TIMEOUT_MINUTES} 分の上限で打ち切ったため、ここまでの結果です`,
+        ...report.stumbles,
+      ].slice(0, 5);
     }
     return {
       key: req.key,
@@ -468,11 +536,19 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
 }
 
 /** 終わるまで待って、そのセッションの使用量を返す */
+/**
+ * 終わるまで待つ。上限に当たったら中断させて `timedOut` で返す。
+ *
+ * **投げないのが要点。** 以前は例外にしていたので、レポートを探しもせずに
+ * セッションを消していた。実測（fx / 2026-08-21）で 20 分の上限に当たり、
+ * 20 分ぶんの実行と実費が何も残さずに消えた。打ち切っても、そこまでの結果は
+ * 読者にとって価値がある（「20 分では終わらなかった」も試した結果である）。
+ */
 async function waitForIdle(
   client: Anthropic,
   sessionId: string,
   started: number,
-): Promise<SessionUsage> {
+): Promise<{ usage: SessionUsage; timedOut: boolean }> {
   for (;;) {
     await new Promise((r) => setTimeout(r, POLL_MS));
     const s = await client.beta.sessions.retrieve(sessionId);
@@ -480,24 +556,24 @@ async function waitForIdle(
     if (s.status === 'idle' || s.status === 'terminated') {
       const outcome = s.outcome_evaluations.at(-1);
       log.info(`試行: ${s.status} (評価: ${outcome?.result ?? '無し'})`);
-      return s.usage;
+      return { usage: s.usage, timedOut: false };
     }
 
     if (Date.now() - started > TIMEOUT_MS) {
+      log.warn(`試行: ${TIMEOUT_MINUTES} 分の上限に当たったので中断します`);
       await client.beta.sessions.events
         .send(sessionId, { events: [{ type: 'user.interrupt' }] })
         .catch(() => undefined);
-      throw new Error(`時間切れ（${Math.round(TIMEOUT_MS / 60_000)} 分）で打ち切りました`);
+      /*
+       * 中断してから少し待つ。書き込み途中のファイルが Files API 側へ
+       * 取り込まれるまでの間があるので、すぐ読むと空振りする。
+       */
+      await new Promise((r) => setTimeout(r, 8000));
+      return { usage: s.usage, timedOut: true };
     }
   }
 }
 
-/**
- * エージェントが書いたレポートを取り出す。
- *
- * /mnt/session/outputs/ に書かれたファイルは Files API 側に取り込まれるが、
- * idle になった直後は索引に載っていないことがあるので数回ためす。
- */
 /* ------------------------------------------------------------------ *
  * 実費
  * ------------------------------------------------------------------ */
