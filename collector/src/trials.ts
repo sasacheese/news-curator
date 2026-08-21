@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DATA_DIR } from './config.js';
@@ -31,9 +32,21 @@ import { log } from './util.js';
  *    混ざりうる。スキーマで形と長さを縛り、実行も転送もしない。
  */
 
-/** 環境とエージェントの名前。作り直さず、名前で引いて使い回す */
-const ENV_NAME = 'news-curator-trial';
-const AGENT_NAME = 'news-curator-trial';
+/**
+ * 環境とエージェントの名前。**名前で引いて使い回す**ので、名前に設定の指紋を入れる。
+ *
+ * ⚠️ ここが固定名だと、**設定を変えても永久に効かない**。実測でこれを踏んだ:
+ * システムプロンプトに「早めにレポートを書いて上書きし続ける」を足しても、
+ * エージェントは作成時の system を持ち続けるので、既存のエージェントが使われる限り
+ * 新しい指示は 1 文字も届かなかった。ALLOWED_HOSTS を狭めても同じで、
+ * 「絞ったつもりが絞れていない」というセキュリティ寄りの静かな失敗になる。
+ *
+ * 指紋を名前に入れておけば、設定を変えた次の実行が自動で新しいものを作る。
+ * 古いものは残るが、名前で引くだけなので邪魔にならない。
+ */
+function fingerprint(...parts: string[]): string {
+  return createHash('sha256').update(parts.join('\u0000')).digest('hex').slice(0, 8);
+}
 
 /**
  * コンテナから出られる先。
@@ -54,7 +67,10 @@ const MODEL = process.env.TRIAL_MODEL || 'claude-opus-5';
 const TIMEOUT_MS = Number(process.env.TRIAL_TIMEOUT_MS) || 20 * 60_000;
 /** プロンプトと失敗理由の両方で使う。数字が食い違うと読者に嘘を言うことになる */
 const TIMEOUT_MINUTES = Math.round(TIMEOUT_MS / 60_000);
-const POLL_MS = 15_000;
+/** 状態を見に行く間隔。テストで縮められるように環境変数から取る */
+const POLL_MS = Number(process.env.TRIAL_POLL_MS) || 15_000;
+/** 状態の取得が続けて失敗した回数の上限。1 回の通信エラーで試行を殺さないため */
+const MAX_POLL_ERRORS = 5;
 /** 評価と書き直しの往復。増やすほど質は上がるが費用も伸びる */
 const MAX_ITERATIONS = 3;
 
@@ -98,12 +114,17 @@ export async function claimRequests(
   for (const doc of stale.docs) {
     const startedAt: number = doc.data().startedAt?.toMillis?.() ?? 0;
     if (startedAt && Date.now() - startedAt < TIMEOUT_MS * 2) continue;
-    await doc.ref.update({
-      status: 'failed',
-      note: '実行が途中で止まりました。もう一度お試しください',
-      finishedAt: admin.Timestamp.now(),
-    });
-    log.warn(`試行: ${doc.id} が running のまま止まっていたので失敗にしました`);
+    try {
+      await doc.ref.update({
+        status: 'failed',
+        note: '実行が途中で止まりました。もう一度お試しください',
+        finishedAt: admin.Timestamp.now(),
+      });
+      log.warn(`試行: ${doc.id} が running のまま止まっていたので失敗にしました`);
+    } catch (err) {
+      // 消えていたなど。1 件の掃除の失敗で、この回の処理ごと止めない
+      log.warn(`試行: ${doc.id} の掃除に失敗しました: ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   const since = admin.Timestamp.fromMillis(Date.now() - 86_400_000);
@@ -135,7 +156,9 @@ export async function claimRequests(
     if (claimed.length >= Math.min(perRun, room)) break;
     const d = doc.data();
     if (typeof d.digestDate !== 'string' || typeof d.itemId !== 'string') {
-      await doc.ref.update({ status: 'failed', note: '依頼の形が壊れています' });
+      await doc.ref
+        .update({ status: 'failed', note: '依頼の形が壊れています' })
+        .catch(() => undefined);
       continue;
     }
     await doc.ref.update({ status: 'running', startedAt: admin.Timestamp.now() });
@@ -149,7 +172,14 @@ export async function claimRequests(
   return claimed;
 }
 
-/** 結果を依頼側に書き戻す。画面はこれを見て「試している / 出た」を切り替える */
+/**
+ * 結果を依頼側に書き戻す。画面はこれを見て「試している / 出た」を切り替える。
+ *
+ * **投げない。** 依頼が TTL で消えていたり手で消されていたりすると `update` は
+ * not-found で失敗する。呼び出し側は catch の中からもここを呼ぶので、ここが投げると
+ * ループを抜けて実行全体が落ち、**直前に作ったレポートがコミットされずに消える**。
+ * 書き戻せなくても、レポートは data/trials に残るほうが大事。
+ */
 export async function finishRequest(
   key: string,
   status: 'done' | 'failed',
@@ -157,10 +187,14 @@ export async function finishRequest(
 ): Promise<void> {
   const admin = await getAdminDb();
   if (!admin) return;
-  await admin.db
-    .collection('trials')
-    .doc(key)
-    .update({ status, note: note.slice(0, 200), finishedAt: admin.Timestamp.now() });
+  try {
+    await admin.db
+      .collection('trials')
+      .doc(key)
+      .update({ status, note: note.slice(0, 200), finishedAt: admin.Timestamp.now() });
+  } catch (err) {
+    log.warn(`試行: ${key} の状態を書き戻せませんでした: ${err instanceof Error ? err.message : err}`);
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -402,11 +436,12 @@ function buildTask(target: TrialTargetItem): string {
 
 /** 名前で引いて、無ければ作る。環境とエージェントは使い回す（名前は一意） */
 async function ensureEnvironment(client: Anthropic): Promise<string> {
+  const name = `news-curator-trial-${fingerprint(ALLOWED_HOSTS.join(','))}`;
   for await (const env of client.beta.environments.list({ limit: 100 })) {
-    if (env.name === ENV_NAME && !env.archived_at) return env.id;
+    if (env.name === name && !env.archived_at) return env.id;
   }
   const created = await client.beta.environments.create({
-    name: ENV_NAME,
+    name,
     description: '新しい道具を試すための使い捨て環境（news-curator）',
     config: {
       type: 'cloud',
@@ -422,11 +457,13 @@ async function ensureEnvironment(client: Anthropic): Promise<string> {
 }
 
 async function ensureAgent(client: Anthropic): Promise<string> {
+  // モデルとシステムプロンプトを指紋に含める。どちらも作成時に焼き込まれるため
+  const name = `news-curator-trial-${fingerprint(MODEL, SYSTEM)}`;
   for await (const agent of client.beta.agents.list({ limit: 100 })) {
-    if (agent.name === AGENT_NAME && !agent.archived_at) return agent.id;
+    if (agent.name === name && !agent.archived_at) return agent.id;
   }
   const created = await client.beta.agents.create({
-    name: AGENT_NAME,
+    name,
     description: '新しい道具を素の環境で試してレポートを書く',
     model: MODEL,
     system: SYSTEM,
@@ -550,19 +587,45 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
  * 20 分ぶんの実行と実費が何も残さずに消えた。打ち切っても、そこまでの結果は
  * 読者にとって価値がある（「20 分では終わらなかった」も試した結果である）。
  */
-async function waitForIdle(
+/** 検証のために export している（間隔は TRIAL_POLL_MS で縮められる） */
+export async function waitForIdle(
   client: Anthropic,
   sessionId: string,
   started: number,
 ): Promise<{ usage: SessionUsage; timedOut: boolean }> {
+  let lastUsage: SessionUsage = {};
+  let pollErrors = 0;
+
   for (;;) {
     await new Promise((r) => setTimeout(r, POLL_MS));
-    const s = await client.beta.sessions.retrieve(sessionId);
 
-    if (s.status === 'idle' || s.status === 'terminated') {
-      const outcome = s.outcome_evaluations.at(-1);
-      log.info(`試行: ${s.status} (評価: ${outcome?.result ?? '無し'})`);
-      return { usage: s.usage, timedOut: false };
+    /*
+     * 状態の取得に失敗しても、その場では諦めない。
+     *
+     * 30 分の上限だと 1 件で 120 回ポーリングする。1 回の通信エラーで例外にすると、
+     * **正常に走っているセッションを捨てて削除する**ことになる（後始末で消すため
+     * 取り返しがつかない）。続けて失敗したときだけ諦める。
+     */
+    let session: Awaited<ReturnType<typeof client.beta.sessions.retrieve>> | null = null;
+    try {
+      session = await client.beta.sessions.retrieve(sessionId);
+      lastUsage = session.usage;
+      pollErrors = 0;
+    } catch (err) {
+      pollErrors++;
+      log.warn(
+        `試行: 状態の取得に失敗しました（${pollErrors}/${MAX_POLL_ERRORS}）: ` +
+          `${err instanceof Error ? err.message : err}`,
+      );
+      if (pollErrors >= MAX_POLL_ERRORS) {
+        throw new Error(`状態の取得に ${MAX_POLL_ERRORS} 回続けて失敗しました`);
+      }
+    }
+
+    if (session && (session.status === 'idle' || session.status === 'terminated')) {
+      const outcome = session.outcome_evaluations.at(-1);
+      log.info(`試行: ${session.status} (評価: ${outcome?.result ?? '無し'})`);
+      return { usage: lastUsage, timedOut: false };
     }
 
     if (Date.now() - started > TIMEOUT_MS) {
@@ -575,7 +638,7 @@ async function waitForIdle(
        * 取り込まれるまでの間があるので、すぐ読むと空振りする。
        */
       await new Promise((r) => setTimeout(r, 8000));
-      return { usage: s.usage, timedOut: true };
+      return { usage: lastUsage, timedOut: true };
     }
   }
 }
