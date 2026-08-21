@@ -519,7 +519,13 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
       ].slice(0, 5);
     }
     return {
-      key: req.key,
+      /*
+       * レポートの鍵は**項目の鍵**（日付 + 記事 ID）にする。依頼のドキュメント ID
+       * （req.key）は試し直しで `-2` が付くが、レポートは項目に 1 つで、画面は
+       * 項目の鍵で引く。ここに依頼の ID を入れると、試し直した回のレポートが
+       * 画面から見つからなくなる（保存側の重複排除もすり抜けて二重に残る）。
+       */
+      key: `${req.digestDate}__${req.itemId}`,
       digestDate: req.digestDate,
       itemId: req.itemId,
       title: target.title,

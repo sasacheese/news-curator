@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isFeedbackUnlocked } from './settings';
 import {
+  findLocalTrial,
   forgetLocalTrial,
-  readLocalTrial,
   readTrialState,
   requestTrial,
   shouldForgetLocalTrial,
@@ -40,9 +40,16 @@ export function TrialButton({
    */
   compact?: boolean;
 }) {
-  const key = trialKey(target.digestDate, target.itemId);
+  const baseKey = trialKey(target.digestDate, target.itemId);
   const [state, setState] = useState<TrialState | null>(null);
-  const [localAt, setLocalAt] = useState<number | null>(() => readLocalTrial(key));
+  /*
+   * 状態を読む先は「基準の鍵」ではなく「この端末が実際に置いた鍵」。
+   * 試し直すと鍵に試行番号が付くので（trial.ts の attemptKeys）、
+   * 基準の鍵だけを見ていると最後の試行の状態が読めない。
+   */
+  const [echo, setEcho] = useState(() => findLocalTrial(baseKey));
+  const key = echo?.key ?? baseKey;
+  const localAt = echo?.at ?? null;
   const [sending, setSending] = useState(false);
 
   /*
@@ -65,7 +72,7 @@ export function TrialButton({
          */
         if (shouldForgetLocalTrial(localAt)) {
           forgetLocalTrial(key);
-          setLocalAt(null);
+          setEcho(null);
           setState(null);
         }
         return;
@@ -86,8 +93,17 @@ export function TrialButton({
 
   const send = () => {
     setSending(true);
-    setLocalAt(Date.now());
-    void requestTrial(target).finally(() => setSending(false));
+    /*
+     * 押した見た目は即座に出す（置けた鍵が返るまで待つと、押していないように見える）。
+     * 置けた鍵が分かったら、そちらへ読み取り先を差し替える。
+     */
+    setEcho({ key: baseKey, at: Date.now() });
+    setState(null);
+    void requestTrial(target)
+      .then((placed) => {
+        if (placed) setEcho({ key: placed, at: Date.now() });
+      })
+      .finally(() => setSending(false));
   };
 
   const status = state?.status ?? (localAt ? 'queued' : null);

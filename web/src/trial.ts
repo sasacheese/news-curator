@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { loadTrialBoard } from './api';
 import { getFeedbackDb } from './firebase';
 import type { TrialReport } from './types';
 
@@ -77,6 +76,21 @@ export function readLocalTrial(key: string): number | null {
 }
 
 /**
+ * この項目の控えを探す。試し直しで `-2` が付いた鍵も拾う。
+ *
+ * 基準の鍵だけを見ると、試し直したあとに「押していない」状態に見えてしまう。
+ * 複数あるときは新しいほうを返す（最後の試行が今の状態）。
+ */
+export function findLocalTrial(baseKey: string): { key: string; at: number } | null {
+  const map = readLocal();
+  const hits = Object.entries(map)
+    .filter(([k]) => k === baseKey || k.startsWith(`${baseKey}-`))
+    .map(([key, at]) => ({ key, at }))
+    .sort((a, b) => b.at - a.at);
+  return hits[0] ?? null;
+}
+
+/**
  * 依頼が「置き場に無い」と分かってから、この端末の控えを消すまでの猶予。
  *
  * 押した直後は書き込みが届いていないことがあり、そこで消すと押した見た目が
@@ -113,16 +127,66 @@ function writeLocalTrial(key: string, at: number): void {
 
 /* ---------- 依頼と状態 ---------- */
 
-/** 依頼を置く。置けたら true。失敗は画面に出さず console にだけ残す */
-export async function requestTrial(target: TrialTarget): Promise<boolean> {
-  const key = trialKey(target.digestDate, target.itemId);
-  writeLocalTrial(key, Date.now());
+/**
+ * 同じ項目を試し直すときの鍵の候補。
+ *
+ * **ルールは作成しか許していない**（ブラウザから `done` を書けないようにするため）。
+ * その代わり、1 度失敗した項目は同じ鍵では置き直せない——`setDoc` が拒否され、
+ * 失敗は console にしか出ないので、画面は「順番待ち」のまま永久に動かなくなる。
+ *
+ * そこで 2 回目以降は鍵の末尾に試行番号を付けて**新しい依頼として作る**。
+ * ルールの正規表現（`__[A-Za-z0-9_-]{1,64}`）に収まるので、ルールの変更は要らない。
+ * 記事 ID は 16 桁の 16 進数なので、`-2` が本物の ID と衝突することもない。
+ *
+ * 上限を置いているのは、拒否のたびに無限に鍵を増やさないため。ここに当たるのは
+ * 「同じ項目を 5 回試した」ときだけで、そのときは素直に諦めて console に残す。
+ */
+export function attemptKeys(baseKey: string, max = 5): string[] {
+  return [baseKey, ...Array.from({ length: max - 1 }, (_, i) => `${baseKey}-${i + 2}`)];
+}
+
+/**
+ * 候補の鍵を順に試して、最初に作れたものを返す。作れなければ null。
+ *
+ * 「すでにある」と「本当に書けない」を区別しない（どちらもルール上は同じ拒否として
+ * 返るため）。区別しなくても、次の鍵で作れれば目的は果たせる。
+ */
+export async function createFirstAvailable(
+  keys: readonly string[],
+  create: (key: string) => Promise<void>,
+): Promise<string | null> {
+  let lastError: unknown = null;
+  for (const key of keys) {
+    try {
+      await create(key);
+      return key;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  if (lastError) console.warn('サンドボックスへの依頼に失敗しました', lastError);
+  return null;
+}
+
+/**
+ * 依頼を置く。置けた鍵を返す（失敗は null）。
+ *
+ * この端末の控えは**置けた鍵で**残す。試し直しで `-2` になったときに、
+ * 状態の読み取り先とずれないようにするため。
+ */
+export async function requestTrial(target: TrialTarget): Promise<string | null> {
+  const baseKey = trialKey(target.digestDate, target.itemId);
 
   const db = await getFeedbackDb();
-  if (!db) return false;
-  try {
-    const { doc, setDoc, serverTimestamp, Timestamp } = await import('firebase/firestore/lite');
-    await setDoc(doc(db, COLLECTION, key), {
+  if (!db) {
+    // 設定が無い環境。押した見た目だけは残す（この端末での控え）
+    writeLocalTrial(baseKey, Date.now());
+    return null;
+  }
+
+  const { doc, setDoc, serverTimestamp, Timestamp } = await import('firebase/firestore/lite');
+  const key = await createFirstAvailable(attemptKeys(baseKey), (k) =>
+    setDoc(doc(db, COLLECTION, k), {
       digestDate: target.digestDate,
       itemId: target.itemId,
       title: target.title,
@@ -134,12 +198,11 @@ export async function requestTrial(target: TrialTarget): Promise<boolean> {
       status: 'queued' satisfies TrialStatus,
       requestedAt: serverTimestamp(),
       expireAt: Timestamp.fromMillis(Date.now() + RETENTION_DAYS * DAY_MS),
-    });
-    return true;
-  } catch (err) {
-    console.warn('サンドボックスへの依頼に失敗しました', err);
-    return false;
-  }
+    }),
+  );
+
+  writeLocalTrial(key ?? baseKey, Date.now());
+  return key;
 }
 
 /**
@@ -199,7 +262,9 @@ let reportsPromise: Promise<Map<string, TrialReport>> | null = null;
 
 function loadReports(): Promise<Map<string, TrialReport>> {
   if (!reportsPromise) {
-    reportsPromise = loadTrialBoard()
+    // 遅延 import。盤面を見ない画面（設定など）で api を引き込まないため
+    reportsPromise = import('./api')
+      .then((m) => m.loadTrialBoard())
       .then((board) => new Map(board.reports.map((r) => [r.key, r])))
       .catch(() => new Map<string, TrialReport>());
   }
