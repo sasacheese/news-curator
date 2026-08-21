@@ -17,7 +17,15 @@ import { log } from './util.js';
  * 1 回の実行で走るのは数件で、cron の間隔も 15 分なので、時刻で足りる。
  */
 
-const WINDOW_MIN = Number(process.env.TRIAL_NOTIFY_WINDOW_MIN) || 60;
+/**
+ * 「今回のぶん」と見なす幅。
+ *
+ * ⚠️ **1 件の上限 × 1 回の件数 + デプロイの時間**より長くすること。短いと
+ * **1 件目だけ通知されない**（30 分 × 2 件 = 60 分なので、60 分の窓では 1 件目が
+ * ちょうど外れる）。長すぎても害は小さい——通知が 2 度出るのは同じレポートが
+ * 2 回デプロイされたときだけで、tag が同じなので端末では置き換わる。
+ */
+const WINDOW_MIN = Number(process.env.TRIAL_NOTIFY_WINDOW_MIN) || 180;
 
 async function main(): Promise<void> {
   const board = await loadTrialBoard();
