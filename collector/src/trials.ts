@@ -4,7 +4,9 @@ import { resolve } from 'node:path';
 import { DATA_DIR } from './config.js';
 import { getAdminDb } from './firebaseAdmin.js';
 import { TrialReportSchema } from './schemas.js';
-import type { Digest, TopItem, TrialPlan, TrialReport } from './types.js';
+import { loadRadarLedger } from './store.js';
+import { buildTrialPlan, radarQuestions } from './trial-plan.js';
+import type { Digest, TrialCost, TrialPlan, TrialReport } from './types.js';
 import { log } from './util.js';
 
 /**
@@ -140,38 +142,134 @@ export async function finishRequest(
  * 依頼 → 実行する計画
  * ------------------------------------------------------------------ */
 
+/**
+ * 試す対象を、どの枠から来たかに関わらず同じ形にしたもの。
+ *
+ * 枠は 4 つある（ベスト3の作るレーン / その他候補 / リリース情報 / 発掘）。
+ * エージェントに渡すときに違いは要らないので、ここで平らにする。
+ */
 export interface TrialTargetItem {
-  item: TopItem;
+  title: string;
+  url: string;
   plan: TrialPlan;
+  /** サイトに載せている説明。エージェントが「何を試すのか」を掴むための文脈 */
+  context: string[];
 }
 
 /**
- * 依頼の鍵から、実行する計画をコミット済みのダイジェストへ引きに行く。
+ * 依頼の鍵から、実行する計画をコミット済みのデータへ引きに行く。
  *
- * **ここが依頼の検証を兼ねている。** 掲載された記事で、かつ試せると判定された
+ * **ここが依頼の検証を兼ねている。** 掲載されていて、かつ試せると判定された
  * ものにしか計画が存在しないので、外から作られた依頼はここで落ちる。
+ *
+ * 探す順は、その日のダイジェスト（作るレーン → その他候補 → リリース情報）→ 発掘の台帳。
+ * 発掘だけ台帳から引くのは、盤面（data/radar.json）が毎朝まるごと差し替わるため——
+ * 昨日押した項目が今朝の盤面から落ちていても、台帳には残っているので試せる。
  */
 export async function resolveTarget(req: TrialRequest): Promise<TrialTargetItem | null> {
+  const fromDigest = await resolveFromDigest(req);
+  if (fromDigest) return fromDigest;
+
+  const fromRadar = await resolveFromRadar(req);
+  if (fromRadar) return fromRadar;
+
+  log.warn(`試行: ${req.itemId} は掲載データの中に見つかりませんでした`);
+  return null;
+}
+
+async function resolveFromDigest(req: TrialRequest): Promise<TrialTargetItem | null> {
   const path = resolve(DATA_DIR, 'digests', `${req.digestDate}.json`);
   let digest: Digest;
   try {
     digest = JSON.parse(await readFile(path, 'utf8')) as Digest;
   } catch {
-    log.warn(`試行: ${req.digestDate} のダイジェストが読めません`);
+    // 発掘の依頼は「今日の日付 + 発掘の id」で来るので、ここは素通りしてよい
     return null;
   }
 
-  const item = digest.top.find((t) => t.id === req.itemId);
-  if (!item) {
-    log.warn(`試行: ${req.itemId} は ${req.digestDate} の掲載記事にありません`);
-    return null;
+  const top = digest.top.find((t) => t.id === req.itemId);
+  if (top) {
+    // ベスト3のカードは LLM が書いた計画を使う（記事なので身元が本文の中にしかない）
+    const plan = top.deep.lane === 'build' ? top.deep.trial : null;
+    if (!plan) return null;
+    const deep = top.deep.lane === 'build' ? top.deep : null;
+    return {
+      title: top.title,
+      url: top.url,
+      plan,
+      context: [
+        deep?.unlocks.length ? `できるようになること: ${deep.unlocks.join(' / ')}` : '',
+        deep?.howToTry.length
+          ? `掲載中の試し方:\n${deep.howToTry.map((h) => `- ${h}`).join('\n')}`
+          : '',
+      ].filter(Boolean),
+    };
   }
-  const plan = item.deep.lane === 'build' ? item.deep.trial : null;
-  if (!plan) {
-    log.warn(`試行: ${req.itemId} には試す計画がありません`);
-    return null;
+
+  const other = digest.others.find((o) => o.id === req.itemId);
+  if (other?.trial) {
+    return {
+      title: other.title,
+      url: other.url,
+      plan: other.trial,
+      context: [other.oneLiner, ...other.takeaways].filter(Boolean),
+    };
   }
-  return { item, plan };
+
+  const release = digest.releases.find((r) => r.id === req.itemId);
+  if (release?.trial) {
+    return {
+      title: [release.product, release.version].filter(Boolean).join(' '),
+      url: release.url,
+      plan: release.trial,
+      context: [
+        release.unlock ? `できるようになること: ${release.unlock}` : '',
+        release.change ? `今まで: ${release.change.before} / これから: ${release.change.after}` : '',
+        release.summary,
+      ].filter(Boolean),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * 発掘の台帳から引く。
+ *
+ * 盤面と同じ計画をここで組み直している（盤面を読まずに台帳だけ見る）。計測値から
+ * 機械的に決まるので、同じ入力からは同じ計画が出る——盤面に載っていたときと
+ * 違うコマンドが走ることはない。
+ */
+async function resolveFromRadar(req: TrialRequest): Promise<TrialTargetItem | null> {
+  const ledger = await loadRadarLedger();
+  const entry = ledger.find((e) => e.id === req.itemId);
+  const m = entry?.measure;
+  if (!entry || !m) return null;
+
+  const plan = buildTrialPlan(
+    { npmPackage: m.npmPackage, npmVersion: m.npmVersion, githubRepo: m.githubRepo },
+    radarQuestions({
+      npmVersion: m.npmVersion,
+      domesticArticles: (m.qiitaArticles ?? 0) + (m.zennArticles ?? 0),
+    }),
+  );
+  if (!plan) return null;
+
+  const url = m.githubRepo
+    ? `https://github.com/${m.githubRepo}`
+    : m.npmPackage
+      ? `https://www.npmjs.com/package/${m.npmPackage}`
+      : '';
+
+  return {
+    title: entry.resolved?.displayName || entry.name,
+    url,
+    plan,
+    context: [
+      entry.resolved?.what ? `何をする道具か: ${entry.resolved.what}` : '',
+      entry.pitch?.pitch ?? '',
+    ].filter(Boolean),
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -235,25 +333,25 @@ const RUBRIC = `# 採点基準
    （「試しました」「動作確認しました」のような、中身の無い 1 行は不可）
 7. 失敗した場合、\`stumbles\` に**どこで止まったか**が具体的に書かれている`;
 
-function buildTask(item: TopItem, plan: TrialPlan): string {
-  const deep = item.deep.lane === 'build' ? item.deep : null;
+function buildTask(target: TrialTargetItem): string {
   return [
     `# 試す対象`,
-    `${item.title}`,
-    `記事: ${item.url}`,
+    target.title,
+    target.url ? `参照: ${target.url}` : '',
     ``,
     `# サイトに載せている説明`,
-    deep?.unlocks.length ? `できるようになること: ${deep.unlocks.join(' / ')}` : '',
-    deep?.howToTry.length ? `掲載中の試し方:\n${deep.howToTry.map((h) => `- ${h}`).join('\n')}` : '',
+    ...target.context,
     ``,
     `# 実行`,
-    `最初のコマンド: ${plan.install}`,
-    `動作確認のコマンド: ${plan.verify}`,
+    `最初のコマンド: ${target.plan.install}`,
+    `動作確認のコマンド: ${target.plan.verify}`,
     ``,
     `# 答えるべき問い`,
-    ...plan.questions.map((q, i) => `${i + 1}. ${q}`),
+    ...target.plan.questions.map((q, i) => `${i + 1}. ${q}`),
     ``,
     `上を実際に動かし、/mnt/session/outputs/report.json に結果を書いてください。`,
+    `最初のコマンドが通らなかった場合も、そこで止めずに公式の入手方法を 1〜2 通り試し、`,
+    `どこで止まったかを報告してください（「入らなかった」も試した結果です）。`,
   ]
     .filter((l) => l !== '')
     .join('\n');
@@ -323,21 +421,21 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
   const session = await client.beta.sessions.create({
     agent: agentId,
     environment_id: environmentId,
-    title: `試す: ${target.item.title}`.slice(0, 120),
+    title: `試す: ${target.title}`.slice(0, 120),
     metadata: { key: req.key, digestDate: req.digestDate },
     initial_events: [
       {
         type: 'user.define_outcome',
-        description: buildTask(target.item, target.plan),
+        description: buildTask(target),
         rubric: { type: 'text', content: RUBRIC },
         max_iterations: MAX_ITERATIONS,
       },
     ],
   });
-  log.info(`試行: セッション開始 ${session.id} (${target.item.title})`);
+  log.info(`試行: セッション開始 ${session.id} (${target.title})`);
 
   try {
-    await waitForIdle(client, session.id, started);
+    const usage = await waitForIdle(client, session.id, started);
     const raw = await readReportFile(client, session.id);
     const parsed = TrialReportSchema.safeParse(raw);
     if (!parsed.success) {
@@ -347,8 +445,8 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
       key: req.key,
       digestDate: req.digestDate,
       itemId: req.itemId,
-      title: target.item.title,
-      url: target.item.url,
+      title: target.title,
+      url: target.url,
       verdict: parsed.data.verdict,
       headline: parsed.data.headline,
       answers: parsed.data.answers,
@@ -357,6 +455,7 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
       correction: parsed.data.correction,
       ranAt: new Date().toISOString(),
       seconds: Math.round((Date.now() - started) / 1000),
+      cost: estimateCost(usage),
     };
   } finally {
     // コンテナを掴んだままにしない。失敗した回も後始末する
@@ -364,7 +463,12 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
   }
 }
 
-async function waitForIdle(client: Anthropic, sessionId: string, started: number): Promise<void> {
+/** 終わるまで待って、そのセッションの使用量を返す */
+async function waitForIdle(
+  client: Anthropic,
+  sessionId: string,
+  started: number,
+): Promise<SessionUsage> {
   for (;;) {
     await new Promise((r) => setTimeout(r, POLL_MS));
     const s = await client.beta.sessions.retrieve(sessionId);
@@ -372,7 +476,7 @@ async function waitForIdle(client: Anthropic, sessionId: string, started: number
     if (s.status === 'idle' || s.status === 'terminated') {
       const outcome = s.outcome_evaluations.at(-1);
       log.info(`試行: ${s.status} (評価: ${outcome?.result ?? '無し'})`);
-      return;
+      return s.usage;
     }
 
     if (Date.now() - started > TIMEOUT_MS) {
@@ -390,6 +494,63 @@ async function waitForIdle(client: Anthropic, sessionId: string, started: number
  * /mnt/session/outputs/ に書かれたファイルは Files API 側に取り込まれるが、
  * idle になった直後は索引に載っていないことがあるので数回ためす。
  */
+/* ------------------------------------------------------------------ *
+ * 実費
+ * ------------------------------------------------------------------ */
+
+/** セッションが返す使用量。SDK の型をそのまま使うと import が増えるので必要な形だけ */
+interface SessionUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation?: { ephemeral_5m_input_tokens?: number; ephemeral_1h_input_tokens?: number };
+}
+
+/**
+ * 公開価格（$ / 100 万トークン）。
+ *
+ * ⚠️ 実装時点（2026-08）の値を焼き込んでいる。**モデルを変えたら、この表に
+ * その ID があるかを確かめること**——無いモデルでは金額が null になり、
+ * トークン数だけがレポートに残る（黙って 0 円と表示しない）。
+ *
+ * キャッシュは読み出しが入力の 0.1 倍、書き込みが 1.25 倍（5 分）/ 2 倍（1 時間）。
+ */
+const PRICES: Record<string, { input: number; output: number }> = {
+  'claude-opus-5': { input: 5, output: 25 },
+  'claude-opus-4-8': { input: 5, output: 25 },
+  'claude-sonnet-5': { input: 3, output: 15 },
+  'claude-sonnet-4-6': { input: 3, output: 15 },
+  'claude-haiku-4-5': { input: 1, output: 5 },
+};
+
+export function estimateCost(usage: SessionUsage | undefined, model = MODEL): TrialCost {
+  const input = usage?.input_tokens ?? 0;
+  const output = usage?.output_tokens ?? 0;
+  const cacheRead = usage?.cache_read_input_tokens ?? 0;
+  const write5m = usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0;
+  const write1h = usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+
+  const price = PRICES[model];
+  const usd = price
+    ? (input * price.input +
+        output * price.output +
+        cacheRead * price.input * 0.1 +
+        write5m * price.input * 1.25 +
+        write1h * price.input * 2) /
+      1_000_000
+    : null;
+
+  return {
+    model,
+    inputTokens: input,
+    outputTokens: output,
+    cacheReadTokens: cacheRead,
+    cacheWriteTokens: write5m + write1h,
+    // セント単位まで出しても読み手には使えないので、小数 2 桁に丸める
+    estimatedUsd: usd == null ? null : Math.round(usd * 100) / 100,
+  };
+}
+
 async function readReportFile(client: Anthropic, sessionId: string): Promise<unknown> {
   for (let attempt = 0; attempt < 4; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 3000));

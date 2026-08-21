@@ -151,6 +151,18 @@ export type Durability = (typeof DURABILITIES)[number];
 export interface RankedItem extends PreScoredItem {
   score: number;
   /**
+   * サンドボックスで試せるか（その他候補の枠で使う）。試せなければ null。
+   *
+   * URL が GitHub のリポジトリや npm のパッケージを指しているときだけ入る。
+   * 記事（Qiita / Zenn / はてな / HN）からは身元が取れないので必ず null になる
+   * ——実測で 168 件中 36 件、うち GitHub リポジトリ枠は 35/35 件だった。
+   *
+   * ベスト3のカードはこれを使わない（あちらは deep.trial に LLM が書いたものを持つ）。
+   * 記事を読ませる枠では「GUI が本体」「キーが要る」の判断が要るが、道具そのものを
+   * 並べる枠では clone が通るかどうかも含めて結果に価値があるので、門番の厳しさが違う。
+   */
+  trial?: TrialPlan | null;
+  /**
    * 画面の見出しに出す日本語のタイトル。原題が日本語のときは null。
    *
    * カードの見出しは元記事のタイトルそのものだが、GitHub のトレンドや
@@ -384,6 +396,28 @@ export interface TrialStep {
   note: string;
 }
 
+/**
+ * 1 回の試行にかかった実費。
+ *
+ * **公開価格からの概算**である。Managed Agents のセッションはトークン数だけを返し、
+ * 金額は返さないので、モデルごとの公開価格を掛けて出している。ずれる要因が 2 つある:
+ *
+ * - 価格表はこのコードに焼き込んでいるので、値上げ・値下げに自動では追随しない
+ * - セッションの usage は本体の往復ぶん。**採点役（grader）の消費は含まれないことがある**
+ *
+ * それでも出しているのは、1 日の上限（TRIAL_MAX_PER_DAY）を勘で決めずに済むため。
+ * 桁が分かれば十分な用途なので、正確さより「必ず出る」ことを取っている。
+ */
+export interface TrialCost {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  /** 概算の米ドル。価格表に無いモデルだったときは null */
+  estimatedUsd: number | null;
+}
+
 export interface TrialReport {
   /** data/digests の日付と記事 ID から作る鍵。依頼と結果を突き合わせる */
   key: string;
@@ -403,6 +437,8 @@ export interface TrialReport {
   ranAt: string;
   /** 実行にかかった秒数。費用の見張りと「どれくらいで返るか」の表示に使う */
   seconds: number;
+  /** かかった実費（概算）。取れなかった回は null */
+  cost?: TrialCost | null;
 }
 
 /**
@@ -591,6 +627,13 @@ export interface ReleaseItem {
   publishedAt: string;
   /** 代表にまとめた同じ製品の他の項目 */
   alsoReleased: ReleaseAlso[];
+  /**
+   * サンドボックスで試せるか。試せなければ null。
+   *
+   * URL が GitHub のリリースやリポジトリを指しているときに入る（実測 119 件中 60 件）。
+   * 公式ブログの告知や料金改定からは身元が取れないので null になる。
+   */
+  trial?: TrialPlan | null;
 }
 
 /**
@@ -1077,6 +1120,15 @@ export interface RadarItem {
   isNew: boolean;
   /** どの記事から見つけたか */
   foundVia: { title: string; url: string } | null;
+  /**
+   * サンドボックスで試せるか。
+   *
+   * **この枠は取りこぼさない。** 発掘は npm と GitHub を実測して作った板なので、
+   * パッケージ名かリポジトリのどちらかが必ず入っている（実測 7/7 件）。
+   * 「隠れた定番」という主張を外形の数字で支えている板なので、「で、いま入れて
+   * 動くのか」を実行で確かめられることの価値がいちばん大きい。
+   */
+  trial?: TrialPlan | null;
 }
 
 /**

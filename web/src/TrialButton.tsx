@@ -24,7 +24,20 @@ import type { TrialPlan } from './types';
  * 押したあとに何が起きるかを必ず添える。裏で数十分かかるので、
  * 「押したのに何も起きない」に見えた時点でこの機能は死ぬ。
  */
-export function TrialButton({ plan, target }: { plan: TrialPlan; target: TrialTarget }) {
+export function TrialButton({
+  plan,
+  target,
+  compact = false,
+}: {
+  plan: TrialPlan;
+  target: TrialTarget;
+  /**
+   * 一覧の行の中に出すとき（その他候補・リリース情報・発掘）。
+   * 問いを箱で開かず 1 行のボタンに畳む——一覧に本文級の箱が並ぶと一覧が読めない。
+   * 何を確かめるのかは hover とタップ後の状態表示で伝える。
+   */
+  compact?: boolean;
+}) {
   const key = trialKey(target.digestDate, target.itemId);
   const [state, setState] = useState<TrialState | null>(null);
   const [localAt, setLocalAt] = useState<number | null>(() => readLocalTrial(key));
@@ -57,6 +70,34 @@ export function TrialButton({ plan, target }: { plan: TrialPlan; target: TrialTa
   };
 
   const status = state?.status ?? (localAt ? 'queued' : null);
+
+  if (compact) {
+    if (status === null) {
+      return (
+        <button
+          type="button"
+          className="btn btn--sm trial__go trial__go--compact"
+          disabled={sending}
+          onClick={send}
+          title={[
+            'サンドボックスで試させて、結果をここに出します。確かめること:',
+            ...plan.questions.map((q) => `・${q}`),
+            `最初のコマンド: ${plan.install}`,
+          ].join('\n')}
+        >
+          {sending ? '依頼しています…' : '🧪 試させる'}
+        </button>
+      );
+    }
+    return (
+      <p className="trial__note trial__note--compact">
+        {status === 'queued' && `⏳ 順番待ち（${requested(state?.requestedAt ?? localAt)}）`}
+        {status === 'running' && `🧪 試しています（${requested(state?.requestedAt ?? localAt)}）`}
+        {status === 'done' && `✓ ${state?.note ?? '試した結果が出ました。'}`}
+        {status === 'failed' && `× ${state?.note ?? '試せませんでした。'}`}
+      </p>
+    );
+  }
 
   return (
     <div className={`trial${status === 'done' ? ' trial--done' : ''}`}>

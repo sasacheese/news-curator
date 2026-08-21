@@ -49,7 +49,11 @@ async function main(): Promise<void> {
       await saveTrialReport(report);
       await finishRequest(req.key, 'done', report.headline);
       done++;
-      log.info(`試行: 完了 ${report.verdict} / ${report.seconds} 秒 / ${report.title}`);
+      const usd = report.cost?.estimatedUsd;
+      log.info(
+        `試行: 完了 ${report.verdict} / ${report.seconds} 秒 / ` +
+          `概算 ${usd == null ? '不明' : `$${usd.toFixed(2)}`} / ${report.title}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await finishRequest(req.key, 'failed', message);

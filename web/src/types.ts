@@ -54,6 +54,11 @@ export interface Debate {
 
 export interface RankedItem {
   id: string;
+  /**
+   * サンドボックスで試せるか（その他候補の枠で使う）。試せなければ null。
+   * URL が GitHub のリポジトリや npm を指しているときだけ入る。
+   */
+  trial?: TrialPlan | null;
   source: SourceKind;
   sourceLabel: string;
   title: string;
@@ -240,6 +245,21 @@ export interface TrialStep {
  * 試した結果からしか分からないことは、この画面でいちばん価値のある中身なので、
  * 隠す理由が無い。
  */
+/**
+ * かかった実費（公開価格からの概算）。
+ *
+ * セッションはトークン数だけを返すので、価格表を掛けて出している。
+ * 採点役の消費は含まれないことがあるので、画面では「概算」と明示する。
+ */
+export interface TrialCost {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  estimatedUsd: number | null;
+}
+
 export interface TrialReport {
   key: string;
   digestDate: string;
@@ -254,6 +274,8 @@ export interface TrialReport {
   correction: string | null;
   ranAt: string;
   seconds: number;
+  /** この機能より前に書かれたレポートには無い */
+  cost?: TrialCost | null;
 }
 
 export interface TrialBoard {
@@ -371,6 +393,11 @@ export interface ReleaseAlso {
 export interface ReleaseItem {
   id: string;
   product: string;
+  /**
+   * サンドボックスで試せるか。試せなければ null。
+   * GitHub のリリースやリポジトリを指す URL のときに入る（公式ブログの告知には入らない）。
+   */
+  trial?: TrialPlan | null;
   what?: string | null;
   version: string | null;
   kind: ReleaseKind;
@@ -555,6 +582,8 @@ export interface RadarMeasure {
 export interface RadarItem {
   id: string;
   name: string;
+  /** サンドボックスで試せるか。発掘は身元が必ず取れるので、ほぼ全件に入る */
+  trial?: TrialPlan | null;
   verdict: RadarVerdict;
   score: number;
   what: string;

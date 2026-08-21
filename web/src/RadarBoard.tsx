@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { TrialSlot } from './TrialSlot';
 import { CopyButton } from './components';
 import { safeUrl } from './format';
 import type { RadarItem, RadarMeasure, RadarVerdict } from './types';
@@ -168,7 +169,7 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Card({ item }: { item: RadarItem }) {
+function Card({ item, date }: { item: RadarItem; date: string }) {
   return (
     <article className="radar">
       <div className="radar__head">
@@ -214,6 +215,17 @@ function Card({ item }: { item: RadarItem }) {
         </Detail>
       )}
 
+      {/*
+        * 「隠れた定番」の主張は、スター数と DL 数という外形の数字で支えている。
+        * 「で、いま入れて動くのか」は数字では答えられないので、実行で確かめる。
+        * この板は身元（npm パッケージ / GitHub リポジトリ）が必ず取れるので、
+        * ほぼ全件にボタンが出る。
+        */}
+      <TrialSlot
+        plan={item.trial}
+        target={{ digestDate: date, itemId: item.id, title: item.name }}
+      />
+
       {item.firstStep && (
         <Detail label="最初の一歩">
           <div className="radar__step">
@@ -258,7 +270,7 @@ function Card({ item }: { item: RadarItem }) {
   );
 }
 
-export function RadarBoard({ items }: { items: RadarItem[] }) {
+export function RadarBoard({ items, date }: { items: RadarItem[]; date: string }) {
   return (
     <>
       {VERDICT_ORDER.map((verdict) => {
@@ -273,7 +285,7 @@ export function RadarBoard({ items }: { items: RadarItem[] }) {
             <p className="section-lead">{VERDICT_LEADS[verdict]}</p>
             <div className="radar-list">
               {group.map((item) => (
-                <Card key={item.id} item={item} />
+                <Card key={item.id} item={item} date={date} />
               ))}
             </div>
           </section>

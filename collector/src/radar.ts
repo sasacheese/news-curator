@@ -3,6 +3,7 @@ import type { RuntimeConfig } from './config.js';
 import { complete } from './llm.js';
 import type { RadarPitchResult, RadarResolveResult } from './schemas.js';
 import { RadarPitchSchema, RadarResolveSchema } from './schemas.js';
+import { buildTrialPlan, radarQuestions } from './trial-plan.js';
 import type {
   IndexEntry,
   RadarBoard,
@@ -1396,6 +1397,21 @@ export async function collectRadar(
       measure: m,
       evidence: buildEvidence(m, now),
       links: buildLinks(e, m),
+      /*
+       * 試す計画は計測値から機械的に組む（LLM を通さない = 追加費用ゼロ）。
+       * npm があれば版まで固定でき、無ければリポジトリを clone する。
+       */
+      trial: buildTrialPlan(
+        {
+          npmPackage: m.npmPackage,
+          npmVersion: m.npmVersion,
+          githubRepo: m.githubRepo,
+        },
+        radarQuestions({
+          npmVersion: m.npmVersion,
+          domesticArticles: (m.qiitaArticles ?? 0) + (m.zennArticles ?? 0),
+        }),
+      ),
       firstSeenAt: e.firstSeenAt,
       isNew: !input.previousIds.has(e.id),
       foundVia: via,

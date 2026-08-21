@@ -18,9 +18,32 @@ const VERDICT: Record<TrialVerdict, { label: string; mark: string }> = {
   failed: { label: '動かせなかった', mark: '×' },
 };
 
-export function TrialReportView({ report }: { report: TrialReport }) {
+export function TrialReportView({
+  report,
+  compact = false,
+}: {
+  report: TrialReport;
+  /** 一覧の行の中に出すとき。1 行の結論だけ見せて、残りは畳む */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(!compact);
   const v = VERDICT[report.verdict];
+
+  if (compact && !expanded) {
+    return (
+      <button
+        type="button"
+        className={`trial-line trial-line--${report.verdict}`}
+        onClick={() => setExpanded(true)}
+        title="試した結果を開く"
+      >
+        <span className="trial-line__mark">{v.mark}</span>
+        <span className="trial-line__text">{report.headline}</span>
+        <span className="trial-line__more">試した結果</span>
+      </button>
+    );
+  }
 
   return (
     <div className={`trial trial--report trial--${report.verdict}`}>
@@ -87,12 +110,39 @@ export function TrialReportView({ report }: { report: TrialReport }) {
         </>
       )}
 
+      {/*
+        * 金額は公開価格からの概算で、採点役の消費は含まれないことがある。
+        * 「いくらかかる機能なのか」を隠さないために出しているので、
+        * 正確な請求額ではないことも内訳に書いてある。
+        */}
       <p className="trial__note">
         {formatRanAt(report.ranAt)}に素の Linux コンテナで実行（{Math.round(report.seconds / 60)}{' '}
-        分）。人の手は入っていません。
+        分{report.cost ? ` ・ 概算 ${formatUsd(report.cost.estimatedUsd)}` : ''}）。
+        人の手は入っていません。
+        {report.cost && (
+          <span className="trial__cost" title={costDetail(report.cost)}>
+            {' '}
+            費用の内訳
+          </span>
+        )}
       </p>
     </div>
   );
+}
+
+function formatUsd(usd: number | null): string {
+  return usd == null ? '不明' : `$${usd.toFixed(2)}`;
+}
+
+/** hover で出す内訳。画面を数字で埋めずに、必要なときだけ見えるようにする */
+function costDetail(cost: NonNullable<TrialReport['cost']>): string {
+  const k = (n: number) => `${Math.round(n / 1000)}k`;
+  return [
+    `モデル: ${cost.model}`,
+    `入力 ${k(cost.inputTokens)} / 出力 ${k(cost.outputTokens)}`,
+    `キャッシュ 読み ${k(cost.cacheReadTokens)} / 書き ${k(cost.cacheWriteTokens)}`,
+    '公開価格からの概算（採点役の消費は含まれないことがあります）',
+  ].join('\n');
 }
 
 function formatRanAt(iso: string): string {
