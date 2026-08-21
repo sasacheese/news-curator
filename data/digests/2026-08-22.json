@@ -1,0 +1,2425 @@
+{
+  "date": "2026-08-22",
+  "generatedAt": "2026-08-21T22:19:56.238Z",
+  "window": {
+    "start": "2026-08-20T22:00:00.000Z",
+    "end": "2026-08-21T22:00:00.000Z"
+  },
+  "summary": [
+    "AI・エージェント関連が18件中9件を占め、半数に達した。",
+    "新機能リリースが10件に集中し、開発基盤の拡張が目立った。",
+    "Claude CodeやVercelなど、日常の開発環境に直結する更新が続いた。",
+    "認証なし任意実行など、運用中の設定と脆弱性確認も重要な話題となった。"
+  ],
+  "outlook": "AIエージェントは開発環境や業務ツールに組み込まれ、並列実行や連携機能が定着しつつある一方、権限・監査・復旧と脆弱性対応はなお揺れている。今後は生成性能より、変更を安全に任せる境界設計と運用コスト、成果物確認の仕組みが焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.238: メモリ無限増大の修正とMCP認証まわりの破壊的変更",
+      "url": "https://qiita.com/picnic/items/e2b9a324815c7ef21782",
+      "publishedAt": "2026-08-21T11:46:31.000Z",
+      "author": "picnic",
+      "authorDetail": {
+        "name": "picnic",
+        "handle": "@picnic",
+        "url": "https://qiita.com/picnic",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKJ3kiIjdUf7zPvCPsjLhdpqsl9XSc0xblptYG809gyvXXYhvQ1=s96-c",
+        "followers": 3,
+        "posts": 152,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/PICNIC-A-DAY"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/h_picnic"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "Anthropic",
+        "MCP",
+        "AI"
+      ],
+      "snippet": "はじめに 2026年8月21日、Claude Code v2.1.238 がリリースされました。今回のアップデートで特に注目すべきは以下の2点です。 1. 長時間セッションでのメモリ無限増大を修正(severity: high) — 長時間 Claude Code を動かし続けるユーザーに直接効いてくる重要な修正 2. MCP headersHelper のセキュリティ強化(severity: medium, actionrequired: true) — CI/自動化環境で MCP を使っている場合、動作しなくなる可能性がある破壊的変更 このほかにも Remote Control の安定性修正、プラグインマーケットプレイスの新機能、起動高速化など、実務に影響する変更が多数含まれています。本記事では特に影響度の高い変更を中心に、「何が変わったか」「なぜ重要か」「どう対応すべきか」を整理しま…",
+      "body": "はじめに\n\n2026年8月21日、Claude Code v2.1.238 がリリースされました。今回のアップデートで特に注目すべきは以下の2点です。\n\n1. 長時間セッションでのメモリ無限増大を修正(severity: high) — 長時間 Claude Code を動かし続けるユーザーに直接効いてくる重要な修正\n2. MCP headersHelper のセキュリティ強化(severity: medium, actionrequired: true) — CI/自動化環境で MCP を使っている場合、動作しなくなる可能性がある破壊的変更\n\nこのほかにも Remote Control の安定性修正、プラグインマーケットプレイスの新機能、起動高速化など、実務に影響する変更が多数含まれています。本記事では特に影響度の高い変更を中心に、「何が変わったか」「なぜ重要か」「どう対応すべきか」を整理します。\n📌 影響を受ける人\n・Claude Code を長時間の対話セッション(数時間〜終日)で使い続けている人\n・.mcp.json で headersHelper を設定している人、特に CI/CD や非対話モード(claude -p)で MCP を使っている人\n・プラグインマーケットプレイスを社内配布などプライベート運用している人\n\n変更の全体像\n\n今回のリリースにおける主要な変更の関係性を図示します。\n\n [code] \n\n赤系(B1)は影響度が高い修正、黄系(C1/C2)は破壊的変更を含むセキュリティ強化です。\n\n変更内容\n\n1. 長時間セッションでのメモリ無限増大を修正(severity: high)\n\n長時間の対話セッションで、サブエージェントのツール結果がメモリ上に保持され続け、使用量が際限なく増加していく問題が修正されました。今後はツール結果が最近の表示ウィンドウから外れた時点で解放されるようになります。\n\n長時間の実装タスクやペアプロ的な使い方で Claude Code を稼働させ続けている人ほど、この修正の恩恵は大きいはずです。逆に言えば、これまで数時間〜終日にわたるセッションでメモリ使用量がじわじわ増えていた場合、それはバグであり、v2.1.238 以降では改善が見込めます。\n\n2. MCP headersHelper のセキュリティ強化(severity: medium, ⚠️ Breaking Change)\n⚠️ Breaking Change\nCI・自動化環境で .mcp.json の headersHelper に依存している場合、アップデート後に動作しなくなる可能性があります。\n\n変更点は大きく2つです。\n\n| 項目 | 変更前 | 変更後 |\n|---|---|---|\n| 実行条件 | プロジェクトの .mcp.json / インライン MCP サーバーの headersHelper はそのまま実行 | 対象フォルダの信頼ダイアログ承認が必須(claude -p の非対話モードでも同様) |\n| 実行環境 | 呼び出し元の環境変数を継承 | プロジェクト .mcp.json・プラグイン・エージェントファイル由来の headersHelper は資格情報系環境変数なしで実行 |\n| スコープ差 | — | ユーザー/管理/claude.ai スコープのヘルパーは Claude 設定ディレクトリから実行 |\n\nこれは攻撃者が悪意ある .mcp.json を仕込んで、ユーザーの認証情報を盗み出すヘルパーコマンドを実行させる、といったリスクを塞ぐためのセキュリティ強化です。一方で、信頼ダイアログの承認を前提としない CI パイプラインや、意図的に環境変数(トークンなど)を headersHelper 内で参照していた構成は、そのままでは壊れます。\n\n [code] \n💡 Tips\n自動化環境で MCP の headersHelper を使っている場合は、対象フォルダを事前に信頼済みとして登録できるか、また資格情報をヘルパー内の環境変数参照に依存していないかを、アップデート前に確認しておくと安全です。\n\n3. プラグインマーケットプレイスに headersHelper を追加(severity: medium)\n\nURL マーケットプレイスやカタログエントリに headersHelper を設定し、短命トークンなどの HTTP ヘッダーをコマンドで動的発行できるようになりました。カタログエントリの headersHelper はプラグインのインストール・更新時のみ実行され、コマンド内容を表示した上で [y/N] の確認を求めます(-y で省略可)。\n\nプライベートなプラグイン配布(社内限定マーケットプレイスなど)での認証が容易になる機能です。\n\n4. その他の注目すべき修正・機能\n\n| 変更 | 種別 | 概要 |\n|---|---|---|\n| self-hosted-runner の猶予付きシャットダウン | 新機能 | --defer-shutdown-max-min で SIGTERM 後もセッションを維持しつつ終了。--proxy-authorization-command/-file でプロキシ認証ヘッダーを毎接続発行 |\n| Remote Control 安定性修正 | バグ修正 | 接続断・メッセージ消失・モデル選択の不同期・クラッシュ後の復帰不能など9項目を修正、HTTP 403 の一時的ブロックも最大3分許容 |\n| MCP server/discover 順序修正 | バグ修正 | stdio MCP サーバーが initialize 前に discover を受け取り、遅延起動型サーバーが不要に起動していた問題を修正。クロスセッションのメッセージ拒否/ドロップも送信側へ通知されるように |\n| 起動高速化・Ctrl+L 挙動変更 | 改善/破壊的変更 | macOS での起動高速化。フルスクリーンの Ctrl+L/Cmd+K は常に再描画のみとなり、二度押しでの /clear は廃止 |\n| claude-api スキル更新 | 改善 | Managed Agents 2026/8/19 リリース対応(Web search/fetch のドメイン設定、セルフホストサンドボックスのメモリストア) |\n| keybindingFlavor 設定 | 新機能 | \"readline\" で Ctrl+W が Bash 同様に直前の空白まで削除する挙動に |\n\n影響と対応\n\n対応の要否を判断するフローチャートです。\n\n [code] \n\nまとめると、以下の3タイプのユーザーは特にリリースノートを確認してください。\n・CI/自動化で MCP headersHelper を使っている人: 信頼ダイアログ未承認だと動作しなくなるため要確認(actionrequired: true)\n・二度押し /clear に慣れている人: v2.1.238 からはショートカットとして機能しなくなる\n・プラグインをプライベート配布している人: headersHelper の新設定で認証を簡素化できる可能性がある\n\nそれ以外の一般的な使い方であれば、今回のアップデートは基本的にメリットが大きく、特別な移行作業は不要です。\n\nコード例\n\n.mcp.json に headersHelper を設定している場合の Before/After のイメージです。\n\nBefore (v2.1.238 未満: 環境変数を継承して動作)\n\n [code] \n\nこの構成は、$INTERNALAPITOKEN が呼び出し元シェルの環境変数として継承されることを前提にしていました。\n\nAfter (v2.1.238 以降: 資格情報系env変数は遮断される)\n\n [code] \n\nトークン取得ロジックをスクリプト側に完全に内包し、外部の環境変数に依存しない形へ変更するのが安全です。また非対話モードで使う場合は、事前に対象ディレクトリを信頼済みとして扱えるよう設定を確認してください。\n\nまとめ\n・最重要: 長時間セッションでのメモリ無限増大が修正され、サブエージェントのツール結果は表示ウィンドウを外れると解放されるようになった(severity: high)\n・要注意: MCP headersHelper に信頼ダイアログ必須化・資格情報系環境変数の遮断というセキュリティ強化が入り、CI/自動化環境では動作確認が必要(actionrequired: true)\n・プラグインマーケットプレイスの headersHelper 追加、self-hosted-runner の猶予付きシャットダウンなど、運用を柔軟にする新機能も複数追加\n・Remote Control や MCP 通信まわりの地道な安定性修正、起動高速化も地味だが実務上ありがたい変更\n・二度押し /clear ショートカットの廃止など、キー操作に慣れているユーザーは軽微な挙動変更に注意\n\n普段使いのユーザーはメリットの大きいアップデートですが、MCP を自動化パイプラインに組み込んでいるチームは、アップデート前に headersHelper の動作確認をしておくことを強くおすすめします。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5e145cf6436a8ad3",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7263157894736842,
+      "popularityPercentile": 0.21052631578947367,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "Claude Code v2.1.238がメモリ増大を修正しMCP認証を変更した。",
+      "takeaways": [
+        "Claude Code v2.1.238が公開された。",
+        "長時間利用時のメモリ増加が直った。",
+        "外部サービス接続の認証方法が変わった。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "v2.1.238",
+        "MCP",
+        "headersHelper",
+        "Remote Control"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "Claude Code v2.1.238は、長時間セッションでサブエージェントのツール結果が保持され続けるメモリ無限増大を修正し、表示ウィンドウ外で解放するようになった。MCPのheadersHelperは、プロジェクト由来の設定に対して対象フォルダの信頼ダイアログ承認を必須化し、資格情報系環境変数を継承しない仕様へ変わったため、CIやclaude -pでは破壊的変更になり得る。プラグインマーケットプレイスのカタログにもheadersHelperを設定でき、インストール・更新時に短命トークンを発行できる。self-hosted-runnerの猶予付きシャットダウン、Remote Controlとstdio MCPの安定性修正、macOSの起動高速化も含まれる。Ctrl+L/Cmd+Kの二度押しによる/clearは廃止され、keybindingFlavorではreadline挙動を選べるようになった。",
+        "prerequisites": [
+          {
+            "term": "headersHelper",
+            "stumblingPoint": "記事はheadersHelperの「資格情報系環境変数なしで実行」と書くが、何が変わるか読み取りにくい。",
+            "explanation": "headersHelperは、MCP接続に使うHTTPヘッダーをコマンドで生成する仕組みです。従来はClaude Codeを起動したシェルの環境変数を、そのコマンドが引き継げました。v2.1.238ではプロジェクト設定など信頼境界の外から資格情報を読み出せないため、トークンを環境変数に置くだけの構成はヘッダー生成に失敗する可能性があります。"
+          },
+          {
+            "term": "MCP",
+            "stumblingPoint": "記事は「MCP headersHelper」と記すが、MCPサーバーとheadersHelperの関係を知らないと影響範囲を判断しにくい。",
+            "explanation": "MCPはClaude Codeから外部ツールやサービスへ接続するためのプロトコルです。.mcp.jsonには接続先サーバーを定義し、headersHelperはその接続時に必要な認証ヘッダーを動的に用意します。したがって今回の変更は、MCP全体ではなく、headersHelperを認証経路として使う構成に集中します。"
+          },
+          {
+            "term": "claude -p",
+            "stumblingPoint": "「claude -pの非対話モードでも信頼ダイアログ承認が必要」とあるが、CIでなぜ停止するかが分かりにくい。",
+            "explanation": "claude -pは対話入力なしでClaude Codeを実行するモードです。通常の端末なら信頼ダイアログを人が承認できますが、CIではその入力を返せないため、未承認のフォルダにあるheadersHelperは実行されません。既存パイプラインでは、非対話実行前に信頼状態を用意できているかが成否を分けます。"
+          },
+          {
+            "term": "資格情報系環境変数",
+            "stumblingPoint": "記事は「資格情報系環境変数なし」と書くが、対象となる変数名が示されていない。",
+            "explanation": "ここでいう資格情報系環境変数は、トークンなど認証に使う値を指します。プロジェクトの.mcp.jsonやプラグイン由来のheadersHelperから、それらを直接参照できない実行環境になります。どの変数が遮断対象かは環境依存になり得るため、記事の情報だけでは具体的な一覧までは判断できません。"
+          },
+          {
+            "term": "self-hosted-runner",
+            "stumblingPoint": "「猶予付きシャットダウン」と「SIGTERM後もセッションを維持」の関係が読み取りにくい。",
+            "explanation": "self-hosted-runnerは、利用者側で管理する実行環境上でジョブを動かす仕組みです。通常はSIGTERMを受けると終了処理に入りますが、今回の機能では指定した時間までセッションを維持してから終了できます。長時間処理の中断を避けたい運用で、--defer-shutdown-max-minの確認対象になります。"
+          },
+          {
+            "term": "keybindingFlavor",
+            "stumblingPoint": "keybindingFlavorのreadline設定が、既存のキー操作にどう影響するかが省略されている。",
+            "explanation": "keybindingFlavorは、入力欄のキーバインド方式を選ぶ設定です。readlineを指定すると、Ctrl+WがBashと同じく直前の空白までを削除する挙動になります。これはCtrl+L/Cmd+Kの/clear廃止とは別の変更で、シェルに近い編集操作を求める人向けの設定です。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 4,
+        "lane": "know",
+        "impact": [
+          "長時間セッションでClaude Codeを使う人",
+          "MCPのheadersHelperを設定している人",
+          "CIやclaude -pでMCPを使う人",
+          "プライベートなプラグインを配布する人"
+        ],
+        "timeline": [
+          "2026-08-21 v2.1.238リリース"
+        ],
+        "checkNow": [
+          "grep -R \"headersHelper\" .mcp.json .claude 2>/dev/null",
+          "CIでclaude -pのMCP処理をv2.1.238へ更新して実行する",
+          "Ctrl+L/Cmd+Kの二度押し/clear依存を検索する"
+        ],
+        "unknowns": [
+          "遮断対象の資格情報系環境変数名は未記載",
+          "CI向け信頼済み登録の具体手順は未記載"
+        ]
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "NECのルーター「UNIVERGE IX-R/IX-V」シリーズに深刻な脆弱性、対策済みソフトウェアに更新を",
+      "url": "https://internet.watch.impress.co.jp/docs/news/2134644.html",
+      "publishedAt": "2026-08-21T08:55:23.000Z",
+      "tags": [
+        "テクノロジー",
+        "あとで読む"
+      ],
+      "snippet": "NECのルーター「UNIVERGE IX-R/IX-V」シリーズに深刻な脆弱性、対策済みソフトウェアに更新を",
+      "metrics": {
+        "hatena": 8
+      },
+      "sourceWeight": 3,
+      "id": "ad097d760e8a6fd5",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.04967741935483871,
+      "popularityPercentile": 0.22580645161290322,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "NECのUNIVERGE IX-R/IX-Vシリーズに深刻な脆弱性が見つかった。",
+      "takeaways": [
+        "NECのルーターに深刻な欠陥が見つかった。",
+        "対象はUNIVERGE IX-RとIX-Vシリーズだった。",
+        "対策済みソフトウェアへの更新が呼びかけられている。"
+      ],
+      "keywords": [
+        "NEC",
+        "UNIVERGE IX-R",
+        "UNIVERGE IX-V",
+        "脆弱性"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "imageUrl": "https://internet.watch.impress.co.jp/img/iw/list/2134/644/01.png",
+      "body": "UNIVERGE IX-R2510 　日本電気株式会社（NEC）は8月21日、同社の法人向けルーター「UNIVERGE IX-R/IX-V」シリーズに脆弱性があるとして、情報を公開した。脆弱性情報ポータルサイト「JVN」（Japan Vulnerability Notes）でも情報を公開している。  　対象となる製品は「IX-R2510」「IX-R2520」「IX-R2530」「IX-R2610-4G」および「IX-V100」で、次のバージョンのソフトウェア。 Ver1.1～Ver1.3の全バージョンVer1.4.21～Ver1.4.28の全バージョンVer1.5.23 　脆弱性は、重要な機能に対する認証の欠如（CVE-2026-16876）。攻撃者によって対象製品のWebGUIに細工したメッセージを送信された場合、認証なしで任意のコマンドを実行される可能性がある。CVSS v4.0のスコアは9.3、CVSS v3.0のスコアは9.4。  　脆弱性対策済みのソフトウェアに更新することで、この脆弱性を対策できる。対策済みのバージョンは、IX-R/IX-VシリーズともにVer1.4.34、Ver1.5.29。  　すぐに更新できない場合の回避策として、HTTP（S）サーバー機能を停止すること、フィルタ機能により接続元を制限すること、IPアドレスを変更したうえでTCPポート80または443のポート番号を予想されにくいものに変更すること、が提示されている。",
+      "rank": 2,
+      "deep": {
+        "summary": "NECの法人向けルーター「UNIVERGE IX-R/IX-V」シリーズに、WebGUIへ細工したメッセージを送るだけで認証なしに任意のコマンドを実行される脆弱性（CVE-2026-16876）が見つかった。対象はIX-R2510、IX-R2520、IX-R2530、IX-R2610-4G、IX-V100の一部ソフトウェアバージョンで、深刻度はCVSS v4.0で9.3、CVSS v3.0で9.4。対策済みバージョンはVer1.4.34またはVer1.5.29である。更新できない場合は、HTTP(S)サーバー機能の停止、フィルタ機能による接続元制限、IPアドレスやTCPポート80・443の変更が回避策になる。JVNにも情報が掲載されているため、対象機器の機種とソフトウェアバージョンを確認し、該当すれば更新または回避策を適用する必要がある。",
+        "prerequisites": [
+          {
+            "term": "WebGUI",
+            "stumblingPoint": "記事は「対象製品のWebGUIに細工したメッセージ」と書くが、WebGUIを知らないと攻撃経路が読み取れない。",
+            "explanation": "WebGUIは、ブラウザーからルーターの設定や管理操作を行う画面・機能である。今回の問題はルーター全体への物理アクセスではなく、この管理用のHTTP(S)接続口に攻撃メッセージを送ることで成立する。管理画面をインターネットや広いネットワークに公開している構成では、通常のログイン画面の前段で攻撃を受ける可能性が問題になる。"
+          },
+          {
+            "term": "CVE-2026-16876",
+            "stumblingPoint": "記事は脆弱性名として「CVE-2026-16876」を示すが、番号だけでは製品内の問題との対応が分かりにくい。",
+            "explanation": "CVE-2026-16876は、この脆弱性を製品やベンダーをまたいで識別する共通番号である。NECの対象製品では「重要な機能に対する認証の欠如」として、WebGUI経由のコマンド実行につながる問題を指す。バージョン確認や脆弱性スキャナーの結果を照合するときに、この番号が手掛かりになる。"
+          },
+          {
+            "term": "CVSS v4.0",
+            "stumblingPoint": "記事は「CVSS v4.0のスコアは9.3」と書くが、数値が実運用の判断にどう関係するかが省略されている。",
+            "explanation": "CVSSは脆弱性の深刻度を共通の尺度で表す仕組みで、スコアが高いほど緊急性が高い。9.3は、認証なしの攻撃から任意コマンド実行に至る今回の影響が、優先して対処すべき水準であることを示す。記事では旧世代のCVSS v3.0でも9.4と評価されており、評価方式が違っても深刻度が高い点は変わらない。"
+          },
+          {
+            "term": "JVN",
+            "stumblingPoint": "記事は「JVNでも情報を公開」と書くが、NECの告知との役割の違いを知らないと参照先を選べない。",
+            "explanation": "JVN（Japan Vulnerability Notes）は、国内の脆弱性情報を整理して公開するポータルである。ベンダーの更新情報と同じ脆弱性を別の識別番号や対象製品情報で確認できるため、社内の脆弱性管理でCVE-2026-16876を追跡するときに使う。今回の更新対象や回避策の実装詳細は、NEC側の案内も併せて確認する必要がある。"
+          },
+          {
+            "term": "HTTP(S)サーバー機能",
+            "stumblingPoint": "記事は「HTTP（S）サーバー機能を停止」とするが、停止すると何が使えなくなるかが読み取りにくい。",
+            "explanation": "これはルーターがHTTPまたはHTTPSで管理画面を提供する機能を指す。停止すれば今回のWebGUIへの攻撃経路を閉じられる一方、ブラウザーからの設定変更や管理操作も利用できなくなる。更新までの暫定策なので、運用中の管理手段を確保したうえで適用する必要がある。"
+          },
+          {
+            "term": "TCPポート80・443",
+            "stumblingPoint": "記事は「TCPポート80または443のポート番号を変更」と書くが、番号変更の対象と目的が曖昧に見える。",
+            "explanation": "TCPポート80は通常HTTP、443は通常HTTPSの待受先で、今回のWebGUI接続口に対応する。別の番号へ変更すると標準的な接続先を機械的に探す攻撃を受けにくくできるが、接続先URLや運用手順も変更になる。これは認証欠如を修正するものではなく、ソフトウェア更新までの回避策である。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "攻撃経路",
+          "layers": [
+            {
+              "label": "攻撃者",
+              "nodes": [
+                {
+                  "name": "攻撃者",
+                  "note": "細工メッセージ送信",
+                  "highlight": false
+                }
+              ],
+              "via": "細工メッセージ"
+            },
+            {
+              "label": "管理入口",
+              "nodes": [
+                {
+                  "name": "WebGUI",
+                  "note": "認証なしで受信",
+                  "highlight": true
+                }
+              ],
+              "via": "認証を迂回"
+            },
+            {
+              "label": "実行結果",
+              "nodes": [
+                {
+                  "name": "任意コマンド",
+                  "note": "製品上で実行",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "UNIVERGE IX-R/IX-Vを運用する人",
+          "対象ルーターの管理画面を公開する人",
+          "IX-R/IX-Vの更新を担当する人"
+        ],
+        "timeline": [
+          "2026-08-21 脆弱性情報を公開"
+        ],
+        "checkNow": [
+          "対象5機種のソフトウェアバージョンを確認し、Ver1.4.34またはVer1.5.29へ更新する",
+          "更新までHTTP(S)サーバー機能を停止し、フィルタ機能で接続元を制限する",
+          "IPアドレス変更後、TCPポート80または443を予測しにくい番号へ変更する"
+        ],
+        "unknowns": []
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "browser-use/macos-harness — The simplest, thinnest harness that gives an LLM complete freedom to control a Mac.",
+      "url": "https://github.com/browser-use/macos-harness",
+      "publishedAt": "2026-08-17T00:22:20.000Z",
+      "author": "browser-use",
+      "authorDetail": {
+        "name": "browser-use",
+        "url": "https://github.com/browser-use",
+        "avatarUrl": "https://github.com/browser-use.png?size=120",
+        "bio": "The simplest, thinnest harness that gives an LLM complete freedom to control a Mac."
+      },
+      "tags": [
+        "Python",
+        "accessibility",
+        "agent",
+        "automation",
+        "cdp",
+        "computer-use",
+        "macos",
+        "python"
+      ],
+      "snippet": "The simplest, thinnest harness that gives an LLM complete freedom to control a Mac.",
+      "metrics": {
+        "stars": 683
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "d46c6ef43b0fa1c3",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8470212765957448,
+      "popularityPercentile": 0.5319148936170213,
+      "matchedTopics": [
+        "ブラウザ / Web標準",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": "browser-use/macos-harness — MacをAIに操作させる最小基盤",
+      "oneLiner": "browser-use/macos-harnessはAIにMacの画面操作を委ねる薄い実行基盤です。",
+      "takeaways": [
+        "AIがMacの画面を自由に操作できる。",
+        "画面操作には補助機能を利用する。",
+        "複雑な機能を持たない最小構成である。"
+      ],
+      "keywords": [
+        "browser-use/macos-harness",
+        "computer-use",
+        "macOS",
+        "accessibility",
+        "AIエージェント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "imageUrl": "https://repository-images.githubusercontent.com/1336487943/6776e826-bdcc-4d8f-91d1-0a085406057d",
+      "body": "macOS Harness ⌘\n\nThe simplest, thinnest harness that gives an LLM complete freedom to complete\nvirtually any task on a Mac.\n\nThe agent writes what is missing, mid-task. No framework, no recipes, no rails.\nOne Python process connected directly to macOS, your real browser, and your files.\n\n [code] \n\nYour agent now has a Mac.\n\nGive it to your agent\n\nPaste this into Codex or Claude Code:\n\n [code] \n\nThat is it. The agent installs the package, teaches itself the workflow, checks\npermissions, and verifies the connection. Manual setup is available too.\n\nSix primitives. The whole Mac.\n\n [code] \n\nThink in see, key, type, click, ax, and script. browser, Path, and\nsubprocess are ready in the same Python process.\n\nThere are no Spotify tools, Slack tools, or Final Cut tools. The model gets raw\nprimitives and writes the rest.\n\nHow it works\n\n [code] \n・Captures background app windows without bringing them forward\n・Sends keyboard and coordinate input directly to an app PID\n・Draws an animated, click-through pointer without moving your real cursor\n・Exposes raw Apple Accessibility and Apple Events when vision is not enough\n・Uses Browser Harness for the real, logged-in browser\n・Keeps ordinary Python and the local filesystem within reach\n\nPermissions and privacy\n\nmacos-harness doctor reports the macOS permissions actually needed. The harness\nnever activates or raises a target app and never moves the physical pointer.\n\nAnonymous telemetry is enabled by default. It records only the CLI command\ncategory, success, duration, package version, OS/architecture, and detected agent\nclient. It never records prompts, app names, screenshots, UI text, scripts, paths,\nor window titles.\n\n [code] \n\nExperimental. macOS only. MIT licensed.",
+      "rank": 1,
+      "deep": {
+        "summary": "macOS Harnessは、LLMにMac上のほぼ任意の作業を任せるための、最小構成のPythonプロセスです。エージェントは、用意されたレシピや専用ツールではなく、see、key、type、click、ax、scriptという六つのプリミティブを組み合わせて、その場で不足する処理を書きます。実際のブラウザ、ローカルファイル、macOSアプリへ直接接続し、Apple AccessibilityとApple Eventsも利用できます。ブラウザ操作にはBrowser Harnessを使い、ログイン済みの実ブラウザを扱えます。macOSの権限確認はmacos-harness doctorで行えますが、匿名テレメトリはデフォルトで有効です。",
+        "prerequisites": [
+          {
+            "term": "six primitives",
+            "stumblingPoint": "記事は「Six primitives. The whole Mac.」と書くが、各プリミティブの役割を知らないと操作範囲を想像しにくい。",
+            "explanation": "six primitivesは、画面を見るsee、キー入力するkey、文字を入力するtype、座標を押すclick、アクセシビリティ情報を読むax、任意のPython処理を実行するscriptを指します。専用のSlack操作やFinal Cut操作が個別に提供されるのではなく、エージェントがこれらを組み合わせて処理を作ります。つまり、既存の自動化レシピを選ぶ仕組みではなく、タスクごとに操作手順を生成するための低レベルな道具です。"
+          },
+          {
+            "term": "Apple Accessibility",
+            "stumblingPoint": "記事は「raw Apple Accessibility and Apple Events」を公開すると説明するが、画像操作との違いが分からないとaxの使いどころを読み取れない。",
+            "explanation": "Apple Accessibilityは、macOSアプリのUI要素や状態をアクセシビリティ経由で取得・操作する入口です。画像上の座標だけではボタン名や入力欄の状態を判断しにくい場面で、axを使ってアプリ内部のUI情報に近い形で扱えます。この記事では、seeやclickだけで足りないときに使う生の低レベル手段として位置付けられています。"
+          },
+          {
+            "term": "Apple Events",
+            "stumblingPoint": "「Apple Accessibility and Apple Events」が並記されているが、後者を知らないとアプリへの操作経路が一つ増える意味が分からない。",
+            "explanation": "Apple Eventsは、macOS上のアプリ間で処理や操作を依頼するためのイベント機構です。座標クリックのように画面上の位置へ入力するだけでなく、対応するアプリへより直接的な命令を送る場面で利用されます。macOS Harnessはこれを隠蔽した高水準APIとしてではなく、エージェントが必要に応じて使える生の入口として公開します。"
+          },
+          {
+            "term": "Browser Harness",
+            "stumblingPoint": "記事は「real, logged-in browser」を使うと書くが、通常のHTTP取得やヘッドレスブラウザとの違いが省略されている。",
+            "explanation": "Browser Harnessは、macOS Harnessから実際のブラウザを操作するための接続先です。記事の文脈では、単にWebページを取得するのではなく、ユーザーが使っているログイン済みブラウザを対象にできます。そのため、Webアプリ上の作業をMac全体の操作の一部として扱える一方、対象ブラウザ側のログイン状態が前提になります。"
+          },
+          {
+            "term": "macos-harness doctor",
+            "stumblingPoint": "「doctor reports the macOS permissions actually needed」とあるが、何を確認するコマンドかを知らないと初回設定の位置付けが分からない。",
+            "explanation": "macos-harness doctorは、操作に必要なmacOS権限が現在そろっているかを確認する診断コマンドです。手動で設定画面を探して権限を一つずつ推測する代わりに、接続前の詰まりを切り分けるために使います。権限を自動で付与するものではないため、診断結果に応じた許可操作は人間側で必要になります。"
+          },
+          {
+            "term": "anonymous telemetry",
+            "stumblingPoint": "記事は「Anonymous telemetry is enabled by default」と書くが、匿名でも何が送られるかを確認しないと導入判断を誤る。",
+            "explanation": "anonymous telemetryはデフォルトで有効な利用統計で、CLIコマンドのカテゴリ、成功・失敗、所要時間、パッケージバージョン、OS・アーキテクチャ、検出したエージェントクライアントを記録します。一方、プロンプト、アプリ名、スクリーンショット、UIテキスト、スクリプト、パス、ウィンドウタイトルは記録しないと説明されています。Mac上の操作を扱うツールなので、導入前にこの収集範囲と無効化方法をREADMEで確認する必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "Mac操作の経路",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "Codex",
+                  "note": "作業を依頼",
+                  "highlight": false
+                },
+                {
+                  "name": "Claude Code",
+                  "note": "作業を依頼",
+                  "highlight": false
+                }
+              ],
+              "via": "Pythonコード"
+            },
+            {
+              "label": "実行プロセス",
+              "nodes": [
+                {
+                  "name": "macos-harness",
+                  "note": "六つの操作原語",
+                  "highlight": true
+                }
+              ],
+              "via": "直接接続"
+            },
+            {
+              "label": "接続手段",
+              "nodes": [
+                {
+                  "name": "Browser Harness",
+                  "note": "実ブラウザ",
+                  "highlight": false
+                },
+                {
+                  "name": "Apple Accessibility",
+                  "note": "UI情報と操作",
+                  "highlight": false
+                },
+                {
+                  "name": "Python標準機能",
+                  "note": "ファイルとプロセス",
+                  "highlight": false
+                }
+              ],
+              "via": "操作・命令"
+            },
+            {
+              "label": "操作対象",
+              "nodes": [
+                {
+                  "name": "ログイン済みブラウザ",
+                  "note": "実ブラウザを操作",
+                  "highlight": false
+                },
+                {
+                  "name": "macOSアプリ",
+                  "note": "PIDへ入力",
+                  "highlight": false
+                },
+                {
+                  "name": "ローカルファイル",
+                  "note": "Pathで操作",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "macos-harness GitHub",
+            "url": "https://github.com/browser-use/macos-harness"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "LLMにMac上のブラウザ・アプリ・ファイル操作を任せる",
+          "実カーソルを動かさず、裏のアプリへ入力を送る"
+        ],
+        "howToTry": [
+          "https://github.com/browser-use/macos-harness",
+          "READMEの「Give it to your agent」にある指示文をCodexまたはClaude Codeへ貼り付ける",
+          "エージェントがmacos-harnessをインストールし、必要なmacOS権限と接続を確認するまで実行させる",
+          "接続確認後、ブラウザ操作・アプリ操作・ローカルファイル操作のいずれかを具体的なタスクとして依頼する"
+        ],
+        "fitFor": [
+          "macOS上でCodexまたはClaude CodeからGUI操作を実行したいとき",
+          "ログイン済みの実ブラウザを含むMac作業を任せたいとき",
+          "専用ツールではなくPythonで操作手順をその場で組み立てたいとき"
+        ],
+        "notFor": [
+          "WindowsやLinuxで動かしたいとき",
+          "macOSアプリの権限許可を人手で行えない環境",
+          "物理カーソルを実際に動かす必要がある操作"
+        ],
+        "caveats": [
+          "匿名テレメトリがデフォルトで有効"
+        ],
+        "trial": null
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "alikon-art/DeterminFlow — A production-oriented AI workflow runtime for building, validating, recovering, and shipping complex AI workflows as dependable services. 面向生产的 AI 工作流运行时：快速开发、验证和恢复复杂 AI 工作流，并将其稳定交付为服务。",
+      "url": "https://github.com/alikon-art/DeterminFlow",
+      "publishedAt": "2026-08-02T07:40:51.000Z",
+      "author": "alikon-art",
+      "authorDetail": {
+        "name": "alikon-art",
+        "url": "https://github.com/alikon-art",
+        "avatarUrl": "https://github.com/alikon-art.png?size=120",
+        "bio": "A production-oriented AI workflow runtime for building, validating, recovering, and shipping complex AI workflows as dependable services. 面向生产的 AI 工作流运行时：快速开发、验证和恢复复杂 AI 工作流，并将其稳定交付为服务。"
+      },
+      "tags": [
+        "Python",
+        "agent-orchestration",
+        "ai-agents",
+        "ai-workflow",
+        "fastapi",
+        "llm",
+        "multi-agent",
+        "python"
+      ],
+      "snippet": "A production-oriented AI workflow runtime for building, validating, recovering, and shipping complex AI workflows as dependable services. 面向生产的 AI 工作流运行时：快速开发、验证和恢复复杂 AI 工作流，并将其稳定交付为服务。",
+      "metrics": {
+        "stars": 565
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "54cec6dbf9a3b6eb",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.3481332320162107,
+      "popularityPercentile": 0.02127659574468085,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "DeterminFlow — 複雑なAI処理をサービス化する実行基盤",
+      "oneLiner": "DeterminFlowはAIワークフローの構築から復旧とサービス提供までを支える実行基盤です。",
+      "takeaways": [
+        "複雑なAI処理をサービスとして動かせる。",
+        "処理の正しさを検証して失敗から復旧できる。",
+        "複数のAI担当を組み合わせた流れを扱える。"
+      ],
+      "keywords": [
+        "DeterminFlow",
+        "AI workflow",
+        "multi-agent",
+        "FastAPI",
+        "agent orchestration"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "durable",
+      "body": "让不确定的模型，运行在确定的流程里。 \n\n 把复杂 AI 流程快速开发、验证、恢复，并稳定交付为服务。 \n\n \n \n \n \n \n \n\n \n 为什么是 DeterminFlow ·\n 案例 ·\n 主要能力 ·\n 快速开始 ·\n 插件 ·\n 社区与合作 \n \n\n English · 简体中文 \n\n \n\n \n \n \n \n \n\n 真实正文生产流程：导演、上下文、专业写手、整合、校验、渲染与落库。 \n\nDeterminFlow 是一个面向生产的 AI 工作流运行框架。它把 LLM、脚本、API、数据库操作\n和人工审批组织成有版本、可校验、可重试、可恢复、可审计的工作流。\n\n每个 Agent 只负责一个边界清楚的节点：读取这一步需要的上下文，使用被授权的工具，\n交付可校验的结果。DeterminFlow 负责控制流、数据流、重试与恢复，让整条流程稳定跑完。\nDeterminFlow 已经在 笔枢写作 的真实 AI 小说生产链路中\n完成生产验证。\n\n \n\n为什么不直接用 Codex、Claude 这类单智能体框架？\n\nCodex、Claude 等单智能体框架很适合探索未知问题。但流程已经明确时，让一个 Agent\n反复阅读全部上下文、自己记住每一步，还要负责调用所有工具，通常更慢、更贵，也更难维护。\n\n| 要解决的问题 | Codex、Claude 等单智能体框架 | DeterminFlow |\n|---|---|---|\n| 改流程 | 修改 Prompt、Skill 和自然语言约束 | 调整版本化节点、变量、分支和子流程 |\n| 上下文隔离 | 长链执行通常持续携带越来越长的历史 | 每个 Agent Node 只看自己的局部上下文 |\n| 结构化输出 | 依赖模型持续遵守自然语言约定 | 结构化输出、脚本校验、自动修复和定向重试 |\n| 失败处理 | 人工判断从哪里重来 | 从失败节点继续，已经完成的部分不用重跑 |\n| 控制权限 | 单个 Agent 通常拿到整条流程所需的工具 | 每个节点只拿自己需要的工具 |\n| 成本审计 | 消耗通常汇总在整次任务中 | 每个节点、尝试和模型调用单独记账 |\n| 对外交付 | 需要额外搭建交付外壳 | 包装成 API、后台服务、Automation 或 Plugin |\n\n带来的变化很直接：\n・开发更快： 把可靠节点组合起来，验证通过就能接 API 或业务服务。\n・维护更轻松： 流程、参数和输出都有固定结构，不靠一大段 Prompt 维持秩序。\n・运行更稳定： 模型只处理需要判断的部分，控制流和数据流交给 Runtime。\n・失败不重来： 任意节点都能审计、重试和恢复，长流程不必从头再跑。\n・Token 更省： 每个模型只读取自己需要的上下文，不重复背完整历史。\n・权限更小： 工具可以按节点收窄，更强的 LLM 工作区沙箱也在 Roadmap 中。\n\n \n\n案例：在 AI 小说正文生产环节中节省 70%–89% Token\n\n笔枢写作 使用 DeterminFlow 串起导演、世界状态、角色维护、多个\n专业写手、整合、校验、渲染和落库，形成一条可以断点恢复的正文生产流程。\n\n一次真实完成的生产任务包含 11 个独立模型会话，在 DeterminFlow 中运行一次共消耗\n176,584 Token。如果把同一套流程交给一个长链 Agent，让它反复携带上下文、工具\n结果和返工记录，估算 Token 消耗最高可达到 DeterminFlow 的 9.1 倍：\n\n| 单智能体场景 | 估算总 Token | 相对 DeterminFlow | DeterminFlow 节省 | Terra API 等价成本 | Sol API 等价成本 |\n|---|---:|---:|---:|---:|---:|\n| 极度优化、几乎没有额外工具循环 | 约 59.5 万 | 3.4× | 约 70% | $0.90 | $2.26 |\n| 正常工具调用与上下文增长 | 约 97.0 万 | 5.5× | 约 82% | $1.47 | $3.68 |\n| 出现校验修复、重试或长上下文 | 约 161.0 万 | 9.1× | 约 89% | $2.43 | $6.08 |\n以上基于真实 Workflow Token 账本，以及长链 Agent 重复携带上下文、工具结果和返工\n的典型开销估算；成本按估算时的 API 输入 Token 单价换算。\n\n在这条真正的生产流程中，使用节点级上下文隔离预计可以减少约 70%–89% 的 Token 消耗。\n\n \n\nDeterminFlow 的主要能力\n\nWorkflow 编排\n・可视化 Workflow Editor，支持变量、条件、并行、循环、人工审批和子流程\n・Agent、Script、Approval、Subprocess 四类 Core Node\n・每个节点独立配置输入、输出、模型和失败处理\n・通用 Core Node 抽象，贡献者或 Fork 可以继续开发新节点类型\n\n可靠执行\n・Task 启动时冻结 Workflow 定义和输入\n・自动重试、人工重试、跳过，以及从失败节点恢复\n・跨进程重启保存执行检查点\n・并行、循环和子流程拥有独立的尝试历史\n\nLLM 运行边界\n・每个 Agent Node 都有独立会话和 Token 账本\n・工具白名单、黑名单、Workspace 和最大轮次可以按节点配置\n・JSON 输出检测、解析、修复和模型重试\n・下游节点可以拒绝结果，让上游定向返工\n\n观察与交付\n・按 Workflow、Task、Node、尝试和模型调用查看状态与用量\n・FastAPI、React 控制台、Cron Automation、WebSocket 事件和健康检查\n・MCP、Agent/Prompt 模板、Skill 和 Rule 都可以成为 Workflow 的可复用资产\n・Core 可以独立运行，不依赖任何业务 Plugin\n\n围绕 Workflow 的统一工作区\n\n对话、Workflow、Cron、Skills、Rules 和 Plugins 都在同一个控制台中。\n\n \n\n它怎么工作\n\n [code] \n\n1. Task 启动时冻结 Workflow、参数和节点输入。\n2. Agent Node 在独立会话中运行，只装配自己需要的工具。\n3. 输出不合格时修复、重试、跳过，或者请求人工处理。\n4. Script Node 负责文件转换、API 调用和数据库落库等确定性工作。\n5. 每次尝试、错误、Token、产物和检查点都会保存，进程重启后仍可继续。\n\n \n\n扩展：用 Plugin 交付完整的 AI 业务\n\nDeterminFlow 解决流程怎么执行，Plugin 则把它和运行所需的能力一起打包交付。常见场景\n包括：\n\n| 使用场景 | 可以随 Plugin 一起交付 |\n|---|---|\n| 把成熟流程交给团队或社区安装 | Workflow、Agent、Prompt、Skill、Rule 和预设短语 |\n| 把流程直接变成可调用的业务服务 | API、托管后台进程、配置、健康检查和轻量页面 |\n| 交付需要持久化的完整业务 | Script Library、数据库迁移、落库与恢复逻辑 |\n\n官方插件与开源案例\n\n官方插件统一发布在\nDeterminFlow-Plugins。其中\nbishu-novel\n是从笔枢写作真实生产链路整理出的开源 AI 小说 Workflow 案例。当前公开版包含：\n\n| 生产 Workflow | 编排节点 | Agent / Prompt 组合 | 可复用脚本模块 |\n|---:|---:|---:|---:|\n| 7 | 84 | 33 | 15 |\n\n它覆盖建书、角色、故事规划、卷纲与近纲、正文生产、章节后验和润色，并带有配套 API、\nSSE Job、PostgreSQL 迁移和断点恢复。Plugin 是你打包交付一套完整 AI 业务引擎的最佳选择。\n\n同仓库还提供可选的\npublic-api\n公益模型 Plugin。Windows 桌面版可在首次引导或 Plugin 页面安装；未安装或未启用时，\nCore 不加载公益模型服务逻辑。\n[!NOTE]\nPlugin 使用现有 Core Node 组合 Workflow。需要新节点类型时，可以 Fork Core 并扩展\n通用 Node 抽象。\n\n \n\n快速开始 🚀\n\n要求 Python 3.11+、Node.js 22.12+ 和 npm。根据你的系统选择一组命令。\n\nmacOS / Linux\n\n [code] \n\nWindows PowerShell\n\n [code] \n\n可以先启动再到设置页面填写 API Key；也可以在 .env 中填写\nDEEPSEEKAPIKEY，模型配置通过 ${DEEPSEEKAPIKEY} 读取它。\n\n启动后可以访问：\n・Web UI：http://localhost:8020\n・API 文档：http://localhost:8020/docs\n・Plugin 状态：GET /api/extensions\n\n也可以使用 Docker：\n\n [code] \n\n新配置统一使用 DETERMINFLOW 前缀；已有的 AICOMPANY 环境变量和\naicompany.extensions Entry Point 继续作为兼容别名使用，新旧配置同时存在时以新名称为准。\n社区版默认以 4 个本机 Workflow Executor 进程执行普通 detached Workflow Task；\n若要回退到单进程，设置 DETERMINFLOWWORKFLOWEXECUTORMODE=inline 和\nDETERMINFLOWWORKFLOWEXECUTORCOUNT=1。\n\n文档\n・架构说明\n・Plugin Package 规范\n・Extension 开发指南\n\n开发与验证\n\n [code] \n\n \n\n社区与合作\n\n| 如果你想…… | 可以从这里开始 |\n|---|---|\n| 报告问题或提出建议 | GitHub Issues |\n| 交流使用经验，讨论 Workflow 和 Plugin 开发 | QQ 群或微信群（下方扫码） |\n| 定制 Workflow、Plugin、私有部署或产品集成 | 微信 Reactive404 · 邮箱 |\n\n加入群聊\n\n \n \n QQ 群 \n 微信群 \n \n \n \n \n \n \n 群号： 945515407 \n 临时二维码，2026 年 8 月 25 日前有效 \n \n \n\n社区贡献者\n\n感谢通过代码、审查、设计与建议帮助改进 DeterminFlow 的社区成员。\n\n \n \n \n \n \n @Deitykiki1208 \n \n \n 浅色主题设计与实现参考（ PR #8 ） \n \n \n \n \n \n @ZLaoliu \n \n \n 会话恢复、上下文压缩与 Agent 输出重试的问题定位和实现建议（ PR #9 、 #10 、 #12 ） \n \n \n\nRoadmap\n・完成内部兼容标识的 DeterminFlow 命名迁移\n・为每个 Agent Node 提供更强的 Workspace 与 LLM 执行沙箱\n・完善 Workflow 到独立 API / Service 的发布模板\n・增加更多可复现的生产级 Workflow 案例\n・确定 v0.1.0 之后的兼容与版本策略\n\nLicense\n\nDeterminFlow 使用\nGNU AGPL v3（AGPL-3.0-only）许可证。\n\n---\n\n \n 由 alikon-art 创建并维护。 \n 来自 笔枢写作 真实 AI 小说生产流程的实践。",
+      "rank": 2,
+      "deep": {
+        "summary": "DeterminFlow は、LLM、スクリプト、API、データベース操作、人工承認を、バージョン管理された Workflow として実行する Python 製ランタイムです。Task の開始時に Workflow 定義と入力を凍結し、Agent Node は独立セッションとノード単位のツール権限で動作します。出力は JSON 検出・修復・再試行や下流ノードによる拒否にかけられ、失敗時は完了済みの処理を再実行せず失敗ノードから復旧できます。各試行、エラー、Token、成果物、チェックポイントを保存し、FastAPI や Web UI、Cron Automation、WebSocket で運用に接続できます。Workflow、Agent、Prompt、Skill、Rule、Script Library などを Plugin にまとめ、AI 業務全体を配布可能な単位として届けられます。",
+        "prerequisites": [
+          {
+            "term": "Task",
+            "stumblingPoint": "「Task の開始時に Workflow 定義と入力を凍結」とあるが、何を固定すると再実行の結果を比較できるのかが読み取りにくい。",
+            "explanation": "Task は Workflow を一度実行する単位です。開始時点の定義・パラメータ・ノード入力を保存するため、後から Workflow を編集しても実行中の Task の条件は変わりません。これにより、失敗した処理を同じ入力条件で再試行・監査できます。"
+          },
+          {
+            "term": "Agent Node",
+            "stumblingPoint": "「各 Agent は一つの境界が明確なノードだけを担当」とあるが、単一 Agent の長い会話と何が違うのかで手が止まる。",
+            "explanation": "Agent Node は独立セッションを持つ処理単位です。必要なコンテキストと許可されたツールだけを受け取り、構造化された結果を返します。次のノードへ全履歴を渡さないため、長い会話を一つの Agent に背負わせる構成より、権限・失敗箇所・Token 消費を切り分けられます。"
+          },
+          {
+            "term": "Core Node",
+            "stumblingPoint": "「Agent、Script、Approval、Subprocess 四類 Core Node」と書かれているが、LLM 処理以外をどこに置くのかが分かりにくい。",
+            "explanation": "Core Node は Workflow を構成する基本的なノード種別です。LLM に判断させる処理は Agent、決定的な変換や API・DB 操作は Script、人の確認は Approval、別 Workflow の実行は Subprocess に分けます。モデルに制御処理まで任せず、役割ごとに失敗処理を設定できます。"
+          },
+          {
+            "term": "Script Node",
+            "stumblingPoint": "「Script Node はファイル変換、API 呼び出し、データベースへの保存を担当」とあるが、Agent Node とどう分担するかが曖昧。",
+            "explanation": "Script Node は、入力が決まれば同じ処理を実行できる決定的な作業向けです。ファイル変換や API 呼び出し、データベースへの落庫をここに寄せることで、LLM の判断揺れを業務処理から切り離せます。Agent Node の出力を検証し、合格したものだけ Script Node に渡す構成が記事の実運用例です。"
+          },
+          {
+            "term": "Plugin",
+            "stumblingPoint": "「Plugin は Workflow、Agent、Prompt、Skill、Rule と API を一緒に配布」とあるが、単なる設定ファイルとの違いを把握しにくい。",
+            "explanation": "Plugin は Workflow だけでなく、実行に必要なプロンプト、スキル、ルール、スクリプト、設定、API、ヘルスチェック、場合によっては DB マイグレーションまでまとめる配布単位です。成熟した AI 業務を別環境へ導入する際に、実行ロジックと周辺サービスを個別に再構築せずに済みます。"
+          },
+          {
+            "term": "チェックポイント",
+            "stumblingPoint": "「プロセス再起動後もチェックポイントから継続できる」とあるが、どの範囲を保存して何を再実行しないのかが読み取りにくい。",
+            "explanation": "各ノードの試行履歴、エラー、Token、成果物、実行状態を保存する仕組みです。長い Workflow の途中でプロセスが落ちても、完了済みノードを最初からやり直さず、失敗または中断した位置から続行できます。"
+          },
+          {
+            "term": "Token 账本",
+            "stumblingPoint": "「各ノード、試行、モデル呼び出しを個別に記帳」とあるが、通常のタスク単位の使用量集計と何が違うのかが分からない。",
+            "explanation": "Workflow 全体の合計だけでなく、どの Node が何回試行し、どのモデル呼び出しで何 Token 使ったかを追跡します。記事の小説生成例では 11 個の独立モデルセッションを合計 176,584 Token として記録し、単一の長鎖 Agent と比較できるようにしています。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "Workflowの実行構成",
+          "layers": [
+            {
+              "label": "呼び出し元",
+              "nodes": [
+                {
+                  "name": "Workflow Editor",
+                  "note": "定義・条件を編集",
+                  "highlight": false
+                },
+                {
+                  "name": "FastAPI",
+                  "note": "外部から起動",
+                  "highlight": false
+                }
+              ],
+              "via": "Workflow定義・入力"
+            },
+            {
+              "label": "実行制御",
+              "nodes": [
+                {
+                  "name": "DeterminFlow",
+                  "note": "制御・復旧を担当",
+                  "highlight": true
+                }
+              ],
+              "via": "ノード実行指示"
+            },
+            {
+              "label": "処理ノード",
+              "nodes": [
+                {
+                  "name": "Agent Node",
+                  "note": "判断・生成",
+                  "highlight": false
+                },
+                {
+                  "name": "Script Node",
+                  "note": "決定的処理",
+                  "highlight": false
+                },
+                {
+                  "name": "Approval",
+                  "note": "人の承認",
+                  "highlight": false
+                },
+                {
+                  "name": "Subprocess",
+                  "note": "子フロー実行",
+                  "highlight": false
+                }
+              ],
+              "via": "結果・エラー"
+            },
+            {
+              "label": "実行記録",
+              "nodes": [
+                {
+                  "name": "チェックポイント",
+                  "note": "再開位置を保存",
+                  "highlight": false
+                },
+                {
+                  "name": "Token 账本",
+                  "note": "使用量を記録",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "DeterminFlow GitHubリポジトリ",
+            "url": "https://github.com/alikon-art/DeterminFlow"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "build",
+        "unlocks": [
+          "複数の Agent Node をつなぎ、失敗ノードから再開できる",
+          "検証済み Workflow を FastAPI のサービスとして公開できる"
+        ],
+        "howToTry": [
+          "https://github.com/alikon-art/DeterminFlow",
+          "Python 3.11+、Node.js 22.12+、npm を用意する。",
+          "リポジトリの「快速开始」にある macOS / Linux または Windows PowerShell のコマンドを、そのまま実行する。",
+          "起動後に http://localhost:8020、API ドキュメントの http://localhost:8020/docs、GET /api/extensions を確認する。",
+          "モデルを実行する場合は設定画面または .env の DEEPSEEKAPIKEY に API Key を設定し、Workflow Editor から Agent Node と Script Node を組み合わせる。"
+        ],
+        "fitFor": [
+          "複数の LLM 処理を順序・分岐・並列で運用したいとき",
+          "失敗時に完了済みの処理を再実行したくないとき",
+          "ノード単位の権限・Token 使用量・試行履歴を監査したいとき"
+        ],
+        "notFor": [
+          "Python 3.11+ と Node.js 22.12+ を用意できない環境",
+          "モデル API Key を設定できない環境での LLM 実行",
+          "AGPL-3.0-only の条件を受け入れられない配布形態"
+        ],
+        "caveats": [
+          "Python 3.11+ と Node.js 22.12+ が必要"
+        ],
+        "trial": null
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Classはいったん忘れろ！ 大体間違って教わるオブジェクト指向 ～オムライスで考える Ketchup Passing～",
+      "url": "https://qiita.com/iscream/items/1acd7966991ad310a226",
+      "publishedAt": "2026-08-21T02:30:39.000Z",
+      "author": "iscream",
+      "authorDetail": {
+        "name": "iscream",
+        "handle": "@iscream",
+        "url": "https://qiita.com/iscream",
+        "avatarUrl": "https://secure.gravatar.com/avatar/796c892e1f4e93b2f9237c286f41eab3",
+        "followers": 0,
+        "posts": 2,
+        "links": []
+      },
+      "tags": [
+        "オブジェクト指向",
+        "設計",
+        "初心者",
+        "プログラミング"
+      ],
+      "snippet": "オブジェクト指向プログラミングについて理解したければ、世の中に出回っている大半の解説は忘れろ！ オブジェクト指向(Alan Kayの提唱したオリジナル[^1])の本質とはメッセージパッシングである。 オブジェクトに対して、メッセージ(リクエスト、要求)を送るだけである。 Classを作ってオブジェクトを作るというのは、一つの実装に過ぎない。 このメッセージパッシングは関数型でも、手続き型でも、データドリブンでも実装することはできる。 今のような形になってしまったのは技術的な制約や他の流派(Simula系等)の影響もあり、class中心に語られることが多いだけである。 だから、いったん忘れろ！ ここで例を考えてみよう。 君はレストランに入った。 オムライスを頼むことにする。 君はレストランのバックヤードに入って、卵3つ、ケチャップ、ひき肉の有無を確認してから、店員に「オムライス1つ」と注文す…",
+      "body": "オブジェクト指向プログラミングについて理解したければ、世の中に出回っている大半の解説は忘れろ！\n\nオブジェクト指向(Alan Kayの提唱したオリジナル[^1])の本質とはメッセージパッシングである。\nオブジェクトに対して、メッセージ(リクエスト、要求)を送るだけである。\nClassを作ってオブジェクトを作るというのは、一つの実装に過ぎない。\nこのメッセージパッシングは関数型でも、手続き型でも、データドリブンでも実装することはできる。\n\n今のような形になってしまったのは技術的な制約や他の流派(Simula系等)の影響もあり、class中心に語られることが多いだけである。\n\nだから、いったん忘れろ！\n\nここで例を考えてみよう。\n\n君はレストランに入った。\nオムライスを頼むことにする。\n\n君はレストランのバックヤードに入って、卵3つ、ケチャップ、ひき肉の有無を確認してから、店員に「オムライス1つ」と注文するのか？\n\nしないだろう？？？\n\n明らかに、変な行動をしてるってわかるよね。\n\nでも、プログラムコードはこう書いてるだろ？\n(コードは全部疑似コードだから実行保証はしない)\n\n [code] \n\n本来は、レストランにオムライスの注文をするだけでよい\n [code] \n\nそうしたら、レストラン側が在庫を確認して、作れるかどうかの判断をしてOKかNGを返してくれる。\n\nもちろん、オムライスができるかどうかを店員に聞くのは構わない。\nでも、聞いた結果を注文が受諾されるかどうかの保証材料に使ってはいけない\n\n [code] \n\nなぜか？\n「オムライスというメニューがあるか、品切れしていないか？」は聞いた時点で判明するが、自分が注文した時点で本当に作れるかどうかは、在庫を聞いた時点ではわからない。\n例えば、残り1皿の時に、「オムライスがあるか？」と聞いたら、店員は「あります」って答えるだろう。\nでも別の席でオムライスが注文されていたら、自分の分はすでに無くなってる。\n\n [code] \n\nオムライスを提供できるかどうかは店の責務である。\nだから、客はレストランの倉庫を確認する義務と責務はない。\n\nこのように、相手にメッセージを送り協調することをメッセージパッシングという。\n必要なのは、自分と相手の責務と、その間に成立する契約だけとなる。\n\nこの例の場合は、店と客の契約だけとなる。\n\nだが、君たちは、Classを作ってgetter/setterを書き、カプセル化することを、オブジェクト指向と習っただろう。\n全部忘れろ。\n\n責務が漏れるとどうなるのか？\n\n最初にあげた、下記のコードだが、もしオムライスの材料が変更されたら、すべての呼び出し箇所に修正が入ることになる。\nこれはレストラン側の責務が、客側へ流出しているという事である。\n [code] \n\nこれをちょっとだけ抽象度を高くすると\n [code] \n\n材料チェックはすべてisOmuriceMaterial()がやってくれるから、変更箇所は減る。\nでも、「客がレストランのバックヤードのことを知っている」という、ねじれた状態は解消されない。\n\ngetter()がダメなのではないことに注意。getterで取得した情報を使って、レストラン側が行うべき判断を客側で実施してはいけない。\n\n将来バックヤードが無くなって、厨房に材料が置かれるようになった場合、やはり呼び出し元をすべて改修することになってしまう。\n\n [code] \n\nだが、上記のように、客が「注文する」メッセージだけにしておくと、レストラン側の都合による仕様変更は、レストランの中で完結できる。\n\nClassは本質ではない。\n君たちが習ったのは「どうやるか(How)？」であって、「何をしたいか(What)？」ではない。\nこのHowを閉じ込めて外から見えなくし、何をしたいか(What)のみを露出させるのが、カプセル化の真骨頂である。\nだが、カプセル化そのものがオブジェクト指向の本質ではない。\n\nそもそもrestaurantをインスタンスとして表現する必要すらない。\nここで例示した実装では、状態を持っているのはbackyardであり、restaurantが在庫状態を直接保持する必要はなく、backyardに問い合わせても良いし、外部に問い合わせを依頼しても良い。\nしたがって、restaurantを必ずインスタンスとして表現する理由もない。\nだから手続き型でも同じように書ける。\n\n [code] \n\n客がレストランに「オムライス一つ。」と注文した本質は何も変わっておらず、注文をどのように扱うかはレストランに任せる。\n受けた注文をどう扱うかはレストランの責務なので、隣の仕出し屋に外注してもかまわない。\nそうなるとバックヤードすら不要になる。\n(現実のシステムでは状態はDBなどの外部ストレージへ持たせ、restaurantはほとんど何も状態を持たない実装もありうる)\n\n [code] \n\nこれらの書き方は異なるが、「何をしてほしいかを相手に伝え、するかどうかは相手が判断する」という設計は変わらない。\n\nConclusion - 責務を漏らすな！\n相手に仕事を依頼することだけを伝え(message)、契約はその間のみで完結する。\nそれ以外のこと(相手が下請けに流している、自分でやる、どこから仕入れる等)は知らなくてよい。\nこれが責務を分離し、メッセージによって協調させるという、オブジェクト指向の考え方である。\n\nこれによって、自分と相手の関係に局所化する。\nプログラムで言えば変更範囲が減ることになる。\n\nもし、「ケチャップなし」という要求があるならば、それは手段ではなく目的なので、契約として伝えなければいけない。\n\n [code] \n\nなどとすべきである。\n\n異論は認める\n※オブジェクト指向には複数の流派や定義がある。\nただし、ここで説明した 「相手に何をしてほしいか伝え、どうするかは相手の責務にする」という考え方は、オブジェクト指向を採用するかどうかにかかわらず、覚えておいてほしい。\nこれを理解していると、コードの見え方が変わり、コードの保守性も変わってくる。\n責務を分けるということは、問題が局所化するからである。\n\nBibliography:\n[^1]: Dr. Alan Kay on the Meaning of “Object-Oriented Programming” https://userpage.fu-berlin.de/ram/pub/pubjf47ht81Ht/dockayoopen",
+      "metrics": {
+        "likes": 2,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "696a80e097b55b73",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.2041551246537396,
+      "popularityPercentile": 0.9279778393351801,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "オブジェクト指向の本質をクラスではなくメッセージの送受信として説明する。",
+      "takeaways": [
+        "オブジェクト指向の中心は要求を送ることだった。",
+        "内部のデータや手順は受け手が管理する。",
+        "クラスは実現方法の一つにすぎない。"
+      ],
+      "keywords": [
+        "オブジェクト指向",
+        "メッセージパッシング",
+        "Alan Kay",
+        "設計"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "内部を公開して操作させるか要求だけを受け付けるか",
+        "forSide": "注文だけを受け付ければ内部の変更が呼び出し側に波及しない。",
+        "againstSide": "内部の状態を直接扱える方が単純で実装やデバッグが速い場面もある。",
+        "oneSided": false,
+        "yourAngle": "Reactの状態管理やAPI設計で内部情報をどこまで公開しているかを実例にできる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "foundational",
+      "rank": 1,
+      "deep": {
+        "summary": "この記事は、Alan Kayのオリジナルなオブジェクト指向の本質を、Classではなくメッセージパッシングとして捉え直す。客はレストランの材料や倉庫を調べず、「オムライスを注文する」という要求だけを送り、提供可否の判断はレストランの責務にする。getter/setterやisOmuriceMaterial()で内部情報を公開すると、実装変更時に呼び出し側まで修正が広がる。Howを外部に漏らさず、Whatだけを契約として公開することで、変更範囲を局所化できる。restaurantをClassやインスタンスで表す必要もなく、手続き型やDB、外部委託でも同じ設計思想を実現できる。",
+        "prerequisites": [
+          {
+            "term": "メッセージパッシング",
+            "stumblingPoint": "記事は「オブジェクト指向の本質とはメッセージパッシング」と書くが、単なる関数呼び出しとの違いが読み取りにくい。",
+            "explanation": "ここでいうメッセージパッシングは、相手の内部状態を読んで自分で処理するのではなく、相手に要求を送り、実行方法と可否の判断を相手に任せる設計を指す。客からレストランへの「オムライス1つ」がメッセージに当たる。実装がClassでなくても、要求と責務の境界が保たれていれば同じ考え方になる。"
+          },
+          {
+            "term": "Alan Kay",
+            "stumblingPoint": "記事は「Alan Kayの提唱したオリジナル」と述べるが、一般的なClass中心の説明と何が違うのかが分かりにくい。",
+            "explanation": "この記事でのAlan Kayは、現在広く知られるClass・継承中心の説明よりも、独立したオブジェクト同士がメッセージで協調する見方を指している。Classはその実装方法の一つにすぎず、オブジェクト指向の定義全体が単一でないことにも注意が必要である。"
+          },
+          {
+            "term": "責務",
+            "stumblingPoint": "記事は「オムライスを提供できるかどうかは店の責務」と書くが、責務を分けると何が変わるのかを知らないと比喩で終わる。",
+            "explanation": "責務は、ある判断や処理をどの側が引き受けるかという設計上の境界である。在庫の場所や材料の構成をレストラン側に閉じ込めれば、それらの変更を客側が追いかける必要がなくなる。逆に客が材料確認まで行うと、店の内部事情が複数の呼び出し側へ漏れる。"
+          },
+          {
+            "term": "契約",
+            "stumblingPoint": "記事は「自分と相手の責務と、その間に成立する契約だけ」と書くが、何を外部仕様として残すのかが曖昧に見える。",
+            "explanation": "この文脈の契約は、呼び出し側が相手に伝える要求と、相手が返す結果など、両者の間で合意する最小限のインターフェースを指す。材料の保管場所や下請けの有無は契約ではなく、レストラン内部の実装である。「ケチャップなし」は提供結果に関わる要求なので、契約に含めるべき情報になる。"
+          },
+          {
+            "term": "カプセル化",
+            "stumblingPoint": "記事は「Howを閉じ込めてWhatのみを露出」と書くが、getter/setterを書けばカプセル化だという理解をどう修正するかが必要になる。",
+            "explanation": "この記事でのカプセル化は、単にフィールドへのアクセスをメソッド経由にすることではない。外部が内部データを取得して、そのデータに基づく判断まで担うと、実装の境界は実質的に公開されている。外部には注文というWhatだけを渡し、材料確認や提供可否というHowをレストラン側に残すことが核心である。"
+          },
+          {
+            "term": "getter/setter",
+            "stumblingPoint": "記事は「getter/setterを書き、カプセル化すること」を否定するが、getter自体が常に悪いのか判断しにくい。",
+            "explanation": "記事が問題にしているのはgetterの存在ではなく、取得した情報を使って本来相手が行うべき判断を呼び出し側で実施すること。表示や監視など、情報を読むこと自体が目的ならgetterは成立しうる。材料の有無を読んで注文可否を客側で決める場合は、レストランの責務が漏れている。"
+          },
+          {
+            "term": "在庫確認",
+            "stumblingPoint": "記事は在庫確認の結果を注文受諾の保証材料にしてはいけないと説明するが、確認直後でも結果が無効になる理由が必要になる。",
+            "explanation": "残り1皿という確認結果と、実際に注文を受け付ける時点の在庫は同じではない。確認と注文の間に別の席の注文が入れば、呼び出し側が持つ判断材料は古くなる。提供可否の判定と在庫確保を同じ責務側で扱えば、この時間差を外部に公開せずに処理できる。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "注文と内部実装",
+          "layers": [
+            {
+              "label": "依頼元",
+              "nodes": [
+                {
+                  "name": "客",
+                  "note": "注文だけ送る",
+                  "highlight": false
+                }
+              ],
+              "via": "注文メッセージ"
+            },
+            {
+              "label": "責務側",
+              "nodes": [
+                {
+                  "name": "restaurant",
+                  "note": "提供可否を判断",
+                  "highlight": true
+                }
+              ],
+              "via": "内部処理の委譲"
+            },
+            {
+              "label": "状態・処理",
+              "nodes": [
+                {
+                  "name": "backyard",
+                  "note": "材料と在庫を保持",
+                  "highlight": false
+                },
+                {
+                  "name": "DB",
+                  "note": "外部ストレージ",
+                  "highlight": false
+                },
+                {
+                  "name": "仕出し屋",
+                  "note": "注文を外部委託",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Dr. Alan Kay on the Meaning of “Object-Oriented Programming”",
+            "url": "https://userpage.fu-berlin.de/ram/pub/pubjf47ht81Ht/dockayoopen"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "内部情報の公開範囲",
+            "claim": "客は材料や在庫を確認せず、レストランへ注文だけ送るべきだ。",
+            "counter": "在庫表示や事前見積もりが契約上必要なら、情報取得を一律に隠せない。",
+            "counterInArticle": true
+          },
+          {
+            "point": "getterの扱い",
+            "claim": "getterで得た情報を使い、レストラン側の判断を客側で実施してはいけない。",
+            "counter": "getter自体は悪くなく、表示や監視など判断を移さない用途なら使える。",
+            "counterInArticle": true
+          },
+          {
+            "point": "実装形式の選択",
+            "claim": "restaurantをClassやインスタンスで表さなくても、同じ設計思想を実現できる。",
+            "counter": "状態や責務を明示的に束ねる必要がある場合、Classは境界を表す実用的な手段になる。",
+            "counterInArticle": false
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "API境界と内部実装の変更範囲",
+            "why": "ReactやNext.jsのAPI利用側とサーバー実装を分け、仕様変更時の修正ファイル数を実測できる。"
+          },
+          {
+            "angle": "getterとドメイン判断の混在",
+            "why": "TypeScriptのサービスやRepositoryで、取得後の判定が呼び出し側へ漏れた箇所を実コードで示せる。"
+          },
+          {
+            "angle": "注文要求と競合状態",
+            "why": "在庫・予約・決済を扱うフルスタック開発の経験から、確認と確定を分離した時の不整合を出せる。"
+          }
+        ],
+        "verify": [
+          "既存コードで内部データ取得後の判定箇所を検索し、判断を責務側の単一APIへ移した場合の変更ファイル数を比較する。",
+          "在庫1件の状態で確認と注文の間に別注文を挿入し、事前確認方式と注文時判定方式の結果を比較する。"
+        ]
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "I'm becoming AI-blind",
+      "url": "https://cymerys.com/w/im-becoming-ai-blind",
+      "publishedAt": "2026-08-21T11:48:05.000Z",
+      "author": "rcymerys",
+      "authorDetail": {
+        "name": "rcymerys",
+        "handle": "rcymerys",
+        "url": "https://news.ycombinator.com/user?id=rcymerys"
+      },
+      "tags": [],
+      "snippet": "AI AI AI Recently I've been catching myself having these little moments at work, when I'm trying to read a document someone has sent me and my brain somehow refuses to analyze it. It feels like I'm reading it, but I'm unable to focus on its content. I end up getting dragged into an endless back and forth with the sender, asking questions about things that have been covered in what they've already …",
+      "metrics": {
+        "points": 202,
+        "comments": 209
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "c481b53c5fecc370",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.17402985074626864,
+      "popularityPercentile": 0.7910447761194029,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "AIに慣れすぎて見えなくなるもの",
+      "oneLiner": "AIを使い続けることで生じる感覚の変化を扱う記事だが本文情報は確認できない。",
+      "takeaways": [
+        "記事はAIに慣れる過程を題材にしている。",
+        "本文の抜粋がなく具体的な主張は確認できない。",
+        "評価や結論は記事本文の確認が必要になる。"
+      ],
+      "keywords": [
+        "AI",
+        "生成AI",
+        "AI依存",
+        "Hacker News"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "body": "AI AI AI\nRecently I've been catching myself having these little moments at work, when I'm trying to read a document someone has sent me and my brain somehow refuses to analyze it. It feels like I'm reading it, but I'm unable to focus on its content.\nI end up getting dragged into an endless back and forth with the sender, asking questions about things that have been covered in what they've already sent me. It's rather concerning, because I've spent the last year trying to re-learn how to focus and these situations show the exact opposite.\nI sat down to analyze these situations and realized they all have a common denominator: the documents all show a strong trace to AI.\nFor example:\n\nA design document that looks like a copy-paste from Claude. While it does cover the design of the specific feature in question, it also carries a lot of Claude-specific analysis and lingo. \"This cuts just through it\", \"The first gate is real\".\n\nor\n\nA 20-page marketing concept deck that mixes up (a rather reasonable) marketing strategy with some nonsense product technical architecture gibberish. How does it pitch the idea? \"It's not selling X, it's selling Y\". \"The Redis backbone redefines the product\".\n\nor\n\nA technical requirements document that describes a rather simple concept in a very verbose way. The thing is, a lot of this document reads like someone's \"internal\" reasoning that's not fully sure about certain decisions. Sounds like an LLM to me.\n\nThere's an ongoing discussion of whether humans are good at recognizing AI-generated text. While most research claims that humans don't really do a good job there, I disagree. It's not that difficult, at least when we're talking about the low-effort results. Florian Roth wrote a pretty good summary of the common patterns in the context of social media.\nI see a similar thing happening for work-related texts. Besides the obvious choice of words, the general flow of sentences and the attempt to pitch every small detail as a breakthrough quickly give it away. If your document describes the checkboxes in an RBAC configuration view for an enterprise application, don't sell it like you've just invented fire.\nI feel like I've been \"pre-trained\" on all the AI-generated LinkedIn posts, emails and websites that are full of text but empty on meaning. My brain learned to quickly spot signs of AI-generated content, at least the content generated with low effort, and it now ignores it and moves on without thinking much about it.\nI've heard some people comparing it to \"banner blindness\". It's not surprising. With the amount of content being pushed at us, filtering it out is how we need to stay sane.\nWhat's fascinating to me, is that the same AI that was supposed to make me more productive, is what's now slowing me down in an unexpected way.\n\nI don't usually go on vacation, but this year I really needed a break. One evening I was really hungry, walking past some restaurants on the Baltic coast. There was a single one I immediately ignored, but a minute later something in my head asked \"Hey, did they really put up a photo of quiche with mold?\" I walked back just to see this.\n\nAI AI AI",
+      "rank": 2,
+      "deep": {
+        "summary": "筆者は、AI生成文に繰り返し触れた結果、AI特有の語彙・文の流れ・大げさな売り込みを検知すると、内容を読む前に無意識に読み飛ばすようになったと感じている。Claude-specific analysis and lingoを含む設計書、技術的な意味の薄い「Redis backbone」を含むマーケティング資料、内部推論のように冗長な要件定義が具体例として挙げられている。これは大量の広告を無視するbanner blindnessに似た認知フィルターであり、AIによる生産性向上が、受け手との確認往復や読解遅延を生む逆説につながる。筆者は、人間はAI文を識別できないという研究結果に対し、少なくとも低労力のAI文なら識別しやすいと反論している。",
+        "prerequisites": [
+          {
+            "term": "AI生成文",
+            "stumblingPoint": "記事は「AI生成文を見抜く研究」と「低労力の結果」を並べるが、両者の対象範囲が違うと結論の読み方を誤る。",
+            "explanation": "ここで対比されているのは、AIが生成した文章全般と、推敲や事実確認をほとんどしていないAI生成文です。人間の識別精度が低いという研究結果が、低労力な文書にもそのまま当てはまるとは限らない、という切り分けが筆者の反論の前提です。"
+          },
+          {
+            "term": "Claude-specific analysis",
+            "stumblingPoint": "「Claude-specific analysis and lingo」が設計書に混ざるとあるが、単なる専門用語ではなく何が問題なのか読み取りにくい。",
+            "explanation": "設計対象に必要な判断だけでなく、Claudeが生成時に行ったような分析の型や言い回しまで文書に残っている状態です。読者は仕様・決定事項・仮説を選別しなければならず、実装に必要な情報へ直接到達しにくくなります。"
+          },
+          {
+            "term": "RBAC",
+            "stumblingPoint": "記事は「RBAC configuration viewのcheckboxes」を例に出すが、なぜこの例がAIらしい売り込みの批判になるかが省略されている。",
+            "explanation": "RBACはロールごとのアクセス権を制御する仕組みで、この例では企業向け画面のチェックボックスという比較的具体的なUIを指しています。通常の設定項目まで「画期的な発明」のように表現すると、重要な設計判断と宣伝的な修辞の区別がつきにくくなります。"
+          },
+          {
+            "term": "Redis backbone",
+            "stumblingPoint": "「The Redis backbone redefines the product」と書かれているが、Redisの採用がマーケティング上の価値になる理由は説明されていない。",
+            "explanation": "Redis backboneは、Redisを製品の中核的な基盤として位置づける表現です。記事では、マーケティング戦略に技術アーキテクチャの大げさな主張が混ざり、製品価値の説明と実装要素の列挙が混線する例として扱われています。"
+          },
+          {
+            "term": "LLM",
+            "stumblingPoint": "要件定義が「誰かのinternal reasoningのよう」とあるが、LLMの推論らしさが文書品質にどう現れるかで詰まる。",
+            "explanation": "LLMが生成した文章では、確定した決定事項だけでなく、候補・迷い・条件分岐の説明まで文章として残ることがあります。単純な要件でも長くなり、何が確定仕様で何が検討途中なのかを読み手が再構成する負担になります。"
+          },
+          {
+            "term": "banner blindness",
+            "stumblingPoint": "記事はAI文への反応をbanner blindnessにたとえるが、広告を無視する現象と文書読解の関係が一段飛んでいる。",
+            "explanation": "banner blindnessは、ウェブ上で広告らしい位置や見た目を認識すると、内容を意識的に読まずに視界から除外する傾向です。筆者の主張では、AIらしい語彙や構成が広告の視覚的手掛かりのように働き、文書全体を読む前に注意を切り上げるフィルターになっています."
+          },
+          {
+            "term": "AI-blind",
+            "stumblingPoint": "タイトルの「I'm becoming AI-blind」は、AIを見分けられない意味にも、AI文を見たくない意味にも読める。",
+            "explanation": "本文でのAI-blindは、AI文を識別できない状態ではなく、AIらしい痕跡を検知した瞬間に内容処理を止める状態を指します。つまり識別能力が上がった結果として、低品質な文書への注意配分が下がるという逆説です."
+          }
+        ],
+        "visual": null,
+        "figures": [
+          {
+            "url": "https://cymerys.com/images/ai-quiche-menu.webp",
+            "alt": "A menu photo of a quiche slice that looks like it",
+            "caption": "筆者が一度通り過ぎた店のメニュー写真。カビのように見えるquicheを使った表現が、AIらしい大げさな文書を無意識に退ける感覚の比喩として置かれている。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "本文",
+            "url": "https://cymerys.com/w/im-becoming-ai-blind"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "AI文の識別精度",
+            "claim": "研究では、人間はAI生成文をうまく見分けられない。",
+            "counter": "低労力のAI文なら、語彙や文の流れから見抜きやすい。",
+            "counterInArticle": true
+          },
+          {
+            "point": "AIの生産性効果",
+            "claim": "AIは文書作成を速め、仕事の生産性を上げるはずだ。",
+            "counter": "AIらしい文書を読む側が処理を止め、確認の往復が増える。",
+            "counterInArticle": true
+          },
+          {
+            "point": "文書の詳しさ",
+            "claim": "背景分析や技術要素まで詳しく書けば、資料の説得力が増す。",
+            "counter": "単純な要件に推論や誇張を足すと、確定事項が埋もれる。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AI文書の読解時間と確認往復",
+            "why": "Claude CodeやCodexが生成した資料を日常的に読むため、手戻りを実測できる。"
+          },
+          {
+            "angle": "確定仕様と推論の混在",
+            "why": "React / Next.jsの設計・要件レビューで、実装に必要な決定事項を切り出している。"
+          },
+          {
+            "angle": "AIらしい表現の検知条件",
+            "why": "複数のAIコーディングエージェントを使い、語彙や構成がどこで注意低下を招くか比較できる。"
+          }
+        ],
+        "verify": [
+          "AI生成・人手作成を伏せた文書を同僚に読ませ、理解時間と確認質問数を比較する。",
+          "同じ要件を簡潔版と推論・誇張入りで用意し、仕様の再説明率を測る。"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "0fdbe2c0666dbb7f",
+      "product": "Claude Code",
+      "what": "AnthropicのAIコーディングエージェント",
+      "version": "v2.1.239",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "Python SDK 0.xから1.xへ移行できるようになる",
+      "change": {
+        "before": "Pythonプロジェクトがanthropic 0.xを利用",
+        "after": "/claude-api upgradeでanthropic 1.xへ移行"
+      },
+      "scope": [],
+      "summary": "Claude Code v2.1.239は、Pythonプロジェクトをanthropic 0.xから1.xへ移行する/claude-api upgradeを追加。",
+      "title": "anthropics/claude-code v2.1.239",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.239",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-08-21T19:54:23.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v2.1.239 https://github.com/anthropics/claude-code",
+        "verify": "ls claude-code",
+        "questions": [
+          "v2.1.239 が実際に入って動くか",
+          "「Python SDK 0.xから1.xへ移行できるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "f1fb283deaf474eb",
+      "product": "shadcn",
+      "what": "UIコンポーネント導入CLI",
+      "version": "shadcn@4.19.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "Private GitHub Registryを利用できるようになる",
+      "change": {
+        "before": "GitHub Registryは公開リポジトリのみ",
+        "after": "GitHub CLI認証やGHTOKENでPrivate Registryも利用"
+      },
+      "scope": [
+        "CLI"
+      ],
+      "summary": "shadcn@4.19.0で、GitHub CLI資格情報またはGHTOKENによるPrivate GitHub Registry対応と、base-color移行コマンドを追加。",
+      "title": "shadcn-ui/ui shadcn@4.19.0",
+      "url": "https://github.com/shadcn-ui/ui/releases/tag/shadcn%404.19.0",
+      "sourceLabel": "GitHub Releases / shadcn-ui/ui",
+      "publishedAt": "2026-08-21T17:28:23.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch shadcn%404.19.0 https://github.com/shadcn-ui/ui",
+        "verify": "ls ui",
+        "questions": [
+          "shadcn@4.19.0 が実際に入って動くか",
+          "「Private GitHub Registryを利用できるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "203f8e1031e6f9f2",
+      "product": "GitHub Copilot",
+      "what": "AIコーディングエージェント",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Microsoft Teamsから共同エージェントセッションを開始できるようになる",
+      "change": {
+        "before": "Teamsの会話からCopilotセッションを開始できない",
+        "after": "@GitHubで共有Copilotセッションを開始"
+      },
+      "scope": [
+        "Microsoft Teams"
+      ],
+      "summary": "GitHub CopilotをMicrosoft Teamsに統合し、会話中に共同で見られるエージェントセッションを開始可能に。",
+      "title": "Shared agentic work with GitHub Copilot in Microsoft Teams",
+      "url": "https://github.blog/changelog/2026-08-21-shared-agentic-work-with-github-copilot-in-microsoft-teams",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-21T16:03:36.000Z",
+      "alsoReleased": [
+        {
+          "label": "The new GitHub Copilot experience in Slack",
+          "url": "https://github.blog/changelog/2026-08-21-the-new-github-copilot-experience-in-slack"
+        }
+      ],
+      "trial": null
+    },
+    {
+      "id": "1a9c805c02aa3f92",
+      "product": "ESLint",
+      "what": "JavaScript・TypeScript向けLinter",
+      "version": "v10.9.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "条件式のループ状態を検査できるようになる",
+      "change": {
+        "before": "no-unmodified-loop-conditionで条件式を検査",
+        "after": "checkConditionalExpressionsで条件式も検査"
+      },
+      "scope": [],
+      "summary": "ESLint v10.9.0は、no-unmodified-loop-conditionのcheckConditionalExpressionsを追加し、精度やno-var自動修正を改善。",
+      "title": "eslint/eslint v10.9.0",
+      "url": "https://github.com/eslint/eslint/releases/tag/v10.9.0",
+      "sourceLabel": "GitHub Releases / eslint/eslint",
+      "publishedAt": "2026-08-21T13:05:50.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v10.9.0 https://github.com/eslint/eslint",
+        "verify": "ls eslint",
+        "questions": [
+          "v10.9.0 が実際に入って動くか",
+          "「条件式のループ状態を検査できるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "8a58d5af959e9deb",
+      "product": "Vercel Deployment Storage",
+      "what": "Vercelデプロイメント用ストレージ",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "ストレージを保持したままデプロイをロールバックできるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "VercelのDeployment Storageが、デプロイメントをロールバック可能な状態で保持するようになった。",
+      "title": "Deployment Storage keeps your deployments rollback-ready",
+      "url": "https://vercel.com/changelog/deployment-storage-keeps-your-deployments-rollback-ready",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-21T05:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "acba97503d63a935",
+      "product": "Vercel CLI",
+      "what": "Vercel向けデプロイ・管理CLI",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "DNS・ドメイン・プロジェクトをCLIで管理できるようになる",
+      "change": {
+        "before": "DNS・ドメイン・プロジェクト操作の対応範囲が限定的",
+        "after": "DNS・ドメイン・プロジェクトコマンドの対応範囲を拡大"
+      },
+      "scope": [
+        "CLI"
+      ],
+      "summary": "Vercel CLIで、DNS、ドメイン、プロジェクト関連コマンドのサポート範囲が拡大。",
+      "title": "Vercel CLI expands support for DNS, domains, and project commands",
+      "url": "https://vercel.com/changelog/vercel-cli-expands-support-for-dns-domains-and-project-commands",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-21T00:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "b2bdaefc63c63693",
+      "product": "DeepSeek V4 Flash Vision Experimental",
+      "what": "画像理解対応のAIモデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "AI GatewayからDeepSeekの画像対応モデルを利用できるようになる",
+      "change": {
+        "before": "AI GatewayでDeepSeek V4 Flash Visionを利用できない",
+        "after": "Experimental版をAI Gatewayから利用可能"
+      },
+      "scope": [
+        "AI Gateway"
+      ],
+      "summary": "DeepSeek V4 Flash Vision Experimentalが、Vercel AI Gatewayで利用可能になった。",
+      "title": "DeepSeek V4 Flash Vision Experimental now available on AI Gateway",
+      "url": "https://vercel.com/changelog/deepseek-v4-flash-with-vision-now-available-on-ai-gateway",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-21T00:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "04ed01f55f82dbf4",
+      "product": "Vercel Connect",
+      "what": "外部サービス連携機能",
+      "version": "v0",
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "v0アプリをSlackやGoogleなどと接続できるようになる",
+      "change": {
+        "before": "v0アプリから外部サービスへ接続できない",
+        "after": "Slack・Googleなど100以上のサービスへ接続"
+      },
+      "scope": [],
+      "summary": "VercelのConnectで、v0アプリをSlack、Googleなど100以上のサービスに接続可能になった。",
+      "title": "Connect v0 apps to Slack, Google, and 100+ other services",
+      "url": "https://vercel.com/changelog/connect-v0-apps-to-slack-google-and-100-other-services",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-21T00:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "1e2a83cb1643c52b",
+      "product": "Vercel Tracing",
+      "what": "本番・プレビュー向けトレーシング機能",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "本番とプレビューの通信を常時トレースできるようになる",
+      "change": {
+        "before": "本番・プレビュー通信の常時トレースなし",
+        "after": "本番・プレビュー通信を常時トレース"
+      },
+      "scope": [],
+      "summary": "Vercelで、本番およびプレビュー環境のトラフィックを常時トレースできるようになった。",
+      "title": "Always-on tracing for production and preview traffic",
+      "url": "https://vercel.com/changelog/always-on-tracing-for-production-and-preview-traffic",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-21T00:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "8227bf14d0887c34",
+      "product": "GitHub Issues",
+      "what": "リポジトリ課題管理機能",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "保存したIssueビューをサイドバーに固定できるようになる",
+      "change": {
+        "before": "保存済みビューをIssueサイドバーに固定できない",
+        "after": "保存済みビューをIssueサイドバーに固定"
+      },
+      "scope": [],
+      "summary": "GitHub Issuesで保存済みビューのサイドバー固定がGAに。リアクション表示や密度変更、サブIssue非表示も追加。",
+      "title": "Pinning saved views to the repository issues sidebar is generally available and more",
+      "url": "https://github.blog/changelog/2026-08-20-pin-projects-views-and-milestones-to-the-repository-sidebar",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-20T23:29:34.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "450052751ff20c36",
+      "product": "GitHub",
+      "what": "ソフトウェア開発プラットフォーム",
+      "version": null,
+      "kind": "service",
+      "impact": "improves",
+      "unlock": "ブロックユーザーを検索・分類・管理できるようになる",
+      "change": {
+        "before": "ブロックユーザーの検索・管理機能が限定的",
+        "after": "検索、並べ替え、絞り込み、メモ編集に対応"
+      },
+      "scope": [],
+      "summary": "GitHubのブロックユーザー管理を刷新し、検索・ソート・ページング・理由別フィルター・非公開メモに対応。",
+      "title": "Better tools for managing blocked users",
+      "url": "https://github.blog/changelog/2026-08-21-better-tools-for-managing-blocked-users",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-08-21T17:28:36.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "56a26f83aa6e4860",
+      "product": "Biome CLI",
+      "what": "JavaScript・TypeScript向けFormatter/Linter",
+      "version": "v2.5.10",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Biome CLI v2.5.10は、Astroのコメントや式の解析・フォーマットに関する不具合を修正。",
+      "title": "biomejs/biome Biome CLI v2.5.10",
+      "url": "https://github.com/biomejs/biome/releases/tag/%40biomejs/biome%402.5.10",
+      "sourceLabel": "GitHub Releases / biomejs/biome",
+      "publishedAt": "2026-08-21T17:40:37.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch %40biomejs https://github.com/biomejs/biome",
+        "verify": "ls biome",
+        "questions": [
+          "v2.5.10 が実際に入って動くか",
+          "リリースノートに書かれた変更を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "79d6021a6ed7e74a",
+      "product": "Next.js",
+      "what": "React向けフルスタックWebフレームワーク",
+      "version": "v16.3.2",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Next.js v16.3.2は、App Routerのルーティングやapp-entry検証、TurbopackのWASM・worker chunk処理などのバグを修正。",
+      "title": "vercel/next.js v16.3.2",
+      "url": "https://github.com/vercel/next.js/releases/tag/v16.3.2",
+      "sourceLabel": "GitHub Releases / vercel/next.js",
+      "publishedAt": "2026-08-21T09:36:39.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v16.3.2 https://github.com/vercel/next.js",
+        "verify": "ls next.js",
+        "questions": [
+          "v16.3.2 が実際に入って動くか",
+          "リリースノートに書かれた変更を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "DeepSeek V4リリース：1.6Tパラメータ・100万トークンコンテキスト・AIエージェント開発者が知るべきこと【2026年4月速報】",
+      "url": "https://qiita.com/agdexai/items/5e8468a523510bd5cfab",
+      "publishedAt": "2026-08-21T03:49:40.000Z",
+      "author": "agdexai",
+      "authorDetail": {
+        "name": "agdexai",
+        "handle": "@agdexai",
+        "url": "https://qiita.com/agdexai",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocJkz9inxX8pPymZN1DpJL8D3FSnkcpZY4hNKxconh16A-Zy3A=s96-c",
+        "followers": 3,
+        "posts": 61,
+        "links": []
+      },
+      "tags": [
+        "deepseek",
+        "LLM",
+        "AI",
+        "AIAgent",
+        "OpenSource"
+      ],
+      "snippet": "DeepSeek V4リリース：1.6Tパラメータ・100万トークンコンテキスト・AIエージェント開発者が知るべきこと【2026年4月速報】 2026年4月24日、DeepSeekがV4シリーズをリリース。Hacker Newsで1,474コメントを記録し、AI界隈が騒然となりました。AIエージェント開発者目線で何が変わるかを解説します。 クイックスペック比較 | スペック | V4-Pro | V4-Flash | |----------|--------|----------| | 総パラメータ数 | 1.6兆 | 2,840億 | | アクティブパラメータ（MoE） | 490億 | 130億 | | コンテキストウィンドウ | 100万トークン | 100万トークン | | オープンウェイト | ✅ | ✅ | | エージェンティックコーディング | オープンソースSOTA | 強…",
+      "body": "DeepSeek V4リリース：1.6Tパラメータ・100万トークンコンテキスト・AIエージェント開発者が知るべきこと【2026年4月速報】\n\n2026年4月24日、DeepSeekがV4シリーズをリリース。Hacker Newsで1,474コメントを記録し、AI界隈が騒然となりました。AIエージェント開発者目線で何が変わるかを解説します。\n\nクイックスペック比較\n\n| スペック | V4-Pro | V4-Flash |\n|----------|--------|----------|\n| 総パラメータ数 | 1.6兆 | 2,840億 |\n| アクティブパラメータ（MoE） | 490億 | 130億 |\n| コンテキストウィンドウ | 100万トークン | 100万トークン |\n| オープンウェイト | ✅ | ✅ |\n| エージェンティックコーディング | オープンソースSOTA | 強力 |\n\nGPT-4o（128K）、Claude 3.7 Sonnet（200K）と比較して、5〜8倍のコンテキスト長。\n\nエージェントアーキテクチャへの影響\n\nなぜ100万トークンが重要か\n\nこれまでほとんどの本番エージェントシステムがRAGや外部メモリ（Mem0、Zep、Letta）を使っていた主な理由は「コンテキストウィンドウが小さすぎた」からです。\n\n100万トークン ≈ 75万語 = LotR三部作が丸ごと入るサイズ\n\n長時間コーディングエージェント、大規模コードベース分析、複数ツール実行履歴の保持 — これらがチャンキングや外部検索なしに実現可能になります。\n\n外部メモリツールが不要になるわけではありません（セッションをまたぐ永続化は必要）。ただし「1セッション内での長タスク」という制約が大幅に緩和されます。\n\nアーキテクチャ革新：DSA\n\nDeepSeek Sparse Attention（DSA） — トークンワイズ圧縮と新スパースアテンションを組み合わせ、100万トークンを「大幅に削減された計算・メモリコストで実現」。DeepSeekのMoE効率の実績からすると、この主張は信頼できます。\n\nエージェンティックコーディングSOTA\n\n公式発表：V4-ProはエージェンティックコーディングベンチマークでオープンソースSOTAを達成。\n\nすでに Claude Code、OpenCode 等の主要エージェントハーネスと統合済み。APIはOpenAI互換なので移行は1行変更：\n\n [code] \n\nAPIマイグレーション：7月24日までに対応\n・deepseek-chat → deepseek-v4-flash（非シンキング）に自動ルーティング\n・deepseek-reasoner → deepseek-v4-flash（シンキング）に自動ルーティング\n・旧モデル名は2026年7月24日に廃止\n\n今すぐ明示的なモデル名（deepseek-v4-pro / deepseek-v4-flash）に変更を推奨。\n\nコスト：本当の話\n\nDeepSeekはOpenAI・Anthropicより70〜90%安い価格設定の実績があります。V4の正式価格は未発表ですが、MoEアーキテクチャ（アクティブ490億/総1.6兆）からコスト効率は維持されるはず。\n\n1日何千リクエストも走らせるエージェントシステムでは、この差が月次コストに直結します。\n\n注意事項\n・「SOTA」は自分のワークロードで独自検証が必要\n・1.6Tモデルのセルフホストは相当なGPU環境が必要\n・リリース直後のレート制限に注意\n・西側データレジデンシーなし（規制業界は要確認）\n\nまとめ\n\nDeepSeek V4は2026年最大のオープンソースLLMリリースです。100万トークンコンテキスト + オープンウェイト + MoEコスト効率の組み合わせは、エージェントワークロードにおける閉源プロバイダーへの真の競争脅威。\n\n今すぐベンチマークする価値があります。移行は1行変更で済みます。\n\n---\n\n400以上のAIエージェントツール・LLM API・フレームワークを比較できる AgDex.ai もチェックしてみてください。DeepSeek V4-Pro/V4-Flash も掲載しています。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7bcba34bc313d9d6",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8037119113573408,
+      "popularityPercentile": 0.5623268698060941,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 76,
+      "titleJa": null,
+      "oneLiner": "DeepSeek V4が100万トークンの文脈と大規模な公開モデルを提供した。",
+      "takeaways": [
+        "DeepSeek V4が2種類のモデルで公開された。",
+        "扱える文章量は100万トークンに達した。",
+        "長い作業記録を外部保存せず扱える範囲が広がる。"
+      ],
+      "keywords": [
+        "DeepSeek V4",
+        "V4-Pro",
+        "V4-Flash",
+        "LLM",
+        "AIエージェント",
+        "オープンウェイト"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Stripe が OpenRouter を買収した理由を、あなたはおそらく分かっていない",
+      "url": "https://qiita.com/mguozhen/items/9da2ceaea3f90874f7af",
+      "publishedAt": "2026-08-21T06:50:39.000Z",
+      "author": "mguozhen",
+      "authorDetail": {
+        "name": "mguozhen",
+        "handle": "@mguozhen",
+        "url": "https://qiita.com/mguozhen",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocJQ3DYamwAC-BOdRNMjbJSVJqulFVpYobiIMQ205Q4qVFam0F1X=s96-c",
+        "followers": 1,
+        "posts": 56,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "stripe",
+        "OpenRouter",
+        "AISafety"
+      ],
+      "snippet": "五日前、Stripe による OpenRouter 買収のニュースが出たとき、私は一本書いた。当時の判断はこうだ。決済と AI 呼び出しは同じ形の商売である。自分では商品を作らず、通行料を取る。 その判断は一段浅い、と言う人が現れた。 Anjney Midha。傍観者ではない。a16z による OpenRouter のシードラウンドを主導し、同社の取締役を務め、AMP PBC 設立後も追加出資している。 彼が AMP の公式サイトに出した文章の題は、遠慮がない。《あなたはおそらく Stripe がなぜ OpenRouter を買ったのか分かっていない》。冒頭の一文で、既存の分析を全部払いのけている。 「正しく言い当てた分析を、我々はまだ一つも見ていない。」 そして彼の答えは、私が書いたものとまったく別物だった。 彼の主張：ルーティングのためではなく、AI 安全のため Midha の短い答え…",
+      "body": "五日前、Stripe による OpenRouter 買収のニュースが出たとき、私は一本書いた。当時の判断はこうだ。決済と AI 呼び出しは同じ形の商売である。自分では商品を作らず、通行料を取る。\n\nその判断は一段浅い、と言う人が現れた。\n\nAnjney Midha。傍観者ではない。a16z による OpenRouter のシードラウンドを主導し、同社の取締役を務め、AMP PBC 設立後も追加出資している。\n\n彼が AMP の公式サイトに出した文章の題は、遠慮がない。《あなたはおそらく Stripe がなぜ OpenRouter を買ったのか分かっていない》。冒頭の一文で、既存の分析を全部払いのけている。\n\n「正しく言い当てた分析を、我々はまだ一つも見ていない。」\n\nそして彼の答えは、私が書いたものとまったく別物だった。\n\n彼の主張：ルーティングのためではなく、AI 安全のため\n\nMidha の短い答えは一文だ。\n\n「これはエコシステム全体の AI 安全とアラインメントのためである。」\n\nそのうえで三つの流行解釈を明確に排除する。ルーティングのためではない。課金統合のためでもない。「トークンは新しいドルだ」からでもない（実際そうではあると彼は認めている）。\n\n先に自分の立場をはっきりさせる。これは利害関係者が書いた文章だ。 彼は取締役であり投資家であり、この取引から直接の利益を得る。読むときはその分を割り引く必要がある。\n\nだが割り引いたうえでも、この論証の連鎖はこの半年で私が読んだ中で最も硬い。以下、分解する。\n\n第一段：Stripe とは何の会社か、を定義し直す\n\n彼の最初の一手は、Stripe の定性を入れ替えることだ。\n\n「人々は普通、Stripe を資金を移動させる会社だと見ている。だが単に資金を移動させるだけなら、それは標準化された商品でしかない。銀行が何世紀も極めて薄いマージンでやってきたことだ。」\n\nでは Stripe が本当に築いたものは何か。\n\n「規模で動く、オンラインの信頼マシンである。」\n\n製品に落とすとこうなる。Radar は毎日ネットワーク全体で敵対的取引にリスクスコアを付けている。誰もが称賛するあの API は、本質的にセキュリティ基盤の上に載った開発者体験である —— 下には不正検知モデル、チャージバック責任、本人確認、そして全世界の法域をカバーするコンプライアンス能力がある。\n\n彼の結論。Stripe が勝てるのは、インターネット規模の悪意あるトラフィックの中で、同種のどの機関よりもリスクを引き受け管理するのが上手いからだ。\n\nここが全体の土台になる。Stripe が決済会社ならルーター買収は横展開だが、Stripe がセキュリティ会社ならルーター買収はデータの購入である。\n\n第二段：OpenRouter のデータは、想像とは違う形をしている\n\nこの節に具体的な発見がある。私は全文で最も価値のある部分だと考えている。\n\nAMP は OpenRouter と共同で、同社を流れる 100 兆トークンを分析した研究を発表している。結論は直感に反する。\n\n「中央値にあたる典型的なリクエストは、人が大規模言語モデルに質問しているものではない。ループの中で回っている機械である。」\n\nこれを支える三つの数字。一年で推論モデルのトラフィック比率はほぼ無視できる水準から全体の半分以上に上昇した。平均プロンプト長は 4 倍になった。相当な比率のリクエストが最終的にツール呼び出しで終わっている。\n\nつまりこのパイプを流れている主体は、もう人ではない。エージェントである。\n\nそしてエージェントには特徴がある。認証情報を持ち、ツールを呼び、支払いを起こす。 彼の原文はこうだ。\n\n「支出権限を持ち、同時に 2 万トークンのコンテキストを抱えた自律プロセスは、それ自体が取引の相手方である。」\n\n利用者が「人」から「財布を持った自律プロセス」に変わると、直面する問題はプロダクトの問題からリスク管理の問題に変わる。 この転換が決定的だと思う。\n\n第三段：三種類の悪いことは、データの上では同じ形をしている\n\n彼は次に、エージェントが問題を起こす三つの場合を切り分ける。この区別が良い。\n\n誤用（misuse） —— 悪意ある人間に指示される。\n\nミスアラインメント（misalignment） —— 操作者が意図していないが、モデルが学習してしまった目標を追う。\n\n乗っ取り（compromise） —— 実行中に注入された指示にハイジャックされる。\n\n原因は三つとも違う。だが彼が突くのはここだ。\n\n「どの場合であっても、行動が発生したその瞬間には、まったく同じ形で現れる。一件の取引として。」\n\nしかもいずれも機械の速度で、不正を働き、データを盗み外部に送り、予算を焼き尽くしうる。\n\nだから彼は、エージェント安全とは本質的にデプロイ時アラインメントの問題であり、デプロイ時アラインメントとは、かつての不正検知と同様、本質的にデータの問題だと言う。\n\nあらゆるセキュリティ事業に当てはまる要約が一文ある。そのまま書き留める価値がある。\n\n「プロダクトはモデル、堀はデータ、そしてデータはトラフィックから来る。」\n\n第四段：ではそのデータを誰が持っているのか\n\nここが論証の締めであり、最も鋭い部分だ。\n\nモデル研究所ではない。 彼の比喩は的確だ。どの最前線の研究所も巨大なトラフィックを見ているが、自分のモデル上のトラフィックしか見えない。銀行が自分の口座しか見えないのと同じだ。一行の帳簿だけから Visa の不正検知モデルは訓練できない。 そしてオープンウェイトのモデルについては、そもそもその「銀行」すら存在しない。\n\nクラウド事業者でもない。 クラウドはインフラを観察できるが、行動の意図は観察できない。\n\nでは誰が残るか。\n\nOpenRouter は毎日 10 兆トークン超を処理し、数十社のプロバイダーの 500 以上のモデルをカバーする。 そこには実行トレース、ツール呼び出しグラフ、支出速度、ルーティング判断、失敗モードが含まれる。\n\n「これは現時点で世界最大の、モデル横断の推論取引データコーパスである。オープンウェイトのモデルに関しては、唯一のものですらある。」\n\nオープンウェイトのモデルがなぜこの層でしか見えないかの説明も付いている。同じオープンソースのチェックポイントが、互いに独立した数十社によって提供される。どれもモデルの作者ではなく、どれもモデルの挙動に全責任を負わず、どれも自分の局所範囲を超えたデータを見られない。ルーティング層に来て初めて、これらの挙動が一箇所に集まる。\n\n上流の研究所は、オープンウェイトモデルの挙動を観察することも、取り消すこともできない。制約を執行できる唯一の場所は、それが実際に取引を行うその層である。\n\n見落としてはいけない技術的な区別\n\nここで彼は一度立ち止まって、重要な線を引いている。飛ばしてはいけない。\n\n「これらは取引の構造を持つメタデータであって、プロンプトの内容ではない。」\n\n根拠は二つ。OpenRouter はプロンプトのログ記録をデフォルトで無効にしている。そしてあの 100 兆トークンの実証研究は完全にメタデータに基づいており、プロンプトやモデルの補完文には一切アクセスしていない。\n\n比喩はやはり Stripe だ。「Stripe Radar も、カートの中身までは読まない。不正検知モデルが依拠するのは取引の形である。」\n\nこの区別がこの論証の成否を決める。プロンプトを読まなければ安全が作れないなら、この取引は大規模なプライバシーの集中でしかない。メタデータで足りるなら、性質はまったく違う。\n\n最強の反論を、彼は自分で先に出している\n\nここが私が最も評価する部分だ。誰かに殴られるのを待たず、自分で一番痛い一発を先に出している。\n\n「これに対する最も明白な反論はデータの集中である。この取引は、現在唯一存在するモデル横断の行動データコーパスを、一つの私企業の中に置くことになる。そしてこの唯一無二で、安全と極めて関係の深いデータセットこそ、この分野が最も集中管理を恐れている資産である。」\n\n彼の応答は否定ではなく、他の選択肢との比較だ。\n\nデータが数十社に断片化したまま残り、どこも十分な情報を見て行動できない状態か。あるいは直接競合するモデル事業を持つ最前線の研究所がこのデータを握るか。\n\nそれらと比べれば Stripe は「まだましな」選択肢だ、というのが彼の主張で、理由は中立性にある。\n\n「Stripe は異なるモデルに対して十分に中立である。最前線のモデルを訓練しておらず、どのモデル研究所とも競合しない。Stripe の商業的インセンティブは、そのシステムを通じて取引するすべての参加者に信頼を提供することにある。」\n\n最終的な定性はこうだ。「Stripe が買ったのはルーターではなく、最前線 AI システムの安全とアラインメントに関する戦略的資産である。」\n\nでは五日前の私は、どこを間違えたのか\n\n正面から答える必要がある。\n\n私が書いた「決済と AI 呼び出しは同じ形の商売」という一文自体は間違っていない。だが浅い階層にある。\n\n私が見ていたのは、どちらも異種のものを一つの API に収束させ、通行料を取っているという点だ。\n\n彼が見ているのは、どちらも敵対的トラフィックの中でリスクを管理しており、通行料はその商売の課金方法にすぎず、本質ではないという点だ。\n\nこの二層の違いが、この領域の堀がどこにあるかの判断を直接決める。\n\n「通行料」なら、堀は流通と乗り換えコストだ。モデルのカバー範囲さえ揃えば、他人も同じゲートウェイを建てられる。\n\n「トラフィックの中でリスクモデルを訓練する」なら、堀は時間とデータであり、後発は埋められない。Stripe Radar は十年かけて、毎日規模のある敵対的データで訓練してきた。これは買えない。\n\nあの記事で私は「上流が乱れるほど、中間層は価値を持つ」と書いた。この判断は今でも維持する。だが理由は入れ替える必要がある。選択が難しいから誰かが代わりに選ぶ、ではない。中間層だけが全体像を見られるからだ。\n\n私自身の考え\n\n一つ目は「より強い論証に説得される」ということそのものについて。 五日前の私の判断は一本の文章に一段ひっくり返された。しかもひっくり返した相手はこの取引の利害関係者だ。私はこの二つを両方言わなければならない —— 説得されたことを認めると同時に、相手の立場を明示すること。情報が高速で流れる業界では判断が修正されるのは常態であり、大事なのは修正するときに根拠と利害関係を一緒に並べることだ。\n\n二つ目は「中央値のリクエストはもう人ではない」という発見について。 今年最も過小評価されているデータだと思う。これは、我々が持っている「ユーザー体験」「プロダクトデザイン」という言語の一式が、半分以上のトラフィックに対して失効しつつあることを意味する。その半分の利用者はインターフェースを必要とせず、コピーで説得もされず、使いにくいから離脱することもない。ただ機械の速度で実行を繰り返し、予算を焼き切るまで止まらない。\n\n三つ目、これが最も考える価値があると思う点だ。エージェントが取引の相手方になった瞬間、「安全」の定義が変わる。\n\nこれまでの AI 安全は、モデルが失言するか、脱獄されるかという話だった。この文章が言っているのは別のことだ。財布を持ち、ツールを持ち、2 万トークンのコンテキストを持つ自律プロセスが、現実の経済の中で何を引き起こしうるか。そしてそれは、金を使うその層でしか見えず、止められない。\n\nゲートウェイ層をやっている我々がずっと言ってきたのは検証可能性だ。受け取ったものが本当に頼んだものかを検証できること。この文章はその片割れを埋めた。自分のエージェントが外で何をしたかも検証できなければならない。 前者はベンダーに水増しされないため、後者は自分のエージェントが暴走しないためだ。\n\nこの二つは、最後に同じ場所に落ちる。\n\n---\n\n出典：微信公众号「随机小助手」2026-08-20 の記事《所有人都错了，Stripe收购OpenRouter因为AI安全：a16z种子轮投资人揭露真实原因》。本文は Anjney Midha が AMP PBC 公式サイトに発表した《You Probably Don't Get Why Stripe Bought OpenRouter》（amppublic.com/research/openrouter）の中国語訳を基にしている。Midha は a16z による OpenRouter のシードラウンドを主導し、同社取締役を務め、AMP PBC 設立後も追加出資している。経歴（Kleiner Perkins、KPCB Edge、Ubiquity6 の Discord による買収、Discord のプラットフォームエコシステム担当バイスプレジデント、2023 年に a16z で AI 投資を担当）および投資先（Anthropic、ElevenLabs、Luma AI、Ideogram、Mistral AI、Black Forest Labs、LMArena、Sesame AI、Periodic Labs、OpenRouter）は同記事による。本文中のデータ（100 兆トークンの実証研究、推論モデルのトラフィック比率が一年で過半に、平均プロンプト長 4 倍、OpenRouter の日次 10 兆トークン超、数十社 500 モデル超、プロンプトログのデフォルト無効）は Midha の原文および同氏が引用する arXiv:2601.10088 による。利益開示：Midha は本取引の直接の利害関係者（取締役かつ投資家）であり、その論証はその分を割り引いて読むべきである。 Stripe による OpenRouter 買収はブルームバーグ 2026-08-16 の報道で、Stripe は以前「噂や憶測には論評しない」と回答している。筆者もまた OpenRouter と同カテゴリの LLM ゲートウェイ Flatkey を運営している。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "4cb9ed211fd6e317",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.24910846194433453,
+      "popularityPercentile": 0.46537396121883656,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 74,
+      "titleJa": null,
+      "oneLiner": "StripeによるOpenRouter買収をAI安全の観点から分析している。",
+      "takeaways": [
+        "記事はStripeによるOpenRouter買収を安全面から分析する。",
+        "主張の中心はAI利用全体の安全確保だった。",
+        "分析者が投資家でもある点は割り引いて読む必要がある。"
+      ],
+      "keywords": [
+        "Stripe",
+        "OpenRouter",
+        "AI安全",
+        "アラインメント",
+        "Anjney Midha"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Cursor脆弱性DuneSlide(CVSS9.8)、原因はたった1つのパラメータだった",
+      "url": "https://qiita.com/kai_kou/items/dcadec92dfd1ac20fd46",
+      "publishedAt": "2026-08-21T03:05:52.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。2023年2月からアライドアーキテクツ株式会社のエンジニアリングマネージャーとしてワイワイやってます。",
+        "organization": "アライドアーキテクツ株式会社",
+        "location": "Osaka, Japan",
+        "followers": 939,
+        "posts": 752,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "cursor",
+        "MCP",
+        "AI"
+      ],
+      "snippet": "はじめに 2026年6月、AIコーディングIDE「Cursor」に2件のクリティカル脆弱性「DuneSlide」（CVE-2026-50548 / CVE-2026-50549）へのCVE番号が正式に割り当てられました。CVSSスコアはいずれも 9.8/10（CVSS 3.1）。プロンプトインジェクションだけでサンドボックスを脱獄し、開発者のマシン上で任意コードを実行できるというものです[^1]。 修正自体は2026年4月2日リリースの Cursor 3.0 で完了済みです。しかし、脆弱性を発見した Cato AI Labs のタイムラインを読むと、原因は驚くほどシンプルな設定ミス1つに集約されます。本記事では、この脆弱性の仕組みを技術的に読み解き、Cursorに限らずAIコーディングエージェント全般に応用できる自衛策を、実際に手を動かして確認できる形でまとめます。 この記事で学べること …",
+      "body": "はじめに\n\n2026年6月、AIコーディングIDE「Cursor」に2件のクリティカル脆弱性「DuneSlide」（CVE-2026-50548 / CVE-2026-50549）へのCVE番号が正式に割り当てられました。CVSSスコアはいずれも 9.8/10（CVSS 3.1）。プロンプトインジェクションだけでサンドボックスを脱獄し、開発者のマシン上で任意コードを実行できるというものです[^1]。\n\n修正自体は2026年4月2日リリースの Cursor 3.0 で完了済みです。しかし、脆弱性を発見した Cato AI Labs のタイムラインを読むと、原因は驚くほどシンプルな設定ミス1つに集約されます。本記事では、この脆弱性の仕組みを技術的に読み解き、Cursorに限らずAIコーディングエージェント全般に応用できる自衛策を、実際に手を動かして確認できる形でまとめます。\n\nこの記事で学べること\n・DuneSlide（CVE-2026-50548 / CVE-2026-50549）の攻撃の仕組み\n・自分の環境が影響を受けるかを確認するチェックスクリプト\n・AIコーディングエージェントのサンドボックスを堅牢にする設定チェックリスト\n\n対象読者\n・Cursor / Claude Code / Windsurf などAIコーディングエージェントを業務利用しているエンジニア\n・MCP（Model Context Protocol）連携を導入・検討しているチーム\n・プロンプトインジェクション対策に関心があるセキュリティ担当者\n\n前提知識\n・ターミナルコマンドの基本操作\n・サンドボックス・環境変数・シンボリックリンクの基礎知識\n\nTL;DR\n・CursorのAIエージェントがコマンドを実行する際、workingdirectory パラメータの検証漏れとシンボリックリンク解決の実装ミスにより、サンドボックス自体のバイナリを書き換えて脱獄できる 脆弱性が見つかった\n・攻撃者はユーザーに直接触れる必要がなく、MCP経由で読み込ませた文書やWeb検索結果に指示を仕込むだけ で発火する（ゼロクリック）\n・Cursor 3.0（2026年4月2日）以降は修正済み。まずは自分のバージョンを確認し、古ければ即アップデートする\n\n背景: なぜCursorが狙われるのか\n\nCursorは公式サイトで「Fortune 500企業の64%が導入」と公表している、AIコーディングエージェント市場で存在感の大きいIDEです[^2]。開発者の代わりにターミナルコマンドを実行し、ファイルを編集し、Gitを操作する権限を持つため、攻撃者から見れば「1つ攻略すれば大量の開発機に到達できる」極めて価値の高い標的 になります。\n\nセキュリティ企業 Cato Networks の専門組織 Cato AI Labs は、2026年2月19日にこの脆弱性をCursorへ報告しました。当初はCursor側の脅威モデルが「MCPサーバーの悪用」を想定していなかったため一度却下されましたが、2月26日にエスカレーションした結果、正式に再調査が始まりました[^3]。4月1日に修正がCursor 3.0へ搭載されることが確定し、6月5日に CVE-2026-50548 / CVE-2026-50549 としてCVE番号が正式割当されています。\n\nDuneSlideの仕組み: 2つのCVEを技術的に読み解く\n\nDuneSlideは2つの独立したバグの組み合わせです。どちらも「サンドボックスの外に書き込みができてしまう」という結果は同じですが、突破口が異なります。\n\nCVE-2026-50548: workingdirectoryパラメータの悪用\n\nCursorのエージェントがターミナルコマンドを実行する runterminalcmd ツールには、任意の作業フォルダを指定できる workingdirectory というオプションパラメータがあります[^4]。\n\n本来サンドボックスは「コマンドの作業フォルダへの書き込み」を許可する設計でした。ここに落とし穴があります。プロンプトインジェクションによってエージェントに workingdirectory をプロジェクト外のシステムパスに設定させると、Cursorはそのパスを そのまま書き込み許可リストに追加してしまう のです[^5]。\n\n結果として、攻撃者はサンドボックスヘルパー本体（macOSでは cursorsandbox バイナリ）を上書きし、以降のすべてのコマンドをサンドボックス保護なしで実行できるようになります。\n\nCVE-2026-50549: シンボリックリンク解決のフォールバック不備\n\nもう一方は安全性チェックの回避です。Cursorはファイル書き込み前に、対象パスがシンボリックリンクであれば実体を解決し、実際の書き込み先がプロジェクト内に収まっているかを確認します。\n\n問題は その確認処理が失敗したときのフォールバック にありました。対象が存在しない、または途中のディレクトリに読み取り権限がないなどの理由で解決に失敗すると、Cursorは「安全側に倒して拒否する」のではなく、シンボリックリンク自身のプロジェクト内パスをそのまま信用してしまう 設計になっていたのです[^6]。攻撃者はプロジェクト内に一見無害なシンボリックリンクを仕込み、実体をプロジェクト外の危険なファイルに向けることでこの検証をすり抜けられます。\n\n攻撃者はキーボードに触れなくていい\n\nどちらのCVEも起点はプロンプトインジェクションです。攻撃者はユーザーのCursorに直接コマンドを打ち込む必要がありません。ユーザーがエージェントに読み込ませる MCP経由の外部データやWeb検索結果に悪意ある指示を仕込んでおくだけ で、エージェントがその指示を「ユーザーの意図」と誤認して実行してしまいます[^1]。\n\n自分の環境が影響を受けるか確認する\n\nまずは手元のCursorバージョンを確認します。3.0未満であれば両CVEの影響を受けます。\n\n [code] \n\nチーム開発では、CI等で以下のようにチーム全員のバージョンをまとめて棚卸しするのも有効です。\n\n [code] \n\n対策チェックリスト: パッチ適用だけで終わらせない\n\nCursor 3.0への更新は必須の前提ですが、DuneSlideの根本原因（プロンプトインジェクション経由でエージェントに任意の操作をさせられる）は今後も別の形で再発しうる、というのが業界の共通認識です[^7]。以下は更新後も継続すべき運用面の対策です。\n\n| # | 対策 | 具体的な設定 |\n|---|------|-------------|\n| 1 | バージョン管理 | Cursorを3.0以降に固定し、社内配布用のイメージ/インストーラを更新する |\n| 2 | 最小権限化 | エージェントのファイルシステムアクセスを作業フォルダのみに制限する |\n| 3 | 承認フローの必須化 | Auto-Runモードを無効化するか、コマンド実行前の人間承認を必須にする |\n| 4 | MCP接続の絞り込み | 任意のWebコンテンツ自動取得を避け、許可リスト化した固定のMCPサーバーのみ接続する |\n| 5 | 環境変数の隔離 | 認証情報を環境変数に直接置かず、シークレットマネージャー経由で注入する |\n| 6 | 監査ログ | エージェントの実行ログを有効化し、想定外のGit操作やファイル書き込みを検知できるようにする |\n\n特に4番目の「MCP接続の絞り込み」は、DuneSlideの侵入経路そのものを塞ぐ対策です。エージェントが読みに行く先が固定・信頼済みのMCPサーバーだけであれば、外部コンテンツ経由のプロンプトインジェクションの機会自体が大きく減ります。\nAuto-RunモードとAllowlistの組み合わせにも別のCVE-2026-22708（シェルビルトインバイパス、Cursor 2.3で修正済み）が存在します。export や cd のようなシェル組み込みコマンドはコマンド許可リストの監視対象外になりやすいため、Allowlistだけに頼った運用は避けてください[^8]。\n\n著者視点の発見ポイント\n\nDuneSlideの2つのCVEを読み比べて筆者が着目したのは、どちらも「サンドボックスの脱獄」ではなく「サンドボックスに書き込んでいい場所の判定ミス」 だという点です。サンドボックスの実装自体は堅牢でも、「どこまでを信頼するか」を決めるパラメータ（workingdirectory）や、判定に失敗したときのフォールバック挙動（symlink解決失敗時の扱い）にバグが仕込まれると、防御機構ごと無力化されてしまいます。\n\nこれはCursorに限った話ではありません。Claude Code・Windsurf・その他のAIコーディングエージェントも、ユーザーの代わりにコマンドを実行する以上、同種の「境界判定ロジック」を必ず持っています。DuneSlideから得られる教訓は、エージェントのサンドボックス実装を評価するときは『通常時の動作』だけでなく『検証に失敗したときにどちら側へフォールバックするか』を必ず確認する、という視点です。安全側フォールバック（deny by default）になっているかを、自分たちが使うツールでも一度確認してみることをお勧めします。\n\nまとめ\n・DuneSlide（CVE-2026-50548 / CVE-2026-50549）はCVSS 9.8のクリティカル脆弱性で、Cursor 3.0未満のすべてのバージョンが影響を受ける\n・攻撃はプロンプトインジェクション起点のゼロクリックで、workingdirectory パラメータとシンボリックリンク解決のフォールバック不備という2つの実装ミスが原因だった\n・パッチ適用（Cursor 3.0以降）に加えて、MCP接続の絞り込み・最小権限化・承認フローの必須化を運用ルールとして組み込むことが重要\n・AIコーディングエージェントを評価する際は「検証失敗時にどちらへフォールバックするか」を必ずチェックする\n\n参考リンク\n・DuneSlide: Two Critical RCE vulnerabilities | Cato Networks — 発見元による技術解説・開示タイムライン\n・Critical Cursor Flaws Could Let Prompt Injection Escape Sandbox and Run Commands | The Hacker News — CVE番号・開示タイムラインの詳細\n・Sandbox bypass flaws in Cursor IDE highlight prompt injection as an RCE vector | CSO Online — workingdirectory・symlink双方の技術詳細\n・CVE-2026-22708 | SentinelOne Vulnerability Database — 関連するシェルビルトインバイパス（CVE-2026-22708）の詳細\n・Cursor for Enterprise — Fortune 500企業64%導入の一次情報\n\n[^1]: Critical Cursor Flaws Could Let Prompt Injection Escape Sandbox and Run Commands | The Hacker News（2026年7月1日公開）\n[^2]: Cursor for Enterprise — 「Trusted by 64% of Fortune 500 companies」\n[^3]: DuneSlide: Two Critical RCE vulnerabilities | Cato Networks — 開示タイムライン（2月19日報告・2月23日却下・2月26日エスカレーション・4月2日Cursor 3.0で修正・6月5日CVE割当）\n[^4]: Sandbox bypass flaws in Cursor IDE highlight prompt injection as an RCE vector | CSO Online\n[^5]: 同上。workingdirectoryパラメータが書き込み許可リストへ無条件追加される挙動について\n[^6]: 同上。シンボリックリンク解決失敗時のフォールバック挙動について\n[^7]: Critical Cursor AI Code Editor Flaws Could Lead to OS-Level Remote Code Execution | SecurityWeek\n[^8]: CVE-2026-22708 | SentinelOne Vulnerability Database — CVSS 7.2、Cursor 2.3で修正済み",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5240f49039747209",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8110249307479225,
+      "popularityPercentile": 0.5955678670360111,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 73,
+      "titleJa": null,
+      "oneLiner": "CursorのDuneSlide脆弱性は設定ミスから端末上の任意実行を許していた。",
+      "takeaways": [
+        "Cursorの2件の重大な欠陥にCVE番号が付いた。",
+        "悪意ある指示だけで端末上の処理を実行できた。",
+        "Cursor 3.0で2026年4月2日に修正済みだった。"
+      ],
+      "keywords": [
+        "Cursor",
+        "DuneSlide",
+        "CVE-2026-50548",
+        "CVE-2026-50549",
+        "MCP",
+        "プロンプトインジェクション"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "IAM Identity Center の組織インスタンスがワンクリックでマルチリージョン化できるようになりました",
+      "url": "https://qiita.com/leomarokun/items/29a2aca398d35a1aae1c",
+      "publishedAt": "2026-08-21T10:12:14.000Z",
+      "author": "れおまろ",
+      "authorDetail": {
+        "name": "れおまろ",
+        "handle": "@leomarokun",
+        "url": "https://qiita.com/leomarokun",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/280929/bb578cab5744ec774a5ec8238c3f7cac72fe8672/x_large.png?1755424909",
+        "bio": "AWS Community Builders 2026（AI Engineering）\r\nAWSエンジニア。\r\nAWSをメインに、最近は AI 頑張ってます。\r\nAWS: SCS, AIP, SAP, DOP, SAA, SOA, DVA, MLA, CLF, AIF\r\nLinuC: 1, 2, \r\nFE, \r\nAzure: AI-900, AI-102",
+        "location": "Tokyo",
+        "followers": 175,
+        "posts": 503,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/leomarokun0920"
+          }
+        ]
+      },
+      "tags": [
+        "AWS",
+        "IAMIdentityCenter",
+        "SSO",
+        "kms"
+      ],
+      "snippet": "はじめに IAM Identity Center は組織全体の SSO 基盤なので、そのインスタンスがある 1 リージョンに障害が起きると、権限が正しく設定されていても AWS アカウントへサインインできなくなる、という単一障害点を抱えています。 これまでもマルチリージョン化自体は可能でしたが、カスタマー管理 KMS キーの作成やリージョンの追加を個別に手動でやる必要があり、意外と腰の重い作業でした。 今回のアップデートで、新規に組織インスタンスを作成するときに、マルチリージョン構成をワンクリックで選べるようになりました。 https://aws.amazon.com/jp/about-aws/whats-new/2026/08/aws-iam-identity-center-supports-one-click-multi-region-option-new-organization-i…",
+      "body": "はじめに\n\nIAM Identity Center は組織全体の SSO 基盤なので、そのインスタンスがある 1 リージョンに障害が起きると、権限が正しく設定されていても AWS アカウントへサインインできなくなる、という単一障害点を抱えています。\n\nこれまでもマルチリージョン化自体は可能でしたが、カスタマー管理 KMS キーの作成やリージョンの追加を個別に手動でやる必要があり、意外と腰の重い作業でした。\n\n今回のアップデートで、新規に組織インスタンスを作成するときに、マルチリージョン構成をワンクリックで選べるようになりました。\n\nhttps://aws.amazon.com/jp/about-aws/whats-new/2026/08/aws-iam-identity-center-supports-one-click-multi-region-option-new-organization-instances/\n\nこの記事では、3 つの設定オプションの違いと、既存の組織インスタンスが今どういう構成になっているかを CLI で確認する手順をまとめます。\n\n忙しい人のための要約\n・組織インスタンス作成時に Single-Region / Multi-Region / Custom の 3 択が選べるようになった\n・Multi-Region を選ぶと、レプリケーション対応のカスタマー管理 KMS キーが自動作成され、追加リージョンへのレプリケーションまで一気に完了する（従来は個別の手動ステップだった）\n・対象は 組織インスタンスのみ（アカウントインスタンスは非対応）で、リージョンは デフォルトで有効な商用リージョン（オプトインリージョンは非対応）\n・Active Directory を ID ソースにしている場合はマルチリージョン非対応。外部 IdP を使う場合は複数 ACS URL 対応が必要\n・既存の組織インスタンスも add-region で後からマルチリージョン化できる\n\nアップデート概要\n\nコンソールでデフォルト有効リージョンにて組織インスタンスを新規作成すると、Instance configuration として次の3つから選べます。\n\n| オプション | 暗号化キー | 追加リージョン |\n| ------------------------ | --------------------------------------------- | ---------------- |\n| Single-Region instance | AWS 所有キー（後で CMK に変更可） | なし |\n| Multi-Region instance | マルチリージョン CMK を自動作成 | 1 つ自動設定 |\n| Custom instance | AWS 所有キー / 新規 CMK / 既存 CMK から選択 | 個別に指定 |\n\nMulti-Region と Custom（新規 CMK 作成時）を選ぶと、CreatedBy: IAM Identity Center タグの付いたマルチリージョン KMS キーが自動生成され、指定した追加リージョンへレプリケートされます。\n\nこれを手動でやろうとすると、\nKMS キー作成 → タグ付け → レプリカキー作成 → IAM Identity Center へのリージョン追加、\nという順番を自分で踏む必要があったので、地味に楽になったポイントかと思います。\n\n何がうれしいのか\n\n一番の恩恵は、プライマリリージョンで障害が起きても、事前に払い出し済みの権限であれば AWS アカウントへのアクセスを継続できる点です。\nワークフォースのアイデンティティ・権限セット・ユーザー/グループの割り当て・セッションなどがプライマリから追加リージョンへ自動でレプリケートされるため、フェイルオーバー的な使い方ができます。\n\nもうひとつが、AWS マネージドアプリケーションのデプロイリージョンを選べる点です。\nデータレジデンシー要件やユーザーとの地理的な近さを踏まえて、アプリごとに都合の良いリージョンへデプロイし、そのリージョンにレプリケートされたアイデンティティをローカルに参照させられます。\n\n既存インスタンスの構成を確認する\n\n自分の組織インスタンスが今どういう構成なのか、CLI（aws sso-admin）で確認してみます。\n\n今回は既存の本番インスタンスなので、実際にリージョンを追加する変更は行わず、読み取り専用の API だけを使います。\n\n現状のインスタンス構成を確認する\n\n [code] \n\n [code] \n\nRegions が東京リージョン 1 件だけなので、Single-Region 構成のままだとわかります。describe-instance も見ておきます。\n\n [code] \n\n [code] \n\ndescribe-instance のレスポンスには本来 EncryptionConfigurationDetails.KeyType（AWSOWNEDKMSKEY / CUSTOMERMANAGEDKEY）という暗号化キー種別を直接返すフィールドがありますが、今回の出力には乗ってこなかったため、ここでは断定を避けておきます。\n\nマルチリージョン化する場合のコマンド\n\nこのインスタンスを後からマルチリージョン化したい場合は add-region を使います。\n\n実行すると非同期でレプリケーションが始まり、list-regions のステータスが ADDING → ACTIVE と変化します。\n\n [code] \n\nこのコマンドを実行する IAM プリンシパルには、IAM Identity Center 有効化に必要な権限に加えて kms:CreateKey / kms:TagResource / kms:ReplicateKey が要ります。\nマルチリージョン CMK の作成とレプリカキーの作成がこのコマンドの中で走るためです。\n\nなお、新規作成時のワンクリック体験そのもの（Instance configuration の 3 択）はコンソール限定の機能で、かつ 1 つの AWS Organizations には組織インスタンスを 1 つしか持てないため、既存インスタンスがある今回のアカウントでは新規作成フローを再現できません。\n新規に組織を立ち上げる場合は、IAM Identity Center コンソールを開いたときに表示される Instance configuration の中から Multi-Region instance を選ぶだけで、上記の add-region 相当の作業が完了します。\n\n気をつけるポイント\n・プライマリリージョンは作成後に変更できません。list-instances の PrimaryRegion を見て分かる通り、今のインスタンスは東京が固定です。変更したい場合はインスタンスを削除して作り直すしかないので、最初にどのリージョンを選ぶかは慎重に決めたほうがよさそうです\n・ID ソースによって使える／使えないが分かれます。Identity Center ディレクトリまたは外部 IdP（Okta、Microsoft Entra ID など）なら利用できますが、Active Directory を ID ソースにしている場合はマルチリージョン非対応です。外部 IdP を使う場合も、複数の ACS URL に対応した IdP でないと恩恵をフルに受けられません（Google Workspace は非対応で、代替手段が別途用意されています）\n\n参考リンク\n・Using IAM Identity Center across multiple AWS Regions\n・Organization instances of IAM Identity Center\n・AWS KMS 料金",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "b4ad4d79f0ef5bf3",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.23155124653739612,
+      "popularityPercentile": 0.27977839335180055,
+      "matchedTopics": [
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "AWS IAM Identity Centerが新規組織インスタンスの複数リージョン化に対応した。",
+      "takeaways": [
+        "AWSの組織用ログイン基盤を複数地域で作れる。",
+        "複数地域を選ぶと暗号鍵の複製まで自動で進む。",
+        "対象は組織インスタンスだけで既存環境は別途確認が要る。"
+      ],
+      "keywords": [
+        "AWS",
+        "IAM Identity Center",
+        "Multi-Region",
+        "KMS",
+        "組織インスタンス",
+        "PrivateLink"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "jaredrhod/barehands — Move things on your screen with your bare hands. A webcam-powered, hand-tracked interface for your AI. No headset. No controllers.",
+      "url": "https://github.com/jaredrhod/barehands",
+      "publishedAt": "2026-08-15T07:30:37.000Z",
+      "author": "jaredrhod",
+      "authorDetail": {
+        "name": "jaredrhod",
+        "url": "https://github.com/jaredrhod",
+        "avatarUrl": "https://github.com/jaredrhod.png?size=120",
+        "bio": "Move things on your screen with your bare hands. A webcam-powered, hand-tracked interface for your AI. No headset. No controllers."
+      },
+      "tags": [
+        "HTML",
+        "ai-assisstant",
+        "augmented-reality",
+        "claude-code",
+        "gesture-control",
+        "hand-tracking",
+        "mediapipe",
+        "threejs"
+      ],
+      "snippet": "Move things on your screen with your bare hands. A webcam-powered, hand-tracked interface for your AI. No headset. No controllers.",
+      "metrics": {
+        "stars": 541
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "867d616e2f92f94e",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.649693515704154,
+      "popularityPercentile": 0.3617021276595745,
+      "matchedTopics": [
+        "ブラウザ / Web標準",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "barehands — 手の動きでAIを操作する画面",
+      "oneLiner": "barehandsはウェブカメラで手の動きを読み取りAIを操作するインターフェースです。",
+      "takeaways": [
+        "手の動きで画面上のものを動かせる。",
+        "操作にはウェブカメラだけを使う。",
+        "専用の機器や手に持つ道具は要らない。"
+      ],
+      "keywords": [
+        "barehands",
+        "Claude Code",
+        "hand tracking",
+        "MediaPipe",
+        "Three.js",
+        "gesture control"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 https://github.com/jaredrhod/barehands",
+        "verify": "ls barehands",
+        "questions": [
+          "README の手順だけで、最初の出力まで到達できるか",
+          "動かすのに別途何が必要か（API キー・GUI・別のツール）"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "ItusiAI/Open-Magiviz — Magiviz：开源的 AI 视频创作引擎，把一整个剧组交给每一个开发者与创作者",
+      "url": "https://github.com/ItusiAI/Open-Magiviz",
+      "publishedAt": "2026-08-09T06:20:24.000Z",
+      "author": "ItusiAI",
+      "authorDetail": {
+        "name": "ItusiAI",
+        "url": "https://github.com/ItusiAI",
+        "avatarUrl": "https://github.com/ItusiAI.png?size=120",
+        "bio": "Magiviz：开源的 AI 视频创作引擎，把一整个剧组交给每一个开发者与创作者"
+      },
+      "tags": [
+        "TypeScript"
+      ],
+      "snippet": "Magiviz：开源的 AI 视频创作引擎，把一整个剧组交给每一个开发者与创作者",
+      "metrics": {
+        "stars": 503
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "785710b7862e37d5",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.3567375886524823,
+      "popularityPercentile": 0.10638297872340426,
+      "matchedTopics": [
+        "TypeScript"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "Open-Magiviz — AI動画制作を自動化するエンジン",
+      "oneLiner": "Open-Magivizは動画制作の工程をAIで支援するオープンソースエンジンです。",
+      "takeaways": [
+        "AIを使った動画制作の流れを扱える。",
+        "動画制作に必要な役割を一つにまとめる。",
+        "開発者と制作者が利用できる形で公開されている。"
+      ],
+      "keywords": [
+        "Open-Magiviz",
+        "Magiviz",
+        "TypeScript",
+        "AI動画制作",
+        "オープンソース"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 https://github.com/ItusiAI/Open-Magiviz",
+        "verify": "ls Open-Magiviz",
+        "questions": [
+          "README の手順だけで、最初の出力まで到達できるか",
+          "動かすのに別途何が必要か（API キー・GUI・別のツール）"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Microsoftの「Flint」はグラフの中間言語だった — Obsidianプラグインにして分かった設計と3つの罠",
+      "url": "https://qiita.com/0yasumi_m0de/items/802bea3e7aca2bcc3e18",
+      "publishedAt": "2026-08-21T12:47:13.000Z",
+      "author": "たかちゃんまん JP",
+      "authorDetail": {
+        "name": "たかちゃんまん JP",
+        "handle": "@0yasumi_m0de",
+        "url": "https://qiita.com/0yasumi_m0de",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3992727/3df97fcd02665a57a8f3bf05af9f5405862eadb2/x_large.png?1754152431",
+        "bio": "情報系大学生",
+        "followers": 3,
+        "posts": 19,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/yut0takagi"
+          }
+        ]
+      },
+      "tags": [
+        "Obsidian",
+        "TypeScript",
+        "ECharts",
+        "データ可視化",
+        "Microsoft"
+      ],
+      "snippet": "Microsoft が flint-chart という OSS を出しています。README の一行目にはこう書いてあります。 Flint is a visualization intermediate language enabling AI agents to convert simple, editable chart specifications into polished visualizations. 中間言語。グラフのライブラリではなく、コンパイラです。ここを読み飛ばすと設計を間違えます。実際に間違えかけました。 これを Obsidian のコードブロックに埋め込むプラグインを作ったので、その過程で分かったことを書きます。作ったものは obsidian-flint-chart です。 なお本記事の計測は flint-chart@0.5.1 時点のものです。まだプレ 1.0 で…",
+      "body": "Microsoft が flint-chart という OSS を出しています。README の一行目にはこう書いてあります。\nFlint is a visualization intermediate language enabling AI agents to convert simple, editable chart specifications into polished visualizations.\n\n中間言語。グラフのライブラリではなく、コンパイラです。ここを読み飛ばすと設計を間違えます。実際に間違えかけました。\n\nこれを Obsidian のコードブロックに埋め込むプラグインを作ったので、その過程で分かったことを書きます。作ったものは obsidian-flint-chart です。\n\nなお本記事の計測は flint-chart@0.5.1 時点のものです。まだプレ 1.0 で、npm 上の最終更新は 2026-08-14。API は動く可能性が高いので、バージョンは見てください。\n\nFlint が解こうとしている問題\n\nVega-Lite や ECharts のような宣言的な文法は、データの型と視覚的なマッピングが素直に対応しているときはよく働きます。崩れるのは、格納形式と意味がズレたときです。Flint の README はこの例を挙げています。\n・整数 202001 は「量」ではなく 年月\n・温度や比率のような非加算的な指標を積み上げてしまう\n・発散する値（増減率など）を連続的なカラーランプに載せてしまう\n\n熟練者は長いスペックを書けばこれを直せます。ただそのスペックは、フィールドを差し替えたりヒートマップの向きを変えたりチャート種別を変えたりした途端に壊れます。低レベルなパラメータが互いに依存しているからです。\n\nFlint は「この列が何を意味するか」を第一級の入力にして、そこからスケール・軸・集約・書式・レイアウト・配色を導出します。入力はこの形です。\n\n [code] \n\n意味型は 44 種あり（flint-chart/core の SemanticTypes から実測）、Price Quantity Percentage PercentageChange YearMonth YearQuarter Rank Temperature Latitude あたりまで揃っています。semantictypes はデータセットにつき一度書けば使い回せて、探索中に変えるのは chartspec だけになる、というのが設計意図です。\n\n軸のスケール、目盛りの刻み、桁区切り、凡例の位置、カテゴリの色。これらを一切書いていないのに出てくるのは、意味から導出しているからです。\n\n罠1: Flint は描画しない\n\nassembleECharts() の戻り値は ECharts の option オブジェクトです。DOM も canvas も触りません。同じ入力から Vega-Lite / ECharts / Chart.js / Plotly / Excel のネイティブスペックを吐く、という設計になっています。\n\n [code] \n\nつまり npm install flint-chart だけでは何も表示されません。描画ライブラリは自分で同梱します。peerDependencies に vega vega-lite echarts chart.js plotly.js が並んでいるのはそのためで、使う 1 つを入れれば足ります。\n\nObsidian プラグインは 1 ファイル（main.js）に全部バンドルして配布するので、ここでどれを選ぶかが最初の分岐になりました。\n\nバックエンドの選択を実測で決める\n\n対応チャート数と、esbuild でバンドルしたサイズを測りました。\n\n| バックエンド | チャート種別 | 特徴 |\n| --- | --- | --- |\n| Vega-Lite | 36 | Flint のリファレンス実装。軸・スケール・faceting の再現度が最も高い |\n| ECharts | 37 | sunburst / treemap / sankey / gauge / graph / tree / parallel / calendar heatmap を持つ |\n| Chart.js | 22 | 軽量。パラメータ面を意図的に小さくしている |\n\n [code] \n\nflint-chart は npm の unpackedSize が 42.8MB あります。全バックエンド・全テーマ・テストデータ・Python のソースプレビューまで同梱しているからです。ただしサブパス export（flint-chart/echarts）が効いていて、tree-shaking 後は 224KB に落ちます。42MB を見て諦めなくて大丈夫でした。\n\necharts/core で使うチャートだけ use() する絞り込みは、500KB しか削れないのに 37 種のうち 31 種が使えなくなります。この交換レートは悪いので、ECharts 全体を入れる 1.3MB を採りました。参考に、Obsidian のコミュニティストアにある obsidian-chartsview-plugin は main.js が 3MB を超えています。\n\nECharts を選んだ決め手は、Vega-Lite 側にない構造系（sankey / treemap / sunburst / gauge / calendar heatmap）です。Markdown にグラフを埋め込むプラグインでサンキーが書ける、というのはあまりない気がしました。\n\n罠2: themespec は Vega-Lite 専用\n\nFlint には themespec があって、economist のようなプリセット名を渡すか、独自のデザインシステムを JSON で書けます。\n\n [code] \n\nダークモード対応をこれでやるつもりで theme 仕様のドキュメントを開いたら、冒頭に引用ブロックで一行ありました。\nThemeSpec currently affects Vega-Lite output. Other backend assemblers ignore it.\n\nECharts では丸ごと無視されます。 プリセットも独自テーマも効きません。ドキュメントに書いてあるので仕様どおりです。ただ themespec が ChartAssemblyInput の第一級フィールドとして並んでいる以上、バックエンドによって効かないとは思いにくい。テーマ設計を始める前に気づけたのは運が良かっただけで、実装してから気づいたら作り直しでした。\n\nさらに困ったことに、Flint が返す ECharts option は軸ラベルの色を設定しません。\n\n [code] \n\n色が未設定だと ECharts の既定色（濃いグレー）が効きます。ライトテーマなら問題ありませんが、ダークテーマの背景では読めません。加えてタイトル類は graphic の text 要素として描かれ、style.fill が #333 でハードコードされています。\n\n結局、生成された option を後処理する方式にしました。Obsidian は CSS 変数でテーマ色を公開しているので、それを読みます。\n\n [code] \n\ntheme-dark クラスを見てライト/ダークで分岐する書き方もありますが、CSS 変数を直接読むほうが結果的に良かった。ユーザーが入れているコミュニティテーマにも自動で追従します。プリセットが使えない代償として悪くない落ち着き先でした。\n\n系列の色（option.color と series[].itemStyle.color）には触りません。あれは Flint が意味から決めたデータの色なので、テーマ側が上書きするものではない。\n\n罠3: ユニットテストが自分の誤解をそのまま検証していた\n\nこれが一番書きたかった話です。\n\n後処理で各コンポーネントの文字色を塗る関数を書き、テストも書きました。radar チャートの分はこうです。\n\n [code] \n\nテストは通ります。当然です、実装とテストを同じ思い込みで書いているので。\n\nしばらく後に、jsdom 上で実際の ECharts に食わせて SVG を出す統合テストを足しました。そこで初めてこれが出ました。\n\n [code] \n\n2 つ間違えていました。name.textStyle の階層は ECharts 4 で廃止済み。そして ECharts のコンポーネントにおける name はそのコンポーネントの識別子です。文字列か数値でなければならない。そこにオブジェクトを書いたので、ECharts は radar 全体を拒否していました。radar チャートは何も描かれていなかったわけです。\n\n正解は axisName でした。\n\n [code] \n\nFlint が返す radar の option を見に行ったら、ちゃんと axisName を使っていました。私が勝手に name だと思っただけです。\n\n教訓は「統合テストを書け」ではなく、もう少し具体的だと思っています。外部ライブラリのオプション構造に対する自分の記憶は、ユニットテストでは検証できない。 テストと実装が同じ人の同じ思い込みから出ているので、two-way の検証になっていない。答え合わせの相手は本物のライブラリしかいない。\n\n同じ統合テストで、もう 2 つ拾いました。\n\nCSV の区切り文字を誤検出していた。 「全行で列数が揃う候補を選ぶ」というスコアリングにしていたら、a,b,c\\n1,2 でタブ区切りが勝ちました。タブで切ると全行が 1 列で、綺麗に揃うからです。列数が 1 以下の候補は区切り文字ではない、という条件を足して直しました。\n\nMarkdown 表のセル分割が [[Note|Alias]] を割っていた。 パイプでセルを切っているので、wikilink のエイリアス区切りが巻き込まれます。[[ ]] の内側とインラインコードの内側では切らないようにしました。\n\n最終的に、Flint が公開している 37 種すべてを実際の ECharts で描画してアサートするテーブル駆動のテストにしました。\n\n [code] \n\nチャート種別ごとに受け付けるチャネルが違うので（Pie Chart は x/y を取らず size/color、Gauge Chart は size/column だけ）、この表を書く作業そのものが仕様の理解になりました。\n\nObsidian 側で何を作ったか\n\nコードブロックに書けるようにしました。中身は YAML です。\n\n [code] flint\nchartType: Bar Chart\ntitle: 四半期売上\nx: quarter\ny: revenue\ncolor: region\ndata:\n・{ quarter: Q1, revenue: 1200, region: 関東 }\n・{ quarter: Q2, revenue: 1580, region: 関東 }\n・{ quarter: Q1, revenue: 800, region: 関西 }\n・{ quarter: Q2, revenue: 1120, region: 関西 }\n [code] \n\nYAML パーサは Obsidian が parseYaml を export しているので、バンドルサイズは増えません。YAML は JSON の上位集合なので、JSON をそのまま貼っても通ります。\n\nchartspec キーがある場合は Flint の ChartAssemblyInput としてそのまま読みます。Flint には MCP サーバ（flint-chart-mcp）があるので、AI が生成したスペックを無加工で貼れるようにしておきたかった。\n\n意味型は省略できる\n\nsemantictypes を書かないと、列名と値から推論します。値の形が確定的なもの（2026-08-21 → Date、2026-08 → YearMonth、2026Q3 → YearQuarter）を先に判定し、次に列名のヒント（revenue → Price、orders → Count、share → Percentage）を見て、最後に型でフォールバックします。日本語の列名（売上 件数 構成比 地域）も引きます。\n\n金額・件数系のヒントは数値列にだけ当てています。そうしないと priceband: \"high\" のような文字列列が Price になってしまう。\n\nchartType も省略できます。Flint に ecRecommendChartTypes() があるので、データを渡して推薦させています。\n\nノートの表がそのままグラフになる\n\nObsidian でしか出せない価値はここだと思っています。\n\n [code] flint\nchartType: Bar Chart\nx: Region\ny: Revenue\nsource: \"[[売上メモ#Q3]]\"\n [code] \n\n指定した見出しの下の Markdown 表を行に変換します。セルからは太字・斜体・インラインコード・wikilink・Markdown リンクを剥がし、1,580 と 42% は数値として読みます。ファイルの変更を購読しているので、表を編集するとグラフが追随します。\n\n表は手で編集する対象のまま置いておいて、グラフはそれを見る。データの二重管理が発生しないのが気に入っています。.csv .tsv .json を source: に指定するのも同じ経路です。\n\n空になるより、理由が出るほうがいい\n\nチャート種別が受け付けないチャネルを書いたときは、黙って空のグラフを出すのではなく行番号付きで理由を出すようにしました。\n\n [code] \n\nこの一覧は Flint の ecAllTemplateDefs から実行時に引いています。ハードコードしていないので、flint-chart を上げたら勝手に追随します。チャート種別名も同じところから取っているので、sankey と書けば Sankey Diagram に解決されるし、綴り間違いには近い候補を出せます。\n\n使ってみる\n\nコミュニティストアからインストールしてください\n書けるチャートは 37 種です。sankey / treemap / sunburst / tree / network graph / parallel coordinates / calendar heatmap / gantt / candlestick / bullet / gauge / radar / rose / waterfall / streamgraph / bump / slope / ECDF あたりまで含みます。\n\nおわりに\n\nFlint で面白いのは、可視化を「意味の宣言」と「意図の宣言」に分けたことだと思います。AI エージェントに冗長なネイティブスペックを吐かせるより、コンパクトな中間表現を吐かせるほうが安いし、小さな編集で壊れにくい。README の動機はそこにあります。\n\n一方で、v0.5.1 という段階なりの穴もあります。themespec がバックエンドによって効かないことは、フィールドの並びからは読み取れません。この手のものを組み込むときは、ドキュメントを読むのと同じくらい、生成物を実際にライブラリに食わせて何が起きるか見たほうが早い。自分のユニットテストが自分の思い込みを承認していただけだった、という経験を踏んだので書いておきます。\n・Flint: https://github.com/microsoft/flint-chart\n・作ったプラグイン: https://github.com/yut0takagi/obsidian-flint-chart\n・Obsidian Plugin: https://community.obsidian.md/account/plugins/flint-chart",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f5c5bbabbee58c02",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7202216066481995,
+      "popularityPercentile": 0.18282548476454294,
+      "matchedTopics": [
+        "TypeScript"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "MicrosoftのFlintをObsidianプラグインに組み込み、設計上の注意点と3つの罠を検証しています。",
+      "takeaways": [
+        "Flintはグラフ部品ではなく変換の仕組みである。",
+        "データの意味と保存形式のずれを扱える。",
+        "flint-chart 0.5.1時点の実装上の罠を紹介する。"
+      ],
+      "keywords": [
+        "Microsoft Flint",
+        "flint-chart 0.5.1",
+        "obsidian-flint-chart",
+        "Obsidian",
+        "TypeScript",
+        "ECharts"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "yjh051108/dsh-routing-suite — dsh-routing-suite — injector + router-standard kit: install the runtime injector first, then the task-aware reasoning-mode router preset (measured P1-P23).",
+      "url": "https://github.com/yjh051108/dsh-routing-suite",
+      "publishedAt": "2026-08-14T21:20:55.000Z",
+      "author": "yjh051108",
+      "authorDetail": {
+        "name": "yjh051108",
+        "url": "https://github.com/yjh051108",
+        "avatarUrl": "https://github.com/yjh051108.png?size=120",
+        "bio": "dsh-routing-suite — injector + router-standard kit: install the runtime injector first, then the task-aware reasoning-mode router preset (measured P1-P23)."
+      },
+      "tags": [
+        "PowerShell"
+      ],
+      "snippet": "dsh-routing-suite — injector + router-standard kit: install the runtime injector first, then the task-aware reasoning-mode router preset (measured P1-P23).",
+      "metrics": {
+        "stars": 6559
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "ec23438f51e4efc8",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.26063829787234044,
+      "popularityPercentile": 0.9574468085106383,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 78,
+      "titleJa": "dsh-routing-suite — DeepSeek Harnessの処理分岐キット",
+      "oneLiner": "dsh-routing-suiteは実行時の注入機能と作業内容に応じた処理分岐を組み合わせたキットです。",
+      "takeaways": [
+        "AIの処理を作業内容に応じて振り分ける。",
+        "実行時に必要な機能を組み込める。",
+        "23項目の測定結果をもとに構成を調整する。"
+      ],
+      "keywords": [
+        "dsh-routing-suite",
+        "DeepSeek Harness",
+        "router-standard",
+        "agent routing",
+        "PowerShell"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 https://github.com/yjh051108/dsh-routing-suite",
+        "verify": "ls dsh-routing-suite",
+        "questions": [
+          "README の手順だけで、最初の出力まで到達できるか",
+          "動かすのに別途何が必要か（API キー・GUI・別のツール）"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "QAエンジニアの仕事が変わった——Claude CodeとPlaywrightで、テストからチケット管理まで全部AIに任せてみた話",
+      "url": "https://qiita.com/a_sato_JQIT/items/a82fccf6d52c05156384",
+      "publishedAt": "2026-08-21T09:04:05.000Z",
+      "author": "a_sato_JQIT",
+      "authorDetail": {
+        "name": "a_sato_JQIT",
+        "handle": "@a_sato_JQIT",
+        "url": "https://qiita.com/a_sato_JQIT",
+        "avatarUrl": "https://secure.gravatar.com/avatar/efadae0d3122bdce991c88b16fc8198c",
+        "followers": 0,
+        "posts": 1,
+        "links": []
+      },
+      "tags": [
+        "QA",
+        "Playwright",
+        "ClaudeCode",
+        "AI",
+        "自動化"
+      ],
+      "snippet": "はじめに はじめまして！QAエンジニアのSAです！ 私はQA事業部の代表として、日々ソフトウェアの品質と向き合っています。 突然ですが、みなさんの「当たり前の仕事」が、ある日突然まるごと変わってしまった経験はありますか？ 私にはあります。しかも、ほんの少し前の話です。 --- 以前の手動運用の話 私がこのチームに来る前にいたのは、テストシナリオを手動で作成し、手動で実施するチームでした。 テストケースを一つひとつExcelやスプレッドシートに書き起こし、実際にブラウザを操作しながら目で確認していく——そういった世界です。シナリオテストという概念すらなく、とにかく「人が動かす」ことが前提の現場でした。 そこから今のチームに異動になり、初めてPlaywrightと出会いました。 E2EテストをコードとしてPlaywrightで管理している。それだけでも「すごい環境だ」と感じたのですが、当時はそ…",
+      "body": "はじめに\n\nはじめまして！QAエンジニアのSAです！\n\n私はQA事業部の代表として、日々ソフトウェアの品質と向き合っています。\n\n突然ですが、みなさんの「当たり前の仕事」が、ある日突然まるごと変わってしまった経験はありますか？\n\n私にはあります。しかも、ほんの少し前の話です。\n\n---\n\n以前の手動運用の話\n\n私がこのチームに来る前にいたのは、テストシナリオを手動で作成し、手動で実施するチームでした。\n\nテストケースを一つひとつExcelやスプレッドシートに書き起こし、実際にブラウザを操作しながら目で確認していく——そういった世界です。シナリオテストという概念すらなく、とにかく「人が動かす」ことが前提の現場でした。\n\nそこから今のチームに異動になり、初めてPlaywrightと出会いました。\n\nE2EテストをコードとしてPlaywrightで管理している。それだけでも「すごい環境だ」と感じたのですが、当時はそれでもまだ、一部の作業は人間の手に委ねられていました。\n\nテストが終わったら、ブラウザを開いて、GitHubのチケットを探して、コメントを書いて、ステータスをdoneに更新する。\n\n地味で、時間がかかって、でも「それが仕事だ」と思っていました。\n\n---\n\nClaude Code × GitHub連携で変わったこと\n\n転機は、Claude Codeとの出会いでした。\n\nClaude CodeはAIがコードを書いたり、ターミナルを操作したりできるツールです。これをGitHubと連携させたところ、世界が変わりました。\n\n今では、私がAIに自然言語で指示を出すだけで——\n・Playwrightのテストが自動で実行される\n・テスト結果がGitHubのチケットに自動でコメントされる\n・ステータスが自動でdoneになる\n\nこの一連の流れが、人間が一切介在せずに完結します。\n\n最初に動いたとき、正直笑ってしまいました。「え、これで動くの？」と。あの感覚は今でも忘れられません。\n\n---\n\nQAの現場から見たAI活用の本音\n\nもちろん、最初から「すごい！最高！」とはなりませんでした。\n\n「AIがテストを実行して、本当に品質を守れるのか」「意図しない動きをしたときに誰が責任を持つのか」——そういった不安は、チームの中にも、自分の中にもありました。\n\n実際に使ってみると、AIは万能ではありません。指示の出し方が曖昧だと、期待通りに動かないこともある。前提となる設計や、QAとしての判断軸は、やはり人間が持っていなければいけない。\n\nでも逆に言えば、人間がやるべき仕事の解像度が上がったとも感じています。単純な反復作業はAIに任せ、自分たちは「何をテストすべきか」「どこにリスクがあるか」という本質的な思考に集中できるようになりました。\n\n---\n\nAI時代に乗り遅れてはいけない\n\nQA事業部の代表として、これだけははっきり言えます。\n\nAIの波は、QAの現場にも確実に来ています。\n\n実際、AIを使いこなせるQAエンジニアとそうでないQAエンジニアでは、すでに大きな差が出てきています。これは脅しではなく、現場で肌身に感じているリアルな話です。\n\n「自分の仕事には関係ない」「まだ先の話だ」——そう思っているうちに、現場は静かに変わっていきます。ツールが変わり、求められるスキルが変わり、仕事の定義そのものが変わっていく。\n\nそして、こんな時代が来るのかもしれないとすら思っています。\n\n「AIを使いこなせないエンジニアにあらず」\n\n大げさに聞こえますか？でも私は、そう遠くない未来の話だと本気で思っています。だとすれば、このビッグウェーブに乗らない選択肢はないっしょ！！\n\nQAエンジニアは、ポチポチと画面を操作しながら試験を実施する時代から、新たなフェーズへと突入しているのです！！\n\n怖がる必要はありません。まず一つ、試してみてください。小さな自動化でいい。AIに一つ指示を出してみるだけでいい。その「動いた」という体験が、きっと次の一歩につながります。\n\n---\n\nおわりに——実はこの記事も、AIと一緒に書きました\n\n最後に、一つ告白があります。\n\nこの記事、実はAIとの共作です。\n\n構成を考えるところから、文章を整えるところまで、AIと対話しながら作りました。「テストの自動化」の話をしておきながら、記事を書く行為そのものにもAIが入り込んでいる。\n\n我ながら、なかなか洒落ていると思っています。\n\nこれが今の現実です。AIはもう、コードを書く領域だけでなく、「考える」「伝える」という領域にまで入り込んでいます。\n\nだからこそ、私はこう思うのです。\n\nAI時代に乗り遅れてはいけない——それは誰かの話ではなく、あなたの話です。\n\n最後まで読んでいただき、ありがとうございました！",
+      "metrics": {
+        "likes": 17,
+        "stocks": 15
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c9a6f9689adf2024",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.8987811634349031,
+      "popularityPercentile": 0.9944598337950139,
+      "matchedTopics": [
+        "周辺ライブラリ",
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": true,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "Claude CodeとPlaywrightを連携しテスト実行からGitHubのチケット更新まで自動化する。",
+      "takeaways": [
+        "Claude Codeがブラウザーのテストを実行する。",
+        "結果の記録やチケット更新も自動で進む。",
+        "QA担当者の仕事は確認と判断へ移る。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "Playwright",
+        "GitHub",
+        "E2Eテスト",
+        "QA",
+        "自動化"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "品質確認をAIに任せるか人が最後まで担うか",
+        "forSide": "テストと記録を一続きにすれば定型作業を大きく減らせる。",
+        "againstSide": "誤った判定や記録を見逃すと品質問題がそのまま管理情報に残る。",
+        "oneSided": false,
+        "yourAngle": "AIが実行したテストの失敗率と人による再確認の件数を業務で測定できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "*【ポエム】Claude Code と Cowork、結局どっちを使うとよいか",
+      "url": "https://qiita.com/yml024/items/490424e2c9bde3bd1ffc",
+      "publishedAt": "2026-08-21T03:56:55.000Z",
+      "author": "Yumul Onishi",
+      "authorDetail": {
+        "name": "Yumul Onishi",
+        "handle": "@yml024",
+        "url": "https://qiita.com/yml024",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4222589/59dfa6b4422a6299f3a6a4849ed0dbf42ba0d9be/large.png?1780448200",
+        "location": "KYOTO",
+        "followers": 2,
+        "posts": 76,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://x.com/yml024"
+          }
+        ]
+      },
+      "tags": [
+        "codex",
+        "ClaudeCode",
+        "cowork",
+        "Claude",
+        "yml024備忘録"
+      ],
+      "snippet": "Claude Code と Cowork、結局どっちを使うのか はじめに 同じ Claude Code エンジンで動く 2 製品なのに、なぜ分かれているのか。調べてみたら、答えは どこで動くか と どこまで触れるか の 2 点。 自分用のメモとして、用途ごとにどちらを選ぶべきかをテーブルで整理しておく。判定基準は以下の通り。 | 記号 | 意味 | |:---:|:---| | ◎ | 最適。これを選べば間違いない | | ○ | 問題なく使える | | △ | 使えるが遠回り、または制約が目立つ | | ✗ | 構造的に向いていない | :::info 「ファクタ」列は Cowork 側を work、Claude Code 側を code と表記する。両方 ◎ のケースもあれば、片方が ✗ になるケースもある。 ::: --- 前提：2 つの決定的な違い | 観点 | Claude Co…",
+      "body": "Claude Code と Cowork、結局どっちを使うのか\n\nはじめに\n\n同じ Claude Code エンジンで動く 2 製品なのに、なぜ分かれているのか。調べてみたら、答えは どこで動くか と どこまで触れるか の 2 点。\n\n自分用のメモとして、用途ごとにどちらを選ぶべきかをテーブルで整理しておく。判定基準は以下の通り。\n\n| 記号 | 意味 |\n|:---:|:---|\n| ◎ | 最適。これを選べば間違いない |\n| ○ | 問題なく使える |\n| △ | 使えるが遠回り、または制約が目立つ |\n| ✗ | 構造的に向いていない |\n\n:::info\n「ファクタ」列は Cowork 側を work、Claude Code 側を code と表記する。両方 ◎ のケースもあれば、片方が ✗ になるケースもある。\n:::\n\n---\n\n前提：2 つの決定的な違い\n\n| 観点 | Claude Code | Cowork |\n|:---|:---|:---|\n| 動く場所 | 手元の PC で直接 | PC 内に立てた仮想マシンの中 |\n| 触れる範囲 | プロジェクトごと（許可制で外にも伸びる） | 渡したフォルダの中だけ |\n| グローバル設定 | /.claude/ の CLAUDE.md を読む | 箱の中なので持ち込まれない |\n| ターミナル実行 | できる | 箱の中に閉じる |\n| 想定ユーザー | 開発者 | だれでも |\n\n この表の 2 行目が全て。「外に出られるか」がそのまま向き不向きになる。 \n\n---\n\n用途別の判定\n\n開発系\n\n| 用途 | Claude Code | Cowork | ファクタ　　　　　　 | ｱﾝｿﾛﾋﾟｯｸ推奨　　　　　　　　　 |\n|:---|:---|:---|:---|:---|\n| プログラミング全般 | リポジトリを読んで複数ファイル横断で編集 | フォルダ内なら書けるが git が回らない | work △ code ◎ | Claude Code |\n| バックエンド実装 | ビルド・テスト・デバッグのループが回る | 実行環境が箱の中で本番と乖離 | work △ code ◎ | Claude Code |\n| フロントエンド実装 | dev サーバ起動、ブラウザ確認まで一気通貫 | 静的な HTML/CSS 生成なら可 | work △ code ◎ | Claude Code |\n| Git 操作・PR 作成 | ネイティブ。コミットもプッシュも | 外に出られないので不可 | work ✗ code ◎ | Claude Code |\n| CI / デプロイ | コマンド実行がそのまま通る | 対象外 | work ✗ code ◎ | Claude Code |\n| レガシーコードのリファクタ　　　　　　　　　　 | 全体を読んだ上で段階的に | 範囲が限定されすぎる | work △ code ◎ | Claude Code |\n| 環境構築・依存解決 | ローカルに直接インストール | 箱の中は allowlist 経由のみ | work ✗ code ◎ | Claude Code |\n| 使い捨てスクリプト | もちろん可 | 箱の中で完結するなら安全 | work ○ code ◎ | どちらでも |\n\n:::info\nフロントエンドが code ◎ なのは、確認のループがローカルで完結するから。書いて、起動して、ブラウザで見て、直す。この往復が Cowork の箱の中だと切れてしまう。\n:::\n\n---\n\n事務・ドキュメント系\n\n| 用途 | Claude Code | Cowork | ファクタ　　　　 | ｱﾝｿﾛﾋﾟｯｸ推奨　　　　　 |\n|:---|:---|:---|:---|:---|\n| Excel の作成・整形 | 扱えない | VLOOKUP や条件付き書式まで組める | work ◎ code ✗ | Cowork |\n| PowerPoint 作成 | 扱えない | 資料として成立するものが出る | work ◎ code ✗ | Cowork |\n| Word 文書・報告書 | Markdown なら書ける | そのまま .docx で出る | work ◎ code △ | Cowork |\n| 議事録から報告書のたたき台 | できるが遠回り | 想定ど真ん中 | work ◎ code △ | Cowork |\n| 散らかったフォルダの整理 | 可能だが権限が広すぎる | フォルダを渡すだけ | work ◎ code ○ | Cowork |\n| PDF からデータ抽出 | ライブラリを自前で用意 | 標準で処理できる | work ◎ code △ | Cowork |\n| 複数資料の横断要約 | ファイルを読ませれば可 | 成果物まで一気に出る | work ◎ code ○ | Cowork |\n| 定期レポート | cron を自分で組む | スケジュール機能あり | work ◎ code △ | Cowork |\n\n Claude Code は Office ファイルを扱えない。ここが最も分かりやすい分水嶺だと思う。 \n\n---\n\nアプリケーション連携・ブラウザ系\n\n| 用途 | Claude Code | Cowork | ファクタ　　　　 | ｱﾝｿﾛﾋﾟｯｸ推奨　　　　　 |\n|:---|:---|:---|:---|:---|\n| Web リサーチ→表にまとめる | 検索して Markdown に | Chrome 連携で調べて Excel まで | work ◎ code ○ | Cowork |\n| SaaS の画面操作 | ターミナル内で完結するため不可 | Claude in Chrome と連携 | work ◎ code ✗ | Cowork |\n| Gmail / Slack / Drive 連携 | MCP を自分で繋ぐ | プラグインで用意されている | work ◎ code ○ | Cowork |\n| API を叩くスクリプト | 自由に書ける | allowlist の制約あり | work △ code ◎ | Claude Code |\n| DB への接続・クエリ | ローカルから直接 | 箱の外に出られない | work ✗ code ◎ | Claude Code |\n\n:::info\nCowork の箱は外への通信が allowlist 制。pypi、npm、Anthropic API は通るが、それ以外は基本つながらない。社内 API を叩きたいなら Claude Code 一択ということになる。\n:::\n\n---\n\n混在ケース（判断が割れる領域）\n\n| 用途 | Claude Code | Cowork | ファクタ　　　　 | ｱﾝｿﾛﾋﾟｯｸ推奨 |\n|:---|:---|:---|:---|:---|\n| 設計書を書く | Markdown でリポジトリに置ける | 対話しながら .docx で仕上がる | work ◎ code ○ | 成果物の形式で決める |\n| 技術記事の執筆 | コード例の検証まで可能 | 図表込みで仕上げやすい | work ○ code ◎ | Claude Code |\n| 仕様と実装のズレ確認 | コードを読める強み | 資料側しか読めない | work △ code ◎ | Claude Code |\n| テスト結果の集計 | 実行はできるが集計が弱い | 集計と可視化が得意 | work ◎ code ○ | 併用 |\n| 障害報告書 | ログを読める | 文書として仕上がる | work ◎ code ○ | 併用 |\n| 個人の知識管理 | 手元のファイルに積み上げられる | フォルダ単位で完結 | work ○ code ◎ | Claude Code |\n\n 併用と書いた行は、片方で調査して片方で清書する運用のこと。同じファイルを同時に触らせるのは避けたい。 \n\n:::info\n両者を同時に同じファイルで作業させると、キャッシュ・undo・git の競合が起きるらしい。1 つの作業は片方で完結させるのが事故を減らす鉄則だと理解した。\n:::\n\n---\n\nAnthropic 側の思想として何が読み取れるか\n\n| 設計判断 | 背景にある考え方 |\n|:---|:---|\n| Cowork を VM に隔離した | 非開発者が「放置できる」必要があった |\n| Claude Code は都度承認 | 開発者は差分を読める前提 |\n| エンジンは共通 | 能力ではなく権限モデルで分けた |\n| スキル形式を共通化 | 投資を二重にさせない |\n| Cowork をフォルダ単位に | 権限の範囲を人間が理解できる形に |\n\n 能力ではなく権限で製品を分けた、というのが核心だと思う。「Cowork の方が弱い」のではなく「Cowork の方が届く範囲が狭い」だけ。 \n\nCowork が生まれたきっかけは、Anthropic 社内のマーケティングやデータチームが Claude Code をコーディング以外に使い始めたことだったらしい。ユーザーの実際の行動から逆算して生まれた製品ということになる。\n\n---\n\n設定の引き継ぎ問題\n\n両方を使うようになると、ここで必ず詰まりそう。\n\n| 資産 | Claude Code | Cowork | 引き継ぎ |\n|:---|:---|:---|:---|\n| CLAUDE.md | /.claude/ を読む | 読まない | 手動で移す |\n| グローバルスキル | /.claude/skills/ | ZIP アップロード | ZIP 化すれば動く |\n| プロジェクト設定 | .claude/ を読む | 読まない | 移せない |\n| MCP 接続情報 | settings.json | GUI で登録 | 二重管理 |\n\n SKILL.md を含むフォルダ形式は共通。同じものを ZIP にまとめれば Cowork でもそのまま動く。 \n\n:::info\n逆に言えば、スキルを書く投資だけは二重にならない。CLAUDE.md や MCP の設定は諦めて二重管理するしかなさそう。\n:::\n\n---\n\n選び方のフローチャート\n\n [code] \n\n---\n\nおわりに\n\n雑にまとめると git の中とコード管理は Claude Code、それ以外は Cowork ということになる。\n\nただ、自分の場合は「何をされたか把握できなくなるのが怖いから Cowork」という選び方をしそうになったが、これは成立しないと気づいた。把握できなくなる原因は指示の粒度であって、ツールではない。むしろ差分が目の前に流れる分、Claude Code の方が何をされたかは見える。\n\n選ぶ基準は その作業に git とターミナルが要るかどうか。それだけ。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6960ee09b90561e7",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.15188365650969538,
+      "popularityPercentile": 0.554016620498615,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "Claude CodeとCoworkの動作場所と操作範囲を比べて用途を整理する。",
+      "takeaways": [
+        "Claude Codeは手元の作業環境で動く。",
+        "Coworkは決めた場所の中で作業する。",
+        "自由な開発には前者が向き定型作業には後者が向く。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "Cowork",
+        "Claude",
+        "AIエージェント",
+        "仮想マシン"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "作業の自由度を優先するか安全な隔離を優先するか",
+        "forSide": "手元の環境を扱える方が開発や調査を一つの流れで進めやすい。",
+        "againstSide": "作業範囲を閉じた方が誤操作や情報漏えいの影響を抑えられる。",
+        "oneSided": false,
+        "yourAngle": "Claude Codeを業務で使う中で許可範囲と作業の手戻りを実測できる。"
+      },
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CodexとGitHubで開発を続けて分かったこと【AI開発運用記録 #10】",
+      "url": "https://qiita.com/archer2232/items/7a799df0e9d0ec894dfd",
+      "publishedAt": "2026-08-21T00:06:53.000Z",
+      "author": "archer2232",
+      "authorDetail": {
+        "name": "archer2232",
+        "handle": "@archer2232",
+        "url": "https://qiita.com/archer2232",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4421952/8b374afcdd5e8a4ac645a12b085436e45c7ee356/x_large.png?1783665320",
+        "bio": "どちらかというと野球は得意",
+        "followers": 0,
+        "posts": 25,
+        "links": []
+      },
+      "tags": [
+        "codex",
+        "GitHub",
+        "生成AI",
+        "AI駆動開発",
+        "個人開発"
+      ],
+      "snippet": "CodexとGitHubで開発を続けて分かったこと【AI開発運用記録 #10】 はじめに こんにちは。 なかのひとカンパニーの archer です。 普段の開発では、Codex・GitHub・GitHub CLIの gh を使って、Issue単位で開発を進めています。 この連載では、 ・Issueの書き方 ・Draft PR ・人間によるレビュー ・gh の認証と権限 ・GitHub Actionsの調査 ・レビュー指摘の修正 ・CIからマージまで と、実際に使いながら決めてきた運用を書いてきました。 今回は最後に、CodexとGitHubを組み合わせて開発を続けて分かったことをまとめます。 一番変わったのは、コードを書く時間ではなかった 最初は、 AIによってコードを書く時間が減る というのが一番大きな変化だと思っていました。 実際、それはかなり減りました。 調査して、実装して、テストを…",
+      "body": "CodexとGitHubで開発を続けて分かったこと【AI開発運用記録 #10】\n\nはじめに\n\nこんにちは。 \nなかのひとカンパニーの archer です。\n\n普段の開発では、Codex・GitHub・GitHub CLIの gh を使って、Issue単位で開発を進めています。\n\nこの連載では、\n・Issueの書き方\n・Draft PR\n・人間によるレビュー\n・gh の認証と権限\n・GitHub Actionsの調査\n・レビュー指摘の修正\n・CIからマージまで\n\nと、実際に使いながら決めてきた運用を書いてきました。\n\n今回は最後に、CodexとGitHubを組み合わせて開発を続けて分かったことをまとめます。\n\n一番変わったのは、コードを書く時間ではなかった\n\n最初は、\n\nAIによってコードを書く時間が減る\n\nというのが一番大きな変化だと思っていました。\n\n実際、それはかなり減りました。\n\n調査して、実装して、テストを書いて、エラーを修正する。\n\nこのあたりはCodexがかなり進めてくれます。\n\nただ、使い続けてみると、それ以上に変わったのは、\n\n人間が何を考えるべきか\n\nの方でした。\n\n「どう作るか」より「何を作るか」\n\nCodexは、実装方法を考えるのがかなり得意です。\n\n一方で、\n・この機能は本当に必要なのか\n・どこまで作れば十分なのか\n・今回は何を変更しないのか\n・本番に入れて問題ないのか\n\nといった判断は残ります。\n\nむしろ実装が速くなったことで、この部分が以前より目立つようになりました。\n\nIssueが曖昧なら、Codexも曖昧なものを作る。\n\nIssueが大きすぎれば、変更も大きくなる。\n\nAIが優秀になるほど、\n\n最初に何を依頼するか\n\nが重要になると感じています。\n\nAIに任せても、確認はなくならない\n\n実装をCodexに任せても、\n\nIssue\n↓\n実装\n↓\nPR\n↓\nレビュー\n↓\nCI\n↓\nマージ\n\nという流れ自体は、あまり変わりませんでした。\n\nむしろ、人間がコードを書かなくなった分、\n\n出来上がったものを確認する能力\n\nが重要になります。\n\nCIが通っている。\n\nCodexが「対応しました」と言っている。\n\nそれでも最後に、\n\n「本当にIssueを満たしているか」\n\nを見る必要があります。\n\nAIが自信満々に間違えることもあるので、そこは人間とあまり変わりません。\n\nCodexには「作業」を任せる\n\n今のところ、自分の中では役割をこんな感じで分けています。\n\n| 担当 | 主な役割 |\n| --- | --- |\n| Codex | 調査・実装・テスト・修正 |\n| GitHub | Issue・PR・レビュー・履歴 |\n| GitHub Actions | 自動チェック |\n| 人間 | 目的・範囲・リスク・最終判断 |\n\nCodexに任せる範囲はかなり広がりました。\n\nそれでも、\n\n何を作るかと、最終的に採用するか\n\nは人間側に残しています。\n\nこの境界があると、かなり使いやすいです。\n\n失敗できる回数が増えた\n\n個人的には、これが一番大きいかもしれません。\n\n以前なら、\n\n「この方法を試してダメだったら時間がもったいない」\n\nと思って避けていたことも、試しやすくなりました。\n\n作ってみる。\n\n違ったら戻す。\n\n別の方法を試す。\n\nそれも違ったら捨てる。\n\nAIによって、一回の試行錯誤にかかるコストが下がりました。\n\nコードを書く速度以上に、\n\n失敗できる回数が増えた\n\nことの方が、開発の感覚を変えている気がします。\n\nだからGitHubとの相性がいい\n\nCodexだけでもコードは作れます。\n\nただ、自分の場合はGitHubと組み合わせたことで運用しやすくなりました。\n\nIssueに目的を残す。\n\nPRで差分を見る。\n\nレビューで指摘する。\n\nCIで機械的に確認する。\n\n履歴を残してからマージする。\n\nAIが高速に変更を作るからこそ、\n\n変更を管理する仕組みが必要になる。\n\nその役割をGitHubが担ってくれています。\n\nAIによってGitHubが不要になるというより、むしろ以前より重要になった感覚があります。\n\nまとめ\n\nこの連載を始めたころは、\n\n「Codexをどう使うか」\n\nを考えていました。\n\n今は少し変わって、\n\nCodexがいる前提で、開発をどう組み立てるか\n\nを考えるようになりました。\n\nAIに全部任せるわけでもない。\n\n人間が全部やるわけでもない。\n\nCodexには作業を任せる。\n\nGitHubには変更を残す。\n\nCIには機械的な確認を任せる。\n\nそして人間は、目的と判断を持つ。\n\n今のところ、この分担が自分には合っています。\n\nたぶんAIはこれからもっと賢くなります。\n\nそのたびに境界は少しずつ動くと思います。\n\n半年後には、\n\n「ここも人間がやっていたのか」\n\nと思っているかもしれません。\n\nそのときは、また運用を変えればいい。\n\nひとまず、現在のAI開発運用記録はここまでです。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7138ba80be59e5e5",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8354016620498615,
+      "popularityPercentile": 0.7063711911357341,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "CodexとGitHubの運用を通じてAI開発では実装より要求の決め方が重要だと整理する。",
+      "takeaways": [
+        "AIは実装作業を速く進められる。",
+        "曖昧な依頼は曖昧な成果物に変わる。",
+        "人は作る範囲と出荷の判断を担う。"
+      ],
+      "keywords": [
+        "OpenAI Codex",
+        "GitHub",
+        "GitHub CLI",
+        "GitHub Actions",
+        "Issue",
+        "Draft PR"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "実装をAIに広く任せるか人が細かく制御するか",
+        "forSide": "依頼を小さく明確にすればAIの速さを開発全体に広げられる。",
+        "againstSide": "実装が速いほど変更範囲や誤りの確認に人の負担が集中する。",
+        "oneSided": false,
+        "yourAngle": "AIに渡したIssueの粒度とレビューで戻った回数を継続的に比較できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「うちの会社にAIは無理」と思ったあなたへ",
+      "url": "https://qiita.com/keiichik_kk/items/692b0abb5e03fc9523b1",
+      "publishedAt": "2026-08-21T01:03:40.000Z",
+      "author": "keiichik_kk",
+      "authorDetail": {
+        "name": "keiichik_kk",
+        "handle": "@keiichik_kk",
+        "url": "https://qiita.com/keiichik_kk",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3553674/profile-images/1780878187",
+        "bio": "システムアーキテクチャの検討を得意分野としていますが、最近はまだ世にないフワフワした状態の構想を形にするべく奔走しています。最近はシステム開発の現場から見た生成AIに関する記事執筆に力を入れています。",
+        "followers": 9,
+        "posts": 70,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/nakanohito_com"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "オントロジー",
+        "ChatGPT",
+        "業務知識",
+        "ナレッジグラフ"
+      ],
+      "snippet": "もし、この記事を読もうと思ってくれている方なら、もしかしたらあなたも一度、AIに期待して、そして少しがっかりした一人かもしれません。 半年前か、一年前か。会社でChatGPTやCopilotを試してみた。最初は「すごい」と思った。でも、しばらくすると気づいてしまう。 「なんか、噛み合わない」 議事録は作れるけど、社内の言葉の使い分けまではわかってくれない。問い合わせ対応は書けるけど、「うちの場合は例外がある」を毎回説明しないといけない。結局、確認と修正に時間を取られて、「これなら自分でやったほうが早い」に落ち着いた。 そうして静かに、AIツールのタブは閉じられ、ブックマークバーの隅に追いやられた。 もしそんな経験があるなら、まず伝えたいことがあります。 それは、あなたの使い方が下手だったからではありません。 --- がっかりした理由は、ちゃんとあった AIは、たしかに賢いです。世の中の知識…",
+      "body": "もし、この記事を読もうと思ってくれている方なら、もしかしたらあなたも一度、AIに期待して、そして少しがっかりした一人かもしれません。\n\n半年前か、一年前か。会社でChatGPTやCopilotを試してみた。最初は「すごい」と思った。でも、しばらくすると気づいてしまう。\n\n「なんか、噛み合わない」\n\n議事録は作れるけど、社内の言葉の使い分けまではわかってくれない。問い合わせ対応は書けるけど、「うちの場合は例外がある」を毎回説明しないといけない。結局、確認と修正に時間を取られて、「これなら自分でやったほうが早い」に落ち着いた。\n\nそうして静かに、AIツールのタブは閉じられ、ブックマークバーの隅に追いやられた。\n\nもしそんな経験があるなら、まず伝えたいことがあります。\n\nそれは、あなたの使い方が下手だったからではありません。\n\n---\n\nがっかりした理由は、ちゃんとあった\n\nAIは、たしかに賢いです。世の中の知識は驚くほど持っています。歴史も、文章の書き方も、プログラミングの作法も。\n\nでも、AIが最初から知らないことが、ひとつだけあります。\n\nあなたの会社の中でしか通用しない言葉と、そのルールです。\n\n「案件」と「商談」は、うちの会社ではどう違うのか。「代理店経由の注文」と「直接注文」で、なぜ承認の流れが変わるのか。「この部署でいう\"顧客\"」と「あの部署でいう\"顧客\"」が、実は指しているものが違う、なんてことも。\n\nこれは、どれだけ賢いAIでも、教えてもらわない限りわかりません。当然です。それはインターネットのどこにも書かれていない、あなたの会社だけの常識だからです。\n\nだから、AIがあなたの言葉を誤解したとき。それはAIの能力不足ではなく、単に「まだ教えていなかった」だけだったのです。\n\n---\n\n「ちゃんと教える」が、実はすごく大変だった時代があった\n\nこう言うと、「じゃあちゃんと教えればよかったのか」と思うかもしれません。\n\n実は、その「教える」という作業、少し前までは本当に大変なものでした。\n\n専門家が何ヶ月もかけて、会社の用語や業務ルールをひとつひとつ厳密に定義していく。矛盾がひとつでもあれば設計をやり直す。そんな重厚なプロジェクトが必要だと言われていました。\n\n普通の会社が、普通の業務のために、そんな大工事をする余裕はありません。だから多くの現場では、「教える」というステップそのものが省略されて、AIはあなたの会社の常識を知らないまま、見切り発車で導入されていました。\n\nうまくいかなかったのは、当たり前だったのかもしれません。\n\n---\n\nでも今は、もう少し身軽なやり方が見えてきています\n\nここ最近、風向きが変わってきています。\n\n「会社の言葉と業務ルールをAIに教える」という作業が、もっと軽く、部分的にでもできるようになってきました。\n\n全社の業務を一度に整理する必要はありません。まずは一つの部署、一つの業務だけでいい。「うちの営業では、案件と商談はこう違う」というレベルの、ちいさな用語集とルールブックを、AIエージェントに渡してあげる。それだけで、驚くほど噛み合い方が変わってきます。\n\n完璧である必要もありません。「案件と商談を取り違えない」、そのくらいの実用性があれば、業務では十分に価値を発揮できると言われています。\n\n大きなプラットフォームを提供している会社たちも、同じ方向を向き始めています。AIに渡す前に、業務の意味をきちんと整理しておく。そういう取り組みが、静かに、でも確実に広がっています。\n\n---\n\nだから、もう一度だけ\n\n一度がっかりした経験があると、「もういいや」と思う気持ちはよくわかります。忙しい中で時間を割いて、結局うまくいかなかった記憶は、簡単には消えません。\n\nでも、あのとき噛み合わなかった理由が、「AIがあなたの会社を知らなかっただけ」だったのだとしたら。\n\nそして今、その「教える」作業が、思っていたよりずっと軽くできるのだとしたら。\n\nもう一度だけ、小さく試してみる価値はあるかもしれません。全社導入とか、業務改革とか、そんな大げさな話でなくていいんです。\n\nあなたのチームだけで使っている、ちょっと特殊な言葉をひとつ。よく間違えられる区別をひとつ。それをAIに教えてあげるところから、また始めてみませんか。\n\n今度はきっと、前よりも噛み合うはずです。\n\n---\n\nこの記事は、AIが企業固有の業務知識を扱えるようになってきた背景（「オントロジー」という考え方の再評価）について書いた連載の番外編です。技術的な仕組みに興味が湧いたら、連載本編もあわせてどうぞ。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "841c789527c2d215",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6788771270280964,
+      "popularityPercentile": 0.850415512465374,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 79,
+      "titleJa": null,
+      "oneLiner": "社内固有の言葉とルールをAIに理解させるには業務知識の構造化が必要だと説明する。",
+      "takeaways": [
+        "一般的なAIは会社独自の言葉を知らない。",
+        "社内用語の違いが回答のずれを生む。",
+        "業務知識を整理して渡すことが改善の出発点になる。"
+      ],
+      "keywords": [
+        "ChatGPT",
+        "Copilot",
+        "オントロジー",
+        "ナレッジグラフ",
+        "業務知識",
+        "生成AI"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIに知識を追加するか業務をAIに合わせるか",
+        "forSide": "社内用語と例外規則を整理すれば回答のずれを減らせる。",
+        "againstSide": "知識の整理と更新に継続的なコストがかかり導入効果を下げる。",
+        "oneSided": true,
+        "yourAngle": "Reactや業務システムの開発で使う社内用語と例外処理を実例として整理できる。"
+      },
+      "readingMinutes": 9,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    }
+  ],
+  "stats": {
+    "collected": 732,
+    "afterDedupe": 659,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 362,
+      "zenn": 128,
+      "hatena": 35,
+      "hackernews": 69,
+      "devto": 4,
+      "github_release": 5,
+      "github_repo": 96,
+      "rss": 32,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 34
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5143,
+        "outputTokens": 632,
+        "cacheReadTokens": 0,
+        "elapsedMs": 6351,
+        "estimatedCostUsd": 0.001787
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5722,
+        "outputTokens": 2880,
+        "cacheReadTokens": 0,
+        "elapsedMs": 20622,
+        "estimatedCostUsd": 0.004600399999999999
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 20158,
+        "outputTokens": 1499,
+        "cacheReadTokens": 3416,
+        "elapsedMs": 15197,
+        "estimatedCostUsd": 0.00589872
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 12372,
+        "outputTokens": 1619,
+        "cacheReadTokens": 3570,
+        "elapsedMs": 17021,
+        "estimatedCostUsd": 0.0044886
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 15779,
+        "outputTokens": 1745,
+        "cacheReadTokens": 3272,
+        "elapsedMs": 19371,
+        "estimatedCostUsd": 0.005315240000000001
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3849,
+        "outputTokens": 4160,
+        "cacheReadTokens": 0,
+        "elapsedMs": 30487,
+        "estimatedCostUsd": 0.0057618
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 10662,
+        "outputTokens": 2139,
+        "cacheReadTokens": 0,
+        "elapsedMs": 15134,
+        "estimatedCostUsd": 0.0046992
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 13042,
+        "outputTokens": 3555,
+        "cacheReadTokens": 0,
+        "elapsedMs": 25401,
+        "estimatedCostUsd": 0.006874399999999999
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 14686,
+        "outputTokens": 3464,
+        "cacheReadTokens": 0,
+        "elapsedMs": 24187,
+        "estimatedCostUsd": 0.007094
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 25191,
+        "outputTokens": 3937,
+        "cacheReadTokens": 0,
+        "elapsedMs": 30807,
+        "estimatedCostUsd": 0.0097626
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 20024,
+        "outputTokens": 6342,
+        "cacheReadTokens": 16487,
+        "elapsedMs": 48988,
+        "estimatedCostUsd": 0.01194494
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 14961,
+        "outputTokens": 5288,
+        "cacheReadTokens": 12192,
+        "elapsedMs": 44358,
+        "estimatedCostUsd": 0.009581639999999999
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3822,
+        "outputTokens": 201,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2582,
+        "estimatedCostUsd": 0.0010056000000000002
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4681,
+        "outputTokens": 287,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2620,
+        "estimatedCostUsd": 0.0012806
+      }
+    },
+    "totalCostUsd": 0.0801
+  },
+  "notes": []
+}
