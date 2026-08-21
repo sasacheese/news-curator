@@ -72,8 +72,16 @@ async function writeJson(path: string, data: unknown): Promise<void> {
 /**
  * 過去に一度でもダイジェストに載った URL を集める。
  * 同じ記事が翌日以降に再浮上するのを防ぐために使う。
+ *
+ * @param excludeDate この日付のぶんは「掲載済み」に数えない。
+ *
+ *   **同じ日を作り直すときのために要る。** その日のダイジェストを一度書くと、
+ *   載せた URL が検索インデックスに入る。何もしないと作り直しのときに自分の前回の
+ *   出力を「掲載済み」として除外してしまい、**その日に載るはずの記事が全部消えて
+ *   余りものだけの盤面になる**（実測: 22 件載っていた日を作り直すと 22 件すべてが
+ *   除外対象になった）。作り直しは置き換えなので、置き換える対象は数えない。
  */
-export async function loadSeenUrls(days = 90): Promise<Set<string>> {
+export async function loadSeenUrls(days = 90, excludeDate?: string): Promise<Set<string>> {
   await ensureDirs();
   const seen = new Set<string>();
   let files: string[] = [];
@@ -87,7 +95,10 @@ export async function loadSeenUrls(days = 90): Promise<Set<string>> {
   const limit = Math.max(2, Math.ceil(days / 30) + 1);
   for (const file of files.slice(0, limit)) {
     const entries = await readJsonOr<IndexEntry[]>(resolve(INDEX_DIR, file), []);
-    for (const e of entries) seen.add(normalizeUrl(e.url));
+    for (const e of entries) {
+      if (excludeDate && e.date === excludeDate) continue;
+      seen.add(normalizeUrl(e.url));
+    }
   }
   return seen;
 }

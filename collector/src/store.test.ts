@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { toIndexEntries } from './store.js';
+import { loadRecentIndexEntries, loadSeenUrls, toIndexEntries } from './store.js';
+import { normalizeUrl } from './util.js';
 import type { Digest, KnowDeepDive, RankedItem, ReleaseItem, TopItem } from './types.js';
 
 /*
@@ -165,5 +166,44 @@ describe('toIndexEntries', () => {
       entries.map((e) => e.id),
       ['a', 'b', 'c'],
     );
+  });
+});
+
+/*
+ * ここで固定したいのは「同じ日を作り直しても、その日の記事が消えない」こと。
+ *
+ * 壊れ方が静かなのが厄介で、作り直すと処理は正常に終わり、ダイジェストも
+ * 生成される。ただし中身が余りもの（本来 2 番手・3 番手だった記事）だけになる。
+ * 実行ログの「過去に掲載済み: N URL」も増えるだけなので、並びを覚えていないと
+ * 気づけない。
+ *
+ * リポジトリにコミット済みのインデックスを入力に使う。まだ 1 日も生成していない
+ * fork では両方 0 件になって何も確かめられないので、その場合は前提が無いことを
+ * 明示して飛ばす。
+ */
+describe('loadSeenUrls', () => {
+  it('作り直す日ぶんは「掲載済み」に数えない', async () => {
+    const all = await loadSeenUrls();
+    if (all.size === 0) {
+      // データが無い環境（fork の初回など）。確かめる対象が無い
+      return;
+    }
+
+    const entries = await loadRecentIndexEntries(new Date().toISOString().slice(0, 10), 400);
+    const dates = [...new Set(entries.map((e) => e.date))].sort();
+    const target = dates.at(-1);
+    assert.ok(target, '前提が崩れている: インデックスに日付が 1 つも無い');
+
+    const onTarget = new Set(
+      entries.filter((e) => e.date === target).map((e) => normalizeUrl(e.url)),
+    );
+    assert.ok(onTarget.size > 0, '前提が崩れている: 最新日の掲載が 0 件');
+
+    const excluded = await loadSeenUrls(90, target);
+    for (const url of onTarget) {
+      assert.ok(!excluded.has(url), `${target} に載せた URL が除外対象に残っている: ${url}`);
+    }
+    // 他の日のぶんは残っている（除外の範囲が広がっていないこと）
+    assert.equal(excluded.size, all.size - onTarget.size);
   });
 });
