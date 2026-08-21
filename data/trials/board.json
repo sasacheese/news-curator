@@ -1,0 +1,143 @@
+{
+  "generatedAt": "2026-08-21T09:06:09.594Z",
+  "reports": [
+    {
+      "key": "2026-08-21__6658b9ccb4418919",
+      "digestDate": "2026-08-21",
+      "itemId": "6658b9ccb4418919",
+      "title": "0xnyn/airship — Figma like visual editor built for Claude Code, Codex and OpenCode",
+      "url": "https://github.com/0xnyn/airship",
+      "verdict": "partly",
+      "headline": "エディタは認証なしでも起動しHTTPで配信されるが、実際に編集させるにはブラウザとエージェントのログインが必須。",
+      "answers": [
+        {
+          "question": "README の手順だけで、最初の出力まで到達できるか",
+          "answer": "到達できる。README の `npx @airshiplabs/cli --target 3000`（今回は npm i -g 版）で v0.3.0 が入り、python3 -m http.server 3000 を立てて `airship --target 3000` を実行したところ、stderr に「open http://localhost:3001」のバナーが出た。curl で 3001 を叩くと 200 / 886B の shell HTML と 1,443,677B の /__airship/overlay.js が返り、`?__airship=inline` では自分の HTML に hook.js が注入されていた。ただし「見える出力」はブラウザ前提で、ヘッドレスでは curl と WS でしか確認できない。clone 側をビルドする経路は未検証。"
+        },
+        {
+          "question": "動かすのに別途何が必要か（API キー・GUI・別のツール）",
+          "answer": "(1) ブラウザ（GUI）。CLI はプロキシを立てるだけで、キャンバスは描画されない。(2) エージェントの認証。`airship doctor --json` は agent claude を fail、codex/opencode を warn と表示。認証が無くても CLI は警告付きで起動し WS の prompt/models も答えるが、edit ジョブは「Not logged in · Please run /login」で失敗した。(3) 別ツールは基本不要。claude(339MB) と codex(258MB) のバイナリが同梱で、npm 導入サイズは 681MB。opencode だけは自前インストール。Node は engines で >=22.13（実行環境は 22.22）。"
+        }
+      ],
+      "steps": [
+        {
+          "command": "git clone --depth 1 https://github.com/0xnyn/airship",
+          "ok": true,
+          "note": "1.4 秒で成功。pnpm+turbo のモノレポ（apps/cli, apps/web, packages/*）と ./airship ランチャ。"
+        },
+        {
+          "command": "ls airship",
+          "ok": true,
+          "note": "README.md, Makefile, apps, packages, pnpm-lock.yaml 等を確認。"
+        },
+        {
+          "command": "npm i -g @airshiplabs/cli",
+          "ok": true,
+          "note": "成功。airship 0.3.0。導入サイズ 681MB（うち node_modules 674MB）。"
+        },
+        {
+          "command": "du -sh $(npm root -g)/@airshiplabs/cli && find . -size +20M",
+          "ok": true,
+          "note": "claude バイナリ 339MB、codex 258MB、codex-code-mode-host 50MB が同梱されていた。"
+        },
+        {
+          "command": "airship --help",
+          "ok": true,
+          "note": "commands は doctor と init のみ。--target/--agent/--safe/--exec などのフラグを表示。"
+        },
+        {
+          "command": "airship doctor --json",
+          "ok": false,
+          "note": "exit 1。node/airship/git/overlay bundle は ok、config・git repo・dev server は warn、agent claude は fail。"
+        },
+        {
+          "command": "airship doctor --json --agent codex",
+          "ok": false,
+          "note": "exit 1。git repo と agent codex が warn から fail に昇格。README の「優先エージェントだけが run を落とす」記述どおり。"
+        },
+        {
+          "command": "airship init --json",
+          "ok": false,
+          "note": "「`airship init` needs a terminal」。非対話環境では設定ファイルを手書きせよという案内。"
+        },
+        {
+          "command": "python3 -m http.server 3000 (ダミーの dev サーバ)",
+          "ok": true,
+          "note": "index.html を 200 で配信。airship の対象にした。"
+        },
+        {
+          "command": "airship --target 3000 --agent claude",
+          "ok": true,
+          "note": "APIキー無し警告と非サンドボックス警告を出しつつ起動。3001 で待受と表示。"
+        },
+        {
+          "command": "curl -s -o /tmp/editor.html -w '%{http_code} %{size_download}' http://127.0.0.1:3001/",
+          "ok": true,
+          "note": "200 / 886B。data-airship-shell の HTML と window.__AIRSHIP__ を確認。"
+        },
+        {
+          "command": "curl -s 'http://127.0.0.1:3001/?__airship=inline'",
+          "ok": true,
+          "note": "自作 HTML に hook.js と overlay.js が注入された inline 版が返った。"
+        },
+        {
+          "command": "curl -o /dev/null -w '%{size_download}' http://127.0.0.1:3001/__airship/overlay.js",
+          "ok": true,
+          "note": "1,443,677 バイトのエディタ本体 JS。ブラウザが無いので実行はできず。"
+        },
+        {
+          "command": "node /tmp/wsprobe.mjs  (ws://127.0.0.1:3001/__airship/ws へ接続)",
+          "ok": true,
+          "note": "hello(defaultAgent=claude), git:health ok, tokens:result(framework unknown) を受信。"
+        },
+        {
+          "command": "WS に {type:'prompt',request:{prompt:'make the heading red'}} を送信",
+          "ok": true,
+          "note": "認証なしでも prompt:result が返り、エージェントに渡す実プロンプト文面を確認できた。"
+        },
+        {
+          "command": "WS に {type:'models'} を送信",
+          "ok": true,
+          "note": "claude/codex のモデル一覧が返り、claude 側に「No ANTHROPIC_API_KEY found」の note 付き。"
+        },
+        {
+          "command": "WS に {type:'edit',request:{prompt:'make the heading red'}} を送信",
+          "ok": false,
+          "note": "job:created の直後に失敗。「--dangerously-skip-permissions cannot be used with root/sudo privileges」。"
+        },
+        {
+          "command": "airship --target 3000 --agent claude --safe -p 3002",
+          "ok": true,
+          "note": "回復試行1。--safe だと「Screened」表示になり起動。"
+        },
+        {
+          "command": "WS(3002) に {type:'edit',...} を送信",
+          "ok": false,
+          "note": "回復試行2。root 制約は消え、今度は「Not logged in · Please run /login」で失敗。認証が唯一の残る壁と判明。"
+        },
+        {
+          "command": "npx --yes playwright@1.56.0 install chromium",
+          "ok": false,
+          "note": "100 秒でタイムアウト、ブラウザ未取得。UI の実描画は確認できず。"
+        }
+      ],
+      "stumbles": [
+        "root 実行だと既定（非 --safe）の claude バックエンドが即失敗する。同梱の Claude Code が root では --dangerously-skip-permissions を拒否するため。--safe を付けると回避できたが、README に記載なし。",
+        "Chromium を取得できずブラウザが用意できないため、キャンバス描画・要素選択・インスペクタは一切検証できていない。curl と WebSocket による配信・API 確認までが限界。",
+        "doctor の agent claude 判定が甘い。1 回目の起動で ~/.claude が作られた後は未ログインのまま『ok』になり、実際の edit は「Not logged in」で落ちた。緑でも動くとは限らない。",
+        "エディタの見た目を確認する手段が CLI に無い（--open はブラウザ起動のみ）。ヘッドレス確認用の出力は用意されていない。"
+      ],
+      "correction": "掲載の試し方（git clone + ls airship）は開発リポジトリを覗くだけで、動かす経路ではない。公式の入手は `npx @airshiplabs/cli --target 3000` か npm i -g。clone 側は pnpm 11.9 + turbo でのビルドが要り、今回は未検証。また記事の「Figma風の視覚的編集環境」はブラウザ必須で、CLI だけでは何も見えない。「Claude Code や Codex から使える」も実体は逆で、airship が同梱の claude/codex を起動する側。opencode のみ別途インストールが必要、と補足したい。",
+      "ranAt": "2026-08-21T09:06:09.198Z",
+      "seconds": 850,
+      "cost": {
+        "model": "claude-opus-5",
+        "inputTokens": 134,
+        "outputTokens": 37318,
+        "cacheReadTokens": 2004641,
+        "cacheWriteTokens": 106162,
+        "estimatedUsd": 2.6
+      }
+    }
+  ]
+}
