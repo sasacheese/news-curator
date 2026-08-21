@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
+import { loadTrialBoard } from './api';
 import { getFeedbackDb } from './firebase';
+import type { TrialReport } from './types';
 
 /**
  * 「サンドボックスで試させる」依頼の受け渡し。
@@ -146,4 +149,43 @@ export async function readTrialState(key: string): Promise<TrialState | null> {
 
 function isStatus(v: unknown): v is TrialStatus {
   return v === 'queued' || v === 'running' || v === 'done' || v === 'failed';
+}
+
+/* ------------------------------------------------------------------ *
+ * 試した結果の読み込み
+ * ------------------------------------------------------------------ */
+
+/**
+ * 盤面は日付を持たない 1 ファイルなので、**このタブを開いている間に 1 回だけ**読む。
+ *
+ * カードごとにフックを呼んでも取得は 1 回で済むよう、約束をモジュールに持つ
+ * （firebase.ts が Firestore の初期化を 1 回に絞っているのと同じ形）。
+ * まだ 1 件も試していないリポジトリでは 404 になるが、それは異常ではないので
+ * 空の Map にする——この機能を使っていない fork では常にそうなる。
+ */
+let reportsPromise: Promise<Map<string, TrialReport>> | null = null;
+
+function loadReports(): Promise<Map<string, TrialReport>> {
+  if (!reportsPromise) {
+    reportsPromise = loadTrialBoard()
+      .then((board) => new Map(board.reports.map((r) => [r.key, r])))
+      .catch(() => new Map<string, TrialReport>());
+  }
+  return reportsPromise;
+}
+
+export function useTrialReports(): Map<string, TrialReport> {
+  const [reports, setReports] = useState<Map<string, TrialReport>>(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadReports().then((m) => {
+      if (!cancelled) setReports(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return reports;
 }

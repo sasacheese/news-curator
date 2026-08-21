@@ -5,6 +5,7 @@ import { askContextForItem } from './askClaude';
 import { BuzzChip, Chip, ShareButtons, Takeaways } from './components';
 import { DebateScaffold } from './DebateScaffold';
 import { FeedbackButtons } from './FeedbackButtons';
+import { TrialSlot } from './TrialSlot';
 import { displayTitle, metricSummary, safeUrl, takeawayLines } from './format';
 import { groupByLane } from './lanes';
 import type { Payoff, RankedItem } from './types';
@@ -70,6 +71,15 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
             </button>
           ))}
           <AskClaudeButton context={askContextForItem(item)} />
+          {/*
+            * 道具（GitHub リポジトリ・npm パッケージ）の行にだけ出る。
+            * 記事の行では URL から身元が取れないので trial が null になり、何も出ない。
+            */}
+          <TrialSlot
+            plan={item.trial}
+            target={{ digestDate, itemId: item.id, title: displayTitle(item) }}
+            compact
+          />
           <ShareButtons url={item.url} tweetText={item.oneLiner} />
           <FeedbackButtons
             target={{

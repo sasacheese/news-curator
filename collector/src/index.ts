@@ -58,6 +58,7 @@ import type {
   ReleaseItem,
   TopItem,
 } from './types.js';
+import { buildTrialPlan, identityFromUrl, otherQuestions } from './trial-plan.js';
 import { COMMUNITY_ACTIONS, LANES, LANE_LABELS } from './types.js';
 import { formatJst, log, mapLimit, normalizeUrl, resolveWindow, safe } from './util.js';
 
@@ -393,8 +394,22 @@ async function main(): Promise<void> {
     ),
   );
   const byLane = pickByLane(remaining, runtime.otherN);
-  // 画面はレーンで分けて出すので、保存もレーン順にまとめておく
-  const others = LANES.flatMap((lane) => byLane[lane].sort((a, b) => b.score - a.score));
+  /*
+   * 画面はレーンで分けて出すので、保存もレーン順にまとめておく。
+   *
+   * ここで試す計画も付ける。URL が GitHub のリポジトリや npm を指しているものだけに
+   * 付き、記事（Qiita / Zenn / はてな / HN）には付かない——身元が取れないので
+   * 正しく null になる。実測で 168 件中 36 件、GitHub リポジトリ枠は 35/35 件。
+   */
+  const others = LANES.flatMap((lane) => byLane[lane].sort((a, b) => b.score - a.score)).map(
+    (item) => ({
+      ...item,
+      trial: buildTrialPlan(identityFromUrl(item.url), otherQuestions()),
+    }),
+  );
+  log.info(
+    `  そのうち試せるもの: ${others.filter((o) => o.trial).length} 件`,
+  );
   log.info(
     `  その他の注目記事: ${LANES.map((l) => `${LANE_LABELS[l]} ${byLane[l].length}`).join(' / ')}`,
   );
