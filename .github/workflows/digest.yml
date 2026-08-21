@@ -92,10 +92,20 @@ jobs:
           git add data
           if git diff --cached --quiet; then
             echo "変更なし"
-          else
-            git commit -m "chore(digest): $(TZ=Asia/Tokyo date '+%Y-%m-%d') のダイジェストを追加"
-            git push
+            exit 0
           fi
+          git commit -m "chore(digest): $(TZ=Asia/Tokyo date '+%Y-%m-%d') のダイジェストを追加"
+          # 試行のワークフロー（15 分ごと）の push と重なると単発の push は落ちる。
+          # 落ちるとその朝のダイジェストが丸ごと失われるので、取り込んで 3 回まで試す。
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "push が競合しました。取り込んで再試行します ($attempt/3)"
+            git pull --rebase origin "$GITHUB_REF_NAME"
+          done
+          echo "::error::ダイジェストを push できませんでした"
+          exit 1
 
   deploy:
     name: GitHub Pages へデプロイ

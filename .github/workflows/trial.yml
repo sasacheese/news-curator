@@ -80,11 +80,22 @@ jobs:
           if git diff --cached --quiet; then
             echo "変更なし"
             echo "committed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "chore(trial): サンドボックスで試した結果を追加"
-            git push
-            echo "committed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          git commit -m "chore(trial): サンドボックスで試した結果を追加"
+          # 朝のダイジェストの push と重なると単発の push は落ちる。落ちるとレポートは
+          # 作業ツリーにあるだけなので**永久に失われる**（Firestore は done なので、
+          # カードには 1 行の結論だけ出て詳細が二度と出ない）。取り込んで 3 回まで試す。
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "committed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "push が競合しました。取り込んで再試行します ($attempt/3)"
+            git pull --rebase origin "$GITHUB_REF_NAME"
+          done
+          echo "::error::レポートを push できませんでした"
+          exit 1
 
   deploy:
     name: GitHub Pages へデプロイ
