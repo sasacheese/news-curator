@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isFeedbackUnlocked } from './settings';
 import {
+  ASK_MAX,
   findLocalTrial,
   forgetLocalTrial,
   readTrialState,
+  normalizeAsk,
   requestTrial,
   shouldForgetLocalTrial,
   trialKey,
@@ -51,6 +53,12 @@ export function TrialButton({
   const key = echo?.key ?? baseKey;
   const localAt = echo?.at ?? null;
   const [sending, setSending] = useState(false);
+  /*
+   * 「確かめてほしいこと」。空でも押せる（任意）。
+   * compact では場所が無いので、✎ を押したときだけ入力欄を出す。
+   */
+  const [ask, setAsk] = useState('');
+  const [asking, setAsking] = useState(false);
 
   /*
    * 開いたときと、ウィンドウに戻ってきたときに読む。
@@ -99,7 +107,7 @@ export function TrialButton({
      */
     setEcho({ key: baseKey, at: Date.now() });
     setState(null);
-    void requestTrial(target)
+    void requestTrial(target, normalizeAsk(ask))
       .then((placed) => {
         if (placed) setEcho({ key: placed, at: Date.now() });
       })
@@ -108,22 +116,55 @@ export function TrialButton({
 
   const status = state?.status ?? (localAt ? 'queued' : null);
 
+  const hint = [
+    'サンドボックスで試させて、結果をここに出します。確かめること:',
+    ...plan.questions.map((q) => `・${q}`),
+    `最初のコマンド: ${plan.install}`,
+  ].join('\n');
+
+  /*
+   * 依頼文の入力欄。**任意**なので、既定の 1 タップの導線は塞がない。
+   * compact では ✎ を押したときだけ出す（一覧の行に入力欄を常設すると重い）。
+   */
+  const askField = (
+    <input
+      type="text"
+      className="trial__ask"
+      value={ask}
+      maxLength={ASK_MAX}
+      placeholder="確かめてほしいこと（任意）"
+      aria-label="確かめてほしいこと"
+      onChange={(e) => setAsk(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !sending) send();
+      }}
+    />
+  );
+
   if (compact) {
     if (status === null) {
       return (
-        <button
-          type="button"
-          className="btn btn--sm trial__go trial__go--compact"
-          disabled={sending}
-          onClick={send}
-          title={[
-            'サンドボックスで試させて、結果をここに出します。確かめること:',
-            ...plan.questions.map((q) => `・${q}`),
-            `最初のコマンド: ${plan.install}`,
-          ].join('\n')}
-        >
-          {sending ? '依頼しています…' : '🧪 試させる'}
-        </button>
+        <span className="trial__compact">
+          <button
+            type="button"
+            className="btn btn--sm trial__go trial__go--compact"
+            disabled={sending}
+            onClick={send}
+            title={hint}
+          >
+            {sending ? '依頼しています…' : '🧪 試させる'}
+          </button>
+          <button
+            type="button"
+            className="btn btn--sm trial__ask-toggle"
+            aria-expanded={asking}
+            title="確かめてほしいことを書く（任意）"
+            onClick={() => setAsking(!asking)}
+          >
+            ✎
+          </button>
+          {asking && askField}
+        </span>
       );
     }
     return (
@@ -154,6 +195,8 @@ export function TrialButton({
 
       {status === null && (
         <>
+          {/* 上の問いに足したいことがあれば書ける。空のままでも押せる */}
+          {askField}
           <button type="button" className="btn btn--sm trial__go" disabled={sending} onClick={send}>
             {sending ? '依頼しています…' : '🧪 試させる'}
           </button>

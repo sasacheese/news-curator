@@ -40,7 +40,11 @@ export function TrialReportView({
       >
         <span className="trial-line__mark">{v.mark}</span>
         <span className="trial-line__text">{report.headline}</span>
-        <span className="trial-line__more">試した結果</span>
+        {/*
+          * 中身の量を出す。「試した結果」だけだと 1 行の結論で終わりに見えて、
+          * その裏に千字ぶんの答えと手順があることが伝わらない（実測でそう見えた）。
+          */}
+        <span className="trial-line__more">{summarize(report)} ▾</span>
       </button>
     );
   }
@@ -55,6 +59,13 @@ export function TrialReportView({
       </p>
 
       <p className="trial__headline">{report.headline}</p>
+
+      {/* 何を聞いたかが見えないと、答えが妥当かを読者が判断できない */}
+      {report.ask && (
+        <p className="trial__ask-echo">
+          <b>依頼:</b> {report.ask}
+        </p>
+      )}
 
       {report.answers.length > 0 && (
         <dl className="trial__answers">
@@ -128,6 +139,17 @@ export function TrialReportView({
       </p>
     </div>
   );
+}
+
+/** 折り畳んだ行に出す「中身の量」。押す価値があるかを一目で分かるようにする */
+function summarize(report: TrialReport): string {
+  const parts = [
+    report.answers.length > 0 ? `答え${report.answers.length}` : '',
+    report.steps.length > 0 ? `手順${report.steps.length}` : '',
+    report.stumbles.length > 0 ? `詰まり${report.stumbles.length}` : '',
+    report.correction ? '訂正あり' : '',
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join('・') : '試した結果';
 }
 
 function formatUsd(usd: number | null): string {
