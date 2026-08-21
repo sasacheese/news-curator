@@ -3,8 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DATA_DIR } from './config.js';
 import { getAdminDb } from './firebaseAdmin.js';
-import { TrialReportSchema } from './schemas.js';
 import { loadRadarLedger } from './store.js';
+import { normalizeTrialReport } from './trial-report.js';
 import { buildTrialPlan, radarQuestions } from './trial-plan.js';
 import type { Digest, TrialCost, TrialPlan, TrialReport } from './types.js';
 import { log } from './util.js';
@@ -312,11 +312,16 @@ const SYSTEM = `あなたは技術ニュースのキュレーションサイト�
 {
   "verdict": "worked" | "partly" | "failed",
   "headline": "1 行の結論（120 字以内）",
-  "answers": [{ "question": "渡された問いをそのまま", "answer": "実際に見た結果からの答え" }],
-  "steps": [{ "command": "打ったコマンド", "ok": true, "note": "何が起きたか 1 行" }],
-  "stumbles": ["詰まった点。無ければ空配列"],
-  "correction": "掲載中の「試し方」とのずれ。無ければ null"
-}`;
+  "answers": [{ "question": "渡された問いをそのまま（200 字以内）", "answer": "実際に見た結果からの答え（400 字以内）" }],
+  "steps": [{ "command": "打ったコマンド（300 字以内）", "ok": true, "note": "何が起きたか 1 行（300 字以内）" }],
+  "stumbles": ["詰まった点。300 字以内。無ければ空配列"],
+  "correction": "掲載中の「試し方」とのずれ。400 字以内。無ければ null"
+}
+
+**字数を守ってください。** 超えた分はこちらで切りますが、切られると文が途中で
+終わって読者に伝わりません。answers は 5 個・steps は 20 個・stumbles は 5 個までで、
+それを超えた分は捨てられます。長く書くより、**実際に見た出力にもとづく 1 つ**を
+選んでください。`;
 
 /** 何をもって「試した」と言えるかの採点表。grader がこれで各項目を独立に採点する */
 const RUBRIC = `# 採点基準
@@ -437,9 +442,13 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
   try {
     const usage = await waitForIdle(client, session.id, started);
     const raw = await readReportFile(client, session.id);
-    const parsed = TrialReportSchema.safeParse(raw);
-    if (!parsed.success) {
-      throw new Error(`レポートの形が想定と違います: ${parsed.error.issues[0]?.message ?? ''}`);
+    /*
+     * 長さや件数で捨てない。切り詰めて通すのが normalizeTrialReport の仕事で、
+     * ここで失敗になるのは「中身が何も無い」ときだけ。
+     */
+    const report = normalizeTrialReport(raw);
+    if (!report) {
+      throw new Error('レポートに中身がありませんでした');
     }
     return {
       key: req.key,
@@ -447,12 +456,7 @@ export async function runTrial(req: TrialRequest, target: TrialTargetItem): Prom
       itemId: req.itemId,
       title: target.title,
       url: target.url,
-      verdict: parsed.data.verdict,
-      headline: parsed.data.headline,
-      answers: parsed.data.answers,
-      steps: parsed.data.steps,
-      stumbles: parsed.data.stumbles,
-      correction: parsed.data.correction,
+      ...report,
       ranAt: new Date().toISOString(),
       seconds: Math.round((Date.now() - started) / 1000),
       cost: estimateCost(usage),

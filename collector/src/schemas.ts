@@ -746,34 +746,42 @@ export type RadarPitchResult = z.infer<typeof RadarPitchSchema>;
  *   長さを縛る、想定外のキーを落とす——この 3 つで受ける。
  * - 形が合わなければレポート無しの失敗として扱う。半端なレポートを載せない。
  * ------------------------------------------------------------------ */
+/**
+ * ⚠️ **ここで長さや件数を制限しないこと。**
+ *
+ * 以前は表示用の上限（answer は 400 字など）をこのスキーマに書いていた。結果、
+ * 401 字の答えが 1 つあるだけでレポート全体が拒否され、**7.6 分走って採点役が
+ * satisfied を返した実行が丸ごと捨てられた**（画面には「レポートの形が想定と違います:
+ * Too big」だけが残った）。長さは表示の都合であって、受理の条件ではない。
+ *
+ * このスキーマが見るのは**形と型だけ**で、足りないものは既定値で埋め、型が違うものは
+ * `.catch()` で落とす。表示用の切り詰めは trial-report.ts が保存前にやる。
+ */
 export const TrialReportSchema = z.object({
-  verdict: z
-    .enum(['worked', 'partly', 'failed'])
-    .describe('worked = 問いに答えが出た / partly = 一部だけ / failed = 動かせなかった'),
-  headline: z.string().max(120).describe('1 行の結論。畳んだ状態で見えるのはここだけ'),
+  /** 正規化は trial-report.ts が行う（`success` や `ok` で返ってくることがある） */
+  verdict: z.string().catch(''),
+  headline: z.string().catch('').default(''),
   answers: z
     .array(
       z.object({
-        question: z.string().max(200),
-        answer: z.string().max(400).describe('試した結果からの答え。推測は書かない'),
+        question: z.string().catch('').default(''),
+        answer: z.string().catch('').default(''),
       }),
     )
-    .max(5),
+    .catch([])
+    .default([]),
   steps: z
     .array(
       z.object({
-        command: z.string().max(300),
-        ok: z.boolean(),
-        note: z.string().max(300),
+        command: z.string().catch('').default(''),
+        ok: z.boolean().catch(false).default(false),
+        note: z.string().catch('').default(''),
       }),
     )
-    .max(20),
-  stumbles: z.array(z.string().max(300)).max(5),
-  correction: z
-    .string()
-    .max(400)
-    .nullable()
-    .describe('掲載していた「試し方」とのずれ。無ければ null'),
+    .catch([])
+    .default([]),
+  stumbles: z.array(z.string().catch('')).catch([]).default([]),
+  correction: z.string().nullish().catch(null).default(null),
 });
 
 export type TrialReportResult = z.infer<typeof TrialReportSchema>;
