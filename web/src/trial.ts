@@ -177,12 +177,16 @@ export async function createFirstAvailable(
 export async function requestTrial(target: TrialTarget): Promise<string | null> {
   const baseKey = trialKey(target.digestDate, target.itemId);
 
+  /*
+   * 控えを**先に**書く。書き込みの完了を待ってから書くと、その間にタブを閉じられた
+   * ときに控えが残らない。次に開くとボタンが出て、押すと `-2` で新しい依頼が作られ、
+   * **同じ項目に 2 回課金される**。Firestore の書き込みが失敗しても、控えが残るのは
+   * 「押した」という事実なので害はない（置き場に無いと分かれば消える）。
+   */
+  writeLocalTrial(baseKey, Date.now());
+
   const db = await getFeedbackDb();
-  if (!db) {
-    // 設定が無い環境。押した見た目だけは残す（この端末での控え）
-    writeLocalTrial(baseKey, Date.now());
-    return null;
-  }
+  if (!db) return null;
 
   const { doc, setDoc, serverTimestamp, Timestamp } = await import('firebase/firestore/lite');
   const key = await createFirstAvailable(attemptKeys(baseKey), (k) =>
@@ -201,7 +205,8 @@ export async function requestTrial(target: TrialTarget): Promise<string | null> 
     }),
   );
 
-  writeLocalTrial(key ?? baseKey, Date.now());
+  // 置けた鍵が基準と違うときだけ差し替える（読み取り先をずらさないため）
+  if (key && key !== baseKey) writeLocalTrial(key, Date.now());
   return key;
 }
 
