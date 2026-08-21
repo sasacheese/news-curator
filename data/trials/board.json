@@ -1,6 +1,110 @@
 {
-  "generatedAt": "2026-08-21T09:06:09.594Z",
+  "generatedAt": "2026-08-21T10:53:24.005Z",
   "reports": [
+    {
+      "key": "2026-08-21__56ff888490ac0a02",
+      "digestDate": "2026-08-21",
+      "itemId": "56ff888490ac0a02",
+      "ask": null,
+      "title": "vercel-labs/fx — Unix like coding agent",
+      "url": "https://github.com/vercel-labs/fx",
+      "verdict": "partly",
+      "headline": "clone/build(要Zig代替入手)は無認証でも成功しhelp/doctorまで出力できたが、実際のエージェント動作にはVercel/OpenAI認証が必須で確認不可だった",
+      "answers": [
+        {
+          "question": "README の手順だけで、最初の出力まで到達できるか",
+          "answer": "READMEのInstallコマンド curl -fsSL https://fx.sh/setup.sh | bash はサンドボックスの通信許可外(x-deny-reason: host_not_allowed、fx.sh宛403)で3回試して全て失敗した。README下部のBuild from source手順(git clone→zig build -Doptimize=ReleaseSafe→./zig-out/bin/fx)はZig 0.16をpip経由(pip install ziglang、PyPI経由なので許可範囲内)で用意して代替実行でき、/tmp/fx, /tmp/fx2, /tmp/fx3の3回とも zig-out/bin/fx が生成され、fx --help・fx --versionまで出力に到達できた。ただしこれは公式setup.shではなくbuild from…"
+        },
+        {
+          "question": "動かすのに別途何が必要か（API キー・GUI・別のツール）",
+          "answer": "ビルド自体にはZig 0.16+が別途必要（本環境にはzigが無く、公式install(fx.sh/setup.sh)もziglang.org(403)もこのサンドボックスからは到達不可で、PyPIのziglangパッケージで代替）。実際にエージェントとして動かす(fx ask等)にはVercel AI Gatewayへのログイン(fx login)かAPIキー(AI_GATEWAY_API_KEY/fx setup)、またはChatGPT Codex OAuth(fx login codex)のいずれかが必須で、これらが無いと`fx doctor`はauth=missingでfail、`fx ask \"say hi\"`は`Fx needs access to Vercel AI Gateway...`のエラーで即終了した。対話TUI(`fx`単体起動)はTTYが無い環境では『fx re…"
+        }
+      ],
+      "steps": [
+        {
+          "command": "git clone --depth 1 https://github.com/vercel-labs/fx",
+          "ok": true,
+          "note": "/tmp/fx, /tmp/fx2, /tmp/fx3 で計3回試し、いずれも成功"
+        },
+        {
+          "command": "ls fx",
+          "ok": true,
+          "note": "README/AGENTS.md/src/等のファイル一覧を確認"
+        },
+        {
+          "command": "curl -s -D headers.txt https://fx.sh/setup.sh",
+          "ok": false,
+          "note": "HTTP 403、x-deny-reason: host_not_allowed。サンドボックスの許可ドメイン外(fx.sh)のため到達不可(3回実行し再現)"
+        },
+        {
+          "command": "curl -s -D headers.txt https://ziglang.org/download/",
+          "ok": false,
+          "note": "HTTP 403で同様にブロック（zig公式配布元も許可ドメイン外、2回実行し再現）"
+        },
+        {
+          "command": "pip3 install ziglang",
+          "ok": true,
+          "note": "PyPI経由でZig 0.16.0のバイナリ入りwheelを取得できた（許可された経路）"
+        },
+        {
+          "command": "python3 -m ziglang version",
+          "ok": true,
+          "note": "0.16.0 が動作することを確認"
+        },
+        {
+          "command": "zig build -Doptimize=ReleaseSafe（PyPI版zigをラップして実行）",
+          "ok": true,
+          "note": "zig-out/bin/fx (約11.8MB)が生成された(3回実行し再現、うち1回は約4分要した)"
+        },
+        {
+          "command": "./zig-out/bin/fx --version",
+          "ok": true,
+          "note": "0.0.4 を出力"
+        },
+        {
+          "command": "./zig-out/bin/fx --help",
+          "ok": true,
+          "note": "コマンド一覧・使用例を含むヘルプが正常出力された"
+        },
+        {
+          "command": "./zig-out/bin/fx doctor",
+          "ok": true,
+          "note": "auth=missingでfail=1件、他はok/warn。認証が必須であることが明示された"
+        },
+        {
+          "command": "./zig-out/bin/fx status",
+          "ok": true,
+          "note": "model=zai/glm-5.2, auth=missing, permission_mode=auto等を表示"
+        },
+        {
+          "command": "./zig-out/bin/fx ask \"say hi\"",
+          "ok": false,
+          "note": "「Fx needs access to Vercel AI Gateway. Run fx login...」で即座にexit=1、実際の生成には未到達"
+        },
+        {
+          "command": "echo \"\" | ./zig-out/bin/fx",
+          "ok": false,
+          "note": "「fx requires an interactive terminal (TTY).」で即終了。対話TUIには実TTYが必要"
+        }
+      ],
+      "stumbles": [
+        "READMEのInstallコマンド(curl -fsSL https://fx.sh/setup.sh | bash)がサンドボックスの通信許可(npm/PyPI/GitHubのみ)に含まれずHTTP403で失敗した。",
+        "Zig公式配布元ziglang.orgも同様に403でブロックされ、ビルドに必要なZigツールチェイン入手にPyPIのziglangパッケージという代替経路が必要だった。",
+        "認証(Vercel AI GatewayログインまたはAPIキー、Codex OAuth)が無いため、実際のモデル応答を伴うエージェント動作(fx ask等)は最後まで確認できなかった。",
+        "サイトの試し方(git clone→ls fx)はリポジトリ構造の確認に留まり、fx自体の起動やREADMEのInstall/Build from source手順、認証要件までは触れていない。"
+      ],
+      "correction": null,
+      "ranAt": "2026-08-21T10:53:23.556Z",
+      "seconds": 1460,
+      "cost": {
+        "model": "claude-sonnet-5",
+        "inputTokens": 171,
+        "outputTokens": 49612,
+        "cacheReadTokens": 2558351,
+        "cacheWriteTokens": 153343,
+        "estimatedUsd": 2.09
+      }
+    },
     {
       "key": "2026-08-21__6658b9ccb4418919",
       "digestDate": "2026-08-21",
