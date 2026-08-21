@@ -76,6 +76,31 @@ export function readLocalTrial(key: string): number | null {
   return readLocal()[key] ?? null;
 }
 
+/**
+ * 依頼が「置き場に無い」と分かってから、この端末の控えを消すまでの猶予。
+ *
+ * 押した直後は書き込みが届いていないことがあり、そこで消すと押した見た目が
+ * 一瞬で戻ってしまう。実行は分単位なので、数分待って損はない。
+ */
+const GRACE_MS = 3 * 60_000;
+
+/** 置き場に無いと分かったとき、この端末の控えを捨てていいか */
+export function shouldForgetLocalTrial(localAt: number, now: number = Date.now()): boolean {
+  return now - localAt > GRACE_MS;
+}
+
+/** 依頼が置き場から消えていたときに、この端末の控えも消す */
+export function forgetLocalTrial(key: string): void {
+  try {
+    const map = readLocal();
+    if (!(key in map)) return;
+    delete map[key];
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(map));
+  } catch {
+    // localStorage が使えない環境では何もしない
+  }
+}
+
 function writeLocalTrial(key: string, at: number): void {
   try {
     const map = readLocal();
@@ -118,19 +143,26 @@ export async function requestTrial(target: TrialTarget): Promise<boolean> {
 }
 
 /**
- * 状態を読む。まだ依頼が無ければ null。
+ * 状態を読む。
+ *
+ * 戻り値を 3 つに分けているのが要点。**「依頼が無い」と「読めなかった」を混ぜると、
+ * この端末の控えがいつまでも「順番待ち」を出し続ける。** 依頼は 31 日で TTL に消され、
+ * 失敗した依頼を消して押し直したいこともあるので、消えたことが分かる必要がある。
+ *
+ * - `TrialState` … 依頼がある
+ * - `'missing'` … 置き場に無い（消された / TTL 切れ / まだ届いていない）
+ * - `null` … 読めなかった（設定が無い・通信の失敗）。**控えは消さない**
  *
  * 購読（onSnapshot）はしない。firestore/lite に無いのもあるが、この機能で見たい
- * 変化は分単位で、開いたときに最新であれば足りる。呼び出し側は表示時と
- * ウィンドウに戻ってきたときだけ読む。
+ * 変化は分単位で、開いたときに最新であれば足りる。
  */
-export async function readTrialState(key: string): Promise<TrialState | null> {
+export async function readTrialState(key: string): Promise<TrialState | 'missing' | null> {
   const db = await getFeedbackDb();
   if (!db) return null;
   try {
     const { doc, getDoc } = await import('firebase/firestore/lite');
     const snap = await getDoc(doc(db, COLLECTION, key));
-    if (!snap.exists()) return null;
+    if (!snap.exists()) return 'missing';
     const d = snap.data() as {
       status?: unknown;
       note?: unknown;

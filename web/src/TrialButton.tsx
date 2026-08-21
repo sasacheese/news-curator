@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isFeedbackUnlocked } from './settings';
 import {
+  forgetLocalTrial,
   readLocalTrial,
   readTrialState,
   requestTrial,
+  shouldForgetLocalTrial,
   trialKey,
   type TrialState,
   type TrialTarget,
@@ -50,7 +52,26 @@ export function TrialButton({
    */
   const refresh = useCallback(() => {
     if (!localAt) return;
-    void readTrialState(key).then((s) => s && setState(s));
+    void readTrialState(key).then((s) => {
+      if (s === null) return; // 読めなかっただけ。控えは残す
+      if (s === 'missing') {
+        /*
+         * 置き場から消えている。失敗した依頼を消して押し直したいときと、
+         * 31 日の TTL で消えたときに来る。控えを持ち続けると「順番待ち」を
+         * 永遠に出すことになるので、押していない状態へ戻す。
+         *
+         * 押した直後は、まだ書き込みが届いていないことがある（この端末の
+         * 控えのほうが先）。数分は消さずに待つ。
+         */
+        if (shouldForgetLocalTrial(localAt)) {
+          forgetLocalTrial(key);
+          setLocalAt(null);
+          setState(null);
+        }
+        return;
+      }
+      setState(s);
+    });
   }, [key, localAt]);
 
   useEffect(() => {
