@@ -27,8 +27,12 @@ jobs:
     name: 試して結果をコミット
     runs-on: ubuntu-latest
     # サンドボックスの実行そのものは Anthropic 側で動く。ここは待つだけだが、
-    # 1 件 20 分 × 2 件を待てる長さは要る。
-    timeout-minutes: 55
+    # 1 件ぶんの上限（TRIAL_TIMEOUT_MS、既定 20 分・現在 30 分）× TRIAL_MAX_PER_RUN 件を
+    # 順に待てる長さが必要。30 分 × 2 件 = 60 分 + npm ci と回収の待ちで 75 分にしてある。
+    #
+    # ⚠️ ここが足りないとジョブごと落ちて、依頼が running のまま残る（次の実行が
+    # 拾って失敗にするが、その 1 件は無駄になる）。上限を伸ばすときは必ずここも見る。
+    timeout-minutes: 75
     permissions:
       contents: write
     outputs:
