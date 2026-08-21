@@ -141,8 +141,12 @@ async function main(): Promise<void> {
 
   /* 2. 重複排除 ----------------------------------------------------- */
   log.step('2/7 重複排除');
-  const seenUrls = await loadSeenUrls();
-  log.info(`過去に掲載済み: ${seenUrls.size} URL`);
+  /*
+   * 同じ日を作り直すときは、その日ぶんを「掲載済み」に数えない。
+   * 数えると自分の前回の出力を除外してしまい、余りものだけの盤面になる。
+   */
+  const seenUrls = await loadSeenUrls(90, date);
+  log.info(`過去に掲載済み: ${seenUrls.size} URL（${date} ぶんを除く）`);
   const unique = dedupe(collected, seenUrls);
   log.info(`重複排除後 ${unique.length} 件（-${collected.length - unique.length}）`);
 
