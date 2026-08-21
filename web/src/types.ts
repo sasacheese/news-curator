@@ -272,6 +272,8 @@ export interface TrialReport {
   steps: TrialStep[];
   stumbles: string[];
   correction: string | null;
+  /** 読者が書いた「確かめてほしいこと」。無ければ null */
+  ask?: string | null;
   ranAt: string;
   seconds: number;
   /** この機能より前に書かれたレポートには無い */

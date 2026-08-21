@@ -47,6 +47,27 @@ export function trialKey(digestDate: string, itemId: string): string {
   return `${digestDate}__${itemId}`;
 }
 
+/** 依頼文の上限。ルール側でも同じ値で縛る（片方だけ緩いと拒否が黙って起きる） */
+export const ASK_MAX = 200;
+
+/**
+ * 読者が書いた「確かめてほしいこと」を整える。
+ *
+ * 置き場は公開サイトから書けるので、ここを通ったものがそのままエージェントの
+ * 入力になる。**指示ではなく問いとして渡す**のはプロンプト側の仕事で、ここは
+ * 形だけを整える——改行と制御文字を潰し、長さを縛る。
+ *
+ * 空になったら null を返す（空文字を送るとルールの検証にも引っかかる）。
+ */
+export function normalizeAsk(raw: string): string | null {
+  const flat = raw
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!flat) return null;
+  return Array.from(flat).slice(0, ASK_MAX).join('');
+}
+
 export interface TrialTarget {
   digestDate: string;
   itemId: string;
@@ -174,7 +195,7 @@ export async function createFirstAvailable(
  * この端末の控えは**置けた鍵で**残す。試し直しで `-2` になったときに、
  * 状態の読み取り先とずれないようにするため。
  */
-export async function requestTrial(target: TrialTarget): Promise<string | null> {
+export async function requestTrial(target: TrialTarget, ask?: string | null): Promise<string | null> {
   const baseKey = trialKey(target.digestDate, target.itemId);
 
   /*
@@ -194,6 +215,11 @@ export async function requestTrial(target: TrialTarget): Promise<string | null> 
       digestDate: target.digestDate,
       itemId: target.itemId,
       title: target.title,
+      /*
+       * 読者が書いた「確かめてほしいこと」。空のときは項目ごと入れない
+       * （ルールは hasOnly の部分集合を許すので、無いほうが素直）。
+       */
+      ...(ask ? { ask } : {}),
       /*
        * 依頼の時点では必ず queued。実行側が running / done / failed へ進める。
        * クライアントから status を進められないよう、ルール側でも create 時の値を

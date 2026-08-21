@@ -434,6 +434,8 @@ export interface TrialReport {
   stumbles: string[];
   /** 掲載していた「試し方」の訂正。ずれが無ければ null */
   correction: string | null;
+  /** 読者が書いた「確かめてほしいこと」。無ければ null */
+  ask?: string | null;
   ranAt: string;
   /** 実行にかかった秒数。費用の見張りと「どれくらいで返るか」の表示に使う */
   seconds: number;
