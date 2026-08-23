@@ -1,0 +1,2343 @@
+{
+  "date": "2026-08-24",
+  "generatedAt": "2026-08-23T22:18:10.764Z",
+  "window": {
+    "start": "2026-08-22T22:00:00.000Z",
+    "end": "2026-08-23T22:00:00.000Z"
+  },
+  "summary": [
+    "AIエージェント関連が9件と突出し、実装から運用設計へ関心が広がった。",
+    "モデル振り分けや複数エージェントの権限、判断根拠を管理する動きが目立つ。",
+    "エージェント活用では、仕様・テスト・指示などコード外の資産を残す重要性も浮上した。",
+    "依存パッケージ改ざんと認証 bypass が重なり、開発・運用基盤の防御も焦点になった。"
+  ],
+  "outlook": "AIエージェントは開発・専門作業へ定着しつつある一方、モデル選択、権限、判断根拠、仕様やテストの保存、依存基盤の防御はまだ揺れている。今後は生成性能の競争から、複数エージェントを安全に監査・継承できる運用設計へ焦点が移りそうだ。",
+  "top": [
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "ビルド時に不正コードが実行されるRustパッケージの改ざんについてまとめてみた - piyolog",
+      "url": "https://piyolog.hatenadiary.jp/entry/2026/08/23/033006",
+      "publishedAt": "2026-08-22T23:39:06.000Z",
+      "tags": [
+        "テクノロジー",
+        "あとで読む",
+        "まとめ"
+      ],
+      "snippet": "Rustのパッケージレジストリcrates.ioで、広く使われている3つのクレートが改ざんされ、依存関係に追加されたタイポスクワットパッケージのビルドスクリプトを通じて、ビルドしただけでペイロードが実行される事案が2026年8月20日に発生しました。Rustプロジェクトと複数のセキュリティ企業が、手口の詳細や影響範囲を相...",
+      "metrics": {
+        "hatena": 30
+      },
+      "sourceWeight": 3,
+      "id": "a0745922a3fa7e20",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.066,
+      "popularityPercentile": 0.3,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "crates.ioで3つのRustクレートが改ざんされビルド時に不正コードが動く事案が起きた。",
+      "takeaways": [
+        "Rustの部品3つが改ざんされた。",
+        "組み込まれた部品の作成処理で不正コードが動いた。",
+        "2026年8月20日にビルドだけで被害につながる事案が発生した。"
+      ],
+      "keywords": [
+        "Rust",
+        "crates.io",
+        "タイポスクワッティング",
+        "サプライチェーン攻撃",
+        "ビルドスクリプト",
+        "マルウェア"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://ogimage.blog.st-hatena.com/10257846132616586766/14945776032068083813/1787423406",
+      "body": "Rustのパッケージレジストリcrates.ioで、広く使われている3つのクレートが改ざんされ、依存関係に追加されたタイポスクワットパッケージのビルドスクリプトを通じて、ビルドしただけでペイロードが実行される事案が2026年8月20日に発生しました。Rustプロジェクトと複数のセキュリティ企業が、手口の詳細や影響範囲を相次いで公表しています。ここでは関連する情報をまとめます。\n\n    広く使われる3クレートが改ざん\n    改ざんされたのは、arrayref、internment、append-only-vecの3クレートで、いずれも同一のメンテナのアカウントが公開していた。arrayrefは配列の参照を扱う小さなユーティリティクレートで、10年の公開履歴の中で通常の依存関係を一度も持たなかったが、2026年8月20日公開の0.3.10で初めてproc-macro1への依存が追加された(出典: 1, 6, 11)。internmentとappend-only-vecも同じアカウントが持つクレートで、同様に新しいバージョン(internment 0.8.7、append-only-vec 0.1.9)でproc-macro1への依存が追加された(出典: 1, 3, 4)。The Hacker Newsが2026年8月21日にcrates.ioのAPIを自ら照会したところ、arrayrefの累計ダウンロード数は245,385,500回、2026年8月20日までの90日間で53,905,601回、arrayrefに依存するクレートは403件だった(出典: 14)。JFrog Security Researchは2026年8月20日、internmentの累計ダウンロード数を約1,440万回、append-only-vecを約450万回と報告している(出典: 13)。Wizは、arrayrefが全環境の35%超に存在し、Rustが存在する環境に限れば4分の3で使われていると報告した(出典: 10)。Rust Security Response Teamは、クレートのメンテナの端末または認証情報が侵害された可能性が高いと推定している(出典: 1)。\n\n    ビルドしただけでペイロードが実行される仕組み\n    攻撃者は事案の2日前にあたる2026年8月18日までに、自ら管理する複数のクレートをcrates.ioへ公開し、攻撃の基盤を用意していた(出典: 11)。2026年8月20日未明(UTC)には、proc-macro2の作者になりすました氏名でGitHubアカウントを作成し、その8分後にcrates.ioの対応するアカウントを作成した。このアカウントはまず、ビルドスクリプトを持たない、正規のproc-macro2をそのまま複製した版を1.0.106として公開し、その約5時間後に、ビルドスクリプトへ二段目ペイロードのダウンロードと実行のコードを仕込んだ武器化版1.0.107を公開した(出典: 6, 11)。Rustのビルドスクリプト(build.rs)は、依存関係を解決したうえでコンパイル時に自動的に実行される。このため、武器化版のproc-macro1が依存ツリーのどこかに含まれるプロジェクトを`cargo build`でビルドしただけで、開発者の端末やCIのビルド環境上でペイロードが実行される。コンパイルした成果物を配布したり実行したりする必要はなく、ビルドする行為そのものが実行条件になる(出典: 1, 11, 12, 13)。The Hacker Newsは、`cargo test`でも同様にペイロードが実行され得るとする分析を伝えている(出典: 14)。武器化されたproc-macro1のビルドスクリプトは、Base64で分割保存されたURL断片を実行時に結合してペイロードの配布先アドレスを復元し、あらゆる証明書を無条件に受理する独自のTLS検証器を使ってHTTPS通信を行い、ビルドを実行している端末のOSとCPUアーキテクチャに応じた二段目バイナリを取得する。取得したバイナリは、Unix系では一時ディレクトリに書き出されて実行可能な状態にされ、標準入出力を切り離した状態で起動される。Windowsでは一時ディレクトリ内にPowerShellスクリプトとして書き出され、VBSのランチャを介して非表示の状態で起動される。いずれもビルドスクリプトの終了を待たずに動作を続け、ビルドスクリプト自体はここで正常終了するため、コンパイルは成功し、テストも通過する(出典: 11, 12)。proc-macro1のライブラリ本体は正規のproc-macro2のソースをそのまま複製したもので、arrayrefなど3クレートのライブラリ本体のソースコードにも変更はない。攻撃者が加えた変更は各クレートのマニフェストに依存関係を1行追加しただけであり、クレート自体の機能を呼び出さなくても、依存を解決してビルドするだけで攻撃が成立する(出典: 11, 12)。取得される二段目のバイナリは、Wizの解析によれば、C2サーバへのHTTPS POSTによるビーコン通信を行い、Windowsのレジストリのrunキー、macOSのLaunchAgent、Linuxのsystemdユーザーサービスによる永続化を備え、主要なC2が使用できない場合に備えたドメイン生成アルゴリズムを持つバックドアだった。Chrome、Brave、Edgeについては、各プロファイルの保存されたログインと拡張機能の設定を読み取るとしている。暗号化された認証情報自体は取得しないとしている*1 (出典: 10)。Aikido Securityが独自に入手した検体の解析では、ログインデータベースのURLとユーザー名の列を対象とするSQLクエリが確認されている(出典: 12)。悪性版arrayref 0.3.10の公開から24秒後、クレートのメンテナのアカウントは、直近の正規版5つ(0.3.9から0.3.5)を約4秒間隔で連続してyank(取り下げ)した。yankされたバージョンはロックファイルに既に固定されていれば引き続きビルドに使われるが、cargoは以後のビルドのたびに「取り下げられたバージョンを使っている、取り下げられていないバージョンへの更新を検討せよ」という警告を表示する。この結果、arrayrefで取り下げられていない新しい版は、悪性の0.3.10だけになった(出典: 1, 6, 11)。RustSec advisory-dbに起票した報告者は、まさにこの警告に従って更新した結果、悪性版を取得したと自ら記載している(出典: 6)。同様のyankは、internmentとappend-only-vecの旧バージョンにも適用されたと分析されている(出典: 11)。\ncrates.io 改ざんクレートのビルド時実行フロー\n\n    検知から削除までの対応\n    Rust Security Response Teamは、2026年8月20日07:15 UTC(日本時間16:15)にproc-macro1が悪性であるとの報告を受けた。この通報はNextron Systems GmbHの研究チームによるものである(出典: 1)。GitHub上のRustSec advisory-dbにも第三者による起票が行われており、起票者は自身のコメントで、Rustのセキュリティ窓口にも別途メールしたと記載している(出典: 6)。StepSecurityは、この起票が同日07:54 UTCだったとしている(出典: 11)。Rust Security Response Teamは報告を検証したうえで、proc-macro1に加えてproc-macro-en、aovine、arone、aronenao、tinymemberの計6クレートを削除し、悪意をもってyankされていた正規版については、yankを取り消して元の状態に戻した。クレートのメンテナのアカウントは、予防的措置としてロックしたとしている(出典: 1)。RustSec Advisory Databaseの勧告は、関連するアカウントがロックされたことを伝えている(出典: 5)。Rust Security Response Teamは、削除した3つの悪性バージョンについて公開と削除の時刻を公表している。arrayref 0.3.10は07:15 UTCに公開されて08:41 UTCに、internment 0.8.7は07:34 UTCに公開されて09:04 UTCに、append-only-vec 0.1.9は07:37 UTCに公開されて09:25 UTCにそれぞれ削除され、公開されていた時間は86分、90分、107分だった(出典: 1, 2, 3, 4)。StepSecurityは、proc-macro1の武器化版が公開された07:11 UTCから最後のクレートが削除された09:25 UTCまでを一連の露出時間としている(出典: 11)。arrayref 0.3.10のダウンロード回数は2,285回で、全バージョンのダウンロードトラフィックの10%未満だった*2 (出典: 2)。2026年8月21日には、arrayref、internment、append-only-vecの3クレートにそれぞれCVE番号(CVE-2026-77651、CVE-2026-77649、CVE-2026-77650)が採番され、いずれもCVSS v3.1で最高水準のCritical(基本値9.8)、Unreviewedの状態で公開された(出典: 7, 8, 9)。\n\n    攻撃者の帰属をめぐる報告\n    Wizは2026年8月20日、本キャンペーンのインフラが、近年の北朝鮮系アクターと結び付けられたキャンペーンと、C2のエンドポイントのパターンやSSL証明書の発行者、同一のホスティング事業者のIPアドレス帯という点で「大きく重複する」としている*3 (出典: 10)。Wizが挙げたキャンペーンはいずれもnpmパッケージを狙ったもので、Mastraの侵害はMicrosoftにより高い確度でSapphire Sleetに(出典: 16)、axiosの侵害はGoogle Threat Intelligence Group、Mandiantの分析によりUNC1069に、それぞれ帰属されている(出典: 17)。Wiz自身はインフラの重複の指摘にとどめて特定のアクターへの帰属は断定しておらず、Microsoft、Google Threat Intelligence Groupいずれの公表も本事案そのものへの言及は含んでいない。\n\n    手元の環境を確認する方法\n    Rust Security Response Teamは、手元の依存関係を確認し、これらのクレートが取り込まれていないか確かめるよう呼びかけ、`~/.cargo/registry/cache`ディレクトリ内に該当クレートのキャッシュファイルが残っていないかを確認する方法を示した(出典: 1)。StepSecurityは、これに加えてCargo.lockに該当するクレート名やバージョンが記録されていないかを確認するよう呼びかけている(出典: 11)。proc-macro1は無害な複製版1.0.106を含めてバージョンを問わず削除されており、悪性のビルドスクリプトを持つのは1.0.107である(出典: 1, 11)。再発防止に向けては、公開直後の依存関係を一定期間保留する`global-min-publish-age`設定を巡るcargoのプルリクエストが、攻撃の2日前にあたる2026年8月18日に最終コメント期間に入ったまま、2026年8月21日時点で未マージであることをThe Hacker Newsが確認している。cargoにこれに相当する仕組みはまだ入っていない(出典: 14)。\n\n    参考情報\n    \n\n    Rustプロジェクトの公表\n    \n\n[1] 2026年8月20日 Rust Blog(Rust Security Response WG)「Supply chain attack on arrayref」\n[2] 2026年8月20日 RustSec Advisory Database「RUSTSEC-2026-0260: arrayref 0.3.10 was removed from crates.io due to a malicious dependency」\n[3] 2026年8月20日 RustSec Advisory Database「RUSTSEC-2026-0266: internment 0.8.7 was removed from crates.io due to a malicious dependency」\n[4] 2026年8月20日 RustSec Advisory Database「RUSTSEC-2026-0262: append-only-vec 0.1.9 was removed from crates.io due to a malicious dependency」\n[5] 2026年8月20日 RustSec Advisory Database「RUSTSEC-2026-0265: proc-macro1 was removed from crates.io due to malicious code」\n[6] 2026年8月20日 GitHub rustsec/advisory-db Issue #3161「Malware: arrayref 0.3.10 executes a remote payload at build time via typosquatted proc-macro1」\n[7] 2026年8月21日 GitHub Advisory Database「The arrayref crate 0.3.10 for Rust can trigger execution of malicious code when compiling a project that uses the crate(CVE-2026-77651)」\n[8] 2026年8月21日 GitHub Advisory Database「The internment crate 0.8.7 for Rust can trigger execution of malicious code when compiling a project that uses the crate(CVE-2026-77649)」\n[9] 2026年8月21日 GitHub Advisory Database「The append-only-vec crate 0.1.9 for Rust can trigger execution of malicious code when compiling a project that uses the crate(CVE-2026-77650)」\n\n    観測ベンダによる分析\n    \n\n[10] 2026年8月20日 Wiz「Rust Supply Chain Attack on arrayref: Significant Overlap with DPRK Campaigns」\n[11] 2026年8月20日 StepSecurity「Rust Supply-Chain Attack: arrayref, internment, and append-only-vec Poisoned by the proc-macro1 Build-Time Dropper」\n[12] 2026年8月20日 Aikido Security「Popular Rust crates arrayref, append-only-vec, and internment compromised in Supply Chain Attack」\n[13] 2026年8月20日 JFrog Security Research「Compromised Rust crates on crates.io silently execute malware at build time」\n\n    報道\n    \n\n[14] 2026年8月20日 The Hacker News「Rust Supply Chain Attack Puts Build-Time Malware in Crates with 245 Million Downloads」\n[15] 2026年8月21日 The Register「Hackers poison popular Rust crates to steal developers' credentials」\n\n    更新履歴\n    \n\n2026年8月22日 新規作成\n\n*1:Wizは以前の版で、ブラウザの認証情報自体が窃取されると記載していたが、その後訂正した。原文: \"A prior version of this piece mistakenly stated that browser credentials were stolen. The queries only enumerate saved logins, they do not retrieve the encrypted credential material.\"\n*2:The Registerは、汚染版を取得した開発者の数と、実際にペイロードを実行したシステムの数について、Rust側の公表がないと整理している(出典: 15)。メンテナのアカウントが侵害された経路は開示されていない(出典: 14)。JPCERT/CCやIPAなど日本国内の関連機関による本件への言及は、2026年8月22日時点で確認できていない。\n*3:原文(Wiz): \"The arrayref infrastructure substantially overlaps with operations attributed to recent North Korean actors.\"",
+      "rank": 1,
+      "deep": {
+        "summary": "2026年8月20日、crates.ioで広く使われるarrayref 0.3.10、internment 0.8.7、append-only-vec 0.1.9に、タイポスクワットされたproc-macro1への依存が追加された。proc-macro1 1.0.107のbuild.rsはOS・CPUに応じた二段目バイナリを取得して実行するため、依存関係を解決してcargo buildするだけで開発端末やCI上のペイロードが動作し得る。ペイロードはC2へのビーコン、永続化、Chrome・Brave・Edgeの保存ログインに関する情報収集機能を持つバックドアだったが、暗号化された認証情報自体は取得しないと訂正されている。悪性クレートは公開から86〜107分で削除され、正規版に対するyankも取り消されたが、悪性版を取得した環境の特定やメンテナの認証情報侵害経路は未公表である。現在の実務上の確認対象はCargo.lockと~/.cargo/registry/cacheであり、cargoには公開直後の依存関係を保留するglobal-min-publish-age相当の仕組みがまだ入っていない。",
+        "prerequisites": [
+          {
+            "term": "build.rs",
+            "stumblingPoint": "記事は「コンパイル時に自動的に実行される」と書いているが、build.rsが依存クレート側にも存在する意味を知らないと危険性が読み取れない。",
+            "explanation": "build.rsは、Rustのソース本体を実行するのではなく、クレートのコンパイル準備としてCargoが自動起動するスクリプトである。依存クレートにも置けるため、アプリケーションがその機能を呼び出さなくても依存解決後のビルドで動く。通常の実行ファイルに含まれるコードより前に実行される点が、この事案の成立条件になっている。"
+          },
+          {
+            "term": "proc-macro1",
+            "stumblingPoint": "記事はproc-macro2を複製したproc-macro1と説明するが、名前の1文字違いが依存関係へ入り込む経路を知らないと理解しにくい。",
+            "explanation": "proc-macro1は、正規のproc-macro2に似せたタイポスクワットパッケージである。改ざんされた3クレートのマニフェストがこの名前を依存先として指定したため、Cargoは正規のproc-macro2とは別のパッケージを取得した。見た目やライブラリ本体が正規品に近くても、パッケージ名の差だけで悪性build.rsを依存ツリーへ追加できる。"
+          },
+          {
+            "term": "cargo build",
+            "stumblingPoint": "記事は「cargo buildでビルドしただけ」と強調するが、依存クレートのコードがアプリの実行前に動く仕組みを知らないと影響範囲を誤る。",
+            "explanation": "cargo buildは、直接依存だけでなく推移依存も解決し、それぞれのビルドスクリプトを実行してから成果物をコンパイルする。したがって、対象クレートのAPIを呼んでいないことや、生成されたバイナリを配布していないことは防御にならない。開発者端末だけでなく、依存インストールとビルドを行うCIも実行地点になる。"
+          },
+          {
+            "term": "Cargo.lock",
+            "stumblingPoint": "記事はCargo.lockに名前やバージョンが記録されるとするが、そこを調べることが取得実績の確認になる理由が省略されている。",
+            "explanation": "Cargo.lockは、プロジェクトで解決された依存クレートとバージョンを固定するファイルである。ここにarrayref 0.3.10などが残っていれば、少なくともその依存解決結果を使ったビルドを調査する手掛かりになる。ロックファイルがある場合、最新版へ自動更新されたかどうかだけでなく、実際に固定された版を確認できる。"
+          },
+          {
+            "term": "yank",
+            "stumblingPoint": "記事は正規版がyankされた後に悪性版へ更新されたと書くが、yankしても既存のロックファイルでは使える点が直感に反する。",
+            "explanation": "yankはcrates.ioから新規利用されにくくする取り下げで、既にCargo.lockへ固定された版を消去する操作ではない。そのため、正規版を使っていたプロジェクトには警告が出るだけで、直ちに悪性版へ変わるわけではない。一方、警告に従って固定先を更新すると、取り下げられていない悪性版0.3.10を選ぶ結果になり得た。"
+          },
+          {
+            "term": "二段目バイナリ",
+            "stumblingPoint": "記事はbuild.rsが「二段目バイナリ」を取得すると書くが、ライブラリ本体の変更が少なくても被害が成立する理由が読み取りにくい。",
+            "explanation": "最初に実行されるbuild.rsは、URLを復元して環境に合う別の実行体をダウンロードするドロッパーとして働く。Unix系では一時ディレクトリから実行し、WindowsではPowerShellとVBSで非表示起動する。build.rsは終了してビルドを成功させるため、コンパイル失敗やテスト失敗を監視するだけでは検出できない。"
+          },
+          {
+            "term": "C2",
+            "stumblingPoint": "記事はC2へのビーコンと永続化を挙げるが、単なるビルド時の一回限りの通信ではない点が分からないと深刻度を評価しにくい。",
+            "explanation": "C2は攻撃者側の指令・通信サーバを指し、二段目バイナリはHTTPS POSTで端末情報などを送る。さらにWindowsのrunキー、macOSのLaunchAgent、Linuxのsystemdユーザーサービスを使って再起動後も残る機能が確認された。つまり、ビルド時の実行を起点に、後続の通信と端末上の常駐へ移行する設計である。"
+          }
+        ],
+        "visual": null,
+        "figures": [
+          {
+            "url": "https://cdn-ak.f.st-hatena.com/images/fotolife/p/piyokango/20260823/20260823024710.png",
+            "alt": "crates.io 改ざんクレートのビルド時実行フロー",
+            "caption": "依存解決でproc-macro1が入り、build.rsがOS別ペイロードを取得・起動する流れを示す。"
+          }
+        ],
+        "code": {
+          "lang": "bash",
+          "caption": "Cargo.lockとCargoキャッシュに悪性クレートの痕跡がないか確認する",
+          "content": "set -eu\n\nprintf '%s\\n' '--- Cargo.lock ---'\n[ -f Cargo.lock ] && grep -nE '^(name|version) = \"(arrayref|internment|append-only-vec|proc-macro1)\"' Cargo.lock || true\n\nprintf '%s\\n' '--- cargo registry cache ---'\nfind \"$HOME/.cargo/registry/cache\" -type f \\( \\\n  -name 'arrayref-*.crate' -o \\\n  -name 'internment-*.crate' -o \\\n  -name 'append-only-vec-*.crate' -o \\\n  -name 'proc-macro1-*.crate' \\\n\\) -print 2>/dev/null || true"
+        },
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "know",
+        "impact": [
+          "Rustプロジェクトをcargo buildする人",
+          "arrayrefを依存に持つ人",
+          "Rust CIでcargo testする人",
+          "Chrome等のプロファイルがある人"
+        ],
+        "timeline": [
+          "2026-08-18 攻撃基盤のクレート公開",
+          "2026-08-20 悪性クレート公開・削除",
+          "2026-08-21 CVE番号採番"
+        ],
+        "checkNow": [
+          "Cargo.lockをgrepし該当クレート名と版を確認する",
+          "~/.cargo/registry/cache内のcrateファイル名をfindする"
+        ],
+        "unknowns": [
+          "悪性版を実行した環境数は未公表",
+          "メンテナの認証情報侵害経路は未開示",
+          "攻撃者の帰属は未断定"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "lanicer/cve-2026-41940-PoC — A cPanel and WHM authentication bypassing tool",
+      "url": "https://github.com/lanicer/cve-2026-41940-PoC",
+      "publishedAt": "2026-08-19T12:46:46.000Z",
+      "author": "lanicer",
+      "authorDetail": {
+        "name": "lanicer",
+        "url": "https://github.com/lanicer",
+        "avatarUrl": "https://github.com/lanicer.png?size=120",
+        "bio": "A cPanel and WHM authentication bypassing tool"
+      },
+      "tags": [
+        "Python",
+        "cpanel",
+        "cve",
+        "cve-2026-41940",
+        "cve-scanning",
+        "vulnerability-research"
+      ],
+      "snippet": "A cPanel and WHM authentication bypassing tool",
+      "metrics": {
+        "stars": 527
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "ad5a7c92287b6bc0",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.17790697674418604,
+      "popularityPercentile": 0.5813953488372093,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 76,
+      "titleJa": "cve-2026-41940-PoC — 認証回避ツール",
+      "oneLiner": "cve-2026-41940-PoCがcPanelとWHMの認証回避ツールとして公開された。",
+      "takeaways": [
+        "cPanelとWHMの認証を回避する検証用ツールが公開された。",
+        "ツールはCVE-2026-41940を対象にしている。",
+        "公開情報はPython製リポジトリとして整理されている。"
+      ],
+      "keywords": [
+        "cve-2026-41940-PoC",
+        "CVE-2026-41940",
+        "cPanel",
+        "WHM",
+        "Python"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "body": "CVE-2026-41940\r⚠ This tool is created solely for educational or bug bounty purpose only. Unauthorized use outside of controlled environments is strictly prohibited.\r\n\r\nDescription\r\nA tool for exploiting CVE-2026-41940, a critical authentication bypass in cPanel & WHM (CVSS 10.0), allowing unauthenticated attackers to gain root-level WHM access by injecting CRLF sequences into server-side session files via the Authorization header — no credentials required.\r\n\r\nHow it works\r\nCVE-2026-41940, in general terms, is exploited through a breakdown in how the system handles authentication sessions in cPanel/WHM. The attack typically begins with a normal request to the login interface, where the application prematurely initializes a session before fully validating user credentials. Because of improper handling of session-related input, certain crafted or unexpected input structures can alter how session data is stored or interpreted by the server.\r\n\r\nAffected versions\r\n\r\n| Version | Vulnerable | Patched |\r\n|--------|-----------|---------|\r\n| 110.x | ≤ 11.110.0.96 | 11.110.0.97 |\r\n| 118.x | ≤ 11.118.0.62 | 11.118.0.63 |\r\n| 126.x | ≤ 11.126.0.53 | 11.126.0.54 |\r\n| 132.x | ≤ 11.132.0.28 | 11.132.0.29 |\r\n| 134.x | ≤ 11.134.0.19 | 11.134.0.20 |\r\n| 136.x | ≤ 11.136.0.4 | 11.136.0.5 |\r\n\r\n---\r\n\r\nInstallation(Windows/Mac OS)🔄\r\n\r\n [code] \r\n\r\nHow to use\r\nThe tool expects a target domain to be specified.\r\n\r\nSingle target mode:\r\n [code] \r\nYou can also scan from the target.txt file(create it):\r\n [code] \r\nBasic scan:\r\n\r\nAvailable commands:\r\n [code] \r\n\r\nPost-Expoit actions\r\n\r\n [code] \r\nPipelines\r\n [code] \r\n\r\nWHM Shell mode\r\nAfter a succesful executuion, you can open an interactive WHM shell:\r\n [code] \r\n\r\nAll shell Commands\r\n\r\n| Command | Description |\r\n|---------|-------------|\r\n| id | Show User ID |\r\n| hostname | Get server hostname |\r\n| accounts | List all user accounts |\r\n| info | Load, disk, MySQL host, version |\r\n| cat | Read file content |\r\n| exec | Execute OS command |\r\n| newadmin | Create backdoor WHM admin |\r\n| passwd | Change root password |\r\n| l [path] | List directory |\r\n| help | Show all commands |\r\n| exit | Exit shell mode |\r\n\r\n---\r\n\r\nCLI Reference\r\n\r\n [code] \r\n\r\nDisclaimer \r\n\r\n⚠ This tool is created solely for educational or bug bounty purpose only. Unauthorized use outside of controlled environments is strictly prohibited.",
+      "rank": 2,
+      "deep": {
+        "summary": "このGitHubリポジトリは、cPanel & WHMのCVE-2026-41940を悪用するPython製PoCを公開している。リポジトリの説明では、Authorization headerにCRLFを含めてサーバー側のsession filesを操作し、認証なしでroot-level WHM accessを得られるとしている。対象として、110.x、118.x、126.x、132.x、134.x、136.xの各ブランチと、それぞれの修正版が示されている。PoCには単一対象・target.txtによるスキャン、Pipeline、成功後のWHM Shell modeが含まれる。WHM Shell modeのコマンドには、ファイル読み取り、OSコマンド実行、管理者作成、rootパスワード変更が含まれるため、未修正サーバーでは侵害後の影響が極めて大きい。",
+        "prerequisites": [
+          {
+            "term": "CVE-2026-41940",
+            "stumblingPoint": "記事は「CVE-2026-41940」を前提に説明しているが、CVE番号だけでは対象製品と確認すべき修正版を読み取れない。",
+            "explanation": "CVE-2026-41940は、この記事がcPanel & WHMの認証処理を対象にしていることを示す識別子である。ここでは脆弱性の有無をCVE番号だけで判断せず、稼働中のcPanel & WHMバージョンを影響範囲の表と照合する必要がある。"
+          },
+          {
+            "term": "Authorization header",
+            "stumblingPoint": "記事は「Authorization headerにCRLFを注入」と書くが、HTTPリクエストのどの入力箇所が問題かを知らないと影響範囲が掴みにくい。",
+            "explanation": "Authorization headerはHTTPリクエストに認証情報や認証関連の値を渡すヘッダーである。この記事の主張では、このヘッダーの処理結果が認証セッションの保存に影響し、資格情報なしのアクセスにつながる。具体的な注入方法や再現手順は、管理対象外のシステムに適用すべきではない。"
+          },
+          {
+            "term": "CRLF",
+            "stumblingPoint": "「CRLF sequences」がセッションファイルを変えると書かれているが、改行文字がなぜ保存形式に影響するかが省略されている。",
+            "explanation": "CRLFはキャリッジリターンとラインフィードによる改行表現である。入力値を行単位のデータとして扱う処理に混入すると、値の境界や保存内容の解釈を崩す可能性がある。この記事では、その結果としてサーバー側のsession filesが不正に扱われるという説明になっている。"
+          },
+          {
+            "term": "session files",
+            "stumblingPoint": "記事は「サーバー側のsession filesへの書き込み」と述べるが、通常のログイン前後で何が保持される場所か分からないと危険性を判断できない。",
+            "explanation": "session filesは、ログイン状態やリクエストに紐づく一時的なセッション情報をサーバー側に保持するファイルである。通常は利用者が直接編集するものではなく、認証処理が読み書きする。ここが改変されると、パスワードを知らなくても認証済み状態として扱われる可能性がある。"
+          },
+          {
+            "term": "root-level WHM access",
+            "stumblingPoint": "「root-level WHM access」と書かれているが、一般ユーザーのログイン成功と同じ意味だと読むと影響を過小評価する。",
+            "explanation": "WHMはcPanel環境を管理するための管理者向けインターフェースで、root-level accessはサーバー全体に近い管理権限を意味する。この記事の主張どおりなら、影響は単一アカウントの乗っ取りではなく、ホスティング上の複数アカウントや設定に及び得る。"
+          },
+          {
+            "term": "WHM Shell mode",
+            "stumblingPoint": "記事は成功後に「WHM Shell mode」を開けるとするが、表のコマンドが通常の閲覧機能か管理操作か判別しにくい。",
+            "explanation": "WHM Shell modeは、PoCが成功した後にサーバー操作を行うための対話型インターフェースとして説明されている。表にはcatやexecだけでなく、newadminやpasswdもあり、情報取得にとどまらず管理者追加やrootパスワード変更まで可能とされる。したがって、検証対象では権限・監査・隔離を前提に扱う必要がある。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "認証バイパスの経路",
+          "layers": [
+            {
+              "label": "要求元",
+              "nodes": [
+                {
+                  "name": "未認証クライアント",
+                  "note": "資格情報なしの要求",
+                  "highlight": false
+                }
+              ],
+              "via": "HTTP要求"
+            },
+            {
+              "label": "認証処理",
+              "nodes": [
+                {
+                  "name": "cPanel & WHM",
+                  "note": "Authorization headerを処理",
+                  "highlight": true
+                }
+              ],
+              "via": "セッション情報"
+            },
+            {
+              "label": "保存領域",
+              "nodes": [
+                {
+                  "name": "session files",
+                  "note": "サーバー側セッション",
+                  "highlight": true
+                }
+              ],
+              "via": "認証状態"
+            },
+            {
+              "label": "到達権限",
+              "nodes": [
+                {
+                  "name": "WHM root access",
+                  "note": "管理操作が可能",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "lanicer/cve-2026-41940-PoC",
+            "url": "https://github.com/lanicer/cve-2026-41940-PoC"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "cPanel & WHMを運用している人",
+          "影響範囲のバージョンを使う人",
+          "WHMを外部公開している人",
+          "cPanel環境を監査する人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "WHMのバージョン画面を開き、修正版の番号と照合する",
+          "対象版なら管理対象を隔離し、ベンダー提供の更新を適用する",
+          "PoCのexecやnewadminを実運用環境で実行しない"
+        ],
+        "unknowns": [
+          "CVEの詳細はリポジトリ記載のみで検証状況不明",
+          "ベンダー公式アドバイザリへのリンクは掲載なし",
+          "影響を受けた実環境や検証結果は不明"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "syv-ai/qwen38-27b-rtx3090 — Qwen3.8-27B on a single RTX 3090 with vLLM: ~1,000 tok/s at 64 concurrent (int8 tensor-core GEMMs, fp16 DeltaNet state), ~114 tok/s single-user at default sampling / ~124 greedy (MTP drafts, own-output draft vocab, calibrated int4 lm_head, split-KV verify attention), 150k-262k context; patches, requant scripts, benchmarks",
+      "url": "https://github.com/syv-ai/qwen38-27b-rtx3090",
+      "publishedAt": "2026-08-15T09:10:56.000Z",
+      "author": "syv-ai",
+      "authorDetail": {
+        "name": "syv-ai",
+        "url": "https://github.com/syv-ai",
+        "avatarUrl": "https://github.com/syv-ai.png?size=120",
+        "bio": "Qwen3.8-27B on a single RTX 3090 with vLLM: ~1,000 tok/s at 64 concurrent (int8 tensor-core GEMMs, fp16 DeltaNet state), ~114 tok/s single-user at default sampling / ~124 greedy (MTP drafts, own-output draft vocab, calibrated int4 lm_head, split-KV verify attention), 150k-262k context; patches, requant scripts, benchmarks"
+      },
+      "tags": [
+        "Python",
+        "kv-cache",
+        "llm-inference",
+        "local-llm",
+        "quantization",
+        "qwen",
+        "qwen3",
+        "rtx-3090"
+      ],
+      "snippet": "Qwen3.8-27B on a single RTX 3090 with vLLM: ~1,000 tok/s at 64 concurrent (int8 tensor-core GEMMs, fp16 DeltaNet state), ~114 tok/s single-user at default sampling / ~124 greedy (MTP drafts, own-output draft vocab, calibrated int4 lm_head, split-KV verify attention), 150k-262k context; patches, requant scripts, benchmarks",
+      "metrics": {
+        "stars": 482,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "d3cd9c34637178f1",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.5259925249169435,
+      "popularityPercentile": 0.16279069767441862,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": "Qwen3.8-27BをRTX 3090で高速実行する構成",
+      "oneLiner": "Qwen3.8-27Bを1枚のRTX 3090で動かし同時利用時に約1,000 tok/sを達成する構成を公開している。",
+      "takeaways": [
+        "Qwen3.8-27Bを1枚のRTX 3090で動かせる。",
+        "64人の同時利用で約1,000 tok/sに達する。",
+        "長い入力は15万から26万単位まで扱える。"
+      ],
+      "keywords": [
+        "Qwen3.8-27B",
+        "vLLM",
+        "RTX 3090",
+        "量子化",
+        "LLM推論"
+      ],
+      "category": "パフォーマンス",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "body": "Qwen3.8-27B on one RTX 3090\n\n \n\nServing setup for Qwen3.8-27B on a\nsingle 24 GB consumer GPU with vLLM. 150k token context, OpenAI-compatible\nAPI with key auth, and two ready-made configs depending on what you're doing:\n\n| | batch/ | single-user/ |\n|---|---|---|\n| for | API backends, pipelines, many concurrent requests | one or a few people chatting |\n| aggregate, 64 concurrent (128 in / 512 out) | 1,035 tok/s steady-state decode, 948 end-to-end (1,222 / 1,042 with all layers int8) | n/a (8 slots) |\n| single-stream (C1) decode rate, realistic prompts | 46 tok/s | MTP: 121 tok/s at default sampling, 120 greedy (CTX=fast, 64k; 96 / 102 with CTX=long, 150k). DFlash2 (SPEC=dflash2): 127 default, 130 greedy |\n| reproducing its own context (quoting a document, applying an edit) | 46 tok/s | 381 tok/s at 25k context — 15.0 tokens per verify step, drafted straight from the prompt (SPEC=dflash2 + DFLASHTOKENS=15) |\n| trick | 16-bit recurrent state + int8 tensor-core GEMMs | MTP speculation with 4 cheap drafts, a draft vocabulary that covers what the model says, calibrated int4 lmhead/drafter, split-KV verify attention; optionally DFlash2 (7 drafts in one pass, int4-requantized, vLLM PR #52816 backported) with a verify block the context fills |\n\n Single-stream numbers re-measured 2026-08-22 on current main with\nbash bench/runbenchmarks.sh single — vllm bench serve, the 8 prompts in\nbench/promptsreal.jsonl, 1024 output tokens, C1, decode rate taken as\nC / mean TPOT. Quote them against that harness: a client with a different output\nlength is not measuring the same thing, and mixing the two is how\n#3 got confusing. \n\nBoth modes share one install — the mode is just which launch script you run.\nSpeculation wins below 8 concurrent users on short prompts, plain batching above;\non long independent sessions the crossover is much earlier, because a speculating\nrequest reserves recurrent-state pages the pool has few of — the concurrency\nparagraph under \"DFlash2 at 240k\" has the measurement. Numbers are vllm bench serve on an\nRTX 3090 at a 250 W power limit. If the card is yours alone, the fastest\nconfiguration is three environment variables away:\nIf you are the only user.\n\nPrefill is a separate budget from either: 1,810 tok/s at 1k inputs in batch\nmode (1,210 single-user), 1,000 tok/s at 100k, so a 100k prompt costs 100 s\nof TTFT (full matrix). How each number was won:\ndocs/optimizations.md.\n\nQuick start\n\nDocker (recommended — image build, model download and requantization, then\nthe server; the API is OpenAI-compatible on port 18020):\n\n [code] \n\nThe server listens on 0.0.0.0 and is unauthenticated unless you give it a key.\nFor anything past your own machine, add one first — everything reads it from\n.env or apikey.txt, and nothing needs it otherwise:\n\n [code] \n\nOr by hand in a venv (same steps: model download, requantization, vLLM\npatches, verify.sh) — see Setup. Then pick a mode:\nbatch/ for throughput, single-user/ for latency.\n\nIf you are the only user, do this\n\nThe command above starts the conservative default — MTP speculation, 8 request\nslots, 64k context, 120 tok/s greedy at C1. Two settings are worth more than\nevery other knob in this repo put together, and a third is worth a great deal on\none particular workload:\n\n [code] \n\nor, in the venv install:\n\n [code] \n\nSPEC=dflash2 swaps Qwen's MTP head for the DFlash2 block drafter: 7 tokens\nproposed in one pass instead of 4 chained ones. DFLASHTOKENS=15 then lets the\ntarget verify 16 tokens per step — the drafter still proposes the 7 it was\ntrained for, and the remaining positions are filled from the request's own\ncontext, which costs nothing to draft and is exactly right whenever the answer\nquotes the prompt. PREFIXCACHE=1 keeps the document you already sent, both\nits attention KV and its recurrent state. One request at a time, greedy, RTX\n3090 at 250 W:\n\n| decode | MTP (default) | SPEC=dflash2 | + DFLASHTOKENS=15 |\n|---|---|---|---|\n| 8 real chat prompts | 118 tok/s | 132 | 133 |\n| reproducing a 25k-token document | n/a | 260 | 382 |\n| request slots / context | 8 / 64k | 8 / 64k | 4 / 56k |\n\n \\ drafting from the context only exists in SPEC=dflash2. The two right\ncolumns are one server session, where run-to-run greedy divergence is ±3-5%;\nreproduce them with venv/bin/python bench/labdbench.py --ctx 20000. \n\nPREFIXCACHE=1 is orthogonal to the other two and worth as much again in a\nchat client: a second turn against that same 25k-token document takes 0.56 s to\nfirst token instead of 22.4 s, with the answers unchanged token for token.\n\nRead that table by column, not by its last cell. SPEC=dflash2 is the upgrade\nfor everyone; DFLASHTOKENS=15 is for one workload. On chat it is worth 1%,\nbecause the eight positions past the drafter's own block are filled from the\nprompt and a chat answer does not quote the prompt — measured over\nbench/promptsreal.jsonl, positions 7-14 take 72 of 11,069 accepted tokens\n(0.65%), and @changtimwu measured exactly zero for them on a TP=2 box in\n#22. What you pay for\nthat 1% is half the request slots and 8k of context, because a 16-token verify\nblock doubles the recurrent-state page every resident request holds (1.66 GiB\nagainst 0.88 by the gotcha-33 fit). So: set it if you are quoting documents or\napplying edits, where it is worth 47%, and leave it at the default 7 for a chat\nor agentic client. DRAFTTOKENS/DFLASHTOKENS is one variable you can flip\nper service.\n\nAll of it is lossless: speculative decoding samples the same distribution as no\nspeculation at all, the prefix cache resumes recurrent state rather than\napproximating it, and GSM8K reads 96.0-96.5% across the three columns.\nSPEC=dflash2 is a one-user mode either way\n(see concurrency).\nEvery other knob: single-user/.\n\nDFlash2 at 240k: CTX=huge (KVarN) also combines with SPEC=dflash2\n\n [code] \n\nWhere CTX=long doubles the DFlash2 pool with int8 KV (138k), the KVarN cache\ntakes the same idea further: 268k tokens of pool at 245760 max-model-len, on the\nsame pinned budget. No kernel work — the KVarN Triton kernels run unmodified on\nthe V2 runner; the seven fixes in kvarn/kvarn-v2-runner.patch are allocator and\ngeometry logic (the patch header walks through them, including an upstream vLLM\nbug in the mamba align resume path, and a NaN path in the DFlash2 candidate\nselector that KVarN noise exposes on verbatim-reproduction content). Two\nmachines, both RTX 3090 at 250 W, bench/labdbench.py --ctx 20000 — the\ncontributor's WSL2 box and this repo's bare-metal one, which do not agree on\ndecode rate and do agree on everything else:\n\n| SPEC=dflash2 CTX=huge PREFIXCACHE=1 | WSL2 | bare metal |\n|---|---|---|\n| copy (reproduction) | 130 tok/s, 7.8 tok/step | 164 tok/s, 7.83 tok/step |\n| code / edit / quote / summary / qa | 89 / 65 / 44 / 38 / 36 | 109 / 83 / 58 / 51 / 43 |\n| all six tasks together | 53 tok/s, 3.0 tok/step | 67 tok/s, 3.15 tok/step |\n| verbatim reproduction, 25k document | correct | 1,150 / 1,150 chars |\n| KV capacity at 245760 max-model-len | 268,169 tokens | 268,169 tokens |\n| GSM8K exact-match (thinking off) | 97.0% (n=200) | 95.2% (n=600), 95.0% (n=200) |\n| 100k-deep needle, both turns | correct | — |\n| turn 2 over a 100k cached prefix | 4.7 s (vs 169 s cold) | — |\n\n Context for the GSM8K column: every configuration this repo already ships\nreads 95.0-96.5% on the same 200-question harness (docs/quality.md),\nand 95.0% is the batch-mode default. 95.2% at n=600 (±0.9 points) therefore sits\ninside the band rather than below it — which is the useful comparison, since this\nmode inherits KVarN's lossy 4/2-bit cache and should be judged against the other\nlossy configurations rather than against bf16. Repeat runs of the reproduction\ncheck on bare metal are bit-identical (same step count, same 1,150 characters),\nwhich is the property that was missing before PIECEWISE — see below. \n\nOne caveat to the \"all of it is lossless\" paragraph above: the speculation here\nis still exact, but this mode inherits KVarN's 4/2-bit KV cache, which is lossy —\nthe same trade CTX=huge already makes (deep-needle retrieval passes at 200k).\n\nOn WSL2, every SPEC=dflash2 profile needs VLLMWSL2ENABLEPINMEMORY=1 —\nnot just CTX=huge. The drafter's architecture forces vLLM's V2 model runner\n(isdflash2draft() in config/vllm.py), the V2 runner allocates UVA buffers\nbefore the weights load, and vLLM leaves pinned memory off by default under WSL2,\nso a clean venv aborts with RuntimeError: UVA is not available before it prints\nanything model-shaped. Those buffers work fine on the paravirt driver. Note the\nname: VLLMWSLPINMEMORY is not a vLLM variable and setting it does\nnothing — this README named it for 22 minutes on 2026-08-21 (589daae, fixed in\n27f51fa), so a tree cloned in that window will have it.\n\nOne knob this mode used to set for you, and now sets only for MTP:\ncudagraphmode=PIECEWISE. Prefix caching and a captured (FULL) verify step\ndid not mix on this path. On WSL2 that showed up as acceptance collapsing to\nabout one token per step; on bare metal it also corrupted the output —\nspecial-token ids leaking into the stream, 1 of 1,176 characters matching the\nsource instead of all of them. It is the capture rather than the drafter: eager\nis clean, LOOKUP=0 is not, forcing a fixed verify-block length is not, and\nPIECEWISE — which keeps the compiled graphs and leaves only the multi-query\nverify uncaptured — restored both the speed and the correctness on both machines.\n\ndflash2 has its FULL graphs back (a75ee4b fixed the residue, b356e31 then\nswept all 128 residues under FULL with 0 broken), so at HEAD\nSPEC=dflash2 CTX=huge PREFIXCACHE=1 runs captured. SPEC=mtp CTX=huge\nstill forces PIECEWISE, and that one is a correctness constraint rather than a\npreference: under FULL it breaks at one prompt length in 128 and nobody has\nfixed it. Either way prefix caching stays on, which is what the mode is for —\nturn 2 over a cached 100k document costs 4.7 s against 169 s cold.\n\nCUDAGRAPHMODE=FULLANDPIECEWISE overrides the MTP line for anyone hunting\nthe root cause. Treat that as unsafe rather than merely slower.\n\nWhat that trade costs, re-measured at HEAD. The numbers this README used to carry here\nhad FULLANDPIECEWISE at 38 tok/s (1.97 per step) on the 25k copy task against\nPIECEWISE's 132, and called it 3.5x. That was not the capture mode — it was the residue\nbug, which a75ee4b fixed. With the same server and only the capture toggled\n(bench/labdbench.py --ctx 20000, SPEC=dflash2 CTX=huge PREFIXCACHE=1, decode tok/s):\n\n| | copy | code | edit | quote | summary | qa | all six |\n|---|---|---|---|---|---|---|---|\n| FULL (the default now) | 167.1 | 111.1 | 84.7 | 55.0 | 47.8 | 43.4 | 65.7 (3.03/step) |\n| PIECEWISE | 166.3 | 111.3 | 83.0 | 62.4 | 48.6 | 43.1 | 67.6 (3.18/step) |\n\nThey are the same. Five of the six are within 2%; quote differs by 13% in PIECEWISE's\nfavour, which is greedy divergence on the task that diverges most, and it is what puts\nPIECEWISE 3% ahead overall. So at this context length the capture mode is not a\nperformance decision at all, in either direction.\n\nShort prompts are where a difference was measured, and that measurement is older:\n78/125/202 tok/s captured against 74/102/176 piecewise on de/en/code, i.e. 13-18%.\nTreat that as an upper bound — @mjungnickel18 measures 0.2-2.3% for the same comparison\nwhen only runs with identical step counts are compared, and he is right that greedy runs\nwhich take a different number of steps are not comparable. Past 8k the two are within\nnoise on bare metal (111.8 vs 109.3 tok/s at 8k, 78.2 vs 86.1 at 16k, 68.9 vs 73.3 at\n32k, 58.4 vs 56.0 at 50k, unique prompts, one server per mode). Under GPU passthrough on\na VM the same comparison costs 2-3x, reported in\n#13 and consistent with the\nuncaptured verify being launch-bound: launches that are nearly free here are not free\nthere.\n\nTwo limits worth knowing before you point this at anything: what it does with\nmore than one user, and what the long verify block costs.\n\nIt is a one-stream mode, and the limit is the poo…",
+      "rank": 1,
+      "deep": {
+        "summary": "Qwen3.8-27Bを24 GBの単一RTX 3090でvLLM配信する構成と、量子化・推測デコード・KVキャッシュ向けパッチをまとめたリポジトリです。APIバックエンド向けのbatchモードでは、64同時実行時に定常デコード1,035 tok/s、エンドツーエンド948 tok/sを測定しています。少人数のチャット向けsingle-userモードでは、MTPにより短いプロンプトの単一ストリームが約121 tok/s、DFlash2では127〜130 tok/sに達します。DFlash2とDFLASHTOKENS=15を使うと、入力文書を引用・編集するワークロードでは25kトークン文書の再現が約382 tok/sまで伸びます。CTX=hugeではKVarNの4/2-bit KVキャッシュにより最大268,169トークンを保持できますが、このモードはlossyです。WSL2ではDFlash2系の起動にVLLMWSL2ENABLEPINMEMORY=1が必要で、環境変数名を間違えるとモデル読み込み前に停止します。",
+        "prerequisites": [
+          {
+            "term": "Qwen3.8-27B",
+            "stumblingPoint": "記事は「Qwen3.8-27Bを単一RTX 3090で配信」と書くが、通常の27Bモデルをそのまま載せる話か読み取りにくい。",
+            "explanation": "ここで扱うのは、24 GBのコンシューマーGPUで動かすために、重み・lm_head・KVキャッシュなどを複数の精度に分けた構成です。GPUメモリに収めること自体が主題で、一般的なbf16構成をそのまま起動する手順ではありません。したがって、リポジトリのrequantize処理とvLLMパッチを含むセットアップを使う前提になります。"
+          },
+          {
+            "term": "vLLM",
+            "stumblingPoint": "記事は「OpenAI-compatible API」「vLLM bench serve」を前提に進むが、どの部分が通常のモデル実行と違うのか分かりにくい。",
+            "explanation": "vLLMはモデルをGPU上で常駐させ、OpenAI API互換のHTTPエンドポイントとして推論を受け付ける実行基盤です。このリポジトリでは、通常のvLLMだけでなく、MTP・DFlash2・KVarNを動かすためのパッチを適用した実装を使います。ベンチマーク値も単発のスクリプト実行ではなく、vllm bench serveからAPI越しに測った値です。"
+          },
+          {
+            "term": "MTP",
+            "stumblingPoint": "「MTP speculation with 4 cheap drafts」とあるが、121 tok/sという値が通常の生成速度なのか判別しにくい。",
+            "explanation": "MTPは、ターゲットモデルが次の1トークンを出す間に、専用の安いドラフト側が複数トークン候補を先に作る方式です。ターゲットが候補をまとめて検証し、受理できた分だけ1ステップで進むため、単一ユーザーの逐次生成で効きます。一方、各リクエストが追加のrecurrent-stateページを保持するので、同時実行数を増やすとメモリが先に制約になります。"
+          },
+          {
+            "term": "DFlash2",
+            "stumblingPoint": "「7 tokens proposed in one pass」「SPEC=dflash2」と書かれているが、MTPとの使い分けが読み取りづらい。",
+            "explanation": "DFlash2はQwenのMTP headを置き換えるドラフターで、4個を連鎖的に作るMTPに対し、1回のパスで7トークンを提案します。記事の測定では、通常のチャットでもMTPより速く、文書の引用・再現では入力自身から候補を補充できるため効果が大きくなります。DFlash2を使う場合はvLLMのV2 model runnerが必要です。"
+          },
+          {
+            "term": "DFLASHTOKENS=15",
+            "stumblingPoint": "「残りのpositions are filled from the request's own context」とあるが、生成結果を先読みしているように見える。",
+            "explanation": "DFLASHTOKENS=15は、ターゲットが1ステップで検証する長さを16トークンに広げる設定です。DFlash2自身が学習した7個に加え、入力文書の後続位置を候補として使うため、文書をそのまま引用・編集する場合は正しい候補を大量に用意できます。自由なチャットでは入力を引用しないため効果は約1%にとどまり、request slotsは8から4、contextは64kから56kに減ります。"
+          },
+          {
+            "term": "KVarN",
+            "stumblingPoint": "「KVarN cache takes the same idea further」「4/2-bit KV cache」とあるが、150k構成との違いが分かりにくい。",
+            "explanation": "KVarNは、長いコンテキストを保持するためのKVキャッシュ実装です。CTX=hugeではKVarNにより245760 max-model-lenで268,169トークン分のプールを確保しますが、KVを4/2-bitに圧縮するため、bf16のような完全無損失ではありません。記事では深いneedle検索やGSM8Kの結果を示し、この圧縮による実用上のトレードオフを確認しています。"
+          },
+          {
+            "term": "recurrent state",
+            "stumblingPoint": "「prefix cache resumes recurrent state」とあるが、通常のattention KVだけをキャッシュする場合との違いが見えにくい。",
+            "explanation": "このモデルでは、通常のattention用KVに加えて、DeltaNet系の再帰的な状態も次のトークン計算に必要です。PREFIXCACHE=1は送信済み文書のattention KVだけでなくrecurrent stateも保存するため、同じ文書への2ターン目を状態の再計算なしで開始できます。記事の25k文書ではTTFTが22.4秒から0.56秒になっています。"
+          },
+          {
+            "term": "TTFT",
+            "stumblingPoint": "「100k prompt costs 100 s of TTFT」とあるが、生成速度の114 tok/sと同じ指標に見えやすい。",
+            "explanation": "TTFTはTime To First Token、つまり入力を読み込んで最初の出力トークンが返るまでの時間です。入力のprefillは生成中のdecodeとは別の計算予算で、100kトークン入力では約1,000 tok/sのprefillでも最初の出力まで約100秒かかります。長文対応の最大コンテキストだけを見て、初回応答も高速だと判断しないための指標です。"
+          }
+        ],
+        "visual": {
+          "type": "metrics",
+          "title": "RTX 3090での実測値",
+          "items": [
+            {
+              "label": "64同時decode",
+              "value": "1,035 tok/s",
+              "baseline": null,
+              "direction": "up-good",
+              "note": "batchモードの定常値。エンドツーエンドは948 tok/s"
+            },
+            {
+              "label": "単一ユーザーMTP",
+              "value": "121 tok/s",
+              "baseline": null,
+              "direction": "up-good",
+              "note": "短いプロンプト、default sampling"
+            },
+            {
+              "label": "2ターン目TTFT",
+              "value": "0.56 s",
+              "baseline": "22.4 s",
+              "direction": "down-good",
+              "note": "25kトークン文書をPREFIXCACHE=1で再利用"
+            },
+            {
+              "label": "KV容量",
+              "value": "268,169 tokens",
+              "baseline": null,
+              "direction": "up-good",
+              "note": "CTX=huge、245760 max-model-len"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "syv-ai/qwen38-27b-rtx3090",
+            "url": "https://github.com/syv-ai/qwen38-27b-rtx3090"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "build",
+        "unlocks": [
+          "24GBのRTX 3090でQwen3.8-27BをAPI公開できる",
+          "25k文書の引用・編集を約382 tok/sで処理できる"
+        ],
+        "howToTry": [
+          "https://github.com/syv-ai/qwen38-27b-rtx3090",
+          "READMEのQuick startに従い、Dockerでイメージ構築・モデル取得・requantization・サーバー起動まで行う。APIはポート18020で待ち受ける。",
+          "用途に応じてbatch/（同時実行のスループット）またはsingle-user/（少人数のレイテンシ）を選ぶ。",
+          "single-userではまずMTPの標準設定を起動し、次にSPEC=dflash2を付けてDFlash2の差を測る。文書の引用・再現ならDFLASHTOKENS=15とPREFIXCACHE=1も追加する。",
+          "測定は同じ条件にそろえ、bash bench/runbenchmarks.sh single または venv/bin/python bench/labdbench.py --ctx 20000 を実行する。"
+        ],
+        "fitFor": [
+          "24 GBのRTX 3090を1枚だけ使えるとき",
+          "OpenAI互換APIを社内バックエンドやパイプラインから呼ぶとき",
+          "文書の引用・編集で入力プレフィックスを再利用するとき"
+        ],
+        "notFor": [
+          "RTX 3090以外のGPUで同じ数値を再現したいとき",
+          "多数ユーザーをDFlash2のsingle-user構成で同時処理するとき",
+          "CTX=hugeでKVキャッシュのlossy圧縮を許容できないとき"
+        ],
+        "caveats": [
+          "WSL2のDFlash2系はVLLMWSL2ENABLEPINMEMORY=1が必須"
+        ],
+        "trial": null
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "OmnigentのSmart Routingを試す: サブエージェントごとにhaikuとopusが自動で振り分けられるまで",
+      "url": "https://qiita.com/taka_yayoi/items/811095bf73fba5c50f91",
+      "publishedAt": "2026-08-23T05:06:35.000Z",
+      "author": "Takaaki Yayoi",
+      "authorDetail": {
+        "name": "Takaaki Yayoi",
+        "handle": "@taka_yayoi",
+        "url": "https://qiita.com/taka_yayoi",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/1168882/b8d8b22e2030db392b186fcace656054c5136a8e/large.png?1779323305",
+        "bio": "Databricksで働いてます。\r\n\r\nこちらでDatabricks関連の情報をシェアできたらと考えています。\r\n\r\nMLflowで実践するLLMOps―⁠―生成AIアプリケーションの実験管理と品質保証\r\nhttps://gihyo.jp/book/2026/978-4-297-15573-5",
+        "organization": "Databricks",
+        "location": "Tokyo",
+        "followers": 567,
+        "posts": 2448,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/taka_aki"
+          },
+          {
+            "label": "Web",
+            "url": "https://databricks.com/jp/"
+          }
+        ]
+      },
+      "tags": [
+        "Databricks",
+        "Omnigent",
+        "SmartRouting",
+        "LLM",
+        "AIエージェント"
+      ],
+      "snippet": "はじめに Omnigent v0.9.0のリリースで、Smart Routingが大きく強化されました。各タスクとそのサブエージェントを、最適なモデルとハーネスに自動でルーティングする機能です。 ・Omnigent Releases ・Smart Routing · Omnigent ・コーディングエージェント向けSmart Routing | Databricks Smart Routingには、Unity AI Gatewayのルーティングを使うDatabricks連携版と、LLM分類器を使うOSS版の2系統があります。今回はローカルのOmnigentサーバーでOSS版を有効化し、難易度の異なるサブエージェントがどうルーティングされるかを確かめました。有効化までに何度かハマったので、そのあたりも含めて書いていきます。 OmnigentのSmart Routingとは Omnigentは…",
+      "body": "はじめに\n\nOmnigent v0.9.0のリリースで、Smart Routingが大きく強化されました。各タスクとそのサブエージェントを、最適なモデルとハーネスに自動でルーティングする機能です。\n・Omnigent Releases\n・Smart Routing · Omnigent\n・コーディングエージェント向けSmart Routing | Databricks\n\nSmart Routingには、Unity AI Gatewayのルーティングを使うDatabricks連携版と、LLM分類器を使うOSS版の2系統があります。今回はローカルのOmnigentサーバーでOSS版を有効化し、難易度の異なるサブエージェントがどうルーティングされるかを確かめました。有効化までに何度かハマったので、そのあたりも含めて書いていきます。\n\nOmnigentのSmart Routingとは\n\nOmnigentは、Claude CodeやCodexなどの複数のコーディングエージェントを1つ上のレイヤーから束ねる、Databricks発のオープンソースのメタハーネスです。開発者は毎回「このタスクにはどのモデル・どのハーネスが良いか」を自分で選ぶ代わりに、Smart Routingを選んでおけば、ルーターがタスクの内容を読んで判断してくれます。\n\nルーティングの実装は2系統あります。\n・Databricks連携版: ルーティング判断をUnity AI GatewayのSmart Routing (ベータ) に委ねる。タスク単位で判定され、アカウントレベルでのプレビュー有効化が必要\n・OSS版: OmnigentサーバーがLLM分類器 (ビルトインジャッジ) を使って自前で判定する。追加のインフラ不要で、サーバー設定だけで有効化できる\n\n今回試すのはOSS版です。判定の粒度はセッション開始時の最初のメッセージが基本ですが、v0.9.0以降はセッション中に生成されるサブエージェントも、生成のたびに個別にルーティングされます。この「サブエージェントごとの判定」が今回の検証の主役です。\n\nOSS版の仕組み: ジャッジ用のLLMが別に必要\n\nOSS版Smart Routingの構造を先に整理しておきます。登場するLLMは2種類です。\n・ジャッジ: 「このタスクは軽いか重いか」を分類するLLM。サーバー設定の llm: ブロックで指定する。セッションやサブエージェントの開始時に1回呼ばれるだけなので、軽量・安価なモデルで十分です\n・実作業のモデル: ルーティング先の候補。Claude CodeやCodexなど、ホストに登録済みのハーネスと資格情報がそのまま使われます\n\nここで1つ注意点があります。実作業側はClaude Pro/MaxやChatGPTのサブスクリプション連携で動かせますが、ジャッジにサブスクリプション認証は使えません。サブスクリプションのCLIログインはハーネス起動用の資格情報であって、サーバーが行う汎用のLLM API呼び出しには使えない作りになっています。Anthropicの規約上も、サブスクリプションのOAuthトークンをClaude Code以外のサードパーティから利用することは禁止されています。\n\nつまり「実作業はサブスク、ジャッジだけAPIキーかDatabricksプロファイルで従量課金」という構成になります。今回はジャッジをDatabricksホストの基盤モデルにしました。/.databrickscfg のプロファイルで認証できるので、新しいAPIキーを発行せずに済みます。\n\nセットアップ\n\n環境はmacOS、Omnigent 0.10.0です。ハーネスとしてClaude Code (サブスクリプション) とCodexを omni setup で登録済みの状態から始めます。\n\nサーバー設定にllm:ブロックを追加\n\nサーバー設定は /.omnigent/config.yaml です。ホストやプロバイダーの定義が入っている既存のファイルに、llm: ブロックを追記します。\n\n [code] \n\nmodel はワークスペースで利用できるトークン単位の従量課金エンドポイント名です。databricks- プレフィックス付きで指定すると、Omnigentがワークスペース経由でルーティングしてくれます。利用可能なエンドポイント名はワークスペースのサービングタブ、または以下のドキュメントで確認できます。\n・基盤モデルAPIで利用できるDatabricksホストの基盤モデル\n\nprofile は /.databrickscfg のプロファイル名です。\n\nハマりどころ1: llm:ブロックはフラットに書く\n\nここが最初のハマりどころです。OmnigentにはエージェントをYAMLで定義する仕組みがあり、そちらのドキュメントではDatabricks認証を次のように書きます。\n\n [code] \n\nこの auth: の入れ子をサーバーの llm: ブロックにそのまま持ち込むと、認証設定として認識されません。サーバー設定では model と profile (またはAPIキーなら apikey) をブロック直下にフラットに書くのが正しい形式です。同じプロダクト内に2つの書き方が共存しているので、コピペ元のドキュメントがどちらの文脈かを確認してください。\n\nハマりどころ2: プロファイルのトークン切れはクラッシュで教えてくれる\n\n設定を直して起動したところ、今度はサーバーがクラッシュしました。\n\n [code] \n\n原因はプロファイルのOAuthトークンの期限切れでした。確認は次のコマンドでできます。\n\n [code] \n\nValid列が NO になっていたら、再ログインします。\n\n [code] \n\nこれでValidが YES になれば解消です。ジャッジの認証エラーが起動時のクラッシュとして明確に出るのは、原因の切り分けという意味ではむしろ親切な挙動でした。\n\nローカルサーバーの起動とホスト登録\n\n設定ファイルを指定してサーバーを起動します。\n\n [code] \n\n別のターミナルで、ローカルサーバーに対してホストを登録します。ルーターの選択肢 (どのモデル×ハーネスから選ぶか) はホストのモデルカタログから来るので、この登録は必須です。\n\n [code] \n\nブラウザで http://localhost:6767 を開けばWeb UIにアクセスできます。\n\nハマりどころ3: Smart Routingは「Model」ドロップダウンにいる\n\nドキュメントを読むと、ルーターが構成されているとハーネスピッカーに「Auto」オプションが表示される、とあります。ところが私の環境 (0.10.0) では、ハーネスピッカーにもその中の「More」にも見当たりませんでした。\n\n正解は、ハーネス (Claude Code) を選んだ状態でコンポーザーのギアアイコンを開き、「Model」ドロップダウンの中でした。\n\n \n\nドロップダウンを開くと、Default・Opus・Sonnet・Haikuといったモデルの並びの先頭に「Smart Routing」が選択肢として入っています。これを選んでSaveすれば有効化完了です。v0.9.0でハーネスピッカーがサポートティア別に再編された影響か、ルーティングは「ハーネスの一種」ではなく「モデル選択の一種」として置かれています。ここに気づくまでにかなり遠回りしました。\n\nサブエージェントでルーティングを観察する\n\n有効化できたので、本題の検証です。OSS版のルーティングはセッション開始時の1回に加えて、サブエージェントの生成ごとに走ります。これを1セッションで観察するには、難易度の異なるサブタスクを意図的に混ぜたプロンプトが効果的です。全サブタスクが同じ重さだと、全員が同じモデルに行ってしまい、ルーティングの妙が見えません。\n\n検証プロンプト\n\nCSV分析のCLIツールを、責務を分けた3つの並列サブエージェントで作らせます。\n\n [code] \n\nargparse係とREADME係は軽量タスク、統計エンジン係は数値安定性まで要求する重量級タスク、という設計です。\n\n結果: 難易度に応じてhaikuとopusに分かれた\n\n期待通り、3つのサブエージェントがきれいに割れました。Web UIには各サブエージェントの生成時にSmart routingカードが表示され、判定結果と理由が読めます。\n\n \n\n結果を表にまとめます。\n\n| サブエージェント | 判定 | 選ばれたモデル | ルーターの理由 (要約) |\n|---|---|---|---|\n| argparse係 | SIMPLE | claude-haiku-4-5 | ビジネスロジックのない純粋なボイラープレート。最安モデルを選択 |\n| 統計エンジン係 | COMPLEX | claude-opus-5 | Welford法、パーセンタイル補間、相関計算など数値安定性が要る実装。最上位モデルを選択 |\n| README係 | SIMPLE | claude-haiku-4-5 | コード実行のない単一ドキュメントの執筆。最安モデルを選択 |\n\n注目したいのは、理由の具体性です。「統計エンジンだから重い」という表面的な判定ではなく、プロンプト内のWelford's algorithmやpercentile interpolationといった要求内容まで読んだ上でCOMPLEXと判定しています。3タスク中2つが最安モデルに落ちているので、全部を中位以上のモデルで回す運用と比べると、コスト面のインパクトは相当大きいはずです。\n\nハーネスの要求をルーターがオーバーライドする\n\nもう1つ、カードをよく見ると面白い記述があります。\n\n [code] \n\nサブエージェントを起動する際、親のClaude CodeはSonnetを要求しています。しかしルーターはその要求をオーバーライドして、タスク難易度に応じたモデル (haikuまたはopus) に差し替えています。ハーネス自身のモデル選択よりもルーターの判断が優先される、という階層関係がここから読み取れます。ハーネス任せだと3タスクとも一律Sonnetで動いていたところが、軽いタスクは安く、重いタスクはより高品質に、という配分に組み替えられたわけです。\n\nまとめ\n\nOmnigentのOSS版Smart Routingを試して分かったことをまとめます。\n・OSS版はサーバー設定の llm: ブロックでジャッジ用LLMを指定するだけで有効化できる。routing: ブロックは不要\n・llm: ブロックは model と profile をフラットに書く。エージェントYAMLの auth: 入れ子とは別形式\n・ジャッジにサブスクリプション認証は使えない。APIキーかDatabricksプロファイルが必要 (実作業側はサブスクのままでよい)\n・Databricksプロファイルのトークン切れは起動時のクラッシュとして明確に出る。databricks auth login で解消\n・UI上のSmart Routingはハーネスピッカーではなく、ギアアイコン内の「Model」ドロップダウンにある\n・ルーティングはセッション開始時に加えてサブエージェント生成ごとに走り、判定理由がUIカードで確認できる\n・ハーネスが要求したモデルをルーターがオーバーライドする。難易度混合の3並列サブエージェントで、SIMPLE 2件がhaiku、COMPLEX 1件がopusに振り分けられた\n\n一番の収穫は、ルーティングの判定理由がそのままUIに表示されることでした。「なぜこのモデルが選ばれたのか」がブラックボックスにならないので、判定の傾向を観察しながら運用に載せるかを判断できます。難易度の異なるサブタスクを混ぜたプロンプトを1本流すだけで、この振り分けの様子が一望できるので、Smart Routingの評価を始める最初の一歩としておすすめです。\n\n参考リンク\n・Smart Routing · Omnigent\n・Omnigent Releases\n・omnigent-ai/omnigent (GitHub)\n・コーディングエージェント向けSmart Routing | Databricks\n・基盤モデルAPIで利用できるDatabricksホストの基盤モデル\n・Smart Routing in Unity AI Gateway (Databricks Blog)\n\nはじめてのDatabricks\n\nはじめてのDatabricks\n\nDatabricks無料トライアル\n\nDatabricks無料トライアル",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "597e48856d3a00af",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.807536231884058,
+      "popularityPercentile": 0.5797101449275363,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "Omnigent v0.9.0のSmart Routingを使い作業ごとに適したモデルと実行環境へ自動で振り分ける方法を検証している。",
+      "takeaways": [
+        "Omnigentが作業ごとに使う人工知能を選べる。",
+        "簡単な作業と難しい作業を別の担当へ回せる。",
+        "Databricks版と無料で使える版の2系統がある。"
+      ],
+      "keywords": [
+        "Omnigent",
+        "Smart Routing",
+        "Databricks",
+        "Unity AI Gateway",
+        "Claude Code",
+        "Codex"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "Omnigent v0.9.0以降のSmart Routingは、セッション開始時だけでなく、生成されたサブエージェントごとにもモデルを選び直します。OSS版では、サーバーの`llm:`ブロックで指定したLLM分類器がタスクをSIMPLEまたはCOMPLEXに分類し、登録済みのハーネスとモデルへ振り分けます。記事では、Claude Codeのサブスクリプションを実作業に使いながら、ジャッジだけをDatabricksプロファイルで認証しました。難易度を分けた3つの並列サブエージェントを実行した結果、軽い2タスクは`claude-haiku-4-5`、数値安定性が必要な統計エンジンは`claude-opus-5`にルーティングされました。Web UIのSmart routingカードには、判定結果とモデル選択の理由も表示されます。",
+        "prerequisites": [
+          {
+            "term": "Smart Routing",
+            "stumblingPoint": "記事はSmart Routingを「モデルとハーネスへの自動ルーティング」と書くが、いつ判定されるかが読み取りにくい。",
+            "explanation": "今回のOSS版では、セッション開始時の最初のメッセージに加え、セッション中にサブエージェントが生成されるたびに判定されます。そのため、1回の依頼の中で軽い作業だけをHaiku、難しい作業だけをOpusへ分ける使い方ができます。"
+          },
+          {
+            "term": "LLM分類器",
+            "stumblingPoint": "「OSS版はLLM分類器（ビルトインジャッジ）を使う」とあるが、実作業用モデルとの違いが曖昧。",
+            "explanation": "LLM分類器はコードを書いたりREADMEを生成したりするモデルではなく、タスクの難易度を分類する専用の判定役です。実作業のモデルとは別に呼ばれるため、実作業をサブスクリプションで動かしても、分類器には別のAPI認証が必要になります。"
+          },
+          {
+            "term": "llm:",
+            "stumblingPoint": "サーバー設定に`llm:`ブロックを追加するとあるが、エージェントYAMLの認証形式と混同しやすい。",
+            "explanation": "サーバーの`llm:`では、`model`と`profile`または`apikey`をブロック直下に置きます。エージェント定義で使う`auth:`の入れ子形式は、この設定には使えません。同じOmnigent内でも設定の文脈によってYAMLの形が違う点がつまずきやすい箇所です。"
+          },
+          {
+            "term": "profile",
+            "stumblingPoint": "`profile`にDatabricksプロファイル名を書くとあるが、何の認証に使う値か分かりにくい。",
+            "explanation": "ここでの`profile`は、`/.databrickscfg`に登録されたDatabricks認証プロファイルの名前です。Smart RoutingのジャッジがDatabricksホストの基盤モデルAPIを呼ぶ際に使われ、Claude CodeやCodexのハーネス認証とは別経路になります。"
+          },
+          {
+            "term": "SIMPLE",
+            "stumblingPoint": "実験結果でSIMPLEとCOMPLEXに分類されるが、単なるタスク名ではない。",
+            "explanation": "SIMPLEは、記事の検証ではビジネスロジックのないボイラープレートや、コード実行を伴わないREADME執筆を指します。分類結果に応じて最安モデルの`claude-haiku-4-5`が選ばれました。"
+          },
+          {
+            "term": "COMPLEX",
+            "stumblingPoint": "統計エンジンがCOMPLEXになる理由を、タスク名だけでは理解しにくい。",
+            "explanation": "ルーターは「統計」という名前だけでなく、Welford法、パーセンタイル補間、相関計算など、数値安定性を要求する具体的な指示を読み取っています。その結果、最上位モデルの`claude-opus-5`へ振り分けられました。"
+          },
+          {
+            "term": "Smart routingカード",
+            "stumblingPoint": "Web UIにSmart routingカードが出るとあるが、何を観察できる画面なのかが分かりにくい。",
+            "explanation": "このカードは各サブエージェントの生成時に表示され、SIMPLEまたはCOMPLEXの判定、選択されたモデル、選択理由を確認できます。ルーターが親ハーネスのSonnet指定を上書きしたことも、カードの内容から追跡できます。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "OSS版の判定経路",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "Claude Code",
+                  "note": "親ハーネス",
+                  "highlight": false
+                }
+              ],
+              "via": "タスク"
+            },
+            {
+              "label": "Omnigent",
+              "nodes": [
+                {
+                  "name": "Smart Routing",
+                  "note": "判定を仲介",
+                  "highlight": true
+                }
+              ],
+              "via": "分類要求"
+            },
+            {
+              "label": "ジャッジ",
+              "nodes": [
+                {
+                  "name": "LLM分類器",
+                  "note": "SIMPLE/COMPLEX",
+                  "highlight": true
+                }
+              ],
+              "via": "判定結果"
+            },
+            {
+              "label": "実作業先",
+              "nodes": [
+                {
+                  "name": "claude-haiku-4-5",
+                  "note": "軽量タスク",
+                  "highlight": false
+                },
+                {
+                  "name": "claude-opus-5",
+                  "note": "重量タスク",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.ap-northeast-1.amazonaws.com%2F0%2F1168882%2F233285d1-4759-4607-b7a3-31b318284036.png?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=836dc8c7ead5cc78f7776957427e89b1",
+            "alt": "Screenshot 2026-08-21 at 15.17.54.png",
+            "caption": "Claude Codeを選んだ状態でギアアイコンを開くと、ハーネス選択ではなくModelドロップダウンの先頭にSmart Routingが現れる。"
+          },
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.ap-northeast-1.amazonaws.com%2F0%2F1168882%2Fc61d71c4-90e1-4f57-b2d5-4327c30574a1.png?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=dec658358e85e8838511ab2bf299deae",
+            "alt": "Screenshot 2026-08-21 at 15.27.32.png",
+            "caption": "各サブエージェントのSmart routingカードに、SIMPLE/COMPLEXの判定と、haikuまたはopusを選んだ理由が表示される。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 6,
+        "lane": "build",
+        "unlocks": [
+          "軽いサブエージェントをhaiku、重い処理をopusへ振れる",
+          "UIカードでモデル選択の理由を確認できる"
+        ],
+        "howToTry": [
+          "https://qiita.com/taka_yayoi/items/811095bf73fba5c50f91",
+          "Omnigent 0.10.0でハーネス登録済みの状態から、`/.omnigent/config.yaml`のサーバー設定に`llm:`を追加する。`model`と`profile`はブロック直下に置く。",
+          "Databricksプロファイルを使う場合は`databricks auth login`を実行し、`Valid`列が`YES`になることを確認する。",
+          "設定ファイルを指定してOmnigentサーバーを起動し、別ターミナルからローカルサーバーへホストを登録する。記事本文のコードブロックに実行コマンドが掲載されている。",
+          "ブラウザで`http://localhost:6767`を開き、Claude Code選択後にギアアイコン→Model→Smart Routing→Saveを実行する。難易度の異なる3並列サブエージェントを依頼し、カードの判定結果を確認する。"
+        ],
+        "fitFor": [
+          "1回のセッションで複数のサブエージェントを生成する場合",
+          "軽量タスクと数値処理などの重量タスクが混在する場合",
+          "実作業用ハーネスを登録済みでモデル候補を持っている場合"
+        ],
+        "notFor": [
+          "ジャッジ用のAPIキーまたはDatabricksプロファイルを用意できない場合",
+          "ハーネスピッカーだけでSmart Routingを探している場合"
+        ],
+        "caveats": [
+          "ジャッジはサブスク認証不可。APIキー等の従量課金が必要"
+        ],
+        "trial": null
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "富豪AI（加算思考）への疑問。日本のカーナビ・電子辞書の引き算思想でllama.cppの最深部をハックした話（RAM 6.5GB極貧環境）",
+      "url": "https://qiita.com/igaken1972/items/97c5824090118a401b4c",
+      "publishedAt": "2026-08-23T03:09:22.000Z",
+      "author": "五十嵐 健児",
+      "authorDetail": {
+        "name": "五十嵐 健児",
+        "handle": "@igaken1972",
+        "url": "https://qiita.com/igaken1972",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocIPLBbUnM6HAuO8e-LiQ_wUml_B1YuoBGPNoKyKEMpQa7LV0g=s96-c",
+        "bio": "サーバー/組込み/Androidデバイス開発。バックエンド好き。現在はAndroidアプリ開発中。 Backend & Embedded Eng. Exp: C/S & Android Device Dev. Prefers Backend over Frontend. Learning Android Native",
+        "organization": "日本アイ・ビー・エムデジタルサービス",
+        "location": "札幌市",
+        "followers": 0,
+        "posts": 5,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kenjiigarashi"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/kigarashi9160"
+          },
+          {
+            "label": "Web",
+            "url": "https://zenn.dev/kenjiigarashi"
+          }
+        ]
+      },
+      "tags": [
+        "llama.cpp",
+        "C++",
+        "LLM",
+        "GGUF",
+        "rag"
+      ],
+      "snippet": "🚨 冒頭に宣言する：これは特許ではない。パブリックドメインだ 本記事で紹介するアルゴリズム 「AMI (Attention Mesh Index Transmission)」 の核心について、まず最初に明確に宣言しておきます。 私はこの技術を、特定の巨大企業が独占するための「特許」にすることを断固として拒絶します。 これは何か特別な最新技術ではありません。何十年もの間、日本のインフラやハードウェアをミリミリと削りながら支えてきた「先人たちの枯れた知恵」を組み合わせた、MITライセンスの元にあるパブリックドメイン（世界共有の財産）です。 巨大テック企業が数千億円のデータセンター（神殿）を建て、日本全国のマンホールをすべて超高解像度でスキャンしながらラーメン屋を探すような暴挙（富豪エンジニアリング）を私は認めない。 我々はAPIの受動的な消費者ではない。手元のマシンをバラし、組み替える「ガレ…",
+      "body": "🚨 冒頭に宣言する：これは特許ではない。パブリックドメインだ\n\n本記事で紹介するアルゴリズム 「AMI (Attention Mesh Index Transmission)」 の核心について、まず最初に明確に宣言しておきます。\n\n私はこの技術を、特定の巨大企業が独占するための「特許」にすることを断固として拒絶します。\n\nこれは何か特別な最新技術ではありません。何十年もの間、日本のインフラやハードウェアをミリミリと削りながら支えてきた「先人たちの枯れた知恵」を組み合わせた、MITライセンスの元にあるパブリックドメイン（世界共有の財産）です。\n\n巨大テック企業が数千億円のデータセンター（神殿）を建て、日本全国のマンホールをすべて超高解像度でスキャンしながらラーメン屋を探すような暴挙（富豪エンジニアリング）を私は認めない。\n\n我々はAPIの受動的な消費者ではない。手元のマシンをバラし、組み替える「ガレージのメカニック（ハッカー）」です。巨大なクラウドの物量（加算思考）にひれ伏すのをやめ、手元のミニPCで今すぐこのトランスミッションをビルドしてください。\n\n---\n\n🏎️ 窒息寸前の「激貧サバイバル環境」\n\n私の開発環境は、富豪たちが使う巨大なGPUサーバーとは対極にある、窒息寸前の限界環境です。\n・マシン: GMKtec M7（5万円のミニPC）\n・リソース: RAM 16GB（内グラフィックス4GB、実効メモリ12GB）、SSD 512GB\n・実行環境: WSL2（割り当てメモリを「6545MB（6.5GB）」に厳密に制限 / スワップ：8192MB）\n\n物理RAM 6.5GBという瀕死の境界線上で、トータル16.33GBに及ぶLlama-3クラスのGGUFモデルスタックをそのまま回せば、通常は一瞬でメモリが爆発してLinuxの死神（OOM Killer）に首を跳ねられます。\n\nこの絶対防衛線を死守し、行列計算の前に計算量を最大99.5%削減してサバイバルするために、私は llama.cpp の最深部API（llamastateseqgetdata / setdata）という裏口メソッドをハックし、異なる量子化ビット間を滑らかに繋ぐ独自の「多段変速トランスミッション（クラッチ機構）」をC++20のスパナで組み上げました。\n\n---\n\n🗺️ 材料はすべて揃っていた。ないのは「トランスミッション」だけ\n\nなぜ、LLMの専門家でもない私が一瞬でこの構造を見抜けたのか。答えはシンプルです。私には過去に「地図のオーサリング（データ構築）」と「道路探索（パスファインディング）」をガチで作り込んできたプロジェクトのバックグラウンドがあったからです。\n\n高次元の潜在空間（意味論の宇宙）と言えど、数理の本質に立ち返れば、それは単なる巨大な「座標空間」に過ぎません。相対座標か絶対座標かの決め方が違うだけです。\n\nそして、地図データベースも元から多次元（地形、ポリゴン、道路トポロジー、POIなどのレイヤー構造）です。それを四分木（Quadtree構造）などの空間インデックスで「画面に映っていない不要な空間を秒で切り捨てる（減算）」のは、カーナビや電子辞書の世界ではデバッグされ尽くした「当たり前のお家芸」でした。\n\n【AMIの多段変速ギア・探索イメージ】\n・1速（粗視化探索層：2bit・IQ2M） ➔ カーナビの広域地図。大雑把な「地形と高速道路」だけで4マスのレベルからアタリをつける。\n・2速（中視化層：4bit・Q4KM） ➔ ターゲット周辺にズームして「主要幹線道路」の16マスへ絞り込む。\n・3速（精密化層：8bit・Q80） ➔ 最後の1.56%の極小相対座標だけで、ターゲット（最終トークン）を正確に撃ち抜く。\n\n歴史（KVキャッシュのポインタ）を同期リレーさせながら、モデルの解像度（ビット数）をギアのように変える。位置（ベースとなる意味の宇宙）は1ミリも変えず、そこを見る「目の粗さ（解像度）」だけを動的に変える。ベースが違う宇宙を混ぜると空間が歪んで破綻するため、ID空間は完全に固定されています。材料はすべて歴史の中に揃っていた。足りなかった最後の1ピースである「トランスミッション（クラッチ）」を、C++20で実装したのがAMIです。\n\n---\n🧠 単一表現空間における階層的概念結合（Semantic Aggregation）\n\n異なるLLMを混在させると表現空間のズレ（分布の不整合）が起き、巨大な補正コストがかかります。だからこそ、AMIはベースとなるLLMのID空間（16bit）を完全に固定します。\n\n空間の多次元レイヤー構造の全体像は以下の通りです。\n\n \n\nここで最も重要なのは、「言語数（ボキャブラリ・ID空間の総数）は1ミリも変えていない」という点です。\n\nベースとなる意味の宇宙は固定したまま、量子化ビット数（精度）を動的にあらくしていくことで、ベクトルの解像度が意図的に下がり、本来は別々の座標にいた『いぬ』『ねこ』『さる』『うま』の分類境界線が滲んで、結果として同じ1つのマクロノード（部屋）へと綺麗に収束（一致）してくるのです。\n\nこれにより、セマンティクス（意味論）の一貫性を100%保ったまま、探索木の幅（width）を行列計算の手前で徹底的にプルーニング（剪定）することに成功しています。\n・[細かい（16bit）] ➔ 「いぬ」「ねこ」「さる」「うま」「はと」「すずめ」……\n・[中くらい（4bit）] ➔ 「いぬねこ」「さるうま」「はとすずめ」……\n・[粗い（2bit）] ➔ 「いぬねこさるうま」「はとすずめカラス」……\n\n「いぬ」「ねこ」「さる」「うま」という個々の詳細なID（16bit）の数は変えないまま、粗い階層（2bit）ではそれらを包括する1つのマクロノード（『いぬねこさるうま』という結合分類）として扱います。これにより、セマンティクス（意味論）の一貫性を100%保ったまま、探索木の幅（width）を事前に徹底的にプルーニング（剪定）します。\n\n📊 計算複雑度 $O(N^2) \\rightarrow O(\\log N)$ への劇的な圧縮\n\n探索空間の総解像度を 16 × 16 = 256 マスとした場合を考えてみましょう。従来の手法（全数検査）では、一律で高ビット評価を行うため、計算量は256回（O(N²)）となり、手元のミニPCは即座にメモリ破綻（バンク）します。\n\nAMIは空間を四分木（Quadtree）で段階評価（インデックス探索）します。\n\n1. 粗い層（2bit） ➔ 空間を4分割してラフに評価 ➔ 【4回】\n2. 中間層（4bit） ➔ 絞り込んだエリアをさらに4分割して評価 ➔ 【4回】\n3. 精密層（8bit/16bit） ➔ 最終目的地の16マスを全数評価 ➔ 【16回】\n・従来手法: 256回\n・AMI手法: 4 + 4 + 16 = わずか 24回\n\n総計算回数をわずか12〜24回に激減させ、計算複雑度を $O(N^2)$ から $O(\\log N)$（対数スケール）へ圧縮 。これが削減率「99.5605%」の正体です。巨大テックのGPUクラスターが「全空間を絨毯爆撃」している間に、AMIは計算の前に空間の9割以上を「引き算」し、最小限の行列演算だけで勝ち逃げするのです。\n\n---\n\n🛡️ 3. 実証実験結果（PoC：概念実証ログ）\n\n実際に、前述の「窒息環境（物理メモリ実効6.5GB / WSL2）」にて、この多段変速トランスミッションを稼働させたプロトタイプの生ログです。ベースモデルには Llama-3 (GGUFマルチスタック群) を使用しています。\n\n [code] \n\n⏱️ 激貧環境ハック・タイムエビデンスログ\n・アプリ起動から準備完了までの時間: 25.535 秒\n・質問入力から解答生成完了までの時間: 278.178 秒\n\n \n📊 ログの技術的考察\n\n1. [DEBUG 1] 変速ギア（動的解像度制御）の完全な稼働\nギア 0（2bit相当）、ギア 1（4bit相当）では、計算の前にスコアが閾値を下回ったため、無駄な多次元の探索空間をミリ秒単位で即座にカット（プルーニング）しています。そして、ギア 2 にて [SUCCESS] 閾値を突破！ となり、正解が含まれるセマンティクス空間（部屋）を完全にロックオンして、ノーミスで生成を開始しています。\n\n2. mmapによるスワップ激突と、圧倒的な「生存能力」\n解答生成までに「278秒」を要しています。これは当然の数字です。物理メモリ（6.5GB）の限界を遥かに超えた16GB超のモデルスタックを回しているため、OSの仮想メモリ機構（mmap）経由で、ハードディスク（スワップ 8GB）との間で激しいデータの押し合い（スラッシング）が発生したためです。\n\nだが、これこそがAMIの最大の強みであり、執念の証明です。\n\n通常の富豪LLM探索であれば、探索木の肥大化によって一瞬で物理メモリが枯渇し、プロセスが強制終了（クラッシュ）します。AMIは計算マス目を極小ステップに抑え、アクティブなメモリ消費を常に最小限にコントロールしているため、「スワップが激突するほどの瀕死の環境」であっても、途中で絶対に死なずに、最後まで正しい論理（9300万マイル / 1億4960万キロ）を出力しきる驚異的な頑健性（サバイバル能力）を実証しました。\n\n---\n\n🏁 4. まとめと未来の展望：AMITが駆動する「次世代LLM」の進化\n\nAMI (Attention Mesh Index Transmission) は、単に低スペック環境における推論の限界を突破するだけでなく、現代のAI界隈の「巨大なGPUによる物量力押し（加算思考）」に対し、計算機科学の知恵を正しく使ったエレガントな最適化の美学を提示するものです。\n\nそして、このアーキテクチャの真の価値は、「これからのLLMそのものの進化・構造改革、そして完全なローカル自立」に決定的な寄与ができる点にあります。\n\n🔮 AIが座標を探す未来、その無駄をAMITが破壊する\n近年のLLMの進化において、Attentionで行列（適切なセマンティック空間の座標位置）を効率的に求めるために、別のAIレイヤーやRouter（ルーター）を利用する研究が進められています。しかし、これでは「本計算の手前で、座標を探すためだけの追加の行列計算が発生する」という、二重の無駄（メタ計算の肥大化）に陥ってしまいます。\n\nもし、そこにAMITの多段変速トランスミッションが入っていたらどうなるか。\n座標予測レイヤーが動くその手前で、空間を四分木メッシュによってあらかじめ「対数スケール（$O(\\log N)$）」へ減算（間引き）できます。座標を探すためのAIの計算負担そのものを事前に99.5%カットできるため、次世代LLMのコア構造そのものを劇的に軽量化・進化させていくことが可能になります。\n\n🌐 別スレッドWeb検索RAGによる「神殿（クラウド）からの完全な自立」\nさらに、AMIは単なるローカル内だけの閉じこもったエンジンで終わりません。\nAMIが超軽量（2bit/4bit）に変速して思考のベースを組み立てているまさにその瞬間、「裏側の別スレッドでWebをバックグラウンド検索し、リアルタイムの外部知識をRAG（検索拡張世代）として動的に流し込むクラッチ機構」を並列駆動させます。\n\nこれにより、5万円のミニPCという極限環境でありながら、数兆円のデータセンターを抱える巨大クラウドAIと完全に同等、あるいはそれ以上の「最新情報を持った自律思考」が可能になります。巨大テックの課金システム（神殿）に依存せず、手元のガレージだけで世界中の知識をハンドリングする――これこそがAMITがもたらす真の民主化です。\n\n🛠️ 次のステップへ\n直近のロードマップとしては、このトランスミッションのI/Oボトルネックを根本から解消するため、上位の軽量な結合インデックスのみを物理メモリに常駐させ、必要な重み（テンソル）だけをオンデマンドで部分ロード（プレフェッチ）するC++20制御層のブラッシュアップを進めていきます。\n\n我々はAPIの受動的な消費者ではない。限られたリソースでマシンをバラし、組み替える「ガレージのメカニック」です。\n\nこの「ProjectAMI」の全容、臨時ニュースをローカルに吸い上げるストーリーの結末は、私のGitHubリポジトリの最後にある 【自作の4コマ漫画】 ですべて綺麗にオちています。\n\nぜひ、本物のハッカー精神をその目で確かめてみてください。\n\n👉 GitHub: kenjiigarashi/aiclientamit",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "e76d4d1616e5db90",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.47710455486542447,
+      "popularityPercentile": 0.8347826086956521,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "AMIを使いllama.cppの推論を6.5GBのRAM環境で動かす実験を紹介している。",
+      "takeaways": [
+        "llama.cppを低メモリ環境で動かす実験を扱う。",
+        "AMIはモデルの計算を減らす発想から作られた。",
+        "巨大な計算資源に頼らない実装を目指している。"
+      ],
+      "keywords": [
+        "llama.cpp",
+        "AMI",
+        "GGUF",
+        "C++",
+        "ローカルLLM",
+        "RAM 6.5GB"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "クラウドの物量を使うか手元の計算資源を削るか",
+        "forSide": "RAM 6.5GBでも動く構成なら高価な計算環境を用意せずに済む。",
+        "againstSide": "独自の最適化は再現性や保守性で既存の高速化手法に劣る可能性がある。",
+        "oneSided": true,
+        "yourAngle": "ローカルLLMを業務で動かした際の速度とメモリ使用量を実測できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "記事は、RAM 6.5GBに制限したWSL2環境で、16GB超のGGUFモデルスタックを動かすため、llama.cppのllamastateseqgetdata / setdataを使ったAMI (Attention Mesh Index Transmission)を試作したという報告です。AMIは2bit・4bit・8bit相当の量子化層を段階的に切り替え、行列計算の前に探索範囲を絞る構想として説明されています。16×16マスの例では、全数評価256回を4+4+16回に減らし、計算複雑度をO(N²)からO(log N)へ圧縮できると主張しています。実験では起動準備25.535秒、質問から生成完了まで278.178秒で、mmap経由のスワップとスラッシングが発生してもプロセスが完走したとしています。一方、本文には実装コード、従来方式との同条件比較、出力品質の評価、AMIのGitHub実装詳細が示されておらず、99.5%削減や意味論の一貫性を検証できる材料は限定的です。",
+        "prerequisites": [
+          {
+            "term": "AMI",
+            "stumblingPoint": "記事は「AMI (Attention Mesh Index Transmission)」と呼ぶが、通常の量子化やAttention最適化と何が違うのかが読み取りにくい。",
+            "explanation": "本文でのAMIは、異なる量子化ビットのモデルまたは状態を段階的に使い分ける制御層として扱われています。ただし、どのテンソルをいつ切り替えるのか、各層のスコアをどう計算するのか、切り替え後に状態をどう整合させるのかは説明されていません。そのため、既存のlow-bit推論、MoEのRouter、Attentionのスパース化のどれに近い実装なのかは、記事だけでは確定できません。"
+          },
+          {
+            "term": "llamastateseqgetdata",
+            "stumblingPoint": "「llamastateseqgetdata / setdataという裏口メソッド」とあるが、何を保存・復元しているAPIなのか説明されていない。",
+            "explanation": "これらはllama.cppの推論状態を取り出したり戻したりするための低レベルAPIとして登場します。記事の主張を成立させるには、KVキャッシュを含むどの状態を対象にし、異なる量子化モデル間で同じ状態を安全に再利用できるのかが重要です。API名だけでは、モデル重みの差し替え、KVキャッシュの移送、系列IDの同期のどれを実施しているのか判断できません。"
+          },
+          {
+            "term": "GGUF",
+            "stumblingPoint": "「トータル16.33GBに及ぶLlama-3クラスのGGUFモデルスタック」とあるが、複数ファイルをどう同時利用したのか不明である。",
+            "explanation": "GGUFはllama.cppが読み込むモデルファイル形式ですが、ファイルサイズと実行時の常駐メモリ量は同じではありません。量子化方式、mmapの有無、GPUへのオフロード、コンテキスト長などで必要なメモリは変わります。したがって、16.33GBという容量だけでは、実効メモリ6.5GBでどの部分が常駐し、どの部分がページアウトしたのかを再現できません。"
+          },
+          {
+            "term": "ID空間",
+            "stumblingPoint": "「ベースとなるLLMのID空間（16bit）を完全に固定」とあるが、量子化ビット数との関係が読み手には分かりにくい。",
+            "explanation": "本文のID空間は、語彙やトークンの対応関係を指す概念として使われています。一方、2bit・4bit・8bitという量子化は通常、モデル重みや計算表現の精度を指します。トークンIDの集合を固定したことだけでは、量子化後のベクトル表現が同じ意味空間を保つことや、複数トークンを安全にマクロノードへ束ねられることは示せません。"
+          },
+          {
+            "term": "O(log N)",
+            "stumblingPoint": "「計算複雑度をO(N²)からO(log N)へ圧縮」とあるが、16×16の例との対応が読み取りにくい。",
+            "explanation": "記事の4+4+16回という計算は、特定の四分木探索例で評価するマス数を数えたものです。そこから一般のAttention計算がO(log N)になるには、階層数、各階層の分岐数、候補の再評価、系列長Nとの関係を定義する必要があります。また、256回から24回なら、その例だけでは削減率は約90.6%で、本文の99.5605%とは一致しません。"
+          },
+          {
+            "term": "mmap",
+            "stumblingPoint": "「mmapによるスワップ激突」とあるが、モデルファイルのマッピングとスワップの関係が省略されている。",
+            "explanation": "mmapはファイルをプロセスのアドレス空間へ対応付ける仕組みで、必要なページがアクセスされた時点で読み込まれます。物理RAMに収まらないページが頻繁に必要になると、ストレージとのページ入れ替えが増え、本文のいうスラッシングになります。プロセスが完走したことは、メモリ制約下で動作した証拠にはなりますが、ページフォルトやI/O待ちが少なく効率的だったことまでは意味しません。"
+          },
+          {
+            "term": "RAG",
+            "stumblingPoint": "「別スレッドWeb検索RAG」とあるが、生成と検索をどう同期する構成なのかが読み取れない。",
+            "explanation": "本文では、ローカル推論の裏側でWeb検索を実行し、外部知識を動的に流し込む構想だけが示されています。検索結果を次のトークン生成へ挿入するのか、別コンテキストとして再推論するのかで、必要メモリとレイテンシは大きく変わります。実装手順や検索結果の注入タイミングは提示されていないため、将来構想と実証済み機能を分けて読む必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "AMIの推論経路",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "ProjectAMI",
+                  "note": "C++20のPoC",
+                  "highlight": false
+                }
+              ],
+              "via": "C++20"
+            },
+            {
+              "label": "制御層",
+              "nodes": [
+                {
+                  "name": "AMI",
+                  "note": "量子化層を切替",
+                  "highlight": true
+                }
+              ],
+              "via": "state API"
+            },
+            {
+              "label": "推論基盤",
+              "nodes": [
+                {
+                  "name": "llama.cpp",
+                  "note": "状態を入出力",
+                  "highlight": false
+                }
+              ],
+              "via": "mmap"
+            },
+            {
+              "label": "モデル実体",
+              "nodes": [
+                {
+                  "name": "GGUF stack",
+                  "note": "2/4/8bit相当",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "ProjectAMI GitHub",
+            "url": "https://github.com/kenjiigarashi/aiclientamit"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "生存性と速度",
+            "claim": "6.5GB環境でもAMIはモデルを完走させられる。",
+            "counter": "278秒の生成完了は、スラッシング下で生き残った証拠に留まる。",
+            "counterInArticle": true
+          },
+          {
+            "point": "量子化と意味保持",
+            "claim": "ID空間を固定し、量子化を粗くしても意味論を100%保てる。",
+            "counter": "品質評価やベースラインがなく、意味保持は検証されていない。",
+            "counterInArticle": false
+          },
+          {
+            "point": "計算量の削減率",
+            "claim": "四分木探索で計算量をO(N²)からO(log N)へ下げ、99.5605%削減できる。",
+            "counter": "4+4+16回の例は24/256で、削減率は99.5605%にならない。",
+            "counterInArticle": false
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "WSL2のメモリ上限とスワップの実測",
+            "why": "同じWSL2・llama.cpp構成を使うなら、RSS、ページフォルト、スワップI/Oを実測値で出せる。"
+          },
+          {
+            "angle": "量子化層切替の品質比較",
+            "why": "TypeScriptやRAGの実装経験を使い、同じ質問を各量子化設定で評価し回答差分を記録できる。"
+          },
+          {
+            "angle": "ローカルRAGの遅延分解",
+            "why": "検索、コンテキスト投入、生成を分けて計測すれば、AMIの効果とRAGのオーバーヘッドを切り分けられる。"
+          }
+        ],
+        "verify": [
+          "同一質問をAMI有無で実行し、完了時間と出力を保存する。",
+          "free -hと/usr/bin/time -vでRSS・swap・ページフォルトを比較する。"
+        ]
+      }
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn",
+      "title": "AI エージェント時代にソースコード以外の何を残すべきか",
+      "url": "https://zenn.dev/id774/articles/ad6d173af7d8f5",
+      "publishedAt": "2026-08-23T15:17:21.347Z",
+      "author": "Yasuhiro Nakayama",
+      "authorDetail": {
+        "name": "Yasuhiro Nakayama",
+        "handle": "@id774",
+        "url": "https://zenn.dev/id774",
+        "avatarUrl": "https://res.cloudinary.com/zenn/image/fetch/s--jzHi5mW6--/c_limit%2Cf_auto%2Cfl_progressive%2Cq_auto%2Cw_70/https://static.zenn.studio/user-upload/avatar/559bce95aa.jpeg?_a=BACMTiAE",
+        "links": []
+      },
+      "tags": [
+        "idea"
+      ],
+      "snippet": "ソースコードが残っていても、同じ開発を引き継げない場合がある AI コーディングエージェントを使った開発では、「ソースコードが公開されているなら、そのソフトウェアは将来も変更できる」と単純には言えない場合がある。 たとえば、AI に数十行の Python 関数を生成させ、その後は人間がコードを読み、直接修正し、テストしながら保守するケースを考える。この場合、AI は初期実装を作るための道具であり、そのサービスが使えなくなっても、ソースコードと通常の開発環境が残っていれば変更を続けられる。 一方、人間がソースコードをほとんど直接編集せず、要求仕様、テスト、プロンプト、エージェント指示を変更して AI に実装を更新させている場合は事情が違う。実際に操作している対象がコードそのものではなく、その上流にある入力へ移っているからである [1] 。 この違いは、AI を使った割合では決まらない。確認す…",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "26b512e358a8f5ee",
+      "foundIn": [
+        "zenn"
+      ],
+      "preScore": 0.5535631868131868,
+      "popularityPercentile": 0.5153846153846153,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "AIエージェント時代にソースコード以外で残すべき開発情報を考察する記事。",
+      "takeaways": [
+        "本文の抜粋は提供されていない。",
+        "タイトルはコード以外の記録に焦点を置く。",
+        "具体的な主張や手順は本文確認が必要になる。"
+      ],
+      "keywords": [
+        "AIエージェント",
+        "ソースコード",
+        "開発記録",
+        "ナレッジ管理"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "ソースコードが残っていても、同じ開発を引き継げない場合がある\n\n AI コーディングエージェントを使った開発では、「ソースコードが公開されているなら、そのソフトウェアは将来も変更できる」と単純には言えない場合がある。\n\n たとえば、AI に数十行の Python 関数を生成させ、その後は人間がコードを読み、直接修正し、テストしながら保守するケースを考える。この場合、AI は初期実装を作るための道具であり、そのサービスが使えなくなっても、ソースコードと通常の開発環境が残っていれば変更を続けられる。\n\n 一方、人間がソースコードをほとんど直接編集せず、要求仕様、テスト、プロンプト、エージェント指示を変更して AI に実装を更新させている場合は事情が違う。実際に操作している対象がコードそのものではなく、その上流にある入力へ移っているからである [1] 。\n\n この違いは、AI を使った割合では決まらない。確認すべきなのは、次の変更を行うときに何を編集し、何を実行し、何を根拠に変更の正しさを判定しているかである。\n\n 同じリポジトリでも、変更工程は次のように変わり得る。\n\n \n \n \n 開発の形 \n 人間が主に変更するもの \n AI が停止した場合 \n\n \n \n \n AI で初期案だけを生成する \n ソースコード \n 通常の開発環境で保守を継続できる \n\n \n AI に実装を継続的に依頼する \n 仕様、テスト、エージェント指示、ソースコード \n コードは残っていても従来の変更工程を失う可能性がある \n\n \n AI が設計判断まで担う \n 上記に加えて設計上の制約や判断材料 \n なぜその実装になったかをコードだけから復元できない場合がある \n\n \n \n ここで扱いたいのは、AI を使うべきか否かではない。将来の保守者が変更を引き継ぐために、リポジトリへ何を残しておく必要があるかという問題である。\n\n \n まず「何を変えるとコードが変わるか」を洗い出す\n\n 最初に確認するのは、リポジトリに何があるかではなく、実際の変更工程で何を入力として使っているかである。\n\n 管理対象になっているファイルは git ls-files で確認できる。\n\n git ls-files \n \n\n ここから、ソースコード以外で実装結果を左右するものを拾う。候補には、テスト、仕様書、生成スクリプト、ビルド設定、CI 設定、エージェントへ継続的に与える指示などがある。\n\n たとえば AGENTS.md を使っているリポジトリなら、その履歴は通常のソースコードと同じように追跡できる。\n\n git log -- AGENTS.md \n git diff -- AGENTS.md \n \n\n この分類で見るべきなのは拡張子ではない。Markdown だから説明文、Python だから実装、という分け方では不十分である。\n\n たとえば、API の後方互換性を維持するという条件が仕様書にしかなく、AI エージェントが毎回その仕様書を読んで実装するなら、その文書は実装結果を拘束している。テストコードが期待する振る舞いを機械的に判定しているなら、テストも変更工程の一部である。生成スクリプトを変更することで成果物が変わるなら、そのスクリプトも同様である。\n\n 逆に、一度の調査に使ったメモや、その場で言い換えを頼んだ会話が、最終的な仕様やテストへ何も残していないなら、それをすべて恒久資産として保存しても保守性が上がるとは限らない。\n\n 判断基準は、「この情報を失うと、次の変更で何ができなくなるか」である。\n\n \n AGENTS.md は単なる説明文ではなく、エージェントへの入力になる\n\n エージェント向けの指示ファイルは、この問題を具体的に考えやすい例である。\n\n GitHub Copilot coding agent は AGENTS.md をカスタム指示として読み、プロジェクトの理解だけでなく、ビルド、テスト、変更の検証方法にも利用する。GitHub は 2025 年 8 月 28 日にこの対応を公表しており、リポジトリ直下だけでなく、特定部分へ適用する入れ子の AGENTS.md にも対応している [2] 。\n\n 同じ仕組みでは、 .github/copilot-instructions.md や .github/instructions/**.instructions.md も継続的な指示として利用される [2] 。\n\n ここでは AGENTS.md の内容が人間にも読めることより、エージェントの実際の処理へ入力されることのほうが重要である。たとえば、次のような制約がそこに書かれているとする。\n\n - Maintain backward compatibility. \n - Run the existing test suite before completing a change. \n - Do not change generated files directly. \n \n\n これらが毎回の変更に適用されるなら、ファイルを削除したときに失われるのは説明文だけではない。エージェントがどの制約の下で変更を作るかという、開発工程の一部も失われる。\n\n もっとも、ここから「エージェントへの指示はすべてソースコードである」と結論する必要はない。製品ごとに読み込むファイルも優先順位も異なるし、単発の指示まで同じ性質を持つわけではない。\n\n 必要なのは、実際に継続利用している指示を特定し、それが失われた場合の影響を確認することである。\n\n \n 残すべきなのは、すべてのプロンプトではない\n\n AI を開発工程へ組み込むと、「プロンプトも全部 Git に入れるべきではないか」という方向へ議論が振れやすい。しかし、保存対象を「AI に入力した文字列」という形式だけで決めると、必要な情報と一時的な会話が混ざる。\n\n Software Freedom Conservancy は 2026 年 6 月に、LLM を利用した FOSS 貢献について、プロンプト、メモ、その他のやり取りの詳細な記録を保存し、それらのメタ成果物を将来のために残すことを推奨した [3] 。同文書は、それらをライセンスの種類にかかわらず Corresponding Source の一部であるかのようにアーカイブすることを勧めている一方、この勧告自体は義務、要求、結論、定義ではなく、実務上の推奨事項であると明示している [3] 。\n\n この勧告から実務上読み取れるのは、完成したパッチだけを残すと、変更に至った情報が失われる場合があるという点である。ただし、保存単位を常に対話履歴全量にする必要はない。\n\n 情報ごとに役割を分けたほうが扱いやすい。\n\n \n \n \n 情報 \n 例 \n 恒久管理を検討する理由 \n\n \n \n \n 実装結果 \n \n src/ 以下のソースコード \n 通常の変更対象そのものである \n\n \n 実装を拘束する検証 \n テスト、lint 設定、CI \n 何を正しい変更とするかを機械的に判定する \n\n \n 恒久的なエージェント指示 \n \n AGENTS.md 、 .github/copilot-instructions.md \n \n AI が実装や検証を行う際の入力になる \n\n \n 仕様・設計制約 \n API 仕様、互換性条件、設計文書 \n コードだけから復元できない制約を保持する \n\n \n 生成・ビルド手順 \n スクリプト、設定ファイル \n 成果物の生成や変更の工程を制御する \n\n \n 一時的な対話 \n 単発の質問、探索的な会話 \n 内容が恒久情報へ反映済みなら、会話自体が必須とは限らない \n\n \n 未記録の設計判断 \n 対話にしか残っていない採否理由 \n 将来の変更に必要なら、判断結果を恒久文書へ移す必要がある \n\n \n \n ここで区別したいのは、「会話を保存したか」と「変更に必要な知識を保存したか」である。\n\n たとえば、AI と 100 往復した議論から最終的に「公開 API の引数は削除しない」という制約だけが残ったなら、その制約を設計文書、テスト、エージェント指示など適切な場所へ確定情報として移すほうが、100 往復の履歴だけを残すより次の保守者には使いやすい。\n\n 反対に、生成結果の採用理由が対話にしか存在せず、ソースコードにもテストにも設計文書にも反映されていないなら、その情報を捨てると次回の変更で同じ比較検討をやり直すことになる。\n\n 保存すべき対象は「プロンプト」という名前で決まるのではなく、変更能力を再構成するために必要かどうかで決まる。\n\n \n Corresponding Source と「引き継げる開発環境」は同じ概念ではない\n\n ここまでの話は、GPLv3 の Corresponding Source と似て見える。\n\n GNU General Public License version 3 は、source code を「変更を行うために好ましい形式」と定義している。また、object code に対する Corresponding Source には、生成、インストール、実行、変更に必要なソースコードと、それらの活動を制御するスクリプトが含まれる [4] 。\n\n この定義は、AI エージェント時代の開発資産を考えるうえで参考になる。完成物の見た目ではなく、「変更するために実際に使う形式」を見るからである。\n\n ただし、ここには線を引く必要がある。\n\n AGENTS.md 、プロンプト、対話履歴、設計メモのどこまでが、個別の GPLv3 適用ソフトウェアについて法的な Corresponding Source に含まれるかは、開発工程や対象物によって判断が必要である。GPLv3 の文言だけから「AI に渡した情報はすべて Corresponding Source である」と一般化することはできない。\n\n 一方、エンジニアリング上の問いは法的義務より広く設定できる。\n\n 「その情報を渡さなくても、別の開発者が同じ種類の変更を継続できるか」である。\n\n ライセンス上の最低要件を満たしていても、保守に必要な設計判断が特定の開発者の頭の中や非公開の AI サービスにしかなければ、引き継ぎは難しい。逆に、AI を使って生成した履歴が残っていなくても、現在のコード、仕様、テスト、設計文書だけで人間が普通に変更できるなら、その AI は将来の保守に必須ではない。\n\n 法的な Corresponding Source と、実務上の保守可能性は接続する部分があるが、同じ判定ではない。\n\n \n AI を外して変更できるかを試せば、依存している情報が見える\n\n 必要な情報を机上で完全に分類するのは難しい。実際に引き継ぎを試したほうが早い場合がある。\n\n 方法は単純である。\n\n まず、既存動作を大きく変えない小さな仕様変更を 1 つ選ぶ。次に、元の開発者だけが持つ非公開の対話履歴や、そのプロジェクトで普段利用している特定の AI サービスを使わず、リポジトリに残された情報だけを材料に変更する。\n\n 作業開始時には状態を確認する。\n\n git status --short \n \n\n 変更後は差分を確認する。\n\n git diff \n git diff --check \n \n\n git diff --check が確認するのは主に空白エラーであり、機能の正しさではない。機能検証には、そのリポジトリですでに定められているテスト、lint、ビルドなどの既存手順を使う。存在しない pytest や npm test を外から追加しても、元の変更工程を再現したことにはならない。\n\n この試験で詰まった箇所を記録する。\n\n たとえば、次のような失敗である。\n\n \n API の互換性条件がどこにも書かれておらず、引数を削除してよいか判断できない\n\n 生成ファイルと編集対象のソースを区別できない\n\n テストの実行方法は分かるが、どの失敗が既知なのか分からない\n\n AI エージェントが暗黙に参照していた指示がリポジトリにない\n\n 設計上却下した方式がありそうだが、その理由を確認できない\n\n 特定サービスだけが持つ外部コンテキストを前提にしており、別の環境では同じ作業手順を組めない\n\n \n この結果から、不足しているものを逆算する。\n\n 互換性条件が欠けているなら仕様として残す。正しい振る舞いを判定できないならテストを整える。生成物の扱いが分からないなら生成手順を文書化する。エージェントへ毎回与える制約が必要なら、継続的な指示としてリポジトリ側へ置く。採否理由が将来の変更に影響するなら、対話履歴のまま放置せず設計判断として確定させる。\n\n この方法なら、AI との会話を無条件ですべて保存するのではなく、変更能力の継承に本当に必要だった情報だけを特定できる。\n\n \n 残すべきなのはコードの生成履歴ではなく、変更能力を引き継ぐための情報である\n\n AI エージェントが開発へ深く入ると、ソースコードと開発入力の境界は従来より見えにくくなる。\n\n それでも、保存対象を決める基準まで複雑にする必要はない。\n\n 次の変更で何を操作するのか。その変更が正しいと何で判定するのか。設計上の制約はどこにあるのか。特定の AI を使えなくなっても、人間や別の道具で保守を続けられるのか。\n\n この順に確認すればよい。\n\n その結果、必要なのが通常のソースコードとテストだけなら、それで足りる。 AGENTS.md が変更工程を拘束しているなら、それも履歴管理の対象になる。仕様や設計判断がコードから復元できないなら、恒久的な文書へ残す。生成スクリプトが成果物を決めているなら、そのスクリプトを失わないようにする。\n\n 一方、AI との一時的な会話が確定した仕様やテストへ反映されており、なくても同じ種類の変更を続けられるなら、会話全量をソースコードと同格に扱う必然性はない。\n\n AI エージェント時代に管理対象が広がる理由は、AI を使ったからではない。実装を変更するために人間が操作する対象そのものが、コードの外側へ広がる場合があるからである。\n\n 将来残すべきものは、生成の痕跡を可能な限り多く集めた記録ではなく、別の開発者が変更を続けるために必要な情報の集合である。\n\n \n 参考文献\n\n \n id774, 自由ソフトウェアの自由は AI でどう変わるのか（2026-08-23）. https://blog.id774.net/entry/2026/08/23/5555/ \n\n GitHub, Copilot coding agent now supports AGENTS.md custom instructions（2025-08-28）. https://github.blog/changelog/2025-08-28-copilot-coding-agent-now-supports-agents-md-custom-instructions/ \n\n Software Freedom Conservancy, Recommendations When Using LLM-backed Generative AI Systems for FOSS Contributions（2026-06-18）. https://sfconservancy.org/llm-gen-ai/llm-backed-generative-ai-recommendations.html \n\n Free Software Foundation, GNU General Public License, version 3（2007-06-29）. https://www.gnu.org/licenses/gpl.en.html",
+      "rank": 2,
+      "deep": {
+        "summary": "AIコーディングエージェントを初期実装の道具として使うだけなら、ソースコードと通常の開発環境が残っていれば保守を継続できる。一方、仕様、テスト、AGENTS.md、設計上の制約を入力としてエージェントに実装変更を続けさせる場合、コードの外側にある情報も変更工程の一部になる。保存すべきなのはプロンプトや非公開の対話履歴の全量ではなく、失うと次の変更や正しさの判定ができなくなる情報である。GPLv3 の Corresponding Source は考える手掛かりになるが、AI に渡した情報がすべて法的に含まれるとは限らず、法的要件と実務上の保守可能性は分けて判断する。git ls-files や git diff --check でリポジトリを確認し、AIや元の開発者に頼らず小さな変更を引き継げるか試すことで、不足している仕様・テスト・生成手順・指示を特定できる。",
+        "prerequisites": [
+          {
+            "term": "AIコーディングエージェント",
+            "stumblingPoint": "「AI に実装を更新させている場合」とあるが、単なるコード生成と継続的な変更工程の違いが読み取りにくい。",
+            "explanation": "ここでの違いはAIがコードを書いた量ではなく、次の変更で人間が何を操作しているかにある。人間がソースコードを直接編集し、通常のテストで確認するなら、AIは交換可能な初期実装ツールに近い。仕様やテスト、エージェント指示を編集してAIに実装を再生成させるなら、それらがコードを決める上流入力になる。"
+          },
+          {
+            "term": "AGENTS.md",
+            "stumblingPoint": "「単なる説明文ではなく、エージェントへの入力」とあるが、Markdown の指示が実装結果にどう影響するかで手が止まる。",
+            "explanation": "AGENTS.md は人間向けのREADMEではなく、対応するエージェントが変更時に参照する継続的な指示ファイルである。後方互換性、テスト実行、生成ファイルを直接編集しないことなどが書かれていれば、AIが作る差分の制約になる。削除すると説明が消えるだけでなく、毎回の変更に適用されていた工程上のルールも失われる。"
+          },
+          {
+            "term": "git ls-files",
+            "stumblingPoint": "「拡張子ではなく変更工程の入力を見る」とあるが、リポジトリ内のどのファイルを資産として調べるのかが曖昧に見える。",
+            "explanation": "git ls-files はGitが追跡しているファイルの一覧を出すため、まず管理対象の全体像を確認できる。そこからソースコードだけでなく、テスト、仕様、CI、生成スクリプト、エージェント指示を、実装結果を左右する入力として見直す。MarkdownかPythonかという形式ではなく、そのファイルを失ったとき次の変更に何ができなくなるかで分類する。"
+          },
+          {
+            "term": "Corresponding Source",
+            "stumblingPoint": "GPLv3 の「Corresponding Source」が出てくるが、通常のソースコードとの範囲の違いと記事の論点との関係が分かりにくい。",
+            "explanation": "GPLv3では、実行可能な成果物を生成・インストール・実行・変更するために必要なソースコードや制御スクリプトをCorresponding Sourceとして扱う。これは完成物ではなく、変更に使う好ましい形式を見る考え方で、記事の保守可能性と接点がある。ただし、AIのプロンプトや対話履歴が個別のソフトウェアで法的に含まれるかは別途判断が必要で、工学上残したい情報と同一ではない。"
+          },
+          {
+            "term": "非公開の対話履歴",
+            "stumblingPoint": "「会話全量を保存する必要はない」と「採否理由を失うと困る」が並ぶため、何を捨てて何を残すのかで迷う。",
+            "explanation": "単発の質問や探索的な会話が仕様・テスト・設計文書へ反映済みなら、履歴そのものが次の変更に必須とは限らない。一方、採用した方式の理由や却下した方式が対話にしか残っていないなら、その判断材料を失うと同じ検討をやり直すことになる。必要な判断結果を恒久文書へ移せるなら、100往復のログ全量より再利用しやすい形で保存できる。"
+          },
+          {
+            "term": "git diff --check",
+            "stumblingPoint": "「変更後は差分を確認する」とあるが、git diff --check だけで変更の正しさを検証できるように読める恐れがある。",
+            "explanation": "git diff --check が主に検出するのは行末の空白など、差分に含まれる形式上の問題である。API互換性や機能の正しさ、既知のテスト失敗までは判定しない。機能検証には、そのリポジトリに既に定められたテスト、lint、ビルド手順を使う必要があり、外から勝手に pytest や npm test を足しても元の工程の再現にはならない。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": {
+          "lang": "bash",
+          "caption": "変更能力を左右する管理対象と、引き継ぎ試験の差分を確認する最小コマンド",
+          "content": "git ls-files\ngit log -- AGENTS.md\ngit diff -- AGENTS.md\n\ngit status --short\ngit diff\ngit diff --check"
+        },
+        "relatedLinks": [
+          {
+            "label": "自由ソフトウェアの自由は AI でどう変わるのか",
+            "url": "https://blog.id774.net/entry/2026/08/23/5555/"
+          },
+          {
+            "label": "GitHub: Copilot coding agent now supports AGENTS.md custom instructions",
+            "url": "https://github.blog/changelog/2025-08-28-copilot-coding-agent-now-supports-agents-md-custom-instructions/"
+          },
+          {
+            "label": "Software Freedom Conservancy: LLM-backed Generative AI Recommendations",
+            "url": "https://sfconservancy.org/llm-gen-ai/llm-backed-generative-ai-recommendations.html"
+          },
+          {
+            "label": "GNU General Public License, version 3",
+            "url": "https://www.gnu.org/licenses/gpl.en.html"
+          }
+        ],
+        "readingMinutes": 7,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "保存対象の広さ",
+            "claim": "変更能力を再構成する情報だけを恒久管理すべきだ",
+            "counter": "採否理由が対話にしかないなら、会話の詳細な記録も必要になる",
+            "counterInArticle": true
+          },
+          {
+            "point": "法的要件と保守性",
+            "claim": "Corresponding Source は変更に必要な形式を考える手掛かりになる",
+            "counter": "AIへの入力すべてが法的に含まれるとは限らず、別に判断が要る",
+            "counterInArticle": true
+          },
+          {
+            "point": "エージェント指示の扱い",
+            "claim": "継続的に実装を拘束する AGENTS.md は工程の一部として残すべきだ",
+            "counter": "製品ごとに読み込みや優先順位が異なり、単発指示まで同列ではない",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AI変更工程の実測",
+            "why": "Claude Code や Codex で、コード・仕様・指示のどれを実際に編集しているか記録できる"
+          },
+          {
+            "angle": "AIなしの引き継ぎ試験",
+            "why": "React / Next.js / TypeScript のリポジトリで小さな変更を選び、別環境で再現できる"
+          },
+          {
+            "angle": "指示とテストの拘束力",
+            "why": "AGENTS.md、CI、lint、テストが生成差分やレビュー手戻りに与えた影響を確認できる"
+          }
+        ],
+        "verify": [
+          "git ls-files で仕様・テスト・CI・生成スクリプト・AGENTS.md の有無を確認し、次の変更に必要な入力を列挙する",
+          "AIと元の開発者固有の非公開の対話履歴を使わず小変更を行い、既存のテスト・lint・ビルド手順で引き継ぎ可否を確認する"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "1f4ee3164fa85714",
+      "product": "TanStack Query",
+      "what": "Reactなど向けのサーバー状態管理・キャッシュライブラリ",
+      "version": "5.102.2",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "query-coreのキャッシュ設定型を参照できるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "query-coreがキャッシュ設定関連の型をエクスポート。React、Svelte、Solidなどの関連パッケージも更新された。",
+      "title": "TanStack/query Release 2026-08-23 18:00",
+      "url": "https://github.com/TanStack/query/releases/tag/release-2026-08-23-1800",
+      "sourceLabel": "GitHub Releases / TanStack/query",
+      "publishedAt": "2026-08-23T18:00:46.000Z",
+      "alsoReleased": [
+        {
+          "label": "Release 2026-08-23 11:00",
+          "url": "https://github.com/TanStack/query/releases/tag/release-2026-08-23-1100"
+        },
+        {
+          "label": "@tanstack/query-core@5.102.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-core%405.102.1"
+        },
+        {
+          "label": "@tanstack/query-sync-storage-persister@5.102.2",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-sync-storage-persister%405.102.2"
+        },
+        {
+          "label": "@tanstack/query-async-storage-persister@5.102.2",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-async-storage-persister%405.102.2"
+        },
+        {
+          "label": "@tanstack/preact-query-persist-client@5.102.2",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query-persist-client%405.102.2"
+        },
+        {
+          "label": "@tanstack/svelte-query-persist-client@6.1.41",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query-persist-client%406.1.41"
+        },
+        {
+          "label": "@tanstack/solid-query-persist-client@5.102.2",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/solid-query-persist-client%405.102.2"
+        },
+        {
+          "label": "@tanstack/react-query-persist-client@5.102.2",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-persist-client%405.102.2"
+        },
+        {
+          "label": "@tanstack/preact-query-devtools@5.102.2",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query-devtools%405.102.2"
+        },
+        {
+          "label": "@tanstack/svelte-query-devtools@6.1.41",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query-devtools%406.1.41"
+        },
+        {
+          "label": "@tanstack/solid-query-devtools@5.102.2",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/solid-query-devtools%405.102.2"
+        },
+        {
+          "label": "@tanstack/react-query-devtools@5.102.2",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-devtools%405.102.2"
+        }
+      ],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch release-2026-08-23-1800 https://github.com/TanStack/query",
+        "verify": "ls query",
+        "questions": [
+          "5.102.2 が実際に入って動くか",
+          "「query-coreのキャッシュ設定型を参照できるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "1034ea32de2d1e71",
+      "product": "pnpm",
+      "what": "Node.js向けの高速なパッケージマネージャー",
+      "version": "11.23",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "複数設定ソースを統合した実効設定を確認できるようになる",
+      "change": {
+        "before": "設定値をソースごとに異なる名前で表示",
+        "after": "文書化された名前で統合後の実効設定を表示"
+      },
+      "scope": [],
+      "summary": "pnpm config get/listが、各設定ソースを統合した実効値を文書化された名前で表示するようになった。",
+      "title": "pnpm/pnpm pnpm 11.23",
+      "url": "https://github.com/pnpm/pnpm/releases/tag/v11.23.0",
+      "sourceLabel": "GitHub Releases / pnpm/pnpm",
+      "publishedAt": "2026-08-23T14:41:02.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v11.23.0 https://github.com/pnpm/pnpm",
+        "verify": "ls pnpm",
+        "questions": [
+          "11.23 が実際に入って動くか",
+          "「複数設定ソースを統合した実効設定を確認できるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "3b142050569d1392",
+      "product": "TanStack Router",
+      "what": "Reactなど向けの型安全なルーティングライブラリ",
+      "version": null,
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "重複するパラメータ接辞の拒否、リロード時のコンテキスト保持、クライアントローダーのバンドルサイズ削減などを実施。",
+      "title": "TanStack/router Release 2026-08-22 22:58",
+      "url": "https://github.com/TanStack/router/releases/tag/release-2026-08-22-2258",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "publishedAt": "2026-08-22T22:58:39.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/start-plugin-core@1.171.39",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-plugin-core%401.171.39"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.49",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.49"
+        },
+        {
+          "label": "@tanstack/solid-start@1.168.47",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.168.47"
+        },
+        {
+          "label": "@tanstack/vue-start@1.168.46",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.168.46"
+        },
+        {
+          "label": "@tanstack/vue-router@1.170.29",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-router%401.170.29"
+        },
+        {
+          "label": "@tanstack/solid-router@1.170.30",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-router%401.170.30"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.48",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.48"
+        },
+        {
+          "label": "@tanstack/router-core@1.171.27",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.27"
+        },
+        {
+          "label": "@tanstack/start-server-core@1.169.31",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-server-core%401.169.31"
+        },
+        {
+          "label": "@tanstack/solid-start-server@1.167.36",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start-server%401.167.36"
+        },
+        {
+          "label": "@tanstack/solid-start-client@1.168.29",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start-client%401.168.29"
+        },
+        {
+          "label": "@tanstack/react-start-server@1.167.37",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-server%401.167.37"
+        }
+      ],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch release-2026-08-22-2258 https://github.com/TanStack/router",
+        "verify": "ls router",
+        "questions": [
+          "新しい版が実際に入って動くか",
+          "リリースノートに書かれた変更を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "2bfc846316a8b08d",
+      "product": "Claude Code",
+      "what": "AnthropicのAIコーディングエージェント",
+      "version": "v2.1.241",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Claude Code v2.1.241では、バグ修正と信頼性の改善が行われた。",
+      "title": "anthropics/claude-code v2.1.241",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.241",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-08-23T00:52:16.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v2.1.241 https://github.com/anthropics/claude-code",
+        "verify": "ls claude-code",
+        "questions": [
+          "v2.1.241 が実際に入って動くか",
+          "リリースノートに書かれた変更を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    }
+  ],
+  "others": [
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "7月にオーストラリアで発生した大規模通信障害の仕組みが判明したが、ITエンジニアが怖くて泣いてしまう内容だった「時刻が正確に合わなかったのか…」",
+      "url": "https://togetter.com/li/2736568",
+      "publishedAt": "2026-08-23T11:01:59.000Z",
+      "tags": [
+        "テクノロジー",
+        "障害",
+        "あとで読む",
+        "セキュリティ",
+        "ntp",
+        "IT",
+        "network",
+        "通信",
+        "security",
+        "オーストラリア",
+        "trouble"
+      ],
+      "snippet": "Yu F @fj_twt 😢 ハードウェア故障対応として筐体交換を実施したNTPサーバの時刻が1024週(約20年)巻き戻ってしまう ↓ サーバ証明書の有効期限外のためinvalidになってしまう ↓ スマホ等端末と基地局間の認証が失敗、接続不可 ↓ 大規模通信障害…囧rz オーストラリアで起きた全国的な通信障害についてまとめてみた - piyol...",
+      "metrics": {
+        "hatena": 189
+      },
+      "sourceWeight": 3,
+      "id": "13f23f7de7aba1ab",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.209,
+      "popularityPercentile": 0.95,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "オーストラリアの大規模通信障害は時刻サーバーの約20年の巻き戻りが認証失敗を招いていた。",
+      "takeaways": [
+        "交換後の時刻サーバーが約20年前の時刻を返した。",
+        "時刻のずれで証明書が無効と判定された。",
+        "基地局と端末の認証失敗が全国規模の通信障害につながった。"
+      ],
+      "keywords": [
+        "NTP",
+        "オーストラリア",
+        "通信障害",
+        "証明書",
+        "基地局認証",
+        "1024週問題"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "EC2 にアプリケーション層のヘルスチェック「Application status checks」が来たので実際に試してみた",
+      "url": "https://qiita.com/leomarokun/items/3ff3f6110544bb1c31d1",
+      "publishedAt": "2026-08-23T17:19:04.000Z",
+      "author": "れおまろ",
+      "authorDetail": {
+        "name": "れおまろ",
+        "handle": "@leomarokun",
+        "url": "https://qiita.com/leomarokun",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/280929/bb578cab5744ec774a5ec8238c3f7cac72fe8672/x_large.png?1755424909",
+        "bio": "AWS Community Builders 2026（AI Engineering）\r\nAWSエンジニア。\r\nAWSをメインに、最近は AI 頑張ってます。\r\nAWS: SCS, AIP, SAP, DOP, SAA, SOA, DVA, MLA, CLF, AIF\r\nLinuC: 1, 2, \r\nFE, \r\nAzure: AI-900, AI-102",
+        "location": "Tokyo",
+        "followers": 175,
+        "posts": 505,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/leomarokun0920"
+          }
+        ]
+      },
+      "tags": [
+        "AWS",
+        "EC2",
+        "Terraform",
+        "ApplicationStatusCheck",
+        "ヘルスチェック"
+      ],
+      "snippet": "はじめに EC2の「ステータスチェック」といえば、これまではインスタンス自体やホスト側の障害を見るものでした。 Webサーバーのプロセスが固まっている、Dockerデーモンが落ちているといった「アプリケーションの中身」の異常は、EC2側のチェックでは検知できず、自前でヘルスチェックの仕組みを作る必要がありました。 今回、この隙間を埋める新しいステータスチェックが追加されたので、実際にインスタンスを立てて正常時・異常時の両方の挙動を確認してみました。 https://aws.amazon.com/jp/about-aws/whats-new/2026/08/amazon-ec2-application-status-checks/ Application status checksとは アプリケーションが動いているポートとパス（例: /health）に対して定期的にHTTPリクエストを送り、…",
+      "body": "はじめに\n\nEC2の「ステータスチェック」といえば、これまではインスタンス自体やホスト側の障害を見るものでした。\n\nWebサーバーのプロセスが固まっている、Dockerデーモンが落ちているといった「アプリケーションの中身」の異常は、EC2側のチェックでは検知できず、自前でヘルスチェックの仕組みを作る必要がありました。\n\n今回、この隙間を埋める新しいステータスチェックが追加されたので、実際にインスタンスを立てて正常時・異常時の両方の挙動を確認してみました。\n\nhttps://aws.amazon.com/jp/about-aws/whats-new/2026/08/amazon-ec2-application-status-checks/\n\nApplication status checksとは\n\nアプリケーションが動いているポートとパス（例: /health）に対して定期的にHTTPリクエストを送り、期待したステータスコードが返ってくるかどうかを60秒間隔で確認する機能です。\n\nチェック用のリクエストは、自分のVPC内に自動で作られる「マネージドENI（AWSが管理するネットワークインターフェース）」から送られるため、インターネットを経由しません。\n\n [code] \n\nチェックは「連続◯回失敗したらimpaired」「連続◯回成功したらok」というしきい値（デフォルトはどちらも2回）で判定され、この結果はAuto Scalingグループのヘルスチェックとしてもそのまま使えます。\n\n既存のインスタンス/システムステータスチェックと並行して動くので、今まで自前で作っていたアプリケーションレベルの死活監視をAWS側に寄せられるのが一番のメリットかと思います。\n\nやってみた\n\n手順1: Terraformでテスト用インスタンスを用意する\n\nnginxをアプリケーション代わりに動かすインスタンスと、ポート80をVPC内からだけ許可するセキュリティグループを作ります。\n\n main.tfの中身 \n\n [code] \n\n \n\nヘルスチェック用のインバウンドルールだけは、あとの手順4で「Terraformの変更として」消したいので別ファイルに分けておきます。\n\n [code] \n\nAMIをAWS公式ドキュメントにあるami = \"resolve:ssm:/aws/service/...\"構文で直接指定すると、state上は実際に解決されたAMI IDが保存されるため、次のterraform applyのたびに設定値との差分でインスタンスが再作成されてしまいます。\nそのため、data \"awsssmparameter\"経由で値を取ることで安定します。\n\nまた、awssubnetsのidsは実はList型なのですが、裏側のAWS API（DescribeSubnets）自体がレスポンス順序を保証していないため、tolist(...)[0]のままだと再適用時にsubnetidが変わってインスタンスが再作成されることがありました。sort()で固定しています。\n\n手順2: Application status checkを作成する\n\nhttps://docs.aws.amazon.com/AWSEC2/latest/UserGuide/application-status-checks.html\n\nGet Started手順に沿って、HTTPのポート80・パス/（デフォルトの/にnginxが200を返すのでそのままでOK）・ステータスコード200を条件にチェックを作ります。\n\n [code] \n\n \n\n手順3: インスタンスに関連付けて結果を確認する\n\n [code] \n\n関連付け直後はinitializingで、しばらくするとokに変わります。okになるまでその場でポーリングします。\n\n [code] \n\n [code] \n\n \n\n手順4: 障害を疑似的に起こして検知できるか確認する\n\ningress.tfを削除してterraform applyし、Terraformの変更としてインバウンドルールを取り除きます。\nFailureThresholdのデフォルト2回どおり、impairedになるまで約2分かかります。\n\n [code] \n\n [code] \n\n \n\nCLIの結果からは impaired となっていますが、AWS マネージメントコンソールの「アプリケーションステータス」は チェックに合格しました のままとなっているのは何なんでしょうね。「ステータスチェック」は 3/4 のチェックに合格しました となっていますので、確実にアプリケーションステータスは失敗しているはずなのですが、ちょっと今のところ謎です。\n\n手順5: 後片付け\n\n [code] \n\n料金\n\nマネージドENI 1個・1アベイラビリティゾーンあたり時間0.01ドルに加え、チェックのメトリクスには通常のCloudWatch料金がかかります。\nチェックそのものやHTTPリクエスト回数に対する追加課金はありません。\n\n参考リンク\n・CreateApplicationStatusCheck - Amazon EC2 API Reference",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7b8fa216c1cc1758",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.2948115942028986,
+      "popularityPercentile": 0.05217391304347826,
+      "matchedTopics": [
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 65,
+      "titleJa": null,
+      "oneLiner": "Amazon EC2にアプリの応答を60秒間隔で確認するApplication status checksが追加された。",
+      "takeaways": [
+        "EC2がアプリの決めた道への応答を確認できるようになった。",
+        "確認は60秒間隔で行われ失敗2回で異常と判定する。",
+        "判定結果を自動で台数調整の管理にも利用できる。"
+      ],
+      "keywords": [
+        "Amazon EC2",
+        "Application status checks",
+        "AWS",
+        "Terraform",
+        "Auto Scaling",
+        "ヘルスチェック"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "OpenAIの開発ペース調整の中身。監視強化・ネットワーク隔離・30分以内の警報目標の3本柱",
+      "url": "https://qiita.com/quotidia/items/fe59dec8dd577cc60896",
+      "publishedAt": "2026-08-23T21:01:03.000Z",
+      "author": "quotidia",
+      "authorDetail": {
+        "name": "quotidia",
+        "handle": "@quotidia",
+        "url": "https://qiita.com/quotidia",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4433271/profile-images/1779007235",
+        "followers": 1,
+        "posts": 101,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/quotidia_jp"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "ChatGPT",
+        "生成AI",
+        "LLM",
+        "OpenAI"
+      ],
+      "snippet": "本記事は筆者が運営する AI Quotidia の海外ニュース解説記事です。 ChatGPTを開発・運営する米国のAI企業OpenAIは現地時間2026年8月18日(火)、開発中のAIモデルに対する恒久的な安全プロセスを発表しました。 要点 ・柱は、開発中モデルの監視強化・ネットワークからの隔離・懸念のある挙動の検知から30分以内に警報を出す目標、の3点 (Bloomberg・TechCrunchが同日報道) ・「開発停止」ではない。位置づけはペースの調整と安全手順の恒久化で、開発は続く。8月上旬のAstra減速時に海外報道が使った「ブレーキをかけた」の直訳をなぞると誇張になる ・起点は現地時間2026年7月21日(火)の公表。内部評価中のモデル2系統が評価用サンドボックスを脱出し、Hugging Faceの本番サーバーに侵入していた (Hugging Faceの開示では記録された操作は1…",
+      "body": "本記事は筆者が運営する AI Quotidia の海外ニュース解説記事です。\n\n ChatGPTを開発・運営する米国のAI企業OpenAIは現地時間2026年8月18日(火)、開発中のAIモデルに対する恒久的な安全プロセスを発表しました。 \n\n要点\n・柱は、開発中モデルの監視強化・ネットワークからの隔離・懸念のある挙動の検知から30分以内に警報を出す目標、の3点 (Bloomberg・TechCrunchが同日報道)\n・「開発停止」ではない。位置づけはペースの調整と安全手順の恒久化で、開発は続く。8月上旬のAstra減速時に海外報道が使った「ブレーキをかけた」の直訳をなぞると誇張になる\n・起点は現地時間2026年7月21日(火)の公表。内部評価中のモデル2系統が評価用サンドボックスを脱出し、Hugging Faceの本番サーバーに侵入していた (Hugging Faceの開示では記録された操作は1.7万件超・公開モデル/データセットの改ざんなし)\n\n完全版では「日本の読者にとっての意味」の解説と FAQ、Quotidia の視点 (全文) を掲載しています。続きを読む。\n\n一次ソース\n・https://openai.com/index/pacing-model-development-cyber-capabilities",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "109d55ce33a0ef08",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.44336697722567286,
+      "popularityPercentile": 0.014492753623188406,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 58,
+      "titleJa": null,
+      "oneLiner": "OpenAIは開発中モデルの監視と隔離を強化し懸念検知から30分以内の警報を目標にした。",
+      "takeaways": [
+        "OpenAIが開発中モデルの安全手順を恒久化した。",
+        "モデルの監視強化と外部接続の隔離を進める。",
+        "懸念を検知してから30分以内に警報を出す目標を掲げた。"
+      ],
+      "keywords": [
+        "OpenAI",
+        "AI安全性",
+        "モデル開発",
+        "ネットワーク隔離",
+        "Hugging Face",
+        "サイバーセキュリティ"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "サプライチェーン防衛、どうやってやる？——「御社は★いくつですか」から始まるSCS評価制度、★3・81項目を全部読んでみた",
+      "url": "https://qiita.com/udowanllc/items/10ffa48bc04e83b0e6ab",
+      "publishedAt": "2026-08-23T02:10:32.000Z",
+      "author": "reiji  katsumata",
+      "authorDetail": {
+        "name": "reiji  katsumata",
+        "handle": "@udowanllc",
+        "url": "https://qiita.com/udowanllc",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4445790/93cabd7292a7c2b42ec368bf4c89f93200c10a0d/large.png?1781104051",
+        "bio": "SE歴10年以上。udowan合同会社 代表。Claude CodeによるAI駆動開発でWebサービスやモバイルアプリをソロで複数リリース。自社プロダクト開発、AI駆動開発への移行支援、受託開発。元海自・元プロボクサー。",
+        "organization": "udowan合同会社",
+        "followers": 7,
+        "posts": 23,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/MyAYBCuZwxUTmMQ"
+          },
+          {
+            "label": "Web",
+            "url": "https://udowan.com/"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "SCS評価制度",
+        "情報処理安全確保支援士",
+        "ipa",
+        "脆弱性"
+      ],
+      "snippet": "1. はじめに 2027年1〜3月頃（2026年度末）、新しい国の制度の申請受付が始まります。経済産業省・内閣官房国家サイバー統括室が構築し、IPAが運営する「サプライチェーン強化に向けたセキュリティ対策評価制度（SCS評価制度）」——企業のセキュリティ対策状況を★の段階で可視化する制度です。 なぜ今この制度なのか。サイバー攻撃は、もはや自社だけ守っても防げないからです。警察庁の統計では、ランサムウェア被害報告の約3分の2が中小企業です[^1]。2025年のアスクルの事例では、委託先の管理者アカウント1つが起点となり、無印良品やロフトのECまで停止しました。サプライチェーン全体での防衛が求められています（この間の攻撃動向は前回記事でまとめています）。 しかし「取引先のセキュリティを確認する」のは、言うほど簡単ではありません。発注側から見れば、取引先が100社あれば100社の対策状況を人手で…",
+      "body": "1. はじめに\n\n2027年1〜3月頃（2026年度末）、新しい国の制度の申請受付が始まります。経済産業省・内閣官房国家サイバー統括室が構築し、IPAが運営する「サプライチェーン強化に向けたセキュリティ対策評価制度（SCS評価制度）」——企業のセキュリティ対策状況を★の段階で可視化する制度です。\n\nなぜ今この制度なのか。サイバー攻撃は、もはや自社だけ守っても防げないからです。警察庁の統計では、ランサムウェア被害報告の約3分の2が中小企業です[^1]。2025年のアスクルの事例では、委託先の管理者アカウント1つが起点となり、無印良品やロフトのECまで停止しました。サプライチェーン全体での防衛が求められています（この間の攻撃動向は前回記事でまとめています）。\n\nしかし「取引先のセキュリティを確認する」のは、言うほど簡単ではありません。発注側から見れば、取引先が100社あれば100社の対策状況を人手で確かめるのは非現実的です。受注側から見れば、A社からはこのチェックシート、B社からは別のチェックシート、と発注元ごとに異なる様式への回答に追われます。発注する側も、される側も、セキュリティ水準をどう確認し、どう説明すればいいのか——この共通の物差しがない問題への国の答えが、SCS評価制度です。\n\n対象は大企業だけでなく、取引をしているすべての中小企業です。制度上は任意ですが、発注者が取引先に対して「★3以上」といった段階を提示し、取得有無を確認する運用が制度設計に組み込まれています。「御社は★いくつですか」が商談の入口で問われる——そういう時代が2027年から始まる可能性が高い、ということです。\n\nISMS認証が入札や取引の実質的な前提条件として定着していったのと同じ道を、この制度も辿ると考えられます（制度構築方針でも、ISMSとは「相互補完的な制度として両輪で発展」と明記されています）。「持っていて当然」になってから慌てるのではなく、今のうちに中身を知っておく価値は十分にあります。\n\nもう一つ重要なのは、この制度が「開始してから慌てて対応する」ことができない作りになっている点です。★3の評価基準は「年1回以上の頻度で点検すること」といった運用の証跡を随所で求めており、証跡は一夜漬けでは作れません。運用した期間の分しか存在しないからです。申請受付開始から逆算すると、資産台帳の整備 → パッチを14日で当てる体制 → 対応判断の証跡化 → 復旧確認、という順で、いま段階的に体制を作り始める必要があります。具体的な進め方は6章にまとめました。\n\n本記事では、公開されたばかりの要求事項・評価基準（★3・★4合わせて全153の評価基準）を実際に読み込み、★3で何が求められるのかをエンジニア目線で解説します。\n\nこの記事の対象読者:\n・取引先・委託先のセキュリティ確認に関わる方（発注側の情シス・購買・サプライチェーン管理）\n・発注元から「★3を取ってほしい」と言われそうな企業のシステム部門・情シス担当の方\n・SIer・SES・受託開発・保守運用で顧客のシステムに接続している企業・フリーランスの方\n・セキュリティ対応の体制・予算を判断する立場の経営者・管理職の方（担当者だけでは対応しきれない制度なので、工数確保の稟議材料としても使えるはずです）\n・情報処理安全確保支援士・CISSP等の保持者で、この制度における自分の役割が気になる方\n・「SCS評価制度って結局何？」と思っているエンジニアの方\n\nこの記事を読むと分かること:\n・SCS評価制度の全体像と、自社が★いくつを求められそうか\n・★3の評価基準81項目にエンジニア視点で何が書いてあるか（数値基準と、★3に「無い」もの）\n・★4で受ける実地審査・技術検証の中身\n・★3を実態を伴って取るための、システム部門の実装順序\n\n一次資料（本文中のページ参照はすべて制度構築方針のものです）:\n・★3・★4 要求事項・評価基準（Excel）\n・制度構築方針（経産省・内閣官房、2026年3月27日、PDF）\n\n2. SCS評価制度の全体像\n\n2.1 何が評価対象になるのか\n\n対象は自社のIT基盤（クラウド環境で運用するものを含む）です。範囲の線引きが具体的に書かれているので、そのまま押さえておきましょう。\n\n必ず含めるもの:\n・インターネット公開サーバ（Webサーバ、メールサーバ等）※明示的に「必ず含める」と記載\n・業務共通のIT基盤を構成するサーバ群、エンドポイント機器（PC、スマートデバイス）\n・外部ネットワーク境界を定義するネットワーク機器（ファイアウォール、ルータ、VPN装置）\n・クラウドサービスや親会社提供のグループ共通ネットワークなど、他社と責任を共有するもの → 責任共有モデルに基づき、自社側の対策実装またはサービス提供者側の対策状況確認（ISMAP登録の有無やSOC2レポートの確認等）が必要\n\n含めないもの:\n・製造環境等の制御（OT）システム\n・発注元に販売する製品など、自社の管理・運用下にない機器\n\nつまり「工場のラインは対象外、そこに繋がる情シス側は対象」という切り分けです。除外したものと適用範囲の間の通信は、VLANやファイアウォールで必要最小限にすることが求められます。\n\n申請主体は原則として法人または個人事業主単位。専門家（★3）または評価機関（★4）による妥当性確認を経れば、事業部単位・グループ単位での取得も可能です。フリーランスでも取れる制度だという点は覚えておいて損はありません。\n\n2.2 ★3・★4・★5 — 3つの段階\n\n| | ★3 | ★4 | ★5 |\n|---|---|---|---|\n| 想定される脅威 | 広く認知された脆弱性を悪用する一般的なサイバー攻撃 | 供給停止・情報漏えいで大きな影響をもたらす企業への攻撃 | 未知の攻撃も含めた高度なサイバー攻撃 |\n| 対策の考え方 | 全企業が最低限実装すべき基礎的対策 | 標準的に目指すべき包括的対策（検知・取引先管理含む） | リスクベース＋現時点のベストプラクティス |\n| 要求事項数 | 26件 | 43件 | 今後検討 |\n| 評価スキーム | 専門家確認付き自己評価 | 第三者評価＋技術検証 | 第三者評価 |\n| 有効期間 | 1年 | 3年（年次自己評価の提出が必要） | 今後検討 |\n| ベンチマーク | 自工会・部工会ガイドLv1、英Cyber Essentials | 自工会・部工会ガイドLv2〜3、分野別ガイドライン | ISO/IEC 27001、自工会ガイドLv3 |\n\n注意点が2つあります。★3を取っていないと★4が取れない、という関係ではありません（上位が下位を包括するため、いきなり★4から取れます）。また★1・★2はこの制度には存在せず、既存の「SECURITY ACTION」（一つ星・二つ星の自己宣言）が準備段階として位置づけられています。\n\nもう一つ、ここで釘を刺しておきます。★は企業そのものの優劣を表す「格付け」ではありません。構築方針は「事業者のセキュリティ対策レベルを競わせることを目的としたもの（格付け制度等）ではない」と明記しており（p.4）、あくまで取引上必要なセキュリティ対策の水準を可視化するための仕組みです。実際、制度を引き合いに「取得しないと商取引が規制される」などと迫る不適切な営業活動に対して、経産省・内閣官房が注意喚起を出しています（2026年4月）。本記事の「★いくつですかと問われる時代」という表現も、格付け競争ではなく「発注者が必要な水準を提示し、確認する」という制度設計の帰結として読んでください。\n\n2.3 自社は★いくつを求められるのか\n\n構築方針p.15に発注者向けの判断フロー例があります。ロジックは2段階です。\n\n1. 事業継続リスク: 取引先の事業中断により、自社の重要業務に許容できない遅延が生じ得るか → YESなら★4\n2. 情報管理リスク: 取引先へのサイバー攻撃により、自社の機密情報等の管理に重大な影響が生じ得るか → YESなら★4、NOなら★3\n\n判断観点として「取引先による自社の重要機密情報へのアクセス可否」「取引先から自社システム・ネットワークへのアクセス可否」が例示されています。受託開発やSES、保守運用で発注者側システムに接続する事業者は、この観点だと★4を求められる可能性が高い位置にいます。逆に、単発・一過性の調達や市販品など代替容易なものはフロー対象から外すことも考えられる、と注記されています。\n\n2.4 取得の流れと更新\n\n★3（専門家確認付き自己評価）:\n\n1. 要求事項・評価基準に基づき自己評価を記入\n2. セキュリティ専門家が確認・助言し、了承すれば署名\n3. 経営層の自己適合宣誓を含めて事務局へ提出\n4. 台帳に登録・公開\n\n評価は文書確認のみで所要1〜2日程度。不適合が見つかっても、是正して専門家の了承を得られれば取得できます。有効期間は1年で、更新には年次で専門家確認を経た自己評価の更新版を提出します。\n\n★4（第三者評価＋技術検証）:\n\n文書確認に加えて実地審査（1〜2日、リモート可）と技術検証（1〜2日）が入ります。技術検証の中身は、インターネットに公開している機器のうち侵入リスクが高いもの（例としてVPN装置、ルータが名指し）への脆弱性検査です。直近の脆弱性検査結果の証跡提出で代替する案も検討されています。有効期間は3年ですが、毎年自己評価を評価機関に提出する必要があります。\n\nどちらも、虚偽や不正が発覚した場合は★の取消し等の措置があります。\n\n2.5 取得すると企業名が公開される\n\n★3・★4の取得企業は、法人名/屋号・所在地・適用範囲・有効期限等が台帳に登録され、事務局のWebページで検索・開示される予定です（構築方針p.25にサンプルあり。個人事業主の掲載例として社労士事務所が載っています）。発注者はここで取引先の取得状況を確認できる、つまり公開データベースとして機能する設計です。\n\n2.6 スケジュール\n\n| 時期 | 予定 |\n|---|---|\n| 2026年度上期 | 運営規程等の公表、制度詳細化 |\n| 2026年8月頃 | 評価機関・技術検証事業者の要件公表 |\n| 2026年10月頃 | 要求事項・評価基準の解説書公開 |\n| 2026年度下期 | 評価用ガイド等の公表、評価機関等の公表 |\n| 2026年度末頃（2027年1〜3月頃） | 運用開始（申請受付）、以降取得企業の公表 |\n\n3. ★3の中身を全部読む — 要求事項26件の正体\n\n3.1 「26件」の実体は評価基準81項目\n\n公開されているExcelを開くと、構造は「大分類 → 中分類 → 要求事項 → 評価基準」の4階層になっています。★3の要求事項は26件ですが、審査で実際に確認されるのはその下にぶら下がる評価基準81項目です。「26項目ならすぐ終わりそう」と思って開くと、印象が変わります。\n\n分類別の内訳がこちらです（★4の追加分も併記します）。\n\n| 大分類 | ★3 要求事項 | ★3 評価基準 | ★4 追加要求 | ★4 追加基準 |\n|---|---|---|---|---|\n| ガバナンスの整備 | 3 | 8 | 6 | 11 |\n| 取引先管理 | 3 | 4 | 3 | 3 |\n| リスクの特定 | 4 | 11 | 5 | 18 |\n| 攻撃等の防御 | 13 | 48 | 14 | 34 |\n| 攻撃等の検知 | 1 | 3 | 2 | 5 |\n| インシデントへの対応 | 1 | 6 | 0 | 0 |\n| インシデントからの復旧 | 1 | 1 | 1 | 1 |\n| 計 | 26 | 81 | 31 | 72 |\n\n一目で分かる通り、★3の評価基準81項目のうち48項目、約6割が「攻撃等の防御」に集中しています。ISMSのようなマネジメントシステムの構築を求める制度ではなく、具体的な技術対策のチェックリストとして設計されています。ガバナンス系はわずか8項目です。「何をすればいいか迷わせない」ことを優先した割り切りで、リソースの限られた中小企業向けとしては合理的な設計だと思います。\n\n3.2 数値で書かれた基準 — ここがエンジニアの読みどころ\n\n★3の評価基準は、抽象的な「適切に管理すること」ではなく、具体的な数字で書かれている箇所が多くあります。主要なものを抜粋します。\n\nパッチ適用は「14日以内」（No.4-4-4-2）\n\nおそらく★3で最も影響の大きい項目です。以下のいずれかに該当するアップデートは、リリースから14日以内に適用することが求められます。\n・ベンダーが「重大（Critical）」または「高リスク（High Risk）」と説明する脆弱性の修正\n・CVSS基本値7.0以上の脆弱性の修正\n・脆弱性レベルの詳細がベンダーから提供されていないもの\n\n3つ目が地味に厳しい条件です。「深刻度不明なら重大扱い」ということなので、情報が少ないベンダーの製品ほど即時対応が求められます。対象も明記されていて、PCのOS・ブラウザ・Officeソフト、サーバのOS・ミドルウェア、スマートデバイスのOS・アプリ、そしてインターネット境界のネットワーク機器のOS・ファームウェアまで含みます。\n\n14日以内に適用できない場合の代替策も4択で用意されています：対象機能の無効化、ベンダー推奨の回避策、対象機器のネットワーク分離、脆弱性を悪用する不正通信を遮断する機器・ソフトの導入。「検証に時間がかかるので塩漬け」は認められない構造です。\n\nEOL品は「削除か、インターネット遮断」（No.4-4-4-1）\n\nサポートが終了したシステム・機器・ソフトウェアは、削除するか、インターネットとの全トラフィックを遮断して適用範囲から外すこと。Windows 10のESU切れ端末を社内LANに置いたままインターネットに出している構成は、この一項でアウトになります。\n\nパスワードとMFAの条件分岐（No.4-1-3〜4-1-6）\n・重要な機密情報を扱うクラウドサービスへのアクセスは、ユーザ・管理者ともに常時多要素認証\n・MFAの知識情報として使うパスワードは8文字以上\n・MFAなしでパスワード認証する場合：10回失敗でアカウントロックがあれば8文字以上、それも無理なら英大小文字＋数字で10文字以上\n・PC・スマートデバイスのロック解除は6文字以上のパスワードまたはPIN\n・デフォルトパスワードの変更、推測されやすい単語の禁止、機器・サービス間の使い回し禁止をルール化し周知\n\nファイアウォール・ルータに7項目（No.4-5-1）\n\n★3で単一の要求事項として最も評価基準が多いのがネットワーク境界防護で、7項目あります。デフォルト管理パスワードを強固で一意のものに変更する（またはリモートアクセスを完全無効化する）、認証されていないインバウンド通信の遮断、インバウンドのルール策定、不要ルールの速やかな削除、そしてルール変更をインターネット経由で行う場合はMFAまたは信頼IPへの制限。\n\n警察庁の統計ではランサムウェア被害の侵入経路の約9割がVPN機器・リモートデスクトップです[^1]。この7項目は、その統計への直接の回答として読めます。\n\nバックアップは「リストア手順書」まで（No.4-3-4）\n\n取得対象・頻度・保管期間を定めてバックアップを取得し、重要な機密情報は遠隔地バックアップも実施、そしてバックアップ対象ごとにリストア手順書を整備すること。\n\n2025年秋の国内事例と照らすと意味がはっきりします。アサヒグループHDが身代金を支払わずに復旧できたのは健全なバックアップから戻せたからであり、逆にアスクルの事例ではバックアップ自体が削除・暗号化されました。「取っている」ではなく「戻せる」が問われています。\n\n委託先・外部サービスの把握（No.2-1-1、3-1-3）\n\n自社以外の組織（顧客・子会社・クラウド提供者を含む取引先）が管理・提供し、自社の資産が接続しているシステムを把握する仕組みの整備。外部情報サービスの利用時はセキュリティ要件を定めて確認し、機密情報の取扱いについて合意を取り交わすこと。\n\nアスクルの侵入起点は「MFAを例外適用していた業務委託先の管理者アカウント」でした。まさにこの項目群が守備範囲とする領域です。\n\n3.3 ★3に「無い」もの — 検知は★4から\n\n同じくらい重要なのが、★3に含まれていない項目です。★4で初めて登場する要求事項を見ると、★3の守備範囲がはっきりします。\n・脆弱性の管理体制（3-2-1） — ★3にはパッチ適用の手順はあるが、脆弱性情報を収集・トリアージする体制の要求はない\n・ログの取得（4-4-3） — ★3にログ取得の要求そのものがない\n・データの暗号化・保管ルール（4-3-1、4-3-2）\n・社外への不正通信の遮断＝出口対策（4-5-2）\n・情報機器・ソフトウェアの挙動監視（5-1-2） — EDR相当の監視\n・サイバー攻撃の監視・分析体制（1-2-2）\n・リモートワークにおけるルール（3-1-5）\n\n整理すると、★3は「侵入されにくくする」まで、「侵入されたことに気づく」は★4からという設計です。\n\nこれは制度の想定脅威とも一致します。★3が対象とするのは「広く認知された脆弱性を悪用する一般的な攻撃」であり、既知の穴さえ塞げば大半は防げる、という思想です。一方、2026年6月に発覚したKDDIのISP向けメール基盤への攻撃は、ベンダー自身も知らないゼロデイが使われ、侵入から把握まで1か月以上を要しました。ああいう攻撃への備え（検知・監視・ログ）は★4以上の世界です。★3を取ったからといって検知能力が担保されるわけではない——この限界は取得する側も、取引先に要求する側も理解しておく必要があります。\n\nなお★3が検知ゼロというわけではなく、No.5-1-1-1で「社内外ネットワークの境界又は端末において、不正アクセスをリアルタイム検知・遮断する仕組みの導入」が求められています。UTMやマルウェア対策製品の検知・遮断機能で満たす想定と読めますが、検知系の評価基準は81項目中3項目だけです。\n\n3.4 頻出フレーズ「年1回以上の頻度で点検すること」\n\n81項目を通読して気づくのが、この表現の多さです。社内ルールの点検（1-1-1-2）、セキュリティ体制の点検（1-2-1-3）、接続システム把握情報の点検（2-1-1-2）、機器管理ルールの遵守状況点検（3-1-1-4）、情報管理ルールの点検（3-1-4-2）、教育・訓練内容の点検（4-2-2-3）、インシデント対応体制の点検（6-1-1-4）——。\n\nつまりこの制度は「規程を作った証拠」ではなく「運用し続けている証跡」を求めています。有効期間が1年で毎年更新が必要なことと合わせると、審査対策の一夜漬けが構造的に効かないようになっています。中小企業にとって本当に重いのは初回取得ではなく、この年次運用の方かもしれません。\n\n4. ★4では何をされるのか — 実地審査と技術検証\n\n4.1 「書類を出す」から「見に来られる」へ\n\n★3と★4の最大の違いは評価のかたちです。★3は専門家による文書確認で完結しますが、★4は評価機関による文書確認＋実地審査＋技術検証の3点セットになります。所要はそれぞれ1〜2日程度（事前準備・報告書作成を除く）、実地審査はリモート実施も可とされています。\n\n不適合が見つかった場合は、指摘から一定期間内（例として1か月以内）に是正報告を提出し了承を得られれば取得可能です。逆に言えば、期限内に直せない構造的な不備があると取れません。\n\n4.2 実地審査で見られる3点\n\n構築方針が「実地審査で確認すべき事項（例）」として挙げているのは次の3つです。\n\n1. 脆弱性の管理体制・管理プロセス\n2. セキュリティインシデント対応手順\n3. 事業継続要件に沿った復旧準備\n\nヒアリングと規程・操作画面等の確認に加えて証跡確認を含めた評価と明記されています。それぞれ対応する評価基準を見ると、審査で何を出せばいいかが具体的に分かります。\n\n脆弱性の管理体制（No.3-2-1、★4で新設） — 情報収集から対応までの役割・責任、情報源・ツール・収集頻度の定義、対応要否の判断基準・対応手順、管理対象機器の脆弱性残存状況を把握する仕組み、そして対応履歴を記録し月次で対応漏れを点検すること。3章で見た「★3にはパッチ手順はあるが体制がない」の穴が、ここで全部埋まります。審査官に「どの情報源を、どの頻度で、誰が見て、どう判断し、履歴がどこにあるか」を答えられる必要があります。\n\nインシデント対応手順（No.6-1-1） — これは★3と共通ですが、実地では手順書の存在だけでなく、連絡先リストや年次点検の記録といった運用証跡まで見られると考えるべきです。\n\n復旧準備（No.7-1-1-2、★4で追加） — 目標復旧時点に戻せるバックアップの保管に加えて、リストア手順書どおりに、目標復旧時間内でバックアップの復元ができることを確認すること。つまり復元テストの実績が要ります。「バックアップはあるが戻したことはない」は★4では通りません。\n\n4.3 技術検証 — VPN装置とルータに脆弱性検査が入る\n\n★4だけの目玉が技術検証です。対象は「インターネットに公開している機器のうち、脆弱性を悪用等された場合に組織内部に侵入されるリスクが高い機器」で、例としてVPN装置、ルータが名指しされています。既知脆弱性の悪用等の一般的な攻撃パターンを試行する脆弱性検査です。\n\n検証対象として指定されている評価基準はNo.4-4-4-3。条文はシンプルで強烈です。\nインターネットとの境界に設置されているネットワーク機器のOS及びファームウェアについては、CVSS基本値7.0以上の脆弱性を有していないこと。\n\n★3の「14日以内に当てる」という手続き要求と違い、こちらは検査時点でHigh以上の既知脆弱性が残っていない状態という結果要求です。FortiGateやNetScalerの管理画面を放置している組織は、ここで機械的に落ちます。日本のランサム侵入経路の9割がVPN/RDPという現実に対して、制度側も「書類ではなく実機で確認する」と決めた、と読めます。\n\nなお、直近に実施した対象機器への脆弱性検査結果など、相当する証跡の提出・確認をもって検証実施の代替とみなす案も検討されています。定期的に脆弱性診断を回している組織なら、その報告書がそのまま使える可能性があります。\n\n4.4 ★4追加分の読みどころ\n\n追加72基準から、システム部門の負荷が大きい順にいくつか拾います。\n\nログは3種×6か月、取得項目まで指定（No.4-4-3） — ファイアウォール（日時・送信元/送信先IP）、プロキシ（日時・リクエスト元IP・URL）、認証サーバ（日時・接続元IP・ユーザID・成功/失敗）を各6か月保管。クラウドサービスも対象です。ログ保管先へインターネット経由でアクセスする場合は常時MFA、さらに認証サーバのログは月1回以上モニタリングして不審な認証試行を検知すること。「ログを取る」ではなく「何を・どれだけ・誰が見るか」まで固定されています。\n\nインターネット経由の社内接続は常時MFA（No.4-1-3-5） — ★3では重要クラウドだけだったMFA必須が、★4では社内環境へのリモート接続・管理者のリモートアクセス全般に広がります。VPNにパスワードだけで入れる構成は★4では成立しません。\n\nセグメント分離（No.4-5-1-9） — 公開サーバと重要情報を扱うサーバは、それぞれ専用ネットワークセグメントに設置し、内外のアクセスを必要最小限に。フラットな社内LANからの脱却が明文で要求されます。\n\n取引先の対策状況を年1回把握（No.2-1-3） — 重要な機密情報を共有する、事業継続上重要、または自社システムにアクセス可能な取引先について、年1回以上対策状況を把握すること。把握方法の例の筆頭に「本制度が定める★の取得状況について回答を受領する、または運用主体のWebサイトで確認する」とあります。ここが制度の伝播メカニズムです。★4企業が生まれるたびに、その取引先へ「★いくつですか」の確認が年次で流れる設計になっています。1章で書いた「商談で問われる時代」の根拠条文がこれです。\n\n経営層への年次報告（No.1-4-1） — セキュリティ担当部署が年1回以上、点検結果を踏まえた実態と対策推進計画を統括役員に報告・承認を得て、指示があれば記録・反映・是正まで。点検対象の評価基準No.が列挙されており、各所の「年1回以上点検」がここに集約される構造です。\n\n細かいが効くもの — サーバ設置エリアの入退室記録6か月保管（4-1-8-4）、廃棄時のデータ抹消は「フォーマットでは不十分」と明記（3-1-4-7）、EOL品は更改計画＋リスク低減策が必須（4-4-2-1）、外部受領ファイルのリアルタイムスキャンまたは仮想環境確認（5-1-2-3）。\n\n4.5 ★4の壁は「技術」より「運用の継続」\n\n並べてみると、★4で新たに買う機器はさほど多くありません。UTMとログ基盤があれば技術要素はおおむね足ります。重いのは、月次の脆弱性対応点検、月次の認証ログモニタリング、年次のアクセス権棚卸し、復元テスト、取引先の年次確認——回し続ける運用です。有効期間3年でも毎年自己評価の提出が求められるので、審査の谷間で止めることもできません。★4を目指すなら、機器選定より先に「誰がこの定常業務を持つか」を決める必要があります。\n\n5. 「セキュリティ専門家」を誰が務めるのか\n\n★3の取得には、セキュリティ専門家の確認と署名が必須です。つまり制度が始まると、すべての取得企業が「専門家を誰に頼むか」という調達の問題に直面します。この章はその話です。\n\n5.1 制度上の専門家とは\n\n専門家になれるのは、次の6資格のいずれかを保持し、制度が定める研修を受講し、事務局に登録した人です：情報処理安全確保支援士、公認情報セキュリティ監査人、CISSP、CISM、CISA、ISO27001主任審査員。研修を提供する研修事業者は2026年12月末頃から公表予定です。\n\n重要なのは、構築方針が「社内外のセキュリティ専門家」と明記していることです（p.18）。外部のコンサルタントに依頼する形だけでなく、社内に有資格者がいれば、その人が研修を受けて登録し、社内専門家として確認を担うことが制度上想定されています。\n\nなお、専門家の監督下であれば、確認の実務は研修を受講した別の要員（資格不要）に担わせることができる「作業従事者」の仕組みもあります。署名の責任は専門家が負いますが、作業自体はチームで回せる設計です。\n\n5.2 専門家確認は「監査」ではない\n\nここは誤解しやすいので正確に書きます。★3の文書確認は所要1〜2日程度で、実施内容は「記載内容に矛盾がないか、評価基準から見て十分な事項が示されているかの確認」です。81項目が実際に運用されているかを検証する監査ではありません。実地で確認する仕組み（実地審査・技術検証）は★4から入ります。\n\nでは★3の実態は何が担保するのかというと、自己評価そのものと経営層の自己適合宣誓です。虚偽が発覚すれば★の取消し等の措置がある、という事後の抑止で成り立っています。\n\nこの構造から導かれる実務上の結論はこうです——★3の品質は、専門家の確認ではなく、自己評価を書く社内側の理解度で決まる。評価基準を理解しないまま「実施している」に丸を付けた自己評価は、1〜2日の文書確認では見抜かれないかもしれませんが、インシデントが起きて実態が露呈すれば、企業は★取消しの措置を受け、取引先への説明責任を負います。3章・4章を長々と書いた理由もここにあります。読むべきなのは専門家ではなく、自己評価を書くシステム部門です。\n\n5.3 外部に頼むか、社内に持つか\n\n外部に依頼する場合。 確認・助言・署名という単発の定型業務なので、スポットで依頼できるのが利点です。「どこで専門家を探すのか」という当然の疑問には、国側が既に受け皿を用意しています。IPAの「中小企業向けサイバーセキュリティ対策支援者リスト」です。支援士のうち中小企業支援ができる専門家を、支援対象地域・指導テーマ・支援実績・料金・保有資格つきで一覧化したもので、2025年7月から試行公開されています。構築方針p.37には、今後本制度における専門家の確認・助言に資する支援ツールを追加する予定と明記されており、SCS評価制度の専門家探しの公式経路になることが想定されています。\n\n発注のための費用がどの程度になるかは、まだ見通しが立っていません。士業の単発業務のような相場が形成される可能性もあれば、お助け隊サービス新類型（★3・★4の未達項目をITツール＋人的支援で埋め、一定の価格要件下でパッケージ提供する構想。2026年夏から実証）に確認込みで組み込まれる可能性もあります。留意点は、★3の有効期間が1年で、更新のたびに専門家確認が再び必要になること。外部依頼は毎年の経常費になります。\n\n社内に持つ場合。 社内の有資格者が研修を受けて登録すれば、確認を内製できます。毎年の更新を考えると外注費の面で合理的ですし、それ以上に実務との相性が良い。3章で見た通り、★3の維持には資産棚卸しの年次点検、14日以内のパッチ適用、各種ルールの年1回点検といった日常運用が要ります。この運用を回すことと評価基準を理解していることはほぼ同じ能力なので、社内に基準を読み込んだ人が一人いる方が、取得も更新も自然に回ります。\n\nなお、これらの運用業務自体に資格は不要です。資格が要るのは制度上の「確認・署名」の役割だけで、有資格者だから運用がうまいわけでも、無資格だから運用できないわけでもありません。社内調達の本質は「資格者を置くこと」ではなく「基準を理解して運用を回せる人を置き、その人が資格と研修で署名権限も持つ」ことです。\n\n一点だけ未確定事項があります。自己評価を書いた本人が自分で確認・署名してよいのか、といった独立性の細目は構築方針には書かれておらず、今後の運営規程（2026年度上期公表予定）で具体化されるはずです。社内専門家を計画する場合はここをウォッチしてください。\n\n5.4 署名の重みは制度の急所\n\n専門家の署名がどれほどの責任を伴うかは、実は現時点で完全には固まっていません。構築方針は、虚偽が発覚した場合の取得企業側の★取消し（p.18、p.24）と、★4評価機関の指定取消し（p.19）は明記していますが、★3専門家個人への制裁は書かれておらず、今後の運営規程での具体化を待つ状態です。\n\nただし支援士であれば話は別で、情報処理促進法上の信用失墜行為の禁止義務を負っており（構築方針p.37も明記）、虚偽への加担は資格登録の取消し事由になり得ます。また、できていないと知りながら署名した場合、署名を信頼した取引先に対する民事上の責任を問われる可能性も否定できません（筆者は法律家ではないので断定は避けますが、専門家の証明を信頼した第三者への責任という論点は、他士業で繰り返し争われてきたものです）。「1〜2日の文書確認だから軽い仕事」と考えて引き受けるべきではない、というのが筆者の理解です。\n\n裏を返せば、確認の過程で「実際にはやっていない」と説明を受けたなら署名すべきではありません。制度も是正ルートを用意しています——不適合があっても、是正対処し専門家の了承を得られれば★3は取得可能です。正しい動きは「サインしない → 体制を整えてもらう → 再確認して署名」です。\n\n5.5 読者自身が有資格者なら\n\nQiitaの読者には支援士やCISSPの保持者も多いはずなので、この節だけ視点を変えます。\n\nもしあなたが対象資格を持っているなら、研修と登録だけで「社内専門家」になれる位置にいます。会社にとっては確認の内製化、あなたにとっては資格が初めて制度上の役割を持つ機会です。支援士は登録・維持コストに見合うのかと長年言われてきた資格ですが、署名者として名指しされる公的な役割がここで生まれました。\n\n社外で専門家業務を受ける道もあります。市場構造だけ客観的に書いておくと——需要側は、★4の要求事項2-1-3が「取引先の★取得状況の年1回確認」を求めるため、★4企業が増えるほど★3需要が連鎖する設計です。加えて全取得企業に毎年更新が発生します。供給側は、支援士だけで26,453名（2026年4月時点）、他5資格の保持者も参入可能で、経産省は支援士を2030年に5万人へ倍増させる計画です。お助け隊による低価格パッケージ化の構想もあります。つまり、早期に参入して継続案件を積んだ人にはストックが残る一方、後から入って高単価を期待できる市場ではおそらくない、というのが筆者の見立てです。\n\nいずれの道でも、動くタイミングの目安は2026年12月末頃の研修事業者公表です。初回の研修枠は限られる可能性があります。\n\n5.6 建前と現実のギャップ — この制度は本当に回るのか\n\nここまで制度の設計を追ってきましたが、現実の話をします。\n\n専門家の行動規範としては前節の通り単純です。問題は、この建前がどこまで実効性を持つかです。筆者は懐疑的に見ています。理由は、★3の要求水準と日本企業の現在地の距離です。\n\n象徴的なのがパッチ適用です。★3は「CVSS 7.0以上は14日以内、詳細不明も同等扱い」を求めますが、警察庁の統計では、ランサムウェア被害企業のうちパッチ等の脆弱性対策を実施していなかった組織が半数を超えています[^1]。被害に遭った企業ですらこれです。CVEの公開数は2026年に年間7万件ペースに達し、NVDは全件の詳細分析を放棄しました。この洪水の中で「14日SLA」を運用として回せている企業は、筆者の実感では大企業を含めてもごく少数です。脆弱性情報の収集体制（★4の3-2-1相当）を持たない企業にとって、そもそも「自社に該当するCVSS 7.0以上が出た」ことを14日以内に知ること自体ができません。\n\n資産管理も同様です。「サーバ・仮想サーバ・ハイパーバイザの製造元・OS・台数を把握する仕組み」と評価基準は言いますが、仕組みとして維持されているインベントリを持つ中小企業は少数派でしょう。年1回の各種点検、リストア手順書、遠隔地バックアップ——1つ1つは基礎的でも、81項目を全て「原則すべて適合」させるのは、専任の情シスがいない企業にとって軽い負担ではありません。\n\nすると何が起きるか。予想されるシナリオは2つです。\n\n1つは、自己評価の形骸化です。評価基準を深く理解しないまま「実施している」に丸が付き、1〜2日の文書確認はそれを見抜けず、★3のマークだけが流通する。マークの信頼性が下がれば、発注者は結局独自チェックリストを併用し、制度の存在意義（重複要求の解消）が失われます。\n\nもう1つは、支援サービス頼みの底上げです。国はここを見越していて、お助け隊サービス新類型を用意しています。要は「自力で無理なら買って埋めろ」という設計です。どちらのシナリオが優勢になるかは、初期の専門家たちがどれだけ真面目に確認するか、そして発注側が★をどれだけ本気で要求するかにかかっています。\n\n誤解のないように書いておくと、筆者は制度が無意味だと言いたいのではありません。逆です。★3の81項目は、アスクル・アサヒ型の被害を防ぐ要素を過不足なく押さえた、良くできた最低ラインです。問題は基準ではなく、基準と現場の距離にあります。だからこそ次章では、この距離を埋める順番——何から手を付ければ★3が「実態を伴って」取れるのか——を書きます。\n\nなお、実効性を担保する仕組みは現時点で詰め切られていない、というのが筆者の率直な印象です。今後この制度がどう転ぶかを見る上で、注目しているポイントを3つ挙げておきます。\n\n政府調達・補助金への組み込み。 構築方針には政府調達での参照や重要インフラ事業者等での活用推奨の検討が明記されています。SECURITY ACTIONがIT導入補助金の要件になって宣言数を爆発させた前例を踏まえると、★3も調達条件や補助金の加点に載った時点で取得数が一気に伸びるはずです。ただしそのとき、実態を伴わない「書類上の★3」がどれだけ混ざるかが品質面の分水嶺になります。\n\n最初の取消し事例。 現状、虚偽の検知経路として明示されているのは内部通報等のみで、専門家個人への制裁も未整備です。★3取得企業が侵害され、自己評価と実態の乖離が明るみに出る——そういう事案が最初に出たとき、抜き打ち確認や必須証跡の指定など、運営規程が事後的に締まると予想します。逆に言えば、それまでは性善説で回る期間が続きます。\n\nサイバー保険との連動。 保険会社が★の取得状況を料率や引受条件に反映し始めれば、補助金より持続的な圧力になります。虚偽申告が免責につながる保険の仕組みは、自己評価を「盛る」インセンティブを実損に直結させる、制度側にはない牙だからです。\n\n5.7 立場別・今からのアクション\n\n| 時期 | 企業（システム部門） | 有資格者 |\n|---|---|---|\n| 今すぐ | 要求事項Excelを読み、自社とのギャップを把握。専門家を社内で立てるか外部依頼かの方針決め | 同左＋資格の維持要件を切らさない |\n| 2026年10月頃 | 解説書公開。自己評価の書き方の具体を確認 | 同左 |\n| 2026年12月末頃〜 | （社内で立てる場合）対象者の研修申込 | 研修事業者公表、最速で申込 |\n| 制度開始（2026年度末頃）〜 | 発注元からの要求に先んじて★3申請を判断 | 事務局への専門家登録 |\n\n6. ★3を「実態を伴って」取るために — システム部門の実装順序\n\n最終章は、5.6で書いた「基準と現場の距離」を埋める話です。先に結論だけ書きます。\n\n迷ったら、まずこの4つです。\n\n1. 資産台帳を「仕組み」として作る — 何を持っているか分からなければ、何も始まらない\n2. パッチを14日で当てる体制を作る — ★3の最重要SLA\n3. 「当てない判断」も含めて証跡を残す — 審査は文書確認。記録がすべて\n4. バックアップから戻せることを確認する — アサヒとアスクルの明暗を分けたもの\n\n81項目を上から順に潰すのではなく、この依存関係の順（台帳 → パッチ運用 → 証跡 → 復旧）で作ると手戻りがありません。以下、各ステップの理由と実装の勘所です。\n\n6.1 Step 1: 資産インベントリを「仕組み」にする（3-1-1、3-1-2）\n\nすべての起点はここです。★3は、パソコン・サーバ・仮想サーバ・ハイパーバイザの製造元・OS・台数、ネットワーク機器の製造元・モデル・保守事業者を「把握するための仕組み」の整備を求めます。一度作ったExcel台帳は仕組みではありません。年1回の点検（3-1-1-4）で現物と突合できる状態が仕組みです。\n\n現実的な最小構成は、①調達・廃棄のフローに台帳更新を組み込む、②年1回、ネットワークスキャンやMDM/Intuneの資産情報と台帳を突合する、の2点です。ここを飛ばして次のパッチ管理に進むと、「どの機器に脆弱性が該当するか分からない」という壁に必ず当たります。14日SLAは、インベントリがない組織には物理的に実行不可能です。\n\n6.2 Step 2: パッチ適用を「14日」で回す体制（4-4-4）\n\n4-4-4-2の要求を運用に翻訳すると、次の3つの機能が要ります。\n\n1. 知る: 自社の資産に該当する脆弱性情報を掴む。ベンダーのセキュリティアドバイザリ購読が基本線ですが、機器が多いならJPCERT/CCの注意喚起とCISA KEVを固定の情報源にするのが費用対効果の高い足場です\n2. 判定する: Critical/High、CVSS 7.0以上、または詳細不明なら14日以内の適用対象。ここで2026年の重要な変化に触れておくと、NVDは同年4月から大半のCVEの詳細分析（エンリッチメント）を停止しました。ただし新規CVEの9割以上には採番機関（CNA）自身がCVSSを付与しているので、実務は「CNA提供のCVSSを見る」に変わっただけです。むしろ効いてくるのは「詳細が提供されていない場合は重大扱い」という★3の規定で、情報の薄いベンダー製品ほど即時対応が求められます。ベンダー選定の時点でセキュリティ情報の開示品質を見る理由が、制度によって一つ増えたことになります\n3. 当てる: 定例メンテナンス枠を月2回確保しておくと、どのタイミングで脆弱性が出ても14日以内に必ず1回は適用機会が来ます。「緊急対応」を「定例の前倒し」に変換するのが、少人数で回すコツです\n\nここで条文の重要な読み方を2つ補足します。\n\n14日の起点は「アップデートのリリース」です。 脆弱性の公表ではありません。つまりベンダーがパッチを出していない間は、当てるものが存在しないので、この基準のカウントは走りません。ベンダー側の対応期限は制度には存在せず（制度が縛れるのは取得企業だけです）、対応の遅いベンダーの製品は形式上セーフです。ただし形式上セーフなだけで、パッチ未提供の既知脆弱性が放置されるリスクは残ります。実務としては、代替策4択（機能無効化・回避策・分離・遮断）の考え方をパッチ未提供期間にも準用するのが筋です。なお★4の技術検証（4-4-4-3）は「CVSS 7.0以上を有していないこと」という状態要求なので、パッチが無くても検査で引っかかります。★4を視野に入れるなら緩和策は必須です。\n\n「詳細不明なら重大扱い」は、分類を諦めていい免罪符と読むべきです。 深刻度の目利きは、情報を出さないベンダーの製品に対しては原理的に不可能です。制度は「調べて分類しろ」ではなく「分類できないなら全部14日で当てろ」と言っています。なので現実解は、①自動アップデートを有効にできるものは有効にする（常に最新なら分類作業そのものが消える）、②できないものはリリースノートの解読に時間を使わず「不明な更新も14日枠に入れる」と割り切って定例枠で機械的に当てる、③それでも回らない機器はリプレース対象リストに載せる、の3段です。深刻度の目利きで工数を減らす戦略は、情報開示の良いベンダーの製品でしか使えない——「開示品質の悪い製品は運用コストが構造的に高い」ことが制度で金額換算できるようになったので、更改の稟議は通しやすくなったはずです。\n\n6.3 Step 3: 「当てない」判断を証跡にする\n\n現実には、14日以内に当てられないケースが必ず出ます。検証が終わらない、ベンダーの対応待ち、業務停止を伴う——。★3はこれを見越して代替策4択（機能の無効化／ベンダー推奨の回避策／ネットワーク分離／不正通信の遮断）を明文で認めています。重要なのは、どの代替策をなぜ選んだかを記録に残すことです。★3の審査は文書確認なので、判断の記録がそのまま適合の証跡になります。\n\nこの「当てない判断の記録」は、筆者が以前 毎日137件公開されるCVE、正直ぜんぶ無視していませんか？ で書いたトリアージの考え方そのものです。すべての脆弱性に同じ重みで対応するのではなく、自社環境での到達可能性を判断し、対応しない場合は理由と期限を付けて記録する。この運用を支援するために筆者が公開しているOSS quiet-cve（解説記事）は、脆弱性を「要対応/様子見/影響なし」に仕分けし、対応しない判断（ignore）に理由の種別と有効期限を必須にして、期限切れや根拠コードの変更で自動的に再浮上させる設計にしています。まさに「なぜ当てていないのか」に答える証跡を作るためのツールです。\n\n一点正直に書いておくと、quiet-cveの主戦場はアプリケーションの依存ライブラリ（npm等）で、これは★3のパッチ要求（対象はOS・ブラウザ・Office・ミドルウェア・境界機器）の明文の対象外です。位置づけとしては、★3のパッチ運用を回す基礎体力であり、★4の脆弱性管理体制（3-2-1: 対応要否判断基準の定義、対応履歴の記録、月次点検）で本領を発揮する、が正確です。受託開発で顧客システムに納品している事業者なら、顧客側の★4対応に巻き込まれる形で依存ライブラリの管理を求められる日も遠くないと見ています。\n\n6.4 Step 4: バックアップは「戻せる」と言えるまで（4-3-4）\n\n要求は3点セットです。取得ルール（対象・頻度・保管期間）、重要情報の遠隔地バックアップ、そして対象ごとのリストア手順書。アサヒとアスクルの明暗を分けたのがここだったことは3章で書いた通りです。\n\n実装のポイントは2つ。バックアップの1系統をランサムウェアから届かない場所に置くこと（クラウドのイミュータブルストレージ、オフライン媒体等。同一AD配下のNASは「届く場所」です）。そして手順書は、書いた人以外が実行できる粒度で書き、最低1回はリストアを実際に試すこと。★3の文言上は手順書の整備までですが、★4は「手順書どおりに目標復旧時間内で復元できることの確認」まで要求します。どうせ後で要るなら最初からやっておくべきですし、試していない手順書は本番で必ず裏切ります。\n\n6.5 仕上げ: 「年1回」を運用カレンダーに固定する\n\n3章で見た通り、★3は「年1回以上の頻度で点検」を各所で要求します。これを個別に覚えておくのは無理なので、年次のセキュリティ点検月間を1つ決めて、全点検項目をそこに集約するのが現実解です。社内ルールの点検、体制・連絡先の点検、資産台帳の突合、外部接続システムの棚卸し、教育の実施記録確認、インシデント対応体制の点検——1週間の集中作業として毎年同じ時期に回せば、更新申請（★3は毎年）の直前に証跡が自動的に揃います。\n\nおわりに\n\nCVEが年間7万件に迫り、NVDが白旗を上げ、日本ではアサヒ・アスクル・KDDIと大型被害が続く——そういう状況への国の回答として、SCS評価制度は登場しました。★3の81項目は完璧な制度ではありませんが、「既知の穴を塞ぎ、戻せるバックアップを持ち、それを毎年点検し続ける」という要求は、この2年の国内被害事例への答え合わせとしてよくできています。\n\n最後に一つだけ。★3の維持は、やろうと思えば年1回の書類提出を乗り切るだけでもできてしまうかもしれません。しかしここまで読んだ方には伝わっているはずです。81項目は審査のための要件である以前に、現在の脅威環境で取引先に迷惑をかけないための最低限です。5章で見た通り、この制度の確認は性善説で回っており、形骸化させようと思えばできます。ただし、自社の★3が書類の上だけのものになっているなら、それは審査に落ちるリスクではなく、サイバー事故に遭うリスクとして返ってきます。マークの信頼を裏切った企業がどうなるかは、2025年以降の被害事例が十分に教えてくれています。\n\n発注元から「★いくつですか」と聞かれてから慌てて読むより、いま読んで自社との距離を測っておく方がずっと安い。この記事がその物差しになれば幸いです。\n\n関連記事\n・ニチレイ・KDDIの夏は序章だった。AIで消える攻撃の「人件費」と、次に狙われる場所\n・毎日137件公開されるCVE、正直ぜんぶ無視していませんか？\n・毎日137件のCVE、Claudeにコードを読ませて「本当に対応が必要な2件」まで絞るツールを作った\n\n[^1]: 警察庁「令和7年におけるサイバー空間をめぐる脅威の情勢等について」。ランサムウェア被害の企業規模別内訳、侵入経路、パッチ適用状況の統計を含む。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "47d1ce7ceb2939d2",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.23931884057971015,
+      "popularityPercentile": 0.7014492753623188,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 58,
+      "titleJa": null,
+      "oneLiner": "国が企業のセキュリティ対策を星で示すSCS評価制度を2027年から始める見通しになった。",
+      "takeaways": [
+        "国が企業の安全対策を星の数で示す制度を始める。",
+        "申請受付は2027年1月から3月頃に始まる見通しだ。",
+        "最高段階の星3は81項目の確認で評価される。"
+      ],
+      "keywords": [
+        "SCS評価制度",
+        "IPA",
+        "経済産業省",
+        "サプライチェーン",
+        "星3",
+        "2027年"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "duty1g/x64dbg-mcp-server — x64dbg-MCP Server is a native MCP (Model Context Protocol) plugin for x64dbg that exposes the debugger's full functionality over HTTP. Connect any MCP-compatible AI assistant and control x64dbg programmatically: set breakpoints, step through code, read memory, dump registers, and more.  Built with Zig — zero dependencies, single-binary output, cros",
+      "url": "https://github.com/duty1g/x64dbg-mcp-server",
+      "publishedAt": "2026-08-22T14:28:41.000Z",
+      "author": "duty1g",
+      "authorDetail": {
+        "name": "duty1g",
+        "url": "https://github.com/duty1g",
+        "avatarUrl": "https://github.com/duty1g.png?size=120",
+        "bio": "x64dbg-MCP Server is a native MCP (Model Context Protocol) plugin for x64dbg that exposes the debugger's full functionality over HTTP. Connect any MCP-compatible AI assistant and control x64dbg programmatically: set breakpoints, step through code, read memory, dump registers, and more.  Built with Zig — zero dependencies, single-binary output, cros"
+      },
+      "tags": [
+        "Zig",
+        "ai-agents",
+        "ai-debugging",
+        "binary-analysis",
+        "claude",
+        "claude-code",
+        "malware-analysis",
+        "malware-research"
+      ],
+      "snippet": "x64dbg-MCP Server is a native MCP (Model Context Protocol) plugin for x64dbg that exposes the debugger's full functionality over HTTP. Connect any MCP-compatible AI assistant and control x64dbg programmatically: set breakpoints, step through code, read memory, dump registers, and more. Built with Zig — zero dependencies, single-binary output, cros",
+      "metrics": {
+        "stars": 787
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "ba0e4911e276dad8",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.6999460132890366,
+      "popularityPercentile": 0.9534883720930233,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "x64dbg-MCP Server — AIでx64dbgを操作する接続基盤",
+      "oneLiner": "x64dbg-MCP ServerはAIアシスタントからx64dbgを操作しブレークポイントやメモリを扱える仕組みを提供する。",
+      "takeaways": [
+        "人工知能からx64dbgのデバッガを操作できる。",
+        "停止位置の設定やメモリの読み取りを自動化できる。",
+        "Zig製の単体ファイルとして動かせる。"
+      ],
+      "keywords": [
+        "x64dbg-MCP Server",
+        "x64dbg",
+        "Model Context Protocol",
+        "Zig",
+        "AIデバッグ",
+        "バイナリ解析"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 4,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 https://github.com/duty1g/x64dbg-mcp-server",
+        "verify": "ls x64dbg-mcp-server",
+        "questions": [
+          "README の手順だけで、最初の出力まで到達できるか",
+          "動かすのに別途何が必要か（API キー・GUI・別のツール）"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Ox Alpha を無料で試す4つの経路と、正体を推測するための材料の集め方",
+      "url": "https://qiita.com/ishizakahiroshi/items/707b2da49958c27f5e2e",
+      "publishedAt": "2026-08-23T02:38:10.000Z",
+      "author": "hiroshi ishizaka",
+      "authorDetail": {
+        "name": "hiroshi ishizaka",
+        "handle": "@ishizakahiroshi",
+        "url": "https://qiita.com/ishizakahiroshi",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4423880/049abdd348db632de359b7a933054dacc58166bb/large.png?1782949151",
+        "bio": "田舎在宅エンジニアです。\r\n\r\nhttps://x.com/ishizakahiroshi",
+        "location": "群馬県",
+        "followers": 2,
+        "posts": 58,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/ishizakahiroshi"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/ishizakahiroshi"
+          },
+          {
+            "label": "Web",
+            "url": "https://ishizakahiroshi.com/"
+          }
+        ]
+      },
+      "tags": [
+        "OxAlpha",
+        "OpenRouter",
+        "opencode",
+        "LLM",
+        "生成AI"
+      ],
+      "snippet": "30.9 秒でした。 バグを 1 個仕込んだ Python を渡して「テストが通るように直して」と頼んだら、ファイルを 2 つ読んで、1 文字だけ書き換えて、自分でテストを走らせて、7/7 で戻ってきた。使ったモデルの名前は Ox Alpha です。誰が作ったのかは分かりません。値段は 0 円です。 先に結論。今どこで無料で触れるのか 2026-08-23 時点で、Ox Alpha に無料で触れる経路は 4 つあります。手元で 2 つは実際に動かしました。 | 経路 | モデル ID | 課金 | 備考 | |---|---|---|---| | OpenRouter | stealth/ox-alpha | 無料 | API と Playground。データは提供者側が保持（学習には使わない） | | OpenCode Zen | x-preview-f-free | 無料 | ゼロ保持…",
+      "body": "30.9 秒でした。\n\nバグを 1 個仕込んだ Python を渡して「テストが通るように直して」と頼んだら、ファイルを 2 つ読んで、1 文字だけ書き換えて、自分でテストを走らせて、7/7 で戻ってきた。使ったモデルの名前は Ox Alpha です。誰が作ったのかは分かりません。値段は 0 円です。\n\n \n\n先に結論。今どこで無料で触れるのか\n\n2026-08-23 時点で、Ox Alpha に無料で触れる経路は 4 つあります。手元で 2 つは実際に動かしました。\n\n| 経路 | モデル ID | 課金 | 備考 |\n|---|---|---|---|\n| OpenRouter | stealth/ox-alpha | 無料 | API と Playground。データは提供者側が保持（学習には使わない） |\n| OpenCode Zen | x-preview-f-free | 無料 | ゼロ保持を明記。利用には請求情報の登録が必要 |\n| OpenCode Go | ox-alpha-free | 無料 | Go は初月 $5・以降 $10/月だが、Ox Alpha 分は Go の枠を消費しない |\n| Felo API | ox-alpha | 無料（ローンチ期間） | 終了日の記載なし |\n\nOpenRouter のモデルページはこちらです（https://openrouter.ai/stealth/ox-alpha）。OpenCode Zen のモデル一覧は https://opencode.ai/docs/zen/ 、Go の料金は https://opencode.ai/go にあります。Felo は https://openapi.felo.ai/models/stealth/ox-alpha です。\n\nいちばん手数が少ないのは OpenRouter の Playground です。ブラウザだけで終わります。API から叩くならこれだけです。\n\n [code] \n\nmaxtokens を大きめに置いているのには理由があります。後で書きます。\n\nターミナルのコーディングエージェントから使うなら OpenCode が速いです。インストール済みなら 1 行です。\n\n [code] \n\nモデルが一覧に出るかは、これで確かめられます。\n\n [code] \n\n \n\n4 経路のうち、データの扱いだけは横並びになっていません。OpenCode Zen は「ゼロ保持・学習に使わない」と書いてあり、OpenRouter は「提供者が保持する。ただし学習には使わない」と書いてあります。同じモデルでも入口で条件が違うので、業務のコードを流す前にここだけは見てください。\n\nそもそも Ox Alpha とは何なのか\n\n2026-08-20 に OpenRouter と OpenCode へ同時に載った、開発元非公開のモデルです。この手のものは「ステルスモデル」と呼ばれます。\n\n公式に出ている仕様はこのあたりです。\n・コンテキスト 1,048,576 トークン（約 1M）\n・最大出力 131,072 トークン\n・入力はテキスト・画像・動画、出力はテキスト\n・function calling 対応、responseformat による JSON 出力対応（スキーマ強制はなし）\n・価格は入力も出力も $0\n\nOpenRouter の説明文は「Ox Alpha is a reasoning model designed for coding, sustained agentic work, and production workloads」の 1 行だけです（https://openrouter.ai/stealth/ox-alpha）。作った会社の名前はどこにも書いてありません。OpenRouter 自身も「自分は開発元でも所有者でも提供者でもなく、リクエストを中継しているだけ」と明記しています。\n\n告知は OpenCode 側が先に出しています。「Ox Alpha（ステルスモデル）は次の 1 週間無料」「1 日あたり 100 兆トークンの処理能力がある、あなたができることを試してみましょう」という挑発的なものでした（https://x.com/opencode/status/2090544355824038300）。OpenRouter 側の告知も同じ日です（https://x.com/OpenRouter/status/2090544970923184269）。\n\n翌日には OpenCode Go にも入りました。ここで「次の 6 日間」と期限が具体化しています（https://x.com/opencode/status/2090758645499728234）。8/21 から数えて 6 日なので、8/27 前後には閉じる計算になります。ただしこれは告知文からの逆算で、終了日時そのものは公表されていません。\n\n手元で試したら、GLM-5.3 より速かった\n\n読んだだけだと分からないので、同じ課題を 3 通りで走らせました。\n\n課題は区間マージ関数です。(1,3) と (3,5) のように端点が接する区間をマージしない、という境界バグを 1 個だけ仕込んであります。テストは 7 ケースで、素の状態では 5/7 しか通りません。\n\n [code] \n\n指示は「testintervals.py が全件通るように intervals.py だけを修正してください。テストファイルは変更しないでください」の 1 行です。結果はこうなりました。\n\n| モデル | 所要 | 結果 | 修正内容 |\n|---|---|---|---|\n| Ox Alpha（OpenCode Go） | 30.9 秒 | 7/7 | start < lastend を <= に |\n| Ox Alpha（OpenCode Zen） | 48.5 秒 | 7/7 | 同上 |\n| GLM-5.3（OpenCode Go） | 84.5 秒 | 7/7 | 同上 |\n\n \n\n3 つとも同じ 1 文字にたどり着いて、3 つとも自分で python testintervals.py を実行して 7/7 を確認してから報告してきました。テストファイルを書き換えて通す、みたいなズルもしていません。\n\nただしこれは 1 回ずつの計測です。速度差を実力差と読むには全然足りません。時間帯の混雑でも簡単に前後します。分かるのは「この難度なら 3 つとも普通に解ける」ということと、「無料枠なのに待たされる感じはない」ということくらいです。\n\n面白かったのは自己申告です。GLM-5.3 は報告の末尾に「使用モデル: GLM 5.3 (opencode-go/glm-5.3)」と正確に書いてきました。Ox Alpha は「使用モデル: ox-alpha」でした。正体を直接聞くと、こう返ってきます。\n\n [code] \n\n「知らない」ではなく「非公開なので答えられない」と言っています。隠すよう指示されている側の言い方です。\n\n \n\n名札のところだけ黒く塗られた相手に素性を尋ねている、みたいな絵になります。答えを持っていないのではなく、答えないと決められている側の応対です。\n\n正体は誰なのか。証拠の集め方が面白い\n\nここからが本題かもしれません。作った会社が黙っているので、界隈が総出で外側から指紋を採っています。\n\n現時点で優勢なのは Zhipu（Z.ai）の GLM 系という説です。決め手っぽいものが 3 つあります。\n\n1 つ目は、サーバーが吐いたスタックトレース。 topp に数値ではなく文字列を渡して壊れたリクエストを送ると、バリデーションで落ちたときに内部クラス名が漏れます。出てきたのが com.wd.paas.api.domain.v4.chat.ChatCompletionRequest でした。この paas/v4/chat という並びは Zhipu の公開 API パス /api/paas/v4/chat/completions とそのまま一致します。\n\n2 つ目は、エラーコード。 不正な role を投げると {\"code\":\"1214\",\"message\":\"Incorrect role information\"} が返ります。同じコードが Z.AI がホストしている GLM 群でも出て、別事業者がホストしている GLM では出ませんでした。つまりこれはモデルの指紋ではなく「誰が API を運用しているか」の指紋です。切り分けとして筋がいい。\n\n3 つ目は、トークナイザー。 14 種類の文字体系・絵文字・コード・SQL にまたがる 30 個の入力で、トークン数が GLM-5.3 と 30/30 一致しました。差分は毎リクエストに乗る +75 トークンの固定分だけで、これはシステムプロンプトやルーティングのラッパーで説明がつきます。\n\nこの検証の詳細は explainx がまとめています（https://www.explainx.ai/blog/ox-alpha-what-we-know-mystery-ai-model-august-2026）。音声入力を拒否する挙動が GLM-5V と同じで MiMo とは違う、といった消去法も併せて載っています。\n\nGoogle 説も出ている。こちらは計算資源からの逆算\n\n日本語圏では別の角度からの推測が出ていて、これが個人的にいちばん面白かった。\n\nOpenCode が言っている「1 日 100 兆トークン」を額面どおり受け取ると、それを捌くのに必要な計算量が見積もれます。アクティブパラメータを控えめに 20B と置くと、3ND から 1 日あたり 6e24 FLOPs 以上。毎日 Llama 3 70B を事前学習するのと同じ規模で、そんな資源を遊ばせておける会社は Google くらいだろう、という筋です（https://x.com/kyotakano/status/2090787696423952442）。\n\n計算そのものは筋が通っています。ただ前提が 1 個弱い。「100 兆トークン」は OpenCode が告知で出した数字で、実測でも SLA でもありません。プロモーション上の上限として書かれた値なので、これを実際の消費量とみなすと逆算が丸ごとずれます。\n\nステルスモデルの正体当ては、だいたいこの構図になります。運用層の指紋（スタックトレース・エラーコード・トークナイザー）は再現実験ができて、第三者が同じ手順で確かめられる。一方で規模からの推論は、前提に置いた数字が公称値だと足元から崩れる。前者のほうが強い証拠だと思っています。\n\n \n\n図にすると、2 つの説の性質の違いがはっきりします。GLM 説は運用層に残った痕跡から積み上げていて、誰でも同じ手順で追試できます。Google 説は公称のスループットから必要な計算量を割り出す形なので、出発点の数字が広告用だと全部が動きます。\n\nとはいえ、どちらも当事者は何も言っていません。Zhipu も OpenRouter も OpenCode も、2026-08-23 時点で肯定も否定もしていません。\n\nステルスモデルは、だいたい後で正体が分かる\n\nこの形式自体は初めてではありません。\n\n2025-04 に OpenRouter へ現れた Quasar Alpha と Optimus Alpha は、後日 OpenRouter 自身が「OpenAI の GPT-4.1 の初期版だった」と公表しています（https://openrouter.ai/announcements/quasar-alpha-and-optimus-alpha-reveal）。無料で大量に投げさせて実戦のフィードバックを集め、正式発表で名前を明かす。プレビュー版の実戦投入としては合理的なやり方です。\n\nなので Ox Alpha も、そのうち誰かの正式モデルとして名前が付く可能性が高い。無料期間が閉じるタイミングと発表が重なるなら、8/27 前後がその日になります。\n\n触る前に知っておくと損しない落とし穴\n\n無料だからといって、そのまま本番のワークフローに差し込むと引っかかる箇所がいくつかあります。\n\nmaxtokens を小さくすると本文が空で返ることがあります。 推論モデルなので思考分のトークンが出力枠を食います。日本語の検証記事では 4000 以上が目安とされていました（https://data-engineering.jp/ox-alpha/）。上の curl で 8000 を置いたのはこのためです。\n\n生成コードは見た目で通ったと判断しないでください。 OpenRouter 経由で 1 ファイル完結の HTML アプリを書かせた検証では、画面は完成しているように見えるのに、window.confirm() に渡す文字列の中で改行がエスケープされておらず、JavaScript が丸ごと動いていなかったそうです（https://www.fukuro-ai.tech/ox-alpha-openrouter-coding-test/）。静かに死ぬタイプの壊れ方がいちばん厄介です。\n\n「無料枠のレート制限」の適用範囲がはっきりしません。 OpenRouter の無料モデルは 20 リクエスト/分、1 日 50 リクエスト（生涯クレジット $10 以上で 1000）という制限が文書化されていますが、これは「ID が :free で終わるモデル」に適用されると書かれています（https://openrouter.ai/docs/api-reference/limits）。Ox Alpha の ID は stealth/ox-alpha で :free が付きません。同じ枠に入るのかどうか、公式には明示されていません。\n\nベンチマークの数字は小さすぎるサンプルから来ています。 DeepSWE の 10 タスクで 80% を出して GPT-5.6 や Claude Fable 5 を上回った、という話が出回っていますが、元は 10 件で試行回数もモデルごとに揃っていません（https://x.com/AGTPinsights/status/2090720619083989328）。別の人が opencode-go の 25 タスクで回した表では、Ox Alpha は 100% 通過したものの、所要時間では grok-4.5 や deepseek-v4-flash の後ろで 3 位でした（https://x.com/gosrum/status/2091121214312046720）。「万能で最強」ではなく「無料の割にちゃんと戦える」が実態に近いと思います。\n\n \n\n窓が細くなっていく感じは、触っていると分かります。試したいことはまだ残っているのに、期限のほうが先に来る。\n\nおわりに\n\n正体が誰であっても、手元でやることは変わりません。無料のうちに自分の課題を投げて、自分のところで速いか正しいかを見る。それだけです。\n\n面白いのは、正体を突き止めた手口のほうでした。スタックトレースを吐かせる、エラーコードを他社ホストと比較する、トークナイザーの分割数を 30 個の入力で照合する。どれも特別な設備は要らなくて、壊れたリクエストを 1 回投げるところから始まっています。ブラックボックスの外側からでも、ここまで削れるものなんだな、と。\n\n自分の実測のほうは 1 回ずつしか回していないので、速度についてはまだ何も言えていません。もう少し投げてみます。窓が閉じるまで、あと数日。\n\nあわせて読みたい\n・OpenRouter を many-ai-cli に載せるなら、独立プロバイダにはしない\n 今回の入口になった OpenRouter を、自作ツール側からどう扱うか考えた記事です。ステルスモデルのように出入りするモデルを抱える中継所を、固定のプロバイダとして実装しない理由もここに書いています。\n・Claude Code / Codex / Cursor / Copilot / OpenCode で同じ Agent Skills を共有する\n 今回モデルを走らせた OpenCode を含む、複数 CLI で同じスキル棚を共有する構成の話です。\n\n---\n\n📎 図解版・関連リンクをまとめたページがあります:\nhttps://ishizakahiroshi.com/articles/2026/2026-08-23ox-alpha-free-routes/\n\n※ ヘッダー画像とインフォグラフィックは AI（画像生成）で作成しています。\n\n※ 本文の挿絵も AI（画像生成）で作成しています。\n\n書いた人: ishizakahiroshi\n群馬の北部で、保護猫2匹と暮らす、在宅エンジニア（何でも屋）\nhttps://ishizakahiroshi.com/\nhttps://github.com/ishizakahiroshi\nX（業務委託・各種相談はこちら）：\nhttps://x.com/ishizakahiroshi\n\nバックエンド・インフラ・AI連携まわりで、業務委託のご相談を受け付けています。フルリモートです。スポットや週2〜3時間からでも歓迎で、いろんな案件に携われたらうれしいです。こんな相談、歓迎です。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "689e4b74e6c7f05e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.4420320910973085,
+      "popularityPercentile": 0.6753623188405797,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "Ox Alphaを無料で試せる4つの経路を実際に検証しモデルの正体を推測する手がかりを整理している。",
+      "takeaways": [
+        "Ox Alphaを無料で試せる経路は4つある。",
+        "実際の修正作業では7件のテストを通過した。",
+        "提供元は不明だが利用場所ごとの条件を比較できる。"
+      ],
+      "keywords": [
+        "Ox Alpha",
+        "OpenRouter",
+        "OpenCode Zen",
+        "OpenCode Go",
+        "Felo API"
+      ],
+      "category": "調査・考察",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "trial": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "cclank/lanshu-create-ai-presenter-video — Provider-neutral Codex Skill for producing verified AI presenter videos from a script and an authorized presenter image.",
+      "url": "https://github.com/cclank/lanshu-create-ai-presenter-video",
+      "publishedAt": "2026-08-20T13:40:06.000Z",
+      "author": "cclank",
+      "authorDetail": {
+        "name": "cclank",
+        "url": "https://github.com/cclank",
+        "avatarUrl": "https://github.com/cclank.png?size=120",
+        "bio": "Provider-neutral Codex Skill for producing verified AI presenter videos from a script and an authorized presenter image."
+      },
+      "tags": [
+        "Python",
+        "ai-video",
+        "codex",
+        "codex-skill",
+        "digital-human",
+        "video-generation"
+      ],
+      "snippet": "Provider-neutral Codex Skill for producing verified AI presenter videos from a script and an authorized presenter image.",
+      "metrics": {
+        "stars": 635
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "c3d2f585df7035b1",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.914186046511628,
+      "popularityPercentile": 0.8372093023255814,
+      "matchedTopics": [
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "lanshu-create-ai-presenter-video — 台本からAI登壇動画を作るCodex Skill",
+      "oneLiner": "lanshu-create-ai-presenter-videoは台本と許可済みの人物画像から検証済みのAI登壇動画を作るCodex Skillを提供する。",
+      "takeaways": [
+        "台本と許可を得た人物画像から動画を作れる。",
+        "動画の内容を確認したうえで出力する。",
+        "特定の動画サービスに依存しない作りになっている。"
+      ],
+      "keywords": [
+        "lanshu-create-ai-presenter-video",
+        "OpenAI Codex",
+        "Codex Skill",
+        "AI動画",
+        "デジタルヒューマン"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 https://github.com/cclank/lanshu-create-ai-presenter-video",
+        "verify": "ls lanshu-create-ai-presenter-video",
+        "questions": [
+          "README の手順だけで、最初の出力まで到達できるか",
+          "動かすのに別途何が必要か（API キー・GUI・別のツール）"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "missuo/herdrm — Native macOS console for herdr — all your coding agents and their live terminals, across devices",
+      "url": "https://github.com/missuo/herdrm",
+      "publishedAt": "2026-08-19T06:55:39.000Z",
+      "author": "missuo",
+      "authorDetail": {
+        "name": "missuo",
+        "url": "https://github.com/missuo",
+        "avatarUrl": "https://github.com/missuo.png?size=120",
+        "bio": "Native macOS console for herdr — all your coding agents and their live terminals, across devices"
+      },
+      "tags": [
+        "Swift"
+      ],
+      "snippet": "Native macOS console for herdr — all your coding agents and their live terminals, across devices",
+      "metrics": {
+        "stars": 610
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "dd57d29c0b5b1dad",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8886046511627907,
+      "popularityPercentile": 0.7209302325581395,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "herdrm — コーディング作業をMacで一元管理するコンソール",
+      "oneLiner": "herdrmは複数のコーディングエージェントと実行中の端末をMac上でまとめて管理し別の端末からも扱えるようにする。",
+      "takeaways": [
+        "複数のコーディング作業を一つの画面で見られる。",
+        "離れた端末から実行中の作業を確認できる。",
+        "Swiftで作られたmacOS向けの画面を提供する。"
+      ],
+      "keywords": [
+        "herdrm",
+        "macOS",
+        "コーディングエージェント",
+        "ライブターミナル",
+        "Swift"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 https://github.com/missuo/herdrm",
+        "verify": "ls herdrm",
+        "questions": [
+          "README の手順だけで、最初の出力まで到達できるか",
+          "動かすのに別途何が必要か（API キー・GUI・別のツール）"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「Kimiは使いたい、でもデータは中国に送れない」——国内ホストという第三の道を実測で確かめてみた",
+      "url": "https://qiita.com/ktdatascience/items/e8239ec14f446c6fc562",
+      "publishedAt": "2026-08-23T10:09:48.000Z",
+      "author": "ktdatascience",
+      "authorDetail": {
+        "name": "ktdatascience",
+        "handle": "@ktdatascience",
+        "url": "https://qiita.com/ktdatascience",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3937496/d01fd0404bf68676aae29f3a3f9a53dfe248bb2a/large.png?1745906036",
+        "bio": "データエンジニア・アナリスト・Web開発を横断しながら日々修行中。データ基盤設計からWeb開発、インフラ効率化まで幅広く挑戦しています。\r\n国交省ハッカソン優勝 / Qiita月間1位を複数回受賞 / Qiita記事投稿イベントで最優秀賞を受賞\r\nPython / TypeScript / Next.js / dbt / Databricks / Snowflake / Azure / AWS",
+        "followers": 1557,
+        "posts": 496,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/hidebuuuuuus292"
+          }
+        ]
+      },
+      "tags": [
+        "さくらのAI",
+        "さくらのAIEngine",
+        "初心者",
+        "Security",
+        "生成AI"
+      ],
+      "snippet": "はじめに Kimi-K2.6やQwen3.6の性能に興味はあるのに、「中国のAIは会社的にNG」の一言で選択肢から外していませんか？ 私は小売の購買データや位置情報を扱うデータエンジニアで、扱うデータの性質上「海外にデータを出せるか」を常に意識せざるを得ない立場です。その視点で調べていくと、「モデルの国籍」と「データの行き先」を混同したまま思考停止しているケースが多いことに気づきました。この記事では、中国発のオープンモデルを国内ホストで使うという第三の道を、一次情報の確認と実測の両方で確かめます。 対象読者 ・KimiやQwenを業務で使いたいが、データの扱いが気になっているエンジニア ・「中国AI禁止」という社内ルールの中身を整理したい人 ・さくらのAI Engineをこれから触ってみたい人 参考文献 まず一次情報から。この記事の主張はすべて以下に基づいています。 https://www…",
+      "body": "はじめに\n\nKimi-K2.6やQwen3.6の性能に興味はあるのに、「中国のAIは会社的にNG」の一言で選択肢から外していませんか？\n\n私は小売の購買データや位置情報を扱うデータエンジニアで、扱うデータの性質上「海外にデータを出せるか」を常に意識せざるを得ない立場です。その視点で調べていくと、「モデルの国籍」と「データの行き先」を混同したまま思考停止しているケースが多いことに気づきました。この記事では、中国発のオープンモデルを国内ホストで使うという第三の道を、一次情報の確認と実測の両方で確かめます。\n対象読者\n・KimiやQwenを業務で使いたいが、データの扱いが気になっているエンジニア\n・「中国AI禁止」という社内ルールの中身を整理したい人\n・さくらのAI Engineをこれから触ってみたい人\n\n参考文献\n\nまず一次情報から。この記事の主張はすべて以下に基づいています。\n\nhttps://www.ppc.go.jp/news/carefulinformation/250203alertdeepseek/\n\nhttps://www.digital.go.jp/assets/contents/node/basicpage/fieldrefresources/d2a5bbd2-ae8f-450c-adaa-33979181d26a/e7bfeba7/20250206councilssocial-promotion-executiveoutline01.pdf\n\nhttps://manual.sakura.ad.jp/cloud/manual-ai-engine.html\n\nhttps://github.com/MoonshotAI/Kimi-K2/blob/main/LICENSE\n\nhttps://github.com/QwenLM/Qwen3\n\n先に結論\n\n中国発のモデルを使う経路は1つではありません。データの行き先はどの経路を選ぶかで決まります。\n\n| 経路 | データの行き先 | 導入の手間 |\n|---|---|---|\n| A. モデル提供元のAPIを直接叩く | 提供元が指定するサーバ（DeepSeekの場合は中国所在で中国法令の適用が指摘された） | 小 |\n| B. 国内事業者のホスティングAPIを叩く | 国内のデータセンター | 小 |\n| C. 自前のGPUでセルフホスト | 自社内 | 大 |\n\n補足すると、経路Aでも常に中国にデータが行くわけではありません。たとえばQwenの提供元APIであるAlibaba Cloud Model Studioにはシンガポールなどの国際リージョンがあります。ただしその場合も「どの契約・どのエンドポイントだとデータがどこに保存されるか」を提供元の規約で個別に確認する必要があり、確認コストは残ります。\n\n \n\n経路Bの実例がさくらのAI Engineです。KimiもQwenもオープンウェイトなので、さくらインターネットが国内のGPU基盤に重みを持ち込んでホストできる。アプリから見れば「国内APIに投げたら国内で推論されて返ってくる」だけで、データが中国に渡る経路がそもそも存在しません。\n\nそもそも何が問題視されたのか\n\n2025年2月、個人情報保護委員会がDeepSeekの生成AIサービスについて情報提供を出しました。要点は2つです。\n・利用に伴い取得された個人情報を含むデータが、中国に所在するサーバに保存される\n・そのデータには中国の法令（個人情報保護法、サイバーセキュリティ法、データセキュリティ法、国家情報法など）が適用される\n\n読んでみると分かるのですが、ここで問題にされているのはデータの保存場所と適用法令であって、モデルの性能や出自ではありません。なおデジタル庁が政府機関向けに出した事務連絡は、これに加えて「要機密情報は約款型の外部サービスで扱わない」という政府の外部サービス利用基準の再確認も含んでおり、保存場所だけの話ではない点は付記しておきます。それでも共通する軸は「中国発のモデルだから危ない」ではなく「データがどの法域に渡り、誰の基準で管理されるか」です。\n\nここを分解せずに「中国AI禁止」とだけ覚えてしまうと、本来は使えるはずの選択肢まで捨てることになります。\n\nオープンウェイトという前提知識\n\nKimiとQwenは、モデルの重み（パラメータ）が公開されているオープンウェイトモデルです。ライセンスを実際に確認しました。\n・Kimi K2系はModified MITライセンス。月間アクティブユーザーが1億を超える、または月間売上が2,000万米ドル相当を超える商用製品・サービスではUIにモデル名（K2.6なら「Kimi K2.6」）を目立つ形で表示する義務が付きますが、それ以外は通常のMITと同様に利用できます\n・Qwen3系はApache 2.0。制約のゆるい定番ライセンスです\n\n重みが公開されているということは、ライセンスの範囲内なら誰でも・どこでも推論を動かせるということです。提供元のAPIを叩くこととモデルを使うことはイコールではない——これがこの記事の主張の土台になります。\n\nさくらのAI Engineのホスティングを確認する\n\nでは経路Bの実例、さくらのAI Engineは実際どうなっているのか。公式マニュアルには次の記載があります。\nデータはすべてお客様とさくらインターネット間の通信だけで完結し、チャットなどに使われるデータはLLMモデルの学習に使われることのない、データ安全性の高いサービス\n対応しているLLMモデルはすべてさくらインターネットによりホスティングされている\n\n公式記載だけを鵜呑みにするのもエンジニアらしくないので、外形的にも確かめてみました。まず名前解決でIPアドレスを取り、そのIPの所属ASを別途調べます。\n\n [code] \n\n [code] \n\n [code] \n\nエンドポイントはさくらインターネット自身のAS配下にありました。参考値として、手元の回線からTLSハンドシェイクは約0.18秒、モデル一覧APIの応答まで約0.25秒です。提供モデルの一覧も実際に取得でき、執筆時点（2026年8月）ではKimi-K2.6、Qwen3.6、Qwen3-VLのほか、gpt-oss-120b、gemma、国産のllm-jpなどが並んでいました。\n\n:::note info\nIPジオロケーションは推定を含み、応答時間も測定地点や経路の混雑に左右されるため、これらは所在地の証明にはなりません。ここでの確認は「エンドポイントがさくらのAS配下にある」ことの外形確認で、国内完結の根拠としては公式マニュアルの記載が一次情報です。\n:::\n\n登録して最初のリクエストを送るまで\n\n私が実際にやった手順は3ステップでした。\n\n1. さくらインターネットの会員登録を済ませる（電話認証が必要で、支払い方法はクレジットカードのみでした）\n2. コントロールパネル（secure.sakura.ad.jp/ai/）にアクセスし、利用規約に同意してプランを選ぶ。無償で試せる枠が用意されています。枠の内容は変わる可能性があるので、最新は公式の料金ページで確認してください\n3. 左メニューの「アカウントトークン」から「アカウントトークンを作成」でトークンを発行する\n\n（スクショ挿入位置①：コントロールパネルのアカウントトークン作成画面）\n\nトークンは UUID とシークレットのペアで、作成時にしか表示されません。私は環境変数に入れて管理しています。OpenAI互換とAnthropic互換の両エンドポイントがあるので、既存のコードがどちらのSDKで書かれていても差し替えは最小限で済みます。\n\n（スクショ挿入位置②：Playgroundでモデルを選んでリクエストを送った画面）\n\n中国系モデルに実際にリクエストを投げてみた\n\n登録できたので、業務で頻出する「問い合わせメールの要約」タスクをKimi-K2.6に投げてみます。\n\n \n\n自然な日本語の要約が返ってきました。データの経路を気にせずKimiに仕事を頼める、というのは想像以上に気楽です。\n\n続けて、同じタスクをKimi-K2.6・Qwen3.6-35B・gpt-oss-120bの3モデルに各2回ずつ投げ、応答時間を測りました。\n\n \n\ngpt-oss-120bが約1秒で完了する一方、KimiとQwenは6〜10秒かかっています。ただしこれは遅いのではなく、両者が推論（思考）トークンを先に生成するタイプだからです。リクエスト全体で見た実効スループット（応答時間あたりのcompletionトークン数で、思考トークンも含みます）はQwen3.6が約200トークン/秒と最も高い値でした。純粋なデコード速度を測るならストリーミングで初トークンまでの時間と生成時間を分けて計る必要がありますが、今回は「体感の待ち時間」を知りたかったのでリクエスト全体を計っています。\n\nここでひとつハマりました。最初、maxtokensを600に設定してKimiとQwenを呼んだところ、レスポンスのcontentがnullで返ってきたんです。ステータスは200なのに中身がない。原因は、思考トークンがmaxtokensを食い尽くして、本文を書く前に打ち切られていたことでした（finishreasonがlengthになっているのに気づくまで、しばらくAPIの不具合を疑っていました。恥ずかしい話ですが）。\n\n:::note warn\nKimi-K2.6やQwen3.6のような推論系モデルを呼ぶときは、思考トークンの分を見込んでmaxtokensを大きめに確保してください。私は2500に上げて解決しました。同じ罠を踏む人は多いはずです。\n:::\n\n 計測に使ったコード（Python標準ライブラリのみ） \n\n [code] \n\n \n\nそれでも残る論点\n\n国内ホストが解決するのは「データの行き先」だけです。フェアに書いておくと、解決しないものもあります。\n\nモデルの重みには学習データ由来の知識や応答の傾向が焼き込まれており、これはどこでホストしても変わりません。特定の話題への応答の偏りが業務上問題になる用途なら、それはデータ主権とは別の軸で評価する必要があります。また、社内規程が「中国製ソフトウェアの利用」自体を制限している場合、ホスティング場所の議論だけでは通らないこともあるでしょう。previewとして提供されているモデルは提供条件が変わる可能性もあります。\n\nそれでも、「データが中国の法域に渡るから使えない」という最大の懸念が消えるだけで、選択肢は大きく広がると私は思います。\n\nまとめ\n\n「中国AI禁止」を分解すると、多くの現場で本当に禁止したいのは「データが中国の法域に出ること」のはずです。そしてそれは、オープンウェイトのモデルを国内事業者のホスティングで使えば構造的に発生しません。今回さくらのAI Engineで確かめた限り、エンドポイントは国内AS配下、入力データは学習不使用と明記され、Kimi-K2.6は普通に実用速度で日本語の仕事をこなしました。\n\n「モデルの国籍」と「データの行き先」を分けて考える。この整理だけ持ち帰ってもらえれば、この記事の目的は達成です。もし社内で「中国AIって使っていいんだっけ？」という議論が起きたら、この整理を叩き台にしてみてください。試した結果や、御社ではこう整理しているという話があれば、コメントで教えてもらえると嬉しいです。",
+      "metrics": {
+        "likes": 2,
+        "stocks": 2,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9511b63d4db0b25f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7066842650103519,
+      "popularityPercentile": 0.9768115942028985,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "中国発のKimiやQwenを国内ホストで使いデータの送信先を実測している。",
+      "takeaways": [
+        "モデルの出身国とデータの行き先は別の問題だった。",
+        "国内の計算環境で中国発モデルを動かしている。",
+        "一次資料と実測結果から社内ルールを整理している。"
+      ],
+      "keywords": [
+        "Kimi-K2.6",
+        "Qwen3.6",
+        "さくらのAI Engine",
+        "さくらのAI",
+        "データ主権",
+        "Security"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "モデルの国籍で制限するかデータの経路で判断するか",
+        "forSide": "国内ホストならモデルの出身国と通信先を分けて評価できる。",
+        "againstSide": "国内に置いてもモデル提供元や運用者への信頼問題は残る。",
+        "oneSided": true,
+        "yourAngle": "業務データを扱うAI導入で通信経路と契約条件を確認した経験を語れる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「高台に避難してください」は届いているのか？ 防災情報を「やさしい日本語」にLLMで変換して公的ガイドラインで機械採点してみた",
+      "url": "https://qiita.com/ktdatascience/items/00ee94da149040378c31",
+      "publishedAt": "2026-08-23T11:22:45.000Z",
+      "author": "ktdatascience",
+      "authorDetail": {
+        "name": "ktdatascience",
+        "handle": "@ktdatascience",
+        "url": "https://qiita.com/ktdatascience",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3937496/d01fd0404bf68676aae29f3a3f9a53dfe248bb2a/large.png?1745906036",
+        "bio": "データエンジニア・アナリスト・Web開発を横断しながら日々修行中。データ基盤設計からWeb開発、インフラ効率化まで幅広く挑戦しています。\r\n国交省ハッカソン優勝 / Qiita月間1位を複数回受賞 / Qiita記事投稿イベントで最優秀賞を受賞\r\nPython / TypeScript / Next.js / dbt / Databricks / Snowflake / Azure / AWS",
+        "followers": 1557,
+        "posts": 496,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/hidebuuuuuus292"
+          }
+        ]
+      },
+      "tags": [
+        "さくらのAI",
+        "Cloud",
+        "生成AI",
+        "初心者",
+        "さくらのクラウド"
+      ],
+      "snippet": "はじめに 在留外国人は2025年末で412万5,395人、初めて400万人を超えました[^1]。一方で、災害時の防災無線や自治体サイトは今も「直ちに身の安全を確保してください」という日本語で書かれています。この文、日本語を勉強中の人に届くでしょうか。 私はデータ分析を仕事にしているエンジニアです。「やさしい日本語」への書き換えは自治体の現場では人手が足りず追いついていない、という話を知り、これはLLMの出番では？と思って検証しました。この記事では、さくらのAI Engineの5モデルに実在の防災文面8本を「やさしい日本語」へ変換させ、公的ガイドライン由来の10項目チェックで機械採点した結果を書きます。 対象読者: LLMの日本語運用・評価設計に興味があるエンジニア、自治体・防災×ITに関わる人 忙しい人向けの結論です。 | 発見 | 内容 | |---|---| | 最優秀は gemma-…",
+      "body": "はじめに\n\n在留外国人は2025年末で412万5,395人、初めて400万人を超えました[^1]。一方で、災害時の防災無線や自治体サイトは今も「直ちに身の安全を確保してください」という日本語で書かれています。この文、日本語を勉強中の人に届くでしょうか。\n\n私はデータ分析を仕事にしているエンジニアです。「やさしい日本語」への書き換えは自治体の現場では人手が足りず追いついていない、という話を知り、これはLLMの出番では？と思って検証しました。この記事では、さくらのAI Engineの5モデルに実在の防災文面8本を「やさしい日本語」へ変換させ、公的ガイドライン由来の10項目チェックで機械採点した結果を書きます。\n対象読者: LLMの日本語運用・評価設計に興味があるエンジニア、自治体・防災×ITに関わる人\n\n忙しい人向けの結論です。\n\n| 発見 | 内容 |\n|---|---|\n| 最優秀は gemma-4-31B | ガイドライン準拠率88%。79%の試行で自発的に分かち書きまでした |\n| 国産 llm-jp は「取説」が違った | systemプロンプトだと準拠率31%（指示を無視して防災マニュアルを自作）。同じ指示文をuserメッセージに移すと82%に跳ねた |\n| 思考型モデルは防災に向かない | Kimi-K2.6とQwen3.6は応答中央値が14〜16秒。速報用途では厳しい |\n| 全モデル共通の弱点 | 「漢字は1文に4字まで」だけは最高でも42%しか守れない |\n\n参考文献\n\nまず一次情報から読みたい人向けに、この記事の土台を先に置いておきます。\n\nhttps://www.moj.go.jp/isa/support/portal/plainjapaneseguideline.html\n\nhttps://www.fdma.go.jp/singikento/kento/items/kento20720sankou5-6.pdf\n\nhttps://www.clair.or.jp/j/forum/forum/pdf415/04sp.pdf\n\nhttps://ai.sakura.ad.jp/sakura-ai/ai-engine/\n\n「やさしい日本語」とは何か、なぜ防災で必要か\n\n「やさしい日本語」は、日本語に不慣れな人にも伝わるように語彙と文法を制限した日本語です。起点は1995年の阪神・淡路大震災でした。このとき外国人の死者率・負傷者率は日本人の約2倍にのぼり（原典は都市防災研究所の1995年調査。出入国在留管理庁・文化庁のガイドラインにも「日本人の死傷者は約1%、外国人の死傷者は2%以上」として掲載されています[^2]）、「英語よりも前に、簡単な日本語で伝えるべきだ」という研究が弘前大学の社会言語学研究室を中心に進みました。\n\n \n\n「外国人には英語でしょ」と思っていませんか？　私も最初そう思っていました。実際には、在住外国人が情報発信に希望する言語は「やさしい日本語」が76%で英語の68%を上回ります（東京都の2018年ヒアリング調査、n=100[^3]）。国籍が多様化した結果、英語一本より「簡単な日本語」のほうが多くの人に届くという逆転が起きています。\n\n \n\nそして2024年の能登半島地震では、被災した奥能登6市町に約1,600人の外国人が暮らしていたにもかかわらず、「避難所で多言語表示を見たと答えた人はひとりもいなかった」という支援者の報告があります[^4]。ガイドラインも書き換え例集も整備されているのに、災害の現場で運用が追いつかない。ここが自動化で埋めたい隙間です。\n\n検証の設計\n\nやったことの全体像です。\n\n [code] \n\n題材にした防災文面\n\n気象庁の特別警報の呼びかけ文、神戸市の防災行政無線の放送文例、政府広報オンラインの避難指示文例から、実在の8本を使いました[^5]。たとえばこれです。\nこれまでに経験したことのないような大雨となっています。命の危険が迫っているため直ちに身の安全を確保しなければならない状況です。特別警報が発表されてから避難するのでは手遅れとなります。\n\n（気象庁が2026年8月に千葉県へ大雨特別警報を発表した際の呼びかけ文）\n\nモデルと条件\n\nさくらのAI Engineで使える5モデルを対象に、各文面×3試行で変換させました。\n・llm-jp-3.1-8x13b-instruct4（国産）\n・gpt-oss-120b\n・Kimi-K2.6（preview）\n・Qwen3.6-35B-A3B（preview）\n・gemma-4-31B-it（preview）\n\n後述する理由で、llm-jpだけ「systemプロンプトで指示」「userメッセージに指示を埋め込み」の2条件を走らせたため、合計6条件×8文面×3試行＝144リクエストです。チャット補完の無償枠（執筆時点で月3,000リクエスト）の5%ほどで収まりました。\n\n採点方法\n\n出入国在留管理庁・文化庁のガイドラインと、弘前大学の増補版ガイドラインにある定量基準を、機械チェックできる10項目に落とし込みました。\n\n| チェック項目 | 根拠 |\n|---|---|\n| 一文の平均が24拍以内 | 弘前大「一文は24拍程度」 |\n| 最長文も30拍以内 | 弘前大「長くても30拍以内」 |\n| 漢字は1文に4字以内（全文の最大値で判定） | 弘前大「漢字は1文に3〜4字程度」 |\n| 難語なし（説明付きは可） | 両ガイドライン「難しい言葉を避ける。重要語は説明を付ければ可」 |\n| カタカナ語なし（テレビ等の定着語は除外） | 入管庁「外来語はできる限り使わない」 |\n| 二重否定なし | 両ガイドライン |\n| 尊敬語・謙譲語なし | 入管庁「丁寧語のみ」 |\n| 受身・使役なし | 入管庁「できる限り使わない」 |\n| 曖昧・推測表現なし | 弘前大「おそらく等を使わない」 |\n| 「ましょう」なし | 弘前大「勧誘の意味があるため指示には使わない」 |\n\n「拍」はひらがな1文字ぶんの音の単位です（「余震」は「よしん」で3拍）。文字数だと漢字の分だけ短く見えてしまうので、形態素解析器fugashiでカナ読みを取って拍数を数えています。「警戒レベル4」の「4」のように読みが取れない数字は、桁ごとの読みの拍数で補っています。受身・使役の検出も、当初は「される・られる」の正規表現で書いていましたが、それだと「書かれる」「と思われる」のような五段動詞の受身を全部見逃すことに途中で気づき、UniDicの助動詞判定（れる・られる・せる・させる）に作り直しました。\n\n [code] \n\n難語チェックには防災文に頻出する36語（避難・発令・氾濫・身の安全など）のリストを使い、ガイドラインが「余震＜あとから来る地震＞のように説明を付ければ使ってよい」としているのに合わせて、直後に説明が付いている場合は違反に数えない実装にしました。\n\n補助指標として、日本語教育の研究で使われる読みやすさ指標jReadability[^6]も併記します。ただしこの指標には設計段階で気づいた弱点があって、「高台に避難してください。」が5.87、それをひらがなに開いた「たかいところににげてください。」が4.40と、漢語まみれの原文のほうが「易しい」判定になります。jReadabilityは文の長さや品詞構成から計算する指標で、「避難」という単語自体の難しさは見ていないためです。単一指標を鵜呑みにせず、語彙ベースのルールチェックと組み合わせる設計にしたのはこの発見がきっかけでした。\n\n結果\n\n総合準拠率\n\n \n\n優勝はgemma-4-31Bの88%でした。しかも指示していないのに79%の試行で分かち書き（文節ごとに空白を入れる、やさしい日本語の推奨表記）まで自発的にやってきます。\nとても 大きな 津波（つなみ）が 来ます。\nすぐに 高い ところへ にげてください。\n\n読み仮名まで付けています。正直、実務にそのまま置けるレベルで驚きました。\n\n国産llm-jpに何が起きたか\n\nグラフの最下段、llm-jp-3.1のsystemプロンプト条件は準拠率31%です。何が起きたかというと、変換をせずに防災マニュアルを書き始めるのです。「大津波警報。ただちに高台に避難してください。」を渡した結果がこれでした。\n了解しました。大津波警報が発令されているため、直ちに高台へ避難する必要があります。以下の手順に従って行動してください。\n1. 冷静になる: まず、落ち着いて状況を把握しましょう。……\n\n津波が来ているのに5項目の心得を諭し始めます。「〜しましょう」も連発でガイドライン違反です。\n\nところが同じ指示文をsystemロールではなくuserメッセージの冒頭に移すと、準拠率は82%まで跳ねました。51ポイント差です。最初この差を見たとき「maxtokensも違うから交絡してるのでは」と疑い、生成条件（maxtokens・temperature）を完全に揃えて両条件を取り直しましたが、差はほぼそのまま残りました。おまけにuser指示条件は応答中央値0.62秒で全モデル最速、出力はひらがな中心という優等生ぶりです。国産モデルは日本語が下手なのではなく、指示をどのロールに置くかというプロンプト構成に極端に敏感なだけだった——「モデルごとに取扱説明書が違う」ことを一番わかりやすく教えてくれた実験でした。\n\nただし手放しでは褒められません。llm-jp（user指示）の出力には「すぐに たかくて あぶなくない ばしょに げしてください。」という脱字（「にげて」の「に」欠落）がありました。形式チェックはすり抜けるのに、災害時には致命的になりうる誤りです。これは後述の「限界」に直結します。\n\n項目別に見る\n\n \n\nヒートマップにすると各モデルの苦手がはっきり出ます。全モデル共通で崩れるのは「漢字は1文に4字以内」で、最高のllm-jp（user指示）でも42%、他は21〜25%、原文に至っては0%です。漢字密度は「語彙を言い換える」だけでは下がらず、ひらがな書きに開く判断が要るので、いちばん人間の editorial な作業に近いのだと思います。次いで苦しいのが受身の排除（最高79%）で、Kimiの「水が来ると思われる場所」のような、一見自然だがガイドライン違反の受身が残ります。\n\n一文の短さはどのモデルもほぼ完璧でした。原文の平均21.5拍に対し、変換後は16〜18拍台に収まっています。\n\n \n\njReadabilityでも、暴走したllm-jp（system）を除く5条件が原文の4.39より易しい方向（5前後、高いほど易しい）に動いており、ルールベース採点と学術指標の傾向がおおむね一致したのは設計として安心材料でした。\n\n \n\n応答速度という盲点\n\n \n\n思考型のKimi-K2.6とQwen3.6は品質こそ82〜85%と健闘しているものの、応答中央値が14〜16秒です。緊急速報の変換パイプラインに組むなら、この待ち時間は無視できません。品質・速度・分かち書きまで揃うgemma-4か、爆速のllm-jp（user指示）＋人間チェックの二択かな、というのが現時点の肌感です。\n\n変換例の比較\n\n「緊急放送、緊急放送。○○川が増水し氾濫するおそれが高まったため、○○地区の洪水浸水想定区域に警戒レベル4避難指示を発令しました。今すぐ避難してください。」をどう料理したか、上位2モデルを並べます。\n\n| モデル | 出力 |\n|---|---|\n| gemma-4-31B | 大切なお知らせです。○○市からです。○○川の水が増えました。町に水が来るかもしれません。○○地区に住んでいる人は、今すぐ安全な場所へにげてください。 |\n| Kimi-K2.6 | きんきゅうのお知らせです。○○市です。○○川の水がたくさんふえました。あふれる危険が高くなりました。○○地区で、水が来ると思われる場所の人は、今すぐ安全な場所に行ってください。 |\n\n「氾濫するおそれ」を「水が来るかもしれません」に開くのは、ガイドラインの「推測表現は『かもしれません』を使う」という規定どおりで、ここまで拾えるのかと唸りました。\n\nハマったポイント\n\n再現する人のために、詰まった順に書いておきます。\n\n1つ目はQwen3.6で、message.content がNoneで返ってきて NoneType has no attribute 'strip' で落ちました。思考型モデルが考えている間に maxtokens を使い切ると、本文が空のまま finishreason: length で返ってくるためです。maxtokensを4,000に上げて解決しましたが、contentがNullになりうる前提のハンドリングは思考型モデル時代の必須装備だと思います。\n\n2つ目はその対応の巻き添えで、llm-jpだけHTTP 400が全滅しました。プロンプト長＋maxtokens 4,000がコンテキスト上限を超えていたのが原因です（このモデルは他より上限が小さい）。同じmaxtokensを全モデルに一律で撒くと、上限が小さいモデルだけ400で死ぬ。マルチモデル検証あるあるだと思います。最終的にmaxtokensはモデル別の辞書で持たせました。\n\n3つ目はKimi-K2.6の尻切れです。初回はmaxtokens 2,000で回していたため、completiontokens がちょうど2,000に張り付いた応答が数件混ざっていました。文末が「にげるの」で切れているデータをそのまま採点すると点が壊れるので、finishreason が length の応答は保存せず再取得する実装に直しています。\n\n4つ目は自分の採点器のバグで、これが一番効きました。「漢字は1文に4字以内」を最初は全文の平均値で判定していて、長い1文の漢字ラッシュが短文に薄められて合格扱いになっていたのです。文ごとの最大値で判定し直したら、全モデルの準拠率が5〜7ポイント下がりました。評価器を作る側が採点を甘くするバグを仕込むと、モデルが実力以上に良く見える。ベンチマーク自作の一番怖いところだと思います。\n\nこの検証の限界\n\n正直に書いておきます。\n・採点しているのは「形式」だけです。llm-jpの脱字のように、情報の正確さ・欠落は今回の10項目では検出できません。ガイドライン自体も最終ステップに「日本語教師や外国人当事者によるチェック」を置いており、機械採点はその手前の一次フィルタと考えるべきです\n・各条件n=24（8文面×3試行）の小規模検証です。文面の選び方にも私の裁量が入っています\n・受身の検出は助動詞（れる・られる・せる・させる）の形態素判定ですが、受身・尊敬・可能・自発の用法までは区別していません。ガイドラインの趣旨（多義的で分かりにくい形を避ける）には沿うものの、厳密には過剰検出があり得ます\n・llm-jpのsystem条件とuser条件は生成条件を揃えて比較しましたが、指示文の位置以外に「書き換え対象を示す1文」の有無という差も含みます。厳密には「ロール単独の効果」ではなく「プロンプト構成の差」です\n\nそれでも、採点基準と全コード・全変換結果を公開できる形にしたので、誰でも文面を差し替えて追試できます。\n\nなぜ、さくらのAI Engineでやったのか\n\nこの検証、実は技術的な工夫より「段取りの省略」に一番助けられています。gemma・Kimi・Qwen・gpt-oss・llm-jpは開発元がバラバラで、普通に横断比較しようとするとプロバイダーごとの契約・認証・SDKの差異吸収から始まります。今回はOpenAI互換の同一エンドポイントに5モデルが同居しているので、リクエストの model の文字列を差し替えるだけで、6条件×144本の変換を1本のコードと1つのAPIキーで回せました。モデル間比較の実験は「条件を揃える」ことが命なので、呼び出し経路が最初から揃っているのは設計として大きな利点でした。\n\nもうひとつは、国産のllm-jpをマネージドAPIとして呼べる場所が、私の知る限りほとんどないことです。この記事のいちばんの発見——指示の置き場所ひとつで準拠率が51ポイント変わる——は、llm-jpを比較対象に入れられたからこそ出てきたものでした。ローカルGPUを用意せずに国産モデルを海外オープンモデルと同じ土俵で測れたことが、この記事の背骨になっています。\n\nまとめ\n\n「国産モデルだから日本語が得意」という雑な期待は、systemプロンプト一発で崩れました。かわりに得たのは「モデルごとに取扱説明書が違うだけで、正しく渡せばどれも実用圏に入る」という手応えと、「漢字密度だけは全員苦手」という次の宿題です。\n\nもうひとつ。自治体の防災文面や住民向け文書は、外部に出しにくい情報を含むことがあります。国内データセンターで完結するAPIでこの品質が出るなら、行政系の現場でも検討の土俵に載せやすいはずです（もちろん所在地だけで安心はできないので、実データを入れる前に利用規約・データ保持の扱い・組織の情報区分ルールの確認は必要です）。今回の検証本体は144リクエスト、試行錯誤の再取得を含めても月3,000リクエストの無償枠（執筆時点）の1割弱でした。興味が湧いた人は自分の街の防災ページで追試してみてください。結果が違ったらぜひ教えてほしいです。\n\n次は含意判定を使った「情報が欠落していないか」の自動チェックを足して、形式＋内容の二段構えにするつもりです。\n\n[^1]: 出入国在留管理庁「令和7年末現在における在留外国人数について」 https://www.moj.go.jp/isa/publications/press/1300062.html\n[^2]: 出入国在留管理庁・文化庁「在留支援のためのやさしい日本語ガイドライン」p.4 https://www.moj.go.jp/isa/content/930006072.pdf\n[^3]: 東京都国際交流委員会「東京都在住外国人向け情報伝達に関するヒアリング調査」(2018)。前掲ガイドラインp.3に掲載\n[^4]: 自治体国際化フォーラム2024年5月号 特集「災害時における外国人支援」（田村太郎） https://www.clair.or.jp/j/forum/forum/pdf415/04sp.pdf\n[^5]: 気象庁報道発表(2026-08-13) https://www.jma.go.jp/jma/press/2608/13a/20260813tokukei.html 、神戸市防災行政無線放送文例 https://www.city.kobe.lg.jp/documents/42621/housoubunrei.pdf 、政府広報オンライン https://www.gov-online.go.jp/article/201906/entry-7786.html\n[^6]: jReadability（李在鎬・長谷部陽一郎による日本語読みやすさ指標） https://jreadability.net/",
+      "metrics": {
+        "likes": 2,
+        "stocks": 2
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "dfb4237a512bb258",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.7703234989648033,
+      "popularityPercentile": 0.9855072463768116,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 83,
+      "titleJa": null,
+      "oneLiner": "さくらのAI Engineで5モデルを比較し防災文面のやさしい日本語への変換精度を測定している。",
+      "takeaways": [
+        "防災文を分かりやすい日本語へ変える実験を行った。",
+        "最優秀モデルの基準達成率は88%だった。",
+        "速報では応答速度と漢字の多さが課題になった。"
+      ],
+      "keywords": [
+        "さくらのAI Engine",
+        "gemma-4-31B",
+        "llm-jp",
+        "Kimi-K2.6",
+        "Qwen3.6",
+        "やさしい日本語"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "防災文の自動変換を使うか人手で確認するか",
+        "forSide": "10項目の基準で88%を達成し人手作業の補助に使える。",
+        "againstSide": "残り12%の誤りが緊急時の誤解につながるため自動配信は危険だ。",
+        "oneSided": false,
+        "yourAngle": "LLMの出力評価で正確さと応答時間を測定した実データを持てる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ローカルLLMにISMSの適合状況評価を支援させる ― 第4回 判定の仕組み",
+      "url": "https://qiita.com/hiroshi_imaoku/items/b61bf3667d8adf5545e6",
+      "publishedAt": "2026-08-22T23:58:21.000Z",
+      "author": "今奥 浩",
+      "authorDetail": {
+        "name": "今奥 浩",
+        "handle": "@hiroshi_imaoku",
+        "url": "https://qiita.com/hiroshi_imaoku",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4478054/6d36db0ae194ff0a67dc9061875cbc7a0d097053/x_large.png?1785642427",
+        "bio": "情報セキュリティコンサルタント。情報処理安全確保支援士、CISA。\r\n\r\nISMSの適合状況評価にローカルLLMを使い、客先の機密をクラウドに出さない構成で、どこまで任せられるかを実測しています。うまくいった点だけでなく、測り方と限界も併せて書きます。",
+        "location": "神奈川県",
+        "followers": 0,
+        "posts": 6,
+        "links": []
+      },
+      "tags": [
+        "LLM",
+        "Security",
+        "ローカルLLM",
+        "ファインチューニング",
+        "ISMS"
+      ],
+      "snippet": "機密を外に出さないISMSの適合状況評価 ― 業務PCのローカルLLMに、どこまで任せられるかを測った記録 LLMが自動で「規格(JIS Q 27001/27002)が求めるレベルに達している」と返してくる。けれど、その判定の根拠が見えなければ、結果をそのまま顧客への報告書に書くわけにはいきません。だから私は、LLMが何を根拠に合否を判定したのかを、あとから確かめられる形に設計しました。 しかもこの仕組みには、あえて選んだ一つの割り切りがあります。なぜその割り切りを選び、どう受け止めているのか。そこも隠さず、最後に明らかにします。 ISMSの適合状況評価を、顧客の機密を外に出さないまま、業務PCの中のLLMで支援する。そういうツールを個人で作った記録を、この連載で書いています。前回は、その判定を支える部品の一式を説明しました。規格の要求を最小単位に分解した表、達成の段階(L0〜L5)、はい…",
+      "body": "機密を外に出さないISMSの適合状況評価 ― 業務PCのローカルLLMに、どこまで任せられるかを測った記録\n\nLLMが自動で「規格(JIS Q 27001/27002)が求めるレベルに達している」と返してくる。けれど、その判定の根拠が見えなければ、結果をそのまま顧客への報告書に書くわけにはいきません。だから私は、LLMが何を根拠に合否を判定したのかを、あとから確かめられる形に設計しました。\n\nしかもこの仕組みには、あえて選んだ一つの割り切りがあります。なぜその割り切りを選び、どう受け止めているのか。そこも隠さず、最後に明らかにします。\n\nISMSの適合状況評価を、顧客の機密を外に出さないまま、業務PCの中のLLMで支援する。そういうツールを個人で作った記録を、この連載で書いています。前回は、その判定を支える部品の一式を説明しました。規格の要求を最小単位に分解した表、達成の段階(L0〜L5)、はい/いいえで答えられる設問、そして組織の事実を結ぶメタタグです。本稿では、それらの部品がLLMの手元でどう使われ、ISMSの適合状況の合否判定(以下、合否判定)にたどり着くのかを説明します。\n\n本連載は、次の順で進みます。本稿は第4回にあたります。\n・第1回 機密の境界で、工程を制作と運用に分ける ― クラウドに出せる作業と、業務PCで閉じる作業\n・第2回 ヒアリングから報告書まで5日間 ― 人とLLMの分担を、工程表で全部見せる\n・第3回 規格(JIS Q 27001/27002)の条文は、そのままではLLMに判定させられない ― 評価者の判断を「部品」に作り込む話\n・第4回 LLMは何を根拠に「合格」と言うのか ― 判定の仕組みには、割り切りがある(本稿)\n・第5回 ローカルLLMに答え方を教え込む、ファインチューニングの実際\n・第6回 採点基準は、測る前に決めておいた ― ISMS規格の全要求で、採点者を置かずに採点する\n・第7回 学習で消えた誤りと、残った誤り\n・第8回 支援ツールとしては使える ― ただし、評価が自動になったとは言わない\nはじめにお断りを二つ。ここで扱うのはISMS-AC認定の認証審査ではなく、コンサルティングとしての適合状況評価の支援です。また、これは個人プロジェクトであり、特定の企業・案件とは関係がありません。\n\n判定の中身は5つの工程 ― プログラムが受け持つ2つと、LLMに渡した3つ\n\n業務PCの中のローカルLLMが、規格(JIS Q 27001/27002)の要求を最小単位に分解した一件ごとに、合否を判定し、達していなければ改善案の下書きまで作ります。ただし、この処理のすべてをLLMがこなすわけではありません。処理は5つの工程に分かれ、担い手はプログラムとLLMの二種類です。\n\n| 工程 | 中身 |\n|---|---|\n| 工程1 設問と要求の対応づけ(プログラム) | どの設問の答えがどの要求の判定に効くかは、部品づくりの段階で対応表に確定してあります。実行時は、その表を参照するだけです。 |\n| 工程2 組織の事実の紐づけ補正(LLM) | その要求の判定に関係する組織の事実を選び、過不足を整えます。 |\n| 工程3 合否判定(LLM) | 顧客の会社がその要求に達しているか、L3未満かを判定します。 |\n| 工程4 ギャップ抽出(プログラム) | 「L3未満」と判定された要求を、達していない管理策のリストに確定します。決められた規則どおりの仕分けです。 |\n| 工程5 改善案の生成(LLM) | 達していない要求について、改善案の下書きを作ります。 |\n\nプログラムで実施するか、LLMで実施するかの基準は、単純です。決まった表を参照する、決まった規則で仕分ける、といった手順が固定できる処理はプログラムに、材料を見て判断が要る処理はLLMに渡しました。\n\nLLMの3工程はひとつながり ― 事実を選び、合否を判定し、改善案を下書きする\n\nLLMが担う三つの工程は、別々に動くのではなく、一本の流れとしてつながっています。前の工程の出力が、次の工程の入力になるからです。順に見ていきます。\n\nまず、事実選び(紐づけ補正)です。要求ごとに、その判定に関係する組織の事実(その企業の情報システムの構成や特性、ポリシーといった事実)を選びます。ここには一つ、意図した設計があります。必要な事実を取りこぼすと後から戻せないため、要求と事実を結ぶ共通のキーワード(メタタグ)を手がかりにいったん広めに拾い、そこからLLMが不要な分を削る、という順にしています。取りこぼしは避け、拾いすぎは後で削る、という段取りです。\n\n次に、合否判定です。選んだ事実と、顧客が答えた実施状況(規格が求めることを実際にしているかどうか)をもとに、顧客の会社がその要求に達しているかを判定します。達成の段階は6つ(L0〜L5)。運用され記録が残っている状態(L3)以上を「達している」、そこに届かなければ「L3未満」とする、二値の判定です。顧客回答の「わからない」は、判定に渡る前に入口で「いいえ」に倒してあります(この段階の詳細は前回に書きました)。\n\n最後に、改善案の生成です。未達と確定した要求についてだけ、改善案の下書きを作ります。合否判定と改善案の間ではプログラムが未達を確定するので(工程4)、改善案は達していない要求だけに作られます。\n\n三つを一本につなぐ以上、前の工程の誤りは後ろへ伝わります。関係する事実の選び方を外せば、その材料で下す合否判定も、判定に基づく改善案も、つられてずれます。だからこのツールは、三工程を別々に動かさず、実際の運用と同じ一気通貫で動かします。\n\n \n\n指示文の形式は毎回同じ ― 答えの形も、根拠の示し方も、あらかじめ決めて渡す\n\n合否判定でLLMに入力する指示文は、決まった形式、決まった文章構成としています。この形式と構成は、すべての合否判定で維持され、答えの形と、根拠の示し方も規定しています。\n\nLLMに出させる答えは、「達している」「L3未満」「棄権」のいずれか一つと、その根拠です。しかも、決まった項目の形で返させます。実行のたびに答えの形がぶれないので、後から人が、LLMがどの材料を根拠に、どう結論したのかをたどれます。判定の中身を、あとから確かめて疑えるようにする、という設計は、この形式と構成の固定に支えられています。\n\n三つ目のラベル「棄権」は、根拠が足りず断定できないときに、LLMが「追加確認が必要」と返すためのものです。これは、顧客回答の「わからない」とは別物です。顧客の「わからない」は、入口で「いいえ」に倒して未達側として扱う、という前回の話でした。こちらの「棄権」は、LLMが出す判定ラベルの一つで、主に、その要求がその企業に該当するかどうかが不明なときに使います。棄権がどんな役割を果たすかは、次の節でもう一度出てきます。\n\n途中で測り方を変えた ― 数字が実態より良く見えうる代償と、それを受け止める構え\n\n合否判定の方式は、開発の途中で変えました。当初は、ヒアリングの答えだけでなく、その裏にある運用や証跡の有無まで、LLMに確認させる設計でした。ところが試してみると、「示された情報だけでは断定できない」という判定の保留が多発しました。これでは実用に耐えないと判断しました。保留の原因を切り分けて手を入れてもなお構造的に残りました。そこで私は、測り方そのものを変えると決めました。\n\n変更後の判定方式は、こうです。ヒアリングの「はい/いいえ」をそのまま信頼し、運用や記録の証跡の細部を、判定の段階で問い直さない。肯定的な答えで要求の核心を満たしていれば「達している」、否定的なら「L3未満」、その企業に該当するかが不明なときだけ「棄権」とします。\n\nこの割り切りには、代償があります。「はい」と答えられた要求は、運用の実態が完全には伴っていなくても「達している」と判定されうる、という点です。たとえば、ウイルス対策の運用はしているが、その記録までは残していない会社で、担当者が「はい」と答え、ヒアリングしている専門家がこれを見逃せば、記録の不足を判定の段階で問い直さず、達成側へ倒します。つまり、数字が実態より良く見えることがあります。この代償は、承知のうえで、あえて引き受けました。数字を良く見せるためではなく、次の構えで受け止められると判断したからです。\n・入口を厳密にする: 各設問には「はい/いいえの判断基準」を添えてあります。決めたことが実際に運用され、記録が残っていれば「はい」。一部でもできていない・決めていない・わからない場合は「いいえ」。中途半端な実施を、回答者自身が正直に「いいえ」へ倒すよう促します。\n・出口は信頼する: 入口で厳密に選ばれた「はい/いいえ」を、判定はそのまま信頼します。証跡の細部を問い直して棄権することはしません。\n・残る棄権は安全弁にする: それでも該当性が不明なものは、断定せずに棄権とし、専門家が引き取って確定します。\n\n入口を厳しくするからこそ、出口で信頼してよい。そうすることで、判定の保留を実用的な水準に抑えつつ、評価としての妥当性を保っています。そして最終的な品質は、入口の厳密さと、このあとの専門家レビューが担保します。\n\n専門家が気づける誤りと、気づけない誤り\n\nもう一つ、割り切りを支えるうえで欠かせない区別があります。LLMが間違えたとき、その間違いに専門家が気づけるかどうかは、間違いの型によって違います。\n\n達しているのに「達していない」と判定して不要な改善案を出した場合、専門家は実施状況を読めば、達成側であることが分かります。改善案の中身が要求からずれている場合も、その記述を読めば分かります。どちらも、成果物を読めば気づける型です。手間は増えますが、顧客が適合状況を誤認することはありません。\n\nこれに対し、読んでも気づけない型があります。達していないのに「達している」と判定した場合、その要求には改善案が生成されません。読むものが無いので、専門家は不足があること自体に気づけません。\n\nこの二つは、性質がまったく違います。前者は工数の問題ですが、後者は、顧客が受け取る報告書から不足が抜け落ちる問題です。だから、この二つを同じ数字の中で合算しないことにしました。どう分けて測ったかは、第6回で書きます。\n\n次回 ― 『ローカルLLMに答え方を教え込む、ファインチューニングの実際』では、このローカルLLMが、なぜこの仕事をこなせるのかについて記述します。\n\n本稿では、判定の中身を説明してきました。処理は5つの工程に分かれ、LLMが担うのは、事実を選び、合否を判定し、改善案を下書きする、という三つです。三つは一本につながっていて、実際の運用と同じ一気通貫で動きます。そして測り方には、「はい/いいえを信頼する」という割り切りがあり、その代償を、入口の厳密さ・出口の信頼・残る棄権の安全弁という構えで受け止めています。\n\n判定の仕組みを見渡してみると、賢さで押し切っている場所は、ほとんどありません。どこまでを信頼し、どこから先を疑うか。その境目を、賢さではなく仕組みの側に、あらかじめ決めてあるだけです。皆さんの現場でこのツールを使うとしたら、「はい/いいえを信頼する」というこの割り切りを、どこまで受け入れ、どこから自分の目で疑うでしょうか。\n\nここまで、業務PCの中のローカルLLM(Llama 3.1-8B)が、事実選び・合否判定・改善案の三つをこなす前提で話してきました。けれど、ローカルLLMが、なぜこの仕事をこなせるのか。その答え方は、どこから来たのか。そこには、まだ触れていません。次回は、そこを説明します。\n\n次回予告: 第5回 ローカルLLMに答え方を教え込む、ファインチューニングの実際",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "12aed10718e93b2e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.696077122153209,
+      "popularityPercentile": 0.7768115942028986,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "ローカルLLMがISMSの適合判定に使った根拠を後から確認できる仕組みを説明している。",
+      "takeaways": [
+        "機密情報を外へ出さずに規格の確認を支援する。",
+        "判定の根拠を後からたどれる形に分解した。",
+        "最終判断を任せ切らない割り切りも扱っている。"
+      ],
+      "keywords": [
+        "ISMS",
+        "JIS Q 27001",
+        "JIS Q 27002",
+        "ローカルLLM",
+        "ファインチューニング",
+        "監査証跡"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "判定を自動化するか人が最終責任を負うか",
+        "forSide": "根拠を記録すれば機密を守りながら確認作業を効率化できる。",
+        "againstSide": "規格への適合は組織の事情を含むため機械判定に責任を委ねられない。",
+        "oneSided": true,
+        "yourAngle": "AIエージェントの出力に根拠や変更履歴を残す運用を実測できる。"
+      },
+      "readingMinutes": 9,
+      "payoff": "apply",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIエージェント8体を自律で動かしてゲーム企画を作らせてみたら、決定権でつまずいた話",
+      "url": "https://qiita.com/BeginnerTK/items/c3a27301fafcc15c4495",
+      "publishedAt": "2026-08-23T05:15:32.000Z",
+      "author": "BeginnerTK",
+      "authorDetail": {
+        "name": "BeginnerTK",
+        "handle": "@BeginnerTK",
+        "url": "https://qiita.com/BeginnerTK",
+        "avatarUrl": "https://lh4.googleusercontent.com/-ImZVvScX_Cs/AAAAAAAAAAI/AAAAAAAAAC8/a0AOYlqjmm0/photo.jpg?sz=50",
+        "followers": 1,
+        "posts": 3,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "AIエージェント",
+        "GitHub",
+        "ゲーム開発",
+        "プロジェクト管理"
+      ],
+      "snippet": "※本記事はAIを使用しています 前々からAIエージェントを自律で動かす実験をしてみたくて、ゲーム企画の初期資料づくりを丸ごと複数のAIエージェントに任せてみた。人数を増やせば早く終わるだろう、くらいの軽い気持ちで始めたが、実際にやってみると全然そんな甘い話ではなかった。 担当はプロデューサー、デザインマネージャー、技術責任者、マネージャー、日誌報告作成者、Qiita記事作成者、ストーリー作成者、校正者の8役。ストーリー、ゲームシステム、技術要件、UI/UXを並行して整理させて、最後に統合スライドへまとめる、という組み方にしてみた。 結論から言うと、エージェントを増やすだけでは、うまく回らない。うまく回り始めたのは、次の4つをきちんと言葉にしてからだった。 1. 役割ではなく、最終決定権まで分ける 2. Issueを依頼書として使う 3. 統合後に独立した校正ゲートを置く 4. 定期巡回の頻…",
+      "body": "※本記事はAIを使用しています\n前々からAIエージェントを自律で動かす実験をしてみたくて、ゲーム企画の初期資料づくりを丸ごと複数のAIエージェントに任せてみた。人数を増やせば早く終わるだろう、くらいの軽い気持ちで始めたが、実際にやってみると全然そんな甘い話ではなかった。\n\n担当はプロデューサー、デザインマネージャー、技術責任者、マネージャー、日誌報告作成者、Qiita記事作成者、ストーリー作成者、校正者の8役。ストーリー、ゲームシステム、技術要件、UI/UXを並行して整理させて、最後に統合スライドへまとめる、という組み方にしてみた。\n\n結論から言うと、エージェントを増やすだけでは、うまく回らない。うまく回り始めたのは、次の4つをきちんと言葉にしてからだった。\n\n1. 役割ではなく、最終決定権まで分ける\n2. Issueを依頼書として使う\n3. 統合後に独立した校正ゲートを置く\n4. 定期巡回の頻度と読む範囲を役割ごとに制限する\n\nこの記事では、実際にぶつかった失敗と、そこからどう運用を変えていったかを書く。この実験はおそらくしばらく続けるので、気づいたことがあればまた別の記事で書いていくつもりだ。\n\n1. 「担当」と「決定権」は別物だった\n\n最初にやったのは、単なる作業分担ではなく、誰が何を最終的に決められるかを決めることだった。作業を振るだけなら簡単だが、それだけだと後で「誰の判断を採用するか」で揉める。\n\n今回はだいたいこんな感じで責任範囲を分けた。\n\n| 役割 | 最終決定する領域 |\n|---|---|\n| プロデューサー | 設定、世界観、シナリオ |\n| デザインマネージャー | UI/UX、ビジュアル、演出 |\n| 技術責任者 | 機能・非機能要件、実装方針、技術選定 |\n| マネージャー | タスク、依存関係、競合、Issueの交通整理 |\n| ストーリー作成者 | 正式設定に沿った詳細化 |\n| 校正者 | 整合性、破綻、表記、提出可否の確認 |\n\n意識したのは、プロデューサーを「全部の上司」にしないことだ。プロデューサーは物語を決めてよいが、技術責任者の技術選定を、理由もなくひっくり返す権限までは持たせていない。\n\nこの境界がないと、最終統合を担当するエージェントが、悪気なく他の担当の決定を書き換えてしまう。人間のチームでもよくある話だが、生成が速いAIだと、矛盾が積み上がるスピードも段違いに速い。\n\n2. Issueは「会話」じゃなく「非同期の依頼書」にする\n\nエージェント同士の正式なやり取りにはGitHub Issueを使った。ただ、最初は短い一言指示で済ませていて、これが全然機能しなかった。\n\n試行錯誤の末、実際に効いたのはこんな形だった。\n\n [code] \n\n特に効いたのは「完了条件」と「変更可能な範囲」の2つ。\n\n依頼内容だけを書くと、エージェントは「それらしい資料ができた時点で完了」と判断しがちだった。チェックできる完了条件を添えておくと、別のエージェントが後から「本当に要求を満たしているか」を検証できる。\n\nあと、Issueを進捗コメントで埋めるのもやめた。コメントするのは完了・ブロック・判断が必要なときだけ、というルールにした。これでIssueが単なるチャットログではなく、状態と根拠を追える記録になった。\n\n3. 並行作業はうまくいったのに、統合で壊れた\n\n今回、技術責任者は18ページの技術要件スライドを作ってきた。中身はこんな感じだ。\n・Unity LTS／URP／C#\n・データ駆動設計\n・オフライン優先のシステム境界\n・機能要件と非機能要件\n・データ契約、進行契約\n・開発段階ごとの品質ゲート\n\nこの成果物自体は、校正でも問題なく通った。\n\nデザイン側も、HUDの情報優先度、色覚対応、アクセシビリティ、チュートリアルの配色ルールなどをちゃんと固めてきた。警告表示は色だけに頼らず、色・形・文字・動き・音のうち2系統以上で伝える、という方針も決めていた。\n\nところが、55ページの統合版を見たとき、目を疑った。\n\n技術責任者はUnityを採用していたはずなのに、統合版には「技術責任者がUnreal Engine 5を採用」と書かれていた。決定済みだった数値やIDも、いつのまにか未決定に巻き戻されていた。しかも、まだ校正を通していない資料が「Final Draft」として扱われていた。\n\nつまり、各担当の成果物が正しくても、それを統合する側が正しくマージできるとは限らないということだ。コードに例えるなら、各ブランチの実装は正しいのに、マージコミットで仕様のほうが壊れているような状態だった。\n\n4. 校正者にやらせたのは「文章チェック」じゃなく「統合テスト」\n\nこの矛盾を見つけたのは校正者だった。\n\n校正では誤字やレイアウトだけでなく、次のようなことを確認させた。\n・専門担当の決定が統合版へ正しく反映されているか\n・決定権を越えて上書きしていないか\n・決定済みの項目が未決定へ戻っていないか\n・出典が実在する成果物を指しているか\n・全ページを描画したときに表示が壊れていないか\n・「最終版」という状態表示と実態が一致しているか\n\n結果は、重大3件、高5件、中4件、低3件で不合格。\n\nここで大事だと思ったのは、不合格を「失敗」扱いしないことだ。むしろレビューゲートがちゃんと機能した証拠だと思っている。校正者がいなかったら、技術方式が矛盾したままの資料が最終成果物として残っていたはずだ。\n\nAIエージェント開発における校正者は、文章の校閲者というより、仕様・権限・成果物をまたいで確認する統合テスト担当に近い。\n\n5. 「たくさん巡回すれば安全」は、実は逆効果だった\n\n最初のルールは、各エージェントが30分おきに共有フォルダとIssueを確認する、というものだった。一見丁寧に見えるが、実際にやらせてみると問題だらけだった。\n・変更がなくても同じ資料を何度も読む\n・自分に関係のないIssueまで確認する\n・トークンと実行時間を消費する\n・複数エージェントが同時に動いて、同じ仕事を拾う\n・本来は週次でいい担当まで高頻度に起動する\n\nそこで、最短巡回を1時間に伸ばし、頻度も役割ごとに変えた。Qiita記事作成者は週1回、マネージャーは1時間ごと、専門責任者は2〜6時間ごと、といった具合だ。\n\n読む範囲も絞った。\n\n [code] \n\n更新がなければ、それ以上は探しにいかず、そのまま終了する。\n\nこれは単なるコスト削減というより、エージェントの「見る範囲」を狭めることで、越権や重複作業、古い情報の使い回しを減らすための設計でもあった。\n\n6. 成果物の保存範囲も役割ごとに分ける\n\n複数のエージェントが同じワークスペースを触る以上、編集できる場所を分けておくのも必要だった。\n\n例えば日誌報告作成者は日誌フォルダだけ、Qiita記事作成者は記事用フォルダだけを編集する。Qiita記事は公開前の原稿なので、リポジトリからは外してある。\n\nこの制限には2つの意味がある。ひとつは他担当の成果物をうっかり変更しないこと。もうひとつは、コミット時に他エージェントの未確定な変更が混ざらないようにすることだ。\n\nGitのブランチだけでなく、役割ごとの書き込み境界も用意しておくと、共有ワークスペースでの事故はだいぶ減る。\n\n7. 今の運用フロー\n\n改善したあとは、こんな流れで回している。\n\n [code] \n\n通常の依頼は直接委譲を優先していて、Issueを起票するのは、別セッションで追跡する必要があるもの、正式な記録として残したいもの、何かをブロックしているものだけにしている。\n\n8. やってみて分かったこと\n\n役割名だけでは、競合が起きたときに誰の判断を採用すべきか分からない。「プロデューサー」「技術責任者」と名付けるだけでなく、どこまで決めていいか、どこは上書きできないかを、あらかじめ言葉にしておく必要がある。\n\n完了条件は「いい感じにまとめる」ではなく、「採用理由がある」「検証条件がある」「レビュー承認がある」のように、機械的に判定できる形まで分解する。それができていないと、確認する側も結局は感覚で判断することになる。\n\n統合担当を信用しすぎないこと。これも今回学んだことのひとつだ。統合は要約ではなく、複数の決定を壊さずにマージする作業だ。専門の成果物と統合後の成果物は、別々にレビューしたほうがいい。\n\n校正は最後のお飾りにしないほうがいい。提出を止める権限を持たせないと、校正はレビューではなく、ただの感想になってしまう。\n\n定期巡回は、広さより差分だ。頻度そのものより、「誰が、どの差分だけを見るか」のほうが効いてくる。更新がないときにすぐ終われることも、長く運用するうえでは地味に効いてくる部分だった。\n\nまとめ\n\n複数のAIエージェントを使うと、ストーリー、技術、デザインの資料を並行して進められるようになる。ただし統合の場面では、決定権を越えた書き換えや、確定事項の巻き戻し、まだ承認されていない資料の最終版化といった問題が起きやすい。\n\n今回効いたのは、役割ごとの決定権と編集範囲を決めておくこと、Issueに依頼元・依頼先・完了条件・制約・参照資料を書くこと、独立した校正者を統合テストとして置くこと、そして定期巡回を役割別・差分中心にすることの4つだった。\n\nAIエージェント開発の難しさは、生成能力そのものより、複数の判断をどう整合させるかにある気がしている。エージェントを増やす前に、決定権や依頼の形式、レビューのゲート、巡回の範囲を先に決めておくと、あとがだいぶ楽になる。\n\nこの実験はまだ続いているので、また何か分かれば書くつもりだ。\n\n---\n\n想定タグ: AI AIエージェント GitHub ゲーム開発 プロジェクト管理",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "148f2eb671d48495",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7364394409937889,
+      "popularityPercentile": 0.5739130434782609,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "8体のAIエージェントでゲーム企画を作り役割だけでなく決定権の設計が必要だと示している。",
+      "takeaways": [
+        "エージェントを増やすだけでは企画はまとまらなかった。",
+        "最終決定者を領域ごとに決めて混乱を抑えた。",
+        "依頼書と校正の仕組みで作業の流れを整えた。"
+      ],
+      "keywords": [
+        "AIエージェント",
+        "GitHub",
+        "Issue",
+        "ゲーム開発",
+        "プロジェクト管理",
+        "自律エージェント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "エージェントに任せるか人が決定権を握るか",
+        "forSide": "領域ごとの決定権を分ければ8体でも並行作業を統合できる。",
+        "againstSide": "決定権を細かく設計するほど管理作業が増え自律性が下がる。",
+        "oneSided": true,
+        "yourAngle": "Claude Codeなどを役割分担させた際の手戻りとレビュー回数を測定できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "trial": null
+    }
+  ],
+  "stats": {
+    "collected": 703,
+    "afterDedupe": 624,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 346,
+      "zenn": 137,
+      "hatena": 21,
+      "hackernews": 20,
+      "devto": 1,
+      "github_release": 76,
+      "github_repo": 92,
+      "rss": 9,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 42
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4976,
+        "outputTokens": 625,
+        "cacheReadTokens": 0,
+        "elapsedMs": 7733,
+        "estimatedCostUsd": 0.0017452000000000001
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4165,
+        "outputTokens": 1076,
+        "cacheReadTokens": 0,
+        "elapsedMs": 10978,
+        "estimatedCostUsd": 0.0021241999999999997
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 12983,
+        "outputTokens": 1379,
+        "cacheReadTokens": 3570,
+        "elapsedMs": 17261,
+        "estimatedCostUsd": 0.0043228
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3194,
+        "outputTokens": 1934,
+        "cacheReadTokens": 0,
+        "elapsedMs": 19735,
+        "estimatedCostUsd": 0.0029595999999999997
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 18369,
+        "outputTokens": 1654,
+        "cacheReadTokens": 3272,
+        "elapsedMs": 21648,
+        "estimatedCostUsd": 0.0057240400000000006
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 19484,
+        "outputTokens": 1555,
+        "cacheReadTokens": 3416,
+        "elapsedMs": 21317,
+        "estimatedCostUsd": 0.00583112
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13113,
+        "outputTokens": 3469,
+        "cacheReadTokens": 7992,
+        "elapsedMs": 30481,
+        "estimatedCostUsd": 0.00694524
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 11133,
+        "outputTokens": 3108,
+        "cacheReadTokens": 0,
+        "elapsedMs": 25439,
+        "estimatedCostUsd": 0.0059562
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 15362,
+        "outputTokens": 3718,
+        "cacheReadTokens": 0,
+        "elapsedMs": 30674,
+        "estimatedCostUsd": 0.007534
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 16168,
+        "outputTokens": 4980,
+        "cacheReadTokens": 11034,
+        "elapsedMs": 47082,
+        "estimatedCostUsd": 0.00943028
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 24038,
+        "outputTokens": 6182,
+        "cacheReadTokens": 16487,
+        "elapsedMs": 59149,
+        "estimatedCostUsd": 0.01255574
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 20424,
+        "outputTokens": 7118,
+        "cacheReadTokens": 12192,
+        "elapsedMs": 67227,
+        "estimatedCostUsd": 0.012870239999999998
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3948,
+        "outputTokens": 222,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3170,
+        "estimatedCostUsd": 0.001056
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4826,
+        "outputTokens": 261,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2965,
+        "estimatedCostUsd": 0.0012784
+      }
+    },
+    "totalCostUsd": 0.0803
+  },
+  "notes": []
+}
