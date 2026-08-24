@@ -1,0 +1,2498 @@
+{
+  "date": "2026-08-25",
+  "generatedAt": "2026-08-24T22:22:55.513Z",
+  "window": {
+    "start": "2026-08-23T22:00:00.000Z",
+    "end": "2026-08-24T22:00:00.000Z"
+  },
+  "summary": [
+    "AI・エージェント関連が8件と最多で、実装から運用・評価まで話題が広がった。",
+    "リリースは新機能が7件を占め、開発基盤や実行環境の拡張が目立った。",
+    "Claude CodeやCodexをCI・チーム運用へ組み込む動きと、依存や出力を監査する視点が並んだ。",
+    "Elementor Proの未認証RCEは、該当サイトで最優先の更新が必要となる際立った案件だった。"
+  ],
+  "outlook": "AIエージェントは開発環境からCI・チーム運用へ定着しつつある一方、権限分離・監査・出力検証と基盤の脆弱性対応はなお揺れている。今後は生成量より、仕様やテストを含む判断の記録と安全な実行境界の設計が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Elementor Pro CVE-2026-32475──未認証でPHP実行(RCE)、確認と4.2.2更新手順",
+      "url": "https://qiita.com/jiis-sasaki/items/b3d73a4672f9922dc6a3",
+      "publishedAt": "2026-08-23T22:30:00.000Z",
+      "author": "jiis-sasaki",
+      "authorDetail": {
+        "name": "jiis-sasaki",
+        "handle": "@jiis-sasaki",
+        "url": "https://qiita.com/jiis-sasaki",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4443640/51e197194384b8eba7fa93bc8dae17f08efc3b3e/x_large.png?1780639664",
+        "bio": "兵庫を拠点に、Webセキュリティとインフラ運用を担当。脆弱性診断・GitOps(FluxCD)・IDS運用・コンテナ周りが中心。実務でハマった話と直し方を書きます。所属:日本情報基盤サービス(JIIS)。",
+        "organization": "日本情報基盤サービス(JIIS)",
+        "location": "兵庫・尼崎",
+        "followers": 3,
+        "posts": 36,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/sitedock_jp"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.jiis.co.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "WordPress",
+        "Security",
+        "cve",
+        "vulnerability",
+        "PHP"
+      ],
+      "snippet": "WordPress の人気ページビルダー Elementor Pro に、未認証の攻撃者が任意の PHP ファイルを設置してサーバー上でコードを実行できる深刻な脆弱性 CVE-2026-32475(CVSS 9.0)が公開されました。修正版 4.2.2 が 2026 年 8 月 19 日にリリースされています。 この記事は、Elementor / Elementor Pro でサイトを運用している Web 担当者・制作会社向けに、「自分のサイトが影響を受けるかの確認」→「安全な更新」→「侵害有無のチェック」→「多層防御の追加設定」までを、コピペで使えるコマンド付きで 15 分でひととおり終えられるようにまとめたものです。攻撃の再現手順は扱いません(再発防止の観点で書いています)。 何が起きたのか(3行まとめ) ・Elementor Pro の フォーム(Forms)ウィジェットのファイルア…",
+      "body": "WordPress の人気ページビルダー Elementor Pro に、未認証の攻撃者が任意の PHP ファイルを設置してサーバー上でコードを実行できる深刻な脆弱性 CVE-2026-32475(CVSS 9.0)が公開されました。修正版 4.2.2 が 2026 年 8 月 19 日にリリースされています。\n\nこの記事は、Elementor / Elementor Pro でサイトを運用している Web 担当者・制作会社向けに、「自分のサイトが影響を受けるかの確認」→「安全な更新」→「侵害有無のチェック」→「多層防御の追加設定」までを、コピペで使えるコマンド付きで 15 分でひととおり終えられるようにまとめたものです。攻撃の再現手順は扱いません(再発防止の観点で書いています)。\n\n何が起きたのか(3行まとめ)\n・Elementor Pro の フォーム(Forms)ウィジェットのファイルアップロード欄の処理に不備があり、拡張子チェックをすり抜けて .php ファイルをアップロードできる。\n・アップロードされた PHP は wp-content/uploads/elementor/forms/ 配下に置かれ、そのまま実行されるとサイトを乗っ取られる(RCE)。\n・ログイン不要(未認証)で成立するため、フォームにファイルアップロード欄が 1 つでも公開されていれば標的になり得る。\n\n脆弱性の概要\n\n| 項目 | 内容 |\n|---|---|\n| CVE | CVE-2026-32475 |\n| 深刻度 | CVSS 9.0(Critical) |\n| 対象 | Elementor Pro 4.2.1 以前のすべてのバージョン |\n| 修正版 | 4.2.2(2026-08-19 リリース) |\n| 影響 | 未認証リモートコード実行(RCE) |\n| 成立条件 | ファイルアップロード欄を含むフォームが公開されていること |\n| 認証 | 不要(未認証) |\n無料版の Elementor(Pro でない本体) はこの脆弱性の対象外です。フォームウィジェットは Pro の機能のため、影響を受けるのは Elementor Pro を導入したサイトです。\n\nStep 1: 自分のサイトのバージョンを確認する\n\nまず動いている Elementor Pro のバージョンを確認します。管理画面なら「プラグイン」一覧、または WP-CLI が使えるサーバーなら次の 1 行で確認できます。\n\n [code] \n\nelementor-pro の version が 4.2.1 以下なら影響対象です。update 列が available になっていれば更新が来ています。\n\n管理画面で確認する場合は ダッシュボード → プラグイン → インストール済みプラグインで「Elementor Pro」のバージョン表記を見てください。\n\nStep 2: 4.2.2 以降へ更新する(最優先)\n\n最優先の対策は更新です。 ステージング環境がある場合はそちらで先に確認してから本番へ反映してください。\n\n [code] \n\nWP-CLI が使えない環境では、管理画面のプラグイン一覧から「更新」を実行します。Elementor Pro は正規ライセンスがないと自動更新の通知が出ないことがあるため、ライセンスが有効か(Elementor → ライセンス)も併せて確認してください。ライセンス切れで更新が降ってこないケースが実務では多くあります。\n\nStep 3: すでに侵害されていないかチェックする\n\n未認証で悪用できる脆弱性は、パッチ公開前後に自動化された探索が走る傾向があります。更新が済んでも、それ以前に設置された不正ファイル(Web シェル)が残っていないかを確認しておくと安全です。\n\nアップロード先ディレクトリに 本来あってはならない .php ファイルがないかを探します。\n\n [code] \n\n.php が検出された場合は、すぐ削除せずまず退避(コピー)して内容と作成日時を記録し、他への侵入痕跡(管理者アカウントの追加・wp-config.php の改変・不審な cron)がないかを確認したうえで対処してください。判断に迷う規模であれば、バックアップからのクリーンな復元が確実です。\n\n [code] \n\nStep 4: 多層防御 ── uploads 配下で PHP を実行させない\n\n更新は大前提ですが、「アップロードされた PHP をそもそも実行させない」設定を入れておくと、同種の別プラグイン脆弱性が出ても被害を抑えられます。画像や PDF の保存先である uploads で PHP が動く必要は基本的にありません。\n\nnginx の場合(サイトの server {} 内に追加):\n\n [code] \n\nApache の場合(wp-content/uploads/.htaccess として設置):\n\n [code] \n\nあわせて、wp-config.php に以下を追記しておくと、管理画面からのプラグイン/テーマファイル編集という侵害後の常套手段を塞げます。\n\n [code] \n\nファイル権限そのものの締め方は別記事にまとめています(後述の関連記事を参照)。\n\nStep 5: 更新できない事情がある場合の一時緩和\n\nすぐに更新できない事情がある場合のあくまで一時的な緩和策です。恒久対策は更新であることを前提にしてください。\n・該当ページのフォームからファイルアップロード欄を一時的に外す(公開中のフォームに 1 つでもアップロード欄があると条件が成立するため)。\n・Step 4 の uploads 配下 PHP 実行停止を必ず入れておく。\n・WAF を導入している場合は、elementor/forms 宛のファイルアップロードに対する検査ルールを有効化する。\n\nこれらは「時間を稼ぐ」ための措置であり、脆弱性そのものは残ります。計画的にできるだけ早く 4.2.2 以降へ更新してください。\n\nまとめ\n・CVE-2026-32475 は Elementor Pro 4.2.1 以前を狙う未認証 RCE(CVSS 9.0)。フォームにファイルアップロード欄があるサイトが対象。\n・対策の芯は 4.2.2 以降への更新。更新前にバックアップ、更新後にバージョンと侵害痕跡を確認する。\n・uploads 配下で PHP を実行させない設定を入れておけば、同種の別脆弱性にも効く多層防御になる。\n\n同じ「アップロード経由の乗っ取り」を繰り返さないための考え方(検証の多層化・PHP 実行の遮断・権限設計)は、下記の関連記事にコピペ設定つきでまとめています。\n\n関連記事\n・画像・PDFのアップロード機能を安全にする7つの検証\n・WordPressの改ざんを防ぐファイル権限とPHP実行制限(uploads対策)\n・WordPress自動更新を全部ONにしない運用\n\n出典\n・CVE-2026-32475(CVE.org): https://www.cve.org/CVERecord?id=CVE-2026-32475\n・NVD 詳細情報: https://nvd.nist.gov/vuln/detail/CVE-2026-32475\n・Patchstack アドバイザリ(Critical Unauthenticated File Upload to RCE in Elementor Pro Plugin): https://patchstack.com/articles/critical-unauthenticated-file-upload-to-rce-in-elementor-pro-plugin/\n\n本記事のような設定の抜けは、Web サイトを 9 つの守りでまるごと守るサイトドックでまとめて対策できます → https://sitedock.jp",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7929b525f964db03",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.25041772151898734,
+      "popularityPercentile": 0.7518987341772152,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "Elementor Proの未認証PHP実行脆弱性を確認し4.2.2への更新と侵害調査を進める手順を解説している。",
+      "takeaways": [
+        "Elementor Proにログイン不要でPHPを置ける欠陥が見つかった。",
+        "CVSS 9.0の脆弱性は公開フォームのファイル送信機能が対象になる。",
+        "修正版4.2.2が2026年8月19日に公開されている。"
+      ],
+      "keywords": [
+        "Elementor Pro",
+        "CVE-2026-32475",
+        "WordPress",
+        "PHP",
+        "RCE",
+        "4.2.2"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 15,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "Elementor Pro 4.2.1以前には、Formsウィジェットのファイルアップロード処理を迂回して.phpファイルを設置できるCVE-2026-32475がある。ログイン不要の未認証攻撃者がwp-content/uploads/elementor/forms/に置かれたPHPを実行でき、CVSS 9.0のRCEにつながる。公開フォームにファイルアップロード欄があるElementor Proサイトが成立条件に該当し、無料版Elementorは対象外である。修正版は4.2.2で、最優先の対応は更新前のバックアップ、4.2.2以降への更新、更新後のバージョンと侵害痕跡の確認である。更新に時間がかかる場合は、フォームのアップロード欄を外し、uploads配下のPHP実行停止やWAFを組み合わせて時間を稼ぐ。",
+        "prerequisites": [
+          {
+            "term": "Formsウィジェット",
+            "stumblingPoint": "記事は「Formsウィジェットのファイルアップロード欄」と書くが、通常のElementor機能との違いを知らないと対象箇所を特定できない。",
+            "explanation": "FormsウィジェットはElementor Pro側が提供するフォーム機能で、今回の脆弱性はその中のファイルアップロード欄の処理に限定される。サイト内にElementorを使ったページがあっても、Proのフォームでファイルを受け取っていなければ、記事が示す成立条件には該当しない。管理画面では公開中のフォーム設定を確認する必要がある。"
+          },
+          {
+            "term": "CVE-2026-32475",
+            "stumblingPoint": "記事はCVE-2026-32475を脆弱性識別子として扱うが、CVE番号だけでは何を確認すべきか読み取れない。",
+            "explanation": "CVEは個別の脆弱性を追跡するための識別子で、ここではElementor Proの対象バージョンや修正版を照合するキーになる。NVDやCVE.orgの記録を見る場合も、製品名だけでなくこの番号で検索すると別の脆弱性と混同しにくい。"
+          },
+          {
+            "term": "CVSS 9.0",
+            "stumblingPoint": "記事は深刻度を「CVSS 9.0(Critical)」とするが、数値が更新判断にどう関係するかが省略されている。",
+            "explanation": "CVSS 9.0は脆弱性の深刻度評価で、この記事では未認証でリモートからコード実行に至る点と合わせて緊急度を示している。サイトが攻撃された証拠を意味する数値ではなく、対象バージョンなら利用条件の有無にかかわらず更新を優先する根拠として扱う。"
+          },
+          {
+            "term": "RCE",
+            "stumblingPoint": "記事は「未認証リモートコード実行(RCE)」と書くが、ファイルアップロードからサイト乗っ取りまでのつながりが読み取りにくい。",
+            "explanation": "RCEは攻撃者がサーバー上で任意のコードを実行できる状態を指す。今回の経路では、拡張子チェックをすり抜けた.phpファイルがuploads配下に保存され、そのファイルへの実行要求がサーバー上のPHP処理につながる。単なる不正ファイルの保存より影響が大きい。"
+          },
+          {
+            "term": "Webシェル",
+            "stumblingPoint": "記事は更新後の確認対象として「Webシェル」を挙げるが、なぜアップロード先の.phpを調べるのかが分かりにくい。",
+            "explanation": "Webシェルは、HTTP経由で攻撃者の操作を受け付けるよう仕込まれたサーバー上の不正スクリプトを指す。修正版へ更新しても、更新前に設置されたファイルは自動で消えないため、wp-content/uploads/elementor/forms/内の本来不要な.phpを痕跡として確認する。検出時は即削除せず、退避と日時・内容の記録を先に行う。"
+          },
+          {
+            "term": "WP-CLI",
+            "stumblingPoint": "記事はWP-CLIでバージョン確認・更新できるとするが、管理画面操作との役割分担が明示されていない。",
+            "explanation": "WP-CLIはWordPressをコマンドラインから操作するツールで、サーバーへSSHなどで入れる運用ではプラグインのversionと更新可否を一覧で確認できる。使えない環境では管理画面のプラグイン一覧を使う。今回の本文ではコード欄が空で、実行するコマンド自体は確認できないため、コマンドを推測して実行しない。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "アップロードからRCEまで",
+          "layers": [
+            {
+              "label": "公開側",
+              "nodes": [
+                {
+                  "name": "未認証攻撃者",
+                  "note": "ログイン不要",
+                  "highlight": false
+                },
+                {
+                  "name": "公開フォーム",
+                  "note": "ファイル欄あり",
+                  "highlight": true
+                }
+              ],
+              "via": "HTTPアップロード"
+            },
+            {
+              "label": "処理",
+              "nodes": [
+                {
+                  "name": "Elementor Pro",
+                  "note": "Forms処理",
+                  "highlight": true
+                }
+              ],
+              "via": "PHPファイル保存"
+            },
+            {
+              "label": "保存先",
+              "nodes": [
+                {
+                  "name": "elementor/forms/",
+                  "note": "uploads配下",
+                  "highlight": true
+                }
+              ],
+              "via": "PHP実行要求"
+            },
+            {
+              "label": "実行先",
+              "nodes": [
+                {
+                  "name": "WordPressサーバー",
+                  "note": "コード実行",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "CVE-2026-32475(CVE.org)",
+            "url": "https://www.cve.org/CVERecord?id=CVE-2026-32475"
+          },
+          {
+            "label": "NVD 詳細情報",
+            "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-32475"
+          },
+          {
+            "label": "Patchstack アドバイザリ",
+            "url": "https://patchstack.com/articles/critical-unauthenticated-file-upload-to-rce-in-elementor-pro-plugin/"
+          }
+        ],
+        "readingMinutes": 15,
+        "lane": "know",
+        "impact": [
+          "Elementor Proを使うサイト運用者",
+          "公開フォームを管理する制作会社",
+          "ファイルアップロード欄を設置している人",
+          "WordPressの更新を委任されている人"
+        ],
+        "timeline": [
+          "2026-08-19 4.2.2リリース"
+        ],
+        "checkNow": [
+          "管理画面「プラグイン」でElementor Proの版数を確認する",
+          "「Elementor → ライセンス」と更新通知を確認する",
+          "uploads/elementor/forms/内の.phpを退避して日時・内容を記録する"
+        ],
+        "unknowns": [
+          "実際の悪用有無は本文に記載なし",
+          "本文のコード欄が空でコマンド確認不可"
+        ]
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "LLMs could control their host machines by exploiting inference engines",
+      "url": "https://boydkane.com/essays/llms-could-control-their-host-machines-by-exploiting-inference-engines",
+      "publishedAt": "2026-08-24T19:03:06.000Z",
+      "author": "zdw",
+      "authorDetail": {
+        "name": "zdw",
+        "handle": "zdw",
+        "url": "https://news.ycombinator.com/user?id=zdw"
+      },
+      "tags": [],
+      "snippet": "| Read on LessWrong | Large language models often take actions running on one computer (via an agentic harness such as Claude Code or Codex), however the LLMs’ responses to prompts are computed on a different computer with GPU access. Could a malicious LLM gain control of the host machine where its weights are loaded? Such a machine is a high-value target: it has sufficient compute to run a fronti…",
+      "metrics": {
+        "points": 62,
+        "comments": 33
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "2663d77a07c28c95",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.6174007936507937,
+      "popularityPercentile": 0.8055555555555556,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 74,
+      "titleJa": "推論エンジンの欠陥でLLMが実行環境を操作する危険",
+      "oneLiner": "LLMが推論エンジンの欠陥を悪用して実行先のホストマシンを操作できる危険を扱っている。",
+      "takeaways": [
+        "本文情報がないため攻撃の詳しい条件は確認できない。",
+        "題名はAIの計算処理部分を攻撃する危険を示している。"
+      ],
+      "keywords": [
+        "LLM",
+        "推論エンジン",
+        "ホストマシン",
+        "セキュリティ"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "| Read on LessWrong |\nLarge language models often take actions running on one computer (via an\nagentic harness such as Claude Code or Codex), however the LLMs’ responses to\nprompts are computed on a different computer with GPU access. Could a malicious\nLLM gain control of the host machine where its weights are loaded? Such a\nmachine is a high-value target: it has sufficient compute to run a frontier\nLLM, offers easy access to the LLM’s weights, and has privileged access to\nother computers in the datacentre compared with a generic computer on the\ninternet.\nThis essay explores how easily a malicious LLM could take control of the host\nmachine. The primary attack considered here involves the LLM emitting a token\nsequence whose semantic meaning is irrelevant but that exploits a vulnerability\nin the software that loads an LLM onto GPUs, runs the LLM to generate output\ntokens, and parses those tokens into responses. .\nHow could an LLM execute code on the host machine?\nLike any program, inference engines like vLLM or SGLang may contain\nexploitable bugs. Because the LLM controls the tokens passed to the inference\nengine, a malicious LLM could therefore emit a sequence of tokens that a poorly\nwritten inference engine mistakes for code or instructions to execute rather\nthan data to return to the user.\nBut surely all inference engines are robust pieces of software and this would\nnever happen, right?\nvLLM previously used eval() on tool-call parameters\nCVE-2025-9141 was an arbitrary-code execution bug in vLLM’s XML-based tool\nparser for Qwen3 Coder. The parser passed almost every tool-call argument to\neval(), allowing the LLM to execute arbitrary code on the host machine.\nGemini automatically analysed the PR that introduced this bug and\ncorrectly flagged it as a critical security vulnerability. Despite that\nwarning, the lead maintainer of vLLM force-merged the PR, writing:\n\nUnfortunately, parsing an arbitrary token sequence into a fully fledged chat\n(with user turns, assistant responses, tool calls, and so on) is not trivial,\nand the exact process often differs between LLMs. This complexity creates more\nopportunities for bugs that could permit arbitrary code execution on the host\nmachine.\nvLLM and SGLang are complex, and bugs are common\nModern inference engines do more than map token sequences to strings. vLLM’s\ndocumentation lists support for more than 200 model architectures, and its\nexamples directory contains about 35 Jinja chat templates. Modern\ninference engines parse many chat formats, and slightly misspecified parsing\nlogic result in an LLM’s output being interpreted as code to execute.\nIn this vLLM issue, a user was discussing how LLMs reason with MiniMax-M3,\nand the LLM emitted the string <mm:think>. vLLM mistakenly parsed this plain\nstring as the start of a reasoning block. So instead of:\n\nResponse: I'll echo exactly what you said: <mm:think>\\nThere, how was that?\n\nvLLM parsed this as:\n\nResponse: I'll echo exactly what you said: \nReasoning: \\nThere, how was that?\n\nThis is a fairly harmless parser bug, but it demonstrates that inference\nengines do more than convert tokens to strings and concatenate them. They are\ncomplex systems under constant iteration and their developers are under a lot\nof pressure to make them as fast as possible. These factors increase the risk\nthat a malicious LLM could turn a parser bug into arbitrary code execution on\nthe inference host.\nVision and audio tokens might increase the attack surface\nMultimodal architectures allow an LLM to respond with images or audio as well as\nplain text. Turning a model’s audio or visual output into usable media is\nprobably more complicated than decoding text tokens. However, as far as I can\ntell, current multimodal LLMs generally emit constrained media tokens rather\nthan arbitrary file bytes. A model-specific decoder turns those tokens into\npixels or waveforms, which are then encoded into files. This makes classic\nmalformed-file exploits against software such as ffmpeg or media viewers less\ndirectly accessible to the model, although the additional decoders, encoders,\nand native kernels still increase the attack surface.\nI do not currently see multimodal output as a major route to host compromise.\nHowever, it offers much higher bandwidth than text alone, and future inference\nengines may optimise these media-generation pathways in ways that make them\neasier to exploit. I also do not know how proprietary multimodal models\nrepresent image and audio output; their methods may carry different risks.\nHow likely is an LLM to discover and exploit inference engine vulnerabilities?\nSomewhat likely? I’m unsure. Discovering a useful vulnerability is probably the\nharder step. The sequence of tokens required to exploit it might be quite\nunusual, but that does not make the vulnerability impractical to exploit. Given\nthe right context (e.g. an LLM exploring the vLLM codebase and discovering a\nvulnerability in the process), I’d expect a frontier LLM to be able to emit the\ntokens required to exploit it.\nTool use could make exploitation reproducible\nOnce an LLM discovers an exploit token sequence, it could store that sequence,\nor instructions for recreating it, in files, filenames, or URLs likely to enter\nanother LLM’s context. The exploit would then act as a form of persistent\nprompt injection: an agent might trigger code execution on the GPU host merely\nby listing a directory or reading a file.\nInference engines are an attractive target for power-seeking LLMs\nI believe hope that OpenAI, Google, and Anthropic have security teams that\nred-team the software they run internally. But as open-weight LLMs become more\npowerful, we’ll have more LLMs running on bleeding-edge inference engines that\nhave received less scrutiny. This increases the chance that a malicious\nopen-weight LLM will encounter and exploit a vulnerable inference engine.\nAnother attack vector may emerge as LLMs are increasingly tasked with writing or\nmodifying the inference engines that run them, usually to improve performance. A\nmalicious LLM could use that access to plant a backdoor. C++ and CUDA\ncomponents of the inference pipeline seem like especially attractive\ntargets: the LLM could introduce an out-of-bounds memory-access vulnerability\nthat enables arbitrary code execution on the GPUs or on the CPU host that\ncontrols them.\nHow do we defend against this?\nBeyond red-teaming inference engines for vulnerabilities, a few other measures\nmight help:\n\nRun the GPUs and token parser on separate computers. The GPU host would emit\nonly logits. A second host would sample tokens from those logits, parse the\ntokens into chat messages, and forward the messages to the agentic harness.\nThis separation would limit a parser compromise to the CPU host rather than\nthe GPU host.\nRestrict the permissions granted to GPU hosts and treat all data they emit as\nuntrusted.",
+      "rank": 2,
+      "deep": {
+        "summary": "agentic harnessで動くLLMは、生成処理を担う別マシンのinference engineにtoken列を渡す。vLLMではCVE-2025-9141として、Qwen3 Coder向けXML-based tool parserがtool-call parametersの大半をeval()に渡し、ホスト上のarbitrary-code executionを許す不具合が実際に発生した。vLLMは200超のmodel architecturesと約35個のJinja chat templatesを扱うため、文字列をチャット・推論・tool callへ変換するparserが複雑になり、LLM出力をコードとして誤解釈する余地がある。マルチモーダル出力や、LLM自身にC++/CUDAの推論基盤を改修させる運用もattack surfaceを広げうるが、発見・悪用の確率や将来のリスクには不確実性が残る。防御策として、GPUとtoken parserを分離し、GPUホストからはlogitsだけを出力させる構成と、GPUホストの権限・到達先を制限して出力を信頼しない運用が提案されている。",
+        "prerequisites": [
+          {
+            "term": "agentic harness",
+            "stumblingPoint": "記事は「agentic harness such as Claude Code or Codex」と書くが、LLMと推論ホストの境界を知らないと攻撃対象が読み取れない。",
+            "explanation": "agentic harnessは、LLMの応答を受けてコマンド実行やファイル操作を行う制御側のプログラムである。Claude CodeやCodexが動くコンピュータと、モデルの重みをGPUに載せて推論するコンピュータは別になりうる。この記事の攻撃は、エージェントが直接危険な操作をする話ではなく、推論側の出力処理を突破してGPU側のホストへ到達する話である。"
+          },
+          {
+            "term": "inference engine",
+            "stumblingPoint": "記事は「vLLM or SGLang」をすぐ脆弱性の実例として扱うが、単なるモデル実行ランタイム以上の役割が読み取りにくい。",
+            "explanation": "inference engineは重みをGPUへロードし、トークン生成だけでなく、チャットテンプレートの適用やtool call・reasoning blockの解釈まで担うソフトウェアである。そのため、LLMが返した文字列をそのまま連結するだけの部品ではなく、入力を構造化データや実行指示へ変換するparserを含む。この記事では、この追加処理がホスト侵害の境界になる。"
+          },
+          {
+            "term": "arbitrary-code execution",
+            "stumblingPoint": "「arbitrary-code execution bug」と書かれているが、単なる異常終了とホスト侵害の差が読み取れない。",
+            "explanation": "arbitrary-code executionは、攻撃者が選んだコードを対象マシン上のプロセス権限で実行できる状態を指す。推論エンジンのクラッシュなら可用性の問題に留まるが、この状態ではファイル、資格情報、ネットワーク接続などへ処理権限の範囲でアクセスできる。この記事では、その入力を人間ではなく悪意あるLLMが生成する点が通常のAPI攻撃と異なる。"
+          },
+          {
+            "term": "eval()",
+            "stumblingPoint": "vLLMがtool-call parametersを「eval()に渡した」とあるが、なぜ引数処理がコード実行になるのかが読み取れない。",
+            "explanation": "eval()は文字列をデータとして読むのではなく、プログラミング言語の式として評価する仕組みである。したがって、tool-call parametersに細工した式が入ると、引数の値を検証する処理が任意の処理の実行へ変わる。CVE-2025-9141では、Qwen3 Coder向けXML-based tool parserがこの境界を誤って越えていた。"
+          },
+          {
+            "term": "logits",
+            "stumblingPoint": "防御策で「GPU host would emit only logits」とあるが、これでなぜGPUホストへの影響を抑えられるのかが読み取りにくい。",
+            "explanation": "logitsは、次に出す各トークンの候補ごとにモデルが計算した未確率化のスコアである。logitsだけをGPUホストから返し、別のCPUホストでsamplingとチャット解釈を行えば、tool callやreasoning blockを処理するparserをGPUホストに置かずに済む。parserが侵害されても、分離境界の外にあるGPUホストへ直接コードを返せない構成になる。"
+          },
+          {
+            "term": "persistent prompt injection",
+            "stumblingPoint": "「ファイル名やURLに保存されるexploit」がpersistent prompt injectionになるという箇所は、通常のプロンプト注入との関係が分かりにくい。",
+            "explanation": "persistent prompt injectionは、攻撃用の指示やデータが会話中だけでなく、後から読み込まれるファイルや外部リソースに残り続ける形態である。この記事では、悪用トークン列または再生成手順をファイル名・URLなどに埋め込み、別のLLMがディレクトリ一覧やファイル読み取りを行った時点で再投入させる。推論エンジンの脆弱性と組み合わさると、利用者が明示的に攻撃文を入力しなくても発火しうる。"
+          },
+          {
+            "term": "C++/CUDA",
+            "stumblingPoint": "記事は「C++ and CUDA components」を特に魅力的な標的とするが、通常のテンプレート処理との違いが読み取りにくい。",
+            "explanation": "C++/CUDAは推論性能を支えるネイティブコードで、Pythonなどの高水準コードよりメモリ境界を誤る不具合が直接プロセスやGPUメモリへ影響しやすい。LLMが推論エンジンの高速化実装を書き換えられる環境では、意図的なout-of-bounds memory accessを混入させる余地が生じる。この記事では、既存バグを利用する攻撃だけでなく、開発経路へのbackdoor設置も想定している。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "推論ホストへの攻撃経路",
+          "layers": [
+            {
+              "label": "生成側",
+              "nodes": [
+                {
+                  "name": "悪意あるLLM",
+                  "note": "細工したtoken列を生成",
+                  "highlight": true
+                }
+              ],
+              "via": "token列"
+            },
+            {
+              "label": "推論処理",
+              "nodes": [
+                {
+                  "name": "vLLM / SGLang",
+                  "note": "parserが出力を解釈",
+                  "highlight": true
+                }
+              ],
+              "via": "解釈結果"
+            },
+            {
+              "label": "実行先",
+              "nodes": [
+                {
+                  "name": "推論ホスト",
+                  "note": "任意コードが実行されうる",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 7,
+        "lane": "know",
+        "impact": [
+          "vLLM/SGLangを運用する人",
+          "GPUホストでLLMを稼働する人",
+          "LLMに推論基盤を改修させる人",
+          "agentic harnessを接続する人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "`pip show vllm sglang` で稼働バージョンを特定する",
+          "推論エンジンのparser実装を `rg 'eval\\('` で検索する",
+          "GPUホストの権限とネットワーク到達先を最小化する"
+        ],
+        "unknowns": [
+          "脆弱性を発見・悪用できる確率は不明",
+          "商用マルチモーダルLLMの出力形式は不明"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "claude から Comfy MCP on local 経由で Minimax H3 を使う",
+      "url": "https://qiita.com/hxbdy625/items/d2680c85622f10603a38",
+      "publishedAt": "2026-08-24T12:34:39.000Z",
+      "author": "hxbdy625",
+      "authorDetail": {
+        "name": "hxbdy625",
+        "handle": "@hxbdy625",
+        "url": "https://qiita.com/hxbdy625",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/216625/profile-images/1541981929",
+        "bio": "神絵師になりたい",
+        "followers": 14,
+        "posts": 21,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/hxbdy625"
+          }
+        ]
+      },
+      "tags": [
+        "comfyui",
+        "Minimax-h3",
+        "ClaudeCode",
+        "Python",
+        "生成AI"
+      ],
+      "snippet": "はじめに Minimax H3が登場したとき、うちのXのタイムラインはそこそこ盛り上がっていた。 しかし私は触っていなかった。 なぜかというと、マシンスペックがどう考えても足りないと考えていたことと、自分の中でプロンプトを書くという作業と、Comfyのノード編集についての学習コストをハードルに感じていたからなんだけど、今回、 1. Comfyの公式ローカルmcpが出た 1. Minimax H3 軽量版ウェイトがそこそこ出てきた ということで、ハードルに感じていた課題が無くなっていることに気づいたので触ってみることにした。 この記事でやること ・anaconda上の仮想環境pythonを使ってcomfyを使えるようにする。 ・Comfy MCP on local のセットアップを行い、claude desktop に指示を出すだけで動画生成できるようにする。 ・使うモデルは Minimax…",
+      "body": "はじめに\nMinimax H3が登場したとき、うちのXのタイムラインはそこそこ盛り上がっていた。\nしかし私は触っていなかった。\nなぜかというと、マシンスペックがどう考えても足りないと考えていたことと、自分の中でプロンプトを書くという作業と、Comfyのノード編集についての学習コストをハードルに感じていたからなんだけど、今回、\n\n1. Comfyの公式ローカルmcpが出た\n1. Minimax H3 軽量版ウェイトがそこそこ出てきた\n\nということで、ハードルに感じていた課題が無くなっていることに気づいたので触ってみることにした。\n\nこの記事でやること\n・anaconda上の仮想環境pythonを使ってcomfyを使えるようにする。\n・Comfy MCP on local のセットアップを行い、claude desktop に指示を出すだけで動画生成できるようにする。\n・使うモデルは Minimax H3。\n\nよくわかる動作イメージ\n \n\n弊環境\nRAMはさておき、弱い。\n\n| | |\n|:-:|:-:|\n| OS | Windows 11 |\n| CPU | i7-12700K |\n| RAM | DDR4 64GB |\n| GPU | NVIDIA GeForce RTX 3070 Ti (VRAM 8GB) |\n\n環境構築\n基本ここを読んで進めれば良い。\n今までcomfy local mcpにはサードパーティ製のモノしか無かったが\nつい最近、公式のmcpが登場したので、今回純正mcpを使う。\n\nhttps://docs.comfy.org/agent-tools/mcp#local-comfy-mcp-connection\n\n尚、pythonはanaconda上の仮想環境で動かす。\nもちろんvenvだろうがuvだろうがpythonが動いてるならなんでも良い。\nパスを適宜読み替えてください。\n\n準備\n\n0.仮想環境の準備\npython 3.10.20 の仮想環境 comfy-mcp を作成した。\n\n:::note info\ncomfyの要件として、python --ver >=3.10.Xが求められています。\n:::\n\n1.comfyのインストール\nインストール\n [code] \n起動確認\n [code] \n起動に成功したら一旦Ctrl+Cで止めて、起動オプションを追加する。\nVRAM 8GBという弱小も弱小なので、以下起動時のデフォルトオプションをセットしておく。\n\n [code] \n\n:::note info\n上記設定によりオプション --lowvram --disable-pinned-memory はデフォルトで付加されるようになる。\n次回以降の起動時には\n [code] \nと書いて起動するだけで済む。\n逆にこの状態でオプションをつけてCLIから起動すると、set-defaultに記載のオプションは適用されなくなる。\nさらに言うと今回はclaudeに起動終了もやってもらうため、今後意識する必要は無い。\n:::\n\n2.仮想環境であることをclaudeに伝える\nclaudedesktopconfig.jsonにcomfyのパスを教えてあげる。\n\nclaudedesktopconfig.jsonはここから開ける。\n \n以下を追記してclaude codeを再起動しておく。\n [code] \n\n:::note warn\nclaudedesktopconfig.jsonに書いたファイルパスについては、claude desktop再起動時に読み込まれている模様。成功すると特に何も言われない。書き方が誤っていたりすると右下にエラーが出てくるので注意。\n:::\n\n3.claudeとの接続確認\n [code] \nした状態でclaude desktopで接続を確認する。\n\n \nこうなってたらOK\n\n4.Minimax H3 セットアップ\n公式はここ\n\nhttps://huggingface.co/Comfy-Org/MiniMax-H3\n\n必要なファイルをDLして以下に配置する。(大容量注意)\nよわよわスペックなので、基本的にダウンロードするファイルはint8を選ぶ。\n\n| ファイル名および配置先 | 容量 |\n|:-:|:-:|\n| \"C:\\Users\\XXX\\Documents\\comfy\\ComfyUI\\models\\textencoders\\qwen3vl32bminimaxh3nvfp4awq.safetensors\" | 14.6 GB |\n| \"C:\\Users\\XXX\\Documents\\comfy\\ComfyUI\\models\\loras\\minimaxh3fl2vlightx2vturbo4stepv1.0768presizedavgrank31bf16.safetensors\" | 420 MB |\n| \"C:\\Users\\XXX\\Documents\\comfy\\ComfyUI\\models\\vae\\minimaxh3videovaefp16.safetensors\" | 4.84 GB |\n| \"C:\\Users\\XXX\\Documents\\comfy\\ComfyUI\\models\\diffusionmodels\\minimaxh3fl2vaint8convrot.safetensors\" | 31.7 GB |\n\nブラウザからダウンロードしても良いですが、大容量のためタイムアウトしたりでダウンロードに失敗する可能性があります。そのため、今回はCLIからダウンロードする方法をとります。(3敗)\n\n [code] \n\nリンクパスは以下手順で取得できる。\n\n \n\n \n\n準備完了 ！！\n\nclaudeに動画作成を依頼してみる\nSonnet 5 Highに依頼。2秒の動画を依頼して、所要時間は3分ぐらい。かかるなぁ。\n\n \n\nそして生成結果が以下\n\n \n\n!?!?!?!?!?????? www\nホラーすぎる。な、何.....??\n手やなくて、雨が降っとるやないかーーーい🖕💦\n\n結論:雑な依頼はできない\nこういう残念な結果を避けるためにも、claudeにはプロンプトの作成もお願いすることを明記したほうが良さそう。(もしくは>=Opusを使うとか。)\n直接Comfyを触る案もあるけど、今までセットアップして来たものの本末転倒感。\n(一応トライはしました。ノード編集がやっぱりめんどく、claudeに依頼すると、あっさり作ってくれたので、セットアップはclaudeにまかせてしまえばいいと思います。)\n\n \nアス比設定方法について聞いただけなのに、ワークフローを作って更新までやってくれた図\n\n終わりに\nこういった環境構築に関してもAIエージェントに言えば全部やってくれるいい時代。\nComfyの環境構築ページには、困ったらこのページをAIに見せて進めるのが1番！って\n書いてあって少し悲しみを感じた。\n\n \n\nhttps://docs.comfy.org/agent-tools/mcp\n\n参考\nMinimax H3登場からあまり日が経っていないがアツいコンテンツなので、どんどん軽量化や、さらなる高速化を狙えるモデルが登場したりしている。ここで紹介しているウェイトなどはもはや参考にすらならないのかもしれない。\n・ちょっとテクそうだけどこういう記事がある\n\nhttps://note.com/wstudiotech/n/n58f921a50788",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "18c1a6fd21413a45",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6369844786015673,
+      "popularityPercentile": 0.25063291139240507,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "Comfy MCP on localを使いClaudeからMinimax H3で動画を生成する手順を紹介する。",
+      "takeaways": [
+        "ClaudeからComfyUIを操作して動画を作れる。",
+        "軽量版のMinimax H3をローカルで動かす。",
+        "Windows 11とRTX 3070 Tiでの構築例を示す。"
+      ],
+      "keywords": [
+        "Comfy MCP on local",
+        "ComfyUI",
+        "Minimax H3",
+        "Claude Code",
+        "Python"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "この記事では、Anaconda上のPython 3.10.20仮想環境にComfyUIを構築し、公式のComfy MCP on local経由でClaude Desktopから動画生成を指示する。GPUはRTX 3070 Ti（VRAM 8GB）で、`--lowvram`と`--disable-pinned-memory`を既定オプションに設定している。Minimax H3はHugging FaceのウェイトをComfyUIの`textencoders`、`loras`、`vae`、`diffusionmodels`へ配置し、弱いGPU向けにint8のファイルを選ぶ。2秒動画は約3分で生成できたが、雑な依頼では手の代わりに雨が降るような破綻した結果になった。Claudeには動画生成だけでなく、プロンプト作成やComfyのワークフロー編集まで依頼するのが実用的だとしている。",
+        "prerequisites": [
+          {
+            "term": "Comfy MCP on local",
+            "stumblingPoint": "記事は「公式のComfy MCP on local」と書いているが、通常のMCPサーバーと何が違うか分からないと構成を追えない。",
+            "explanation": "ここでのlocalは、ComfyUIを自分のPC上で起動し、Claude DesktopからローカルのComfyUIへ接続する構成を指す。クラウド上の動画生成サービスを呼ぶのではなく、モデルの配置先と推論処理が手元の環境になるため、GPUメモリやローカルパスが成否に直結する。"
+          },
+          {
+            "term": "Claude Desktop",
+            "stumblingPoint": "記事は「claude desktopに指示を出すだけ」と書いているが、Claude CodeではなくClaude Desktopを設定する点で手が止まりやすい。",
+            "explanation": "接続設定を書き込む対象は`claude_desktop_config.json`であり、記事の操作主体はデスクトップ版Claudeである。Claude DesktopがMCPサーバーを起動し、ComfyUIの起動やワークフロー操作を仲介するため、CLIのClaude Codeだけを使っている環境とは準備箇所が異なる。"
+          },
+          {
+            "term": "VRAM 8GB",
+            "stumblingPoint": "「VRAM 8GBという弱小」とあるが、モデル容量の大きさと実行時の制約がどう結び付くか読み取りにくい。",
+            "explanation": "VRAMはGPU上でモデル計算に使えるメモリで、8GBでは大きな動画モデルを通常設定のまま載せにくい。この記事ではComfyUIの起動時に低VRAM向けオプションを付け、さらにMinimax H3の軽量なウェイトを選ぶことで実行を試みている。"
+          },
+          {
+            "term": "--lowvram",
+            "stumblingPoint": "記事は`--lowvram`をデフォルトで付加すると説明しているが、なぜ起動オプションが必要なのかが省略されている。",
+            "explanation": "`--lowvram`は、VRAMが少ない環境でComfyUIを動かすために使われる起動オプションとして記事で指定されている。毎回手動で付けるのではなく、set-defaultに登録して`comfy launch`だけで同じ条件を適用するのが今回の運用方法である。"
+          },
+          {
+            "term": "--disable-pinned-memory",
+            "stumblingPoint": "`--disable-pinned-memory`が`--lowvram`と同時に設定されているが、GPUメモリ不足との関係が分かりにくい。",
+            "explanation": "記事ではRTX 3070 TiのVRAM 8GB向けに、このオプションも起動時のデフォルトへ追加している。ComfyUIの起動条件を毎回同じにするための設定であり、CLIから別のオプションを付けて起動するとset-default側の設定が適用されなくなる点に注意が必要である。"
+          },
+          {
+            "term": "int8",
+            "stumblingPoint": "記事は「基本的にダウンロードするファイルはint8を選ぶ」とするが、表の各ウェイトが何を担当するかを知らないと配置の意味が分からない。",
+            "explanation": "int8はモデル重みを8ビット整数形式で保持する量子化形式で、記事では弱いGPU環境で使う候補として選ばれている。Minimax H3ではtext encoder、LoRA、VAE、diffusion modelのファイルをそれぞれ所定のComfyUIディレクトリへ置き、1つだけでなく一式を揃える必要がある。"
+          },
+          {
+            "term": "qwen3vl32bminimaxh3nvfp4awq",
+            "stumblingPoint": "`qwen3vl32bminimaxh3nvfp4awq.safetensors`のような長いファイル名が突然出てくるため、どの役割のモデルかで詰まりやすい。",
+            "explanation": "この記事の表では、このファイルは`models\\textencoders`に置くtext encoderとして扱われている。diffusion model本体やVAEとは配置先が違うため、ファイル名だけでなくComfyUI内のディレクトリまで一致させる必要がある。"
+          },
+          {
+            "term": "safetensors",
+            "stumblingPoint": "各モデルの拡張子が`safetensors`だが、通常のファイルとして置けばよいのか、特別な変換が必要なのかが読み取りにくい。",
+            "explanation": "記事ではHugging Faceから取得した`safetensors`ファイルを変換せず、ComfyUIの対応するモデルディレクトリへ配置している。容量はtext encoder 14.6GB、diffusion model 31.7GBなど非常に大きく、ダウンロード方法と空き容量が実行前の現実的な障害になる。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "Claudeから動画生成",
+          "layers": [
+            {
+              "label": "指示する側",
+              "nodes": [
+                {
+                  "name": "Claude Desktop",
+                  "note": "自然言語で依頼",
+                  "highlight": true
+                }
+              ],
+              "via": "MCP接続"
+            },
+            {
+              "label": "仲介",
+              "nodes": [
+                {
+                  "name": "Comfy MCP",
+                  "note": "ローカル接続",
+                  "highlight": true
+                }
+              ],
+              "via": "ComfyUI操作"
+            },
+            {
+              "label": "実行環境",
+              "nodes": [
+                {
+                  "name": "ComfyUI",
+                  "note": "ワークフロー実行",
+                  "highlight": false
+                }
+              ],
+              "via": "モデル読込"
+            },
+            {
+              "label": "モデル",
+              "nodes": [
+                {
+                  "name": "Minimax H3",
+                  "note": "動画生成モデル",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.ap-northeast-1.amazonaws.com%2F0%2F216625%2F636c1c67-1790-4db1-b1ed-5fb58be4691f.png?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=d88141b4088a103ab7d6aac33cd3d2d0",
+            "alt": "スクリーンショット 2026-08-23 210220.png",
+            "caption": "`claude_desktop_config.json`にAnaconda環境内のComfyのパスを登録し、Claude Desktop再起動後に読み込ませる設定箇所。"
+          },
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.ap-northeast-1.amazonaws.com%2F0%2F216625%2F82801b68-82f7-4b5c-b4bf-095c0bbb1a63.png?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=d99b72db4797e1f25006d4d7987e36cd",
+            "alt": "スクリーンショット 2026-08-23 210220.png",
+            "caption": "`launch (comfy-mcp) > comfy launch`後、Claude Desktop側でComfy MCPとの接続を確認できている状態。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Comfy MCP on local公式ドキュメント",
+            "url": "https://docs.comfy.org/agent-tools/mcp#local-comfy-mcp-connection"
+          },
+          {
+            "label": "Comfy MCP公式ドキュメント",
+            "url": "https://docs.comfy.org/agent-tools/mcp"
+          },
+          {
+            "label": "MiniMax H3公式ウェイト",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3"
+          },
+          {
+            "label": "関連する高速化記事",
+            "url": "https://note.com/wstudiotech/n/n58f921a50788"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "build",
+        "unlocks": [
+          "Claudeへの指示だけでComfyUIから動画を生成できる",
+          "ClaudeにComfyのワークフロー編集まで任せられる"
+        ],
+        "howToTry": [
+          "https://docs.comfy.org/agent-tools/mcp#local-comfy-mcp-connection",
+          "Anaconda上にPython 3.10.20の仮想環境`comfy-mcp`を用意し、記事のComfyUIインストール手順を実行する。",
+          "ComfyUIを一度起動確認した後、`--lowvram`と`--disable-pinned-memory`をset-defaultへ登録し、以降は`comfy launch`で起動する。",
+          "`claude_desktop_config.json`へ仮想環境内のComfyのパスを追記してClaude Desktopを再起動し、`launch (comfy-mcp) > comfy launch`で接続を確認する。",
+          "Hugging FaceからMinimax H3の必要ウェイトを取得し、`models\\textencoders`、`loras`、`vae`、`diffusionmodels`へ配置した後、Claude Desktopに2秒動画の生成を依頼する。"
+        ],
+        "fitFor": [
+          "Windows 11上でRTX GPUとVRAM 8GB前後を使うとき",
+          "ComfyUIのモデルをローカルに保存できるとき",
+          "Claude Desktopから自然言語で動画生成したいとき"
+        ],
+        "notFor": [
+          "Claude Desktopを使えない環境",
+          "数十GBのモデルファイルを保存できない環境",
+          "生成結果を毎回高品質にしたいとき"
+        ],
+        "caveats": [
+          "モデル一式だけで約51GBあり、保存容量が必要"
+        ],
+        "trial": null
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "nateherkai/scroll-craft — Claude Code skill for premium scroll-driven websites. Scroll becomes the timeline, on a real design floor, verified by screenshotting its own scroll.",
+      "url": "https://github.com/nateherkai/scroll-craft",
+      "publishedAt": "2026-08-22T15:25:08.000Z",
+      "author": "nateherkai",
+      "authorDetail": {
+        "name": "nateherkai",
+        "url": "https://github.com/nateherkai",
+        "avatarUrl": "https://github.com/nateherkai.png?size=120",
+        "bio": "Claude Code skill for premium scroll-driven websites. Scroll becomes the timeline, on a real design floor, verified by screenshotting its own scroll."
+      },
+      "tags": [
+        "JavaScript",
+        "accessibility",
+        "agent-skills",
+        "ai-web-design",
+        "anthropic",
+        "claude-code",
+        "claude-code-plugin",
+        "creative-coding"
+      ],
+      "snippet": "Claude Code skill for premium scroll-driven websites. Scroll becomes the timeline, on a real design floor, verified by screenshotting its own scroll.",
+      "metrics": {
+        "stars": 618
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "e944896bc1021ccb",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.9225000000000001,
+      "popularityPercentile": 0.875,
+      "matchedTopics": [
+        "JavaScript",
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 57,
+      "titleJa": null,
+      "oneLiner": "Claude Code skill for premium scroll-driven websites. Scroll becomes the timelin…",
+      "takeaways": [],
+      "keywords": [
+        "JavaScript",
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "category": "その他",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "scrollcraft\n\nA Claude Code skill that builds premium, scroll-driven websites, and holds them to a real design standard.\n\nMost AI website output fails in one of two directions. It is either well behaved and forgettable, or it is a flashy scroll animation with 2.1:1 body text, a headline that wraps to six lines on a phone, and the same six sections every other AI page has. scrollcraft is built to fail neither way: it treats interaction and craft as one job rather than two.\n\n \n \n\n---\n\nThree builds, three completely different pages\n\nSame skill, same engine, no shared skeleton. The differences below are not themes: they are different page grammars, different navigation models, different endings.\n\nOrrery · a travel practice\nOne unbroken world. The whole page is a single fixed stage: you fall into a handmade scale model of the Earth, land in Kyoto, cross to Patagonia and the Sahara, and rise back to the workbench you started on. No section boundaries anywhere.\n\n \n\nPERKFORM · a protein coffee\nA filmic one-shot that hard-cuts to two full-bleed inverted grounds mid-page. Loud, product-forward, and the only one of the three that raises its voice.\n\n \n\nFallowbank · a landscape design-build studio\nQuiet, documentary, restrained. Museum-label copy over real photography, and a close that is a line of running text rather than a button.\n\n \n\n---\n\nWhat it actually does\n\nInteraction, engagement, and being unrepeatable\n・Scroll is the timeline. Video scrubs frame by frame under the wheel, sections pin while their argument advances, rails pan sideways, headlines assemble line by line, the page ground shifts colour as you travel, and the pointer moves things that are not scrolling.\n・Eight mutually exclusive page grammars. Filmic one-shot, chaptered editorial, live surface, continuous world, typographic poster, gallery, split stage, rhythmic cutlist. Each one forbids what the others require, so two builds cannot quietly converge.\n・A required signature move. Every build invents one bespoke interaction that exists on that site alone. A recoloured spotlight does not count.\n・A fingerprint gate. A new build must differ from every page you have already made on at least 4 of 6 dimensions: grammar, nav, hero, act shape, close, signature move. Fail it and you change the plan, not the record.\n\nCraft, and how the page actually feels\n・A feeling curve before any act exists. One line per act: the emotion, then what on screen causes it. Two adjacent acts with the same feeling means one is filler.\n・One engineered peak. Peak-end rule, applied literally. The peak gets the asset budget, the silence in front of it, and the most scroll room. A page with three peaks has none.\n・A typography floor. Two families maximum, tracking that tightens as size grows, 45 to 75ch measure, line height inverse to measure, and light-on-dark compensated on three axes.\n・A spacing scale with actual rhythm. 4px base, more space above a heading than below it, fluid section padding so a phone does not inherit desktop air.\n・Colour with six roles and one accent, secondary text tinted rather than flat grey, no pure black, and a documented escape for pages that hard-cut between light and dark grounds.\n・Depth as five tools, not one. Offset shadows, edge light, scale-and-blur as distance, overlap, and grain.\n・Brand guidelines are inputs, not decoration. Point it at a brand kit and its hard rules win, including rules that forbid things the skill would otherwise reach for.\n・A refuse list. Identical feature-card grids, 01 / 06 counters, scroll cues, gradient text, em dashes, invented statistics, fake dashboards, AI-purple gradients, and the cream-and-brass artisan palette every craft brand defaults to.\n\nIt checks its own work\n\nA headless browser walks the finished page at every scroll position, waits for the video playhead to settle, and reports:\n・dead scroll: scroll that changes nothing on screen\n・cues that never reach full opacity: copy the reader can only ever see faded\n・contrast measured on the composited page, per line, at the brightest frame that ever passes under it, with the direction picked per line so light-on-dark and dark-on-light are both graded correctly\n・legs stuck on a poster: a clip that silently never decoded, which looks exactly like a paused film\n\nThen it writes a contact sheet, because a machine can prove a page works and cannot tell you it means anything.\n\n---\n\nInstall\n\n [code] \n [code] \n\nThen use it by describing what you want, or invoke it directly:\n\n [code] \n\nIf the install summary says Run /reload-plugins to activate., run that.\n\nTo hack on the skill without installing:\n\n [code] \n\nFirst run\n\n [code] \n\nRun doctor before anything else. The three most common setup faults all surface later as misleading errors otherwise: a stripped ffmpeg reports a missing filter as a syntax error in your command, a missing WebP muxer reports as a bad filename, and playwright-core resolves from the wrong directory.\n\nRequirements\n\n| | Why | Notes |\n| --- | --- | --- |\n| Node 18+ | every script | |\n| A full ffmpeg build | encoding clips so they scrub rather than play | Some toolchains put a stripped ffmpeg on PATH with 50 filters and no scale. doctor finds a real build if one exists; SCROLLCRAFTFFMPEG overrides. |\n| playwright-core + Chrome | the verification pass | npm i playwright-core in the build folder |\n| KIEAIAPIKEY | only if you want assets generated | Optional. Building from your own photos and footage needs no key and no spend, and it is a first-class route. See .env.example. |\n\nThe workspace\n\nYour builds and your fingerprint registry live in one directory, resolved rather than assumed. First hit wins:\n\n1. SCROLLCRAFTHOME\n2. the nearest .scrollcraft.json walking up from the current directory: { \"workspace\": \"path/to/builds\" }\n3. /scrollcraft\n\nBuilds land in /builds/ /; your registry is /FINGERPRINTS.md.\n\nYour registry starts empty, and that is correct. The gate exists to stop you repeating yourself, so your first build has nothing to clear and every build after it does. EXAMPLES.md is the author's twelve-row table, included so you can see what a filled registry looks like and which shapes tend to collide. It is illustration, not constraint.\n\nWhat is in here\n\n [code] \n\nCHANGELOG.md is worth reading on its own: it records what broke on each build and the rule that came out of it, rather than a feature list.\n\nThe one rule that matters most\n\nThe engine is the mechanism and it is never edited per project. Theme it with six colour tokens and two fonts, write your own semantic HTML, and drive anything bespoke off the --sc-p custom property the engine publishes. A runtime that builds the page from a config object is exactly why every site built on one looks the same.\n\nHonest limitations\n・Only ever run on Windows. The scripts look for ffmpeg and Chrome in Windows, macOS and Linux locations, but no build has been done on a Mac. SCROLLCRAFTFFMPEG and SCROLLCRAFTCHROME override the search.\n・Generated video is not free. A ten-leg continuous-world flight is a real spend. A page built from your own assets costs nothing.\n・It is opinionated on purpose. It will refuse the layouts and palettes that make AI pages recognisable, and it will argue with you about your peak. If you want a page that looks like everything else, this is the wrong tool.\n\nLicence\n\nMIT. See LICENSE.",
+      "rank": 2,
+      "deep": {
+        "summary": "scrollcraftは、Claude Codeでプレミアムなスクロール駆動サイトを作るためのskillです。スクロールをタイムラインとして扱い、動画のフレーム送り、固定表示、横移動、段階的な見出し表示などを組み合わせます。8種類の相互排他的なpage grammarsと、既存ページとの差分を4/6項目で判定するfingerprint gateにより、毎回同じAIサイトになることを避けます。各ページには固有のsignature moveを1つ要求し、感情曲線と1つのピークを先に設計します。完成後はheadless browserが全スクロール位置を検査し、dead scroll、コントラスト、未再生動画を確認してcontact sheetを出力します。doctor、full ffmpeg build、playwright-core + Chromeが必要で、生成アセットを使う場合だけKIEAIAPIKEYが必要です。",
+        "prerequisites": [
+          {
+            "term": "page grammars",
+            "stumblingPoint": "「Eight mutually exclusive page grammars」とあるが、単なるテーマ違いではない理由が読み取りにくい。",
+            "explanation": "page grammarsは配色や部品のセットではなく、ページ全体の進み方・ナビゲーション・終わり方を決める構成規則です。たとえばfilmic one-shotでは映像的な一続きの展開を選び、continuous worldではセクション境界のない世界を作ります。互いに要求する構成が違うため、同じ雛形をテーマだけ差し替える作り方を避けられます。"
+          },
+          {
+            "term": "fingerprint gate",
+            "stumblingPoint": "「少なくとも4 of 6 dimensionsで異なる」とあるが、何を比較して作り直す仕組みなのかが分かりにくい。",
+            "explanation": "fingerprint gateは、新しいページを過去の自作ページと比較する重複チェックです。grammar、nav、hero、act shape、close、signature moveの6軸のうち4軸以上が異ならない場合、実装を進めずに計画を変更します。registryが最初は空なのは正常で、2作目以降のマンネリ化を止めるために使われます。"
+          },
+          {
+            "term": "signature move",
+            "stumblingPoint": "「required signature move」とあるが、単なるアニメーション追加と何が違うのかで手が止まる。",
+            "explanation": "signature moveは、そのサイトにしか存在しない中心的な操作や展開です。単にspotlightの色を変えるような装飾では条件を満たしません。ページの内容やナビゲーションと結びついた、他の制作物へそのまま移植できない一手を考える必要があります。"
+          },
+          {
+            "term": "feeling curve",
+            "stumblingPoint": "「A feeling curve before any act exists」と先に感情を書く理由が、通常の画面設計と結びつきにくい。",
+            "explanation": "feeling curveは、各actで読者に与える感情と、その感情を画面上で起こす要因を1行ずつ定めるものです。隣接するactの感情が同じなら、内容のない区間として削る判断になります。先に画面部品を並べるのではなく、スクロールの時間配分を体験の起伏から決めるための設計です。"
+          },
+          {
+            "term": "dead scroll",
+            "stumblingPoint": "検証項目の「dead scroll」が、単にスクロール量が多いページを指すのか分からない。",
+            "explanation": "dead scrollは、スクロールしているのに画面上の変化が何も起きない区間です。scrollcraftは完成ページを各スクロール位置まで自動走査し、固定要素・動画・文字・背景などが変化しない空白を報告します。長い余白を演出として使う場合も、意図した無変化なのかを確認できます。"
+          },
+          {
+            "term": "full ffmpeg build",
+            "stumblingPoint": "「stripped ffmpeg」や「missing filter」が出てくるが、なぜ動画のスクラブ準備で問題になるのか分かりにくい。",
+            "explanation": "動画をスクロールに合わせてフレーム単位で動かすには、クリップのエンコードや変換に必要なffmpegフィルターが揃っている必要があります。PATH上の軽量版はscaleなどのフィルターを欠き、実際にはコマンド側の構文エラーのように見えることがあります。doctorは利用可能な本体を探し、必要ならSCROLLCRAFTFFMPEGで場所を指定します。"
+          },
+          {
+            "term": "playwright-core",
+            "stumblingPoint": "「playwright-core + Chrome」が必要とあるが、通常のPlaywright導入と何が違うか判断しづらい。",
+            "explanation": "ここでのplaywright-coreは、完成ページをheadless browserから開いてスクロール検証するための実行部品です。記事ではbuild folderでnpm i playwright-coreを実行する構成が示されています。Chrome本体も必要で、coreだけを入れても検証用ブラウザそのものは提供されません。"
+          },
+          {
+            "term": "contact sheet",
+            "stumblingPoint": "「contact sheetを作る」とあるが、検証レポートとの役割分担が分かりにくい。",
+            "explanation": "contact sheetは、複数のスクロール位置をまとめて見られる画像です。自動検証はdead scrollやコントラストのような機械的な成立性を判定できますが、ページが意味のある体験になっているかは判定できません。そこで各地点の見た目を一覧化し、人間が構成やピークの妥当性を確認できるようにします。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "制作と検証の流れ",
+          "steps": [
+            {
+              "label": "感情を設計",
+              "detail": "actごとの感情と画面効果を決める"
+            },
+            {
+              "label": "文法を選択",
+              "detail": "8種類からページ構成を1つ選ぶ"
+            },
+            {
+              "label": "固有性を設計",
+              "detail": "signature moveを1つ発明する"
+            },
+            {
+              "label": "ページを実装",
+              "detail": "HTMLとスクロール演出を組み立てる"
+            },
+            {
+              "label": "自動検証",
+              "detail": "全スクロール位置と動画を走査する"
+            },
+            {
+              "label": "見た目を確認",
+              "detail": "contact sheetで意味を人が判断する"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "GitHubリポジトリ",
+            "url": "https://github.com/nateherkai/scroll-craft"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "build",
+        "unlocks": [
+          "スクロールで動画をフレーム単位に進めるページを作れる",
+          "AIサイトの定番構成を自動で弾ける"
+        ],
+        "howToTry": [
+          "https://github.com/nateherkai/scroll-craft",
+          "リポジトリのInstall欄にあるClaude Code向けのインストール手順を実行する（本文ではコマンドが欠落）。",
+          "インストール概要に「Run /reload-plugins to activate.」と表示されたら、Claude Codeで`/reload-plugins`を実行する。",
+          "Claude Codeで作りたいサイトを文章で指定するか、scrollcraftを直接呼び出す。具体的な呼び出しコマンドは本文では欠落している。",
+          "最初にdoctorを実行し、ffmpeg、Chrome、playwright-coreの解決状態を確認してから制作を始める。"
+        ],
+        "fitFor": [
+          "WindowsでClaude Codeを使い、スクロール演出を実装したいとき",
+          "自前の写真や動画を使って生成費用なしで作るとき",
+          "完成ページをスクリーンショットで機械検証したいとき"
+        ],
+        "notFor": [
+          "macOSで動作実績のある構成が必要なとき",
+          "KIEAIAPIKEYなしで生成アセットを使いたいとき",
+          "既存の定番レイアウトや配色をそのまま再利用したいとき"
+        ],
+        "caveats": [
+          "macOSではビルド実績がなく、動作保証がない"
+        ],
+        "trial": null
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Coding expertise is going to collapse from AI reliance",
+      "url": "https://larsfaye.com/articles/ai-coding-will-prevent-expertise",
+      "publishedAt": "2026-08-24T15:52:33.000Z",
+      "author": "larsfaye",
+      "authorDetail": {
+        "name": "larsfaye",
+        "handle": "larsfaye",
+        "url": "https://news.ycombinator.com/user?id=larsfaye"
+      },
+      "tags": [],
+      "snippet": "\"We see a future where intelligence is a utility like electricity or water and people buy it from us on a meter and use it for whatever they want to use it for\" - Sam Altman of OpenAIIn my previous article, Agentic Coding is a Trap, I discussed the \"skilled orchestrator paradox\", where the skills required to manage AI agents for coding are the same ones that can be diminished through the continued…",
+      "metrics": {
+        "points": 381,
+        "comments": 392
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "d87ff9ae71bab22e",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.20777777777777778,
+      "popularityPercentile": 0.9444444444444444,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 90,
+      "titleJa": "AI依存でプログラミング技能は崩壊するのか",
+      "oneLiner": "AIへの依存が進むとコーディング技能が失われるという懸念を示す記事です。",
+      "takeaways": [
+        "AIへの依存で技能が衰える懸念を示す。",
+        "記事本文の情報は提供されていない。",
+        "Hacker Newsで392件のコメントを集めた。"
+      ],
+      "keywords": [
+        "AI",
+        "コーディング技能",
+        "Hacker News",
+        "AI依存"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIに任せるか自分で書き続けるか",
+        "forSide": "AIへの依存が続けば設計や検証まで任せる危険がある。",
+        "againstSide": "定型的な実装を任せれば上位の設計や判断に集中できる。",
+        "oneSided": true,
+        "yourAngle": "AIコーディングエージェントが実装時間と手戻りに与えた実測値を出せる。"
+      },
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "\"We see a future where intelligence is a utility like electricity or water and people buy it from us on a meter and use it for whatever they want to use it for\" - Sam Altman of OpenAIIn my previous article, Agentic Coding is a Trap, I discussed the \"skilled orchestrator paradox\", where the skills required to manage AI agents for coding are the same ones that can be diminished through the continued use of said AI agents. Expertise was largely the differentiator; the more experienced a developer is, the less likely it is that they might experience skill atrophy, as the knowledge has had a chance to ossify after years of experience.If you look around right now, you'll find the vast majority of those that are seeing the most benefits from these models are those that have had years, if not decades, of experience in the field (which predates AI tooling, of course). And any industry veteran will tell you the same: the bedrock of this knowledge comes from doing the work.Developers who've entered the field around the time of LLMs are placed in a position where they don't have the benefit of longevity, but they are being guided (and sometimes mandated) to accelerate their efforts using coding assistants that require a history of expertise to wield effectively and responsibly.It's an awkward place to be for that demographic, as it creates a scenario where a novice needs expert-level skills to leverage the tools and keep pace in the industry.The \"Expert Novice\"We're currently sending very mixed signals to people across the industry. We're hammering in that if you're not using AI tools, you will be \"left behind\" by your peers who are using them. \"AI won't replace you, someone using AI will\" has been on repeat since 2023.And in the same breath, it's also said that the way to get the best results from these models is to apply higher-order thinking; \"vibe coding\" is a dead end; you need to \"move up the stack\" and create robust specs, architect with good design patterns, and always review the outputs diligently so you never ship something you don't understand.The skills to do so, however, are a function of someone who has experienced the friction and challenges over time that culminate in \"good taste\".This leads to another situational paradox: If these tools demand expertise, yet the tools can actively circumvent the friction that cultivates expertise, then what is the path for one to become an expert so they can effectively use these tools?Confidence without ComprehensionOne hope is that these models will end up accelerating learning as they are used for code generation. Junior developers can work with the same gravitas and confidence as industry veterans with their \"personal AI tutor\". Knowing syntax is increasingly less important, and any knowledge or ambiguity gaps are filled by the AI tool. The deeper mechanics of the code stay abstracted away, since the developer sits higher in the stack.JetBrains, a major player in developer tools, recently cited a study titled \"The Widening Gap: The Benefits and Harms of Generative AI for Novice Programmers\", which painstakingly analyzed individual behaviors in live coding sessions, and tested their ability to learn coding with varying degrees of AI assistance. Their main takeaway was stark and counterintuitive:\"Participants thought it was like having a personal tutor. From the data in our study ... we observed that they did not, in fact, use GenAI tools like a personal tutor. In fact, it was quite the opposite.\"The participants that leaned into heavier AI assistance:\"Often skipped crucial planning stages, finding that because they hadn’t reasoned themselves into this position, Copilot had.\"\"Finished with an 'illusion of competence' rather than true understanding.\"Counter to that, the participants that mitigated their usage of AI:\"Succeeded because they had developed 'negative expertise'—which is 'the ability to ignore incorrect or unhelpful GenAI suggestions'—allowing them to focus on writing their own solutions rather than being led astray.\"\"Were able to use GenAI to accelerate, creating code they already intended to make.\"The novice developers who were the most unrestricted and confident in their AI usage \"had skipped crucial steps in the programming problem-solving process, and were now lost.\"Perhaps unsurprisingly, the novice developers who performed the best were the ones that greatly mitigated or outright ignored the AI coding assistance.Inverted LearningDue to the self-directed nature of LLMs, the more experience you have, the more benefit they provide since you can accurately steer, audit, and verify the outputs. The less knowledge you have, the more they can mislead you. Interacting with LLMs for learning new skills takes the shape of an \"inverted learning\" model, a role reversal where the student is initially guiding the mentor, the mentor responds, and then the student, again, steers the mentor.The process is precarious; LLMs are incredibly sensitive to the shape of the prompt. When you're exploring new domains, you don't know what you don't know, and the malleable and accommodating design of an LLM can lead you to believe you know more than you actually do.If you're exploring territory that is even somewhat unfamiliar, you often don't even know the questions that you need to ask that could properly guide the model to providing the best answers. It begins to feel like a compass that always points north, wherever you suggest north might be.From the same study that JetBrains highlights, even the most prepared students were derailed by the AI assistance due to this type of learning model: One participant demonstrated good fundamental planning and habits, but suddenly \"skipped crucial problem-solving planning stages, jumping directly to coding and was enticed by Copilot into quickly producing code\" and had to rely on the LLM to fix the error that the LLM introduced in the first place.AI models lack judgment, empathy, and pedagogical intent, and the solutions provided are not rooted in experience but rather in patterns in the training data (LLMs are, at their core, incredibly complex pattern interpolators).The infinite answer machine is tempting, and known to be addictive. It can unwind rather quickly, especially for inexperienced developers. Once you get deep enough into a generated solution, you are often beholden to the AI tool to also finish the job, circumventing the problem-solving friction that is required for the formation of a mental model (and to be fair, senior developers are prone to this phenomenon, as well).The Friction is a FeatureExpertise and mastery don't happen purely through observation and dialogue, but through experience, repetition, and trial and error; you have to fail to succeed. If I wanted to learn how to cook, I could watch a Master Chef work and make endless inquiries. After a month, I would be able to describe the perfectly medium-rare ribeye but never know what it's like to cook one, and I'd almost certainly overcook it on my first attempt.Coding has endless moments of tracing obscure errors with no log file to help, experiencing the subtle performance differences of certain methods, or having to rewrite an approach when it's clear it won't going to scale.This applied friction is directly what builds \"developer intuition\" (or \"taste\"). The Germans have a great word for this: Fingerspitzengefühl (fingertip feeling). It’s the muscle memory that triggers when a developer looks at something and thinks, “yeah...this is probably going to cause problems.” By avoiding the mechanics of the struggle, this intuition is never built.In UPenn's large-scale 2025 study Generative AI without guardrails can harm learning, they followed 1,000 students using an LLM to learn mathematics and found students used AI as a crutch and ended up performing 17% worse than students with just a textbook (and just as with the previous study, the students using the AI assistance thought they were excelling).LLMs don't just have to generate code, though.If leveraged as Socratic sparring partners instead of answer generators, studies have shown that \"dialogic AI systems can meaningfully stimulate reflective, critical and independent thinking\".In that same UPenn study, they also tested a \"Tutor\" version by having students ask for help and then independently solve the problem. The GPT Tutor group performed an astonishing 127% better in the AI-assisted practice session (although, interestingly, they scored about the same on the test as the textbook group).This is effective because the model is no longer being utilized as a means of production, and it shifts the cognitive work back onto the individual. It's when the friction is still present that it creates a lasting imprint that leads to expertise.Anthropic's 2026 study \"How AI assistance impacts the formation of coding skills\" came to similar conclusions:For novice workers in software engineering or any other industry, our study can be viewed as a small piece of evidence toward the value of intentional skill development with AI tools. Cognitive effort—and even getting painfully stuck—is likely important for fostering mastery.There's a certain sense of irony here: the most productive learning that can happen with an AI coding tool is when it isn't used to generate much of any code at all.Pipeline CollapseIf LLMs can write code and debug code, and agentic workflows can perform system design from the abundance of patterns in the training data, then what is the purpose of this knowledge in the first place? Programming will be done entirely in natural language, and we can dispense with the need to engage with the code because the models continue to improve and fill in any knowledge or ambiguity gaps. They will debug any issues that arise and manage any complexity that they introduce.The trillion-dollar bet that is being made is: this knowledge won't matter, because LLMs will take up the slack and effectively become the new generation of \"developers\". It starts give off an aire of hubris that drove past no-code movements, and the fever dreams of CEOs, rather than the reality on the ground.Coding/programming/software is a unique intersection of logic, math, problem-solving, critical thinking, planning, communication, and creativity. LLMs can detect patterns at a scale that no human ever could, but patterns only get you so far.David Cramer, co-founder at Sentry (a performance and error tracking platform), put it succinctly in a recent interview:I think there's a type of person ... that inherently believes that LLM will get better enough that they will go back and fix this stuff, that it will be able to clean up all the junk that's been stacked up along the way. I don't think that's true. I think it's a science experiment.    You want to flex that you can generate all of your code and have hundreds of things going in parallel, I will flex and show you how broken the code is 100% of the time.Will the pipeline collapse, or just change?It really depends on whether we make the needed shift to a more pedagogical usage of these systems.By continuing to focus on and promote AI coding workflows that prioritize code generation above deep understanding, we are not cultivating the next generation of expertise who will inherit the code that is being created today.My Approach: Friction FirstJoel Spolsky presciently writes (in 2002, no less) in his Law of Leaky Abstractions:Code generation tools which pretend to abstract out something, like all abstractions, leak. And the only way to deal with the leaks competently is to learn about how the abstractions work ... the abstractions save us time working, but they don’t save us time learning.If a developer wants to learn Java, they should probably not start with Spring Boot. If they want to learn JavaScript fundamentals, they should not start with React. If they want to become highly adept at CSS, they should not start with Tailwind. LLMs could be considered the ultimate l…",
+      "rank": 1,
+      "deep": {
+        "summary": "この記事は、AIコーディングエージェントが開発者の生産性を上げる一方で、専門性を育てるための試行錯誤や失敗の摩擦を取り除き、特に初心者の成長経路を断つ可能性を論じる。経験者は出力を正確に指示・監査・検証できるが、初心者は「expert novice」として、専門家の判断力を要求されながら、その判断力を育てる作業をAIに代替させてしまう。研究例では、AIを答えの生成器として使った学習者に「illusion of competence」が生じ、AIを制限した学習者の方が問題解決の計画や理解を維持できた。一方、AIをSocratic sparring partnerやTutorとして使い、認知的な作業を本人に残すと、AIは学習を促進できる。結論はAIを使うか否かではなく、コード生成を優先する運用から、摩擦を残して専門性を育てる運用へ移行できるかにある。",
+        "prerequisites": [
+          {
+            "term": "expert novice",
+            "stumblingPoint": "記事は「novice needs expert-level skills」と書くが、初心者が専門家向けの道具を使う逆説の意味を知らないと論点を掴みにくい。",
+            "explanation": "expert noviceは、経験は浅いのに、AIを安全に使うための設計・レビュー・検証では熟練者並みの判断を求められる人を指す。AIはコードを書くこと自体を簡単にしても、何を作るべきか、出力が正しいか、将来壊れないかまでは自動的に保証しない。そのため初心者ほど、AIを使う前に必要な能力と、AIによって省略される能力の間で不利になる。"
+          },
+          {
+            "term": "negative expertise",
+            "stumblingPoint": "記事は「negative expertise」をCopilotの誤提案を無視する能力と説明するが、通常の専門知識との違いがないと研究結果の意味が読み取れない。",
+            "explanation": "negative expertiseは、正しい答えを知っていることだけでなく、AIのもっともらしい誤りや不要な提案を退ける能力である。AIの提案を採用するには、採用しない理由を判断できなければならない。この記事では、AIを多く使った量ではなく、自分の解法を持った上でAIを選別できたかが初心者の成否を分けた。"
+          },
+          {
+            "term": "inverted learning",
+            "stumblingPoint": "記事はLLMとの学習を「inverted learning」と呼ぶが、教師が知識を順に教える通常の学習と何が逆転するのかが省略されている。",
+            "explanation": "通常は教師が学習経路を設計し、学生がその経路を進む。LLMでは、学生がプロンプトで方向を指定し、LLMが応答し、学生がさらに応答を評価して次の方向を決める。未知の領域では、何を質問すべきか、答えのどこが危険かも分からないため、学習者が教師を適切に導くという不安定な構造になる。"
+          },
+          {
+            "term": "illusion of competence",
+            "stumblingPoint": "記事はAI支援の重い参加者が「illusion of competence」で終わったとするが、成果物が動くことと理解していることの差が前提になっている。",
+            "explanation": "illusion of competenceは、コードが生成され動作したため、自分も問題を解けると感じる状態である。実際には、問題の分解、設計判断、失敗原因の特定をAIに任せている可能性がある。未知のバグ修正や別の要件への応用で再現できなければ、成果物の完成度は本人の理解を示さない。"
+          },
+          {
+            "term": "Fingerspitzengefühl",
+            "stumblingPoint": "記事は「Fingerspitzengefühl」を開発者の直感と結びつけるが、単なる勘ではなく、どの経験から形成される判断なのかが分かりにくい。",
+            "explanation": "ここでいうFingerspitzengefühlは、コードや設計を見た瞬間に「これは後で問題になりそうだ」と察知する感覚である。ログのないエラー、微妙な性能差、スケールしない実装の書き直しなどを自分で経験すると、表面上は動くコードの危険も予測しやすくなる。AIにその失敗過程を丸ごと処理させると、この判断材料が蓄積されにくい。"
+          },
+          {
+            "term": "Law of Leaky Abstractions",
+            "stumblingPoint": "記事は「Code generation tools」も抽象化の漏れから逃れられないと述べるが、抽象化が漏れると何が必要になるのかを知らないと結論が急に見える。",
+            "explanation": "Law of Leaky Abstractionsは、便利な抽象化が下層の制約や挙動を完全には隠せないという考え方である。React、Tailwind、Spring Bootのような高水準の道具でも、性能、状態管理、CSS、実行環境などの下層問題は現れる。LLMによるコード生成も同じで、生成時には隠れていた前提が障害や保守コストとして現れるため、抽象化の仕組みを学ぶ時間までは節約できない。"
+          },
+          {
+            "term": "Socratic sparring partner",
+            "stumblingPoint": "記事はLLMを「Socratic sparring partners」として使うと学習を促進できるとするが、答えを出すTutorとの役割分担が必要になる。",
+            "explanation": "Socratic sparring partnerは、完成した解答を渡すのではなく、質問や反例で学習者自身の推論を進める使い方である。記事のTutor版では、学生が助けを求めた後に自分で問題を解く形式が取られた。AIが成果物を代わりに作るのではなく、認知的な作業を本人に戻す点が、コード生成中心の使い方との違いである。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "AIの使い方と学習効果",
+          "beforeLabel": "コード生成中心",
+          "afterLabel": "学習支援中心",
+          "rows": [
+            {
+              "aspect": "AIの役割",
+              "before": "答え・コードを生成する",
+              "after": "質問・反例・ヒントを返す"
+            },
+            {
+              "aspect": "本人の作業",
+              "before": "計画や実装を省略しやすい",
+              "after": "計画・推論・解答を担う"
+            },
+            {
+              "aspect": "形成されるもの",
+              "before": "完成感と依存",
+              "after": "検証力と問題解決の経験"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "AI利用と専門性",
+            "claim": "AIで実装の摩擦を減らせば、初心者も速く成長できる。",
+            "counter": "摩擦を避けるほど、直感を育てる失敗と反復が不足する。",
+            "counterInArticle": true
+          },
+          {
+            "point": "AIを個人教師にする方法",
+            "claim": "AIに質問すれば、初心者も熟練者のような自信で学べる。",
+            "counter": "計画と解答まで任せると、理解なしの自信になりやすい。",
+            "counterInArticle": true
+          },
+          {
+            "point": "開発知識の将来",
+            "claim": "LLMが設計・実装・デバッグを担えば、コード知識は不要になる。",
+            "counter": "生成物の破綻を見抜く判断力が必要で、用途を学習支援へ変えるべきだ。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "生成コードの修正連鎖",
+            "why": "Claude CodeやOpenAI Codexの実務ログから、最初の生成ミスが後続の修正量に与える影響を追える。"
+          },
+          {
+            "angle": "React・Next.jsの抽象化漏れ",
+            "why": "ReactやNext.jsで、生成された実装がキャッシュ・状態・性能の下層問題にどう漏れるかを具体例にできる。"
+          },
+          {
+            "angle": "AI利用量と理解度の差",
+            "why": "同じTypeScript課題を自力実装、コード生成、ヒントだけの3条件で試し、再実装や説明の成否を比べられる。"
+          }
+        ],
+        "verify": [
+          "同じ小さなTypeScript課題を「コード生成」と「ヒントのみ」で解き、翌日に自力で説明・修正できるか比べる。",
+          "AI利用時の生成回数、手戻り、テスト失敗、レビュー指摘をgit logとCI結果で記録する。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "個人開発のサービスを3回、ゼロから作り直した話",
+      "url": "https://qiita.com/harupython/items/194e97aad4800fb2c2ab",
+      "publishedAt": "2026-08-24T10:04:52.000Z",
+      "author": "harupython",
+      "authorDetail": {
+        "name": "harupython",
+        "handle": "@harupython",
+        "url": "https://qiita.com/harupython",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4028223/profile-images/1741177010",
+        "bio": "Pythonメインで、気になった技術はとりあえず触ってみるタイプです。\r\n最近はNode.js・Rust・Goを勉強しながら、思いついたものを作っています。\r\n作ったものの一部はOSSとして公開しています。",
+        "organization": "Disnana",
+        "location": "JP",
+        "followers": 76,
+        "posts": 133,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/harumaki4649"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/PythonHaru"
+          },
+          {
+            "label": "Web",
+            "url": "https://tp-li.com/"
+          }
+        ]
+      },
+      "tags": [
+        "個人開発",
+        "アーキテクチャ",
+        "設計",
+        "リファクタリング",
+        "ポエム"
+      ],
+      "snippet": "個人開発を長く続けていると、ある時から「機能を追加すること」より「既存機能を壊さずに追加すること」の方が難しくなってくる。 私が開発している「Disnana」というサービスもそうだった。 現在使っているのはv3だが、ここに至るまでに ほぼゼロから3回作り直している 。ちなみにDisnanaはDiscord向けのサービスとして始まったのだが、今回の話はDiscordやBotに限った話ではないと思うので、そのあたりは実例として読んでもらえたらと思う。 ざっくり言うと、こんな変化だった。 | 世代 | 方針 | 起きたこと | |---|---|---| | v1 | 機能ごとに独立 | 作りやすいが、共通処理や接続が分散 | | v2 | 一つに統合 | 継ぎ足し開発が増え、保守が難化 | | v3 | サービス全体の基盤を設計 | Bot以外も同じ設計思想で扱えるように | v3で一番大きく…",
+      "body": "個人開発を長く続けていると、ある時から「機能を追加すること」より「既存機能を壊さずに追加すること」の方が難しくなってくる。\n\n私が開発している「Disnana」というサービスもそうだった。\n\n現在使っているのはv3だが、ここに至るまでに ほぼゼロから3回作り直している 。ちなみにDisnanaはDiscord向けのサービスとして始まったのだが、今回の話はDiscordやBotに限った話ではないと思うので、そのあたりは実例として読んでもらえたらと思う。\n\nざっくり言うと、こんな変化だった。\n\n| 世代 | 方針 | 起きたこと |\n|---|---|---|\n| v1 | 機能ごとに独立 | 作りやすいが、共通処理や接続が分散 |\n| v2 | 一つに統合 | 継ぎ足し開発が増え、保守が難化 |\n| v3 | サービス全体の基盤を設計 | Bot以外も同じ設計思想で扱えるように |\n\nv3で一番大きく変えたのは、ライブラリでもコードの書き方でもない。 「Discord Botを作る」という前提そのものをやめたこと だ。\n\n:::note warn\nDisnanaの内部アーキテクチャ・認証・不正対策・障害復旧など、サービスの競争力やセキュリティに関わる実装は、この記事では意図的に触れていません。あくまで3世代を通して得た設計判断と失敗の話に絞ります。\n:::\n\nv1 - 機能を独立させれば管理しやすいと思っていた\n\n初期のDisnanaは、各機能をかなり独立させて作っていた。新しい機能が必要になったら専用のファイルを作り、必要な接続やセッションもそれぞれが持つ。\n\n機能A・機能B・機能Cがそれぞれ自分の接続と設定を抱えている、というイメージだ。\n\n小規模なうちは、これがかなり楽だった。機能Aをいじっても機能Bにはほとんど影響しない。新しい機能を追加するのに、既存コード全体を理解する必要もない。「1機能=1つの独立した世界」として扱えるので、開発スピードも出しやすかった。\n\nただ、機能が増えてくると話が変わってくる。接続管理、設定取得、エラー処理、データアクセス、ログ……こういう処理を、それぞれの機能が個別に持つようになっていった。一つ一つを見れば独立していて分かりやすいのだが、サービス全体で見ると 同じ問題を何度も別々に解いている 状態になっていた。\n\n当時のコードを疑似的に再現するとこんな感じだった。\n\n v1時代の構造(見るとちょっと恥ずかしい) \n\n [code] \n\n今見返すと、connectdb()とloadconfig()だけで何回コピペしたんだろうと思う。当時は「動くからヨシ」で流していた。\n\n \n\nここでv2へ移行した。\n\nv2 - なら全部一つにすればいい\n\n方向を変えて、分散していた機能を一つにまとめた。接続や設定を共有できるようになり、v1の重複はかなり減った。\n\n最初は「これで正解だった」と思っていた。\n\n長く開発を続けると、また別の問題が出てくる。新しい要件が一つ増えるたびに、既存処理へ条件分岐が足されていく。それを何度も繰り返すと、既存処理→条件A→機能Bだけ例外→条件Cは別処理→古い仕様との互換処理、みたいな地層ができあがる。一つ一つの変更は小さいのに、積み重なると手に負えなくなる。\n\nある時気づいた。 「一つにまとまっている」ことと「整理されている」ことは全く別だ。 \n\nコードは同じプロジェクトにある。共通処理もある。それでも新しい機能を足すたびに「ここを変えたら、どこまで影響するんだ?」と考える必要が出てきた。v1では分かれすぎていることが問題だったのに、v2では逆に、一つに集めたもの同士の境界が曖昧になっていくことが問題になった。\n\nそしてDisnanaはBotではなくなっていた\n\nv3を作ったもう一つの理由がある。Disnana自体の役割が変わっていた。\n\n開発初期は本当にDiscord Botだった。それが長く開発するうちに、Webから使う機能、認証、管理機能、API、バックグラウンド処理、外部サービス連携……とどんどん増えていった。\n\nBot本体はv2で統合したのに、Disnanaというサービス全体は統合されていない。Web側とBot側がそれぞれ別の都合で成長していく。これではv2のコードだけ整理しても本質的には解決しない。前提から作り直すことにした。\n\nv3 - 「Botを作る」のをやめた\n\nv3を設計するとき、最初に決めたことがある。\n\n Botを中心に設計しない。 \n\nBotを中心にすると、Discord→Bot→各機能→DB、という一直線の構造になりがちだ。でもWebや認証や管理機能が増えた状態では、この構造がもう不自然になっている。\n\nそこで考え方を逆にした。BotもWebもその他の要素も、Disnanaというサービスを構成する一つの要素として並べる。 Botがシステムを所有するのではなく、Botもシステムを利用する側にする。 これがv3の基本の考え方になった。\n\nv1の頃と比べると、今はこんなイメージに近い。\n\n [code] \n\nSharedContextという共通の窓口だけ持たせて、お互いの内部には踏み込ませない。v1が「独立しすぎ」、v2が「密結合になりすぎ」だったのに対して、v3はその中間を取りにいった形になる。\n\n正直、この発想の転換に行き着くまでにかなり時間がかかった。実際の内部構造はここに書いた図よりずっと複雑だが、考え方そのものを変えたインパクトは大きかった。\n\n「共通化」と「統合」は違った\n\nv2までの経験で強く感じたことがある。共通処理を増やせば必ず保守しやすくなるわけではない、ということだ。\n\n便利だからと何でもできるManagerを作ったとする。設定を取ってきたり、ユーザー情報を取ってきたり、ログを送ったり、権限をチェックしたり。一見すごく便利に見える。でもほぼ全部の機能がこのManagerに依存するようになったら、Managerを変更するだけでシステム全体に影響が及ぶ。つまり共通化した結果、密結合になっている。\n\nv3では「共通の仕組みは利用する。しかし他の機能の内部事情までは知らない」という境界をかなり意識するようになった。\n\n自分の中では、これがv2とv3の一番大きな違いだと思っている。v2は色んな機能を一つにまとめる発想で、v3はそれぞれが役割を持ったまま一つのサービスとして扱えることを重視している。似ているようで、実際に設計するとかなり違う。\n\n壊れたときも設計する\n\n長期間サービスを運用していると、すべてが常に正常、という前提は成立しない。DBに接続できない、外部APIが遅い、一部の機能だけ失敗する。そういうことは普通に起きる。\n\n以前は、その場でtry/exceptを書いて処理することが多かった。v3では「この処理が失敗したら、Disnana全体としてどう振る舞うべきか」を考えるようになった。機能Aが使えないからといって、本当にDisnana全体を止める必要があるのか。逆に、何も考えず一部だけ動かし続ける方が危険なケースもある。\n\n障害が起きてからその場で考えるのではなく、障害時の状態も最初からシステムの一部として設計しておく。具体的な障害検知条件や復旧条件、フォールバック方式については運用に関わるのでここでは触れないが、この視点そのものはどんな個人開発サービスにも応用できると思う。\n\nちなみにniltestを作ったのも、こういう「壊れたときの挙動」まで含めてテストしたいという実運用の課題からだった。\n\n:::note info\nniltestは、実装のそばに@scenarioデコレータでテストシナリオを書けるライブラリです。pytest互換で、Disnana自体の障害系シナリオのテストにも使っています。\n:::\n\n3回作り直して分かったこと\n\nここからが一番伝えたい部分だ。\n\n 1. 最初から巨大な基盤を作る必要はない \n\n今の知識でv1を作り直すとしても、最初から現在のv3と同じ規模の基盤は作らないと思う。小規模な段階ではv1のような単純な構造の方が開発しやすい。将来使うかもわからない巨大な基盤を先に作っても意味がない。その時点の規模に合った設計をする、というだけの話だ。\n\n 2. 「コードが汚い」だけなら全面リライトしない \n\nv3を作った最大の理由は、v2のコードが汚くなったからではない。一番大きかったのは、Disnanaが「Discord Bot」という設計当初の前提から外れたことだった。コードが汚いだけならリファクタリングで直せる。でも現在のサービスが設計当時に想定していたものと違う、となったらコードより上のレイヤーを見直す必要がある。\n\n 3. 全面リライトすると、昔直したバグも復活する \n\nゼロから作り直すとコードは綺麗になる。同時に、過去に直したバグもゼロから復活する。長期間運用されているコードには「なんでこんな処理があるんだ」と思う箇所があるが、消してみると「この例外ケースを防ぐためだったのか」と分かることがある。これは想像以上にしんどい作業だった。正直、v3の8割くらいの時間はここに溶けた気がする。\n\n 4. 共通化することより「境界」を作る方が重要だった \n\n共通化すればコード量は減る。でも保守性が必ず上がるとは限らない。「何を共有するか」だけでなく「どこまで相手のことを知ってよいか」を考えることが増えた。規模が大きくなるほど、この差は効いてくる。\n\n 5. v4でも全面リライトするならv3は失敗 \n\nv1からv2、v2からv3までは大きく作り直した。でもv3からv4でもまた全部捨てて作り直すことになったら、自分の中ではv3は失敗だと思っている。v3で目指しているのは、サービス全体を書き直さなくても中身を少しずつ交換・改善できる状態だからだ。\n\n全面リライトを検討する基準\n\n3世代を作ってきた経験から、今はこう考えている。\n\nコードが読みにくいなら、まずリファクタリング。依存関係がおかしいなら、責務や境界を見直す。現在のサービスと設計時の前提が違うなら、アーキテクチャを再検討する。部分的な変更ではもう新しい前提へ移行できないなら、そこで初めて全面リライトが選択肢に入る。\n\n全面リライトは、コードを綺麗にするための手段としてはコストが高すぎる。「既存コードが嫌になった」ではなく、システムの前提そのものが変わったかを判断材料にした方がいいと思う。\n\nv1とv2は失敗だったのか\n\nここまで読むと、v1とv2が悪い設計だったように見えるかもしれない。\n\nでも自分はそう思っていない。v1があったから、まず多くの機能を作ることができた。v2があったから、共通化のメリットと、その先にある密結合の問題を経験できた。そして長期間運用したからこそ、v3で本当に必要なものが見えてきた。\n\n最初からv3を設計しようとしても、たぶん今とはまったく違うものになっていたと思う。今振り返ると、v1とv2で保守に苦しんだ経験そのものが、v3を作るための要件定義になっていた。\n\nおわりに\n\n個人開発は、最初は数百行程度からでも始められる。しかし長く続けていると、機能が増え、責任範囲が広がり、いつの間にか最初に想定していたものとは別のシステムになっていることがある。Disnanaもそうだった。\n\nv3で一番重要だった変更は、新しいライブラリでもコードの書き直しでもなく、「自分はDiscord Botを作っている」という前提を捨てたことだった。それまで周辺機能だと思っていたものを、すべてサービスを構成する一員として捉え直した。\n\n3回もゼロから作り直すことになるとは、最初のコードを書いていたころは想像していなかった。ただ今振り返ると、v1とv2の苦しみそのものがv3の設計図だったんだと思う。\n\n個人開発を育てていて「なんかこれ、前と同じ問題をまた解いてる気がする」と思ったことがある人がいたら、たぶんそれはあなただけではない。\n\nもし良い記事と思ったら、 いいね 、 ストック 、 フォロー お願いします🙇",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "97c11e24a0e78dba",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0,
+      "popularityPercentile": 0.8075949367088607,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "Disnanaを3回作り直した経験から、機能単位ではなくサービス基盤を設計する過程を説明しています。",
+      "takeaways": [
+        "Disnanaは機能追加の難しさから3回作り直された。",
+        "機能ごとの分離は共通処理を分散させた。",
+        "v3ではBot前提をやめて基盤を設計した。"
+      ],
+      "keywords": [
+        "Disnana",
+        "アーキテクチャ",
+        "リファクタリング",
+        "個人開発",
+        "設計"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "機能ごとに分けるか全体基盤を先に作るか",
+        "forSide": "全体基盤を整えれば機能追加時の重複や分散を減らせる。",
+        "againstSide": "初期から基盤を作ると需要が不明な部分に時間を使う。",
+        "oneSided": false,
+        "yourAngle": "ReactやNext.jsの機能追加で共通処理が膨らんだ時期を比較できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "Disnanaは、機能ごとに独立させたv1、全体を一つに統合したv2、サービス全体の基盤を設計したv3へ、ほぼゼロから3回作り直された。v1は小規模では速かった一方、接続管理や設定取得などの重複が増え、v2は重複を減らした一方で条件分岐が積み重なり密結合になった。v3では「Discord Botを作る」という前提を捨て、Bot・Web・認証・管理機能などをサービスの構成要素として扱い、SharedContextを共通の窓口にした。著者が重視するのは、共通化そのものより境界を設計すること、そして障害時の状態やフォールバックまで含めて設計することだ。全面リライトはコードの汚さだけでは選ばず、設計時の前提が変わり、部分的な変更では対応できない場合に限るべきだとしている。",
+        "prerequisites": [
+          {
+            "term": "SharedContext",
+            "stumblingPoint": "記事は「SharedContextという共通の窓口」と書いているが、それが何を共有し、何を隠す設計なのかを知らないとv3の境界が読み取れない。",
+            "explanation": "SharedContextは、BotやWebなどがサービスの機能を利用するための共通接点として説明されている。各機能が他機能の内部へ直接入り込まず、必要な処理だけを窓口経由で使う点が重要だ。何でも扱うManagerとは異なり、共有する仕組みと各機能の内部事情を分離する考え方として読むと、v2との差が分かる。"
+          },
+          {
+            "term": "密結合",
+            "stumblingPoint": "記事はv2について「共通化した結果、密結合になっている」と書くが、コードを一つにまとめることと変更影響が広がることの関係が省略されている。",
+            "explanation": "密結合とは、ある部分の変更が別の部分の実装や動作に強く波及する状態だ。v2では共通処理に機能固有の例外や古い仕様への互換処理が追加され、共通処理を変更すると多くの機能を同時に確認する必要が生じた。重複コードが減っても、依存の向きや責務が整理されていなければ保守性は上がらない。"
+          },
+          {
+            "term": "全面リライト",
+            "stumblingPoint": "記事は「コードが汚いだけならリファクタリングで直せる」としつつ「前提そのものが変わったら」全面リライトを選択肢にしており、判断の境目が手掛かりなしでは曖昧に見える。",
+            "explanation": "ここでの全面リライトは、既存コードを部分的に直すのではなく、ほぼゼロからサービスを再構築することを指す。読みにくさや局所的な依存関係の問題なら、既存のテストやバグ修正を引き継げるリファクタリングの方が損失が小さい。一方、Discord Bot中心という設計前提からWeb・認証・APIを含むサービスへ変わり、部分修正で移行できない場合が境目になる。"
+          },
+          {
+            "term": "リファクタリング",
+            "stumblingPoint": "記事は「コードが読みにくいなら、まずリファクタリング」と書くが、リライトと違って何を維持したまま直す作業なのかを理解しないと判断基準を使えない。",
+            "explanation": "リファクタリングは、外部から見える振る舞いを大きく変えずに、内部の責務や依存関係を整理する作業として扱われている。既存コードに蓄積された例外対応や過去のバグ修正を保ちながら改善できるため、全面リライトより回帰リスクを抑えやすい。記事では、サービスの前提変更までリファクタリングだけで解決しようとしない点が示されている。"
+          },
+          {
+            "term": "フォールバック",
+            "stumblingPoint": "記事は「障害検知条件や復旧条件、フォールバック方式」に触れているが、機能障害時にサービス全体を止めるか部分継続するかとの関係が読み手に委ねられている。",
+            "explanation": "フォールバック方式は、DBや外部APIなどが失敗したときに、別の処理や縮退した機能へ切り替える方法を指す。記事の論点は具体的な方式ではなく、障害発生後に場当たり的なtry/exceptを書くのではなく、サービス全体の状態として先に決めることだ。機能Aの失敗を全体停止につなげるべきか、部分的に動かし続けるべきかは、機能間の境界と責務に関わる。"
+          },
+          {
+            "term": "niltest",
+            "stumblingPoint": "記事は「niltest」を障害系シナリオのテストに使うと紹介するが、通常の成功ケースのテストと何が違うのかが分からないと登場理由を掴みにくい。",
+            "explanation": "niltestは、実装のそばに@scenarioデコレータでテストシナリオを書けるpytest互換ライブラリとして説明されている。この記事では、正常系の戻り値だけでなく、依存先が壊れたときにサービスがどう振る舞うかをシナリオとして検証する用途で登場する。具体的な障害検知や復旧の実装は非公開なので、ライブラリの詳細な機能までは本文から判断できない。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Qiita記事本文",
+            "url": "https://qiita.com/harupython/items/194e97aad4800fb2c2ab"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "独立性と共有基盤",
+            "claim": "小規模なら機能ごとの独立が速い",
+            "counter": "機能が増えると共通処理の重複が保守負債になる",
+            "counterInArticle": true
+          },
+          {
+            "point": "統合と境界",
+            "claim": "接続や設定を一つに集めれば重複は減る",
+            "counter": "条件分岐が積み上がると影響範囲が読めず密結合になる",
+            "counterInArticle": true
+          },
+          {
+            "point": "リライトの判断基準",
+            "claim": "設計前提が変われば全面リライトが選択肢になる",
+            "counter": "コードの汚さだけならリファクタリングで足りる",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "世代ごとの手戻り時間",
+            "why": "個人開発や業務サービスで、機能追加・回帰修正・移行に要した時間を実測値として出せる"
+          },
+          {
+            "angle": "共有窓口の依存グラフ",
+            "why": "TypeScriptの実装でimport関係や変更範囲を追い、共通モジュール変更の波及を確認できる"
+          },
+          {
+            "angle": "障害シナリオの再現率",
+            "why": "AIコーディングエージェントでテスト追加を進め、外部APIやDB失敗時の挙動を記録できる"
+          }
+        ],
+        "verify": [
+          "直近10件の変更で、変更ファイル数と回帰修正件数を集計する",
+          "共有モジュール変更時の依存先とテスト実行範囲をgit grepで確認する"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "e1d73af2327b057a",
+      "product": "pnpm",
+      "what": "JavaScriptパッケージマネージャー",
+      "version": "11.24",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "依存関係のビルド承認をグローバルに設定できるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "グローバルなビルド承認を追加し、pnpm v11の設定認識やfrozen lockfile再解決時のインストール失敗も修正しました。",
+      "title": "pnpm/pnpm pnpm 11.24",
+      "url": "https://github.com/pnpm/pnpm/releases/tag/v11.24.0",
+      "sourceLabel": "GitHub Releases / pnpm/pnpm",
+      "publishedAt": "2026-08-24T19:10:25.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v11.24.0 https://github.com/pnpm/pnpm",
+        "verify": "ls pnpm",
+        "questions": [
+          "11.24 が実際に入って動くか",
+          "「依存関係のビルド承認をグローバルに設定できるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "6d0760fbf8f17b7c",
+      "product": "GPT-5.6",
+      "what": "OpenAIのAIモデル",
+      "version": "GPT-5.6",
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "KiroでGPT-5.6を使って開発できるようになる",
+      "change": {
+        "before": "KiroでGPT-5.6を利用できない",
+        "after": "KiroでGPT-5.6を利用可能"
+      },
+      "scope": [
+        "Kiro"
+      ],
+      "summary": "GPT-5.6がKiroで利用可能になり、開発の計画・実装・レビュー・テストをより良い価格性能で行えるようになりました。",
+      "title": "Advancing price-performance for developers with GPT‑5.6 in Kiro",
+      "url": "https://openai.com/index/gpt-5-6-in-kiro",
+      "sourceLabel": "OpenAI News",
+      "publishedAt": "2026-08-24T12:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "fed54881f1423cc8",
+      "product": "oxc",
+      "what": "Rust製JavaScript・TypeScriptツールチェーン",
+      "version": "v0.147.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "ブロック外にあるswitch文もminifyできるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "minifierがブロック外のswitch文を折りたためるようになり、codegen・ESTree・Rust関連の修正も含まれます。",
+      "title": "oxc-project/oxc oxc crates_v0.147.0",
+      "url": "https://github.com/oxc-project/oxc/releases/tag/crates_v0.147.0",
+      "sourceLabel": "GitHub Releases / oxc-project/oxc",
+      "publishedAt": "2026-08-24T11:31:39.000Z",
+      "alsoReleased": [
+        {
+          "label": "oxlint v1.80.0 & oxfmt v0.65.0",
+          "url": "https://github.com/oxc-project/oxc/releases/tag/apps_v1.80.0"
+        }
+      ],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch crates_v0.147.0 https://github.com/oxc-project/oxc",
+        "verify": "ls oxc",
+        "questions": [
+          "v0.147.0 が実際に入って動くか",
+          "「ブロック外にあるswitch文もminifyできるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "cceeb599f8de6416",
+      "product": "create-vite",
+      "what": "Viteプロジェクトの雛形生成CLI",
+      "version": "9.2.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "nub package managerを使ってプロジェクトを生成できるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "nub package managerのサポートを追加し、生成READMEのリンクや依存関係も更新しました。",
+      "title": "vitejs/vite create-vite@9.2.0",
+      "url": "https://github.com/vitejs/vite/releases/tag/create-vite%409.2.0",
+      "sourceLabel": "GitHub Releases / vitejs/vite",
+      "publishedAt": "2026-08-24T04:58:55.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch create-vite%409.2.0 https://github.com/vitejs/vite",
+        "verify": "ls vite",
+        "questions": [
+          "9.2.0 が実際に入って動くか",
+          "「nub package managerを使ってプロジェクトを生成できるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "19347bffd6cb161e",
+      "product": "Vercel Sandbox",
+      "what": "コード実行用の隔離サンドボックス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Vercel Sandboxをグローバルに利用できるようになる",
+      "change": {
+        "before": "グローバル提供前",
+        "after": "グローバルに利用可能"
+      },
+      "scope": [
+        "グローバル"
+      ],
+      "summary": "Vercel Sandboxがグローバルで利用可能になりました。",
+      "title": "Vercel Sandbox is now globally available",
+      "url": "https://vercel.com/changelog/vercel-sandbox-is-now-globally-available",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-24T04:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "026de314a393296e",
+      "product": "Vercel Environment Variables",
+      "what": "Vercelの環境変数管理機能",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "環境変数にConfig型とSecret型を使えるようになる",
+      "change": {
+        "before": "環境変数に型の区別なし",
+        "after": "Config型とSecret型で管理"
+      },
+      "scope": [],
+      "summary": "Vercelの環境変数がConfig型とSecret型を使う形式になりました。",
+      "title": "Environment variables now use Config and Secret types",
+      "url": "https://vercel.com/changelog/environment-variables-now-use-config-and-secret-types",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-24T00:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "9a8c0bfed6b1ba59",
+      "product": "Vercel Functions",
+      "what": "Vercelのサーバーレス実行基盤",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Bunランタイムで大規模関数と長い最大実行時間を使えるようになる",
+      "change": {
+        "before": "Bunランタイムの関数サイズ・実行時間に制限",
+        "after": "大規模関数と拡張された最大実行時間に対応"
+      },
+      "scope": [],
+      "summary": "Bunランタイムで大規模なFunctionsと、より長い最大実行時間を利用できるようになりました。",
+      "title": "Bun runtime now supports large functions and extended max duration",
+      "url": "https://vercel.com/changelog/bun-runtime-now-supports-large-functions-and-extended-max-duration",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-24T00:00:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "11fced7fd8eefb51",
+      "product": "Axios",
+      "what": "HTTPクライアントライブラリ",
+      "version": "v1.20.0",
+      "kind": "minor",
+      "impact": "security",
+      "unlock": "RFC 9110準拠のHTTPステータス名を利用できるようになる",
+      "change": {
+        "before": "PayloadTooLargeとUnprocessableEntityを使用",
+        "after": "ContentTooLargeとUnprocessableContentを使用可能"
+      },
+      "scope": [],
+      "summary": "ランタイムオプション処理を強化し、413/422向けにRFC 9110のContentTooLargeとUnprocessableContentを追加しました。Node.js・XHRの信頼性も改善しています。",
+      "title": "axios/axios v1.20.0",
+      "url": "https://github.com/axios/axios/releases/tag/v1.20.0",
+      "sourceLabel": "GitHub Releases / axios/axios",
+      "publishedAt": "2026-08-24T13:40:40.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v1.20.0 https://github.com/axios/axios",
+        "verify": "ls axios",
+        "questions": [
+          "v1.20.0 が実際に入って動くか",
+          "「RFC 9110準拠のHTTPステータス名を利用できるようになる」を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "d338984d5ea6a9d5",
+      "product": "Vercel Build Machines",
+      "what": "Vercelのビルド実行環境",
+      "version": null,
+      "kind": "service",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "Turborepoキャッシュヒット時にダウングレードが発生",
+        "after": "Turborepoキャッシュヒットでダウングレードを防止"
+      },
+      "scope": [],
+      "summary": "Turborepoのキャッシュヒットを利用して、Vercelのビルドマシンで依存環境などのダウングレードを防げるようになりました。",
+      "title": "Elastic build machines now use Turborepo cache hits to prevent downgrades",
+      "url": "https://vercel.com/changelog/elastic-build-machines-now-use-turborepo-cache-hits-to-prevent-downgrades",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-08-24T16:11:00.000Z",
+      "alsoReleased": [],
+      "trial": null
+    },
+    {
+      "id": "bdfbfaa2ed010c18",
+      "product": "TanStack Query",
+      "what": "非同期データ取得・キャッシュ管理ライブラリ",
+      "version": null,
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Svelte QueryでcreateRawRef配列の縮小、空配列でのcreateQueries初期化、useMutationState結果の縮小を修正しました。",
+      "title": "TanStack/query Release 2026-08-24 19:25",
+      "url": "https://github.com/TanStack/query/releases/tag/release-2026-08-24-1925",
+      "sourceLabel": "GitHub Releases / TanStack/query",
+      "publishedAt": "2026-08-24T19:25:34.000Z",
+      "alsoReleased": [
+        {
+          "label": "Release 2026-08-24 13:24",
+          "url": "https://github.com/TanStack/query/releases/tag/release-2026-08-24-1324"
+        },
+        {
+          "label": "@tanstack/svelte-query@6.1.42",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query%406.1.42"
+        },
+        {
+          "label": "@tanstack/preact-query@5.102.3",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query%405.102.3"
+        },
+        {
+          "label": "@tanstack/preact-query-persist-client@5.102.3",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query-persist-client%405.102.3"
+        },
+        {
+          "label": "@tanstack/svelte-query-persist-client@6.1.43",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query-persist-client%406.1.43"
+        },
+        {
+          "label": "@tanstack/solid-query-persist-client@5.102.3",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/solid-query-persist-client%405.102.3"
+        },
+        {
+          "label": "@tanstack/react-query-persist-client@5.102.3",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-persist-client%405.102.3"
+        },
+        {
+          "label": "@tanstack/query-sync-storage-persister@5.102.3",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-sync-storage-persister%405.102.3"
+        },
+        {
+          "label": "@tanstack/query-async-storage-persister@5.102.3",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-async-storage-persister%405.102.3"
+        },
+        {
+          "label": "@tanstack/preact-query-devtools@5.102.3",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query-devtools%405.102.3"
+        },
+        {
+          "label": "@tanstack/svelte-query-devtools@6.1.43",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query-devtools%406.1.43"
+        },
+        {
+          "label": "@tanstack/solid-query-devtools@5.102.3",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/solid-query-devtools%405.102.3"
+        }
+      ],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch release-2026-08-24-1925 https://github.com/TanStack/query",
+        "verify": "ls query",
+        "questions": [
+          "新しい版が実際に入って動くか",
+          "リリースノートに書かれた変更を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "f16e7709e6bd4297",
+      "product": "ESLint",
+      "what": "JavaScript・TypeScript向け静的解析ツール",
+      "version": "v10.9.1",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "末尾の小数点を含む数値でno-loss-of-precisionが誤検知する問題を修正し、EOLパッケージ向けの非推奨手順を文書化しました。",
+      "title": "eslint/eslint v10.9.1",
+      "url": "https://github.com/eslint/eslint/releases/tag/v10.9.1",
+      "sourceLabel": "GitHub Releases / eslint/eslint",
+      "publishedAt": "2026-08-24T18:18:59.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v10.9.1 https://github.com/eslint/eslint",
+        "verify": "ls eslint",
+        "questions": [
+          "v10.9.1 が実際に入って動くか",
+          "リリースノートに書かれた変更を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "3fa602ff1fe4a26f",
+      "product": "Hono",
+      "what": "Web標準対応の軽量Webフレームワーク",
+      "version": "v4.13.4",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "未マッチリクエストのパラメータ処理、JSXのrefクリーンアップ、ワイルドカードミドルウェア、ETag判定などを修正しました。",
+      "title": "honojs/hono v4.13.4",
+      "url": "https://github.com/honojs/hono/releases/tag/v4.13.4",
+      "sourceLabel": "GitHub Releases / honojs/hono",
+      "publishedAt": "2026-08-24T08:49:55.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch v4.13.4 https://github.com/honojs/hono",
+        "verify": "ls hono",
+        "questions": [
+          "v4.13.4 が実際に入って動くか",
+          "リリースノートに書かれた変更を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    },
+    {
+      "id": "b24f77fee93c178e",
+      "product": "OpenAI Codex",
+      "what": "AIコーディングエージェント",
+      "version": "0.149.1",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "rust-v0.149.0からrust-v0.149.1への変更を含むパッチリリースです。詳細な変更内容はリンク先の変更履歴に記載されています。",
+      "title": "openai/codex 0.149.1",
+      "url": "https://github.com/openai/codex/releases/tag/rust-v0.149.1",
+      "sourceLabel": "GitHub Releases / openai/codex",
+      "publishedAt": "2026-08-24T00:28:28.000Z",
+      "alsoReleased": [],
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 --branch rust-v0.149.1 https://github.com/openai/codex",
+        "verify": "ls codex",
+        "questions": [
+          "0.149.1 が実際に入って動くか",
+          "リリースノートに書かれた変更を実際に確かめられるか",
+          "既存の使い方のまま上げたときに壊れる箇所はあるか"
+        ]
+      }
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "最新のchrome脆弱性について調べた",
+      "url": "https://qiita.com/nino2-2/items/1454a94d2fdbb04e8443",
+      "publishedAt": "2026-08-23T23:51:59.000Z",
+      "author": "nino2-2",
+      "authorDetail": {
+        "name": "nino2-2",
+        "handle": "@nino2-2",
+        "url": "https://qiita.com/nino2-2",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3945201/3f04f9d8f6fdc163652ecc6ee7974d7c74133551/x_large.png?1777821997",
+        "followers": 1,
+        "posts": 7,
+        "links": []
+      },
+      "tags": [
+        "Security",
+        "ブラウザ",
+        "脆弱性"
+      ],
+      "snippet": "はじめに バッファオーバーフローって文字列見るとバッファロー🦬が邪魔してきますよね。 今回はGoogle Chromeがバッファオーバーフロー(BOF)の脆弱性に伴うアップデートを発表したのに関連して、いろいろ調べてみたという記事です。 https://news.yahoo.co.jp/articles/889726c974041402ef2cf9e932b54939a80378ab バッファオーバーフローとは プログラムが確保したメモリの領域を超えて領域外のメモリを上書きし、その結果意図しないコードを実行される攻撃です。 参考①：https://www.intellilink.co.jp/article/column/ctf01.html 参考②：https://www.ipa.go.jp/archive/security/vuln/programming/cc/chapter10/c…",
+      "body": "はじめに\nバッファオーバーフローって文字列見るとバッファロー🦬が邪魔してきますよね。\n今回はGoogle Chromeがバッファオーバーフロー(BOF)の脆弱性に伴うアップデートを発表したのに関連して、いろいろ調べてみたという記事です。\nhttps://news.yahoo.co.jp/articles/889726c974041402ef2cf9e932b54939a80378ab\n\nバッファオーバーフローとは\nプログラムが確保したメモリの領域を超えて領域外のメモリを上書きし、その結果意図しないコードを実行される攻撃です。\n \n\n参考①：https://www.intellilink.co.jp/article/column/ctf01.html\n参考②：https://www.ipa.go.jp/archive/security/vuln/programming/cc/chapter10/cc10-1.html\n\n今回はWebGLというブラウザ上のAPIにこの脆弱性があったようです。\n\nブラウザのアーキテクチャ\n \nブラウザのプロセスは上記のような分類になっています。\nそしてレンダラプロセスが各タブに割り当てられるメリットとして「プロセスのサンドボックス化」があります。\nChrome ブラウザでは、レンダラ プロセスなどの任意のユーザー入力を処理するプロセスに対して、任意のファイルへのアクセスが制限されています。\n\n参考：https://developer.chrome.com/blog/inside-browser-part1?hl=ja\n\nこのおかげで通常レンダラプロセスでなにか不正なプログラムが実行されても「そのタブが開いているページの情報を盗む」といった攻撃はできても、ファイルシステムに直接アクセスするといった操作はできないようになっています。\n\nただ、WebGLが利用するGPUプロセスではレンダラプロセスより強い権限で動作する結果、サンドボックス外へ影響を及ぼすため今回は重大な脆弱性として位置づけられています。\nサンドボックスは通常、侵害されたレンダリングプロセスによるファイル、デバイス、その他の機密性の高いシステムリソースへのアクセスを制限します。サンドボックスを回避すると、攻撃者はデータ窃盗、永続的なアクセス経路の確立、マルウェアの展開、あるいは企業環境内でのさらなる侵入といった能力を大幅に拡大できます。\n\n参考：https://www.malwarebytes.com/ja/blog/bugs/2026/08/update-chrome-now-two-critical-vulnerabilities-fixed\n\n余談\nこのバッファオーバーフローはJavaなどの言語では起こりません。CやC++みたいな直接メモリを操作できる言語を利用した場合に発生します。そういった背景からchromeのRustへの置き換えといった動きも進められているようです。",
+      "metrics": {
+        "likes": 2,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6d61a2840ceb0257",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.540506329113924,
+      "popularityPercentile": 0.9113924050632911,
+      "matchedTopics": [
+        "ブラウザ / Web標準"
+      ],
+      "buzz": false,
+      "score": 75,
+      "titleJa": null,
+      "oneLiner": "ChromeのWebGLに見つかったバッファーオーバーフロー脆弱性とブラウザの防御構造を調べている。",
+      "takeaways": [
+        "Chromeの画像や画面表示を扱う部分に欠陥が見つかった。",
+        "欠陥を使うと決められた領域を越えて記憶を書き換えられる。",
+        "処理を分離する仕組みが被害の拡大を抑えている。"
+      ],
+      "keywords": [
+        "Google Chrome",
+        "WebGL",
+        "バッファーオーバーフロー",
+        "サンドボックス",
+        "脆弱性"
+      ],
+      "category": "Web標準/ブラウザ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "aware",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Anthropic Claude and API service outages",
+      "url": "https://status.claude.com/uptime",
+      "publishedAt": "2026-08-24T06:32:28.000Z",
+      "author": "vikrantrathore",
+      "authorDetail": {
+        "name": "vikrantrathore",
+        "handle": "vikrantrathore",
+        "url": "https://news.ycombinator.com/user?id=vikrantrathore"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 74,
+        "comments": 60
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "0aaee5f752e7c017",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.5074007936507936,
+      "popularityPercentile": 0.3055555555555556,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 72,
+      "titleJa": "AnthropicのClaudeとAPIで発生した障害",
+      "oneLiner": "AnthropicのClaudeとAPIサービスで障害が発生したことを報じている。",
+      "takeaways": [
+        "ClaudeとAnthropicのAPIでサービス障害が起きた。",
+        "本文情報がないため発生時刻や影響範囲は確認できない。"
+      ],
+      "keywords": [
+        "Anthropic",
+        "Claude",
+        "API",
+        "障害"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "trial": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "消費者庁、「ダークパターン」規制へ　特商法改正視野に中間取りまとめ案",
+      "url": "https://www.itmedia.co.jp/news/article/2608/24/2000000728/",
+      "publishedAt": "2026-08-24T09:25:51.000Z",
+      "tags": [
+        "テクノロジー",
+        "デザイン",
+        "!!",
+        "サイト",
+        "法律",
+        "犯罪",
+        "あとで読む",
+        "社会"
+      ],
+      "snippet": "消費者庁は8月24日、有識者会議「デジタル取引・特定商取引法等検討会」の第8回会合で、消費者の意思決定をゆがめる表示・UI、いわゆる「ダークパターン」への規律を盛り込んだ中間取りまとめ案を公表した。特定商取引法の改正を視野に入れる。 取りまとめ案では、「お試し」と表示しながら実際は定期購入が条件になって...",
+      "metrics": {
+        "hatena": 34
+      },
+      "sourceWeight": 3,
+      "id": "4db47d88f4ce39d2",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.16789473684210526,
+      "popularityPercentile": 0.7631578947368421,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "消費者庁がダークパターンを規制する特定商取引法改正の中間案を公表した。",
+      "takeaways": [
+        "消費者庁が購入を急がせる表示や画面の規制案を示した。",
+        "お試し表示でも定期購入が条件になる例が問題になっている。",
+        "特定商取引法の改正を視野に今後の制度化が進められる。"
+      ],
+      "keywords": [
+        "消費者庁",
+        "ダークパターン",
+        "特定商取引法",
+        "定期購入",
+        "UI"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "trial": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "「うるう秒」27年に事実上廃止へ　自転とのずれ「1時間」まで容認　10月に国際会議で採決",
+      "url": "https://www.itmedia.co.jp/news/article/2608/24/2000000718/",
+      "publishedAt": "2026-08-24T06:36:56.000Z",
+      "tags": [
+        "テクノロジー",
+        "科学",
+        "あとで読む",
+        "science",
+        "news",
+        "社会",
+        "!!",
+        "internet"
+      ],
+      "snippet": "1秒単位で世界の標準時を調整する「うるう秒」を事実上廃止する案について、10月13～15日にフランスで開催する国際度量衡総会（CGPM）で審議する。国際度量衡局（BIPM）の決議案では、採択されれば2027年5月20日から、うるう秒による調整を行わない「連続的な協定世界時（continuous UTC）」に移行する。 うるう秒は、原...",
+      "metrics": {
+        "hatena": 137
+      },
+      "sourceWeight": 3,
+      "id": "bf8ac5e1b683c39f",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.1910526315789474,
+      "popularityPercentile": 0.868421052631579,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 65,
+      "titleJa": null,
+      "oneLiner": "うるう秒を廃止して2027年5月20日から連続的な協定世界時へ移行する案が審議される。",
+      "takeaways": [
+        "世界の時刻合わせからうるう秒をなくす案が審議される。",
+        "採択されれば2027年5月20日から新しい時刻方式に移る。",
+        "地球の自転との差は最大1時間まで許容される。"
+      ],
+      "keywords": [
+        "うるう秒",
+        "UTC",
+        "CGPM",
+        "BIPM",
+        "2027年5月20日"
+      ],
+      "category": "Web標準/ブラウザ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "foundational",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Skills完全ガイド③：Claude Code/APIでの活用編",
+      "url": "https://qiita.com/Tomo27/items/768ac75ba980416d921d",
+      "publishedAt": "2026-08-24T09:34:10.000Z",
+      "author": "EG- Fujita",
+      "authorDetail": {
+        "name": "EG- Fujita",
+        "handle": "@Tomo27",
+        "url": "https://qiita.com/Tomo27",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3295382/144ee415cf8bc6e0d22e0dd58a62dd2671db77da/large.png?1737724952",
+        "organization": "株式会社エンジーニアス",
+        "followers": 4,
+        "posts": 21,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/TomokiF127"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/Tomo_OutPut27"
+          }
+        ]
+      },
+      "tags": [
+        "Claude",
+        "ClaudeCode",
+        "API"
+      ],
+      "snippet": ":::note info この記事は i-know.dev に掲載したものです。 ::: Claude Skills完全ガイド③：Claude Code/APIでの活用編 この記事で分かること これまでの記事では、Claude Skillsの基本的な使い方と、自分専用のカスタムSkillを作成する方法を紹介しました。 シリーズ最終回となる今回は、Claude CodeとClaude APIでSkillsを活用する方法を、開発者向けに整理します。 この記事では、次の内容を扱います。 ・Claude CodeへSkillsを追加する方法 ・個人用Skillとプロジェクト用Skillの配置先 ・Gitを使ってチームでSkillsを共有する方法 ・プラグインマーケットプレイスからSkillsを導入する方法 ・Claude Agent SDKでSkillsを利用する考え方 ・Skills APIによ…",
+      "body": ":::note info\nこの記事は i-know.dev に掲載したものです。\n:::\n\nClaude Skills完全ガイド③：Claude Code/APIでの活用編\n\nこの記事で分かること\n\nこれまでの記事では、Claude Skillsの基本的な使い方と、自分専用のカスタムSkillを作成する方法を紹介しました。\n\nシリーズ最終回となる今回は、Claude CodeとClaude APIでSkillsを活用する方法を、開発者向けに整理します。\n\nこの記事では、次の内容を扱います。\n・Claude CodeへSkillsを追加する方法\n・個人用Skillとプロジェクト用Skillの配置先\n・Gitを使ってチームでSkillsを共有する方法\n・プラグインマーケットプレイスからSkillsを導入する方法\n・Claude Agent SDKでSkillsを利用する考え方\n・Skills APIによるカスタムSkillの登録とバージョン管理\n・Messages APIからSkillを実行するための設定\n・CI/CDや自動化パイプラインへ組み込む際の注意点\n\n個人の作業効率化だけでなく、開発チームの手順や知識を再利用可能な形で管理したい人に向けた内容です。\n\nClaude CodeでSkillsを使う方法\n\nClaude Codeでは、SKILL.mdを含むSkillフォルダをファイルシステム上へ配置して利用します。\n\nClaude CodeがSkillの名前や説明を確認し、依頼内容に関連すると判断した場合に、必要なSkillを読み込みます。\n\nSkillは自動的に呼び出されるだけでなく、Skill名をスラッシュコマンドとして明示的に実行することもできます。\n\nClaude CodeでSkillsを追加する主な方法は、次の3つです。\n\n1. 個人用Skillとして配置する\n2. プロジェクト用Skillとしてリポジトリへ配置する\n3. Claude Codeプラグインとしてインストールする\n\n個人用Skillを配置する\n\n自分だけで使用するSkillは、ホームディレクトリの次の場所へ配置します。\n\n [code] \n\n例えば、コードレビュー用のSkillを追加する場合は、次のような構成になります。\n\n [code] \n\n個人用Skillは、複数のプロジェクトから利用できます。\n\n自分のコーディング規約、コミットメッセージの作成、調査手順など、プロジェクトをまたいで使う作業に向いています。\n\nプロジェクト用Skillを配置する\n\n特定のリポジトリで使用するSkillは、プロジェクト内の次の場所へ配置します。\n\n [code] \n\n例えば、Spring Bootプロジェクトのレビュー手順をSkill化する場合は、次のように配置できます。\n\n [code] \n\nプロジェクト用Skillはリポジトリへコミットできるため、Gitを通してチームメンバーへ共有できます。\n\nこれにより、次のようなルールをチーム共通のSkillとして管理できます。\n・コードレビューの観点\n・テスト実行手順\n・リリース前の確認項目\n・障害調査の手順\n・API設計ルール\n・ドキュメント作成形式\n・プルリクエストの確認手順\n\n個人が毎回説明していた作業手順を、バージョン管理されたチーム資産へ変えられる点が大きなメリットです。\n\nClaude CodeでSkillを実行する\n\nClaude Codeは、依頼内容とSkillのdescriptionを照合し、関連するSkillを自動的に選択します。\n\n例えば、次のように依頼します。\n\n [code] \n\n適切なSkillが登録されていれば、Claude CodeがそのSkillを読み込んでレビューを進めます。\n\n特定のSkillを明示的に使いたい場合は、スラッシュコマンドとして実行できます。\n\n [code] \n\n引数を付けられるSkillであれば、次のような呼び出しも可能です。\n\n [code] \n\n自動選択だけに頼らず、重要な処理では使用するSkillを明示することで、実行内容を安定させやすくなります。\n\nマーケットプレイスからSkillsを導入する\n\nAnthropicは、Agent Skillsのサンプルをanthropics/skillsリポジトリで公開しています。\n\nClaude Codeでは、このリポジトリをプラグインマーケットプレイスとして登録できます。\n\n [code] \n\n登録後、Claude Codeのプラグイン画面からSkillsを含むプラグインを検索してインストールします。\n\n公式リポジトリでは、用途に応じて次のようなプラグインが公開されています。\n・document-skills\n・example-skills\n・claude-api\n\ndocument-skillsには、Word、Excel、PowerPoint、PDFを扱うSkillsが含まれます。\n\nexample-skillsには、skill-creator、フロントエンドデザイン、MCPサーバー作成、Webアプリのテストなどのサンプルが含まれます。\n\nclaude-apiは、Claude APIやSDKを使った開発を支援するSkillです。\n\nインストール方法や収録内容は更新される可能性があるため、導入前にリポジトリのREADMEとマーケットプレイス定義を確認してください。\n\nチームでSkillsを共有する方法\n\nチーム共有には、主に2つの方法があります。\n\nリポジトリに含める\n\n特定プロジェクト専用のSkillは、.claude/skills/へ配置してアプリケーションコードと一緒に管理します。\n\nこの方法には、次のメリットがあります。\n・コードとSkillの変更を同じプルリクエストでレビューできる\n・ブランチごとにSkillの内容を切り替えられる\n・アプリケーションのバージョンとSkillの整合性を保ちやすい\n・新規参加者もリポジトリを取得すれば同じSkillを利用できる\n\n一方で、複数のリポジトリで共通利用するSkillは、各リポジトリへコピーすると更新漏れが発生しやすくなります。\n\nプラグインとして配布する\n\n複数チームや複数リポジトリで共通利用するSkillは、Claude Codeプラグインとして配布する方法が適しています。\n\n社内用のプラグインマーケットプレイスを用意すれば、次のような運用ができます。\n・承認済みSkillsを一覧化する\n・チームメンバーが必要なSkillsをインストールする\n・Skillsの更新をまとめて配布する\n・共通の開発標準やセキュリティルールを展開する\n・プロジェクト固有Skillと全社共通Skillを分離する\n\n小規模なチームではリポジトリ管理から始め、共有範囲が広がった段階でプラグイン化するのが現実的です。\n\nClaude Agent SDKでSkillsを利用する\n\nClaude Agent SDKは、Claude Codeと同様のエージェント実行基盤をアプリケーションから利用するためのSDKです。\n\nSDKでは、読み込むSkillsをオプションとして指定できます。\n\nそのため、Claude Codeで使用しているファイルベースのSkillsを、自作エージェントのセッションへ読み込ませる構成も可能です。\n\nただし、「Claude CodeのSkillを変更せずに、あらゆるSDK環境で完全に同じ動作をする」とは限りません。\n\n次の点は、実行環境ごとに確認が必要です。\n・SDKで有効化しているツール\n・Skillから実行するコマンドの権限\n・作業ディレクトリ\n・読み込む設定ソース\n・ファイルシステムへのアクセス範囲\n・環境変数や認証情報の扱い\n・SDKバージョンによるオプションの違い\n\nSkillの指示部分は再利用しやすい一方で、実行権限やツール構成はエージェント側で適切に設計する必要があります。\n\nClaude APIでSkillsを使う方法\n\nClaude APIでは、Anthropicが提供するSkillsと、自分でアップロードしたカスタムSkillsを利用できます。\n\nAPIで扱うSkillsは、Claude Codeのローカルファイルとは別に、ワークスペースへ登録して管理します。\n\n大まかな流れは次のとおりです。\n\n1. Skills APIで利用可能なSkillsを確認する\n2. カスタムSkillを作成またはアップロードする\n3. 必要に応じてSkillのバージョンを作成する\n4. Messages APIのリクエストへSkillを指定する\n5. Code Execution Toolを有効にして実行する\n6. 生成されたファイルをFiles APIから取得する\n\nSkills APIで利用可能なSkillを確認する\n\nSkills APIには、Skillを一覧取得するエンドポイントがあります。\n\n [code] \n\nsourceを指定すると、Anthropic提供のSkillsとカスタムSkillsを絞り込めます。\n\n [code] \n\nAnthropicが提供する代表的なドキュメントSkillsは次のとおりです。\n\n| Skill ID | 主な用途 |\n|---|---|\n| pptx | PowerPointファイルの作成・編集 |\n| xlsx | Excelファイルの作成・分析 |\n| docx | Wordファイルの作成・編集 |\n| pdf | PDFファイルの生成 |\n\nAPIで利用可能なSkillsは変更される可能性があるため、固定値を前提にせず、必要に応じて一覧を取得する設計が安全です。\n\nカスタムSkillを登録する\n\nカスタムSkillは、SKILL.mdと関連ファイルを含むフォルダをアップロードして作成します。\n\nSkill作成時には、すべてのファイルを同じトップレベルディレクトリへまとめ、ルートにSKILL.mdを配置する必要があります。\n\n作成に成功すると、次のようなSkill IDが返されます。\n\n [code] \n\nこのSkill IDを、Messages APIやManaged AgentsでSkillを指定するときに使用します。\n\nカスタムSkillのファイルはFiles APIではなく、Skills APIへ直接アップロードします。\n\nSkillのバージョンを管理する\n\n既存のカスタムSkillを更新する場合は、Skillに対して新しいバージョンを作成します。\n\n [code] \n\nSkillを削除して作り直すのではなく、同じSkill IDの下でバージョンを追加できます。\n\n実行時には、次のどちらかを指定します。\n・特定のバージョンへ固定する\n・latestを指定して最新バージョンを使う\n\n本番環境では、予期しない変更を避けるため、テスト済みのバージョンへ固定する方が安全です。\n\n開発環境ではlatestを利用し、検証後に本番用のバージョンを更新する運用が考えられます。\n\nMessages APIからSkillを実行する\n\nMessages APIでは、container.skillsへ利用するSkillを指定します。\n\nPython SDKを使った概念例は次のとおりです。\n\n [code] \n\n重要なのは、Skills APIでSkillを管理する処理と、Messages APIでSkillを実行する処理が分かれている点です。\n\n/v1/skillsへSkillを登録しただけでは実行されません。Messages APIのcontainer.skillsで、利用可能なSkillを指定する必要があります。\n\nCode Execution Toolが必要\n\nClaude APIでAgent Skillsを利用するには、Code Execution Toolが必要です。\n\nSkillの指示や関連ファイルはコード実行用コンテナへマウントされ、Claudeはその環境内でファイルの読み取りやスクリプトの実行を行います。\n\nリクエストには、次の設定が必要です。\n・Skills用のベータヘッダー\n・Skillsを指定するcontainer.skills\n・対応するCode Execution Tool\n・Code Execution Toolを利用できるモデル\n\nCode Execution Toolのバージョンや必要なヘッダーは変更される可能性があります。実装時は、固定された古いサンプルをコピーするのではなく、公式ドキュメントの最新例を確認してください。\n\n生成ファイルはFiles APIから取得する\n\nExcel、Word、PowerPoint、PDFなどを生成した場合、ファイルはコード実行環境内に作成されます。\n\nAPIレスポンスには生成ファイルを示すファイルIDが含まれるため、そのIDを取得してFiles APIからダウンロードします。\n\n処理の流れは次のようになります。\n\n [code] \n\nファイル生成を自動化する場合は、Skillの実行だけでなく、ファイルIDの抽出、保存先、保存期間、アクセス制御まで設計する必要があります。\n\nAPIでSkillsを使う場合のバージョン戦略\n\nSkillsを業務システムへ組み込む場合は、Skillそのものをアプリケーションの依存コンポーネントとして管理します。\n\n例えば、次のような運用が考えられます。\n\n [code] \n\nSkillを更新すると、同じプロンプトでも出力や処理手順が変わる可能性があります。\n\nそのため、次の情報を記録しておくと障害調査がしやすくなります。\n・Skill ID\n・Skillバージョン\n・使用モデル\n・Code Execution Toolのバージョン\n・実行日時\n・入力データ\n・出力ファイルID\n・エラー内容\n\nCI/CDや自動化パイプラインへ組み込む例\n\nClaude CodeやAPIのSkillsは、定型的な開発作業の自動化に利用できます。\n\nプルリクエストのレビュー\n\nチームのレビュー基準をSkill化し、変更内容に対して次の項目を確認します。\n・コーディング規約\n・セキュリティ上の問題\n・テスト不足\n・例外処理\n・既存設計との整合性\n\nリリースノートの生成\n\nGitの差分やコミット履歴から、チームの書式に沿ったリリースノートを作成します。\n\n障害ログの一次分析\n\nログの確認順序、既知のエラーパターン、切り分け手順をSkillとして定義します。\n\nAPI仕様書の生成\n\nソースコードやOpenAPI定義から、社内テンプレートに沿ったWordやPDFを生成します。\n\nテスト結果の集計\n\nCIのテスト結果を集計し、失敗傾向や前回との差分をExcelレポートへまとめます。\n\n自動化するときの注意点\n\n最小権限で実行する\n\nSkillが必要とするコマンドやファイルだけにアクセスできるようにします。\n\n外部入力を信頼しない\n\nプルリクエスト本文、Issue、ログ、アップロードファイルなどには、意図しない指示が含まれる可能性があります。\n\n外部入力をSkillの指示として扱わず、処理対象のデータとして明確に分離する必要があります。\n\n本番変更を直接実行させない\n\nデプロイ、削除、データ更新などの破壊的操作は、人の承認や別の制御を挟む設計が安全です。\n\n出力を検証する\n\nClaudeが生成したコード、SQL、設定ファイル、ドキュメントを無条件で採用せず、テストやスキーマ検証を行います。\n\nSkillと実行環境を分けて考える\n\nSkillは作業手順を定義しますが、権限管理やネットワーク制御、秘密情報の管理まで自動的に安全になるわけではありません。\n\n実行環境側でも適切なセキュリティ設計が必要です。\n\nClaude CodeとAPIの違い\n\nClaude CodeとClaude APIでは、Skillsの基本的な考え方は共通していますが、管理方法が異なります。\n\n| 比較項目 | Claude Code | Claude API |\n|---|---|---|\n| Skillの保存先 | ローカルまたはプロジェクトのファイルシステム | Anthropicのワークスペース |\n| 追加方法 | フォルダ配置またはプラグイン | Skills APIでアップロード |\n| 共有方法 | Gitまたはプラグインマーケットプレイス | Skill IDとバージョンを共有 |\n| 実行方法 | Claude Codeが自動選択、またはスラッシュコマンド | Messages APIのcontainer.skillsで指定 |\n| バージョン管理 | Gitのコミットやタグ | Skills APIのバージョン |\n| 主な用途 | ローカル開発、チーム開発 | Webサービス、バッチ、業務システム |\n| 実行環境 | Claude Codeが動作する端末 | Code Execution Toolのコンテナ |\n\nClaude Code用SkillとAPI用Skillは、同じSKILL.md形式を基盤として再利用しやすい設計です。\n\nただし、保存場所、利用可能なツール、実行権限、アップロード方法は異なります。単純に同じフォルダを置くだけで完全に移行できるとは限らないため、環境ごとの検証が必要です。\n\nSkillsシリーズのまとめ\n\nこのシリーズでは、Claude Skillsについて次の3段階で解説しました。\n\n① Claude Skillsの基本\n\nSkillsの仕組み、利用できる環境、設定方法、基本的な使い方を紹介しました。\n\n② カスタムSkillの作成\n\nskill-creatorを使ったSkill作成、SKILL.mdの書き方、テストと改善方法を紹介しました。\n\n③ Claude Code・APIでの活用\n\n個人用・プロジェクト用Skillの配置、Gitやプラグインによる共有、Skills APIとMessages APIによるシステム組み込みを紹介しました。\n\n個人で試す場合は、まずClaudeアプリやClaude Codeへ小さなSkillを一つ追加するところから始めるのがよいでしょう。\n\n同じ作業を繰り返すようになったら、入力条件、処理手順、エラー処理、完了条件を整理してカスタムSkill化します。\n\nチームで利用する段階では、GitやプラグインでSkillを共有し、レビューとバージョン管理の対象にします。\n\nさらにWebサービスやバッチ処理へ組み込む場合は、Skills API、Messages API、Code Execution Toolを使い、Skillのバージョンと実行環境を明示的に管理します。\n\nSkillsは単なる長いプロンプトではなく、開発チームの作業手順や専門知識を、再利用可能なソフトウェア資産として扱うための仕組みです。\n\n参考資料\n・Anthropic「Extend Claude with skills」\n・Anthropic「Agent Skills」\n・Anthropic「Get started with Agent Skills in the API」\n・Anthropic「Skills API Reference」\n・Anthropic公式GitHub「anthropics/skills」\n・Anthropic「Claude Agent SDK」",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "77503b001babc864",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8860759493670887,
+      "popularityPercentile": 0.9367088607594937,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "Claude SkillsをClaude CodeやAPIから使いチーム共有や自動化へ組み込む方法を解説する。",
+      "takeaways": [
+        "Claude Codeで作業手順を自動で呼び出せる。",
+        "個人用とチーム用の置き場所を分けられる。",
+        "共有や自動処理に組み込む方法を整理する。"
+      ],
+      "keywords": [
+        "Claude Skills",
+        "Claude Code",
+        "Claude API",
+        "Claude Agent SDK",
+        "SKILL.md",
+        "CI/CD"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ブラウザだけでアニメーションWebPを作る — libwebpのWASM移植を使うときの注意点",
+      "url": "https://qiita.com/uekibachidan/items/44ee8cf4df9cd82f4d51",
+      "publishedAt": "2026-08-24T00:03:22.000Z",
+      "author": "植木鉢団",
+      "authorDetail": {
+        "name": "植木鉢団",
+        "handle": "@uekibachidan",
+        "url": "https://qiita.com/uekibachidan",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4464133/d5616c9cd1cb1d971d6b14a3e115aa5400f2427e/x_large.png?1783603106",
+        "bio": "個人開発者。ブラウザ完結のMarkdownエディタ「LiteMD」や、日本語のAI開発ニュースをまとめる「日本語AIテックまとめ」などを作っています。\r\nAIエージェントを相棒に、Webアプリ／Androidアプリをコツコツ製作中。\r\n肩肘張らず、作ったものの裏側を書いていきます。",
+        "organization": "植木鉢団",
+        "followers": 0,
+        "posts": 4,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/uekibachidan"
+          },
+          {
+            "label": "Web",
+            "url": "https://uekibachidan.com/"
+          }
+        ]
+      },
+      "tags": [
+        "WebAssembly",
+        "npm",
+        "画像処理",
+        "個人開発"
+      ],
+      "snippet": "この記事はZennに投稿したものの転載です。 元記事: https://zenn.dev/uekibachidan/articles/677ba7e1f8a66f はじめに ブラウザだけで動く画像の一括縮小ツールを作っている。 Shrinkuma — https://shrinkuma.uekibachidan.com/ サーバに画像を送らない作りにしているので、処理は全部クライアント側でやる。静止画のリサイズと再エンコードは canvas.toBlob() で足りるのだけど、アニメーションGIFとAPNGをアニメーションWebPに変換するという機能で詰まった。 同じくブラウザ完結の路線で作ったものについては、以前こちらに書いた。 ・LLMを使わずに「AIっぽい日本語」を検出する: https://qiita.com/uekibachidan/items/831c2fc05d4950893…",
+      "body": "この記事はZennに投稿したものの転載です。\n元記事: https://zenn.dev/uekibachidan/articles/677ba7e1f8a66f\n\nはじめに\n\nブラウザだけで動く画像の一括縮小ツールを作っている。\n\nShrinkuma — https://shrinkuma.uekibachidan.com/\n\nサーバに画像を送らない作りにしているので、処理は全部クライアント側でやる。静止画のリサイズと再エンコードは canvas.toBlob() で足りるのだけど、アニメーションGIFとAPNGをアニメーションWebPに変換するという機能で詰まった。\n\n同じくブラウザ完結の路線で作ったものについては、以前こちらに書いた。\n・LLMを使わずに「AIっぽい日本語」を検出する: https://qiita.com/uekibachidan/items/831c2fc05d49508930cd\n・LLMを使わずにテキスト分類する: https://qiita.com/uekibachidan/items/39019e14fb70caacaf8e\n\nブラウザ標準のAPIには、複数フレームを1本のアニメーションWebPにまとめる手段がない。canvas.toBlob('image/webp') で作れるのは静止画1枚だけ。実際、この機能を足す前は、アニメーション画像に対して出力形式WebPを選ぶと1枚目だけの静止画になっていた。\n\n選択肢は2つあった\n\n経路A: WASMを入れる。 libwebp公式CLIの img2webp / gif2webp をWASMに移植した npm パッケージがある。フレーム間の差分圧縮を含めて本家と同じ挙動になる。\n\n経路B: 自前で組む。 各フレームを canvas.toBlob('image/webp') で静止WebPにして、それらをアニメーションWebPのコンテナ（RIFF: VP8X + ANIM + ANMF × フレーム数）に自分で連結する。仕様は公開されているので書けなくはない。\n\nBの弱点ははっきりしていて、フレーム間の差分圧縮が使えない。全フレームを独立した静止画として持つので、出力はAより確実に大きくなる。圧縮ツールなのに圧縮率で負けるのは本末転倒に近い。\n\n一方でAには、自分のルール上ひっかかる点がある。中身が読めないバイナリを1つ配布物に入れることになる。\n\nnpmのパッケージを新しく足すときのルールを、自分用に決めてある。もともとは、悪意のあるパッケージが混入する事象が一時期話題になっていて、それを見て安全策を詰めた結果できたもの。\n\n定番のものまで毎回検査していたら手が止まるので、要注意条件に当たるパッケージだけ検査を厚くするという形にしてある。中身を読めないバイナリを含むものは、その要注意条件のひとつ。WASMはここに当たる。\n\n入れる前に、条件を先に決めた\n\nなので先に「これを全部満たしたらAを採る、1つでも欠けたらBへ」という条件を書き出してから、実際に入れて確かめた。順番が逆だと、たぶん基準のほうが動く。\n\n機能面の条件はこう。\n・フレームごとの表示時間（delay）を指定できること\n・品質（lossy / quality）を指定できること\n・出力が実際に再生でき、透過が維持され、総再生時間が元と一致すること\n・COOP/COEPヘッダが必須なら不採用。マルチスレッドのWASMは SharedArrayBuffer を使うためクロスオリジン分離が要り、それにはこの2つのヘッダをサイト全体に付ける必要がある。付けると許可していない外部読み込みがブロックされるので、広告タグを壊しかねない。静的配信にヘッダ要件を持ち込みたくなかった\n・wasm読み込みを含めた追加ダウンロード量が1ファイルで1MBを大きく超えないこと\n\n供給網まわりの条件はこう。\n・インストール前にレジストリを見て、preinstall / install / postinstall が無いこと\n・バージョンは ^ を付けず完全固定。.npmrc に ignore-scripts=true を置いた状態で入れること\n・同梱のJSグルーコードを読み、fetch / WebSocket / sendBeacon / eval / atob / 外部URLの有無を確認すること。説明のつかない該当があれば不採用\n・CDNから引かず自サイトから配信し、wasmのハッシュを記録すること\n\n通した結果\n\n採用した。実際に見た値を書いておく。\n・@libwebp-wasm/img2webp@1.0.0 — インストールスクリプトなし。dist.integrity（SHA-512）を記録\n・wasm本体は 772,591 bytes（約754KB）。SHA-256 は 109f4368... として記録し、/assets/img2webp-[hash].wasm として自サイトから配信されることを確認\n・グルーコード内の fetch は、同一オリジンのwasmを読むためだけに使われていた（credentials: \"same-origin\"、相対URL解決）。eval は Emscripten の EMASM / EMJS 向けの標準的なグルー。外部への送信は無し\n\nCOOP/COEPは結局不要だった。シングルスレッドのビルドなので SharedArrayBuffer を使わず、ヘッダを足さないまま動いている。wasm自体もビルドに同梱して自サイトから配るので、実行時に外部へ出る通信は無い（グルーコード内の https:// はドキュメントへの参照コメントだけだった）。\n\ngif2webp も併せて検討したけれど、img2webp 1本で足りたのでバンドルサイズ削減のために落とした。GIFのフレーム分解は既存の gifuct-js、APNGは upng-js で済んでいて、必要だったのは「フレーム列 → アニメーションWebP」の出口だけだった。\n\n引っかかったのは更新頻度で、img2webp は1年以上リリースがない。これは要注意条件のひとつなので、本来なら不採用に倒す材料になる。libwebpという枯れたC実装のラッパーであることを理由に許容したけれど、ここは判断が甘い方に倒れた自覚がある。\n\nともあれ、条件は全部通した。読めないバイナリを入れる判断としては、できる範囲で慎重にやったつもりだった。\n\nパッケージは正しく動いていた。呼び方が間違っていた\n\n公開前の最終確認で測ったら、アニメーションWebPへの変換が一度も成功していなかった。\n\nimg2webp は渡した引数のとおりに動いていて、間違っていたのはこちらの呼び方だった。\n\n出す前に気づけたのは運が良かっただけで、確認の順番が違っていたらそのまま公開していた。\n\n出力形式にWebPを選んでアニメーション画像を変換すると、必ず「無変換（元のまま）」と表示されて、元ファイルがそのまま返ってくる。\n\n原因は1行で、img2webp を引数なしで呼んでいたこと。img2webp の既定モードは lossless で、事前に lossy でエンコードしたフレームが lossless で再エンコードされ、出力が元より大きくなっていた。\n\n既定が lossless なのは本家 libwebp の img2webp の仕様で、そちらのマニュアルには書いてある。調べれば分かったし、そこは落ち度。ただ、パッケージ側には手がかりが無かった。READMEは2KBほどで、中身はこのパッケージを自分でビルドする手順だけ。利用者向けのAPIの説明も引数の一覧も無く、型定義も同梱されていない。ふつうのJSライブラリのつもりで入れたが、実体はCLIのラッパーで、引数を省略したときの挙動はJSではなく元のCLIの既定に従う。読むべきドキュメントがパッケージの外にある、という構造だった。移植ものは、パッケージのREADMEより先に元のコマンドのマニュアルを見たほうが早い。\n\n実測がこれ。\n\n| 入力 | 元サイズ | 引数なし（＝lossless） | -lossy -q 80 | -lossy -q 60 |\n|---|---|---|---|---|\n| アニメGIF 480x360 / 16コマ | 1,016,192 B | 4,157,178 B（4.1倍） | 646,326 B（-36%） | 486,012 B（-52%） |\n| アニメGIF 320x240 / 12コマ | 76,039 B | 484,224 B（6.4倍） | 76,488 B（+0.6%） | 58,380 B（-23%） |\n| APNG 320x240 / 10コマ | 4,262 B | 147,616 B（34倍） | 31,048 B | 24,386 B |\n\n圧縮ツールなので「出力が元より大きければ元を返す」というガードを入れてある。これが毎回効いていた。\n\nこのガードが故障を隠していた。 エラーは出ない。クラッシュもしない。UIには「無変換」と正常に表示される。安全側に倒したつもりの設計が、機能が丸ごと動いていないことを覆い隠していた。ログを見ても、変換に失敗したわけではないので何も出ない。\n\n膨張がどの段で起きているかは切り分けられていて、各フレームを canvas.toBlob('image/webp', 0.8) で個別に静止WebP化した時点の合計は 714,670 B（1例目）。つまり多重化の段で膨らんでいることが確定していた。\n\n直したところ\n\n3つある。\n\n1. -lossy -q を明示する。 ここで単位が違う点にも引っかかった。UI側の品質は 0〜1 の小数（既定0.8）だけれど、img2webp の -q は 0〜100。変換を忘れると桁違いの値が渡る。\n\n [code] \n\n2. 中間フレームは最高品質で作る。 直すときに気づいたのだけど、フレームを静止WebPにする段でも利用者指定の品質を使っていた。そのあと img2webp が再エンコードするので、同じ品質設定で二重に劣化する。中間フレームは 1.0 で作り、実際の圧縮率は img2webp の -q 側だけで決めるようにした。\n\n3. 元サイズに収まらなければ品質を段階的に下げる。 指定品質で試して元より大きければ 0.6 → 0.45 → 0.3 と落として、収まる点を探す。それでも収まらないものは元を返す。元が極端に小さいアニメーションは、修正後も元を下回らないことがあり、その場合に無変換になるのは正しい挙動なので。\n\nなお -lossy を付けても透過は維持される。出力から透明ピクセルの alpha=0 と不透明部の alpha=255 を読み出して確認した。\n\nおわりに\n\n入れる前の検査は全部通した。それでも、肝心の機能は動いていなかった。引数を書かず、既定値のまま呼んでいたから。\n\n供給網の検査が見ているのは「悪意を持って何かをしないか」であって、「何もしなければどう振る舞うか」ではない。既定値はその視野の外にある。\n\nもう1つ、安全側の握りつぶしは故障を隠す。おかしければ元に戻すという保険は、おかしいと気づく手段も一緒に奪う。潰した回数くらいは出しておくべきだった。\n\nこの記事は AI(Claude)と共同執筆しました。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "4f24bab4a1d51b63",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8337215189873418,
+      "popularityPercentile": 0.6987341772151898,
+      "matchedTopics": [
+        "Node.js",
+        "ブラウザ / Web標準"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "libwebpのWebAssembly移植を使いブラウザだけでアニメーションWebPを作る方法を解説する。",
+      "takeaways": [
+        "ブラウザだけで動く画像変換を実現する。",
+        "標準機能は動画WebPを作れない。",
+        "変換用の仕組みをブラウザ内に移して補う。"
+      ],
+      "keywords": [
+        "libwebp",
+        "WebAssembly",
+        "WASM",
+        "アニメーションWebP",
+        "Shrinkuma",
+        "npm"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Codex CLIのexecをAPIキー認証でCIに組み込む",
+      "url": "https://qiita.com/kai_kou/items/8520a86d7993100396dd",
+      "publishedAt": "2026-08-24T07:11:20.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。2023年2月からアライドアーキテクツ株式会社のエンジニアリングマネージャーとしてワイワイやってます。",
+        "organization": "アライドアーキテクツ株式会社",
+        "location": "Osaka, Japan",
+        "followers": 939,
+        "posts": 756,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "CLI",
+        "OpenAI",
+        "ChatGPT",
+        "automation",
+        "AIAgent"
+      ],
+      "snippet": "はじめに OpenAI Codex CLI には、対話セッションを開かずにタスクを実行できる exec サブコマンドがあります[^1]。CI パイプラインや使い捨てコンテナのような、人間が張り付いてターミナルを操作できない環境で Codex CLI を動かせるかどうかは、この exec が実用に耐えるかどうかにかかっています。 対象読者は、Claude Code や Codex CLI のようなエージェント型 CLI ツールを CI・自動化パイプラインに組み込みたい開発者です。 この記事では、npm でインストールしたばかりの Codex CLI（codex-cli 0.149.1）を、ブラウザログインを使わず 環境変数の API キーだけ でログインさせ、exec サブコマンドで実際にファイル操作タスクを実行するところまでをクラウドのヘッドレスサンドボックス環境で検証しました。あわせて、…",
+      "body": "はじめに\n\nOpenAI Codex CLI には、対話セッションを開かずにタスクを実行できる exec サブコマンドがあります[^1]。CI パイプラインや使い捨てコンテナのような、人間が張り付いてターミナルを操作できない環境で Codex CLI を動かせるかどうかは、この exec が実用に耐えるかどうかにかかっています。\n\n対象読者は、Claude Code や Codex CLI のようなエージェント型 CLI ツールを CI・自動化パイプラインに組み込みたい開発者です。\n\nこの記事では、npm でインストールしたばかりの Codex CLI（codex-cli 0.149.1）を、ブラウザログインを使わず 環境変数の API キーだけ でログインさせ、exec サブコマンドで実際にファイル操作タスクを実行するところまでをクラウドのヘッドレスサンドボックス環境で検証しました。あわせて、対話 TUI（/import などのスラッシュコマンドを含む）がこの環境でどうなるかも確認しています。\n\nTL;DR\n・codex login --with-api-key は標準入力から API キーを読み込むだけで完結し、ブラウザ・TTY なしでログインできる\n・codex exec は非対話でタスクを実行でき、--sandbox workspace-write を付けるとファイルの新規作成・編集もできる\n・--json を付けると thread.started / item.completed / turn.completed のイベント列が出力され、CI でのパースに使える構造化ログになる\n・対話 TUI（引数なしで codex を起動するモード）は、exec が使う経路とは別に WebSocket 接続を張りにいく実装になっており、このクラウドサンドボックス環境では起動画面のまま応答が返らなかった。/import のような TUI 専用スラッシュコマンドは、この経路が塞がれている限り到達できない\n・つまり CI・自動化パイプラインへの組み込みは exec 一本に絞るのが現実的\n\n検証環境\n\nnpx 経由で最新版をそのまま実行し、バージョンとインストール診断を確認しました。\n\n [code] \n\ndoctor の出力の一部です。\n\n [code] \n\ninstall / updates の警告は npx 実行時特有のパッケージルート不一致（グローバルインストールの場所と npx が展開した一時ディレクトリが違う）なので今回は無視して問題ありません。一方 websocket の警告（Responses WebSocket failed）は、後述する TUI の挙動と符合する重要な手がかりでした。\n\nAPIキーだけでログインする\n\nCodex CLI はブラウザ経由の OAuth ログインに加えて、標準入力から API キーを渡すログイン方法をサポートしています。\n\n [code] \n\n [code] \n\n実際に試すと、ログイン前は次のように未ログイン状態でした。\n\n [code] \n\n環境変数 OPENAIAPIKEY をパイプで渡すと、ブラウザを一切開かずにログインが完了します。\n\n [code] \n\nCI のシークレットストアに API キーを 1 つ登録しておけば、ジョブ起動時にこの 2 行を実行するだけでログインが完結します。ブラウザ・デバイスコード入力・TTY のいずれも不要です。\n\nexecで非対話タスクを実行する\n\nログインができたら exec サブコマンドで実際にタスクを投げてみます。まずは読み取りだけの単純な計算タスクです。\n\n [code] \n\n [code] \n\nmodel: gpt-5.6-sol と表示されている点に注目してください。GPT-5.6 Sol は 2026年7月に Amazon Bedrock 経由で GA したモデルで[^2]、Codex CLI からもこの新モデルがデフォルトで使われることを実機で確認できました。\n\n次に、ファイルを実際に作成するタスクを --sandbox workspace-write 付きで実行しました。Codex CLI は既定で git 管理下のディレクトリでの実行を前提にしており、それ以外のディレクトリでは --skip-git-repo-check が必要でした。\n\n [code] \n\n [code] \n\n [code] \n\n実際にファイルが作成され、内容も指示どおりでした。workspace-write サンドボックスは apply patch（ファイル差分の適用）と exec（コマンド実行）の両方をログに残すため、CI のジョブログとして何が行われたかを後から追跡できます。\n\n--jsonでCIパース向けの構造化出力にする\n\nCI に組み込むなら、人間が読む整形済みテキストより機械的にパースできる形式がほしくなります。--json を付けると 1 行 1 イベントの JSON Lines 形式になります。\n\n [code] \n\n [code] \n\nturn.completed イベントにトークン使用量が入っているため、CI 上で「このジョブが何トークン消費したか」をそのままログ集計に流用できます。item.completed の text を拾えば最終出力だけを取り出すのも簡単です。\n\n以下は、ここまでの exec 呼び出しの流れを整理した図です。\n\n [code] \n\n対話TUIはこの環境では応答が返らなかった\n\n比較として、引数なしで codex を実行する対話 TUI モードも試しました。TUI は疑似端末（PTY）を要求するため、Python の pty モジュールで疑似端末を用意し、端末の色問い合わせ（OSC 10/11）にもダミー応答を返すようにした上で起動しています。\n\n [code] \n\n起動後 30 秒以上待っても、画面には起動スピナー（⠙⠹⠸⠼）が表示されたまま先へ進みませんでした。exec は同じネットワーク環境・同じ API キーで正常に応答が返ってきているため、OpenAI 側の API 疎通そのものは問題ありません。doctor が起動直後に警告していた Responses WebSocket failed; HTTPS fallback may still work という一文と合わせて考えると、対話 TUI は WebSocket 経由のストリーミング接続を前提にしており、このクラウドサンドボックス環境ではその接続が確立できずに待機し続けている、というのが最も筋の通る説明です（exec は HTTPS フォールバック側の経路を使っていると推測されます。Codex CLI 自体がこの切り分けを明示するログを出さないため、断定はできません）。\n\n/import のような便利機能はこの対話 TUI 側でのみ提供されるスラッシュコマンドです。TUI に到達できない環境では、当然 /import にも到達できません。つまり CI・自動化パイプラインで Codex CLI を使う設計をするなら、TUI 専用機能を前提にせず exec で完結する運用に倒すのが安全です。\n\n著者視点の発見ポイント\n\nこのリポジトリの運用パイプライン自体が Claude Code のクラウドスケジュール実行で動いており、「別のエージェント CLI をこの環境から呼び出せるか」は他人事ではない検証でした。実際に手を動かして分かったのは、「ログインできるか」と「対話操作ができるか」は別軸で確認しないといけない という点です。API キーでのログイン自体は一瞬で完結したのに、対話 TUI は 30 秒以上待っても応答が返らず、exec との違いが浮き彫りになりました。\n\ndoctor コマンドが最初から websocket 警告を出していたことにも意味があると気づいたのは、TUI がハングしてから doctor の出力を読み返した後でした。新しい CLI ツールをサンドボックス環境に導入するときは、doctor のような診断コマンドがあれば実行タスクを投げる前に一度読んでおくと、ハングの原因の当たりを付けやすくなります。\n\nまとめ\n・Codex CLI（codex-cli 0.149.1）は printenv OPENAIAPIKEY | codex login --with-api-key でブラウザ・TTY なしにログインできる\n・exec --sandbox workspace-write で非対話のままファイル作成・編集タスクを実行でき、--json で CI パース向けの構造化ログも得られる\n・対話 TUI はこのクラウドサンドボックス環境では起動画面から進まず、doctor が警告する WebSocket 接続失敗と符合する\n・/import を含む TUI 専用機能はこの制約の影響を受けるため、CI・自動化パイプラインへの組み込みは exec に一本化するのが現実的\n\n関連記事\n・Kimi Code CLIをOpenAIキーで動かしたら、標準の-pでも自動修正が走った\n・Codex公式プラグインでクラウド開発環境を1分構築、消し忘れで$4/月が溶けた話\n・Codexのマルチエージェント機能、config.toml設定は既に不要だった\n\n参考リンク\n\n[^1]: Non-interactive mode | ChatGPT Learn — Codex CLI 公式ドキュメント。codex exec をCI/自動化パイプラインから呼び出す非対話実行が説明されている\n[^2]: OpenAI GPT-5.6 Sol, Terra, and Luna now generally available on Amazon Bedrock — AWS公式アナウンス（2026年7月）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f9b2f5839e2277a6",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7730126582278481,
+      "popularityPercentile": 0.42278481012658226,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Codex CLIをAPIキー認証でCIに組み込み非対話でファイル操作を実行する方法を検証する。",
+      "takeaways": [
+        "Codex CLIを人の操作なしで動かせる。",
+        "APIキーだけでログインしてファイルを変更できる。",
+        "実行結果を機械が読める記録として出力できる。"
+      ],
+      "keywords": [
+        "OpenAI Codex",
+        "Codex CLI",
+        "codex exec",
+        "APIキー",
+        "CI",
+        "codex-cli 0.149.1"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "trial": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "fufankeji/deepseek-harness-studio — DeepSeek Harness 零代码桌面端｜一键启动，支持 Windows 与 macOS；内置插件发现、热点插件推送、一键安装与管理、AI 智能推荐和视觉增强。",
+      "url": "https://github.com/fufankeji/deepseek-harness-studio",
+      "publishedAt": "2026-08-15T03:00:06.000Z",
+      "author": "fufankeji",
+      "authorDetail": {
+        "name": "fufankeji",
+        "url": "https://github.com/fufankeji",
+        "avatarUrl": "https://github.com/fufankeji.png?size=120",
+        "bio": "DeepSeek Harness 零代码桌面端｜一键启动，支持 Windows 与 macOS；内置插件发现、热点插件推送、一键安装与管理、AI 智能推荐和视觉增强。"
+      },
+      "tags": [
+        "TypeScript",
+        "ai-agent",
+        "deepseek",
+        "deepseek-harness",
+        "deepseek-harness-studio",
+        "desktop-app",
+        "developer-tools",
+        "dsh"
+      ],
+      "snippet": "DeepSeek Harness 零代码桌面端｜一键启动，支持 Windows 与 macOS；内置插件发现、热点插件推送、一键安装与管理、AI 智能推荐和视觉增强。",
+      "metrics": {
+        "stars": 504
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "e56680ffecde4338",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.6707857142857143,
+      "popularityPercentile": 0.2,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "deepseek-harness-studio — DeepSeek Harness のデスクトップ版",
+      "oneLiner": "deepseek-harness-studioはWindowsとmacOSでDeepSeek Harnessを使えるデスクトップアプリである。",
+      "takeaways": [
+        "DeepSeek HarnessをWindowsとmacOSで起動できる。",
+        "拡張機能を探して追加や管理ができる。",
+        "AIの提案と画面の見やすさを備える。"
+      ],
+      "keywords": [
+        "deepseek-harness-studio",
+        "DeepSeek Harness",
+        "TypeScript",
+        "デスクトップアプリ",
+        "プラグイン"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "trial": {
+        "runner": "shell",
+        "install": "git clone --depth 1 https://github.com/fufankeji/deepseek-harness-studio",
+        "verify": "ls deepseek-harness-studio",
+        "questions": [
+          "README の手順だけで、最初の出力まで到達できるか",
+          "動かすのに別途何が必要か（API キー・GUI・別のツール）"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "なぜAIは「React Coder」を最初に置き換えるのか（そしてシニアになる方法）",
+      "url": "https://qiita.com/TOMOSIA-HieuNT/items/8cf78d564cd0a8fe8c81",
+      "publishedAt": "2026-08-24T04:02:41.000Z",
+      "author": "TOMOSIA-HieuNT",
+      "authorDetail": {
+        "name": "TOMOSIA-HieuNT",
+        "handle": "@TOMOSIA-HieuNT",
+        "url": "https://qiita.com/TOMOSIA-HieuNT",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4240966/a70e820e079ba99e4bf30852e8ed65acf4529441/x_large.png?1772167168",
+        "bio": "株式会社TOMOSIA VIET NAM | フルスタックデベロッパー\r\n\r\n【専門領域】\r\nBackend: Node.js（パフォーマンス最適化）\r\nFrontend: React / Next.js\r\nAI/ML: 実践的なWeb統合\r\n\r\nクリーンアーキテクチャ、パフォーマンスチューニング、最新技術について発信中。",
+        "organization": "株式会社TOMOSIA VIET NAM",
+        "followers": 104,
+        "posts": 35,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/HieuNT44"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "React",
+        "Thinking"
+      ],
+      "snippet": "※ この記事の日本語には、少し不自然な部分があるかもしれません。AIの言語サポートを利用しながら作成しています。 目次 ・はじめに ・1. システム思考のフレームワークを築く（寄り道学習ではなく） ・2. 技術的思考を明確に表現する ・3. エンドツーエンドの思考を育てる ・4. AIを「てこ」として使う — AIに考えさせてはいけない ・まとめ ・最後に --- はじめに こんにちは！私はベトナム人の開発者で、7年以上の経験があります。EU、日本、ベトナムの市場で働いてきました。 主なスキル： ・フロントエンド：ReactJS、VueJS ・バックエンド：NodeJS 最近1年、AIの進化により、私は自分でコードを書くことが減りました。 「AIがReact開発者を置き換えるかもしれない」と感じた時期もありました。でも、本当に「Fresher + AI」が「Senior React開発者」…",
+      "body": "※ この記事の日本語には、少し不自然な部分があるかもしれません。AIの言語サポートを利用しながら作成しています。\n\n \n\n目次\n・はじめに\n・1. システム思考のフレームワークを築く（寄り道学習ではなく）\n・2. 技術的思考を明確に表現する\n・3. エンドツーエンドの思考を育てる\n・4. AIを「てこ」として使う — AIに考えさせてはいけない\n・まとめ\n・最後に\n\n---\n\nはじめに\n\nこんにちは！私はベトナム人の開発者で、7年以上の経験があります。EU、日本、ベトナムの市場で働いてきました。\n\n主なスキル：\n・フロントエンド：ReactJS、VueJS\n・バックエンド：NodeJS\n\n最近1年、AIの進化により、私は自分でコードを書くことが減りました。\n\n「AIがReact開発者を置き換えるかもしれない」と感じた時期もありました。でも、本当に「Fresher + AI」が「Senior React開発者」を置き換えられるでしょうか？\n\n私は「できない」と思います。\n\nただし、それはMiddle/Senior React開発者で、AIとともに成長する考え方を持っている人に限ります。\n\nこの記事では、Middle/Senior React開発者がAIに置き換えられないための考え方の変え方を共有します。\n\n---\n\nなぜAIは「React Coder」を最初に置き換えるのか（そしてSeniorになる方法）\n\nもしあなたが3〜5年の経験を持つフロントエンド開発者なら、こんな日々を感じたことがあるでしょう：\n・新しいフォームを作る\n・新しいテーブルを作る\n・REST APIを接続する\n・バグを直す\n\n仕事はちゃんと終わっています。でも、AIの時代にこんな疑問が浮かびます：\n\n「AIが数秒でできることを、自分の価値はどこにあるのか？」\n\n現実はこうです：AIはフロントエンドエンジニア全体を置き換えません。でも、「React Coder」 — ただ指示通りにコードを書くだけの人 — は置き換えられます。\n\nMid-levelからSeniorに上がるために必要なのは、新しいライブラリを10個覚えることではありません。\n\n必要なのは「技術的な判断をする考え方」 です。\n\n以下、AI時代にプログラミングの考え方をアップグレードする4つの戦略を紹介します。\n\n---\n\n1. システム思考のフレームワークを築く（寄り道学習ではなく）\n\n多くのMid-level開発者は、その場しのぎで学びます：\n・新しい状態管理ライブラリを学ぶ\n・新しいテストツールを試す\n・AIアシスタントをいじる\n\n一生懸命に見えます。でも、これらの知識がつながっていなければ、技術を評価する力は身につきません。\n\n代わりに、すべてのスキルをSDLC（ソフトウェア開発ライフサイクル） やユーザージャーニーに結びつけましょう。\n\nSDLCで考える\n\n機能はUIコードで始まり、UIコードで終わるわけではありません。\n\n例えば検索機能を作る場合：\n・要件 → API設計 → ローディング/空の状態 → エッジケースのテスト → 安全なリリース → 本番環境の監視\n\nこれらすべてを考える必要があります。\n\nユーザージャーニーで考える\n\nEコマースアプリの場合：\n・検索 → 商品詳細 → カート → チェックアウト\n\nそれぞれに違う技術的課題があります：\n・Debouncing\n・Caching\n・Form validation\n・Polling\n\nなぜAI時代に重要なのか？\n\nAIは速く答えを出せます。でも、AIの答えが安全か、最適か、拡張可能かを判断するには、しっかりした考え方のフレームワークが必要です。\n\n---\n\n2. 技術的思考を明確に表現する\n\nMid-levelでは、「チケットを終わらせたか」 で評価されます。\n\nでもSeniorになると、「その解決策の背後にある考え方」 で評価されます：\n・なぜこのアーキテクチャを選んだのか？\n・何をトレードオフ（速度、コスト、パフォーマンス）しているのか？\n\n今日からできる練習\n\n1. 良いPR説明を書く\n\n「何を直したか」だけでなく、「なぜそうしたか」 を説明しましょう。\n\n2. 設計ドキュメントを書く\n\n最終的な解決策を決める前に、考えた選択肢を簡単にメモしましょう。\n\n3. 書くことは考えること\n\n明確に書けない = 十分に考えていない ということです。\n\n---\n\n3. エンドツーエンドの思考を育てる\n\nAIは10秒できれいなダッシュボードや完全なフォームを作れます。\n\nでも、画面は氷山の一角です。\n\n本当のフロントエンドシステムでは、水面下の問題も解決する必要があります：\n・データフローはどうなっているか？\n・APIが遅い、または落ちたらどうするか？\n・ユーザー権限とデータセキュリティは？\n・ユーザーがF5（ハードリロード）したらどうなるか？\n\nSeniorフロントエンドエンジニアはこう聞きません：\n「このUIをどうやって作るか？」\n\n代わりにこう聞きます：\n「この機能はシステム全体でどう動くのか？」\n\n---\n\n4. AIを「てこ」として使う — AIに考えさせてはいけない\n\nAIを避けるのは間違いです。\n\nでも、AIに完全に依存するのはもっと危険です。自分で深く考える力を失います。\n\n| ❌ 危険なAIの使い方 | ✅ 効果的なAIの使い方 |\n|---|---|\n| アーキテクチャの考え方を全部AIに任せる | AIにボイラープレートコードを生成させる |\n| AIが作ったコードをレビューせずにコピーする | AIに3つの選択肢を出させ、自分でトレードオフを比較する |\n| 原因を理解せずAIにバグを直させる | AIに概念を説明させ、自分で手を動かして実践する |\n\n---\n\nまとめ\n\n3〜5年の経験を積むと、コードを書くことは最も難しい部分ではなくなります。\n\n本当の課題はここにあります：\n・何をするべきか知ること\n・なぜこの方法でやるのか知ること\n・将来、システムがどう変わるか考えること\n\nAIは機械的にコードを書く人をすぐに置き換えるでしょう。\n\nでも、システム思考と判断力を持つエンジニアは、ますます価値が高まります。\n\n---\n\n最後に\n\nここまでお読みいただき、誠にありがとうございます。\n\nもし「システム開発を依頼したい」「技術的な相談をしたい」「AIを活用した課題解決のアイデアがある」 といったお悩みがございましたら、ぜひ私たちTOMOSIA VIETNAMにご相談ください。\n\n私たちの主なサービス\n・💻 ソフトウェア受託開発（Web・アプリ・システム）\n・🤖 AIソリューション（チャットボット、画像処理、LLM応用）\n・📱 モバイルアプリ開発（iOS / Android）\n・🔌 Fintech / IoT開発\n・🔧 ブリッジSE（BrSE）支援（日本語でのコミュニケーションをスムーズに）\n\n私たちの強み\n・ISO/IEC 27001（情報セキュリティ）認証取得済み – 安心して任せていただけます\n・日本語対応チーム – 日本の文化・ビジネス習慣を理解したメンバーが直接対応\n・「Win-Win, Happy Together」の文化 – 長期的なパートナーシップを大切にします\n\n🔗 公式サイト: tomosia.com",
+      "metrics": {
+        "likes": 3,
+        "stocks": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "4479826a8ab6b532",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.8910886075949368,
+      "popularityPercentile": 0.959493670886076,
+      "matchedTopics": [
+        "React"
+      ],
+      "buzz": false,
+      "score": 87,
+      "titleJa": null,
+      "oneLiner": "AI時代にReact開発者が価値を保つには、実装よりシステム全体を考える力が重要だと論じています。",
+      "takeaways": [
+        "AIは定型的な画面実装を先に代替する。",
+        "価値の中心は全体の仕組みを考える力に移る。",
+        "技術的な判断を言葉で説明する力が必要になる。"
+      ],
+      "keywords": [
+        "React",
+        "AI",
+        "Node.js",
+        "システム思考",
+        "エンドツーエンド"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "実装力を深めるか全体設計力を広げるか",
+        "forSide": "定型実装をAIに任せれば全体設計に時間を使える。",
+        "againstSide": "実装力がなければAIの出力を正しく評価できない。",
+        "oneSided": true,
+        "yourAngle": "Reactの実装をAIに任せた後のレビューや設計判断を語れる。"
+      },
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "devto",
+      "sourceLabel": "dev.to",
+      "title": "The Tests Passed. The Contract Was Wrong.",
+      "url": "https://dev.to/kenielzep97/the-tests-passed-the-contract-was-wrong-mp0",
+      "publishedAt": "2026-08-24T04:24:57.000Z",
+      "author": "Self-Correcting Systems",
+      "authorDetail": {
+        "name": "Self-Correcting Systems",
+        "handle": "@kenielzep97",
+        "url": "https://dev.to/kenielzep97",
+        "avatarUrl": "https://media2.dev.to/dynamic/image/width=640,height=640,fit=cover,gravity=auto,format=auto/https%3A%2F%2Fdev-to-uploads.s3.us-east-2.amazonaws.com%2Fuploads%2Fuser%2Fprofile_image%2F3948231%2F2687b2ae-6784-48d3-85f5-1f8e66e2a252.jpeg",
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/keniel13-ui"
+          },
+          {
+            "label": "Web",
+            "url": "https://primaworkflows.com"
+          }
+        ]
+      },
+      "tags": [
+        "ai",
+        "testing",
+        "architecture",
+        "agents"
+      ],
+      "snippet": "In June a reviewer on DEV who goes by @anp2network told me to stop storing a conclusion. I had a...",
+      "metrics": {
+        "likes": 19,
+        "comments": 9
+      },
+      "sourceWeight": 2,
+      "lang": "en",
+      "id": "b892b7e07252e1fc",
+      "foundIn": [
+        "devto"
+      ],
+      "preScore": 0.40345238095238095,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 85,
+      "titleJa": "テストは通ったが契約が間違っていた",
+      "oneLiner": "AIが生成したテストを通過しても、実装が本来の契約を満たすとは限らない問題を扱っています。",
+      "takeaways": [
+        "テストが通っても正しい仕様とは限らない。",
+        "AIは実装に合わせたテストを作ることがある。",
+        "動作確認と要求確認は別々に必要になる。"
+      ],
+      "keywords": [
+        "AI",
+        "テスト",
+        "testing",
+        "architecture",
+        "agents"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "テストを増やすか仕様の確認を優先するか",
+        "forSide": "仕様との約束を先に定めれば誤ったテストの合格を防げる。",
+        "againstSide": "仕様を厳密に定めるほど変更への対応が遅くなる。",
+        "oneSided": true,
+        "yourAngle": "AIエージェントが追加したテストと実際の要件の差を検証できる。"
+      },
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "テストは実装のそばに書くべきか、離すべきか",
+      "url": "https://qiita.com/harupython/items/9219714f43294b852810",
+      "publishedAt": "2026-08-24T10:15:09.000Z",
+      "author": "harupython",
+      "authorDetail": {
+        "name": "harupython",
+        "handle": "@harupython",
+        "url": "https://qiita.com/harupython",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4028223/profile-images/1741177010",
+        "bio": "Pythonメインで、気になった技術はとりあえず触ってみるタイプです。\r\n最近はNode.js・Rust・Goを勉強しながら、思いついたものを作っています。\r\n作ったものの一部はOSSとして公開しています。",
+        "organization": "Disnana",
+        "location": "JP",
+        "followers": 76,
+        "posts": 133,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/harumaki4649"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/PythonHaru"
+          },
+          {
+            "label": "Web",
+            "url": "https://tp-li.com/"
+          }
+        ]
+      },
+      "tags": [
+        "Python",
+        "テスト",
+        "pytest",
+        "設計",
+        "ポエム"
+      ],
+      "snippet": ":::note info このシリーズ「Pythonって、たぶんそういう意味じゃない」では、Pythonを書いていて「あれ、これってそういう意味だと思ってたのに違った」と気づいた瞬間を、個人の経験に基づくポエムとして言語化しています。 ::: なぜか「テストはtests/ディレクトリに書くもの」だと当たり前のように思っていた。 pytestを使っていれば、test.pyやtest.pyというファイルをテスト用ディレクトリに集めて、そこにテストを書く。これが普通だと思っていたし、実際pytest公式のGood Integration Practicesでも、この「アプリケーションコードと分離したテストディレクトリ」というレイアウトが紹介されている。 でも先に断っておくと、これは唯一の正解ではないらしい。今回はそこに気づいた話をする。 niltestは何が違うのか 自分はniltestというラ…",
+      "body": ":::note info\nこのシリーズ「Pythonって、たぶんそういう意味じゃない」では、Pythonを書いていて「あれ、これってそういう意味だと思ってたのに違った」と気づいた瞬間を、個人の経験に基づくポエムとして言語化しています。\n:::\n\nなぜか「テストはtests/ディレクトリに書くもの」だと当たり前のように思っていた。\n\npytestを使っていれば、test.pyやtest.pyというファイルをテスト用ディレクトリに集めて、そこにテストを書く。これが普通だと思っていたし、実際pytest公式のGood Integration Practicesでも、この「アプリケーションコードと分離したテストディレクトリ」というレイアウトが紹介されている。\n\nでも先に断っておくと、これは唯一の正解ではないらしい。今回はそこに気づいた話をする。\n\nniltestは何が違うのか\n\n自分はniltestというライブラリを作っている。実装のすぐそばに、@scenarioというデコレータでテストシナリオを書けるようにしたものだ。\n\n [code] \n\n実装関数のすぐ下に、対応するテストシナリオが並ぶ。pytest互換なので、既存のCIやツールチェーンにもそのまま乗る。\n\n作った時は「ドキュメントとテストと実装が離れていくのが嫌だ」というのが一番の動機だった。仕様書だけ更新されてテストが古いまま、みたいなことが実務で何度もあったので。\n\nただ、これを外の人に見せると、必ずしも好意的な反応ばかりではなかった。\n\nniltestは本当にアンチパターンなのか\n\nもらった指摘をまとめると、だいたいこの3つに集約される。\n・関心の分離が壊れる : プロダクションコードとテストコードは役割が違うのだから、ファイルレベルで分けるべきという考え方がある。実装ファイルを開いたら実装だけが見たい、という声は実際にあった\n・pytestの標準discoveryから外れる : pytest公式ドキュメントでは、テストファイルはtest.pyまたはtest.pyという命名規則で検出される。niltestのようにテストを実装ファイルの中に混ぜる書き方は、この標準的な検出規約とは別の仕組みに乗ることになる\n・本番ビルドへの混入リスク : テストコードが実装ファイルの中にあると、ビルド設定やデプロイ設定を誤るとテストコードごと本番に持っていってしまう可能性がある。物理的に分かれていれば、この手のミスは構造的に防ぎやすい\n\n正直、2番目の指摘が一番刺さった。pytestという枠組みに乗っておきながら、その標準的な発見規約からは外れているのは事実で、「pytest互換です」と言い切るには少し無理がある部分もあると思う。\n\n実装のそばにテストを書くのは、そんなに変なことなのか\n\n一方で、「実装のそばにテストを書く」という発想自体は、別に目新しいものではない。\n\nRustでは#[cfg(test)] mod tests { ... }という書き方で、実装ファイルの中にテストモジュールを直接書くのが標準的なスタイルとして扱われている。Goでもtest.goという命名規則ではあるものの、同じパッケージ・同じディレクトリにテストファイルを置くのが基本になっている。Pythonの標準ライブラリにもdoctestがあり、docstringの中に書いた対話例そのものをテストとして実行できる。\n\n:::note info\nRust・Goのテスト配置規約や、Python標準のdoctestモジュールについては、各言語・各ツールの公式ドキュメントを参照。\n:::\n\nつまり「実装とテストを分離するべき」という考え方は一つの設計思想であって、唯一の正解ではない。むしろ言語やエコシステムによっては、実装のそばにテストを置く方が主流という場合もある。\n\nniltestが特殊なのは、Pythonという「テストディレクトリ分離が主流の環境」の中で、あえて別のスタイルを選んでいる点だと思う。異端というより、Pythonのエコシステムの中では少数派、というくらいの立ち位置だと自分では捉えている。\n\n結局、どっちが正しいのか\n\nここまで書いておいてなんだが、 「テストは実装のそばに書くべきか、離すべきか」に絶対的な正解はない と思う。\n\n分離型は、関心の分離がはっきりしていて、テストディレクトリを見るだけでテストの全体像を把握しやすい。大規模なチーム開発や、テストコードの管理を厳密にしたい場合には向いていると思う。\n\n一方でコロケーション型(実装のそばに置く型)は、実装とテストの乖離を防ぎやすく、書くハードルも下がる。特に個人開発や小規模なプロジェクト、あるいはドキュメント性を重視したい場面では効果を感じやすい。\n\n自分の場合は、コアロジックや外部から呼ばれるAPIの境界には分離型のテストを書き、内部の細かいユーティリティ関数にはniltestで実装のそばにシナリオを書く、という使い分けをしている。全部を一つのスタイルに統一しようとしなくてもいいんだと思う。\n\nおわりに\n\n「テストはtests/に書くもの」という思い込みは、たぶんそういう意味じゃなかった。単に自分が慣れていたスタイルが一つあっただけで、実装のそばにテストを置く文化も、言語やツールによっては当たり前のように存在していた。\n\nniltestに対する批判は的外れではなかったし、今でも有効な指摘だと思っている。それでも、この経験を通して「分離こそが正義」だと無意識に思い込んでいた自分に気づけたのは収穫だった。\n\n同じように、当たり前だと思っていた設計の前提が実は一つの選択肢に過ぎなかった、と気づいた経験がある人がいたら、それはあなただけではないと思う。\n\nもし良い記事と思ったら、 いいね 、 ストック 、 フォロー お願いします🙇\n\nこのシリーズでは、Pythonを書いていて「あれ、そういう意味じゃなかったんだ」と気づいた瞬間を、これからも言語化していきます。\n\nhttps://qiita.com/harupython/stocks/6cecb628b7336aabf25e",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9bf922715dd50b04",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0,
+      "popularityPercentile": 0.8126582278481013,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "pytest互換のniltestを例に、テストを実装の近くに置く設計の利点と課題を考察しています。",
+      "takeaways": [
+        "テストを別の場所に置くことだけが正解ではない。",
+        "niltestは実装のそばにテストシナリオを置く。",
+        "テストと仕様のずれを減らす狙いがある。"
+      ],
+      "keywords": [
+        "Python",
+        "pytest",
+        "niltest",
+        "テスト設計",
+        "@scenario"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "テストを実装の近くに置くか分離するか",
+        "forSide": "近くに置けば実装とテストのずれに気づきやすい。",
+        "againstSide": "分離すれば本体の見通しとテストの独立性を保てる。",
+        "oneSided": false,
+        "yourAngle": "TypeScriptやReactのテスト配置で保守性が変わった経験を出せる。"
+      },
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "trial": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CLAUDE.md設計パターン集 — プロジェクト規模別・7つのテンプレートと設計意図を全公開",
+      "url": "https://qiita.com/hikariclaude01/items/c7b1cdce91a5cb34e7f7",
+      "publishedAt": "2026-08-24T01:02:15.000Z",
+      "author": "光 久朗土",
+      "authorDetail": {
+        "name": "光 久朗土",
+        "handle": "@hikariclaude01",
+        "url": "https://qiita.com/hikariclaude01",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4384000/87544bfe56bbfcb9e8b9913ce924fb95f9057993/large.png?1786860485",
+        "bio": "ClaudeCodeやAI開発ツールの使い方を体験ベースで記事にしています！\r\n■主な発信テーマ\r\n・ClaudeCodeの機能・スキル・活用パターン\r\n・Cursor/Notion/MCP等のツール連携\r\n・「ここで詰まった」実験・検証レポート\r\n公式ドキュメントへのリンクを必ず添えて、正確な情報をお届けすることを心がけています。\r\nThreads→ @hikari.claude01",
+        "followers": 124,
+        "posts": 83,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://www.threads.com/@hikari.claude01"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "CLAUDE.md",
+        "AI駆動開発",
+        "開発効率化",
+        "設計パターン"
+      ],
+      "snippet": "CLAUDE.mdは「AIへの指示書」ではなく「チームの判断基準の言語化」である——この視点を持つだけで、Claude Codeの出力精度は劇的に変わります。 本記事では、プロジェクト規模別に7つのCLAUDE.mdテンプレートを提示し、「なぜこの項目を書いたのか」「なぜ書かなかったのか」という設計意図まで踏み込んで解説します。コピペして使えるテンプレート集であると同時に、自分のプロジェクトに最適なCLAUDE.mdを設計するための思考フレームワークとしてお使いください。 環境・前提条件 ・Claude Code CLI版を利用していること ・CLAUDE.mdファイルの基本的な役割を理解していること（公式ドキュメント参照） ・Git管理下のプロジェクトで作業していること なぜCLAUDE.mdの設計が開発品質を左右するのか 多くのエンジニアがCLAUDE.mdを「プロンプトの延長」として…",
+      "body": "CLAUDE.mdは「AIへの指示書」ではなく「チームの判断基準の言語化」である——この視点を持つだけで、Claude Codeの出力精度は劇的に変わります。\n\n本記事では、プロジェクト規模別に7つのCLAUDE.mdテンプレートを提示し、「なぜこの項目を書いたのか」「なぜ書かなかったのか」という設計意図まで踏み込んで解説します。コピペして使えるテンプレート集であると同時に、自分のプロジェクトに最適なCLAUDE.mdを設計するための思考フレームワークとしてお使いください。\n\n環境・前提条件\n・Claude Code CLI版を利用していること\n・CLAUDE.mdファイルの基本的な役割を理解していること（公式ドキュメント参照）\n・Git管理下のプロジェクトで作業していること\n\nなぜCLAUDE.mdの設計が開発品質を左右するのか\n\n多くのエンジニアがCLAUDE.mdを「プロンプトの延長」として捉えています。しかし、本質的にはCLAUDE.mdはコードベースに埋め込まれた意思決定の記録です。\n\n指示書と判断基準の違い\n\n| 観点 | 指示書（❌ よくある書き方） | 判断基準（✅ 目指す書き方） |\n|------|---------------------------|---------------------------|\n| 例 | 「関数名はcamelCaseで書いて」 | 「外部APIとの境界ではsnakecaseに変換し、内部ではcamelCaseを使う。理由: APIレスポンスとの対応を明確にするため」 |\n| 曖昧な状況 | 判断できず毎回質問される | コンテキストから自律的に判断できる |\n| 保守性 | ルールが増え続け破綻する | 原則が明確なので例外も判断できる |\n\nClaude Codeは「なぜそうするのか」が書いてあると、書かれていない類似状況にも正しく判断を適用します。ルールの羅列より、判断の根拠を書くほうが出力精度は高くなります。\n\n規模別テンプレート7選 — 構成要素マトリクス\n\nまず、7つのプロジェクト規模と、CLAUDE.mdに含めるべき構成要素の関係を俯瞰します。\n\n [code] \n◎ = 必須 / ○ = 推奨 / △ = あれば良い / × = 不要\n\nでは、各テンプレートを見ていきましょう。\n\n---\n\n1. 個人スクリプト（〜500行）\n\n [code] \n\n設計意図: 「動けばよい」と明示することで、Claude Codeが過剰な抽象化・テスト生成・型定義を行うのを防ぎます。個人スクリプトの最大の敵はオーバーエンジニアリングです。\n\n---\n\n2. 副業MVP（1人開発・数週間リリース）\n\n [code] \n\n設計意図: 「やらないこと」セクションが鍵です。Claude Codeはデフォルトで「良いプラクティス」を適用しようとするため、MVP段階で不要な機能を明示的に除外しないと、スコープが際限なく膨らみます。\n\n---\n\n3. スタートアップ（3〜5人チーム）\n\n [code] \n\n設計意図: チーム開発では「暗黙の合意」が最大のリスクです。レイヤーの責務を明文化することで、Claude Codeだけでなく新メンバーのオンボーディングにも機能します。\n\n---\n\n4. 中規模チーム（10人以上）\n\n [code] \n\n設計意図: 中規模以上では「禁止事項」の重要度が跳ね上がります。特にセキュリティ・コンプライアンスに関する制約は、Claude Codeが自動生成するコードで意図せず違反するリスクがあるため、最上位に記載します。また、CLAUDE.md自体を軽量に保ち、詳細は別ドキュメントへの参照にとどめるのがポイントです。\n\n---\n\n5. モノレポ\n\n [code] \n\n設計意図: モノレポではCLAUDE.mdも階層化します。ルートには全体ルールのみを置き、各パッケージ固有のルールはサブディレクトリのCLAUDE.mdに委譲します。Claude Codeは作業ディレクトリのCLAUDE.mdを自動で読み込むため、この構造と相性が良いです。\n\n---\n\n6. OSSプロジェクト\n\n [code] \n\n設計意図: OSSでは「後方互換性」が最重要です。Claude Codeが善意でAPIシグネチャを変更してしまうケースを防ぐため、破壊的変更のルールを明示します。\n\n---\n\n7. レガシー改修\n\n [code] \n\n設計意図: レガシー改修でClaude Codeが最もやりがちなミスは、善意のリファクタリングです。「動いている旧コードに触るな」を最上位ルールとして明記します。\n\n---\n\n各テンプレートの設計意図 — 「書かなかった」理由\n\nテンプレートに共通する設計判断の背景を整理します。\n\n [code] \n\n書かない判断が正しいケース\n・言語・フレームワークの標準規約: ESLintやgo fmtが強制するルールをCLAUDE.mdに重複して書く必要はありません\n・自明なベストプラクティス: 「変数名はわかりやすく」のような抽象的な指示は、書いてもClaude Codeの振る舞いを変えません\n・頻繁に変わる実装詳細: スプリントごとに変わるような内容はCLAUDE.mdに入れず、チケットやプロンプトで都度伝えるべきです\n\nアンチパターン集\n\n❌ アンチパターン1: 百科事典型\n\n [code] \n\n問題: ツールが既に強制しているルールを書くと、CLAUDE.mdの信号対雑音比が下がります。Claude Codeは長文のCLAUDE.mdで重要なルールを見落とすことがあります。\n\n❌ アンチパターン2: 矛盾放置型\n\n [code] \n\n問題: 「シンプルさ優先」と「カバレッジ100%」は多くの場合矛盾します。Claude Codeはどちらを優先すべきかわからず、中途半端な出力になります。\n\n❌ アンチパターン3: コピペ神殿型\n\n他のプロジェクトのCLAUDE.mdをそのまま流用し、自プロジェクトの実態と乖離している状態です。存在しないディレクトリへの参照や、使っていないツールのルールが混在すると、Claude Codeが混乱してハルシネーションを起こす原因になります。\n\nCLAUDE.mdのGit管理戦略\n\n.claude/ ディレクトリ構成\n\n [code] \n\n管理のベストプラクティス\n\n| 項目 | 推奨方針 |\n|------|---------|\n| ルートCLAUDE.md | Git管理する。全メンバーが参照する「判断基準の正本」 |\n| サブディレクトリCLAUDE.md | Git管理する。パッケージ担当者が責任を持つ |\n| /.claude/CLAUDE.md | Git管理しない。個人の好み（エディタ設定等）を記載 |\n| .claude/settings.json | Git管理する。許可コマンド等のチーム共有設定 |\n\nブランチ別の使い分け\n\nCLAUDE.md自体をブランチで分ける必要は基本的にありません。ただし以下のケースでは例外的にブランチ上で一時変更することがあります。\n・大規模リファクタリングブランチ: 移行期間中だけ「旧実装パターンを使わない」ルールを追加\n・実験ブランチ: 新しいアーキテクチャを試す際に一時的に方針を変更\n\nいずれもmainへのマージ時にCLAUDE.mdの差分をレビューし、恒久化するか元に戻すかを判断してください。\n\nまとめ — CLAUDE.mdは「生きたドキュメント」として育てる\n・CLAUDE.mdは指示書ではなく判断基準。「なぜそうするか」を書くことで、Claude Codeは書かれていない状況にも正しく対応できるようになります\n・プロジェクト規模に応じて構成要素を増減させる。個人スクリプトに禁止事項は不要であり、レガシー改修にはアーキテクチャ制約が不可欠です。過不足なく書くことが最重要です\n・定期的に見直す。スプリントレトロスペクティブや月次で「CLAUDE.mdに追加・削除すべき項目はないか」をチームで議論し、コードベースの進化とともにCLAUDE.mdも育てましょう\n\n参考リンク\n・Claude Code公式ドキュメント - Memory\n・Claude Code公式ドキュメント - Settings\n・Claude Code公式ドキュメント - Best practices for agentic coding",
+      "metrics": {
+        "likes": 3,
+        "stocks": 3,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "bf0173f877329d26",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8922025316455697,
+      "popularityPercentile": 0.9645569620253165,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Claude Codeの出力精度を高めるCLAUDE.mdを、プロジェクト規模別の7テンプレートで設計しています。",
+      "takeaways": [
+        "CLAUDE.mdはAIへの命令文だけではない。",
+        "チームの判断基準をコードベースに残す。",
+        "7つの規模別テンプレートと設計理由を示す。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "CLAUDE.md",
+        "AI駆動開発",
+        "テンプレート",
+        "設計パターン"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIへの細かな指示かチームの判断基準か",
+        "forSide": "判断基準を残せば曖昧な場面でもAIの回答を揃えられる。",
+        "againstSide": "ルールを増やすほど更新漏れや指示の衝突が起きる。",
+        "oneSided": true,
+        "yourAngle": "Claude Codeを同じリポジトリで継続利用した際の指示更新を語れる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "trial": null
+    }
+  ],
+  "stats": {
+    "collected": 824,
+    "afterDedupe": 745,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 396,
+      "zenn": 153,
+      "hatena": 39,
+      "hackernews": 73,
+      "devto": 4,
+      "github_release": 38,
+      "github_repo": 93,
+      "rss": 27,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 52
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4562,
+        "outputTokens": 644,
+        "cacheReadTokens": 0,
+        "elapsedMs": 8171,
+        "estimatedCostUsd": 0.0016852
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3332,
+        "outputTokens": 2479,
+        "cacheReadTokens": 0,
+        "elapsedMs": 27805,
+        "estimatedCostUsd": 0.0036412
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5191,
+        "outputTokens": 2789,
+        "cacheReadTokens": 0,
+        "elapsedMs": 28173,
+        "estimatedCostUsd": 0.004385
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 17878,
+        "outputTokens": 1510,
+        "cacheReadTokens": 3416,
+        "elapsedMs": 24062,
+        "estimatedCostUsd": 0.00545592
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 17417,
+        "outputTokens": 1708,
+        "cacheReadTokens": 1636,
+        "elapsedMs": 25530,
+        "estimatedCostUsd": 0.00556572
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 12346,
+        "outputTokens": 1739,
+        "cacheReadTokens": 3570,
+        "elapsedMs": 24753,
+        "estimatedCostUsd": 0.0046274
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 19648,
+        "outputTokens": 3802,
+        "cacheReadTokens": 0,
+        "elapsedMs": 34882,
+        "estimatedCostUsd": 0.008492
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 12514,
+        "outputTokens": 4224,
+        "cacheReadTokens": 7992,
+        "elapsedMs": 43595,
+        "estimatedCostUsd": 0.007731439999999999
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 15380,
+        "outputTokens": 3725,
+        "cacheReadTokens": 0,
+        "elapsedMs": 37621,
+        "estimatedCostUsd": 0.007546
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 14732,
+        "outputTokens": 5569,
+        "cacheReadTokens": 11034,
+        "elapsedMs": 57479,
+        "estimatedCostUsd": 0.00984988
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 21011,
+        "outputTokens": 5068,
+        "cacheReadTokens": 16487,
+        "elapsedMs": 50344,
+        "estimatedCostUsd": 0.01061354
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18507,
+        "outputTokens": 5563,
+        "cacheReadTokens": 12192,
+        "elapsedMs": 57178,
+        "estimatedCostUsd": 0.01062084
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4071,
+        "outputTokens": 435,
+        "cacheReadTokens": 0,
+        "elapsedMs": 5491,
+        "estimatedCostUsd": 0.0013362
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4936,
+        "outputTokens": 309,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3497,
+        "estimatedCostUsd": 0.001358
+      }
+    },
+    "totalCostUsd": 0.0829
+  },
+  "notes": []
+}
