@@ -3,6 +3,8 @@ import { loadManifest } from './api';
 import { Notice } from './components';
 import { RETIRED_TOKEN_KEY, purgeRetiredKeys } from './settings';
 import { Logo } from './Logo';
+import { QuickSearch, openQuickSearch } from './QuickSearch';
+import { SelectionSearch } from './SelectionSearch';
 import type { Manifest } from './types';
 import { ArchiveView } from './views/ArchiveView';
 import { CommunityView } from './views/CommunityView';
@@ -152,14 +154,25 @@ export function App() {
     );
   }, []);
 
-  // `/` で検索へ、`t` で今日へ
+  /*
+   * `/` と Ctrl/Cmd+K でクイック検索、`t` で今日へ。
+   *
+   * `/` は以前は検索画面へ飛ばしていたが、読んでいる途中に引きたいだけなのに
+   * 画面ごと入れ替わって読み位置が消えていた。上に重ねる窓に変える
+   * （検索画面へは窓の中から行ける）。Ctrl/Cmd+K は入力中でも効かせる。
+   */
   const onKey = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      openQuickSearch();
+      return;
+    }
     const target = e.target as HTMLElement | null;
     if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === '/') {
       e.preventDefault();
-      navigate('/search');
+      openQuickSearch();
     } else if (e.key === 't') {
       navigate('/today');
     }
@@ -226,7 +239,12 @@ export function App() {
       </header>
 
       <main>
-        <div className="container">
+        {/*
+          * 今日の画面だけ、広い画面で目次を左のレールに出す（→ .container--today）。
+          * 他の画面は 1 列のまま——並びが縦に長いだけの画面に余白を割いても、
+          * 目が横に泳ぐぶん読みにくくなる。
+          */}
+        <div className={route.name === 'today' ? 'container container--today' : 'container'}>
           {purged.includes(RETIRED_TOKEN_KEY) && (
             <div style={{ marginBottom: 18 }}>
               <Notice kind="info">
@@ -269,6 +287,9 @@ export function App() {
         </div>
       </main>
 
+      <QuickSearch manifest={manifest} />
+      <SelectionSearch />
+
       <footer className="site-footer">
         <div className="container">
           <p>
@@ -282,7 +303,7 @@ export function App() {
               <> 最終更新 {new Date(manifest.updatedAt).toLocaleString('ja-JP')}。</>
             )}
           </p>
-          <p>キーボード: / で検索、t で今日のダイジェスト。</p>
+          <p>キーボード: / または Ctrl/⌘+K で調べる、t で今日のダイジェスト。本文を選ぶとその語をそのまま引けます。</p>
         </div>
       </footer>
     </div>

@@ -7,7 +7,7 @@ import { VisualFigure } from '../VisualFigure';
 import { TrendBand } from '../TrendBand';
 import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
-import { Annotated } from '../Annotated';
+import { Annotated, TermChips } from '../Annotated';
 import { AskClaudeButton } from '../AskClaudeButton';
 import { askContextForTop } from '../askClaude';
 import { BuzzChip } from '../components';
@@ -438,8 +438,15 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           * 差し替える（原題は下の元記事リンクに出る）。4 つ目の要約を復活させた
           * わけではない——日本語の記事の見出しは今までどおり原題そのものである。
           */}
-        <h3 className="card__headline">{displayTitle(item)}</h3>
+        {/*
+          * 見出しの中の語にも印を付ける。主題になっているツール名が見出しに出ることが
+          * 多く、そこが分からないとカードを開くかどうかも決められない。
+          */}
+        <h3 className="card__headline">
+          <Annotated text={displayTitle(item)} prerequisites={pr} idPrefix={`${item.id}-hd`} />
+        </h3>
         <Takeaways lines={takeaways} />
+        <TermChips prerequisites={pr} idPrefix={`${item.id}-chip`} shownIn={displayTitle(item)} />
         {thumb && <Thumbnail src={thumb} onFailed={() => setThumbFailed(true)} />}
         <span className="card__toggle" aria-hidden="true" />
       </summary>
