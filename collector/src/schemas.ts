@@ -229,7 +229,7 @@ const PrerequisiteSchema = z.object({
   term: z
     .string()
     .describe(
-      'このカードの summary・箇条書き・whyItMatters の中で実際に使った語を、一字一句そろえて書く（画面でその語に注釈を付けるため）。短い名詞か識別子で25字以内。文にしない。',
+      'このカードの summary・箇条書き・見出しの中で実際に使った語を、一字一句そろえて書く（画面でその語に注釈を付けるため）。短い名詞か識別子で25字以内。文にしない。**ツールや製品は素の名前だけを取る**——「Comfy MCP on local」「Next.js の App Router」のような修飾付きの句ではなく「ComfyUI」「App Router」を term にする（修飾のほうを説明すると、道具そのものを知らない読者には届かない）。',
     ),
   stumblingPoint: z
     .string()
@@ -239,7 +239,7 @@ const PrerequisiteSchema = z.object({
   explanation: z
     .string()
     .describe(
-      'その詰まりを解消する解説。3〜5文。定義だけで終わらせず、なぜそれが問題になるのか・この記事の文脈で何を意味するのかまで書く。',
+      'その詰まりを解消する解説。3〜5文。**1文目は必ず「それが何か」から始める**——何をする道具／仕組みなのかを、その語を今日初めて見た読者に向けて書く。読者が既にそれを知っている前提で、記事に固有の使い方や修飾語の意味から書き始めない。2文目以降で、なぜそれが問題になるのか・この記事の文脈で何を意味するのかへ進む。',
     ),
 });
 
@@ -346,7 +346,7 @@ const deepDiveBaseShape = {
   prerequisites: z
     .array(PrerequisiteSchema)
     .describe(
-      '読者が詰まりそうな箇所を先回りして埋める解説。4〜8個で網羅側に倒す（迷ったら入れる）。term は自分が summary や箇条書きで実際に使った語とそろえる。本当に詰まる箇所が無ければ空配列。',
+      '読者が詰まりそうな箇所を先回りして埋める解説。4〜8個で網羅側に倒す（迷ったら入れる）。**その記事の主題になっているツール・製品・仕様の名前は、有名かどうかに関わらず必ず1つ目に入れる**（読者はその名前を今日初めて見るかもしれず、それが分からないと記事全体が読めない）。term は自分が summary や箇条書き、見出しで実際に使った語とそろえる。',
     ),
   visual: z
     .union([ComparisonSchema, FlowSchema, MetricsSchema, ArchitectureSchema])

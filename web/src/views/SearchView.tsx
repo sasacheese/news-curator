@@ -12,53 +12,12 @@ import {
   formatMonthLabel,
   safeUrl,
 } from '../format';
+import { searchEntries, tokenize } from '../search';
 import type { IndexEntry, Manifest } from '../types';
 
 interface Props {
   manifest: Manifest | null;
   initialQuery: string;
-}
-
-/** クエリを空白区切りの語に分解する（日本語は分かち書きしないので部分一致で扱う） */
-function tokenize(q: string): string[] {
-  return q
-    .trim()
-    .split(/[\s　]+/)
-    .filter(Boolean);
-}
-
-function haystack(e: IndexEntry): string {
-  // 日本語の見出しと原題の両方を入れる。英語の記事は原題の語でしか引けないことがある
-  return [
-    e.title,
-    e.titleJa ?? '',
-    e.summary,
-    e.keywords.join(' '),
-    e.topics.join(' '),
-    e.sourceLabel,
-    e.category,
-  ]
-    .join(' ')
-    .toLowerCase();
-}
-
-/** マッチした語数とヒット位置で並べるための簡易スコア */
-function relevance(e: IndexEntry, terms: string[]): number {
-  if (terms.length === 0) return e.score;
-  const title = `${e.title} ${e.titleJa ?? ''}`.toLowerCase();
-  const keywords = e.keywords.join(' ').toLowerCase();
-  const hay = haystack(e);
-
-  let score = 0;
-  for (const t of terms) {
-    const term = t.toLowerCase();
-    if (!hay.includes(term)) return -1; // AND 検索
-    if (title.includes(term)) score += 12;
-    if (keywords.includes(term)) score += 8;
-    score += 3;
-  }
-  if (e.rank !== null) score += 6;
-  return score + e.score / 20;
 }
 
 export function SearchView({ manifest, initialQuery }: Props) {
@@ -136,16 +95,10 @@ export function SearchView({ manifest, initialQuery }: Props) {
     return { sources: [...s].sort(), categories: [...c].sort() };
   }, [entries]);
 
-  const results = useMemo(() => {
-    if (!entries) return [];
-    return entries
-      .filter((e) => !source || e.source === source)
-      .filter((e) => !category || e.category === category)
-      .map((e) => ({ entry: e, rel: relevance(e, terms) }))
-      .filter((r) => r.rel >= 0)
-      .sort((a, b) => (b.rel === a.rel ? b.entry.date.localeCompare(a.entry.date) : b.rel - a.rel))
-      .slice(0, 300);
-  }, [entries, terms, source, category]);
+  const results = useMemo(
+    () => (entries ? searchEntries(entries, terms, { source, category }) : []),
+    [entries, terms, source, category],
+  );
 
   const dayCounts = useMemo(() => daysPerMonth(manifest?.dates ?? []), [manifest?.dates]);
   const loadingRest = month === ALL_MONTHS && loadedMonths < months.length;
@@ -240,7 +193,7 @@ export function SearchView({ manifest, initialQuery }: Props) {
         </Empty>
       ) : (
         <div className="list">
-          {results.map(({ entry }) => (
+          {results.map((entry) => (
             <div key={`${entry.date}-${entry.id}`} className="row">
               <div className="row__score">{entry.score}</div>
               <div className="row__main">
