@@ -32,6 +32,7 @@ import type {
   UsageReport,
   UsageStat,
 } from './types.js';
+import { sanitizeTryPrompt } from './try-prompt.js';
 import { hasKana, log, mapLimit, truncate } from './util.js';
 
 export { CATEGORIES };
@@ -1011,6 +1012,19 @@ const LANE_DEEP_BLOCKS: Record<Lane, string> = {
   **1 個目は必ずコピペで実行できる 1 行にする**（インストールコマンド、
   クローン、\`npx\` の一撃）。読者が最初に踏む段を、判断ではなく貼り付けにする。
   記事にコマンドが無いなら、公式の入手先 URL を 1 個目に置く。
+- **tryPrompt** — **「試し方」を、そのままコーディングエージェント（Claude Code など）に
+  貼って試し始められるプロンプトの形で書く。** 読者はこれをコピーして、自分の端末か
+  クラウドの Linux 環境に貼る。人が横にいるので、人間しかできない手順（サインアップ、
+  GUI の操作）は禁じない——末尾に「（手動）」を付けて書く。
+  次の 4 節を、この見出し・この順で必ず書く（見出しは行頭に \`# \`）:
+  \`# 試すこと\` 1 行の目標。次の行に元の URL
+  \`# 手順\` 番号付き。1 行 1 コマンドか 1 動作。コマンドはそのまま打てる形
+  \`# 確認したいこと\` やってみないと分からないことだけ、1〜3 個。
+    ✗「何ができるツールか」（記事に書いてある）
+    ✓「README の 3 ステップだけで最初の出力まで到達できるか」
+  \`# 前提・注意\` 必要な環境（OS・鍵・別ツール）、記事本文でコマンドが欠けている等。
+    無ければ「- 特になし」
+  全体で 1,200 字以内。**動かす対象そのものが無い記事（設計論・体験記・ニュース）なら null。**
 - **caveats** — **最重要の 1 つだけ。0〜1 個、50 字以内。**
   次のどれかに当たるもののうち、**いちばん起こりやすく損害が大きい 1 つ**を選ぶ:
   (1) 知らずに始めると詰まる前提（別ツールの導入、未対応の環境）
@@ -1271,6 +1285,7 @@ export async function deepDive(
           fitFor: clean(p.fitFor),
           notFor: clean(p.notFor),
           caveats: clean(p.caveats),
+          tryPrompt: sanitizeTryPrompt(p.tryPrompt),
         };
       }
       case 'talk': {
@@ -1438,6 +1453,8 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
         lane: 'build',
         unlocks: [],
         howToTry: ['元記事を開いて確認してください。'],
+        // 要約に失敗した記事は、何を試すのかも決まっていない。箱は出さない
+        tryPrompt: null,
         fitFor: [],
         notFor: [],
         caveats: [failed],

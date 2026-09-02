@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { CopyButton } from './components';
+import { TryBlock } from './TryBlock';
+import { buildTryPrompt } from './tryPrompt';
 import { safeUrl } from './format';
 import type { RadarItem, RadarMeasure, RadarVerdict } from './types';
 
@@ -169,6 +171,17 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Card({ item }: { item: RadarItem }) {
+  /*
+   * 「隠れた定番」の主張は、スター数と DL 数という外形の数字で支えている。
+   * 「で、いま入れて動くのか」は数字では答えられないので、貼って試せる形を添える。
+   * この板は身元（npm パッケージ / GitHub リポジトリ）が必ず取れるので、ほぼ全件に付く。
+   */
+  const tryPrompt = buildTryPrompt({
+    tryPrompt: item.tryPrompt,
+    title: item.name,
+    url: item.links[0]?.url ?? '',
+  });
+
   return (
     <article className="radar">
       <div className="radar__head">
@@ -222,6 +235,8 @@ function Card({ item }: { item: RadarItem }) {
           </div>
         </Detail>
       )}
+
+      {tryPrompt && <TryBlock prompt={tryPrompt} compact />}
 
       <details className="radar__evidence">
         <summary>

@@ -54,6 +54,11 @@ export interface Debate {
 
 export interface RankedItem {
   id: string;
+  /**
+   * そのまま貼って試し始められるプロンプト（その他候補の枠で使う）。組めなければ null。
+   * URL が GitHub のリポジトリや npm を指しているときだけ入る。この項目より前の日は undefined。
+   */
+  tryPrompt?: string | null;
   source: SourceKind;
   sourceLabel: string;
   title: string;
@@ -224,6 +229,14 @@ export interface BuildDeepDive extends DeepDiveBase {
   fitFor: string[];
   notFor: string[];
   caveats: string[];
+  /**
+   * 「試し方」を、そのまま貼って試し始められるプロンプトの形にしたもの。
+   *
+   * 4 節（試すこと / 手順 / 確認したいこと / 前提・注意）に固定してある。
+   * この項目より前の日は undefined、動かす対象が無い記事は null。どちらも
+   * 画面側が howToTry の箇条書きから同じ形を組む（tryPrompt.ts）。
+   */
+  tryPrompt?: string | null;
 }
 
 /** 争点を論点ごとに分解した対。「A と言われるが B だ」の噛み合いを表す */
@@ -308,6 +321,11 @@ export interface ReleaseAlso {
 export interface ReleaseItem {
   id: string;
   product: string;
+  /**
+   * そのまま貼って試し始められるプロンプト。組めなければ null。
+   * GitHub のリリースやリポジトリを指す URL のときに入る（公式ブログの告知には入らない）。
+   */
+  tryPrompt?: string | null;
   what?: string | null;
   version: string | null;
   kind: ReleaseKind;
@@ -492,6 +510,8 @@ export interface RadarMeasure {
 export interface RadarItem {
   id: string;
   name: string;
+  /** そのまま貼って試し始められるプロンプト。発掘は身元が必ず取れるので、ほぼ全件に入る */
+  tryPrompt?: string | null;
   verdict: RadarVerdict;
   score: number;
   what: string;

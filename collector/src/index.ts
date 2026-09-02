@@ -58,6 +58,7 @@ import type {
   ReleaseItem,
   TopItem,
 } from './types.js';
+import { buildTryPrompt, identityFromUrl, otherQuestions } from './try-prompt.js';
 import { COMMUNITY_ACTIONS, LANES, LANE_LABELS } from './types.js';
 import { formatJst, log, mapLimit, normalizeUrl, resolveWindow, safe } from './util.js';
 
@@ -397,8 +398,24 @@ async function main(): Promise<void> {
     ),
   );
   const byLane = pickByLane(remaining, runtime.otherN);
-  // 画面はレーンで分けて出すので、保存もレーン順にまとめておく
-  const others = LANES.flatMap((lane) => byLane[lane].sort((a, b) => b.score - a.score));
+  /*
+   * 画面はレーンで分けて出すので、保存もレーン順にまとめておく。
+   *
+   * ここで試すプロンプトも付ける。URL が GitHub のリポジトリや npm を指しているものだけに
+   * 付き、記事（Qiita / Zenn / はてな / HN）には付かない——身元が取れないので
+   * 正しく null になる。
+   */
+  const others = LANES.flatMap((lane) => byLane[lane].sort((a, b) => b.score - a.score)).map(
+    (item) => ({
+      ...item,
+      tryPrompt: buildTryPrompt(identityFromUrl(item.url), {
+        goal: `${item.title} を動かして、README の最初の出力まで到達する`,
+        url: item.url,
+        questions: otherQuestions(),
+      }),
+    }),
+  );
+  log.info(`  そのうち試すプロンプトを付けたもの: ${others.filter((o) => o.tryPrompt).length} 件`);
   log.info(
     `  その他の注目記事: ${LANES.map((l) => `${LANE_LABELS[l]} ${byLane[l].length}`).join(' / ')}`,
   );
