@@ -1,6 +1,8 @@
 import { AskClaudeButton } from './AskClaudeButton';
 import { askContextForRelease } from './askClaude';
 import { FeedbackButtons } from './FeedbackButtons';
+import { TryBlock } from './TryBlock';
+import { buildTryPrompt } from './tryPrompt';
 import { ShareButtons } from './components';
 import { safeUrl } from './format';
 import type { ReleaseAlso, ReleaseImpact, ReleaseItem, ReleaseKind } from './types';
@@ -77,6 +79,12 @@ function Row({
   digestDate: string;
 }) {
   const advisory = r.advisory;
+  const tryPrompt = buildTryPrompt({
+    tryPrompt: r.tryPrompt,
+    title: [r.product, r.version].filter(Boolean).join(' '),
+    url: r.url,
+  });
+
   return (
     <li className="rel">
       <p className="rel__head">
@@ -171,6 +179,11 @@ function Row({
       )}
 
       <AskClaudeButton context={askContextForRelease(r)} />
+      {/*
+        * GitHub のリリースやリポジトリを指しているものだけに付く。
+        * 「この版が実際に入って動くか」は、リリースノートを読んでも分からない。
+        */}
+      {tryPrompt && <TryBlock prompt={tryPrompt} compact />}
       <ShareButtons url={r.url} tweetText={r.unlock ? `${r.product}: ${r.unlock}` : `${r.product}: ${r.summary}`} />
       <FeedbackButtons
         target={{

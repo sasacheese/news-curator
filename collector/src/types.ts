@@ -151,6 +151,15 @@ export type Durability = (typeof DURABILITIES)[number];
 export interface RankedItem extends PreScoredItem {
   score: number;
   /**
+   * そのまま貼って試し始められるプロンプト（その他候補の枠で使う）。組めなければ null。
+   *
+   * URL が GitHub のリポジトリや npm のパッケージを指しているときだけ、身元から
+   * テンプレートで組む（try-prompt.ts）。記事（Qiita / Zenn / はてな / HN）からは
+   * 身元が取れないので必ず null になる。ベスト3のカードはこれを使わず、
+   * deep.tryPrompt に LLM が書いたものを持つ。
+   */
+  tryPrompt?: string | null;
+  /**
    * 画面の見出しに出す日本語のタイトル。原題が日本語のときは null。
    *
    * カードの見出しは元記事のタイトルそのものだが、GitHub のトレンドや
@@ -367,6 +376,14 @@ export interface BuildDeepDive extends DeepDiveBase {
    * ここではない——実測でそれが混ざり、本当に詰まる 1 件が埋もれていた。
    */
   caveats: string[];
+  /**
+   * 「試し方」を、そのまま貼って試し始められるプロンプトの形にしたもの。
+   *
+   * 4 節（試すこと / 手順 / 確認したいこと / 前提・注意）に固定してある
+   * （try-prompt.ts の TRY_PROMPT_HEADINGS）。形が崩れていれば null に落ち、
+   * 画面は howToTry の箇条書きから組んだ代替を出す。動かす対象が無い記事も null。
+   */
+  tryPrompt: string | null;
 }
 
 /**
@@ -505,6 +522,13 @@ export interface ReleaseItem {
   publishedAt: string;
   /** 代表にまとめた同じ製品の他の項目 */
   alsoReleased: ReleaseAlso[];
+  /**
+   * そのまま貼って試し始められるプロンプト。組めなければ null。
+   *
+   * URL が GitHub のリリースやリポジトリを指しているときに、身元からテンプレートで組む。
+   * 公式ブログの告知や料金改定からは身元が取れないので null になる。
+   */
+  tryPrompt?: string | null;
 }
 
 /**
@@ -991,6 +1015,13 @@ export interface RadarItem {
   isNew: boolean;
   /** どの記事から見つけたか */
   foundVia: { title: string; url: string } | null;
+  /**
+   * そのまま貼って試し始められるプロンプト。
+   *
+   * 発掘は npm と GitHub を実測して作った板なので、パッケージ名かリポジトリの
+   * どちらかが必ず入っている。ほぼ全件に付く。
+   */
+  tryPrompt?: string | null;
 }
 
 /**

@@ -23,6 +23,8 @@ import {
 } from '../components';
 import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
+import { TryBlock } from '../TryBlock';
+import { buildTryPrompt } from '../tryPrompt';
 import { groupByLane } from '../lanes';
 import type {
   Clash,
@@ -511,6 +513,8 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           itemId={item.id}
           prerequisites={pr}
           debate={item.debate}
+          title={displayTitle(item)}
+          url={item.url}
         />
 
         {d.relatedLinks.length > 0 && (
@@ -623,12 +627,17 @@ function CardBody({
   itemId,
   prerequisites,
   debate,
+  title,
+  url,
 }: {
   deep: DeepDive;
   itemId: string;
   prerequisites: Prerequisite[];
   /** 話す レーンのとき、「争点」項目の頭に置く 1 行として使う */
   debate?: Debate | null;
+  /** 作る レーンのとき、試すプロンプトの「試すこと」に使う */
+  title: string;
+  url: string;
 }) {
   const list = (label: string, items: string[], key: string, caveat = false) =>
     items.length > 0 ? (
@@ -654,6 +663,22 @@ function CardBody({
         <CodeBlock code={deep.code} />
       </Detail>
     ) : null;
+
+  /*
+   * 「試し方」は、そのまま貼って試し始められるプロンプトとして出す。
+   * collector が書いた本文（tryPrompt）が無い日は howToTry から同じ形を組む。
+   * それも組めない（手順が無い）ときだけ、従来の箇条書きに落ちる。
+   */
+  const tryBox = (label: string, tryPrompt: string | null | undefined, howToTry: string[]) => {
+    const prompt = buildTryPrompt({ tryPrompt, title, url, howToTry });
+    if (!prompt) return steps(label, howToTry);
+    return (
+      <Detail label={label}>
+        <TryBlock prompt={prompt} />
+        <CodeBlock code={deep.code} />
+      </Detail>
+    );
+  };
 
   /** いまは talk（なぜ今この争点か）と、レーン導入前の日だけが使う */
   const why = (label: string) =>
@@ -692,7 +717,7 @@ function CardBody({
             */}
           {list('使える場面', deep.fitFor, 'fit')}
           {list('向かない場面', deep.notFor, 'notfit')}
-          {steps('試し方', deep.howToTry)}
+          {tryBox('試し方', deep.tryPrompt, deep.howToTry)}
           {list('注意点', deep.caveats, 'caveat', true)}
         </>
       );

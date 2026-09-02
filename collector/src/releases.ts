@@ -1,5 +1,6 @@
 import type { LlmBackend } from './backend.js';
 import type { RuntimeConfig } from './config.js';
+import { buildTryPrompt, identityFromUrl, releaseQuestions } from './try-prompt.js';
 import { complete } from './llm.js';
 import { ReleaseResultSchema } from './schemas.js';
 import type {
@@ -341,6 +342,18 @@ function toReleaseItem(c: Candidate, r: ReleaseFields): ReleaseItem {
     sourceLabel: c.item.sourceLabel,
     publishedAt: c.item.publishedAt,
     alsoReleased: c.alsoReleased,
+    /*
+     * 試すプロンプトは URL から機械的に組む。GitHub Releases のタグ付き URL なら
+     * その版を固定して clone できる。公式ブログの告知（料金改定・事業提携）は
+     * 身元が取れないので null になる。
+     */
+    tryPrompt: buildTryPrompt(identityFromUrl(c.item.url), {
+      goal: `${[r.product?.trim() || c.item.sourceLabel, r.version?.trim()].filter(Boolean).join(' ')} を入れて、${
+        unlock ? `「${unlock}」を確かめる` : 'この版の変更を確かめる'
+      }`,
+      url: c.item.url,
+      questions: releaseQuestions({ version: r.version, unlock }),
+    }),
   };
 }
 

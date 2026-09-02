@@ -5,6 +5,8 @@ import { askContextForItem } from './askClaude';
 import { BuzzChip, Chip, ShareButtons, Takeaways } from './components';
 import { DebateScaffold } from './DebateScaffold';
 import { FeedbackButtons } from './FeedbackButtons';
+import { TryBlock } from './TryBlock';
+import { buildTryPrompt } from './tryPrompt';
 import { displayTitle, metricSummary, safeUrl, takeawayLines } from './format';
 import { groupByLane } from './lanes';
 import type { Payoff, RankedItem } from './types';
@@ -27,6 +29,12 @@ const PAYOFF_LABELS: Record<Payoff, string> = {
 };
 
 function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
+  /*
+   * 道具（GitHub リポジトリ・npm パッケージ）の行にだけ付く。
+   * 記事の行では URL から身元が取れないので tryPrompt が null になり、何も出ない。
+   */
+  const tryPrompt = buildTryPrompt({ tryPrompt: item.tryPrompt, title: displayTitle(item), url: item.url });
+
   return (
     <div className="row">
       <div className="row__score">{item.score}</div>
@@ -70,6 +78,7 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
             </button>
           ))}
           <AskClaudeButton context={askContextForItem(item)} />
+          {tryPrompt && <TryBlock prompt={tryPrompt} compact />}
           <ShareButtons url={item.url} tweetText={item.oneLiner} />
           <FeedbackButtons
             target={{
