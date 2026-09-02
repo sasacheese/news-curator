@@ -23,7 +23,6 @@ import {
 } from '../components';
 import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
-import { TrialSlot } from '../TrialSlot';
 import { groupByLane } from '../lanes';
 import type {
   Clash,
@@ -35,7 +34,6 @@ import type {
   RankedItem,
   TopItem,
 } from '../types';
-import type { TrialTarget } from '../trial';
 import {
   displayTitle,
   formatDateLabel,
@@ -513,7 +511,6 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           itemId={item.id}
           prerequisites={pr}
           debate={item.debate}
-          trialTarget={{ digestDate, itemId: item.id, title: displayTitle(item) }}
         />
 
         {d.relatedLinks.length > 0 && (
@@ -626,15 +623,12 @@ function CardBody({
   itemId,
   prerequisites,
   debate,
-  trialTarget,
 }: {
   deep: DeepDive;
   itemId: string;
   prerequisites: Prerequisite[];
   /** 話す レーンのとき、「争点」項目の頭に置く 1 行として使う */
   debate?: Debate | null;
-  /** 作る レーンのとき、サンドボックスへの依頼に載せる鍵 */
-  trialTarget: TrialTarget;
 }) {
   const list = (label: string, items: string[], key: string, caveat = false) =>
     items.length > 0 ? (
@@ -699,11 +693,6 @@ function CardBody({
           {list('使える場面', deep.fitFor, 'fit')}
           {list('向かない場面', deep.notFor, 'notfit')}
           {steps('試し方', deep.howToTry)}
-          {/*
-            * 手順を読んだ直後に置く。「面倒だな」と思ったその場所にしか、
-            * 代わりに試させる選択肢の出番は無い。試せない記事では出ない。
-            */}
-          <TrialSlot plan={deep.trial} target={trialTarget} />
           {list('注意点', deep.caveats, 'caveat', true)}
         </>
       );

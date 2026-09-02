@@ -1,7 +1,6 @@
 import { AskClaudeButton } from './AskClaudeButton';
 import { askContextForRelease } from './askClaude';
 import { FeedbackButtons } from './FeedbackButtons';
-import { TrialSlot } from './TrialSlot';
 import { ShareButtons } from './components';
 import { safeUrl } from './format';
 import type { ReleaseAlso, ReleaseImpact, ReleaseItem, ReleaseKind } from './types';
@@ -172,19 +171,6 @@ function Row({
       )}
 
       <AskClaudeButton context={askContextForRelease(r)} />
-      {/*
-        * GitHub のリリースやリポジトリを指しているものだけに出る。
-        * 「この版が実際に入って動くか」は、リリースノートを読んでも分からない。
-        */}
-      <TrialSlot
-        plan={r.trial}
-        target={{
-          digestDate,
-          itemId: r.id,
-          title: [r.product, r.version].filter(Boolean).join(' '),
-        }}
-        compact
-      />
       <ShareButtons url={r.url} tweetText={r.unlock ? `${r.product}: ${r.unlock}` : `${r.product}: ${r.summary}`} />
       <FeedbackButtons
         target={{

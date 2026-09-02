@@ -29,7 +29,6 @@ import type {
   ReleaseItem,
   TopicsConfig,
   TopItem,
-  TrialPlan,
   UsageReport,
   UsageStat,
 } from './types.js';
@@ -1012,30 +1011,6 @@ const LANE_DEEP_BLOCKS: Record<Lane, string> = {
   **1 個目は必ずコピペで実行できる 1 行にする**（インストールコマンド、
   クローン、\`npx\` の一撃）。読者が最初に踏む段を、判断ではなく貼り付けにする。
   記事にコマンドが無いなら、公式の入手先 URL を 1 個目に置く。
-- **trial** — **サンドボックスに代わりに試させられるか。** 読者の代わりに、素の Linux
-  コンテナ（GUI なし・人間の介入なし・対象ツール専用の認証情報なし・開いている通信は
-  パッケージレジストリだけ）でエージェントが自動実行する前提の計画である。
-  **できないなら null。迷ったら null。** 次のどれかに当たるものは必ず null にする:
-  (1) GUI が本体（エディタ拡張、デスクトップアプリ、ブラウザ拡張、Web サービスの画面）
-  (2) ログイン・サインアップが要る (3) 有料プランや個人の API キーが要る
-  (4) macOS / Windows / GPU / 特定のハードウェアが要る
-  (5) 判定に人間の目（デザインや体感の良さ）が要る
-  (6) 記事が読み物・設計論・体験記で、動かす対象そのものが無い
-  (7) \`docker\` コマンドが要る（サンドボックス自体がコンテナなので入れ子にできない）。
-  試せないものを試させると、返ってくるのは失敗ログだけで読者には何も残らない。
-
-  書く場合、install と verify は**そのまま実行されるコマンド**である。
-  人間しかできない手順（サイトを開く、アカウントを作る）を書いてはいけない——
-  それが必要なら、その道具は試せない。
-
-  **questions がこの項目の本体である。** 目的は「動きました」の確認ではなく、
-  **試した結果からしか分からないこと**を読者に持ち帰ること。
-  記事やドキュメントを読めば分かることを書いてはいけない。
-  ✗「何ができるツールか」✗「インストール手順」（どちらも記事に書いてある）
-  ✓「README の 3 ステップだけで最初の出力まで到達できるか」
-  ✓「エラーメッセージから原因を特定できるか」
-  ✓「1 万行のファイルで実行時間がどう変わるか」
-  **これが書けないなら試す価値が無いので null にする。**
 - **caveats** — **最重要の 1 つだけ。0〜1 個、50 字以内。**
   次のどれかに当たるもののうち、**いちばん起こりやすく損害が大きい 1 つ**を選ぶ:
   (1) 知らずに始めると詰まる前提（別ツールの導入、未対応の環境）
@@ -1296,7 +1271,6 @@ export async function deepDive(
           fitFor: clean(p.fitFor),
           notFor: clean(p.notFor),
           caveats: clean(p.caveats),
-          trial: sanitizeTrial(p.trial),
         };
       }
       case 'talk': {
@@ -1402,41 +1376,6 @@ export function looksLikeOpinion(text: string): boolean {
 }
 
 /**
- * 人間にしかできない手順が混ざった「試す計画」を弾く。
- *
- * サンドボックスは無人で動く。「公式サイトを開く」「アカウントを作る」が 1 行目にある計画は
- * そこで必ず止まり、読者には失敗ログだけが返る。プロンプトでも禁じているが、
- * 破られたときにボタンまで通さない。**null を返す = そのカードにボタンを出さない。**
- *
- * ここは安全のためのフィルタではない（危険なコマンドの封じ込めはサンドボックスの仕事で、
- * 文字列検査では守れない）。**試させる価値があるかの門番**である。
- */
-export function sanitizeTrial(plan: TrialPlan | null | undefined): TrialPlan | null {
-  if (!plan) return null;
-
-  const install = plan.install?.trim() ?? '';
-  const verify = plan.verify?.trim() ?? '';
-  // 1 行で書かせている。複数行は「手順書」なので、半端に実行させず落とす
-  if (!install || !verify || /[\r\n]/.test(install) || /[\r\n]/.test(verify)) return null;
-  // URL だけの行は「ここから入手して」であって、コマンドではない
-  if (/^https?:\/\//i.test(install)) return null;
-  if (HUMAN_ONLY.test(install) || HUMAN_ONLY.test(verify)) return null;
-
-  /*
-   * 問いが無い計画は、動作確認であって取材ではない。
-   * questions が空なら試させても読者に残るものが無いので、ボタンごと出さない。
-   */
-  const questions = clean(plan.questions).slice(0, 3);
-  if (questions.length === 0) return null;
-
-  return { runner: plan.runner, install, verify, questions };
-}
-
-/** 無人のコンテナでは踏めない手順の印。install / verify に出たらその計画は成立しない */
-const HUMAN_ONLY =
-  /ダウンロード|サインアップ|サインイン|ログイン|アカウント|登録|申請|開いて|クリック|sign ?up|sign ?in|log ?in|download from|create an account/i;
-
-/**
  * 図は空でも成立するので、中身が足りないバリアントは丸ごと落とす。
  * 半端な図を出すより、図が無いほうが読みやすい。
  */
@@ -1499,8 +1438,6 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
         lane: 'build',
         unlocks: [],
         howToTry: ['元記事を開いて確認してください。'],
-        // 要約に失敗した記事は、何を確かめたいのかも決まっていない。試させない
-        trial: null,
         fitFor: [],
         notFor: [],
         caveats: [failed],

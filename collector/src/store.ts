@@ -11,8 +11,6 @@ import type {
   TrendBoard,
   TrendDay,
   TrendShard,
-  TrialBoard,
-  TrialReport,
 } from './types.js';
 import { log, normalizeUrl } from './util.js';
 
@@ -39,22 +37,11 @@ const RADAR_LEDGER_PATH = resolve(DATA_DIR, 'radar-ledger.json');
  */
 const TREND_DIR = resolve(DATA_DIR, 'trends');
 const TREND_BOARD_PATH = resolve(TREND_DIR, 'board.json');
-/**
- * サンドボックスで試した結果。トレンドの盤面と同じ、日付を持たない 1 ファイル。
- *
- * 記事は「終わる」が、試した結果は終わらない（そのバージョンで何が起きたかの記録は
- * 古びても嘘にならない）ので、保持は長めに取る。
- */
-const TRIAL_DIR = resolve(DATA_DIR, 'trials');
-const TRIAL_BOARD_PATH = resolve(TRIAL_DIR, 'board.json');
-/** 盤面に残す件数。画面に出るのは数件だが、閲覧者が毎回落とす量の上限にもなる */
-const TRIAL_KEEP = 40;
 
 async function ensureDirs(): Promise<void> {
   await mkdir(DIGEST_DIR, { recursive: true });
   await mkdir(INDEX_DIR, { recursive: true });
   await mkdir(TREND_DIR, { recursive: true });
-  await mkdir(TRIAL_DIR, { recursive: true });
 }
 
 async function readJsonOr<T>(path: string, fallback: T): Promise<T> {
@@ -456,28 +443,4 @@ export async function saveTrendBoard(board: TrendBoard): Promise<void> {
   log.info(
     `保存: data/trends/board.json (動いた ${board.hot.length} / 追跡 ${board.keep.length} / 落ち着き ${board.cool.length})`,
   );
-}
-
-/* ---------- サンドボックスで試した結果 ---------- */
-
-export async function loadTrialBoard(): Promise<TrialBoard> {
-  return readJsonOr<TrialBoard>(TRIAL_BOARD_PATH, { generatedAt: '', reports: [] });
-}
-
-/**
- * レポートを 1 件足して盤面を書き直す。
- *
- * 同じ鍵のレポートは新しいほうで置き換える（試し直したとき）。並び順は新しい順で、
- * 古いものから落とす。1 件ずつのファイルに分けていないのは、画面側が
- * 「このカードの結果があるか」を 1 リクエストで判定できるようにするため。
- */
-export async function saveTrialReport(report: TrialReport): Promise<void> {
-  await ensureDirs();
-  const board = await loadTrialBoard();
-  const reports = [report, ...board.reports.filter((r) => r.key !== report.key)].slice(
-    0,
-    TRIAL_KEEP,
-  );
-  await writeJson(TRIAL_BOARD_PATH, { generatedAt: new Date().toISOString(), reports });
-  log.info(`保存: data/trials/board.json (${report.verdict} / 全 ${reports.length} 件)`);
 }
