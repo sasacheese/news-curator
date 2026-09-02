@@ -151,18 +151,6 @@ export type Durability = (typeof DURABILITIES)[number];
 export interface RankedItem extends PreScoredItem {
   score: number;
   /**
-   * サンドボックスで試せるか（その他候補の枠で使う）。試せなければ null。
-   *
-   * URL が GitHub のリポジトリや npm のパッケージを指しているときだけ入る。
-   * 記事（Qiita / Zenn / はてな / HN）からは身元が取れないので必ず null になる
-   * ——実測で 168 件中 36 件、うち GitHub リポジトリ枠は 35/35 件だった。
-   *
-   * ベスト3のカードはこれを使わない（あちらは deep.trial に LLM が書いたものを持つ）。
-   * 記事を読ませる枠では「GUI が本体」「キーが要る」の判断が要るが、道具そのものを
-   * 並べる枠では clone が通るかどうかも含めて結果に価値があるので、門番の厳しさが違う。
-   */
-  trial?: TrialPlan | null;
-  /**
    * 画面の見出しに出す日本語のタイトル。原題が日本語のときは null。
    *
    * カードの見出しは元記事のタイトルそのものだが、GitHub のトレンドや
@@ -347,111 +335,6 @@ export interface KnowDeepDive extends DeepDiveBase {
   unknowns: string[];
 }
 
-/**
- * サンドボックスで試させる計画。試せないものは null で、画面にボタンを出さない。
- *
- * 「試せるか」をモデルの感触で決めさせない。**素の Linux コンテナで install の 1 行が
- * 通り、verify の出力で成否が判定できる**ものだけが試せる。どちらかを具体で書けない道具
- * （GUI 前提・要ログイン・要課金・要 GPU）は、書けないことをもって落ちる——
- * unlock が書けなければ chore に落とすのと同じ構造で、判定とテキストを食い違わせない。
- *
- * questions がこの型の主役である。目的は「動きました」の確認ではなく、
- * **試した結果からしか分からないこと**を持ち帰ること。何を知りたいかが先に無いと、
- * 返ってくるのは実行ログでしかない。空なら試す価値が無いので落とす。
- */
-export interface TrialPlan {
-  /** 素の Linux コンテナに何を足せば動くか。サンドボックスの土台を決める */
-  runner: 'node' | 'python' | 'shell';
-  /** 最初に打つ 1 行。コピペでそのまま実行できる形（「公式サイトを開く」は不可） */
-  install: string;
-  /** 動いたかを判定するために打つコマンド。出力を見て成否が決まるもの */
-  verify: string;
-  /** 試した結果からしか分からない問い。1〜3 個 */
-  questions: string[];
-}
-
-/* ------------------------------------------------------------------ *
- * サンドボックスで試した結果
- *
- * ダイジェストには埋めず、日付を持たない 1 ファイル（data/trials/board.json）に
- * 貯める。コミュニティやトレンドと同じ理由——依頼した日の記録ではなく「試した結果」
- * という資産なので、過去日を開いた人に当時の盤面を見せる意味が無い。
- * 逆に、載った日を過ぎても消えてはいけない。
- * ------------------------------------------------------------------ */
-
-/** 試した結果の判定。カードの見出しの色と並び順をこれで決める */
-export type TrialVerdict = 'worked' | 'partly' | 'failed';
-
-/** 問いと、試した結果からの答え。TrialPlan.questions と 1 対 1 で対応する */
-export interface TrialAnswer {
-  question: string;
-  answer: string;
-}
-
-/** 実際に打ったコマンドとその結果。掲載した「試し方」が本当に通るかの記録 */
-export interface TrialStep {
-  command: string;
-  ok: boolean;
-  /** 何が起きたか。1 行 */
-  note: string;
-}
-
-/**
- * 1 回の試行にかかった実費。
- *
- * **公開価格からの概算**である。Managed Agents のセッションはトークン数だけを返し、
- * 金額は返さないので、モデルごとの公開価格を掛けて出している。ずれる要因が 2 つある:
- *
- * - 価格表はこのコードに焼き込んでいるので、値上げ・値下げに自動では追随しない
- * - セッションの usage は本体の往復ぶん。**採点役（grader）の消費は含まれないことがある**
- *
- * それでも出しているのは、1 日の上限（TRIAL_MAX_PER_DAY）を勘で決めずに済むため。
- * 桁が分かれば十分な用途なので、正確さより「必ず出る」ことを取っている。
- */
-export interface TrialCost {
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  /** 概算の米ドル。価格表に無いモデルだったときは null */
-  estimatedUsd: number | null;
-}
-
-export interface TrialReport {
-  /** data/digests の日付と記事 ID から作る鍵。依頼と結果を突き合わせる */
-  key: string;
-  digestDate: string;
-  itemId: string;
-  title: string;
-  url: string;
-  verdict: TrialVerdict;
-  /** 1 行の結論。カードを畳んだ状態で見えるのはここだけ */
-  headline: string;
-  answers: TrialAnswer[];
-  steps: TrialStep[];
-  /** 詰まった点。無ければ空 */
-  stumbles: string[];
-  /** 掲載していた「試し方」の訂正。ずれが無ければ null */
-  correction: string | null;
-  /** 読者が書いた「確かめてほしいこと」。無ければ null */
-  ask?: string | null;
-  ranAt: string;
-  /** 実行にかかった秒数。費用の見張りと「どれくらいで返るか」の表示に使う */
-  seconds: number;
-  /** かかった実費（概算）。取れなかった回は null */
-  cost?: TrialCost | null;
-}
-
-/**
- * 試した結果の盤面。日付を持たない 1 ファイルで、毎回まるごと差し替える。
- * 古いものから落とすが、記事と違って「終わる」ことが無いので保持は長め。
- */
-export interface TrialBoard {
-  generatedAt: string;
-  reports: TrialReport[];
-}
-
 /** 作る: 読者はこのカードを読んでそのまま手を動かす */
 export interface BuildDeepDive extends DeepDiveBase {
   lane: 'build';
@@ -484,13 +367,6 @@ export interface BuildDeepDive extends DeepDiveBase {
    * ここではない——実測でそれが混ざり、本当に詰まる 1 件が埋もれていた。
    */
   caveats: string[];
-  /**
-   * サンドボックスで試させられるか。試せないものは null。
-   *
-   * 作るレーンだけが持つ。知る・話すレーンの記事は手を動かす対象ではないので、
-   * 試させても「動いた」以上のことが分からない。
-   */
-  trial: TrialPlan | null;
 }
 
 /**
@@ -629,13 +505,6 @@ export interface ReleaseItem {
   publishedAt: string;
   /** 代表にまとめた同じ製品の他の項目 */
   alsoReleased: ReleaseAlso[];
-  /**
-   * サンドボックスで試せるか。試せなければ null。
-   *
-   * URL が GitHub のリリースやリポジトリを指しているときに入る（実測 119 件中 60 件）。
-   * 公式ブログの告知や料金改定からは身元が取れないので null になる。
-   */
-  trial?: TrialPlan | null;
 }
 
 /**
@@ -1122,15 +991,6 @@ export interface RadarItem {
   isNew: boolean;
   /** どの記事から見つけたか */
   foundVia: { title: string; url: string } | null;
-  /**
-   * サンドボックスで試せるか。
-   *
-   * **この枠は取りこぼさない。** 発掘は npm と GitHub を実測して作った板なので、
-   * パッケージ名かリポジトリのどちらかが必ず入っている（実測 7/7 件）。
-   * 「隠れた定番」という主張を外形の数字で支えている板なので、「で、いま入れて
-   * 動くのか」を実行で確かめられることの価値がいちばん大きい。
-   */
-  trial?: TrialPlan | null;
 }
 
 /**

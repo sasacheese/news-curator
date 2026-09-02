@@ -76,7 +76,7 @@ export function RadarView() {
           </p>
         </Empty>
       ) : (
-        <RadarBoard items={board.items} date={board.date} />
+        <RadarBoard items={board.items} />
       )}
 
       <p className="faint" style={{ fontSize: 12, marginTop: 22 }}>

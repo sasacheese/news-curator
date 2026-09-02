@@ -6,7 +6,6 @@ import type {
   Manifest,
   TopicsConfig,
   TrendBoard,
-  TrialBoard,
   Watchlist,
 } from './types';
 
@@ -93,16 +92,6 @@ export function loadTrendBoard(): Promise<TrendBoard> {
 export function loadIndexShard(month: string, latestMonth?: string | null): Promise<IndexEntry[]> {
   const freshness: Freshness = latestMonth && month < latestMonth ? 'archived' : 'live';
   return getJson<IndexEntry[]>(`data/index/${month}.json`, freshness);
-}
-
-/**
- * サンドボックスで試した結果の盤面を読む。
- *
- * トレンドと同じ、日付を持たない 1 ファイル。まだ 1 件も試していないリポジトリでは
- * 404 になるので、呼び出し側で受ける（機能を使っていない fork では常にそうなる）。
- */
-export function loadTrialBoard(): Promise<TrialBoard> {
-  return getJson<TrialBoard>('data/trials/board.json');
 }
 
 export function loadTopicsConfig(): Promise<TopicsConfig> {
