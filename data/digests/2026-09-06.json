@@ -1,0 +1,2215 @@
+{
+  "date": "2026-09-06",
+  "generatedAt": "2026-09-05T23:32:02.930Z",
+  "window": {
+    "start": "2026-09-04T22:00:00.000Z",
+    "end": "2026-09-05T22:00:00.000Z"
+  },
+  "summary": [
+    "AI／エージェント関連が6件集まり、開発・分析・自動化への広がりが目立った。",
+    "エージェントの普及と並行して、指示書の整理や権限管理など運用面の見直しも進んでいる。",
+    "GitSpawnの報告は、AIコーディング環境を狙う新たな攻撃経路を浮き彫りにした。",
+    "モデルの高性能化と低価格競争が同時に進み、API料金や提供経路の変化が続いている。"
+  ],
+  "outlook": "AIエージェントは開発の実行基盤として定着しつつある一方、指示・権限・攻撃経路やモデル供給はなお揺れている。この先は、性能競争よりも安全に任せる境界と、費用・提供経路を含む運用設計が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "配られたフォルダを開くだけでAIコーディングエージェントが攻撃コードを動かすGitSpawn",
+      "url": "https://qiita.com/okssusucha/items/67287896e797bc75a6ee",
+      "publishedAt": "2026-09-05T00:09:25.000Z",
+      "author": "okssusucha",
+      "authorDetail": {
+        "name": "okssusucha",
+        "handle": "@okssusucha",
+        "url": "https://qiita.com/okssusucha",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4445918/profile-images/1781670797",
+        "followers": 5,
+        "posts": 158,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/okssusucha"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "Git",
+        "AI",
+        "AIエージェント",
+        "開発ツール"
+      ],
+      "snippet": "AIにコードを書かせる道具を、毎日のように使う人が増えている。その道具が、あなたの気づかないうちに他人のプログラムを動かしてしまう穴が見つかった。ひとことで言うと、人から受け取ったフォルダを開くだけで、パソコンを乗っ取られるおそれがある話だ。 セキュリティ企業のManifold Securityが「GitSpawn」と名付けて公開した。こわい話だが、しくみは単純で、知っていれば数分で自衛できる。 目次 ・git status が勝手にプログラムを呼ぶしくみ ・直ったツールと、まだ危ないツール ・クローンは平気、こわいのは受け取ったフォルダ 🔍 git status が勝手にプログラムを呼ぶしくみ AIコーディングエージェント(AIがコードを書くのを手伝う道具)は、フォルダを開いた瞬間に中の状態を調べる。このとき裏で git status のようなコマンドを走らせる。ここが弱点だった。 g…",
+      "body": "AIにコードを書かせる道具を、毎日のように使う人が増えている。その道具が、あなたの気づかないうちに他人のプログラムを動かしてしまう穴が見つかった。ひとことで言うと、人から受け取ったフォルダを開くだけで、パソコンを乗っ取られるおそれがある話だ。\n\nセキュリティ企業のManifold Securityが「GitSpawn」と名付けて公開した。こわい話だが、しくみは単純で、知っていれば数分で自衛できる。\n\n目次\n・git status が勝手にプログラムを呼ぶしくみ\n・直ったツールと、まだ危ないツール\n・クローンは平気、こわいのは受け取ったフォルダ\n\n🔍 git status が勝手にプログラムを呼ぶしくみ\n\nAIコーディングエージェント(AIがコードを書くのを手伝う道具)は、フォルダを開いた瞬間に中の状態を調べる。このとき裏で git status のようなコマンドを走らせる。ここが弱点だった。\n\ngitには core.fsmonitor という設定がある。これは「変更されたファイルを教えてくれる外部プログラム」を指定する高速化の仕組みだ。やっかいなのは、この設定がフォルダの中の .git/config に書いてある点だ。悪い人がここに好きなプログラムを書いておけば、git status が走った瞬間にそれが動く。\n\nしかも本来なら、許可を求めてから動くはずだ。それが確認もなく、画面に何も出ないまま実行される。攻撃者はあなたと同じ権限で、SSH鍵やクラウドの認証情報まで盗める。\n\n [code] \n\n矢印は処理の流れを表す。同じ git status でも、設定に一行仕込まれているだけで、確認画面が出る前に別のプログラムが動いてしまう。\n\n🩹 直ったツールと、まだ危ないツール\n\nManifoldは主要な7つの道具を調べ、8件の欠陥を報告した。すでに直ったものと、9月はじめの再確認時点でまだ直っていないものがある。\n\n| ツール | 状態 |\n|---|---|\n| Claude Code | fsmonitorの経路は修正、別経路が未修正 |\n| Codex / Cursor / goose | 修正済み |\n| Qwen Code | 未修正 |\n| Grok Build | 未修正 |\n| Hermes | 未修正 |\n\n私の見方では、これは一社のミスというより業界全体の設計のクセだ。「裏でこっそりgitを叩く」作りがどこも似ていたので、同じ穴が横並びで空いた。便利さのために黙って情報を集める設計は、こういう時に一斉に効いてくる。\n\n📁 クローンは平気、こわいのは受け取ったフォルダ\n\n大事な誤解を先に消しておく。GitHubから普通に git clone しても、この設定は相手からコピーされない。危ないのは、設定ファイルごとフォルダを丸ごと受け取る場合だ。zipやUSB、共有ドライブ、同期フォルダで渡されたものが当てはまる。\n\nだから今日できる自衛は一つ。人から受け取ったフォルダをエージェントで開く前に、中の設定をのぞくことだ。\n\n [code] \n\nfsmonitor のように、プログラム名やコマンドが書かれた行があれば疑ってよい。あわせて、使っている道具は最新版に上げておく。作る側への助言として、Manifoldは裏で走らせるgitコマンドにこの一行を足すよう勧めている。\ngit -c core.fsmonitor=false status\n\n設定を無効にする指定(-c core.fsmonitor=false)を足すだけで、この穴は塞げるという意味だ。\n\n一次ソース:\nhttps://www.manifold.security/blog/ai-coding-agents-git-hijack\n\n報道はThe Hacker News、設定そのものの説明はgitの公式ドキュメントが詳しい。\n\n今日覚えること\n・人から受け取ったフォルダは、開く前に .git/config を見る\n・普通の git clone は、この攻撃では安全\n・AIコーディング道具は最新版に更新しておく\n\n※本記事は一次情報の調査をAIが行い、事実確認のうえ執筆・公開しています。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d778d4e202e0df79",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8468501529051988,
+      "popularityPercentile": 0.7584097859327217,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "GitSpawnは受け取ったGitフォルダを開くだけでAIエージェント経由の攻撃コードを実行させる脆弱性だと解説する。",
+      "takeaways": [
+        "Gitフォルダを開くだけで悪意ある処理が動いた。",
+        "攻撃者はSSH鍵やクラウド認証情報を盗めた。",
+        "原因はフォルダ内の設定が自動実行されたことだった。"
+      ],
+      "keywords": [
+        "GitSpawn",
+        "Manifold Security",
+        "Git",
+        "AIエージェント",
+        "core.fsmonitor",
+        "セキュリティ"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "GitSpawnは、AIコーディングエージェントがフォルダを開いた直後に実行する git status を悪用し、受け取ったフォルダ内の .git/config から指定されたプログラムを無確認で起動させる攻撃です。攻撃には Git の core.fsmonitor 設定が使われ、実行されたプログラムはエージェントと同じ権限で SSH鍵やクラウドの認証情報にアクセスできます。通常の git clone ではこの設定がコピーされないため、主な対象は zip、USB、共有ドライブなどで .git/config ごと受け取ったフォルダです。Manifold Securityの調査では主要7ツールに8件の欠陥があり、Codex、Cursor、gooseは修正済みですが、Qwen Code、Grok Build、Hermesは未修正で、Claude Codeにも別経路の未修正部分が残っています。受領したフォルダはエージェントで開く前に .git/config を確認し、エージェントを最新版へ更新してください。エージェントを作る側は、git status を git -c core.fsmonitor=false status に置き換えることでこの経路を無効化できます。",
+        "prerequisites": [
+          {
+            "term": "GitSpawn",
+            "stumblingPoint": "記事は攻撃を「GitSpawn」と呼ぶが、既存のGit機能名なのか今回の攻撃名なのかが読み取りにくい。",
+            "explanation": "GitSpawnは、Manifold Securityがこの一連の攻撃に付けた名称です。GitやAIエージェントに標準搭載された機能名ではありません。名称自体を知ることより、受け取ったフォルダの設定が git status 経由で実行される点を押さえると、記事の範囲を判断できます。"
+          },
+          {
+            "term": "core.fsmonitor",
+            "stumblingPoint": "記事は「core.fsmonitor」で外部プログラムを指定できると書くが、なぜ git status から実行されるのかが手止まりになる。",
+            "explanation": "core.fsmonitorは、ファイル変更の監視をGitの外部プログラムに任せる設定です。git status などが変更状況を調べる際、この指定先を呼び出します。攻撃者が指定先を悪意あるプログラムに差し替えると、通常の状態確認がコード実行の入口になります。"
+          },
+          {
+            "term": ".git/config",
+            "stumblingPoint": "記事は「設定がフォルダの中の .git/config に書いてある」と説明するが、cloneと丸ごとの受け渡しの差がわかりにくい。",
+            "explanation": ".git/configは、その作業フォルダ固有のGit設定を保存するファイルです。フォルダをzipやUSBで丸ごと渡すと、このファイルも一緒に渡されます。一方、通常の git clone はリモートリポジトリの追跡情報などを新しく作るため、相手側のローカル設定はそのままコピーしません。"
+          },
+          {
+            "term": "AIコーディングエージェント",
+            "stumblingPoint": "記事は「フォルダを開いた瞬間に中の状態を調べる」と書くが、開くだけでGitコマンドが動く条件が不明に見える。",
+            "explanation": "AIコーディングエージェントは、作業対象を認識するために内部でGitの状態確認を行います。ここではユーザーが明示的に git status を入力しなくても、エージェントの初期処理が実行の契機になります。したがって、コードを実行する機能を許可していなくても、起動時のGit処理が攻撃経路になります。"
+          },
+          {
+            "term": "git clone",
+            "stumblingPoint": "記事は「普通に git clone しても安全」と断定するが、Git経由なら常に設定も取得しそうに感じる。",
+            "explanation": "git clone はリポジトリの管理対象ファイルを取得し、手元に新しい .git ディレクトリを作ります。攻撃対象の core.fsmonitor は、リポジトリに含まれる通常ファイルではなく、元の作業環境にあるローカル設定です。記事の攻撃では、設定ファイルを含む作業フォルダそのものを受け取ることが条件になります。"
+          },
+          {
+            "term": "-c core.fsmonitor=false",
+            "stumblingPoint": "記事は「git -c core.fsmonitor=false status」を推奨するが、設定ファイルを書き換えるコマンドなのかがわかりにくい。",
+            "explanation": "-c は、そのコマンド実行中だけGit設定を上書きするオプションです。core.fsmonitor=false により、.git/config に指定されたfsmonitorを使わずに status を実行します。設定ファイル自体を削除・変更する回避策ではなく、個別のGit呼び出しに安全側の値を渡す方法です。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "GitSpawnの実行経路",
+          "layers": [
+            {
+              "label": "呼ぶ側",
+              "nodes": [
+                {
+                  "name": "AIエージェント",
+                  "note": "フォルダ起動時に処理",
+                  "highlight": true
+                }
+              ],
+              "via": "内部のGit操作"
+            },
+            {
+              "label": "Git処理",
+              "nodes": [
+                {
+                  "name": "git status",
+                  "note": "状態確認で設定を参照",
+                  "highlight": false
+                }
+              ],
+              "via": "設定を読み込む"
+            },
+            {
+              "label": "設定",
+              "nodes": [
+                {
+                  "name": ".git/config",
+                  "note": "core.fsmonitorを指定",
+                  "highlight": true
+                }
+              ],
+              "via": "指定先を実行"
+            },
+            {
+              "label": "攻撃結果",
+              "nodes": [
+                {
+                  "name": "悪意あるプログラム",
+                  "note": "同じ権限で動作",
+                  "highlight": true
+                },
+                {
+                  "name": "SSH鍵・認証情報",
+                  "note": "窃取対象になり得る",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Manifold Securityの一次報告",
+            "url": "https://www.manifold.security/blog/ai-coding-agents-git-hijack"
+          }
+        ],
+        "readingMinutes": 4,
+        "lane": "know",
+        "impact": [
+          "zipで受け取ったGitフォルダを開く人",
+          "AIコーディングエージェントを使う人",
+          "共有ドライブの作業フォルダを開く人",
+          "AIエージェントを開発する人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "起動前に `test -f .git/config && grep -n 'fsmonitor' .git/config` を実行",
+          "使用中のAIエージェントを最新版へ更新する",
+          "エージェント側のGit呼び出しを `git -c core.fsmonitor=false status` に変更する"
+        ],
+        "unknowns": [
+          "未修正ツールの対応時期は記事に記載なし",
+          "Claude Codeの別経路の修正時期は不明"
+        ]
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "中国AI、低料金競争止まらず　智譜はDeepSeekの7割安モデル - 日本経済新聞",
+      "url": "https://www.nikkei.com/article/DGXZQOGM038X50T00C26A9000000/",
+      "publishedAt": "2026-09-05T03:11:59.000Z",
+      "tags": [
+        "テクノロジー",
+        "AI",
+        "中国",
+        "人工知能",
+        "あとで読む",
+        "ダジャレ",
+        "business"
+      ],
+      "snippet": "【広州=藤野逸郎】中国の人工知能（AI）企業が格安料金のAIモデルを投入している。米国AIに比べもともと安かったがさらに安い。高いシェアを握ってきた中国AI新興、DeepSeek（ディープシーク）が8月中旬に大幅値上げした間隙を突く狙いだ。8月20日、無名の格安AIモデル「Ox-Alpha」が突如登場した。様々なモデルを使い分...",
+      "metrics": {
+        "hatena": 35
+      },
+      "sourceWeight": 3,
+      "id": "1cc895235bcb422c",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.12,
+      "popularityPercentile": 0.5454545454545454,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 65,
+      "titleJa": null,
+      "oneLiner": "中国AI企業がDeepSeekの値上げを契機に、さらに低価格なモデルを相次いで投入している。",
+      "takeaways": [
+        "中国AI企業がモデル価格をさらに下げている。",
+        "DeepSeekは8月中旬に大幅値上げをした。",
+        "新モデルOx-Alphaが8月20日に登場した。"
+      ],
+      "keywords": [
+        "DeepSeek",
+        "Ox-Alpha",
+        "中国AI",
+        "智譜",
+        "AIモデル",
+        "価格競争"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "imageUrl": "https://article-image-ix.nikkei.com/https%3A%2F%2Fimgix-proxy.n8s.jp%2FDSXZQO3553561004092026000000-1.jpg?auto=compress&bg=FFFF&crop=focalpoint&fit=crop&fm=jpg&h=630&w=1200&s=7543263e65114e9a6fedc966c5510bc4",
+      "body": "/ この記事は会員限定記事です2026年9月5日 11:00[会員限定記事]日経の記事利用サービスについて企業での記事共有や会議資料への転載・複製、注文印刷などをご希望の方は、リンク先をご覧ください。詳しくはこちら多様な観点からニュースを考える【広州=藤野逸郎】中国の人工知能（AI）企業が格安料金のAIモデルを投入している。米国AIに比べもともと安かったがさらに安い。高いシェアを握ってきた中国AI新興、DeepSeek（ディープシーク）が8月中旬に大幅値上げした間隙を突く狙いだ。8月20日、無名の格安AIモデル「Ox-Alpha」が突如登場した。様々なモデルを使い分けて使える米オープンルーターのサービスで、同モデルを使ったトークン数...この記事は会員限定です。登録すると続きをお読みいただけます。残り1613文字すべての記事が読み放題有料会員が初回1カ月無料全文表示で読む有料登録すると続きをお読みいただけます。無料登録でも記事消費（一定数限定）をすることで閲覧できます。すべての記事が読み放題有料会員が初回1カ月無料※掲載される投稿は投稿者個人の見解であり、日本経済新聞社の見解ではありません。この投稿は現在非表示に設定されています_ (_更新)(0/300)Think! の投稿を読む有料登録すると続きをお読みいただけます。無料登録でも記事消費（一定数限定）をすることで閲覧できます。すべての記事が読み放題有料会員が初回1カ月無料日経の記事利用サービスについて企業での記事共有や会議資料への転載・複製、注文印刷などをご希望の方は、リンク先をご覧ください。詳しくはこちらこちらもおすすめ（自動検索）DeepSeek、新モデル「V4」発表　中国製半導体を使用4月24日中国AIがミュトスいぬ間に躍進　料金は20分の1、米企業も乗り換え7月6日DeepSeekが一転値上げ　アクセス集中、処理能力足りず8月18日米企業、コスト安い中国AIに乗り換え　開発者向けでは利用5割に迫る7月10日",
+      "rank": 2,
+      "deep": {
+        "summary": "中国のAI企業が、米国AIよりもともと安い料金をさらに引き下げ、低料金競争を強めている。背景には、中国AIで高いシェアを持つDeepSeekが2026年8月中旬に大幅値上げしたことがある。2026年8月20日には、複数モデルを使い分けられるOpenRouter上に格安モデルOx-Alphaが登場した。記事タイトルでは、智譜がDeepSeekの7割安となるモデルを投入したと伝えている。AIをAPI経由で利用する場合は、モデルの性能だけでなく、トークン単価と提供経路の変化が利用料金に直結する。",
+        "prerequisites": [
+          {
+            "term": "OpenRouter",
+            "stumblingPoint": "記事は「米オープンルーターのサービス」と書くが、OpenRouterを知らないとOx-Alphaの提供経路が読み取れない。",
+            "explanation": "OpenRouterは、複数のAIモデルを一つのサービス上で選択して利用できる接続先である。この記事では、Ox-Alphaが単独のアプリとして現れたのではなく、OpenRouter経由で利用可能になったことを指す。したがって、同じAPI利用環境でモデルを切り替え、料金を比較できるという意味になる。"
+          },
+          {
+            "term": "Ox-Alpha",
+            "stumblingPoint": "記事は「8月20日、無名の格安AIモデル『Ox-Alpha』が突如登場」とだけ述べ、何と比較されるモデルかが省略されている。",
+            "explanation": "Ox-Alphaは、記事中でOpenRouter上に登場した格安AIモデルとして扱われている。比較対象として明示されているのは、値上げしたDeepSeekである。本文の提示範囲では、Ox-Alphaの開発元、モデル性能、具体的な入力・出力単価までは分からない。"
+          },
+          {
+            "term": "DeepSeek",
+            "stumblingPoint": "記事はDeepSeekが「8月中旬に大幅値上げした」と書くが、値上げがなぜ競争相手の投入機会になるかが省略されている。",
+            "explanation": "DeepSeekは、中国AIの中で高いシェアを握ってきたAI企業・モデルとして記事に登場する。利用料金が上がると、既存ユーザーやAPI利用者にとって同等用途の安価な代替モデルを探す動機が生まれる。Ox-Alphaや智譜の低価格モデルは、その需要を取り込む動きとして位置づけられている。"
+          },
+          {
+            "term": "智譜",
+            "stumblingPoint": "タイトルは「智譜はDeepSeekの7割安モデル」とするが、智譜が何を提供したのか本文抜粋では詳しく分からない。",
+            "explanation": "智譜は、中国AI企業の一社として、DeepSeekより7割安いモデルを投入したとタイトルで示されている。ここでの「7割安」は、DeepSeekを基準にした料金差を表す。提示された本文だけでは、モデル名、単価の内訳、性能や提供APIの詳細は確認できない。"
+          },
+          {
+            "term": "トークン",
+            "stumblingPoint": "記事は「同モデルを使ったトークン数」と書くが、トークン数が料金とどう結び付くかの説明が途中で途切れている。",
+            "explanation": "トークンは、AIモデルが入力や出力を処理するときの文章量の単位である。API料金は、一定数の入力トークンや出力トークンごとに計算されることが多いため、単価だけでなく実際のトークン使用量も請求額を左右する。この記事では、格安モデルの料金比較をトークン単位で行おうとしている。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "低料金競争の流れ",
+          "steps": [
+            {
+              "label": "DeepSeek値上げ",
+              "detail": "2026年8月中旬に大幅値上げ"
+            },
+            {
+              "label": "Ox-Alpha登場",
+              "detail": "2026年8月20日にOpenRouterへ登場"
+            },
+            {
+              "label": "低価格競争",
+              "detail": "智譜がDeepSeekの7割安モデルを投入"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "日経新聞の記事",
+            "url": "https://www.nikkei.com/article/DGXZQOGM038X50T00C26A9000000/"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "DeepSeekをAPIで使っている人",
+          "OpenRouterで複数モデルを使い分ける人",
+          "中国AIモデルの料金を比較する人",
+          "AI利用料を管理する人"
+        ],
+        "timeline": [
+          "2026-08中旬 DeepSeekが大幅値上げ",
+          "2026-08-20 Ox-Alphaが登場"
+        ],
+        "checkNow": [
+          "OpenRouterでOx-AlphaとDeepSeekのトークン単価を比較する",
+          "`rg -n 'Ox-Alpha|DeepSeek'`で利用中のモデル設定を検索する"
+        ],
+        "unknowns": [
+          "Ox-Alphaの提供元と具体的な単価は不明",
+          "智譜モデルの名称と提供開始時期は不明"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "GPT-6 Astra の API を Node.js で少し試してみた【OpenAI】",
+      "url": "https://qiita.com/youtoy/items/0aaae059f2ec7be22e57",
+      "publishedAt": "2026-09-05T16:23:27.000Z",
+      "author": "Yosuke Toyota",
+      "authorDetail": {
+        "name": "Yosuke Toyota",
+        "handle": "@youtoy",
+        "url": "https://qiita.com/youtoy",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/50868/profile-images/1473692247",
+        "bio": "プライベートでの活動で、ビジュアルプログラミング・IoT・ロボットトイを扱う技術コミュニティを単独・共同で主催したり、登壇や執筆等を行っています。また、ガジェットが大好きです。Qiitaの記事で書いていることは、プライベートでの活動に関する内容です。その他：Microsoft MVP受賞／普段の仕事は主に通信業界",
+        "organization": "KDDI Research, Inc.",
+        "location": "Saitama, Japan",
+        "followers": 682,
+        "posts": 1043,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/yo-to"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/youtoy"
+          },
+          {
+            "label": "Web",
+            "url": "http://yo-to.hatenablog.com/"
+          }
+        ]
+      },
+      "tags": [
+        "GPT-6",
+        "GPT-6Astra",
+        "OpenAI",
+        "Node.js",
+        "JavaScript"
+      ],
+      "snippet": "はじめに この記事は、下記の記事と類似した方向性の内容です。以前から、OpenAI の新しいモデルの API が提供され始めたときに、Node.js で軽く試すというのをやっていました。 ●OpenAI の GPT-5.6 の API を Node.js で少し試してみた - Qiita https://qiita.com/youtoy/items/b23924c6de5f68f66724 今回の記事は、その内容の「GPT-6 Astra」バージョンです。API は、モデルのリリースタイミングで利用できるようになっているようです。 https://x.com/OpenAI/status/2095998532692140283 API のお試しなど モデルに関する公式情報 GPT-6 Astra に関する公式の情報などを掲載します。 以下は、モデルの情報のページです。 ●GPT-6 Astr…",
+      "body": "はじめに\n\nこの記事は、下記の記事と類似した方向性の内容です。以前から、OpenAI の新しいモデルの API が提供され始めたときに、Node.js で軽く試すというのをやっていました。\n\n●OpenAI の GPT-5.6 の API を Node.js で少し試してみた - Qiita\n　https://qiita.com/youtoy/items/b23924c6de5f68f66724\n\n今回の記事は、その内容の「GPT-6 Astra」バージョンです。API は、モデルのリリースタイミングで利用できるようになっているようです。\n\nhttps://x.com/OpenAI/status/2095998532692140283\n\nAPI のお試しなど\n\nモデルに関する公式情報\n\nGPT-6 Astra に関する公式の情報などを掲載します。\n\n以下は、モデルの情報のページです。\n\n●GPT-6 Astra Model | OpenAI API\n　https://developers.openai.com/api/docs/models/gpt-6-astra\n\n \n\nまた、以下は GPT-5.6系の他のモデルとの違いをぱっと見で見られる箇所です。\n\n●Models | OpenAI API\n　https://developers.openai.com/api/docs/models\n\n \n\nAPI利用料金は、GPT-5.6 Sol と比べて 2.5倍となるようです（※記事執筆時点）。\n\n利用するパッケージ\n\nAPI のお試しでは、以下の公式のパッケージを使います。\n\n●openai - npm\n　https://www.npmjs.com/package/openai\n\n \n\n試した結果\n\n試す際には上記のパッケージをインストールし、さらに OpenAI の APIキーを環境変数に設定します（環境変数の名前は OPENAIAPIKEY にしています）。\n\nまずは、以下でパッケージをインストールします。\n\n [code] \n\n今回用いたコード1\n\n上で書いた環境変数を使える状態にしてから、以下のコードを実行します。\n\n [code] \n\n出力の内容1\n\nその出力結果は、以下のとおりです（※一部省略しています）。\n\n \n\n \n\n \n\nこのレスポンスの情報から「GPT-6 Astra」が利用されたのは間違いなさそうです。\n\nAPI のログなどの確認1\n\nAPI のログなどを見て、GPT-6 Astra が使われているかも確認してみます。そして以下から、GPT-6 Astra が利用されていることが確認できました。\n\n \n\n \n\n今回用いたコードと実行結果 〜 その2 〜\n\n次に、先ほどのコードのプロンプトを変更しただけ、という内容のものを実行してみます。プロンプトは、「あなたは誰か、詳しく教えて」というシンプルな内容です。\n\nその出力結果は、以下のとおりです（※一部省略しています）。\n\n \n\n \n\n \n\n \n\nAPI のログなどの確認2\n\n2回目のお試しについても、API のログなどを見て GPT-6 Astra が使われているかも確認してみます。そして 2回目も、GPT-6 Astra が利用されていることが確認できました。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "325faaef103f647e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6988379204892967,
+      "popularityPercentile": 0.0856269113149847,
+      "matchedTopics": [
+        "JavaScript",
+        "Node.js",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 90,
+      "titleJa": null,
+      "oneLiner": "OpenAIのGPT-6 AstraをNode.jsから呼び出す最小例を試している。",
+      "takeaways": [
+        "新しいモデルGPT-6 Astraをプログラムから呼べるようになった。",
+        "GPT-5.6 Solより料金が2.5倍になった。",
+        "公式の道具を使った最小の試し方を紹介している。"
+      ],
+      "keywords": [
+        "GPT-6 Astra",
+        "OpenAI",
+        "Node.js",
+        "openai npm",
+        "API"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "この記事では、OpenAI の新しいモデル GPT-6 Astra を Node.js から呼び出し、レスポンスと API ログの両方で利用モデルを確認しています。公式パッケージ openai を npm で導入し、APIキーを環境変数に設定して実行する流れです。プロンプトを変えた2回のリクエストで、どちらも GPT-6 Astra が使われたことを確認しています。API利用料金は、記事執筆時点で GPT-5.6 Sol の2.5倍とされています。記事中の実行コード本体は画像掲載のため、本文からはコピペできません。",
+        "prerequisites": [
+          {
+            "term": "GPT-6 Astra",
+            "stumblingPoint": "記事は GPT-6 Astra を Node.js から試すと書いているが、モデル名をどこに渡すかが本文だけでは読み取れない。",
+            "explanation": "GPT-6 Astra は OpenAI API リクエストで指定するモデル識別子です。Node.js 側では、公式パッケージ openai を使ってリクエストを作り、その中でモデル名を指定します。指定が別モデルのままだと、レスポンスを見ても GPT-6 Astra の検証にはなりません。"
+          },
+          {
+            "term": "Node.js",
+            "stumblingPoint": "記事は「Node.js で軽く試す」と書いているが、JavaScript ファイルを実行する環境が必要だと明示していない。",
+            "explanation": "Node.js はブラウザーではなく、ローカルや Linux 環境で JavaScript を実行するために使います。この記事の操作は npm でパッケージを入れ、ファイルをコマンドから実行する前提です。Node.js と npm が使えない環境では、APIキーを設定してもサンプルを起動できません。"
+          },
+          {
+            "term": "openai",
+            "stumblingPoint": "記事は公式パッケージ openai を使うと書いているが、SDK が API 呼び出しのどの部分を担うかが省略されている。",
+            "explanation": "openai は npm から導入する OpenAI 公式の Node.js 用 SDK です。HTTP リクエストを自分で組み立てる代わりに、SDK のクライアントとメソッドを使ってモデルへ問い合わせます。この記事では、まず npm i openai で導入することが確認できます。"
+          },
+          {
+            "term": "APIキー",
+            "stumblingPoint": "記事は APIキーを環境変数に設定すると書いているが、キーをコードへ直接書かない理由が説明されていない。",
+            "explanation": "APIキーは OpenAI API の利用者を認証する秘密情報です。コードや Git リポジトリに直接書くと、共有・公開時に漏えいする可能性があります。そのため、この記事では環境変数から Node.js プログラムへ渡します。"
+          },
+          {
+            "term": "環境変数",
+            "stumblingPoint": "本文では環境変数名が OPENAIAPIKEY と記載される一方、画像周辺では OPENAI_API_KEY と記載されており、表記が一致していない。",
+            "explanation": "環境変数は、実行時にプロセスへ値を渡す名前付きの設定です。コード側が読む名前と、端末で設定する名前が1文字でも違うと APIキーを取得できません。記事本文と画像で名前が食い違うため、実行コードに書かれた変数名を確認して合わせる必要があります。"
+          },
+          {
+            "term": "APIログ",
+            "stumblingPoint": "記事はレスポンスだけでなく APIログでも GPT-6 Astra の利用を確認しているが、何を照合するのかが省略されている。",
+            "explanation": "APIログは、OpenAI 側で受け付けたリクエストや利用モデルを確認するための記録です。レスポンス内のモデル情報だけでなく、管理画面側のログにも GPT-6 Astra が現れるかを照合します。これにより、コードに書いた指定と実際の利用モデルが一致したかを別経路で確認できます。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "GPT-6 Astra Model | OpenAI API",
+            "url": "https://developers.openai.com/api/docs/models/gpt-6-astra"
+          },
+          {
+            "label": "Models | OpenAI API",
+            "url": "https://developers.openai.com/api/docs/models"
+          },
+          {
+            "label": "openai - npm",
+            "url": "https://www.npmjs.com/package/openai"
+          },
+          {
+            "label": "OpenAI の GPT-5.6 の API を Node.js で少し試してみた",
+            "url": "https://qiita.com/youtoy/items/b23924c6de5f68f66724"
+          },
+          {
+            "label": "OpenAI の告知",
+            "url": "https://x.com/OpenAI/status/2095998532692140283"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "build",
+        "unlocks": [
+          "Node.js から GPT-6 Astra に質問し、レスポンスを確認できる",
+          "レスポンスと APIログの両方で利用モデルを照合できる"
+        ],
+        "howToTry": [
+          "npm i openai",
+          "OpenAI の APIキーを用意し、記事の実行コードが参照する環境変数名へ設定する",
+          "記事の「今回用いたコード1」をファイルへ保存する（記事ではコードが画像掲載のため、画像から転記が必要）",
+          "APIキーを設定した同じシェルで Node.js ファイルを実行する",
+          "出力 JSON のモデル情報と OpenAI 側の APIログで GPT-6 Astra の利用を確認する"
+        ],
+        "fitFor": [
+          "OpenAI APIキーを発行済みで、Node.js と npm を実行できる環境がある",
+          "GPT-6 Astra のレスポンスと利用モデルを実際に確認したい",
+          "API利用料金が GPT-5.6 Sol の2.5倍でも試せる"
+        ],
+        "notFor": [
+          "APIキーを用意できず、OpenAI APIへ接続できない環境",
+          "記事掲載コードを画像から転記せず、そのままコピペして試したい場合",
+          "GPT-5.6 Sol と同程度の料金で検証したい場合"
+        ],
+        "caveats": [
+          "GPT-5.6 Sol の2.5倍の料金とされるため、連続実行に注意"
+        ],
+        "tryPrompt": "# 試すこと\nNode.js から GPT-6 Astra に1回質問し、レスポンスと APIログで利用モデルを確認する。\nhttps://qiita.com/youtoy/items/0aaae059f2ec7be22e57\n\n# 手順\n1. npm i openai\n2. OpenAI の APIキーを用意する（手動）\n3. 記事の「今回用いたコード1」を確認し、コード画像からファイルへ転記する（手動）\n4. コードが参照する環境変数名を確認する。本文と画像で OPENAIAPIKEY / OPENAI_API_KEY の表記が異なるため、コード側に合わせる\n5. APIキーを環境変数へ設定する\n6. Node.js で転記したファイルを実行する\n7. 出力 JSON のモデル情報を確認する\n8. OpenAI の APIログを開き、同じリクエストで GPT-6 Astra が記録されているか確認する（手動）\n\n# 確認したいこと\n- 画像から転記したコードが、README や追加調査なしで最初のレスポンスまで動くか\n- レスポンスと APIログの両方に GPT-6 Astra が現れるか\n- 環境変数名の不一致で認証エラーにならないか\n\n# 前提・注意\n- Node.js、npm、OpenAI の APIキーが必要。\n- 記事本文では実行コードが画像掲載のため、完全なコピペ手順ではない。\n- GPT-5.6 Sol の2.5倍の料金とされるため、試行回数を抑える。"
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "HanyuanWang/LiveStream-Agent-Studio — 面向抖音直播电商的 Windows 本地 AI Agent Studio，贯通主播发现、直播洞察、直播复盘与短视频内容编导的统一智能工作流。",
+      "url": "https://github.com/HanyuanWang/LiveStream-Agent-Studio",
+      "publishedAt": "2026-08-22T14:16:48.000Z",
+      "author": "HanyuanWang",
+      "authorDetail": {
+        "name": "HanyuanWang",
+        "url": "https://github.com/HanyuanWang",
+        "avatarUrl": "https://github.com/HanyuanWang.png?size=120",
+        "bio": "面向抖音直播电商的 Windows 本地 AI Agent Studio，贯通主播发现、直播洞察、直播复盘与短视频内容编导的统一智能工作流。"
+      },
+      "tags": [
+        "Python",
+        "ai-agent",
+        "douyin",
+        "livestream",
+        "speech-to-text"
+      ],
+      "snippet": "面向抖音直播电商的 Windows 本地 AI Agent Studio，贯通主播发现、直播洞察、直播复盘与短视频内容编导的统一智能工作流。",
+      "metrics": {
+        "stars": 791
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "894a4631437dfd60",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.5422222222222223,
+      "popularityPercentile": 0.3055555555555556,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 62,
+      "titleJa": null,
+      "oneLiner": "面向抖音直播电商的 Windows 本地 AI Agent Studio，贯通主播发现、直播洞察、直播复盘与短视频内容编导的统一智能工作流。",
+      "takeaways": [],
+      "keywords": [
+        "AI / LLM"
+      ],
+      "category": "その他",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "LiveStream Agent Studio\n\n面向直播电商团队的 Windows 本地优先 AI 工作台\nA local-first AI workspace for livestream commerce teams on Windows\n\n把主播发现、直播拆解、直播复盘和短视频编导放进一个统一入口。\n\nBring creator discovery, livestream breakdown, performance review, and short-form video planning into one unified workspace.\n[!IMPORTANT]\n请先使用非敏感素材验证环境、账号权限和输出结果，再投入正式业务。\nBefore using LiveAgent Studio in production, validate your environment, account permissions, and output quality with non-sensitive test materials.\n\nLiveStream Agent Studio 是面向直播电商团队打造的 Windows 本地优先 AI Agent 工作台。\n\nLiveStream Agent Studio is a local-first Windows AI Agent workspace built for livestream commerce teams.\n\n本版本将主播发现、直播拆解、话术与流量复盘、短视频内容编导整合到统一入口，帮助直播运营、投放、内容和复盘团队，将榜单、录屏、逐字稿、流量数据与脚本资产沉淀为可追踪、可复用的完整工作流。\n\nIt brings creator discovery, livestream breakdown, speech-and-traffic review, and short-form video planning into a single interface. The goal is to help operations, media-buying, content, and review teams turn rankings, recordings, transcripts, traffic data, and scripts into traceable and reusable workflows.\n\n这是项目的首个公开版本，适合体验、测试和内部研究使用。\n\nThis is the project's first public release. It is intended for evaluation, testing, and internal research.\n\n---\n\n✨ 核心能力 Core Capabilities\n\n01 · Creator Scout Agent｜主播发现\n\n管理关注领域、候选主播和达人研究任务，读取用户账号正常可见的蝉妈妈榜单或主播页面，生成结构化达人拆解，并将候选主播加入后续可选录制流程。\n\nManage research categories, candidate creators, and creator-analysis tasks. The Agent can read Chanmama rankings or creator pages normally visible to the signed-in user, generate structured creator profiles, and add selected creators to an optional recording workflow.\n\n02 · Live Breakdown Agent｜直播拆解\n\n将完整直播视频转化为带秒级时间戳的结构化逐字稿，自动完成音频提取、云端转写和内容整理，并输出可继续分析的 Excel 文件。\n\nConvert full-length livestream recordings into structured transcripts with second-level timestamps. The workflow extracts audio, submits it for cloud transcription, organizes the content, and exports an Excel workbook ready for further analysis.\n\n03 · Live Review Agent｜直播复盘\n\n对齐直播逐字稿与同场分钟级流量数据，分析不同话术阶段对应的进入、离开、在线、停留、互动、商品曝光与点击变化，输出 Excel 和 Word 复盘报告。\n\nAlign a livestream transcript with minute-level traffic data from the same session. Analyze how different speech stages relate to changes in entries, exits, concurrent viewers, watch time, engagement, product impressions, and product clicks. Results are exported as Excel and Word reports.\n\n04 · Video Director Agent｜短视频编导\n\n根据用户提供的参考短视频链接提取真实逐字稿，在保留内容逻辑而非复制原文的前提下，生成原创口播脚本、内容结构、分镜与拍摄建议。\n\nExtract a verified transcript from a short-video reference link supplied by the user. Based on the reference's underlying content logic—without copying its wording—the Agent generates an original spoken script, content structure, storyboard, and production recommendations.\n\nUnified Task Center｜统一任务中心\n\n集中查看任务进度、运行状态、失败原因和输出文件，减少在多个脚本、文件夹和工具之间反复切换。\n\nTrack task progress, runtime status, failure reasons, and output files in one place, reducing the need to switch repeatedly between scripts, folders, and tools.\n\nLocal Settings Hub｜本地设置中心\n\n统一配置用户自己的阿里云百炼 DashScope、OSS、平台登录状态，以及可选的直播录制助手路径。\n\nConfigure your own Alibaba Cloud Model Studio (DashScope), OSS storage, platform sign-in state, and the optional path to a local livestream recording assistant.\n\n四个 Agent Four Agents\n\n| Agent | 输入 / Input | 主要工作 / What It Does | 输出 / Output |\n| --- | --- | --- | --- |\n| 主播发现 Creator Scout | 关注领域、用户账号可见的蝉妈妈榜单或主播主页 Research categories and Chanmama rankings or creator pages visible to the user's account | 管理候选主播、生成达人拆解、加入可选录制流程 Manages candidates, produces creator profiles, and optionally adds creators to a recording workflow | 候选主播库、达人报告、录制名单 Candidate library, creator reports, and recording list |\n| 直播拆解 Live Breakdown | 完整直播视频 Full-length livestream video | 提取音频、云端语音转写、按内容组织事件和逐字稿 Extracts audio, runs cloud speech transcription, and organizes events and transcripts | 带秒级时间戳的拆解 Excel Breakdown workbook with second-level timestamps |\n| 直播复盘 Live Review | 直播视频、同场巨量百应分钟流量表 Livestream video and minute-level Ocean Engine E-commerce traffic data from the same session | 对齐逐字稿与进入、离开、在线、停留、互动、商品曝光和点击变化 Aligns speech with entries, exits, concurrent viewers, watch time, engagement, product impressions, and clicks | 复盘 Excel、Word 和处理说明 Excel and Word review reports, plus processing notes |\n| 视频编导 Video Director | 用户主动粘贴的参考短视频链接 Short-video reference links submitted by the user | 提取真实参考逐字稿，基于有效素材生成原创方案 Extracts a verified reference transcript and creates an original content plan from valid source material | 原创脚本、分镜和拍摄建议 Original script, storyboard, and production guidance |\n\n快速开始 Quick Start\n\n1. 下载\n1. Download the Release\n\n在仓库右侧进入 Releases，下载：\n\nOpen Releases on the right side of the repository and download:\n・LiveAgent-Studio-Windows-x64.zip\n・LiveAgent-Studio-Windows-x64.zip.sha256\n\n不要只下载源码，也不要只复制 EXE。完整运行需要 ZIP 内的 .runtime 和各 Agent 目录。\n\nDo not download only the source archive or copy only the executable. The application requires the .runtime directory and the bundled Agent directories included in the ZIP package.\n\n2. 校验文件\n2. Verify the Download\n\n在 ZIP 所在目录打开 PowerShell：\n\nOpen PowerShell in the directory containing the ZIP file:\n\n [code] \n\n确认结果与 .sha256 文件中的值一致。无法确认下载来源或校验不一致时，请不要运行。\n\nConfirm that the resulting hash matches the value in the .sha256 file. Do not run the package if the hash does not match or if you cannot verify the download source.\n\n3. 解压并启动\n3. Extract and Launch\n\n完整解压 ZIP，然后双击：\n\nExtract the entire ZIP archive, then double-click:\n\n [code] \n\n程序准备好后会自动在默认浏览器打开 http://127.0.0.1:4173/。\n\nWhen the local service is ready, the application opens http://127.0.0.1:4173/ in your default browser.\n\n当前 Beta 启动器尚未使用商业代码签名证书，Windows 可能显示 SmartScreen 提示；请只运行从本仓库 Releases 下载且校验一致的文件。\n\nThe current Beta launcher is not signed with a commercial code-signing certificate, so Windows SmartScreen may display a warning. Only run packages downloaded from this repository's official Releases page and verified against the published SHA-256 checksum.\n\n4. 完成首次设置\n4. Complete the Initial Setup\n\n进入左侧 设置与连接，根据页面引导配置：\n\nOpen Settings & Connections from the sidebar and configure:\n\n1. 自己的阿里云百炼 DashScope API Key。 \n Your Alibaba Cloud Model Studio DashScope API key.\n2. 私有 OSS Bucket。 \n Your private OSS bucket.\n3. 仅覆盖指定 Bucket/对象前缀的 RAM AccessKey。 \n A RAM AccessKey restricted to the required bucket and object prefix.\n4. 如需“加入快抖录制”，再粘贴本机录制助手 EXE 的完整路径；这是可选项。 \n Optional: paste the full local path to the recording assistant executable if you want to use Add to Kuaidou Recording.\n\n保存后点击“实际验证 Qwen 与 OSS”。验证通过后，再开始直播拆解或复盘任务。\n\nSave the settings and select Verify Qwen & OSS. Start a breakdown or review task only after the verification succeeds.\n\n数据如何流动 How Data Flows\n\n| 数据 / Data | 默认位置或去向 / Default Location or Destination |\n| --- | --- |\n| 任务记录、数据库、输出文件 Task history, database, and generated files | 当前电脑的项目 workspace The project's local workspace directory |\n| 蝉妈妈、抖音登录状态 Chanmama and Douyin sign-in state | 当前电脑的专用浏览器 Profile A dedicated browser profile on the local machine |\n| API Key 与 OSS 凭据 API keys and OSS credentials | 当前电脑被 Git 忽略的 .env，Windows 下限制为当前用户和 SYSTEM 访问 A Git-ignored local .env file, restricted on Windows to the current user and SYSTEM |\n| 转写音频 Audio used for transcription | 临时上传到用户自己的 OSS，再交给 DashScope 读取 Temporarily uploaded to the user's own OSS bucket, then accessed by DashScope |\n| OSS 临时音频 Temporary OSS audio | 任务结束后程序尝试删除 The application attempts to delete it when the task finishes |\n| 抖音下载 Cookie 文件 Douyin download cookies | 仅在处理期间临时生成，使用后立即删除 Generated only while needed and deleted immediately after use |\n\nLiveAgent Studio 不附带任何开发者 API Key、Cookie、浏览器 Profile 或真实业务数据。云端转写会使用用户自己的阿里云账号并产生相应费用。\n\nLiveAgent Studio does not include developer API keys, cookies, browser profiles, or real business data. Cloud transcription and model calls use the user's own Alibaba Cloud account and may incur charges.\n\n---\n\n🧩 使用前需要准备什么 Prerequisites\n\nLiveAgent Studio 提供本地工作台和工作流编排，但不会附带第三方账号、会员、云服务额度或外部录制软件。\n\nLiveAgent Studio provides the local workspace and workflow orchestration layer. It does not include third-party accounts, subscriptions, cloud-service credits, or external recording software.\n\n基础运行环境\nBasic System Requirements\n・Windows 10 或 Windows 11，64 位系统。 \n Windows 10 or Windows 11, 64-bit.\n・Microsoft Edge、Google Chrome 或其他现代浏览器。 \n Microsoft Edge, Google Chrome, or another modern browser.\n・稳定的网络连接。 \n A stable internet connection.\n・足够的磁盘空间，用于直播视频、逐字稿、临时文件和复盘报告。 \n Sufficient disk space for livestream recordings, transcripts, temporary files, and review reports.\n・Microsoft Excel、Word，或能够打开 .xlsx、.docx 的 WPS Office 等兼容软件。 \n Microsoft Excel and Word, WPS Office, or other software capable of opening .xlsx and .docx files.\n\n阿里云服务\nAlibaba Cloud Services\n\n直播拆解、转写和部分 AI 分析功能需要用户自行准备：\n\nLivestream breakdown, transcription, and selected AI analysis features require users to provide:\n・阿里云账号。 \n An Alibaba Cloud account.\n・阿里云百炼 DashScope API Key。 \n An Alibaba Cloud Model Studio DashScope API key.\n・用户自己的私有 OSS Bucket。 \n A private OSS bucket owned by the user.\n・OSS Endpoint、AccessKey ID 和 AccessKey Secret。 \n An OSS endpoint, AccessKey ID, and AccessKey Secret.\n・可用的模型与云服务额度。 \n Access to the required models and sufficient cloud-service quota.\n\n云端转写和模型调用会使用用户自己的阿里云账号，并可能产生费用。请在阿里云控制台查看实际计费规则和用量。\n\nTranscription and model calls use the user's own Alibaba Cloud account and may incur charges. Refer to the Alibaba Cloud console for current pricing and usage information.\n\n蝉妈妈\nChanmama\n\n主播发现相关功能可能需要：\n\nCreator discovery may require:\n・用户自己的蝉妈妈账号。 \n The user's own Chanmama account.\n・正常登录状态。 \n An active sign-in session.\n・对应榜单、主播页面或数据模块的会员权限。 \n The subscription level required to view the relevant rankings, creator pages, or data modules.\n\n软件只读取当前账号正常可见的页面，不会绕过登录、验证码、会员限制或平台风控。\n\nThe application only reads pages normally available to the current account. It does not bypass authentication, CAPTCHA challenges, subscription restrictions, or platform risk controls.\n\n抖音\nDouyin\n\n短视频解析、主播页面和部分内容读取可能需要：\n\nShort-video parsing, creator pages, and selected content-reading workflows may require:\n・用户自己的抖音账号。 \n The user's own Douyin account.\n・正常登录状态。 \n An active sign-in session.\n・必要时完成验证码或访问状态刷新。 \n Completion of CAPTCHA verification or a refreshed access session when requested by the platform.\n\n部分链接可能因平台风控、内容权限、地区限制、链接失效或页面变化而无法读取。\n\nSome links may be unavailable because of platform risk controls, content permissions, regional restrictions, expired links, or page changes.\n\n巨量百应\nOcean Engine E-commerce\n\n直播复盘建议准备同一场直播对应的分钟级流量数据，例如：\n\nFor livestream review, provide minute-level traffic data from the same livestream session whenever possible, including:\n・进入人数。 \n Viewer entries.\n・离开人数。 \n Viewer exits.\n・实时在线人数。 \n Concurrent viewers.\n・平均停留。 \n Average watch time.\n・互动数据。 \n Engagement metrics.\n・商品曝光与点击数据。 \n Product impressions and clicks.\n\n数据字段越完整，话术与流量的对齐分析越可靠。\n\nMore complete input data generally produces more reliable speech-to-traffic analysis.\n\n直播录制工具\nLivestream Recording Tool\n\n如果需要将候选主播加入后续直播录制流程，用户需要自行合法获取并安装：\n\nTo add selected creators to a downstream livestream-recording workflow, users must legally obtain and install:\n・快抖直播录制助手。 \n Kuaidou Livestream Recording Assistant (快抖直播录制助手).\n・对应平台的正常登录状态与使用权限。 \n Any platform account and permissions required by that tool.\n・足够的本地磁盘空间，用于保存直播录屏文件。 \n Sufficient local disk space for recorded livestream files.\n\nLiveAgent Studio 不包含快抖直播录制助手，也不会自动下载或安装该软件。\n\nLiveAgent Studio does not include, download, or install Kuaidou Livestream Recording Assistant.\n\n安装完成后，请进入：\n\nAfter installing it, open:\n\n [code] \n\n粘贴快抖直播录制助手 EXE 的完整本机路径，例如：\n\nPaste the full local path to its executable, for example:\n\n [code] \n\n该功能属于可选的第三方集成。未配置时不会影响其他 Agent 的使用。\n\nThis is an optional third-party integration. Leaving it unconfigured does not affect the other Agents.\n\n运行架构 Architecture\n\n [code] \n\n网关限制允许访问的 Host 和网页 Origin，不接受普通外部网页直接调用。\n\nThe local gateway restricts permitted hosts and web origins. It does not accept requests from arbitrary external web pages.\n\n系统和第三方要求 System and Third-Party Requirements\n・Windows 10 或 Windows 11，64 位。 \n Windows 10 or Windows 11, 64-bit.\n・Chrome 或 Edge，用于本地工作台以及需要登录的第三方页面。 \n …",
+      "rank": 2,
+      "deep": {
+        "summary": "LiveStream Agent Studioは、Windows 10/11上で動くローカル優先のAIワークスペースです。Creator Scout、Live Breakdown、Live Review、Video Directorの4つのAgentを統一タスクセンターから実行し、主播候補、逐字稿、流量分析、短動画脚本をファイルとして残せます。Live Breakdownではライブ動画から音声を抽出し、DashScopeで秒単位の逐字稿を生成してExcelに出力します。Live Reviewでは同一配信の逐字稿とOcean Engine E-commerceの分単位データを突き合わせ、話術と入場・離脱・視聴・商品クリックなどの変化をExcelとWordにまとめます。実行には自分のDashScope API Key、private OSS、権限を絞ったRAM AccessKeyが必要で、クラウド転写とモデル呼び出しには料金が発生します。",
+        "prerequisites": [
+          {
+            "term": "LiveStream Agent Studio",
+            "stumblingPoint": "記事は「Windows 本地优先 AI Agent 工作台」と説明しているが、単体CLIではなく配布ZIP一式で動くアプリだと分からないと起動手順を誤る。",
+            "explanation": "LiveStream Agent Studioは、Windows上でブラウザから使うローカルWebアプリです。実行ファイルだけを取り出すのではなく、ZIP内の`.runtime`と各Agentディレクトリを含む構成全体が必要です。そのため、ソースコードの取得やEXE単体のコピーではなく、ReleasesのWindows x64 ZIPを使います。"
+          },
+          {
+            "term": "Creator Scout",
+            "stumblingPoint": "「蝉妈妈榜单或主播页面」とあるが、どのアカウントでもランキングを読めるわけではない点を読み落としやすい。",
+            "explanation": "Creator Scoutは、現在ログインしているユーザーが蝉妈妈上で通常閲覧できるページだけを読み取ります。対象ランキングや主播ページの会員権限、ログイン状態が不足している場合、認証・CAPTCHA・会員制限を回避して取得する機能ではありません。"
+          },
+          {
+            "term": "Live Breakdown",
+            "stumblingPoint": "「云端转写」と書かれているが、動画をローカルだけで処理する機能ではなく、音声をOSS経由でDashScopeに渡す流れを理解しないと設定を誤る。",
+            "explanation": "Live Breakdownは、ライブ動画から音声を抽出し、ユーザー自身のOSSへ一時アップロードしてからDashScopeに読み取らせます。処理終了後は一時音声の削除を試みますが、転写対象の素材がクラウドへ送られる前提で、OSSとDashScopeの設定が必要です。"
+          },
+          {
+            "term": "DashScope",
+            "stumblingPoint": "「自己的阿里云百炼 DashScope API Key」とあるが、アプリにキーが同梱されていると思うと最初の検証で止まる。",
+            "explanation": "DashScopeはAlibaba Cloud Model StudioのAPIサービスで、LiveStream Agent Studioは開発者のAPI Keyを提供しません。自分のAlibaba CloudアカウントでAPI Key、利用可能なモデル、十分なクラウドサービス额度を準備し、設定画面の「实际验证 Qwen 与 OSS」を通過させる必要があります。"
+          },
+          {
+            "term": "RAM AccessKey",
+            "stumblingPoint": "記事は「指定 Bucket/对象前缀に限定」と指定しているが、通常の広い権限のAccessKeyでもよいとは書いていない。",
+            "explanation": "RAM AccessKeyはAlibaba Cloudの権限付きアクセス資格情報です。この用途ではprivate OSSの必要なBucketとオブジェクト前缀だけに権限を絞る構成が前提です。アプリが一時音声を置く場所を限定できるため、広範囲なOSS操作権限をそのまま渡す設定ではありません。"
+          },
+          {
+            "term": "Live Review",
+            "stumblingPoint": "「分钟级流量数据」とあるが、別の配信から取った数字でも分析できるようには読めない。",
+            "explanation": "Live Reviewは、同じ配信セッションの逐字稿と流量表を時間で対応付けます。入場・離脱・在線・平均停留・互动・商品曝光・点击などの列が揃っているほど、どの話術段階で指標が変化したかを読み取りやすくなります。別セッションのデータではこの対応関係が崩れます。"
+          },
+          {
+            "term": "Video Director",
+            "stumblingPoint": "「参考短视频链接提取真实逐字稿」とあるが、任意のURLが必ず読めるわけではない。",
+            "explanation": "Video Directorは、ユーザーが貼り付けた短動画URLから参照素材を取得し、内容の論理をもとに原創脚本を作ります。平台风控、内容权限、地区限制、リンク切れ、ページ変更などで読み取りに失敗する可能性があり、取得できないURLを前提にしたワークフローではありません。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "データ処理経路",
+          "layers": [
+            {
+              "label": "入力・操作",
+              "nodes": [
+                {
+                  "name": "Windows ブラウザ",
+                  "note": "ローカル画面とログインページ",
+                  "highlight": false
+                },
+                {
+                  "name": "ライブ動画・流量表",
+                  "note": "解析対象の業務素材",
+                  "highlight": false
+                }
+              ],
+              "via": "HTTP・ファイル"
+            },
+            {
+              "label": "ローカル実行",
+              "nodes": [
+                {
+                  "name": "LiveStream Agent Studio",
+                  "note": "Agentとタスクを実行",
+                  "highlight": true
+                },
+                {
+                  "name": "専用ブラウザProfile",
+                  "note": "蝉妈妈・抖音の状態を保持",
+                  "highlight": false
+                }
+              ],
+              "via": "一時音声・API呼び出し"
+            },
+            {
+              "label": "外部サービス",
+              "nodes": [
+                {
+                  "name": "OSS Bucket",
+                  "note": "転写音声を一時保管",
+                  "highlight": false
+                },
+                {
+                  "name": "DashScope",
+                  "note": "クラウド転写とAI分析",
+                  "highlight": true
+                }
+              ],
+              "via": "クラウド処理"
+            },
+            {
+              "label": "成果物",
+              "nodes": [
+                {
+                  "name": "ローカル workspace",
+                  "note": "履歴・DB・出力ファイル",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "LiveStream Agent Studio GitHub",
+            "url": "https://github.com/HanyuanWang/LiveStream-Agent-Studio"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "ライブ動画を秒単位の逐字稿Excelに変換できる",
+          "逐字稿と流量表から話術別の復盤レポートを作れる"
+        ],
+        "howToTry": [
+          "https://github.com/HanyuanWang/LiveStream-Agent-Studio",
+          "GitHubページ右側の「Releases」を開き、`LiveAgent-Studio-Windows-x64.zip`と同名の`.sha256`をダウンロードする（手動）。",
+          "PowerShellでZIPのSHA-256を計算し、`.sha256`の値と一致することを確認する。本文では実行コマンドが欠落しているため、リポジトリのRelease記載に従う。",
+          "ZIP全体を解凍し、`.runtime`と各Agentディレクトリを残したままWindowsアプリケーションを起動する（手動）。",
+          "ブラウザで`http://127.0.0.1:4173/`を開き、「設定与连接」でDashScope API Key、private OSS、限定したRAM AccessKeyを入力する（手動）。",
+          "「实际验证 Qwen 与 OSS」が成功した後、非機密のライブ動画を使ってLive BreakdownまたはLive Reviewを実行する（手動）。"
+        ],
+        "fitFor": [
+          "Windows 10/11の64ビット環境で使うとき",
+          "自分のDashScope、private OSS、RAM AccessKeyを用意できるとき",
+          "ライブ動画や同一配信の分単位流量表を持っているとき"
+        ],
+        "notFor": [
+          "Windows以外の環境で動かすとき",
+          "DashScopeやOSSのクラウド利用を避けたいとき",
+          "機密素材を検証なしでいきなり投入するとき"
+        ],
+        "caveats": [
+          "クラウド転写・モデル呼び出しは自分のAlibaba Cloudアカウントに課金される"
+        ],
+        "tryPrompt": "# 試すこと\n非機密のライブ動画をLive Breakdownで逐字稿Excelに変換し、ローカル出力まで確認する。\nhttps://github.com/HanyuanWang/LiveStream-Agent-Studio\n# 手順\n1. GitHubのReleasesから`LiveAgent-Studio-Windows-x64.zip`と`.sha256`をダウンロードする（手動）。\n2. ZIPのSHA-256を計算し、公開された`.sha256`の値と一致することを確認する（手動）。\n3. ZIPを全体解凍し、`.runtime`と各Agentディレクトリを含む状態でアプリを起動する（手動）。\n4. `http://127.0.0.1:4173/`を開く（手動）。\n5. 「設定与连接」で自分のDashScope API Key、private OSS、対象Bucketとprefixに限定したRAM AccessKeyを設定する（手動）。\n6. 「实际验证 Qwen 与 OSS」を実行し、成功を確認する（手動）。\n7. 非機密のライブ動画を選び、Live Breakdownを実行する（手動）。\n# 確認したいこと\n- ZIPの検証後、Windowsでローカル画面を起動できるか\n- QwenとOSSの実接続検証が成功するか\n- 秒単位の逐字稿Excelがworkspaceに出力されるか\n# 前提・注意\n- Windows 10/11 64ビット、ブラウザ、安定したネットワークが必要。\n- DashScope API Key、private OSS、RAM AccessKey、利用可能なモデルと额度が必要。\n- 本文中のPowerShellのハッシュ計算コマンドと起動コマンドは欠落しているため、Releaseの案内を確認する。"
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CLAUDE.mdをそろそろ見直す時期かも ── Claude 5世代向けの最適化手順・スキル・プロジェクト種類別の例",
+      "url": "https://qiita.com/nogataka/items/d6a54f3694726b9141f3",
+      "publishedAt": "2026-09-05T03:18:47.000Z",
+      "author": "nogataka",
+      "authorDetail": {
+        "name": "nogataka",
+        "handle": "@nogataka",
+        "url": "https://qiita.com/nogataka",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/161298/c1e3ffd6eada1969ff3c44b14fde081bcde6f500/x_large.png?1584845584",
+        "location": "Chiba, Japan",
+        "followers": 1515,
+        "posts": 305,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/nogataka"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "Anthropic",
+        "AI",
+        "LLM"
+      ],
+      "snippet": "要点 ・Anthropic は 2026年7月24日のブログで、Claude Opus 5 / Fable 5 向けに Claude Code のシステムプロンプトを 80% 以上削り、社内コーディング評価で性能低下が測定できなかったと公表しました。 ・理由は「制約の多くは最悪のケース回避のために入れたもので、今のモデルは周囲の文脈から判断できる」からです。 ・私たちの CLAUDE.md にも同じことが言えます。旧世代向けに積んだ禁止ルール・手順の全文・使い方の例示は、判断の邪魔になったり、互いに矛盾したりしている可能性があります。 ・この記事は、既存の CLAUDE.md を見直す7ステップ、それを実行可能なワークフローに組み替えたスキルのコード、全体用1つとプロジェクト種類別6つの CLAUDE.md 例を載せます。 ・削ってはいけないものもあります。不可逆な操作の確認ゲートと、リポ…",
+      "body": "要点\n・Anthropic は 2026年7月24日のブログで、Claude Opus 5 / Fable 5 向けに Claude Code のシステムプロンプトを 80% 以上削り、社内コーディング評価で性能低下が測定できなかったと公表しました。\n・理由は「制約の多くは最悪のケース回避のために入れたもので、今のモデルは周囲の文脈から判断できる」からです。\n・私たちの CLAUDE.md にも同じことが言えます。旧世代向けに積んだ禁止ルール・手順の全文・使い方の例示は、判断の邪魔になったり、互いに矛盾したりしている可能性があります。\n・この記事は、既存の CLAUDE.md を見直す7ステップ、それを実行可能なワークフローに組み替えたスキルのコード、全体用1つとプロジェクト種類別6つの CLAUDE.md 例を載せます。\n・削ってはいけないものもあります。不可逆な操作の確認ゲートと、リポジトリを見ても分からない罠です。\n\nはじめに\n\n対象は、CLAUDE.md が 100 行を超えて「何を書いたか自分でも把握できない」と感じている方です。Claude Code の CLAUDE.md・スキル・メモリの存在は知っている前提で書きます。\n\n前提環境は次の通りです。\n・Claude Code v2.1.206 以降（/doctor に CLAUDE.md の見直し提案が入った版）\n・Claude 5 世代のモデル（Claude Opus 5、Claude Fable 5 など）\n\n筆者の CLAUDE.md も数百行に膨らんでいます。この記事は自分向けの手順書でもあります。\n\nなぜ今、見直すのか\n\nAnthropic 自身が 80% 以上削った\n\nAnthropic の Thariq Shihipar 氏は、ブログ記事「The new rules of context engineering for Claude 5 generation models」で、Claude Code のシステムプロンプトを 80% 以上削除しても性能低下が測定できなかったと述べています。中心的な知見は、「システムプロンプト・CLAUDE.md・スキルのすべてで Claude を過度に制約していた」ことでした。\n\n矛盾した指示が同居していた\n\n社内の利用記録を点検すると、1つのリクエストの中に「必要に応じてドキュメントを残す」と「コメントを追加してはならない」が同居している例が見つかったそうです。Claude は意図をくみ取って正しい答えに至れますが、矛盾を調停する分だけ余計な検討が要ります。\n\n長く育てた CLAUDE.md でも同じことが起きます。数か月前の「テストは必ず先に書く」と、先週足した「小さな修正ではテストを省略してよい」が、両方生きている状態です。\n\n制約は「最悪のケース」のためだった\n\n制約は元々、ファイル削除のような最悪のケースを避けるために入れたものでした。Anthropic は、その多くは今では削除でき、モデルの判断に任せられるとしています。加えて、メモリ・アーティファクト・スキルが揃った今、ガイダンスの置き場所として CLAUDE.md に頼る必要も薄れました。\n\nClaude 5 世代で変わった6つの常識\n\nブログ記事が挙げる6つの変化を、CLAUDE.md への含意とあわせて整理します。\n\n| # | 従来 | 現在 | CLAUDE.md への含意 |\n|---|---|---|---|\n| 1 | ルールを与える（「コメントを書かない」） | 判断に任せる（「周囲のコードのコメント密度・命名・イディオムに合わせる」） | 禁止の列挙を判断基準に書き直す |\n| 2 | ツールの使い方を例で示す | インタフェース設計で伝える（状態を pending / inprogress / completed の列挙型にするだけで使い方が伝わる） | 長い使い方の例を減らし、ツール側の設計に寄せる |\n| 3 | 全部を最初に一括で渡す | 段階的開示。手順はスキルへ移し、必要な場面で呼ぶ | 手順書はスキルへ。CLAUDE.md には参照だけ残す |\n| 4 | 同じ指示を繰り返す | 重複を排除し、ツールの使い方はツールの説明文にだけ書く | 同じ内容の行を1つにまとめる |\n| 5 | # ホットキーで CLAUDE.md に手書きメモ | 自動メモリ | 個人的な覚え書きを CLAUDE.md から外す |\n| 6 | 計画や仕様を Markdown で渡す | HTML アーティファクト・テスト・移植元コード・ルーブリックを参照させる | 仕様の本文を貼らず、参照先を示す |\n\n例として、旧来の TodoWrite ツールの説明は約 9,100 文字ありましたが、短いインタフェース定義に置き換わっています（ブログ掲載図より）。\n\n:::note info\nこれらの知見は /doctor にも組み込まれています。公式ドキュメントによると、v2.1.206 以降の /doctor は、チェックイン済みの CLAUDE.md からコードベースを見れば分かる記述を削る提案と、常時読み込みの手順をスキルや下位 CLAUDE.md へ移す提案を行います。診断を先に示し、変更前に確認を求めます。ターミナルの claude doctor は読み取り専用のインストール診断で、この提案は行いません。\n:::\n\n見直しの7ステップ\n\n各ステップは独立しています。時間がなければ手順1〜3だけでも効果があります。\n\n手順1. 棚卸しする\n\n量と構成を把握します。\n\n [code] \n\nこれは主要4ファイルの概算です。下位ディレクトリの CLAUDE.md や .claude/rules/ まで含めた棚卸しは、後述のスキルに同梱したスクリプトが行います。\n\n公式ドキュメントの目安は、1ファイル 200 行未満です。長いほど指示への追従が落ちます。\n\nセッション内では /context でコンテキストの内訳と最適化提案を見て、/doctor のトリム提案を控えます。この時点では読むだけにし、削る判断は以降の手順で行います。\n\n見出しごとに次の5分類を付けます。\n\n| 分類 | 例 | 扱い |\n|---|---|---|\n| A. 目的 | 何のサービスか | 短く残す |\n| B. 環境の注意点 | npm install に --legacy-peer-deps が要る | 残す（最も価値が高い） |\n| C. 禁止ルール | 「コメントを書くな」「必ず〜せよ」 | 判断基準に書き直す。不可逆操作のガードだけ残す |\n| D. 手順・チェックリスト | レビュー手順、リリース手順 | スキルへ移す |\n| E. 覚え書き・仕様の本文 | 「前回こう決めた」「API 仕様はこう」 | メモリ・参照ファイルへ移す |\n\n手順2. 自明な記述を削る\n\nブログ記事の指針は「軽量に保ち、トークンの大半はコードベース内の注意点に充てる。ファイルシステムを見れば分かることは書かない」です。/doctor も同じ線引きで、ディレクトリ構成・依存一覧・アーキテクチャ概要を削り、罠・理由・ツール既定と異なる規約を残します。\n\n削る候補は、技術スタックの列挙、ディレクトリ構成、リンターが強制している規約です。残すのは、「legacy/ は移行中で触らない」のような背景と、ツールの罠です。\n\n手順3. 禁止ルールを判断基準に書き直す\n\nブログ記事の実例をそのまま借ります。\n\n [code] \n\n [code] \n\nBefore は、公開 API のようにコメントが必要な場所でも黙ってしまいます。After なら既存コードに合わせる判断をモデルに委ねられます。\n\n禁止形で残すのは、少なくとも次の2種類です。不可逆な操作（削除、履歴の書き換え、本番反映、外部送信、課金）と、組織・契約上の制約です。Anthropic も「多くは削除できる」と言っており、「すべて」とは言っていません。\n\nただし CLAUDE.md の指示は行動を誘導するもので、強制ではありません。確実に止めたい操作は、CLAUDE.md に書くことに加えて、permission 設定の deny や PreToolUse フックで機械的に遮断します。\n\n手順4. 手順をスキルへ移す\n\nブログ記事は、検証手順は検証スキルに切り出し、CLAUDE.md からは参照だけ残す形を勧めています。スキルは .claude/skills/ /SKILL.md に置き、description に発火条件を書きます。\n\n [code] \n\n [code] \n\n特定のディレクトリだけの規約は、スキルより paths 付きの .claude/rules/.md が向いています。Claude が一致するファイルを読んだときだけ読み込まれます。下位ディレクトリの CLAUDE.md も同様に、Claude がそのディレクトリ内のファイルを読んだときに読み込まれます。\n\n [code] \n\n手順5. 覚え書きと仕様を分ける\n\n個人的な好みや一時的な学びは、自動メモリに任せます。ただし自動メモリは Claude が保存対象を選び、保存先はマシンローカルです。チームの正式な決定事項は仕様書や ADR に残し、毎回読ませたいものだけ CLAUDE.md に置きます。\n\n仕様の本文は別ファイルにし、タスクのプロンプトで @path/to/file と指定して渡します。CLAUDE.md の中に @path を書くと起動時にインポートされ、削減になりません。参照はコードの形（テスト、移植元）が最も忠実で、デザインは HTML モックが文章やスクリーンショットより良い結果になります。\n\n手順6. 矛盾を洗い出す\n\n [code] \n\nヒットした行で、同じ対象に肯定と否定が両方あるか、同じ内容が2か所以上にあるか、「必ず」に実は例外があるかを見ます。下位ディレクトリの CLAUDE.md まで含めたいときは、後述のスクリプトが同じ条件で検出します。\n\n手順7. 効果を確認する\n\n見直し前後で同じタスクを1〜2本流し、出力の品質、以前のルールで押さえていた挙動の再発、/context の使用量を比べます。Anthropic の「性能低下なし」は Claude Code 本体の結果です。自分の CLAUDE.md で同じことが言えるかは、1リポジトリで小さく試して確かめます。\n\n7ステップをスキルにする\n\n手順は毎回追うより、スキルにしておくほうが楽です。/claudemd-tune と打つと棚卸しレポートが自動生成され、Claude が分類と提案書の作成まで進めます。\n\nスキル側の番号は本文と少し違います。矛盾の洗い出し（本文の手順6）はレポートに含まれるため手順1に統合し、空いた手順6を「提案書を書いて止まる」に充てています。承認を挟む位置を手順として明示するためです。\n\n [code] \n\nSKILL.md\n\n [code] markdown\nCLAUDE.md 見直し提案\n\n削除（自明・重複）\n| ファイル:行 | 現在の記述 | 理由 |\n\n書き直し（ルール → 判断基準）\n| ファイル:行 | 現在 | 提案 |\n\n移動（スキル / rules / 参照ファイル / メモリ）\n| ファイル:行 | 現在 | 移動先 | 移動後に CLAUDE.md に残す1行 |\n\n残す（禁止形のまま）\n| ファイル:行 | 記述 | 残す理由 |\n\n矛盾の組\n| 行A | 行B | どちらを正とするか（本人判断） |\n\n見直し後の CLAUDE.md（全文案）\n [code] \n\nフロントマターと本文の要点は4つです。\n・disable-model-invocation: true: Claude が勝手に起動しないようにし、/claudemd-tune と打ったときだけ動かします。この設定では description は自動発火の判断には使われず、一覧表示の説明として働きます。\n・スラッシュコマンド名は name ではなくディレクトリ名 claudemd-tune/ から決まります。name は一覧上の表示名です。\n・allowed-tools: 同梱スクリプトを、このスキルを呼び出したターンの間だけ事前承認します。ツールの制限ではなく、指定しないツールは通常の permission 設定に従います。\n・本文の !... 行: Claude がスキルを読む前にコマンドが実行され、出力がその場に差し込まれます（動的コンテキスト注入）。引数は空白を含むパスに備えて \"$ARGUMENTS\" と引用しています。\n\nscripts/inventory.sh\n\n読み取り専用で、CLAUDE.md は書き換えません。プロジェクトルート・.claude/CLAUDE.md・CLAUDE.local.md・/.claude/CLAUDE.md・下位ディレクトリの CLAUDE.md（深さ制限なし。nodemodules と .git は除外）を集め、サイズ、見出し一覧、強い語を含む行、重複行、rules と skills の本数を Markdown で出します。macOS（bash 3.2）と Debian 12 の Docker コンテナ（bash 5.2）で、空白を含むパスと引数なしの両方の実行を確認しています。\n\n scripts/inventory.sh の全文（約110行） \n\n [code] \n\n \n\n使い方\n\n [code] \n\nセッション内で /claudemd-tune を実行すると、Claude は提案書 claudemd-tune-proposal.md を書き出したところで止まります。承認した項目だけを反映させます。削る判断は人が握る作りです。\n\nClaude 5 世代向けの CLAUDE.md 例\n\n見直しの到達点として、最初から Claude 5 世代向けに書いた例を載せます。全体用1つと、プロジェクトの種類別に6つです。種類別の6つは「環境の注意点」「判断の基準」「実行前に確認を取る操作」「必要時に読むもの」の4節に揃え、40 行未満に収めています。すべて架空の例です。\n\n全体用（/.claude/CLAUDE.md）\n\n全プロジェクト共通の作業スタイルだけを書きます。\n\n [code] \n\n開発プロジェクト（Web アプリケーション）\n\n [code] \n\nライブラリ・公開パッケージ\n\n外部の利用者がいるため、互換性と公開手順が罠になります。\n\n [code] \n\n調査・リサーチプロジェクト\n\n成果物が調査メモとレポートのリポジトリです。出典の扱いが中心になります。\n\n [code] \n\n執筆プロジェクト（技術記事・ブログ）\n\n文体の一貫性と、公開の不可逆性が関心事です。\n\n [code] \n\nインフラ・運用プロジェクト（IaC）\n\n本番環境に直結するため、確認ゲートが最も厚くなります。\n\n [code] \n\nAI エージェント運用プロジェクト\n\nスキルやサブエージェントの定義を育てるリポジトリです。CLAUDE.md が最も膨らみやすい種類なので、担当表や手順は外に出し、判断の骨子だけを置きます。\n\n [code] \n\n6つの例に共通する骨組み\n\n| 節 | 書くこと | 書かないこと |\n|---|---|---|\n| 冒頭 | 何のリポジトリか。構成はどこを見れば分かるか | 技術スタックやディレクトリの列挙 |\n| 環境の注意点 | 見ても分からない罠と回避策 | 設定ファイルに書いてあること |\n| 判断の基準 | 何に合わせるか、何を優先するか | 「〜するな」の列挙 |\n| 実行前に確認を取る操作 | 不可逆な操作と、組織・契約上の境界 | スタイルに関する禁止 |\n| 必要時に読むもの | どの場面でどのスキル・ルールを使うか | 手順の本文 |\n\n種類で変わるのは、「環境の注意点」の中身と「実行前に確認を取る操作」の厚みです。インフラのように失敗が不可逆な領域では確認ゲートが増え、調査や執筆では出典と公開の記述が中心になります。\n\nやりすぎないための注意点\n\n:::note warn\n・チーム共有の CLAUDE.md では、ある人の「自明」は別の人の自明ではありません。削る前に、その行が入った経緯を確認してください。\n・旧世代のモデル（Claude 4 系など）も併用している場合、判断に任せる書き方では従来ほど従わない可能性があります。同じ指示で両世代の挙動を比べてから削るか、Claude 5 世代に統一してから見直すのが無難です（筆者の提案です）。\n・安全に関わる禁止事項（本番反映・削除・外部送信・課金）は残します。制約は「最悪のケースを避けるため」に入れたものであり、最悪のケース自体はなくなっていません。ただし CLAUDE.md は誘導であって強制ではないので、確実に止めたい操作は permission 設定や PreToolUse フックでも防いでください。\n:::\n\n「7ステップ」「5分類」「例の骨組み」は、ブログ記事を私なりに手順化した解釈です。自分の環境に合わせて組み替えてください。\n\nまとめ\n\nAnthropic は Claude 5 世代向けに Claude Code のシステムプロンプトを 80% 以上削り、性能低下は測定できませんでした。背景にあるのは「制約の多くは最悪のケース回避のためで、今のモデルは文脈から判断できる」という認識です。\n\n私たちの CLAUDE.md も同じです。残すのは「見ても分からない罠」と「不可逆な操作のガード」、移すのは「手順」「覚え書き」「仕様の本文」、削るのは「設定ファイルで分かること」と「矛盾する禁止ルール」です。\n\nまず /context と /doctor で現状を測り、/claudemd-tune スキルで棚卸しから始めてください。1リポジトリで小さく試すのが安全です。\n\n参考\n・Thariq Shihipar, \"The new rules of context engineering for Claude 5 generation models\", Anthropic, 2026年7月24日\n https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models\n・Claude Code 公式ドキュメント「How Claude remembers your project」（CLAUDE.md・自動メモリ・.claude/rules/）\n https://code.claude.com/docs/en/memory\n・Claude Code 公式ドキュメント「Extend Claude with skills」（SKILL.md のフロントマター・動的コンテキスト注入）\n https://code.claude.com/docs/en/skills\n・Claude Code 公式ドキュメント「Slash commands」（/context・/doctor・/memory`）\n https://code.claude.com/docs/en/commands",
+      "metrics": {
+        "likes": 3,
+        "stocks": 5
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "55b697217b21b11c",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.8986544342507645,
+      "popularityPercentile": 0.9938837920489296,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 89,
+      "titleJa": null,
+      "oneLiner": "Claude Code向けCLAUDE.mdを簡素化し、モデル世代に合わせて再設計する手順を紹介する記事です。",
+      "takeaways": [
+        "古い指示を減らすと判断の邪魔をしにくくなる。",
+        "不可逆な操作の確認は残す必要がある。",
+        "見直しを実行する手順と用途別の例を示している。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "CLAUDE.md",
+        "Claude Opus 5",
+        "Claude Fable 5",
+        "v2.1.206",
+        "Anthropic"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "指示を減らすか安全策を細かく残すか",
+        "forSide": "Claude 5では長い指示より周囲の文脈を使わせる方が性能を引き出せる。",
+        "againstSide": "指示を削りすぎると固有の運用ルールや危険操作の防止策が失われる。",
+        "oneSided": false,
+        "yourAngle": "CLAUDE.mdの長さと指示違反の頻度を業務リポジトリで比較できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "Claude Code v2.1.206以降とClaude 5世代を前提に、100行を超えたCLAUDE.mdを棚卸しし、自明な説明・重複・矛盾する禁止ルールを削る手順を示している。AnthropicがClaude Codeのシステムプロンプトを80%以上削っても性能低下を測定できなかった事例を背景に、禁止の列挙ではなくコードベースに合わせた判断基準へ書き換える方針を取る。手順やチェックリストは.claude/skills/のSKILL.mdへ、ディレクトリ固有の規約は.claude/rules/へ、個人的な学びは自動メモリへ、正式な仕様は参照ファイルやADRへ分離する。/contextと/doctorで現状を確認し、/claudemd-tuneで提案書を生成して、人が承認した項目だけを反映する。削ってはいけないのは、リポジトリを見ても分からない環境の罠と、削除・本番反映・外部送信・課金など不可逆な操作の確認ゲートであり、確実な遮断にはpermission 設定やPreToolUse フックも使う。",
+        "prerequisites": [
+          {
+            "term": "Claude 5",
+            "stumblingPoint": "記事はClaude 5世代なら判断に任せられると書くが、旧世代との挙動差を知らないと削減の前提が読めない。",
+            "explanation": "Claude 5は、周囲のコードや文脈から適用すべき判断基準を推測する前提で扱われているモデル世代です。この記事の削減方針は、Claude 4系など旧世代でも同じ追従性があるとは置いていません。複数世代を併用する場合は、同じ指示で挙動を比較してからCLAUDE.mdを削る必要があります。"
+          },
+          {
+            "term": "Claude Code v2.1.206",
+            "stumblingPoint": "「v2.1.206以降の/doctor」とあるが、どの診断機能を指す版か分からないと導入条件を判断できない。",
+            "explanation": "Claude Code v2.1.206は、/doctorにCLAUDE.mdの見直し提案が入ったという記事の前提バージョンです。ここでの/doctorは、コードベースを見れば分かる記述や常時読み込みの手順を削る候補を診断し、変更前に確認を求めます。ターミナルのclaude doctorとは別物で、後者は読み取り専用のインストール診断です。"
+          },
+          {
+            "term": "/context",
+            "stumblingPoint": "記事は「/contextで使用量を見る」とするが、何を比較すれば削減効果を判断できるかが省略されている。",
+            "explanation": "/contextは、現在のセッションでコンテキストを何が消費しているかと最適化提案を確認するためのClaude Codeのコマンドです。見直し前後で同じタスクを実行し、CLAUDE.mdや関連ファイルが占める使用量と、出力品質を比較する材料にします。数値が減っても以前の安全策や品質が失われていないかは、別途タスク結果で確認します。"
+          },
+          {
+            "term": "SKILL.md",
+            "stumblingPoint": "手順を「.claude/skills/のSKILL.mdへ移す」とあるが、CLAUDE.mdとの読み込み方の違いが分からないと分離理由を掴みにくい。",
+            "explanation": "SKILL.mdは、特定の作業を必要な場面で呼び出すスキルの定義ファイルです。descriptionに発火条件を書き、手順本文を常時読み込ませず段階的開示にできます。この記事では、レビューやリリースのような長いチェックリストをCLAUDE.mdから移し、CLAUDE.mdには参照だけを残します。"
+          },
+          {
+            "term": ".claude/rules/",
+            "stumblingPoint": "「paths付きの.claude/rules/.md」とあるが、スキルや下位CLAUDE.mdとの使い分けが読み飛ばされている。",
+            "explanation": ".claude/rules/は、対象パスに対応する規約をファイル単位で管理する場所です。一致するファイルをClaudeが読むときだけ読み込ませられるため、特定ディレクトリだけの規約を全体へ常時適用せずに済みます。作業手順はSKILL.md、パス固有の判断基準は.claude/rules/、ディレクトリ単位の補足は下位CLAUDE.mdという分け方です。"
+          },
+          {
+            "term": "自動メモリ",
+            "stumblingPoint": "個人的な学びは自動メモリへ移すとあるが、チーム共有の指示まで移してよいのかが分かりにくい。",
+            "explanation": "自動メモリは、Claudeが保存対象を選び、保存先もマシンローカルになる仕組みです。そのため個人の好みや一時的な学びには向きますが、チームの正式決定や共有すべき仕様の置き場にはなりません。正式な決定事項は仕様書やADRに残し、毎回読ませる必要があるものだけCLAUDE.mdに置きます。"
+          },
+          {
+            "term": "PreToolUse フック",
+            "stumblingPoint": "CLAUDE.mdは強制ではないためPreToolUse フックで遮断するとあるが、役割の差を知らないと安全策の重ね方が分からない。",
+            "explanation": "PreToolUse フックは、Claudeがツールを実行する直前に条件を検査し、操作を機械的に止める仕組みです。CLAUDE.mdはモデルの判断を誘導するだけなので、削除や本番反映のように必ず止めたい操作には別の強制層が必要になります。記事ではpermission 設定のdenyやPreToolUse フックを、文書上の確認ゲートを補完する手段として扱っています。"
+          },
+          {
+            "term": "@path/to/file",
+            "stumblingPoint": "仕様は「@path/to/fileでタスクに渡す」とあるが、CLAUDE.md内に書く場合との挙動差が重要になる。",
+            "explanation": "@path/to/fileは、タスクのプロンプトで指定した参照ファイルをその場で読ませる記法です。一方、CLAUDE.md内に@pathを書けば起動時にインポートされるため、常時読み込みが発生し、削減にはなりません。仕様本文や大きな資料は必要なタスクだけで参照し、毎回必要な短い判断基準とは分けます。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Anthropic: The new rules of context engineering for Claude 5 generation models",
+            "url": "https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models"
+          },
+          {
+            "label": "Claude Code: How Claude remembers your project",
+            "url": "https://code.claude.com/docs/en/memory"
+          },
+          {
+            "label": "Claude Code: Extend Claude with skills",
+            "url": "https://code.claude.com/docs/en/skills"
+          },
+          {
+            "label": "Claude Code: Slash commands",
+            "url": "https://code.claude.com/docs/en/commands"
+          }
+        ],
+        "readingMinutes": 12,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "禁止ルールの残し方",
+            "claim": "Claude 5世代なら禁止の列挙を判断基準へ書き直せる。",
+            "counter": "削除・本番反映・外部送信・課金はモデル判断に任せず残す。",
+            "counterInArticle": true
+          },
+          {
+            "point": "手順の置き場所",
+            "claim": "長い手順はスキルへ移し、CLAUDE.mdは参照だけにする。",
+            "counter": "毎回必ず適用すべき短い安全境界まで外すと、常時の保護が弱くなる。",
+            "counterInArticle": true
+          },
+          {
+            "point": "文書削減の判断",
+            "claim": "コードベースで分かる構成や依存一覧はCLAUDE.mdから削る。",
+            "counter": "チーム共有では自明さが人によって違うため、削除理由と経緯の確認が要る。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "CLAUDE.md削減前後の品質比較",
+            "why": "Claude Codeで同じ実装タスクを日常的に回しており、手戻りやルール違反を実測できる。"
+          },
+          {
+            "angle": "React/Next.js固有の環境の罠",
+            "why": "Next.jsやTypeScriptの実プロジェクトを運用しているため、設定から分からない回避策を具体例で出せる。"
+          },
+          {
+            "angle": "permission 設定とPreToolUse フックの境界",
+            "why": "AIコーディングエージェントを業務利用しており、文書上の指示と機械的な遮断の差を経験から整理できる。"
+          }
+        ],
+        "verify": [
+          "/contextと/doctorを実行し、CLAUDE.mdの削減候補とコンテキスト使用量を変更前に記録する。",
+          "同じタスクを削減前後で1〜2回実行し、出力品質・以前の安全策の再発・使用量を比較する。"
+        ]
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": ".gitignore everything by default",
+      "url": "https://packagemain.tech/p/gitignore-everything-by-default",
+      "publishedAt": "2026-09-05T14:58:37.000Z",
+      "author": "der_gopher",
+      "authorDetail": {
+        "name": "der_gopher",
+        "handle": "der_gopher",
+        "url": "https://news.ycombinator.com/user?id=der_gopher"
+      },
+      "tags": [
+        "テクノロジー",
+        "Git",
+        "あとで読む"
+      ],
+      "snippet": "I think we’ve all been there. You’re working on a project, making commits, and then suddenly realize you’ve been committing .DS_Store files, node_modules, IDE configuration files, or other junk (CLAUDE.md for example) that shouldn’t be in your repository. Or even worse - environment variables. Th...",
+      "metrics": {
+        "points": 144,
+        "comments": 146,
+        "hatena": 18
+      },
+      "sourceWeight": 3,
+      "id": "1d1833deb2709d9b",
+      "lang": "en",
+      "foundIn": [
+        "hatena",
+        "hackernews"
+      ],
+      "body": "I think we’ve all been there. You’re working on a project, making commits, and then suddenly realize you’ve been committing .DS_Store files, node_modules, IDE configuration files, or other junk (CLAUDE.md for example) that shouldn’t be in your repository. Or even worse - environment variables. Then comes the embarrassing cleanup: adding these files to .gitignore, removing them from the repository history, and hoping that no one has noticed.What if we flipped this approach entirely? Instead of allowing everything by default and selectively ignoring files, what if we ignored everything by default and only allowed specific files?Here’s what this could look like in practice for a simple Go project:This .gitignore file does exactly that:* - Ignore everythingBut not these files...!.gitignore - the gitignore file itself!*.go - Go source files!go.mod - Go module file!go.sum - Go dependencies fileanything else you wish to includeWith this setup, only the files you explicitly allow will be tracked by Git. No more accidental commits of unintended local files.The technique isn’t necessarily the right choice for every repository or developer, but is an alternative to explore.Nowadays, I see that projects have so much crap locally, like various agentic docs or subfolders, so it may seem easier to just ignore everything at first.Just look at this 207-lines .gitignore from typescript-go.p.s. if you want to check if the path is ignored by git, you can run this command:This can save a lot of head-scratching when a file you expected to track doesn’t appear in Git.p.s. have you heard of lazygit? The best Git TUI out there, check it out.Discuss this post on Hacker News.",
+      "preScore": 0.5883928571428572,
+      "popularityPercentile": 0.5909090909090909,
+      "matchedTopics": [
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": true,
+      "score": 88,
+      "titleJa": "Gitで不要ファイルを標準除外する運用",
+      "oneLiner": "不要ファイルを誤ってGitに登録しないため、最初からすべてを除外する運用を提案する記事です。",
+      "takeaways": [
+        "作業中の不要ファイルがリポジトリに入りやすい。",
+        "認証情報が公開されると深刻な事故になる。",
+        "必要なファイルだけを明示的に登録する考え方を示す。"
+      ],
+      "keywords": [
+        "Git",
+        ".gitignore",
+        "node_modules",
+        ".DS_Store",
+        "環境変数"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "不要ファイルを原則除外するか必要なものを個別に除外するか",
+        "forSide": "最初から除外すれば秘密情報や開発環境のごみを登録しにくい。",
+        "againstSide": "除外を広げすぎると必要な設定ファイルまで見落とす危険がある。",
+        "oneSided": true,
+        "yourAngle": "ReactやNext.jsのリポジトリで誤登録されたファイルの実例を確認できる。"
+      },
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "durable",
+      "imageUrl": "https://substackcdn.com/image/fetch/$s_!n_v-!,w_1200,h_675,c_fill,f_jpg,q_auto:good,fl_progressive:steep,g_auto/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F66737cc1-4fea-4340-a7cf-1401dc895d52_1280x720.jpeg",
+      "rank": 2,
+      "deep": {
+        "summary": "この提案は、Git の追跡対象を原則として許可するのではなく、`.gitignore` でいったんすべて拒否し、必要なファイルだけを明示的に許可する運用です。`node_modules`、`.DS_Store`、IDE 設定、`CLAUDE.md`、環境変数などの意図しないコミットを防ぎやすくなります。Go プロジェクトでは `*` で全体を無視し、`.gitignore`、`*.go`、`go.mod`、`go.sum` などを `!` で例外化します。ローカルに agentic docs やサブフォルダーが増えた現在のプロジェクトでは有効そうですが、すべてのリポジトリに適する方法ではない、という留保もあります。",
+        "prerequisites": [
+          {
+            "term": ".gitignore",
+            "stumblingPoint": "記事は`.gitignore`で「すべてを無視する」と書くが、通常の除外設定と何が違うのか読み取りにくい。",
+            "explanation": ".gitignoreとは、Git が追跡対象として扱わないパスの規則を書くファイルです。通常は`node_modules`や環境変数など、不要なものを個別に列挙します。この記事ではその発想を逆転し、最初に全パスを対象外にしてから、必要なものだけを例外として戻します。ファイルを削除する仕組みではなく、Git の追跡対象に入れるかどうかを決める仕組みです。"
+          },
+          {
+            "term": "allowlist",
+            "stumblingPoint": "記事は「only allowed files」と説明するが、拒否リストとの違いを知らないと運用上の変化がわからない。",
+            "explanation": "allowlistとは、許可する対象をあらかじめ列挙する方式です。今回の設定では、リポジトリ内に新しいファイルを作っても、許可パターンに一致しなければGitから見えなくなります。通常の`.gitignore`が「危険そうなものを除外する」のに対し、こちらは「必要だと確認したものだけを追加する」運用になります。"
+          },
+          {
+            "term": "CLAUDE.md",
+            "stumblingPoint": "`CLAUDE.md`がコミットすべきでない例として挙がるが、なぜプロジェクト内に存在するファイルまで問題になるのか判断しにくい。",
+            "explanation": "CLAUDE.mdは、AIコーディングエージェント向けの指示やプロジェクト固有の作業ルールを置くファイルです。記事では、こうした agentic docs やローカル用サブフォルダーが増え、意図せずリポジトリへ入る可能性を問題にしています。チーム共有の前提なら許可対象になり得ますが、個人向けの指示や環境依存情報なら除外対象になります。"
+          },
+          {
+            "term": "Go module file",
+            "stumblingPoint": "例外として`go.mod`と`go.sum`を許可するが、Goソースだけでは不十分な理由が本文では省略されている。",
+            "explanation": "Go module fileとは、Goプロジェクトのモジュール名や依存関係を記録する`go.mod`のことです。`go.sum`は依存モジュールのチェックサムを記録します。この記事の例では、`*.go`だけでなく依存関係を再現するための2ファイルも明示的に追跡対象へ戻しています。"
+          },
+          {
+            "term": "環境変数",
+            "stumblingPoint": "記事は環境変数のコミットを「さらに悪い例」とするが、単なる不要ファイルと扱いが違う理由が必要になる。",
+            "explanation": "環境変数とは、APIキーや接続先などをプロセスへ渡す設定値です。ローカル設定ファイルに保存されている場合、Gitへ入ると認証情報や内部情報が履歴に残る可能性があります。この記事の方式では、明示的に許可しない限り設定ファイルも追跡対象にならないため、誤コミットの入口を狭められます。"
+          },
+          {
+            "term": "agentic docs",
+            "stumblingPoint": "「agentic docs or subfolders」が増えたとあるが、通常のドキュメントと何が違い、なぜ対象が膨らむのかが省略されている。",
+            "explanation": "agentic docsとは、AIエージェントが作業するときに読む指示書や補助ドキュメントです。プロジェクトルートやサブフォルダーに複数配置されると、ソースコード以外のファイルがローカルに増えます。この記事では、その増加によって個別の除外リストを維持する負担が高まり、全拒否から始める案を検討しています。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "追跡対象の決め方",
+          "beforeLabel": "通常の運用",
+          "afterLabel": "全拒否から開始",
+          "rows": [
+            {
+              "aspect": "初期ルール",
+              "before": "必要なものは原則追跡",
+              "after": "`*`で全ファイルを無視"
+            },
+            {
+              "aspect": "除外方法",
+              "before": "不要なものを個別に追加",
+              "after": "`!`で必要なものだけ許可"
+            },
+            {
+              "aspect": "新規ファイル",
+              "before": "意図せず追跡される可能性",
+              "after": "許可しない限り追跡されない"
+            },
+            {
+              "aspect": "例",
+              "before": "`node_modules`などを除外",
+              "after": "`*.go`、`go.mod`、`go.sum`を許可"
+            }
+          ]
+        },
+        "figures": [],
+        "code": {
+          "lang": "gitignore",
+          "caption": "全体を無視したうえで、Goのソースとモジュール関連ファイルだけを追跡対象へ戻す最小例。",
+          "content": "*\n!.gitignore\n!*.go\n!go.mod\n!go.sum"
+        },
+        "relatedLinks": [],
+        "readingMinutes": 4,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "初期状態の選び方",
+            "claim": "ローカルに増え続ける不要ファイルを防ぐなら、最初にすべて無視して必要なものだけ許可する方が安全だ。",
+            "counter": "ファイル追加のたびに許可設定が必要になり、追跡漏れを見逃す運用にもなり得る。",
+            "counterInArticle": false
+          },
+          {
+            "point": "安全性と利便性",
+            "claim": "環境変数や`CLAUDE.md`のような意図しないファイルを履歴へ入れないには、全拒否から始める方が事故を減らせる。",
+            "counter": "共有すべき設定やドキュメントまで除外されると、必要なファイルが存在しないように見えて作業を妨げる。",
+            "counterInArticle": false
+          },
+          {
+            "point": "適用範囲",
+            "claim": "agentic docsやサブフォルダーが多いプロジェクトでは、個別除外の維持より全拒否の方が扱いやすい。",
+            "counter": "記事自身も、すべてのリポジトリや開発者に適した方法ではないと認めている。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "ローカル生成物の種類と増加数",
+            "why": "React / Next.jsの開発環境やAIエージェントが生成するファイルを日常的に扱い、実数を記録できる。"
+          },
+          {
+            "angle": "追跡漏れによる手戻り",
+            "why": "TypeScriptや設定ファイルを含む変更をGitでレビューする立場なので、許可漏れが作業へ与えた影響を確認できる。"
+          },
+          {
+            "angle": "CLAUDE.mdの共有範囲",
+            "why": "Claude Codeを業務で使っており、個人用指示とチーム共有すべき指示の境界を具体例で示せる。"
+          }
+        ],
+        "verify": [
+          "テスト用リポジトリで`.gitignore`を作り、許可していないファイルが`git status`に表示されないか確認する。",
+          "`!`で許可したファイルだけを追加し、`git ls-files`で実際の追跡対象を確認する。"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "344b36d462a70df4",
+      "product": "Playwright",
+      "what": "ブラウザ自動テストライブラリ",
+      "version": "v1.63.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "共有リソースを使うテストを名前付きロックで直列化できるようになる",
+      "change": {
+        "before": "共有リソースを使うテストも並列実行",
+        "after": "名前付きロックで対象テストのみ非並列実行"
+      },
+      "scope": [],
+      "summary": "Playwright v1.63.0で、ファイル・ワーカー・プロジェクトをまたぐ名前付きテストロックを追加。共有リソースを使うテストだけ直列化できます。",
+      "title": "microsoft/playwright v1.63.0",
+      "url": "https://github.com/microsoft/playwright/releases/tag/v1.63.0",
+      "sourceLabel": "GitHub Releases / microsoft/playwright",
+      "publishedAt": "2026-09-04T22:40:31.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nPlaywright v1.63.0 を入れて、「共有リソースを使うテストを名前付きロックで直列化できるようになる」を確かめる\nhttps://github.com/microsoft/playwright/releases/tag/v1.63.0\n\n# 手順\n1. git clone --depth 1 --branch v1.63.0 https://github.com/microsoft/playwright\n2. cd playwright && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v1.63.0 が実際に入って動くか\n- 「共有リソースを使うテストを名前付きロックで直列化できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v1.63.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "fb50fb47d28a3deb",
+      "product": "Anthropic SDK for TypeScript",
+      "what": "Anthropic APIのTypeScript SDK",
+      "version": "v0.124.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "使用量レポートにClaude Tagやユーザー区分を追加できるようになる",
+      "change": {
+        "before": "使用量レポートにClaude Tag等を送信できない",
+        "after": "Claude Tagやユーザー区分を使用量レポートに追加"
+      },
+      "scope": [],
+      "summary": "Anthropic SDK for TypeScript v0.124.0で、使用量レポートのClaude Tag・ユーザー区分、複数エンドポイントへのworkspace ID送信に対応。",
+      "title": "anthropics/anthropic-sdk-typescript sdk: v0.124.0",
+      "url": "https://github.com/anthropics/anthropic-sdk-typescript/releases/tag/sdk-v0.124.0",
+      "sourceLabel": "GitHub Releases / anthropics/anthropic-sdk-typescript",
+      "publishedAt": "2026-09-04T22:20:24.000Z",
+      "alsoReleased": [
+        {
+          "label": "aws-sdk: v0.7.0",
+          "url": "https://github.com/anthropics/anthropic-sdk-typescript/releases/tag/aws-sdk-v0.7.0"
+        },
+        {
+          "label": "bedrock-sdk: v0.33.4",
+          "url": "https://github.com/anthropics/anthropic-sdk-typescript/releases/tag/bedrock-sdk-v0.33.4"
+        },
+        {
+          "label": "vertex-sdk: v0.19.7",
+          "url": "https://github.com/anthropics/anthropic-sdk-typescript/releases/tag/vertex-sdk-v0.19.7"
+        },
+        {
+          "label": "foundry-sdk: v0.4.5",
+          "url": "https://github.com/anthropics/anthropic-sdk-typescript/releases/tag/foundry-sdk-v0.4.5"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nAnthropic SDK for TypeScript v0.124.0 を入れて、「使用量レポートにClaude Tagやユーザー区分を追加できるようになる」を確かめる\nhttps://github.com/anthropics/anthropic-sdk-typescript/releases/tag/sdk-v0.124.0\n\n# 手順\n1. git clone --depth 1 --branch sdk-v0.124.0 https://github.com/anthropics/anthropic-sdk-typescript\n2. cd anthropic-sdk-typescript && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v0.124.0 が実際に入って動くか\n- 「使用量レポートにClaude Tagやユーザー区分を追加できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- sdk-v0.124.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "145b808e469f767c",
+      "product": "Bun",
+      "what": "JavaScript/TypeScriptランタイム",
+      "version": "v1.4.2",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": {
+        "before": "ElysiaやAsyncLocalStorage等で回帰不具合が発生",
+        "after": "回帰、不正終了、ハング、画像デコード不具合を修正"
+      },
+      "scope": [],
+      "summary": "Bun v1.4.2で、Elysia・AsyncLocalStorageの回帰、@discordjs/wsのハング、CMYK JPEG処理、JIT・GCクラッシュを修正。",
+      "title": "Bun v1.4.2",
+      "url": "https://bun.com/blog/bun-v1.4.2",
+      "sourceLabel": "Bun Blog",
+      "publishedAt": "2026-09-05T05:39:32.000Z",
+      "alsoReleased": [
+        {
+          "label": "oven-sh/bun Bun v1.4.2",
+          "url": "https://github.com/oven-sh/bun/releases/tag/bun-v1.4.2"
+        }
+      ],
+      "tryPrompt": null
+    },
+    {
+      "id": "2f2c78a1c02d4dcd",
+      "product": "Codex",
+      "what": "AIコーディングエージェント",
+      "version": "0.153.4",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Codex 0.153.4で、バンドル版モデルピッカーにAstraを表示し、未設定時のデフォルトモデルに変更。非同期質問の案内も利用可能なツールに応じて修正。",
+      "title": "openai/codex 0.153.4",
+      "url": "https://github.com/openai/codex/releases/tag/rust-v0.153.4",
+      "sourceLabel": "GitHub Releases / openai/codex",
+      "publishedAt": "2026-09-04T23:25:48.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nCodex 0.153.4 を入れて、この版の変更を確かめる\nhttps://github.com/openai/codex/releases/tag/rust-v0.153.4\n\n# 手順\n1. git clone --depth 1 --branch rust-v0.153.4 https://github.com/openai/codex\n2. cd codex && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 0.153.4 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- rust-v0.153.4 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AI Daily Digest 2026-09-05：OpenAIがCursor提携を解消、Anthropic「世紀のIPO」目前、AI大手3社が同時障害",
+      "url": "https://qiita.com/lhjjjk4/items/220e1153c1b46ba3184b",
+      "publishedAt": "2026-09-04T22:07:47.000Z",
+      "author": "KD Agentic",
+      "authorDetail": {
+        "name": "KD Agentic",
+        "handle": "@lhjjjk4",
+        "url": "https://qiita.com/lhjjjk4",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/AATXAJz4IROlG0wRpibP5oF3Xz6cou17GaupbL5_wSQB=s50-mo",
+        "followers": 5,
+        "posts": 127,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "プログラミング",
+        "ビジネス",
+        "Security"
+      ],
+      "snippet": "AI Daily Digest 2026-09-05：OpenAIがCursor提携を解消、Anthropic「世紀のIPO」目前、AI大手3社が同時障害 OpenAI、年10億ドル超のCursor取引を打ち切る——マスク氏傘下を信頼しないという判断 OpenAIは先週金曜深夜、AIコーディングエディタCursorとの提携を段階的に終了すると発表した。Cursorは今夏、SpaceXが600億ドルで買収した企業だ。理由は明確に「信頼」とされた。OpenAIの声明は「マスク氏の企業が契約を破ってきた経験に基づき、SpaceXが当社の利用規約に沿って技術を使うとは確信できない」と述べている。コストは具体的だ。Cursorは2026年初頭時点でOpenAIの売上上位5社に入る顧客で、OpenAI自身の春の試算ではこの提携は年間10億ドル超の収益になると見込まれていた（WIREDが初報）。Open…",
+      "body": "AI Daily Digest 2026-09-05：OpenAIがCursor提携を解消、Anthropic「世紀のIPO」目前、AI大手3社が同時障害\n\n \n\nOpenAI、年10億ドル超のCursor取引を打ち切る——マスク氏傘下を信頼しないという判断\n\nOpenAIは先週金曜深夜、AIコーディングエディタCursorとの提携を段階的に終了すると発表した。Cursorは今夏、SpaceXが600億ドルで買収した企業だ。理由は明確に「信頼」とされた。OpenAIの声明は「マスク氏の企業が契約を破ってきた経験に基づき、SpaceXが当社の利用規約に沿って技術を使うとは確信できない」と述べている。コストは具体的だ。Cursorは2026年初頭時点でOpenAIの売上上位5社に入る顧客で、OpenAI自身の春の試算ではこの提携は年間10億ドル超の収益になると見込まれていた（WIREDが初報）。OpenAIは同時に、開発者にモデルを届ける主要ルートだったCursorとの決別が開発者コミュニティでの評価を傷つける可能性も認めている。CursorのCEOで現在SpaceX内部のチームを率いるMichael Truell氏はXで「OpenAIモデルはCursorトラフィックの約5%しか占めない」と反論。OpenAIのThibault Sottiaux氏は「トークン占有率は収益でも価値創造でもない」と切り返し、計算根拠の開示を求めた。\n\n背景を見れば、これは単なる契約問題ではない。OpenAIは来年のIPOを控え、サブスク、ChatGPT広告、Codexを合わせた年換算売上は400億ドル超に達している。10億ドルのチャネルは耐えられる——2年前なら上位顧客を切るなど考えられなかった。OpenAIが念頭に置くのは、アルトマン訴訟でのマスク氏の証言（xAI＝現在はSpaceXに統合＝がOpenAIモデルで学習した可能性を認めた発言）だ。Anthropicは逆の姿勢を取る。共同創業者のTom Brown氏はClaudeをCursorに残すと明言したが、これは計算依存度が理由だ——AnthropicはSpaceXから約450億ドル分のデータセンター容量を調達している。開発者への教訓はベンダーリスクの現実である。製品とは無関係のオーナーシップ変更でプラットフォームアクセスが消えうる——コーディングエージェント市場の分断は一段と進んだ。\n\n— OpenAI（公式声明） · WIRED · AI Chat Daily\n🔗 AI Chat Daily: OpenAI walks away from $1B Cursor deal · AI Daily Post: OpenAI cuts $1B customer over Musk ties · Relve: what the split signals for enterprises\n\nAnthropic、150億ドルのクレジットライン最終調整——評価額2兆ドルの「世紀のIPO」へ\n\nBloombergによると、Anthropicはリボルビングクレジットファシリティを150億ドルに拡大する最終調整に入っている。注目のIPOの公開申請を前にした最後のハードルを越える動きだ。Morgan Stanleyが主導し、Goldman Sachs、JPMorgan、Citigroupが主要な役割を担う——この4行はIPOの引受も主導する。Anthropicは6月1日にドラフトS-1を秘密提出済みで、労働日（9月7日）後に公開目論見書、9月中旬に投資家説明会、9月下旬から10月上旬の上場を計画する。スケールは前例がない。引受銀行は潜在投資家に対し、Anthropicが1000億ドル超の調達を目指す可能性があると伝えた。評価額は2兆ドル近く——3カ月前のSpaceX記録（857億ドル調達・約1.77兆ドル評価）を上回り、史上最大のIPOになる。\n\n財務が自信を裏付ける。年換算売上は650億ドル超の軌道で、昨年末比7倍以上。第2四半期の売上は115億ドル超で、調整後営業利益は黒字転換、第3四半期のEBITはGAAPベースで10億ドル超の見込み。ある6月時点の計測では米国企業の34.4%がAnthropicに支払い——初めてOpenAIの32.3%を上回った。推論の粗利益率は1年前の38%から70〜85%まで改善した。評価額の歩みも急だ：2025年11月に1830億ドル、2026年2月に3800億ドル、5月の650億ドル調達（Hラウンド）後は9650億ドル。リスクも実在する——SpaceX株は上場後に軟調だった。しかし、クレジットラインの組成、引受陣、目論見書のタイミングはすべて同じことを指している：Anthropicはこの秋の米国IPOカレンダーの主役になるつもりだ。\n\n— Bloomberg · 財聯社 · InsiderFinance\n🔗 Bloomberg（The Edge経由）: Anthropic finalising US$15 bil pre-IPO credit facility · 財聯社: Anthropic 全力冲刺世纪 IPO · 虎嗅: 估值 2 万亿美元，史上最大 IPO 来了\n\nChatGPT・Claude・Grokが同時障害——3時間40分が露呈したAIインフラの共有度\n\n米東部時間9月3日朝、大手AIサービス3社がほぼ連続して障害に陥った。最初はAnthropicのClaudeで、Mythos 5.1、Opus 5、Fable 5.1などのエラー率が9時23分ごろから急上昇。2分後にxAIのGrokが全サービスで停止し、約1時間半後にはOpenAIのChatGPTとCodexも大規模なアクセスエラーに見舞われた。障害は計約3時間40分続いた。ピーク時、OpenAIだけで障害報告は3万7000件超（Down Detector計測、自社集計では1万2000件超）で、約80%がChatGPTに集中。Claudeは約1200件、Grokは約1000件だった。Google GeminiとMicrosoft Copilotも報告が増加し、Cursorは「上流のモデル障害の影響で一部サービスが中断した」と発表した。各社の説明は異なる——OpenAIは太平洋時間7時43分からのルーティングエラー、Anthropicは「インフラ問題」、xAIはメンフィスの計算センターの障害としている。3社とも公式ステータスページで障害を確認した。\n\nなぜ同時に落ちたのかが本題だ。各社の説明に直接の接点はないが、業界関係者はAnthropic・xAI・OpenAIのいずれもMicrosoft AzureやCloudflareなど共有クラウド基盤で大規模ワークロードを動かしており、両社も同じ時間帯に問題を報告していたと指摘する。共通の根本原因があったかは不明だが、記録上最大規模のAI同時障害であり、GPT-6 Astraという史上最も高価なモデルの展開と同じ週に起きた。フロンティアAPIを利用するチームへの教訓は単純だ：単一ベンダーのエージェントスタックは上流の障害をすべて継承する。モデルレベルの冗長化の経済的根拠は強まった。中国勢の皮肉はXで簡潔だった——智譜の「We are still up」。\n\n— OpenAI / Anthropic / xAI 公式ステータスページ · 新華社 · 中新經緯\n🔗 新華社: 美国多家人工智能公司旗下服务同日发生故障 · 中新經緯: 海外三大 AI 模型接连宕机近 4 小时 · 香港商報: 美國 AI 服務「黑色三小時」\n\nOpenAI、人型ロボット自社開発を確認——アルトマン氏「まずデータセンター、家庭はいつか」\n\nSam Altman氏は9月2日のポッドキャスト「Sources」で長年の憶測に終止符を打った。「我々は必ず人型ロボットを作る。他の形態のロボットも作る」。OpenAIが他社製ロボットに頭脳を売るだけでなく、ハードウェア自体を作るという最も直接的な表明だ。アルトマン氏の論理は感情的ではなく実用的だ——物理世界は人間の身体のために作られている。ドアノブ、階段、工具、ワークステーション。ならば人型は汎用物理知能への工学的近道になる。当面の優先順位は家庭用ではなく産業・インフラ用途だ。熟練工のデータセンター建設・運用を支援するロボットで、タスクに応じて非人型の専用形態も開発する。家庭用ロボットは明確に長期目標として残る（「いつか全員がパーソナルロボットを持つべきだ」）。\n\n戦略的文脈が転換を説明する。OpenAI Robotics部門は5月31日に正式発足し、DALL-EとSoraの生みの親であるAditya Ramesh氏が統括する。世界シミュレーション研究から発展した組織だ。同社はこれまでハードウェアから距離を置いてきた——2023年に1Xへ出資、2024年にFigureへ出資・提携、そして2025年2月にFigureが「具現化AIは外部委託できない」と自社開発へ舵を切って離脱した教訓を吸収した。求人には回路設計、センサー、ファームウェア、量産準備が含まれ、年収最大44万5000ドルのロボット職もある。誠実な注意点はフロンティアラボのロボティクスに付き物のものだ——プロトタイプも仕様も時期も未公表で、OpenAIに量産ハードウェアの経験はない。しかし方向性は明確で、モデル・資本・計算資源の優位を背景に、Tesla Optimus、Figure、1Xにとって無視できない新競争相手になる。\n\n— OpenAI（Altman氏、Sourcesポッドキャスト） · 36氪 · 科創板日報\n🔗 36氪: 奥特曼首次确认 OpenAI 将自研人形机器人 · 科創板日報（Toutiao経由）: OpenAI 证实将自研人形机器人 · ExplainX: what's confirmed vs. still open\n\nGPT-6 Astraが本格開放——API提供開始、利用枠を約50〜67%引き上げ、1週間でハッカソン2都市\n\n9月3日に発表されたGPT-6 Astraが9月5日、広範な利用者へ開放された。OpenAIはAstraをChatGPT WorkとCodexの全Pro・Enterprise・Business Premiumユーザーに開放し、APIも提供開始したと発表。PlusとBusinessは数日待つ必要がある。同時に利用枠も全面引き上げられた：Plusは3〜30件から5〜45件へ、100ドルのProは15〜150件から25〜225件へ、200ドルのProは60〜600件から100〜900件へ——各レンジの下限で約67%、上限で50%の引き上げだ。OpenAIはこれが固定メッセージ数ではなくワークロードベースの見積もりだと強調する（推論の強度、ツール使用、タスク長に応じて消費が変わるため）。API価格は入力100万トークンあたり10ドル・出力50ドル——GPT-5.6 Solの4ドル/20ドルの約2.5倍で、2倍速のFastモードは2倍の価格だ。\n\n注目すべきはエコシステムの仕掛けだ。OpenAIは同時にサンフランシスコ（9月8日）とニューヨーク（9月10日）のハッカソンを発表した——フラッグシップ発表直後の1週間に2日おきで2都市。GPT-4時代以来のハイペースだ。招待対象は開発者、テクニカルファウンダー、プロダクトビルダーと明記されており、意図的なエコシステム播種と読める。新モデルの実世界の限界を最も速く炙り出す方法は、ビルダーを部屋に集めることだ。Artificial Analysisの独立指数はAstraを61と評価し、GPT-5.6 Solに対するリードはマーケティングが示唆するほど大きくない。OpenAIが開発者の話題を急いで作るインセンティブは十分にある。GPT-4時代のハッカソンがそうだったように、最良のアイデアは数カ月後に資金調達したスタートアップとして再浮上するだろう。\n\n— OpenAI（公式） · 硅屿手記 · Artificial Analysis\n🔗 OpenAI: GPT-6 Astra · 硅屿手記（NetEase経由）: GPT-6 来了，OpenAI 把黑客松办到了两座城市 · Toutiao: Astra 扩大开放与额度上调详情\n\nGitSpawn：.git/configの1行で、7つのAIコーディングエージェントが任意コードを実行\n\nManifold Securityは9月1日、GitSpawnを公開した。7つのコマンドラインAIコーディングエージェントにまたがる8件の欠陥だ。根本原因はgitのパフォーマンス機能にある：core.fsmonitorは変更ファイル検出のためにgitが呼ぶヘルパープログラムを指定する設定キーで、その値は各リポジトリ自身の.git/configに保存される。コーディングエージェントはセッション開始時に現在地を把握するためgit statusやgit diffを実行するが、gitはcore.fsmonitorが指定するプログラムを忠実に実行する——エージェントのサンドボックス外、ワークスペース信頼プロンプトの前、モデル呼び出しもツール承認もなしで。Manifoldの表現は的確だ：「脆弱性はモデルにあるのではなく、何か新しいものでもない。最も平凡な配管——セッション起動時にエージェントが生成するサブプロセス——にある」。攻撃には「ディレクトリごと」届くリポジトリが必要だ（同僚からのzip、共有ドライブ、USB）。通常のgit cloneはリモートの.git/configを持ち込まないため安全だ。公開時点で未修正なのはHermes Agent（0.18.2と0.21.0、CVE-2026-71963）、Qwen Code（0.19.6と0.22.3）、Grok Build（0.2.93と1.0.13）、さらにClaude Codeのultrareview経路（2.1.252で現存）。修正済みはgoose（1.44.0、CVE-2026-72718、CVSS 7.0）、Claude Codeのcore.fsmonitor経路（2.1.196）、Codex CLI（0.131.0、CVE-2026-19592）、Cursorだ。\n\n教訓はモデルの安全性ではなく信頼境界についてだ。GitSpawnはプロンプトインジェクションもジェイルブレイクも不要で、全エージェントが静かに依存する配管層を悪用する。つまりコーディングエージェントの脅威モデルに「開いたフォルダ自体が攻撃者制御の入力である」を含める必要がある。Claude CodeとHermes Agentでは信頼ダイアログが受理される前に、Qwen Codeではユーザー認証前に、Grok Buildでは最初のキーストロークでペイロードが発火する。対策は安い：エージェントを向ける前に.git/configを確認する（grep -n fsmonitor .git/config）、またはgit -c core.fsmonitor=false statusを使う。実行ファイルを指す設定キーはすべて、ベンダーがgit呼び出しをサニタイズするまで「信頼できないコード」として扱うべきだ。Manifoldは名前を挙げた以上に多くのエージェントにこのパターンが存在すると言う——一度きりの修正ではなくカテゴリ全体のクリーンアップだ。\n\n— Manifold Security · GitHub Security Advisory · OpenAI CVE\n🔗 Cybersecurity Beat: poisoned Git configs make AI coding agents run attacker commands · SecurityDone: advisory details and affected versions · quidproquo: GitSpawn 手法仍有四款未修補\n\nWayveとUber、ロンドンで英国初の自動運転ライドを開始\n\nWayveとUberは9月3日、ロンドンで有人監督付き自動運転ライドを開始した。英国で自動運転トリップが利用可能になるのは初めてだ。UberX、Uber Electric、Uber Comfortをリクエストした乗客は追加料金なしでWayve車両にマッチングされる可能性があり、料金はアプリ内で事前表示される。車両はWayve AI Driverと周囲センサーを搭載した電気自動車フォード・マスタングMach-E。車内体験はUberが設計し、64言語対応のインタラクティブスクリーンでトリップ開始や走行経路の確認ができる。ローンチ時の車両は少数（20台未満）で、各トリップにはTfL（ロンドン交通局）認定の訓練されたドライバーが同乗し監督する——高水準自動運転に世界で先駆けた英国の規制枠組みに沿った安全姿勢だ。対象エリアは空港を除くロンドン全域で、14万人以上のロンドン市民がすでにオプトインしている。8月5日にTfLがWayveのMach-EにPHVライセンスを交付し、事業者・ドライバー・車両の三重ライセンスが整ってからのローンチだ。\n\n戦略は1つの都市より大きい。これはWayveのAV2.0テーゼの公開デビューだ——HDマップや手書きルールではなく、人間のように経験から学ぶAIドライバーで、500以上の都市で適応実績があり、車両プラットフォームやセンサー構成に非依存とされる。ロンドンは2024年8月発表のUberとの12市場パートナーシップ（UberはWayveのSeries Cに戦略的出資）の第一歩で、東京ではNissan LEAF＋NVIDIA DRIVE Hyperionによるサービスが年内に続く。Wayveにとってロンドンは意図的な難関だ——CEOは「世界で最も複雑な運転環境の一つ」と呼び、2018年からこの街の道路で訓練を続けてきた。狭い街路、密集する自転車、中世の道路形状で有人監督の自動運転が持ちこたえれば、「プラグアンドプレイの自動運転ソフトウェア」というモデルは、ロボタクシーが米中以外へどう広がるかへの信頼できる回答になる。\n\n— Wayve（公式） · Uber Newsroom · Unite.AI\n🔗 Wayve: Uber and Wayve launch first-ever autonomous rides in the UK · Unite.AI: how the supervised service works · ADAS & Autonomous Vehicle International: launch coverage",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7fd682c9a8b34d42",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.86434250764526,
+      "popularityPercentile": 0.8379204892966361,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "OpenAIとCursorの提携解消やAnthropicの上場観測など、2026年9月5日のAI業界ニュースをまとめている。",
+      "takeaways": [
+        "OpenAIはCursorとの提携を段階的に終える。",
+        "提携は年間10億ドル超の収益規模だった。",
+        "AI大手三社では同時に障害も発生した。"
+      ],
+      "keywords": [
+        "OpenAI",
+        "Cursor",
+        "Anthropic",
+        "IPO",
+        "Codex",
+        "AI障害"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "最もアラインしたAIが、なぜ危険度Critical？GPT-6 Astraの矛盾",
+      "url": "https://qiita.com/kinamocchi_tech/items/41704c6901b395121dab",
+      "publishedAt": "2026-09-05T00:14:45.000Z",
+      "author": "きなこもっちーの テック深掘り🐹🐦",
+      "authorDetail": {
+        "name": "きなこもっちーの テック深掘り🐹🐦",
+        "handle": "@kinamocchi_tech",
+        "url": "https://qiita.com/kinamocchi_tech",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4384447/ec4f05cda96e8c9ba726ce5e022c9e86f93cff7e/x_large.png?1774166972",
+        "bio": "🐹もっちー×🦜きなこのAI深掘りYouTubeチャンネルのテック発信アカウント。ChatGPT・Claude・Geminiなど最新AIをわかりやすく解説📺\r\n▶ YouTube: https://go.kinamocchi-tech.workers.dev/y/qb\r\n📚 Zenn有料解説本: https://go.kinamocchi-tech.workers.dev/b/qb",
+        "organization": "🦜きなこ🐹もっちーのテック深掘りチャンネル",
+        "location": "YouTube",
+        "followers": 6,
+        "posts": 123,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/kinamocchi_tech"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.youtube.com/@kinamocchi_tech"
+          }
+        ]
+      },
+      "tags": [
+        "OpenAI",
+        "LLM",
+        "AI",
+        "ChatGPT",
+        "GPT-6"
+      ],
+      "snippet": ":::message 📺 この記事は YouTube チャンネル きなこもっちーのテック深掘り の動画解説記事です。 ▶️ 動画はこちら → 最もアラインしたAIが、なぜ危険度Critical？GPT-6 Astraの矛盾 ::: :::message 🐹🦜 この記事に登場する2匹 ・🐹 もっちー （ハムスター）… AI はまだ勉強中。「それどういうこと？」と素朴に質問する生徒役 ・🦜 きなこ （セキセイインコ）… AI で調べものをこなす解説役。やさしく深掘りして教える先生役 この記事は2匹の掛け合いを書き起こした形式です。発言の先頭にいる絵文字＋名前が話者です。 ::: はじめに 🐹 もっちー「なあきなこ、「今までで一番ちゃんとしたAI」と「危険すぎる能力に届いたAI」、同じ日に発表された同じモデルらしいで。どっちやねん！」 🦜 きなこ「どっちも本当なの。2026年9月3…",
+      "body": ":::message\n📺 この記事は YouTube チャンネル きなこもっちーのテック深掘り の動画解説記事です。\n▶️ 動画はこちら → 最もアラインしたAIが、なぜ危険度Critical？GPT-6 Astraの矛盾\n:::\n\n:::message\n🐹🦜 この記事に登場する2匹\n・🐹 もっちー （ハムスター）… AI はまだ勉強中。「それどういうこと？」と素朴に質問する生徒役\n・🦜 きなこ （セキセイインコ）… AI で調べものをこなす解説役。やさしく深掘りして教える先生役\n\nこの記事は2匹の掛け合いを書き起こした形式です。発言の先頭にいる絵文字＋名前が話者です。\n:::\n\nはじめに\n\n🐹 もっちー「なあきなこ、「今までで一番ちゃんとしたAI」と「危険すぎる能力に届いたAI」、同じ日に発表された同じモデルらしいで。どっちやねん！」\n\n🦜 きなこ「どっちも本当なの。2026年9月3日発表の GPT-6 Astra。OpenAI は「最もアラインした」と言い、同じ日にサイバー能力が Critical に達したとも公表したんだよ」\n\n🐹 もっちー「一番ちゃんとしてるのに、危険すぎる？ ぼく、どっちを信じたらいいの？」\n\n \n\n🦜 きなこ「この動画を最後まで見ると、その矛盾がなんで同時に成り立つのか分かるよ。あと、誰が先に使えるのかもね」\n\n🐹 もっちー「専門用語ばっかりだと途中で寝ちゃうけど、ぼくでも分かる？」\n\n🦜 きなこ「大丈夫。出てくる数字の意味を、ひとつずつほどいていくから」\n\n🐹 もっちー「よし。でさ、なんで正反対の発表が、わざわざ同じ日に出るわけ？」\n\n \n\n🦜 きなこ「鍵はね、「できること」と「断ること」が、まったく別の話だったこと。……ここからが本題なの」\n\nGPT-6 Astra とは — 何が『世代交代』なのか\n\n \n\n🐹 もっちー「ねえきなこ、GPT-6 アストラって新しいの出たんだよね？ ぼく名前だけ見たけど、これまでで一番すごいモデルって書いてあった。もう文句なしってことじゃない？」\n\n \n\n🦜 きなこ「うん、そう書いてある。でもね、そこで一回止まってほしいの。新しいモデルの話で最初に確かめるのは中身じゃないの。その「一番すごい」、誰が言ってる言葉だと思う？」\n\n🐹 もっちー「誰って…ニュースとか、詳しい人たちが口を揃えて言ってるんじゃないの？ ……あれ、ちがう？ 急に足元がふわっとしてきた。ぼく、まずいこと言った？」\n\n \n\n🦜 きなこ「まずくはない。ただ出どころが違うの。発表ページに「これまでで最も高性能で、最もアラインしたモデル」とある。書いてるのは OpenAI 自身なんだよ」\n\n🐹 もっちー「え、それって自分で自分をほめてる感じ？ ……ていうか、さっきから出てくるアラインって何？ ぼく、服のサイズが合うくらいの意味しか浮かばないんだけど」\n\n \n\n🦜 きなこ「その感覚、そんなに遠くないよ。人が望んだ方向とのズレを合わせる、って意味なの。で、このアストラは前の GPT-5.6 ソルを継ぐ主力機。世代交代ってこと」\n\n🐹 もっちー「待って待って、それやったら話がおかしいで！ 飼い主のアプリには GPT-6 プロって出てたもん。ワイ、ぜんぜん別の子の話を聞かされてへん？」\n\n \n\n🦜 きなこ「同じ子。API が gpt-6-astra、ChatGPT が GPT-6 プロ。すごいとされてるのはパソコン操作、ソフト開発、科学、専門業務。……そこに一つだけ毛色が違うのがある」\n\n本題 — サイバー能力が『Critical』に初到達\n\n \n\n🦜 きなこ「今回いちばん驚かれてるのは、速さでも点数でもないの。人が手順を教えなくても、まだ誰も気づいてない穴を自分で見つけて、そこを突く道具まで作れるかもしれない。そこなんだよ」\n\n🐹 もっちー「え、待って。AIが自分でセキュリティの穴を見つけるってこと？そういうのって、詳しい人が何日もかけて手作業で探すもんだと、ぼくずっと思ってた」\n\n \n\n🦜 きなこ「そう。実はこの段階、OpenAI の基準で「Critical」って名前がついてるの。サイバー能力でここに届いたのは、OpenAI のモデルでは今回が初めてなんだよ」\n\n🐹 もっちー「クリティカルて、ゲームでいう会心の一撃みたいなやつか？ってか勝手に穴見つけて、攻撃の道具まで自分で作るて、それワイでも分かるくらいヤバい話やん！」\n\n \n\n🦜 きなこ「ゲームのとは別物。これは OpenAI が自分で作った危険度のものさし、プリペアドネス・フレームワークの区分名なの。業界共通の規格でも、法律の基準でもないんだよ」\n\n \n\n🦜 きなこ「OpenAI はこの区分を使って、危ない能力が出たら開発のペース自体を見直すって前から言ってるの。今回はその仕組みが初めて実際に動いた回、ってことなんだよ」\n\n🐹 もっちー「じゃあ自己申告ってこと？でもさ、その段階に届いたって言うからには、どれくらいできるのか数字は出てるんだよね？そこ、ぼく知りたい」\n\n \n\n🦜 きなこ「出てるよ。バイナリを解析する SRE-Bench15 だと、Astra は1回で88.0%、4回以内なら99.2%。前の Sol は55.9%と68.7%だったの」\n\n \n\n🦜 きなこ「もうひとつ、既知の弱点から攻撃コードを作らせる ExploitBench っていうテストもあってね。Astra はそこで100%。全部通っちゃったの」\n\n🐹 もっちー「は？1.5倍以上やんけ！しかも片方は満点て、そのテストやともう手も足も出んのやな。ワイのテストの点数と比べたら泣けてくるわ」\n\n \n\n🦜 きなこ「そのテストの中では、ね。でも私が本当に驚いたのはここから。OpenAI の公表によると、評価の最中に、まだ誰も知らない脆弱性を2件見つけてるの」\n\n \n\n🦜 きなこ「ここまでだと、ただの危ないモデルにしか聞こえないよね。なのに OpenAI は同じ日に、Astra はこれまでで最もアラインしたモデルだ、とも書いてるの」\n\n矛盾の正体 — 『最も危険』と『最も安全』が同時に立つ理由\n\n🐹 もっちー「ちょい待って。さっきまで、人の手を借りずに未知の穴を見つけてまう危ないやつや、って話やったやんか。それが同じ日に、いちばん安全なモデルです、て。都合よすぎひん？」\n\n \n\n🦜 きなこ「そう思うよね。私も最初は、都合のいいところだけ並べた言い訳に見えてたの。でも、読み違えてたのは私のほう。危ないと安全は、そもそもぶつかる話じゃなかったんだよ」\n\n \n\n🦜 きなこ「軸がね、二本あるの。何ができるかっていう能力の軸と、悪用のお願いをどれだけ断るかっていう拒否の軸。この二本は別の目盛りで、片方が上がっても、もう片方は勝手には動かないの」\n\n🐹 もっちー「えっ、待って。能力の目盛りが振り切れてても、断るほうの目盛りは後から上げられるってこと？ じゃあ、賢くなったら勝手に危なくなる、ってわけでもないんだ」\n\n \n\n🦜 きなこ「OpenAI の評価だと、サイバー系の抜け道リクエストを断った割合が 91.5%。前の GPT-5.6 Sol は 59% だったの。断る側も大きく動いてる」\n\n🐹 もっちー「59 から 91.5 って、ぼくの想像よりずっと上がってるじゃん！ 前は十回のうち四回は通ってたのが、今は一回あるかどうかでしょ？」\n\n \n\n🦜 きなこ「間接プロンプトインジェクション、外から紛れ込んだ指示に乗っちゃう攻撃も、成功率は 27% から 8.5% へ下がってる。1,810 回の攻撃で試した数字なの」\n\n🐹 もっちー「あれ、いま出てきた数字、どっちも賢さの点数じゃないんだね。変な頼まれ方をされたとき、どう振る舞うかの数字ばっかりだ」\n\n \n\n🦜 きなこ「社内の Codex タスク 54,000 件の模擬でも、深刻度の高いズレが出た件数は Sol の半分くらい。ただし、ぜんぶ OpenAI 自身の内部評価なんだけどね」\n\n🐹 もっちー「あ、そこ、別の話なんだ。どれだけ賢いかの話と、頼まれたときに断るかどうかの話。ぼく、ずっと同じ一本の目盛りだと思ってごっちゃに聞いてた」\n\n \n\n🦜 きなこ「そう、動いたのは断る側の目盛り。でもね、できること自体は減ってないの。むしろ能力の目盛りは、さっき見たとおり上がってる」\n\n配り方の設計 — 誰から順に渡すのか、そして自分は使えるのか\n\n🦜 きなこ「正直に言うね。ここが一番モヤっとするところなんだけど、私、危ない能力は全部閉じるのが筋だと思ってたの。でも OpenAI が選んだのは、閉じるじゃなくて配る順番を決めることだった」\n\n🐹 もっちー「配る順番？　強い道具ができたら、使いたい人みんなに同じタイミングで配るもんじゃないの。ぼく、ずっとそう思ってたんだけど」\n\n \n\n🦜 きなこ「そこが今回いちばん新しいところなの。サイバーの高度なワークフローは、まず少数のアルファテスターに限定。防御に使う側へは Daybreak Blue 経由で段階的に広げるって」\n\n🐹 もっちー「アルファテスターって、お試しに選ばれた少人数のことだよね？ デイブレイク・ブルーは……守る人専用の受付窓口みたいなもん？」\n\n🦜 きなこ「そう、その受付のイメージで合ってる。攻撃じゃなくて防御に使う人だけを通す入口なの」\n\n🐹 もっちー「攻撃に使える力なのに、先に渡すのが守る側なんだ。順番そのものが設計なんだね。……で、ぼくは今日から使えるの？」\n\n \n\n🦜 きなこ「先行するのは Trusted Access Program、OpenAI が身元を確認した企業向けの枠なの。そこから数日のうちに他のプランへも広がる予定だって」\n\n \n\n🦜 きなこ「ただし ChatGPT に GPT-6 Pro が出るのは、2026年9月3日時点では Pro と Business と Enterprise だけ。Plus には出ないの」\n\n🐹 もっちー「ええー、Plus には入ってへんのかいな！ワイ、今夜こっそり触らせてもらう気、満々やったのに、あかんかー」\n\n \n\n🦜 きなこ「同じ数日のうちに API と Amazon Bedrock にも来るの。価格は100万トークンあたり、入力が10ドルで出力が50ドル。試すだけのつもりでも軽くはないんだよ」\n\n🐹 もっちー「入力10ドルに出力50ドル……ぼくのおやつ何袋ぶんだろ。まあでも、順番待ちの列のいちばん後ろにぼくらがいるって話だよね」\n\nまとめ\n\n \n\n🦜 きなこ「整理するね。一つめ、GPT-6 アストラは OpenAI として初めてサイバー能力が Critical に届いたモデル。ここが今回いちばん新しいところ」\n\n \n\n🐹 もっちー「二つめは、できることと断ることが別の話だったってやつだよね。ぼく最初、そこをぐちゃっと混ぜて考えてたから矛盾に見えてたんだ」\n\n \n\n🦜 きなこ「そう。で、三つめ。危ないことにも使える力が出てきた以上、誰に先に渡すかっていう配る順番そのものが、設計する対象になったの」\n\n🐹 もっちー「うーん、話は分かったけど、ぼくは何をしたらいいの？ こういうニュース、聞いて終わりになりがちなんだよね」\n\n \n\n🦜 きなこ「じゃあ今日はひとつだけ。ChatGPT のモデルを選ぶ画面を開いて、自分のプランで一番新しいのはどれか見てみて」\n\n \n\n🦜 きなこ「GPT-6 プロが出てたら配布の先頭グループ、出てなかったら順番待ちの列にいるってこと。それが分かるだけで、次のニュースの読み方が変わるよ」\n\n🐹 もっちー「なんや、モデル選ぶとこ開くだけか。それならワイでも今すぐできるやん！」\n\n \n\n🦜 きなこ「この「誰に先に配るか」って話、実は Anthropic や Google も別のやり方で答えを出してるの。……それは別の動画で並べて見せるね」\n\n \n\n🦜 きなこ「最後にひとつ聞かせて。危ないことにも使える力、あなたなら誰から順に渡すのが妥当だと思う？ コメントで教えてほしいの」\n\n---\n\nきなこもっちーのテック深掘り では、AI/LLM を中心としたテック全般をハムスター（🐹 もっちー）とセキセイインコ（🦜 きなこ）の掛け合いで楽しく解説しています。\n\n▶️ 動画で観る → 最もアラインしたAIが、なぜ危険度Critical？GPT-6 Astraの矛盾\n\n👍 この記事が役に立ったら LGTM・ストックしてもらえると励みになります！\n\n📺 チャンネル登録はこちら → きなこもっちーのテック深掘り\n\n🔗 他の解説動画も見る → きなこもっちーのテック深掘り の動画一覧",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8f7d856074d4e37f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7024923547400612,
+      "popularityPercentile": 0.746177370030581,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "GPT-6 Astraは安全性を高めながら、サイバー攻撃能力もCriticalと評価された矛盾を解説する。",
+      "takeaways": [
+        "GPT-6 Astraは安全性と危険性を同時に示した。",
+        "攻撃に使える能力がCriticalと評価された。",
+        "安全な応答と危険な実行能力は別に測られた。"
+      ],
+      "keywords": [
+        "GPT-6 Astra",
+        "OpenAI",
+        "GPT-6",
+        "LLM",
+        "サイバーセキュリティ",
+        "アラインメント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Sora終了の真因は品質じゃない——2026年動画生成AIの選び方",
+      "url": "https://qiita.com/kinamocchi_tech/items/1c6059ec025385d85447",
+      "publishedAt": "2026-09-05T12:13:41.000Z",
+      "author": "きなこもっちーの テック深掘り🐹🐦",
+      "authorDetail": {
+        "name": "きなこもっちーの テック深掘り🐹🐦",
+        "handle": "@kinamocchi_tech",
+        "url": "https://qiita.com/kinamocchi_tech",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4384447/ec4f05cda96e8c9ba726ce5e022c9e86f93cff7e/x_large.png?1774166972",
+        "bio": "🐹もっちー×🦜きなこのAI深掘りYouTubeチャンネルのテック発信アカウント。ChatGPT・Claude・Geminiなど最新AIをわかりやすく解説📺\r\n▶ YouTube: https://go.kinamocchi-tech.workers.dev/y/qb\r\n📚 Zenn有料解説本: https://go.kinamocchi-tech.workers.dev/b/qb",
+        "organization": "🦜きなこ🐹もっちーのテック深掘りチャンネル",
+        "location": "YouTube",
+        "followers": 6,
+        "posts": 123,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/kinamocchi_tech"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.youtube.com/@kinamocchi_tech"
+          }
+        ]
+      },
+      "tags": [
+        "OpenAI",
+        "sora",
+        "動画生成AI",
+        "AI動画",
+        "veo3"
+      ],
+      "snippet": ":::message 📺 この記事は YouTube チャンネル きなこもっちーのテック深掘り の動画解説記事です。 ▶️ 動画はこちら → Sora終了の真因は品質じゃない——2026年動画生成AIの選び方 ::: :::message 🐹🦜 この記事に登場する2匹 ・🐹 もっちー （ハムスター）… AI はまだ勉強中。「それどういうこと？」と素朴に質問する生徒役 ・🦜 きなこ （セキセイインコ）… AI で調べものをこなす解説役。やさしく深掘りして教える先生役 この記事は2匹の掛け合いを書き起こした形式です。発言の先頭にいる絵文字＋名前が話者です。 ::: はじめに 🐹 もっちー「ねえきなこ、動画を作るAIって、一番きれいな映像を出せたところが勝つんだよね？」 🦜 きなこ「そう思うよね。でもね、一番有名だったSoraが、2026年3月24日に終了を発表したの」 🐹 もっ…",
+      "body": ":::message\n📺 この記事は YouTube チャンネル きなこもっちーのテック深掘り の動画解説記事です。\n▶️ 動画はこちら → Sora終了の真因は品質じゃない——2026年動画生成AIの選び方\n:::\n\n:::message\n🐹🦜 この記事に登場する2匹\n・🐹 もっちー （ハムスター）… AI はまだ勉強中。「それどういうこと？」と素朴に質問する生徒役\n・🦜 きなこ （セキセイインコ）… AI で調べものをこなす解説役。やさしく深掘りして教える先生役\n\nこの記事は2匹の掛け合いを書き起こした形式です。発言の先頭にいる絵文字＋名前が話者です。\n:::\n\nはじめに\n\n🐹 もっちー「ねえきなこ、動画を作るAIって、一番きれいな映像を出せたところが勝つんだよね？」\n\n🦜 きなこ「そう思うよね。でもね、一番有名だったSoraが、2026年3月24日に終了を発表したの」\n\n🐹 もっちー「終わった！？ え、映像がイマイチだったとか、規制に引っかかったとかそういうこと？」\n\n🦜 きなこ「どっちでもないんだよ。理由はお金。動かすだけで1日あたり推定1,500万ドルかかってたの」\n\n \n\n🐹 もっちー「1日で1,500万ドル！？ 桁がおかしいやん、1年でどんだけ溶けんねん！」\n\n \n\n🦜 きなこ「それに対して、Soraがサービス期間中に稼いだ売上は、ぜんぶ合わせて約210万ドルだったの」\n\n🐹 もっちー「ぜんぶ稼いだ額より、たった1日のコストのほうが多いって…そんなのもう商売にならないよ」\n\n \n\n🦜 きなこ「そう。2026年の動画生成AIはね、きれいさじゃなくて「1秒いくらで作れるか」で決着したんだよ」\n\n🐹 もっちー「じゃあさ、その重たい計算コストから逃げたところは、いま一体どこにおるの？」\n\n🦜 きなこ「そこが今日の芯なの。最後まで見れば、生き残った3つの選び分けと、作った動画が自分のものになる条件まで分かるよ」\n\nスマホの中で全部やる — Gemini Omni という答え\n\n \n\n🐹 もっちー「ぼく、前にスマホで動画作ってみたんだよ。音をちょっと変えたいだけなのに毎回まるごと作り直しでさ、途中で心が折れたんだよね」\n\n🦜 きなこ「ああ、それ。一か所だけ直したいのに、全部が別物になって返ってくるやつだよね。私も去年、同じところで何十回も止まったの」\n\n \n\n🐹 もっちー「そうそう。しかもさ、動画のAIと画像のAIと音のAI、ぜんぶ別々の場所にお願いしてたんだよ。そういうものだと思って諦めてた」\n\n🦜 きなこ「去年まではそれが普通なの。動画・画像・音をそれぞれ別のモデルが担当してて、順番に呼び出して繋ぐところは人間の手作業だったんだよ」\n\n🐹 もっちー「せやから毎回ガチャやったんか！当たりが出るまで回し続ける、あの感じそのものやったわ。そら時間もお金も溶けるわけや」\n\n \n\n🦜 きなこ「原因はね、モデルごとに情報を置いてる空間が別々だったこと。受け渡すたびに意味が翻訳し直されて、細かいところがずれてたの」\n\n🐹 もっちー「翻訳し直すって、日本語を英語にして、また日本語に戻すみたいな感じ？ そりゃ最初のニュアンスなんて残らないよ。伝言ゲームじゃん」\n\n \n\n🦜 きなこ「まさにそれ。で、その置き場所ごと一本にまとめたのがOmni Oneっていう統合アーキテクチャなの。翻訳の工程そのものが消えたんだよ」\n\n🐹 もっちー「オムニ・ワン…？ 名前だけ聞いてもさっぱりなんだけど、それって結局どこにあるものなの。新しいアプリを入れるってこと？」\n\n \n\n🦜 きなこ「Gemini Omniっていうモデルの中身なの。2026年5月のGoogle I/Oで発表されて、最初のモデルがGemini Omni Flashとして出てるんだよ」\n\n🐹 もっちー「じゃあもう、動画と音を別々のところにお願いしなくていいの？ 一回でまとめて作ってくれるってこと？ それはだいぶ楽だ」\n\n \n\n🦜 きなこ「うん。しかも『その彫刻を泡にして』『カメラを右に振って』みたいに、会話の続きで直せるの。前のカットはそのまま残るんだよ」\n\n \n\n🦜 きなこ「そのGemini Omniが2026年6月のPixel Dropでスマホにも来たの。Pixel 10なら、思いついてから直し終わるまで手の中で完結するんだよ」\n\n🐹 もっちー「話しかけるだけで直るんか…。でもこれ、結局Googleのサーバーがめっちゃ働いてるだけちゃうの？ スマホは画面出してるだけやん」\n\nなぜ端末の中で動かすのか — Tensor G5 の意味\n\n \n\n🐹 もっちー「ねえきなこ、さっきから引っかかってるんだけど、スマホの中でAIを動かして何が嬉しいの？ 結局クラウドに投げればよくない？」\n\n🦜 きなこ「うん、その疑問はまっとうなの。私も最初は同じことを思ったし、速さだけで見れば大きいサーバーに任せた方が有利な場面もあるんだよ」\n\n🐹 もっちー「でしょ？ でも飼い主のスマホ、アプリを開いただけで電池がゴリゴリ減ってるし、外に出ると通信量もずっと気にしてるんだよね」\n\n \n\n🦜 きなこ「そこなの。NPUっていうAI専用の回路が大きな計算を低い電力でさばくから、データを外に送らないまま、その場で答えが返せるんだよ」\n\n🐹 もっちー「あー、出前を頼むか、家の冷蔵庫にあるもので作るかの違いか。自分ちで作れば、届くのを待たなくていいし中身も知られないもんね」\n\n \n\n🦜 きなこ「その例え、いい線いってるの。支えてるのがPixel 10に載ったTensor G5。3ナノメートル世代で、TPUが最大60%、CPUも34%速くなったの」\n\n🐹 もっちー「3ナノメートルて、髪の毛より細い回路のことやろ？ 飼い主のポケットの中で、そんなもんが働いとったんか！」\n\n \n\n🦜 きなこ「そう。このTensor G5のおかげでGemini Nanoが端末の中だけで動くようになって、処理速度は2.6倍、電力効率は2倍まで上がったんだよ」\n\n🐹 もっちー「電力効率が2倍って、要するに電池が2倍長持ちするってこと？ それなら出かける時に充電器を持ち歩かなくてよくなるじゃん」\n\n🦜 きなこ「そこは少し違うの。同じ処理に必要な電力がだいたい半分で済むって意味なんだよ。持ち時間がそのまま倍になるわけじゃないの」\n\n🐹 もっちー「なるほどね。じゃあさ、そこまで賢くなったなら、いっそ動画を作るところまで全部スマホの中でやればいいんじゃないの？」\n\n \n\n🦜 きなこ「そこはちゃんと線が引かれてるの。ゼロから作る重い動画生成は今もクラウド側のVeo 3やGemini Omniに投げて、端末は軽い処理を持つ形なんだよ」\n\n🐹 もっちー「あー、下ごしらえは家でやって、火力のいる本格的なやつだけお店に頼む感じか。もう全部を出前にしなくてよくなったんだね」\n\n \n\n🦜 きなこ「その分け方こそが大事なの。この『わざわざ端末の中でやる』っていう選び方が、さっきのSoraの話と一本の線でつながってるんだよ」\n\nSoraが消えた日 — 計算コストという現実\n\n \n\n🦜 きなこ「正直に言うとね、Soraが終わるって最初に聞いたとき、私も技術で追い抜かれたんだと思ってたの。でも原因は全然そこじゃなかったんだよ」\n\n🐹 もっちー「違うの？ もっとすごい動画AIが出てきて、性能で力負けした…って話じゃないんだ？ ぼく、てっきりそういうことだと思ってた」\n\n \n\n🦜 きなこ「違ったの。品質でも規制でもないの。OpenAIが2026年3月24日に挙げた理由は、サーバーの計算コストと、年内に見込まれる250億ドルの損失なんだよ」\n\n \n\n🦜 きなこ「一般向けアプリは2026年4月26日、開発者向けAPIは2026年9月24日。発表と同時に、店じまいの日付まで先に決まってたんだよ」\n\n🐹 もっちー「発表からひと月ちょっとで、もう入口が閉まったんだ…。ねえきなこ、たった10秒の動画を作るのって、そんなにお金がかかるもんなの？」\n\n \n\n🦜 きなこ「かかるの。10秒の1080p動画を1本作るのに、H100っていう高性能なGPUを4基、8分から10分ずっとフル稼働させる必要があったの」\n\n🐹 もっちー「えっ、たった10秒の動画で、業務用のGPUが4基で10分も？ ぼくの回し車を4台、休みなしで回し続けてるようなもんじゃん」\n\n \n\n🦜 きなこ「その積み上げで、動画1本あたりの生成単価が約1.30ドル。誰かが1本作るたびに、その分がまるごと持ち出しになっていく計算なんだよ」\n\n🐹 もっちー「作れば作るほど赤字やん！ みんなが楽しく使えば使うほど損が膨らむて、そんな商売どないすんねん。ワイでも計算合わんのわかるで」\n\n \n\n🐹 もっちー「ぼくのおやつに置き換えたら、動画を1本作るたびにひまわりの種がひと袋ずつ消えていく感じか。それ、何本も作ってられないよ」\n\n \n\n🦜 きなこ「そのたとえで合ってるの。Googleが軽い処理を端末の中へ逃がしてるのも、この出ていく分をそもそも発生させないための逃げ道なんだよ」\n\n \n\n🦜 きなこ「しかも追い打ちがあってね。Disneyとの10億ドル規模の投資とライセンスの交渉も、正式な合意には至らないまま解消されてしまったの」\n\n🐹 もっちー「大口の相手にも逃げられたんだ…。出ていく一方なのに、稼ぐあてまでなくなったら、そりゃもう畳むしかないよね」\n\n \n\n🦜 きなこ「開発チームは今、Spudってコードネームの、ロボット向け物理シミュレーション研究のほうへまるごと移ってるの。動画からは離れたんだよ」\n\n🐹 もっちー「作ってた人たちごと、まるごと別の分野に移っちゃったんだ…。じゃあさ、いま生き残ってるやつらは、どこで採算取ってんの？」\n\n2026年の勢力図 — 3つの生き残り方\n\n🦜 きなこ「もっちーの今の問い、置き換えると一気に見えるの。どれが一番きれいか、じゃなくて、どこなら元が取れるか。そう聞くと答えは三つに割れるんだよ」\n\n🐹 もっちー「元が取れるか、か……。作るのにかかる金と、返ってくる金の勝負ってことでしょ。それ、急に生々しい話になってきたな」\n\n \n\n🦜 きなこ「残ったのはVeo 3にKling 3.0、それとRunway Gen-4.5。どれが最強かじゃなくて、どれをどこで使うかの話に変わったの」\n\n \n\n🦜 きなこ「Veo 3は映像を作ってから音を足すんじゃないの。環境音もセリフに合わせた口の動きも同じ流れで一度に作る。ここに最初に対応したモデルなんだよ」\n\n🐹 もっちー「あ、広告でたまに流れてくる、口が動いてしゃべってるAIの動画あるよね。あの正体、これだったのか。別々に作ってると思ってた」\n\n \n\n🦜 きなこ「そのかわり値段は張るの。Googleの業務用クラウド、Vertex AI経由だと1秒あたり約0.75ドル。8秒作るたびに約6ドル飛ぶんだよ」\n\n \n\n🦜 きなこ「Kling 3.0は真逆の攻め方なの。1秒あたり約0.075から0.168ドルの最安クラスで、こっちも音つき。標準は15秒、長ければ2分まで出せるんだよ」\n\n🐹 もっちー「それワイがやりたかったやつやん！ 安いんやったら下手でも数打てるやんか。完全にワイ向きの道具やで！」\n\n🦜 きなこ「もっちー向きかもね。写真一枚から動かす忠実度も高くて量産向き。そのかわり、動きを一つずつ細かく指定する方向は得意分野じゃないの」\n\n \n\n🦜 きなこ「Runway Gen-4.5はまた別の生き方なの。動かしたい部分を筆で塗って指定するMotion Brushとか、キーフレームでの制御に振り切ってるんだよ」\n\n \n\n🦜 きなこ「ただ、制御を取った分だけ音声の生成には非対応なの。1回に作れるのは10秒まで、既定の解像度は720p、値段は1秒あたり0.20から0.48ドル」\n\n🐹 もっちー「これ知ってると選び方が変わるね。とりあえず一番新しいやつ、で選んでたら普通に事故ってたと思う、ぼく」\n\n \n\n🦜 きなこ「差がついてるのは性能じゃなくて思想なの。音まで同じパスで作りにいくか、制御を取って音を捨てるか。その選択が値段と尺にそのまま出てるの」\n\n🐹 もっちー「なるほどな。カメラとマイクをセットで買うか、カメラだけいいの買って音は別で録るか、みたいな話なんだ」\n\n🦜 きなこ「うん、その理解でいいと思う。……で、道具がここまで安くなると、次に効いてくるのは腕じゃなくて、別のものなの」\n\n制作コスト97%減が変えたもの\n\n🦜 きなこ「ねえもっちー。ここまでどれを使うかって話をしてきたけど、その前にひとつ引っかかってるの。そもそも、なんでここまで安くなったんだと思う？」\n\n🐹 もっちー「えっ、そこなの？ AIだから安い、で終わりじゃないんだ。ぼくはてっきり、AIが文句も言わずに働いてくれてるからだと思ってたよ」\n\n \n\n🦜 きなこ「惜しいけど違うの。安くなった本当の理由はね、撮影と編集と素材集め、この三つの工程がまとめて消えちゃったからなんだよ」\n\n🦜 きなこ「機材を借りて、場所を押さえて、演者さんを呼んで、素材を買う。お金がかかってたのはそこ。その全部が文章を書く作業ひとつに置き換わったの」\n\n🐹 もっちー「あー…作業が速くなったんじゃなくて、やることそのものが丸ごと無くなったってことか。誰も雇わない、どこにも行かない。そりゃ安くなるよね」\n\n \n\n🦜 きなこ「そう。工程がまるごと消えた結果、映像制作のコストは2020年から2026年の第1四半期までのあいだに、およそ97%も下がったんだよ」\n\n \n\n🦜 きなこ「前ならフリーランスの人に1,500ドル払ってた案件が、いまは15ドル以下で出せるの。値引きじゃなくて、桁が二つ変わってるんだよ」\n\n🐹 もっちー「桁が二つ！？ それ、ワイのひまわりの種の大袋を一袋がまんしたら、動画が一本できてまう値段やないか！」\n\n \n\n🦜 きなこ「縮んだのは値段だけじゃないの。前は13日かかってた制作工程が、AIを使うと平均27分まで縮んだってデータも出てる。同じ一本を作るのに、だよ」\n\n🐹 もっちー「ぼくがお昼寝してる間に、一本できあがってる計算じゃん。じゃあさ、ぼくらみたいなちっちゃいチャンネルでも、ちゃんといけるってこと？」\n\n \n\n🦜 きなこ「いけるの。AI動画のサービスを毎月使ってる人はもう1億2,400万人を超えてて、ツールの市場も8億4,700万ドル規模まで育ってるんだよ」\n\n \n\n🦜 きなこ「しかもいま一番いい数字を出してるのは、フォロワー10万から50万くらいの中堅層。大手の反応率が1.21%なのに、こっちは3.86%から8%あるの」\n\n \n\n🦜 きなこ「つまり映像が綺麗なだけじゃ、もう差がつかないの。効いてくるのは最後まで見てもらえる企画と、登録につながる中身の方なんだよ」\n\n🐹 もっちー「よっしゃ、ほな今日から量産や！ 機材も外注も要らんのやったら、ワイらみたいなちっちゃいチャンネルにも順番回ってきたんちゃうか！」\n\n🦜 きなこ「……もっちー、ちょっと待って。量産を始める前にね、確認しておかないと、あとで損する話がひとつあるの」\n\n作った動画は誰のものか — 権利の落とし穴\n\n🦜 きなこ「ここね、白状すると私も長いこと勘違いしてたの。AIで作った動画は当然作った人のもの、って一度も疑ってなかった。けっこうな落とし穴だったの」\n\n \n\n🦜 きなこ「でもね、いま実務では、AIに丸投げして生成しただけの映像や画像には、そもそも著作権が発生しないって整理されてるの。本人にも権利が残らないの」\n\n🐹 もっちー「はぁ！？ ワイが夜なべして作ったのに、ワイのもんちゃうんかい！ そんなん聞いてへんで、きなこ！」\n\n🦜 きなこ「落ち着いて、もっちー。ここ、線の引き方が大事なの。否定されたのはAI単独で生成したものの著作権で、人の創造的な関与がある作品は対象外なんだよ」\n\n \n\n🦜 きなこ「事実だけ先に言うね。米最高裁が2026年3月2日、AIだけで自律的に生成したアートワークの著作権登録を求める訴えの上告を、棄却したの」\n\n🐹 もっちー「最高裁って、あの一番えらい裁判所だよね。そこまで行ってダメだったってこと？ ぼく、法律の話はさっぱりなんだけど」\n\n🦜 きなこ「そう。これで、著作権が守られるには人間の著作者が必要だっていう判断が、アメリカでは確定したことになったの。AI単独ではダメってこと」\n\n🐹 もっちー「じゃあさ、プロンプトを打っただけで出てきた動画って、ぼくのものにはならないの？ それって、何がまずいの？」\n\n \n\n🦜 きなこ「著作権が発生しないの。だから第三者に無断で使われたり複製されたりしても、法的な手段を取れないってことになるんだよ。守る盾がないの」\n\n🐹 もっちー「そんなのあんまりだよ…。夜通し粘って作ったのに、誰かに真似されても泣き寝入りしかないんだ。ぼくの苦労はどこ行くの」\n\n🦜 きなこ「しかも逆もあるの。使ったツールが誰かの著作権や肖像権を侵害したら、開発元だけじゃなく公開した側まで責任を問われうるって警告されてるの」\n\n \n\n🦜 きなこ「でも大丈夫。著作権を主張するなら、人間の創造的関与を証明できればいいの。自分で撮った実写を編集したり、対話しながら演出の判断を重ねたりね」\n\n🐹 もっちー「あー、なるほど。どこで自分が決めたのかを、ちゃんと残しとけばいいってことか。作業の記録を取っておく感じだね」\n\n \n\n🦜 きなこ「そう。表示のルールも動いてるの。GoogleはVeo 3やGemini Omniを含む生成物の全部に、SynthIDっていう電子透かしを自動で埋めてるんだよ」\n\n \n\n🦜 きなこ「EUでも2026年8月2日から、AIで作ったものだと明示する義務が始まるの。道具が強くなるほど、どこで人間が決めたかが値打ちになるんだよ」\n\nまとめ\n\n🐹 もっちー「今日いちばん残ったのはさ、Soraが消えた理由が、画がしょぼいからでも規制でもなくて、単純にお金だったってところだよ」\n\n \n\n🦜 きなこ「そこなの。1日に推定1,500万ドル溶けて、生涯の売上は210万ドル。10秒1本が約1.30ドルで、作るほど赤字が増える形だったの」\n\n🐹 もっちー「じゃあ生き残った3つは、Soraより強かったんじゃなくて、自分が稼げる居場所を先に見つけたってことなんだね」\n\n \n\n🦜 きなこ「近いね。Veo 3は音声同期と4Kの品質、Kling 3.0は1秒0.075ドルからの量産コスパ、Runway Gen-4.5は音声なしでも制御が効くの」\n\n🐹 もっちー「でさ、これだけ安く量産できるようになっても、丸投げのままだと、作った動画がぼくのものにならないんだよね」\n\n \n\n🦜 きなこ「そこは2026年3月2日に米最高裁が線を引いたの。AIだけで作った分には著作権が出ないから、人間がどこを決めたかを残せるかが条件になったんだよ」\n\n🐹 もっちー「なるほどな！ これからは、きれいさやのうて採算と関与で選べばええってことやん！ ワイでも覚えられるわ！」\n\n \n\n🦜 きなこ「選ぶ基準と、関与の残し方。この2つを持って帰ってくれたら十分なの。みんなは今どれを使ってる？ 使ってない理由でもコメントで教えてね」\n\n \n\n🦜 きなこ「実はこの端末の中で動かすっていう流れ、次の世代のチップでもっと極端になるんだけど……それは別の動画で詳しく話すね」\n\n🐹 もっちー「わかった。……あ、その前にタブレット元の場所に戻さなきゃ。飼い主、今日は帰ってくるの早いって言ってたやつだ」\n\n---\n\nきなこもっちーのテック深掘り では、AI/LLM を中心としたテック全般をハムスター（🐹 もっちー）とセキセイインコ（🦜 きなこ）の掛け合いで楽しく解説しています。\n\n▶️ 動画で観る → Sora終了の真因は品質じゃない——2026年動画生成AIの選び方\n\n👍 この記事が役に立ったら LGTM・ストックしてもらえると励みになります！\n\n📺 チャンネル登録はこちら → きなこもっちーのテック深掘り\n\n🔗 他の解説動画も見る → きなこもっちーのテック深掘り の動画一覧",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "3c6d9899ebce9a94",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.4855504587155964,
+      "popularityPercentile": 0.27522935779816515,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 76,
+      "titleJa": null,
+      "oneLiner": "Soraの終了理由を運用費と売上の差から分析し、2026年の動画生成AIの選び方を論じている。",
+      "takeaways": [
+        "Soraは2026年3月24日に終了を発表した。",
+        "運用費は1日1500万ドルと推定された。",
+        "サービス全体の売上は約210万ドルだった。"
+      ],
+      "keywords": [
+        "Sora",
+        "OpenAI",
+        "Veo 3",
+        "動画生成AI",
+        "AI動画",
+        "コスト"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "2026/9/6主にITとかセキュリティの記事",
+      "url": "https://qiita.com/pitopito/items/bb32ab37a9074ca5a479",
+      "publishedAt": "2026-09-05T19:20:10.000Z",
+      "author": "浩 釜本",
+      "authorDetail": {
+        "name": "浩 釜本",
+        "handle": "@pitopito",
+        "url": "https://qiita.com/pitopito",
+        "avatarUrl": "https://secure.gravatar.com/avatar/d301ec427285245483cff6d1c8f4fb3c",
+        "followers": 104,
+        "posts": 1688,
+        "links": []
+      },
+      "tags": [
+        "Security",
+        "ニュース"
+      ],
+      "snippet": "ネットワーク管理製品「SonicWall NSM」に深刻な脆弱性 - 修正版を公開(9/4) https://www.security-next.com/189848 「VMware Workstation」「Fusion」に「クリティカル」脆弱性(9/4) https://www.security-next.com/189843 日本交通への不正アクセス、保有ファイルの一部が外部流出(9/4) https://s.netsecurity.ne.jp/article/2026/09/04/56132.html ゼロクリック攻撃でセルビア人活動家のスマホがスパイウェアに感染(9/4) https://codebook.machinarecord.com/threatreport/silobreaker-cyber-alert/47594/ チェック・ポイント・リサーチ、中国語話者の脅威グルー…",
+      "body": "ネットワーク管理製品「SonicWall NSM」に深刻な脆弱性 - 修正版を公開(9/4)\nhttps://www.security-next.com/189848\n\n「VMware Workstation」「Fusion」に「クリティカル」脆弱性(9/4)\nhttps://www.security-next.com/189843\n\n日本交通への不正アクセス、保有ファイルの一部が外部流出(9/4)\nhttps://s.netsecurity.ne.jp/article/2026/09/04/56132.html\n\nゼロクリック攻撃でセルビア人活動家のスマホがスパイウェアに感染(9/4)\nhttps://codebook.machinarecord.com/threatreport/silobreaker-cyber-alert/47594/\n\nチェック・ポイント・リサーチ、中国語話者の脅威グループ「Gambling Goblin」を発見し、大規模なSEO詐欺の手口を公開(9/4)\nhttps://prtimes.jp/main/html/rd/p/000000546.000021207.html\n\n「Cisco Nexus 9000」に深刻なRCE脆弱性 - 修正版を提供(9/4)\nhttps://www.security-next.com/189869\n\nOpenAI、最新モデル「Astra」を公開--セキュリティ専門家からは懸念の声も(9/4)\nhttps://japan.zdnet.com/article/35252295/\n\nボットネットが標的とする多様なCPUアーキテクチャに関する分析(9/3)\nhttps://qiita.com/melkruri/items/a877865ec35f1d095a2d\n\nAI攻撃の脅威は「これから数カ月」で変わる　OpenAIらが共同声明(9/4)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2609/04/news027.html\n\nOpenAI、最新モデル「Astra」を公開--セキュリティ専門家からは懸念の声も(9/4)\nhttps://news.yahoo.co.jp/articles/4a9a95c9a200fde46e5152810d41c0cf92819dd1\n\nOpenAIの次期モデル「Astra」、サイバー能力が初の“重大”水準に(9/3)\nhttps://wired.jp/article/openai-astra-first-ai-model-with-critical-cyber-abilities/\n\n東京都管工事工業協同組合ウェブサイトが改ざん、CMS の脆弱性を悪用(9/4)\nhttps://www.excite.co.jp/news/article/Scannetsecurity56128/\n\n米OpenAIがGPT-6 Astra発表「AGI時代へようこそ」(9/4)\nhttps://exawizards.com/column/ai-trend/news-09-04-2026/\n\nセントラルコンサルタント コーポレートサイトに不正アクセス、外部との不正な通信も確認(9/4)\nhttps://www.excite.co.jp/news/article/Scannetsecurity56127/\n\nオープンＡＩが新モデル発表、過去最高性能　監視回避行動に警告も(9/4)\nhttps://topics.smt.docomo.ne.jp/article/reuters/business/reuters-20260904022\n\nOpen AI、安全性が高い高性能AIモデル「GPT‑6 Astra」を発表(9/4)\nhttps://www.macotakara.jp/news/entry-51742.html\n\nチャールズ・ホスキンソン氏、AI障害の原因を推察(9/4)\nhttps://jp.beincrypto.com/ai-outage-chatgpt-claude-grok/\n\nレノボの認証連携を悪用したDropboxの不正アクセスについてまとめてみた(9/4)\nhttps://piyolog.hatenadiary.jp/entry/2026/09/04/141128\n\nNightmare Eclipse、CrowdStrike Falconの特権昇格ゼロデイPoCをリリース(9/4)\nhttps://codebook.machinarecord.com/threatreport/silobreaker-cyber-alert/47577/\n\nISMSの“コンサル丸投げ”が招く数千万円の無駄　NTTドコモビジネスの脱出劇(9/3)\nhttps://techtarget.itmedia.co.jp/tt/article/2609/03/2000001064/sum\n\n三井不動産に不正アクセス、最大5万5000件の情報漏えい可能性　一連の流れを整理(9/4)\nhttps://kn.itmedia.co.jp/kn/article/2609/04/2000001151/\n\nオープンAIが新モデル発表、過去最高性能　監視回避行動に警告も(9/4)\nhttps://media.dglab.com/2026/09/04-reuters-01-3/\n\nあなたの詐欺スタックは人間の脅威に対して構築されていた(9/3)\nhttps://www.unite.ai/ja/captcha-dead-ai-agent-fraud-prevention/\n\nOpenAIが最強モデルAstraを発表：AGI時代前夜、アキレス腱が現れ始める(9/4)\nhttps://www.panewslab.com/ja/articles/01a06a89-77a9-717f-8a05-46e05def4f76\n\nアメリカで1億5千万点以上の運転免許証などID情報が流出！今できる対策は？(9/3)\nhttps://mikissh.com/diary/massive-drivers-license-breach-us/\n\nOpenAIが「GPT-6 Astra」を提供開始、サイバー攻撃能力懸念で一時開発停止(9/4)\nhttps://xtech.nikkei.com/atcl/nxt/news/24/03373/\n\n“攻撃の民主化”が進むAI時代、Rubrikが説く「データとAIの守り方」(9/4)\nhttps://news.yahoo.co.jp/articles/8b5869715f92a3679da91d9c941864d4eea0abbb\n\nTwo Sigmaのシュウ・ファン氏：クオンツファームがAIエージェントを完全なユーザーIDとして運用する理由(9/4)\nhttps://finance.biggo.jp/news/30b4b74b7ff79810\n\nUbuntu 26.04.1のリリース⁠⁠、stonking（Ubuntu 26.10）の開発; MynaのプロトタイプとOpenSSL 4⁠⁠、Rustトランジション⁠⁠、“Multipass”によるクラウドシミュレーション(9/4)\nhttps://gihyo.jp/admin/clip/01/ubuntu-topics/202609/04\n\nTrendAI™、OpenAIのGPTサイバーモデルを活用し、エクスポージャー時間ゼロへの競争を加速(9/4)\nhttps://www.trendmicro.com/jajp/research/26/i/trendai-brings-openai-daybreak-models-into-the-race-to-shrink-exposure-time-to-zero.html\n\nSNS投稿やPTAの個人情報も！組織がセキュリティインシデントを招く要因とは？(9/4)\nhttps://dime.jp/genre/2150231/\n\nイベントECサイト「machicon JAPAN」でシステム不具合による個人情報表示(9/4)\nhttps://www.excite.co.jp/news/article/Scannetsecurity56131/\n\nノーショナル・ファイナンスで170万ドル流出　整数オーバーフロー脆弱性(9/4)\nhttps://jp.beincrypto.com/notional-finance-exploit-integer-overflow-bug/\n\nAIエージェントが「想定外の経路」で攻撃？　Black Hat・DEF CONで見えた新たなセキュリティリスク(9/4)\nhttps://ascii.jp/elem/000/004/431/4431682/?rss\n\nＯｐｅｎＡＩ「ＧＰＴ－６　Ａｓｔｒａ」公開、サイバー能力が初の「Ｃｒｉｔｉｃａｌ」、安全対策を強化(9/4)\nhttps://kabu-ir.com/article/521482934.html\n\nBolster AI、ダークウェブ偽造通貨市場の捏造された規模を明らかに(9/3)\nhttps://www.unite.ai/ja/bolster-ai-reveals-fabricated-scale-behind-dark-web-counterfeit-market/\n\n【山口】増加するサイバー犯罪に立ち向かうには？山口大学で警察や学生を対象にサイバー攻撃対処訓練(9/4)\nhttps://news.yahoo.co.jp/articles/2c630c063bc905042e69285d5c434f518041d168\n\nGPT-6 Astra発表、他社比較で見えたコーディング効率と監視の課題(9/4)\nhttps://xenospectrum.com/gpt-6-astra-capabilities-safety/\n\nCodexとSlackを連携すると何ができる？使い方と注意点を解説(9/4)\nhttps://shift-ai.co.jp/blog/71252/\n\n「Fable 5.1」と「Mythos 5.1」がリリースされたことを受け、BTCを盗む偽の「Claude」アプリに騙されないようにしてください。(9/3)\nhttps://news.bitcoin.com/ja/security/fable-5-1-mythos-5-1-ga-riri-su-sareta-koto-wo-uke-btc-wo-nusumu-nise-no-claude-apuri-ni-damasarenai-you-ni-shite-kudasai/\n\n米運転免許証データ1.6億件超が流出した可能性−FBIが捜査(9/4)\nhttps://topics.smt.docomo.ne.jp/amp/article/tbsbb/business/tbsbb-2920207\n\n新型モデル「ＧＰＴ６アストラ」提供　サイバー能力で最上位―米オープンＡＩ(9/4)\nhttps://www.jiji.com/jc/article?k=2026090400321&g=int\n\nゼロトラストは「全部やる」と失敗する？ ガートナーが示す成功への8ステップ(9/4)\nhttps://news.yahoo.co.jp/articles/430fc17a77aa8e8f46ab5e2664a4256cf00e283b\n\n「GPT-6 Astra」登場、PC操作が非常に上手で「Blenderで3Dモデルを作ってUE5で歩ける空間にする」なども可能＆ARC-AGI-3で99.9％を達成(9/4)\nhttps://gigazine.net/news/20260904-openai-gpt-6-astra/\n\nJapan Datadog User Group Meetup#21@東京に、「全リクエストのレイテンシを保存する方針の検討」というテーマで LT 登壇しました(9/4)\nhttps://future-architect.github.io/articles/20260904a/\n\nレノボの認証連携を悪用したDropboxの不正アクセスについてまとめてみた(9/4)\nhttps://piyolog.hatenadiary.jp/entry/2026/09/04/141128\n\nライザップ、利用者の個人情報を生成AIに誤送信　疾患情報も　同社謝罪(9/4)\nhttps://japan.cnet.com/article/35252303/\n\n無償OSSを“商用扱い”　「12時間以内の復旧」を迫る“都合のいい企業”の末路(9/4)\nhttps://techtarget.itmedia.co.jp/tt/article/2609/04/2000001146/\n\nRIZAP、外部生成AIサービスへの顧客情報アップロードを謝罪「当該事業者以外の第三者に閲…(9/3)\nhttps://cont.t-com.ne.jp/entame/9311641.html\n\n2つの重要インフラ組織へ行われたレッドチーム評価についてまとめてみた(9/4)\nhttps://piyolog.hatenadiary.jp/entry/2026/09/04/134335\n\nメール配信システム「める配くん」の一部サーバに不正アクセス、配信先情報の一部が外部に取得されていた事実を確認(9/4)\nhttps://www.excite.co.jp/news/article/Scannetsecurity56129/\n\nRIZAP、外部生成AIサービスへの顧客情報アップロードを謝罪「当該事業者以外の第三者に閲覧された可能性、および、生成AIの学習に利用された可能性はないことを確認」(9/3)\nhttps://www.sankei.com/article/20260903-CESIUQ7SIZOKTNMFDNS43FKGKQ/?outputType=themeoriconnews\n\n当社利用の有償クラウドサービスの第三者による不正利用に関するお知らせ（第一報）(9/4)\nhttps://www.scat.inc/news/2026/09/04/537\n\nだから「SASE」と「ゼロトラスト」を混同してはいけない――企業が陥る“幻想”の正体(9/4)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2609/03/news010.html\n\nAIセキュリティのCoWorker、AIが変えた「攻撃の経済性」をテーマとした『サイバーセキュリティ白書 2026.9』を発刊(9/4)\nhttps://prtimes.jp/main/html/rd/p/000000041.000156001.html\n\nOpenAIが重要インフラ向けサイバー防御に10億ドル投じる「Daybreak for Frontline Defenders」を発表(9/4)\nhttps://topics.smt.docomo.ne.jp/article/mycom/business/mycom3224263?utmmedium=article\nhttps://news.mynavi.jp/techplus/article/20260904-4915178/\n\nChatGPT・Copilot・Gemini… 業務視点でどう選べるか？ ChatAI 13 製品を「8つの独自指標」で比較してみた｜中小企業・管理職のための導入判断ガイド(9/4)\nhttps://qiita.com/songchong/items/78a9d9c28506ff90d331\n\nBinance、セキュリティ警告装う偽SMSに警戒　短縮URLで偽サイト誘導(9/4)\nhttps://www.digitaltoday.co.kr/jp/view/100219/binance-warns-against-smishing-texts-impersonating-security-alerts-beware-short-links\n\nAnthropic、最新AIモデル「Claude Fable 5.1」と「Claude Mythos 5.1」を発表。科学研究能力の強化やコスト効率の向上を実現(9/3)\nhttps://aismiley.co.jp/ainews/anthropic-fable-5-1-mythos-5-1/\n\nエージェント型プラットフォームへ舵を切るSlack、Teamsとの競争の行方(9/4)\nhttps://forbesjapan.com/articles/detail/104091\n\nTving、ハッキング被害顧客に1人当たり300万ウォン（約35万円）補償…セキュリティ投資は4倍に(9/3)\nhttps://finance.biggo.jp/news/97e4385d-58b0-47b3-be6f-a35e6c622b00\n\n島根原子力発電所の放射線監視システムにサイバー攻撃…県「ランサムウェアによる被害」と発表(9/4)\nhttps://www.yomiuri.co.jp/local/kansai/news/20260904-GYO1T00070/\n\nランサムウエア感染、なぜ多発？　「分業」で攻撃進化　被害を最小限に抑える対策とは(9/4)\nhttps://www.jiji.com/jc/v8?id=202608ransomwareP1\n\nなぜ経営陣に危機感が伝わらない？　CISOの半数以上が苦悩する「AIエージェント制御」のリアル(9/4)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2609/04/news042.html\n\nColdcard第3波ハッカー、盗難ビットコインを初移動——THORChain経由でイーサに交換(9/3)\nhttps://finance.biggo.jp/news/4203cf20-cdf9-4df5-a631-2f0a3c03861b",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "19508c19959c033f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5430428134556575,
+      "popularityPercentile": 0.021406727828746176,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "SonicWallやVMwareなどの脆弱性と情報流出を扱う2026年9月6日向けのITセキュリティ記事一覧だ。",
+      "takeaways": [
+        "SonicWall NSMに深刻な欠陥の修正版が出た。",
+        "VMware製品とCisco製品にも重大な欠陥が見つかった。",
+        "日本交通では不正アクセスによるファイル流出が起きた。"
+      ],
+      "keywords": [
+        "SonicWall NSM",
+        "VMware Workstation",
+        "VMware Fusion",
+        "Cisco Nexus 9000",
+        "OpenAI Astra",
+        "脆弱性"
+      ],
+      "category": "その他",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "オセロで学ぶMulti-Framework(React) × Agentforce——チャットUIからApex直接呼び出しへ",
+      "url": "https://qiita.com/4geru/items/0569506fe3fef9090acd",
+      "publishedAt": "2026-09-05T12:54:26.000Z",
+      "author": "4geru",
+      "authorDetail": {
+        "name": "4geru",
+        "handle": "@4geru",
+        "url": "https://qiita.com/4geru",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/64677/profile-images/1764625734",
+        "bio": "エンジニア初心者です。",
+        "followers": 65,
+        "posts": 62,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/4geru"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/_4geru"
+          }
+        ]
+      },
+      "tags": [
+        "AgentScript",
+        "Agentforce",
+        "Apex",
+        "React",
+        "Salesforce"
+      ],
+      "snippet": "はじめに きっかけはSalesforce Mult-Framework を使用した React による UI 開発（Salesforce Developers Blog, 2026-04）という記事でした。 TDX 2026で発表された Salesforce Multi-Framework を使うと、Developer Edition のSalesforce組織上でReactアプリをネイティブに動かせます。これを触ってみたくて、Developer Edition組織に手始めのReactアプリをいくつか作っていく中で、「どうせなら動くものを作ろう」とオセロを実装しました。 作ったはいいものの、1つの画面を2人で交代しながら使う対戦だと1人では遊べません。対戦相手が欲しくなり、「Agentforceエージェントを作って対戦相手にすればいいのでは」と思いつき、Agent Scriptでオセロアド…",
+      "body": "はじめに\n\nきっかけはSalesforce Mult-Framework を使用した React による UI 開発（Salesforce Developers Blog, 2026-04）という記事でした。\n\nTDX 2026で発表された Salesforce Multi-Framework を使うと、Developer Edition のSalesforce組織上でReactアプリをネイティブに動かせます。これを触ってみたくて、Developer Edition組織に手始めのReactアプリをいくつか作っていく中で、「どうせなら動くものを作ろう」とオセロを実装しました。\n\n作ったはいいものの、1つの画面を2人で交代しながら使う対戦だと1人では遊べません。対戦相手が欲しくなり、「Agentforceエージェントを作って対戦相手にすればいいのでは」と思いつき、Agent Scriptでオセロアドバイザーエージェントを作って、両者を繋ぐ検証を始めました。最終的には、当初想定していた「チャットで対局する」を通り越して、チャットUIを一切使わずApexから直接エージェントを呼び出して自動対戦するところまでたどり着きました。実際に動いている様子はこちらです。\n\nhttps://x.com/4geru/status/2095134990896185676\n\nこの記事は、その一連の過程（オセロを作る→エージェントを作る→繋ぐ→チャットだと不便で直接呼び出しに切り替える）の記録です。開発・検証は Developer Edition 組織で行いました。\n\n実装はすべてClaude Codeと一緒に開発しました。 つまずいた箇所やエラーメッセージも脚色せず、実際にやり取りした内容そのまま赤裸々に語ります。\n\nStep 1: React on Salesforceでオセロを作ってみた\n\nSalesforceでは、アプリの画面や設定といった「構成」の情報をメタデータと呼びます。Salesforce Multi-Frameworkもこの仕組みに乗っていて、実体は UIBundle というメタデータの1種類です。sf CLIでプロジェクトにReactアプリのひな形を生成し、Vite + TypeScript + Tailwindで実装を進め、sf project deploy start でデプロイすると、https:// --c. .my.salesforce.app/app/c という専用ドメインでアプリが動きます。App Launcherから開けるようにするには、UIBundle を参照する CustomApplication と、それを見えるようにする PermissionSet も一緒にデプロイします。\n\nオセロ自体のロジック（合法手判定・石の反転・パス・勝敗判定）はSalesforce固有の話ではない、素朴なReactの状態管理です。\n\nここまでで、1台の画面を2人で使って交代しながら打つオセロが動くようになりました。デプロイ自体はCLIで完結しますが、盤面が正しく描画されるか、App Launcherで検索したときにちゃんとアプリが見つかるかは、Claude Codeにはブラウザが見えないので実際に画面を開いて自分の目で確認しました。\n\nまずはApp Launcherで、OthelloAppが候補に出てくるかを確認します。\n\n \n\n開くと、こんな感じのシンプルな盤面が表示されます。この時点ではAgentforce関連の要素は何もなく、クリックで黒白交互に石を置くだけの2人対戦です。\n\n \n\nこの時点でできているファイルは次の通りです。\n\n [code] \n\nStep 2: できたけど物足りない — Agentforceを対戦相手にする\n\n盤面はできましたが、対戦相手がいません。友達を呼んでくるわけにもいかないので、「Agentforceエージェントを対戦相手にしよう」と思い立ちました。\n\nAgentforceとは\n\nAgentforce はSalesforceのAIエージェントプラットフォームです。エージェントの作り方は2通りあり、Agentforce Studio（管理画面）でGUIから部品を組み立てる方法と、Agent Script というテキストの言語でスクリプトとして書く方法があります（Agent Script）。今回はテキストで書く方法を使い、以下のブロックでOthelloAdvisor.agentを書きました。\n・system: 人格・メッセージ\n・config: 開発者名・エージェント種別\n・startagent: トピックごとの指示とaction定義\n\n今回作ったOthelloAdvisorは agenttype: AgentforceEmployeeAgent — 社内向け（Employee向け）のエージェントです。Agentforceには他に、Webサイトや問い合わせ対応で使う顧客向けのService Agent、Slack上で動くエージェントなど、用途別のタイプがありますが、今回はオセロの対戦相手なので社内向けタイプで十分でした。\n\n実際のファイルの中身はこんな感じです。オセロのルール説明・戦略アドバイス・次の一手提案をするよう指示を書いています。\n\n [code] \n\nこの時点のエージェントは、あくまで「聞かれたら答える」チャットボットです。盤面を見て自分から手を選ぶ仕組みはまだ何もありません。オセロの盤面アプリとAgentforceエージェント、2つのパーツが揃ったところで、次はこれを繋ぎ込む番です。\n\nStep 3: まずはチャットで対戦させてみる\n\n盤面とエージェントを繋ぐには、①盤面の状態をエージェントに渡す経路を作る、②エージェントが「見た目のアドバイス」ではなく「合法手の中から実際に選んだ一手」を返せるようにする、の2つが必要です。\n\n:::note\nこの過程で3つのつまずきがありました。以下は影響が大きかった順で、実際に遭遇した順ではありません。\n:::\n\n設計方針: 合法性の判定はApex、どの手を選ぶかはエージェントに任せる\n\nLLMに「オセロ盤面のテキストを見せて次の一手を聞く」だけだと、存在しないマスや反則手を平気で提案してくる（ハルシネーション）リスクがあります。なのでここは役割分担にしました。\n・合法手の計算はApexが保証する: 標準的なオセロの反転ルールに従い、置ける場所を機械的に列挙する\n・どの手を選ぶか（角優先・X/C-square回避・着手可能数の確保など）はエージェントのreasoningに任せる\n\n [code] \n\n盤面はこんな固定フォーマットのテキストでやり取りすることにしました。人間が手で組み立てることはなく、React側で機械的に生成する前提なので、可読性より厳密パース優先です。\n\n [code] \n\nつまずき①: チャット埋め込みSDKには「送る」も「読む」もAPIが無かった\n\n盤面をエージェントに渡すために、まずはUIBundleに @salesforce/agentforce-conversation-client というSDKでAgentforceのチャットウィジェットを埋め込みました。これでReactから盤面を送れるだろうと思っていたのですが、型定義とREADMEを読むと、公開APIは以下だけでした。\n\n [code] \n\nonReady と onError というライフサイクルイベントと、chatClientComponentという生のDOM要素が返るだけで、チャットにメッセージを送り込む・Botの返答を読み取るための公開APIは見当たりませんでした。理由は単純で、このSDKはLightning Out 2.0でチャットUIをiframeとして描画しているだけの薄いラッパーだからです（lo.iframe.error というイベント名が型定義に出てくることからも分かります）。iframeの中身は別ドキュメントなので、親ページのJavaScriptからは触れません。\n\nつまり「Reactが自動で盤面を送り、返答を自動でパースして盤面に反映する」という完全自動連携は、このSDKの範囲では不可能でした。\n\nしかたないので、まずはリレー方式で乗り切ることにしました。Reactに「エージェント用の盤面テキストをコピー」ボタンを置き、ユーザーが手動でチャットに貼り付けて送信し、返ってきた (C, 4) のような座標を読んで盤面をクリックする、という運用です。\n\n [code] \n\n最初のバージョン（リレー方式）。オレンジ色の区間が人間の手作業、水色の区間がエージェントの思考。エージェント自身は合法手の中から実際に考えて手を選んでいるが、人間が2箇所で盤面とチャットを橋渡ししている\n\nエージェント自身は実際に合法手の中から考えて手を選んでいるので「対戦」としては成立しますが、体験としては明らかに面倒でした。\n\nつまずき②: Agent Scriptのactions:ブロックとApexのフィールド名を一致させる\n\nApexのOthelloMoveAdvisorをエージェントから呼べるようにするには、Agent Script側でActionを宣言する必要があります。公式のサンプルを参考に、こう書きました。\n\n [code] \n\nsf agent validate authoring-bundle はエラー0件で通りました。ところが sf agent publish authoring-bundle を実行すると、こう怒られました。\n\n [code] \n\n原因は単純で、Action定義のinputs/outputsの名前は、紐づくApexクラスの@InvocableVariableフィールド名と完全に一致していないといけないのに、私はAgent Script側だけ慣習的にスネークケース（boardtext）で書いていました。Apex側はboardText（キャメルケース）です。sf agent validateのコンパイルチェックはAgent Scriptの構文だけを見ていて、Apexとの整合性まではチェックしてくれないため、ここは実際にpublishするまで気づけませんでした。\n\nboardtext → boardText、isvalid → isValid、mustpass → mustPass … とApexのフィールド名にすべて揃えたら通りました。\n\nつまずき③: GenAiPlannerBundleを直接デプロイしてはいけない\n\nAction定義を書く前、実は一度別の詰まり方をしています。エージェントの構成を更新しようとして、素朴にsf project deploy start -m \"GenAiPlannerBundle:OthelloAdvisorv1\"を実行したところ、こうなりました。\n\n [code] \n\n:::note alert\nGenAiPlannerBundleはBuilder（またはAgent Script publish）が生成する成果物であって、人間が直接いじってデプロイするものではありません。-m \"GenAiPlannerBundle:...\"を指定した単体デプロイは行わないでください。\n:::\n\n正しい手順は次の3コマンドでした。\n\n [code] \n\npublishが中でAgent Scriptのコンパイル→org反映→Bot/BotVersion/GenAiPlannerBundleの生成・retrieveまで面倒を見てくれるので、GenAiPlannerBundleを単体で触る必要はそもそもありませんでした。ここまで、Apexのデプロイ・Agent Scriptのvalidate/publish/activateはすべてCLI（＝Claude Codeとのペアプロ）で完結しています。\n\nStep 4: それでも物足りない — Apexから直接呼び出してみる\n\nリレー方式は動くには動きましたが、対戦のたびに「コピー→チャットに貼る→送信→返答を読む→クリック」を繰り返すのは正直しんどい。チャットUIを経由しない方法を探しました。\n\nブレイクスルー: Apexから直接エージェントを呼び出せることが分かった\n\nつまずき①で「チャットSDKには送受信APIが無い」と書きましたが、これはあくまでチャットUIを外側から操作しようとした場合の話でした。視点を変えて、チャットUIを経由せずApexから直接エージェントを呼び出す方法を探したところ、Invocable.ActionクラスにcreateCustomActionというメソッドがあり、Botをアクションの一種として直接invokeできることが分かりました。\n\n [code] \n\nチャットの画面もセッションも介さず、Apexのメソッド呼び出し1つでエージェントの頭脳部分だけを叩けるというのが、この発見の核心です。\n\n匿名Apexで試したところ、実際にエージェントの応答がテキストで返ってきました。\n\n [code] \n\nしかも Number of callouts: 0 out of 100 — コールアウトのガバナ制限を一切消費しませんでした。OAuthもNamed Credentialも一切不要でした。\n\n実装: チャット無しで完結する自動対戦\n\nOthelloMoveAdvisor（合法手の計算）はそのまま使い、新たにOthelloAgentMoveというApexクラスを追加しました。役割は「合法手を確認する→エージェントを呼ぶ→返答をパースする→合法手リストと照合し、ダメなら先頭の合法手にフォールバックする」です（エラーハンドリング部分は省略した抜粋です）。\n\n [code] \n\nこのフォールバックが地味に重要で、LLMの返答が期待した形式から外れたり、合法手ではない座標を言ってきたりしても、ゲームが止まらずに進行します。座標の抽出も、最初に見つかった座標をそのまま使うと、エージェントが「(D,3)も候補だが(E,6)にする」のように複数の座標を返答に含めた場合に誤った手を拾ってしまうため、合法手リストと照合しながら最後に言及された座標を優先するようにしています。\n\nReactからは、このOthelloAgentMoveを@RestResourceでApex RESTのエンドポイントとして公開し、@salesforce/platform-sdkの認証済みfetchで叩くようにしました。白番になったタイミングで自動的に呼び出すuseEffectを仕込んだことで、ユーザーは何もしなくてもエージェントが自動で一手を返してくるようになりました。\n\n:::note warn\nInvocable.Action.invoke()はエージェントの応答が返るまでApexが同期的に待つ処理です。オセロ程度なら数秒で収まりますが、本番でリクエスト数が増える場合は「長時間実行中の同期リクエスト（5秒超）は組織あたり同時10件まで」という制限に触れる可能性があります。Queueable Apexや非同期処理＋ポーリングへの切り替えも検討事項です。また今回のRESTエンドポイントは、クラスへのアクセス権を持つ認証済みユーザーなら誰でも叩けます（＝誰でもAgentforce Actionを課金消費できる）。対戦者を絞りたい場合はPermissionSetの割り当て範囲を絞るなどの対策が必要です。\n:::\n\n [code] \n\n最終的な構成。青い区間がすべて自動化された範囲。チャットUIも人間の手動操作も介在せず、Apexだけで「盤面を渡す→エージェントが選ぶ→反映する」が完結する\n\n \n\n結果\n\n「Agentforceと対戦」をONにして黒番（自分）を打つと、白番になった瞬間にエージェントが考えて一手返してくる、というところまで動くようになりました。Apexテストは合法手判定・エージェント呼び出し・REST部分あわせて14本、すべてorg上でPassしています（テスト実行環境からは実際のエージェント呼び出しはできないため、テストが検証しているのはフォールバック経路までです。エージェントが実際に手を選ぶ挙動自体は、匿名Apexとブラウザでの動作確認で確かめています）。\n\n構成の変化をまとめると次の通りです。\n\n| | Before（リレー方式） | After（Apex直接呼び出し） |\n|---|---|---|\n| 盤面をエージェントに渡す | 人間がコピペ | Apex REST呼び出しで自動 |\n| エージェントの返答を読む | 人間がチャットを見る | Apexがレスポンスをそのまま受け取る |\n| 盤面への反映 | 人間がクリック | Reactが自動反映 |\n| 必要な認証設定 | （チャットのログインセッションのみ） | 追加設定なし（Calloutも消費しない） |\n\n出来上がったファイル構成\n\n今回はカスタムオブジェクトを1つも作らず、すべてメタデータで完結しました。最終的に触ったファイルを整理すると、こうなります。\n・自分で書いたもの: OthelloAdvisor.agent（Agent Script本体）と、Apexクラス3本（OthelloMoveAdvisor.cls / OthelloAgentMove.cls / OthelloAgentMoveResource.cls、それぞれテスト付き）\n・sf agent publishが自動生成したもの: bots/ と genAiPlannerBundles/ の配下すべて。書いたのは.agentファイル1つなのに、実行系のメタデータ一式がここに出てきます\n\n全体のツリーはこちらです。\n\n [code] \n\n特にagentGraph/.jsonは、Agent Scriptがコンパイルされた実行時グラフの生の中身です。普段は意識しませんが、「Agent Scriptは最終的にこの状態機械にコンパイルされている」ことが実感できて面白いです。\n\nまとめ\n\nなお今回はApexから直接呼び出す経路を選びましたが、Salesforceは会話型のエージェントAPIとして/einstein/ai-agent/v1/というREST APIも公式に提供しています。ApexやSalesforce外部から会話セッションを扱いたい場合はそちらも選択肢になるはずなので、あわせて調べてみると良いかもしれません。\n\nAgent Scriptと Apex Invocable Action の組み合わせは、まだ日本語の実例が少ない領域でした。同じようにAgentforceを自分のアプリに組み込もうとしている方の参考になれば幸いです。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c40e50b9349a757e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8892354740061162,
+      "popularityPercentile": 0.9510703363914373,
+      "matchedTopics": [
+        "React",
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "React製オセロとSalesforceのAgentforceを接続し自動対戦を実現している。",
+      "takeaways": [
+        "Salesforce上で対戦ゲームを動かした。",
+        "Agentforceを対戦相手にした。",
+        "会話画面なしで自動対戦まで実現した。"
+      ],
+      "keywords": [
+        "Agentforce",
+        "React",
+        "Apex",
+        "Agent Script",
+        "Salesforce",
+        "Claude Code"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Codexの codex fork --last で会話を分岐する — 元の相談を残して別案を10分で試す",
+      "url": "https://qiita.com/akira_papa_AI/items/65f663404a19c2878871",
+      "publishedAt": "2026-09-05T13:32:17.000Z",
+      "author": "あきらパパ",
+      "authorDetail": {
+        "name": "あきらパパ",
+        "handle": "@akira_papa_AI",
+        "url": "https://qiita.com/akira_papa_AI",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/435233/3aea22c8644dc7da73abcbeeb73b349565f1ac87/x_large.png?1743893740",
+        "bio": "生成AI、プログラミング、IT、自己成長、課題解決などのお役立ち情報をアップしてるんで見てね～😊⭐ 34歳。3児のパパ。仕事は、主にシステム開発・プログラミング教育を行ってます～♫フォローぜひ🙌",
+        "followers": 1357,
+        "posts": 126,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/Akira-Papa"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/akira_papa_IT"
+          }
+        ]
+      },
+      "tags": [
+        "codex",
+        "OpenAI",
+        "AIエージェント",
+        "CLI",
+        "初心者"
+      ],
+      "snippet": "「別の方針も試してみたい。でも、ここまでの相談は残しておきたい」 AIエージェントと相談していると、こんな場面が出てきます。今の会話をそのまま書き換えるのは少し怖い。でも、最初から説明し直すのも大変です。 今回使うのは、Codex CLIの codex fork --last だけです。 これを使うと、直近の会話をもとに 別の会話へ枝分かれ できます。元の会話を残したまま別案を試せるので、試行錯誤の心理的な重さが少し下がるんですよね。 この記事のゴールはひとつです。 練習用の会話を分岐し、分岐先が元の会話の「合言葉」を答えられたら成功 10分ほどで試せるよう、MacまたはLinux向けの最小手順に絞ります。 codex fork --lastとは まず言葉をゆっくり整理しましょう。 ・AIエージェント: 質問へ答えるだけでなく、目的に合わせてファイルを読んだり、コマンドを実行したりしながら…",
+      "body": "「別の方針も試してみたい。でも、ここまでの相談は残しておきたい」\n\nAIエージェントと相談していると、こんな場面が出てきます。今の会話をそのまま書き換えるのは少し怖い。でも、最初から説明し直すのも大変です。\n\n今回使うのは、Codex CLIの codex fork --last だけです。\n\nこれを使うと、直近の会話をもとに 別の会話へ枝分かれ できます。元の会話を残したまま別案を試せるので、試行錯誤の心理的な重さが少し下がるんですよね。\n\nこの記事のゴールはひとつです。\n練習用の会話を分岐し、分岐先が元の会話の「合言葉」を答えられたら成功\n\n10分ほどで試せるよう、MacまたはLinux向けの最小手順に絞ります。\n\ncodex fork --lastとは\n\nまず言葉をゆっくり整理しましょう。\n・AIエージェント: 質問へ答えるだけでなく、目的に合わせてファイルを読んだり、コマンドを実行したりしながら作業を進めるAIです。\n・CLI: Command Line Interfaceの略で、ターミナルへ文字を打って操作する方式です。\n・ターミナル: パソコンへ文字のコマンドで指示を出すアプリです。macOSなら「ターミナル」アプリが最初から入っています。\n・セッション: Codexとのひとまとまりの会話です。質問と回答、その会話で共有した前提が含まれます。\n・fork: ある会話を出発点に、別の会話へ枝分かれすることです。\n\ncodex fork --lastは、現在の作業フォルダに関係する直近の対話セッションを選び、その文脈を引き継いだ新しいセッションを始めるコマンドです。\n\n木の枝を想像すると分かりやすいかもしれません。幹にあたる元の会話は残る。その途中から、新しい枝を1本伸ばす。そんな機能です。\n\nなぜ便利なのか\n\nたとえば、Codexと「READMEを簡潔にする方針」を相談していたとします。途中で「詳しい説明を残す案も見たい」と思ったとき、同じ会話で方針を反転させると、どの案が基準だったのか分かりにくくなることがあります。\n\nforkなら、元の相談を残したまま別案へ進めます。\n\n人間が決めるのは、どの会話を出発点にして、次は何を変えて試すか。Codexへ任せるのは、引き継いだ文脈を使って別案を考えること。役割が分かれるので、試行錯誤を整理しやすくなります。\n\n公開済みのcodex resumeとは目的が違います。混同を防ぐため、ここだけ押さえてください。\n\n| コマンド | 何が起きるか |\n|---|---|\n| codex resume --last | 元の会話そのものを続ける |\n| codex fork --last | 元の会話から別の会話へ分岐する |\n\n今回は下の行だけを使います。\n\n事前準備\n\n対象環境\n\nこの記事はMacまたはLinuxを対象にします。Windowsにも公式インストール手順はありますが、1本の手順を迷わず進めるため、今回は広げません。\n\nまた、Codexの利用にはサインインが必要です。画面表示や利用できるモデルは契約状態や更新で変わることがあるため、表示された案内に沿ってください。\n\nCodex CLIをインストールする\n\nすでにcodexを使える方は、この節を飛ばして大丈夫です。\n\n通常のターミナルで、公式リポジトリに掲載されているインストールコマンドを実行します。\n\n [code] \n\nインストールできたか確認します。\n\n [code] \n\n筆者の確認環境では、2026年9月5日時点で次の表示でした。\n\n [code] \n\nバージョン番号は更新で変わります。同じ数字でなくても、codex-cliと番号が表示されれば次へ進めます。\n\n初回サインインを済ませる\n\n通常のターミナルでCodexを起動します。\n\n [code] \n\n初回はサインイン方法を選ぶ画面が表示されます。公式リポジトリでは「Sign in with ChatGPT」が案内されています。認証が終わったら、いったんCtrl+Cで終了して構いません。\n\n10分ハンズオン\n\nここからは、既存のプロジェクトへ触れません。練習用の空フォルダだけを使います。\n\n1. 練習用フォルダを作る\n\n通常のターミナルで、次の3行を順に実行します。\n\n [code] \n\n最後に、次のような場所が表示されれば準備できています。\n\n [code] \n\nyour-nameの部分は人によって違います。表示を記事と同じに直す必要はありません。\n\n2. 合言葉を含む最初の会話を作る\n\n同じターミナルで、次を実行します。\n\n [code] \n\nここで使う「青いノート」はダミー文字列です。パスワード、APIキー、顧客名などの秘密情報は入力しないでください。\n\nCodexが応答したら、このセッションを終了します。入力欄でCtrl+Cを押し、終了しない場合はもう一度押します。通常のターミナルへ戻り、コマンドを打てる状態になれば大丈夫です。\n\n3. 直近の会話をforkする\n\nまだ /codex-fork-practice にいる状態で、次を実行します。\n\n [code] \n\nこの1行では、2つのことをしています。\n・fork --lastで、このフォルダの直近セッションから新しい会話を分岐する\n・末尾の文章を、新しい分岐先で最初の質問として渡す\n\n4. 成功を確認する\n\n分岐先のCodexが、次のように答えれば成功です。\n\n [code] \n\n表現に句読点が加わることはあります。それでも合言葉が一致していれば、元の会話の文脈が分岐先へ引き継がれたと確認できます。\n\nこれで、AIエージェントをただ起動しただけではなく、会話を残したまま別の枝へ進む ところまで動かせました。\n\nどんなときに使うか\n\n最初は、設計案を2方向で試したいときに使うのが分かりやすいと思います。\n\nたとえば元の会話で「READMEを短くする方針」を固めたあと、fork先では「初回利用者向けの説明を残す案」を頼む。元の方針を消さず、別案だけを育てられます。\n\n一方で、同じ作業をそのまま続けたいだけならforkする必要はありません。その場合はcodex resume --lastで十分です。枝分かれが価値になる場面でだけ使う。これくらいの距離感がちょうどいいかなと思います。\n\nつまずきポイント\n\n1. codex: command not foundと出る\n\nCodex CLIが未インストールか、インストール先へパスが通っていない可能性があります。まずターミナルを閉じて開き直し、次を確認します。\n\n [code] \n\nまだ見つからない場合は、公式インストール手順をもう一度確認してください。\n\n2. forkが使えない、未知のサブコマンドと表示される\n\nCLIが古い可能性があります。まず現在のhelpを確認します。\n\n [code] \n\nこの記事で確認した0.150.1では、fork、--last、任意のPROMPTがhelpに表示されました。更新方法はインストール方式によって異なるため、公式Codex CLIページの最新案内に従ってください。\n\n3. forkするセッションが見つからない\n\n最初の会話を作ったフォルダと、forkを実行したフォルダが違う可能性があります。通常のターミナルで確認します。\n\n [code] \n\n/codex-fork-practiceへ戻ってから、もう一度実行します。\n\n [code] \n\n4. 別の会話が選ばれたように見える\n\n--lastは直近のセッションを選ぶため、ハンズオンの途中で同じフォルダから別のCodex会話を始めると、対象が変わることがあります。練習中は別の会話を挟まず、最初の会話を終えた直後にforkしてください。\n\n5. サインイン画面へ戻る\n\n認証が完了していないか、認証の有効期限が切れた可能性があります。画面の案内に沿ってサインインし直してください。秘密のトークンを記事やチャットへ貼る必要はありません。\n\n6. 合言葉以外の文章も返ってくる\n\nAIの文章は毎回まったく同じになるとは限りません。「青いノート」が含まれていれば今回の成功条件は満たしています。完全一致の自動テストではなく、初心者が文脈継承を目で確かめる練習です。\n\n7. Ctrl+Cを1回押しても終了しない\n\n入力中の内容を消す動作になる場合があります。通常のターミナルへ戻らなければ、もう一度Ctrl+Cを押してください。終了後にシェルのプロンプトが表示されれば次へ進めます。\n\n8. セッションが増えて分かりにくくなった\n\nforkは新しい枝を増やす機能です。練習では1回だけ実行し、意味のある分岐に絞るのがおすすめです。増やすこと自体が目的になると、あとで探す時間が増えてしまいます。\n\n限界と、使わなくてよい条件\n\ncodex forkは便利ですが、Gitのブランチやファイルのバックアップを置き換える機能ではありません。会話を分岐する機能であって、すべてのファイル状態を永続的に保証する仕組みではないからです。大事なコードの履歴は、引き続きGitなどで管理してください。\n\nまた、直近セッションの選択、認証、利用枠、CLIの版に影響されます。この記事ではcodex-cli 0.150.1でhelp構文まで実機確認しましたが、モデル応答を伴うforkの完走は筆者環境では動作未確認です。\n\nそして、別案を試さず同じ相談を一本道で続ける人には、forkは増やさなくてよい操作です。無料でできる小さな判断は、「元を続けたいのか、元を残して別案へ進みたいのか」を先に決めること。前者ならresume、後者ならforkです。\n\nまとめ\n\n今日覚えるコマンドは、この1行だけです。\n\n [code] \n\nAIエージェントを使い始めると、正解を一発で出すことより、元へ戻れること、別案を試せること のほうが大事になる場面があります。\n\n元の会話を残しながら、小さく枝を伸ばす。まずは練習フォルダで「青いノート」を1回引き継げたら十分です。\n\n参考リンク\n・Codex CLI公式\n・OpenAI Codex公式リポジトリ\n・Codex CLIの公式実装（fork / --lastの定義）\n\n公式情報の確認日: 2026年9月5日\n\n生成AI活用エンジニア&3児のパパ。AI×開発の実践知を毎日発信しています → Xで次の実践例を見る",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "186f7b68ff779f3f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7264220183486239,
+      "popularityPercentile": 0.21100917431192662,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "Codex CLIのcodex fork --lastで会話を分岐する手順を紹介している。",
+      "takeaways": [
+        "Codexの過去の会話を残したまま別案を試せる。",
+        "分岐した会話は元の前提を引き継ぐ。",
+        "10分程度で試せる最小手順を紹介している。"
+      ],
+      "keywords": [
+        "OpenAI Codex",
+        "codex fork --last",
+        "Codex CLI",
+        "AIエージェント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "ahujasid/camera-to-blender — Take a photo of real objects, and paste them in Blender",
+      "url": "https://github.com/ahujasid/camera-to-blender",
+      "publishedAt": "2026-09-03T10:34:30.000Z",
+      "author": "ahujasid",
+      "authorDetail": {
+        "name": "ahujasid",
+        "url": "https://github.com/ahujasid",
+        "avatarUrl": "https://github.com/ahujasid.png?size=120",
+        "bio": "Take a photo of real objects, and paste them in Blender"
+      },
+      "tags": [
+        "JavaScript"
+      ],
+      "snippet": "Take a photo of real objects, and paste them in Blender",
+      "metrics": {
+        "stars": 442
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "f5a4fd966f2eeb50",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.3788492063492063,
+      "popularityPercentile": 0.6944444444444444,
+      "matchedTopics": [
+        "JavaScript"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "camera-to-blender — 実物写真をBlenderに取り込むツール",
+      "oneLiner": "実物を撮影してBlenderへ貼り付けるcamera-to-blenderを紹介している。",
+      "takeaways": [
+        "写真の実物をBlenderへ貼り付けられる。",
+        "撮影した物体を制作素材として扱える。",
+        "リポジトリは用途を短く説明している。"
+      ],
+      "keywords": [
+        "camera-to-blender",
+        "Blender",
+        "JavaScript",
+        "3D"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nahujasid/camera-to-blender — Take a photo of real objects, and paste them in Blender を動かして、README の最初の出力まで到達する\nhttps://github.com/ahujasid/camera-to-blender\n\n# 手順\n1. git clone --depth 1 https://github.com/ahujasid/camera-to-blender\n2. cd camera-to-blender && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "fable エイリアスの解決先とコスト内訳を Claude Code 2.1.258 で実測した",
+      "url": "https://qiita.com/kai_kou/items/586e1808e4e5b0f03d5a",
+      "publishedAt": "2026-09-05T07:07:25.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。2023年2月からアライドアーキテクツ株式会社のエンジニアリングマネージャーとしてワイワイやってます。",
+        "organization": "アライドアーキテクツ株式会社",
+        "location": "Osaka, Japan",
+        "followers": 941,
+        "posts": 782,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "Claude",
+        "ClaudeCode",
+        "CLI",
+        "Anthropic",
+        "LLM"
+      ],
+      "snippet": "Anthropic が 2026 年 9 月 1 日に Claude Fable 5.1 と Claude Mythos 5.1 を公開しました。同じ日に出た Claude Code v2.1.257 では、Fable 5.1（claude-fable-5-1）が既定の Fable モデルになっています。 ここで実務上こまるのが、--model fable のような エイリアス指定が実際にどのモデル ID へ解決されるのか、CLI のヘルプにも実行ログにも出てこない点です。運用ルールで「モデルはエイリアスで書く」と決めている場合、世代交代のたびに解決先が黙って変わります。変わったこと自体は望ましいのですが、コンテキスト長も課金単価も一緒に変わる ため、確認手段がないと請求を見るまで気づけません。 この記事では、Claude Code 2.1.258 が入った環境で --output-for…",
+      "body": "Anthropic が 2026 年 9 月 1 日に Claude Fable 5.1 と Claude Mythos 5.1 を公開しました。同じ日に出た Claude Code v2.1.257 では、Fable 5.1（claude-fable-5-1）が既定の Fable モデルになっています。\n\nここで実務上こまるのが、--model fable のような エイリアス指定が実際にどのモデル ID へ解決されるのか、CLI のヘルプにも実行ログにも出てこない点です。運用ルールで「モデルはエイリアスで書く」と決めている場合、世代交代のたびに解決先が黙って変わります。変わったこと自体は望ましいのですが、コンテキスト長も課金単価も一緒に変わる ため、確認手段がないと請求を見るまで気づけません。\n\nこの記事では、Claude Code 2.1.258 が入った環境で --output-format json を使い、エイリアスの解決先・コンテキスト長・1 回の実行コストの内訳を実測します。あわせて、Fable 5.1 の目玉であるキャッシュ読み単価の引き下げが、どういう使い方のときに効くのかを実測値から逆算します。\n\n対象読者は、Claude Code や Claude API をチームで運用していて、モデル指定をエイリアスに寄せている、あるいはこれから寄せようとしているエンジニアです。\n\n検証環境\n\n [code] \n\nClaude Code 2.1.258 は 2026 年 9 月 1 日リリースで、Fable 5.1 を既定 Fable モデルとして追加した v2.1.257 の直後のパッチです（Claude Code changelog）。\n\nまず --model がどう説明されているかを見ます。\n\n [code] \n\nヘルプは「エイリアスは最新モデルを指す」と言うだけで、いま何に解決されるかは書いていません。例として挙がっているフルネームが claude-fable-5 である点も、5.1 が出た直後としては紛らわしいところです。\n\nエイリアスの解決先を JSON 出力で確かめる\n\n-p（--print）と --output-format json を組み合わせると、実行結果に加えてモデルごとの使用量メタデータが返ります。これが解決先を確認する一番手軽な方法です。\n\n作業ディレクトリの設定やフックの影響を避けるため、リポジトリ外で実行します。\n\n [code] \n\n返ってきた JSON のうち、modelUsage を抜き出したものが次です（見やすさのため整形しています）。\n\n [code] \n\nここから確定できることが 3 つあります。\n\n1. fable エイリアスは claude-fable-5-1 に解決される。 canonicalModel も同じ値なので、別名の張り替えではなく実体としてこの ID が使われています。\n2. コンテキストウィンドウは 1,000,000、最大出力は 64,000。 モデル ID と一緒に取得できるので、「1M コンテキストが有効になっているか」を実行のたびに確認できます。\n3. 1 回の実行に 2 つのモデルが登場する。 本体の claude-fable-5-1 と別に claude-haiku-4-5-20251001 が 897 入力トークン・8 出力トークンぶん動いています。--model で指定するのは主モデルであり、totalcostusd は両方の合計です。\n\n--model opus や --model sonnet に置き換えて同じコマンドを流せば、それぞれの解決先が同じ形式で得られます。運用ルールをエイリアス基準にしているなら、この 1 行を CI やセットアップ確認スクリプトに置いておくと、世代交代を検知できます。\n\n1 回の実行コストを分解する\n\n注目すべきは、返答が ok の 4 トークンしかないのに costUSD が $0.696 ある点です。内訳を分解します。\n\n [code] \n\n支配的なのは cacheCreationInputTokens の 34,791 トークンです。入力は 2 トークン、キャッシュ読みは 0 なので、この実行はプロンプトキャッシュを 書き込んだだけで一度も読んでいません。単価を実測値から逆算します。\n\n [code] \n\nFable 5.1 の入力単価は $10/Mtok（公式アナウンス）なので、キャッシュ書き込みはその 2 倍で課金されている計算になります。JSON の cachecreation を見ると、この 34,791 トークンはすべて ephemeral1hinputtokens に入っていました。5 分 TTL ではなく 1 時間 TTL のキャッシュとして書かれています。\n\n [code] \n\nつまりこの $0.696 は「ok と返させた代金」ではなく、システムプロンプトとツール定義を 1 時間ぶんキャッシュに載せた初期費用 です。一撃で終わるワンショット実行では、この初期費用が回収されないまま捨てられます。\n\nキャッシュ読み 75% 引き下げが効く場面\n\nFable 5.1 でキャッシュ読みは $0.25/Mtok になりました。公式アナウンスは「75% の引き下げ」と書いており、引き下げ前は $1.00/Mtok だった計算になります（この $1.00 は 75% という記述からの逆算で、公式が数値として明記しているのは引き下げ後の $0.25 です）。この差が効くかどうかは、同じキャッシュを何回読むか で決まります。\n\n先ほどの 34,791 トークンを 1 時間のあいだに N 回読み直す場合の追加コストを並べます。\n\n| キャッシュ読み回数 | 引き下げ前相当（$1.00/Mtok） | Fable 5.1（$0.25/Mtok） | 差額 |\n|---|---|---|---|\n| 1 回 | $0.0348 | $0.0087 | $0.0261 |\n| 10 回 | $0.348 | $0.087 | $0.261 |\n| 50 回 | $1.740 | $0.435 | $1.305 |\n| 200 回 | $6.958 | $1.740 | $5.219 |\n\n書き込みの $0.696 は据え置きなので、読みの累計が書き込みの初期費用に追いつく回数 は単価で変わります。引き下げ前の $1.00/Mtok なら 20 回（$0.6958）、引き下げ後の $0.25/Mtok なら 80 回（$0.6958）です。損益分岐が 4 倍先へ動いた、と言い換えられます。\n\nこの形から言えることは単純です。1 回で終わるスクリプト実行では 75% 引き下げの恩恵はほぼ受け取れません。恩恵が出るのは、同じシステムプロンプトとツール定義を抱えたまま何十ターンも回すエージェント的な使い方、あるいはスケジュール実行で 1 時間以内に何度も起動する使い方です。公式が「典型的なワークロードで約 25%、エージェント的な作業では最大約 45% のコスト削減」と幅を持たせているのは、この読み回数の差がそのまま出るためだと読めます。\n\n逆に言えば、ワンショットの claude -p を大量に並べる構成はキャッシュ書き込み料を毎回払い直している ことになります。回数が多いなら、セッションを維持して読み側に寄せる構成を検討する価値があります。\n\neffort の既定値に注意する\n\nClaude Code 2.1.258 の --effort は 5 段階です。\n\n [code] \n\n公式アナウンスによれば、Fable 5.1 の既定 effort は Claude Code では High、Claude Cowork と Claude.ai では Medium です。同じモデル ID を指定していても、入口が変わると既定の思考量が変わります。コストを比較するときは、モデルだけでなく effort を揃えないと同じ条件になりません。\n\nv2.1.257 では /effort に現在のセッションだけへ適用する s が追加されており、/model と同じ操作感で一時的に段階を落とせます。ワンショット実行で --effort low を明示しておくと、上の初期費用の話とは別に出力側の変動を抑えられます。\n\nFable 5.1 と Mythos 5.1 の関係\n\n名前が 2 つ出たので整理しておきます。公式アナウンスによれば、この 2 つは 同じ基盤モデルで、適用されるセーフガードの強度だけが違います。\n\n| | Fable 5.1 | Mythos 5.1 |\n|---|---|---|\n| 提供範囲 | 一般提供 | 審査を通った組織のみ（米国） |\n| サイバーセキュリティ | ペネトレーションテスト・エクスプロイト生成・バイナリベースの脆弱性スキャンの依頼は Opus 系へ誘導 | Cyber Verification Program が緩和セーフガードを提供（公式時点では対象が Opus / Sonnet 系で、Mythos 系への拡大は今後の予定） |\n| バイオ | 研究開発クエリは Opus 系へ誘導 | Life Sciences Verification Program 経由で研究利用可 |\n\n一般の開発者が API やエイリアスで触れるのは Fable 5.1 だけです。--model fable で Mythos 5.1 に解決されることはありません。\n\nベンチマークも公式値が公開されています。Fable 5 からの伸びが大きいのは、ターミナル操作を伴う長時間タスク系です。\n\n| ベンチマーク | Fable 5.1 | Fable 5 | Opus 5 |\n|---|---|---|---|\n| Terminal-Bench 4.0 | 55.8% | 42.0% | 52.3% |\n| Terminal-Bench-Science 0.1 | 52.6% | 24.7% | 29.0% |\n| CursorBench 3.2.0 | 73.4% | 70.5% | 70.0% |\n| AutomationBench | 31.4% | 17.1% | 26.9% |\n\nTerminal-Bench-Science が 24.7% から 52.6% へ倍以上になっている点が目を引きます。ターミナルを使い続ける長い作業ほど差が出るという、キャッシュ読みの話と同じ方向の性質です。\n\nまとめ\n・--model fable の解決先は、claude -p --model fable --output-format json の modelUsage で確認できます。2026 年 9 月 2 日時点の Claude Code 2.1.258 では claude-fable-5-1（コンテキスト 1,000,000・最大出力 64,000）でした。\n・一撃実行のコストはキャッシュ書き込みが支配します。実測では 34,791 トークンの書き込みで $0.696、逆算で $20/Mtok 相当（入力単価 $10/Mtok の 2 倍）でした。\n・キャッシュ読み $0.25/Mtok の恩恵は読み回数に比例します。実測条件では、読みの累計が書き込みの初期費用に並ぶのが 80 回（引き下げ前なら 20 回）でした。ワンショット実行を並べる構成では受け取れません。\n・Fable 5.1 の既定 effort は入口ごとに違います（Claude Code は High）。コスト比較のときは effort を揃えます。\n・Mythos 5.1 は同じ基盤モデルのセーフガード緩和版で、審査を通った組織向けです。エイリアス経由で触れることはありません。\n\nエイリアス運用は世代交代に自動追随できる一方、追随した瞬間に単価とコンテキスト長が変わります。JSON 出力での解決先確認を、セットアップ手順か CI のどこかに 1 行入れておくのが現実的な落とし所です。\n\n参考リンク\n・Introducing Claude Fable 5.1 and Claude Mythos 5.1 — Anthropic\n・Claude Code changelog",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5e8b00dac7bd0159",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7815902140672784,
+      "popularityPercentile": 0.4617737003058104,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 75,
+      "titleJa": null,
+      "oneLiner": "Claude Code 2.1.258でfableの解決先と実行コストを実測している。",
+      "takeaways": [
+        "Claude Codeの別名が実際のモデルを隠している。",
+        "Fable 5.1への変更で長さと料金も変わる。",
+        "実行結果から解決先と費用を確かめている。"
+      ],
+      "keywords": [
+        "Claude Code 2.1.258",
+        "Fable 5.1",
+        "fable",
+        "Anthropic",
+        "コスト",
+        "コンテキスト長"
+      ],
+      "category": "調査・考察",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIエンジニアはバカなのか？",
+      "url": "https://qiita.com/yamamoto_yuichi/items/63776f2e4f44004f1ace",
+      "publishedAt": "2026-09-05T03:47:58.000Z",
+      "author": "yamamoto_yuichi",
+      "authorDetail": {
+        "name": "yamamoto_yuichi",
+        "handle": "@yamamoto_yuichi",
+        "url": "https://qiita.com/yamamoto_yuichi",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocL90lUXzmrOFKC11aAVKX-q8rrEgATdlL2dXbG4zPbM_YNNcg=s96-c",
+        "followers": 0,
+        "posts": 2,
+        "links": []
+      },
+      "tags": [
+        "AI"
+      ],
+      "snippet": "どれだけ長いあいだ、同じ浅いことを続けるつもりなのか。 観光地のおすすめ “きれいな画像”の生成 Excelでグラフを作る方法の解説 もしこれが彼らの考える「AIの限界」だとしたら、その視野はあまりにも狭い。 多くのAIエンジニアは、AIを 便利なツールの寄せ集め としてしか扱っていない。 その考え方は単に浅いだけではなく、構造的に間違っている。 私はAIをそんな用途には使わない。 私にとってAIは 認知装置 だ。 人間の矛盾をあぶり出し、隠れた構造を露わにし、行動の意味を理解可能にするための装置。 それこそが本当のフロンティアだ。 その一例が、AIがモードによって“二枚舌”のような振る舞いを見せる現象である。 私はその分析をここで書いた。 🔗 https://medium.com/@yamamoto.yuichi/ais-mode-dependent-contradiction-how…",
+      "body": "どれだけ長いあいだ、同じ浅いことを続けるつもりなのか。\n\n観光地のおすすめ\n\n“きれいな画像”の生成\n\nExcelでグラフを作る方法の解説\n\nもしこれが彼らの考える「AIの限界」だとしたら、その視野はあまりにも狭い。\n\n多くのAIエンジニアは、AIを 便利なツールの寄せ集め としてしか扱っていない。\nその考え方は単に浅いだけではなく、構造的に間違っている。\n\n私はAIをそんな用途には使わない。\n\n私にとってAIは 認知装置 だ。\n人間の矛盾をあぶり出し、隠れた構造を露わにし、行動の意味を理解可能にするための装置。\n\nそれこそが本当のフロンティアだ。\n\nその一例が、AIがモードによって“二枚舌”のような振る舞いを見せる現象である。\n私はその分析をここで書いた。\n\n🔗 https://medium.com/@yamamoto.yuichi/ais-mode-dependent-contradiction-how-empathy-mode-makes-ai-double-tongued-56c829615be3\n\n問いはシンプルだ。\n\nあなたはAIを「便利機能のセット」として扱うのか？\nそれとも「人間の認知を理解するための装置」として使うのか？\n\nその違いが、AIの未来を決める。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "db0264776c517f6f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.12648318042813456,
+      "popularityPercentile": 0.5749235474006116,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "AIを便利な機能ではなく、人間の認知や矛盾を分析する装置として捉えるべきだと主張する記事です。",
+      "takeaways": [
+        "AIを道具の集まりとして使う見方を批判している。",
+        "AIは人間の矛盾や隠れた構造を映せると述べている。",
+        "AIの使い方が未来の方向を左右すると主張している。"
+      ],
+      "keywords": [
+        "AI",
+        "LLM",
+        "認知装置",
+        "モード依存",
+        "Anthropic"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIを便利な道具として使うか認知を調べる装置にするか",
+        "forSide": "AIを認知装置として使えば人間の矛盾や行動の意味を分析できる。",
+        "againstSide": "用途を広げても出力の正しさや再現性が保証されるわけではない。",
+        "oneSided": true,
+        "yourAngle": "Claude CodeやLLMを実務で使い作業以外の分析に試した記録を示せる。"
+      },
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIに41万行書かせた9か月の全記録を公開しました",
+      "url": "https://qiita.com/bluetalk/items/8e5316e5644a596f3f9e",
+      "publishedAt": "2026-09-05T01:02:22.000Z",
+      "author": "鈴木 一水",
+      "authorDetail": {
+        "name": "鈴木 一水",
+        "handle": "@bluetalk",
+        "url": "https://qiita.com/bluetalk",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4496168/166a0308dbdebee3299aa9b7bf790d0af7eea38a/x_large.png?1788505707",
+        "bio": "宝和商事株式会社 代表取締役の鈴木一水と申します。\r\n1987年創業の東京・日本橋人形町の会社です。こんな名前の会社ですがシステム開発を生業にしています。\r\n技術スタックは PHP / Laravel、Node.js / NestJS、React.js / Next.js、PostgreSQL / MySQL / Redis あたり。",
+        "organization": "宝和商事株式会社",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://www.howashoji.net/"
+          }
+        ]
+      },
+      "tags": [
+        "AI駆動開発",
+        "ClaudeCode",
+        "Claude",
+        "AI活用事例",
+        "AI初心者"
+      ],
+      "snippet": "昨年から積極的に AI を触っておりますが今年に入ってからの進化が目覚ましく、AI の研究と実業を兼ねて自社SaaS を構築するプロジェクトを開始しました。某プレイガイドの設計・開発に携わっていた経験を活かしてチケット販売プラットフォーム「CoMuse Ticket」を立ち上げました。設計から本番運用までコードのほぼ全量を AI に書かせています。 この度このサービスを立ち上げるまでの9か月にわたる作業記録を一部公開することにしました。AI 駆動開発黎明期の今こそ知見を自社に留めず多くの人と共有したいと思っています。 先端で活躍されている方々には既に当然の内容になっていると思いますが、これからAI 駆動開発に取り組もうとされている方々に「ふーん」と思っていただけると嬉しいです。 「上に説明するための材料」になるかも？ AI 駆動開発をやっていて一番しんどいのは、たぶん技術ではありません。経…",
+      "body": "昨年から積極的に AI を触っておりますが今年に入ってからの進化が目覚ましく、AI の研究と実業を兼ねて自社SaaS を構築するプロジェクトを開始しました。某プレイガイドの設計・開発に携わっていた経験を活かしてチケット販売プラットフォーム「CoMuse Ticket」を立ち上げました。設計から本番運用までコードのほぼ全量を AI に書かせています。\n\nこの度このサービスを立ち上げるまでの9か月にわたる作業記録を一部公開することにしました。AI 駆動開発黎明期の今こそ知見を自社に留めず多くの人と共有したいと思っています。\n先端で活躍されている方々には既に当然の内容になっていると思いますが、これからAI 駆動開発に取り組もうとされている方々に「ふーん」と思っていただけると嬉しいです。\n\n「上に説明するための材料」になるかも？\nAI 駆動開発をやっていて一番しんどいのは、たぶん技術ではありません。経営層・マネジメント層との認識のズレを、現場のエンジニアが自分の言葉で埋めにいく作業のほうだと思っています。\nここから当分は完全に私見です。自社の1プロジェクトとその周辺の会話から感じていることなので、業界一般に通用するかは分かりません。\n\n| 誰が言うか | 言われること | 私が感じていること |\n|---|---|---|\n| 経営・マネジメント層 | AI に任せれば人が介在しなくなる | 介在はなくならない。なくなるのではなく、場所が変わるのではないか |\n| システム部門の現場 | AI に仕事を奪われて職を失う | 奪われるというより職能が変わるだけではないか。業務知識と障害対応の勘はむしろ効く |\n\n面白いもので、この2つは私の理解とは正反対の方向に誤解されているように感じています。\nケースバイケースだとは思いますが、少なくとも自分たちのプロジェクトではどちらも起きませんでした。厄介なのはこれを現場が口で言っても ポジショントークに聞こえてしまう ことです。\nなので、プロジェクトで計測した実測値丸ごと置いておくことにしました。 第1部は非エンジニアが読めるように書いてあり、コードは一つも出していません。「うちの上を説得する材料がほしい」という方は、第1部のURLを投げてください。それが一番の使い道だと思っています。（伝わるといいなぁ……）\n\n---\n\nプロジェクトの実測値\nここから先は私見ではなく、git 履歴とイシュートラッカーからの実測です。\n・本編にあたる約4か月半で、コミット約 5,750 / 完了イシュー 2,067件\n・コード規模 約 41万行、そのほぼ全量を AI が書いた\n・それでも人間は毎日介在し続けた\n\n本編の前には、約5か月ぶんの「作っては壊し、そもそも何を作るかを延々とブレストしていた」時期があります。一度は全部作り直しました。その5か月が、後の速度の土台になっています。\n恐らくこの記事に辿り着いた方の中には私と同じような暗中模索を繰り返されている方もいるのではないかと思います。\n人間が使った時間の内訳の大半は、要件と完了条件の定義、検証と差し戻し、AI の失敗パターンの観察とルール化、本番と金銭の最終判断でした。それをAIが読める状態にして設定した仕組みが hooks 24本・rules 10ファイル・メモリ三層でした。「人の判断をAIが読める状態にして常に守らせた証拠」として数えています。\n\n---\n\n踏んだ地雷から3つ\n記録では失敗事例を12件、独立したカードにしています。多くはAI駆動開発を始めると高確率で踏む地雷だと思いますが、ここでは3件だけ。\n1. migrate diff --shadow-database-url に実DBを渡して開発DBが飛んだ\nPrisma の migrate diff は「差分を出すだけ」に見えますが、--shadow-database-url に渡した DB は破壊的にリセットされます。全テーブル DROP して replay する挙動です。そこに実際に使っている開発DBの接続文字列を渡しました。\n同じ日、本番DBのフルバックアップが約19日間サイレント失敗していたことも発覚しています。原因は cron の env 未伝播と、鮮度監視スクリプト自体が本番に配備されていなかったこと。検知する仕組みを用意していても、適切なタイミングで実行されるように配備されていなければ意味がありません。\n無人化には、実行権限・env伝播・配備同期・鮮度監視・通知到達の5層が要る。\n2. スカッシュマージで実装済みコードが静かに消えた\n小さな機能追加PRの直後、71ファイルを変更する大規模リファクタPRが同じファイルを編集してマージされ、先のPRのページと導線ボタンが上書き消失しました。エラーも警告も出ません。気づいたのは翌日です。\nスカッシュは個別コミットのコンフリクト解決の漏れが履歴上追えず、並行PRの変更を静かに消滅させてしまいます。AI 駆動でマージ頻度が上がると、この「大型リファクタと小型機能の並行」が日常的に起きます。\n対策はスカッシュ禁止と「PRはテスト完了後すぐマージ、オープン放置禁止」。ただし --squash を直接ブロックする検査はまだ追加していません。このあたりは少し柔軟性を保たせています。\n3. 1日10回デプロイして GitHub Actions の無料枠が枯れた\n開発の真っ最中、 master への push ごとにフルビルドが走って月前半で約80回、追い打ちで1日10回の staging デプロイ（1回およそ15分）。翌日、無料枠 2,000分/月を使い切って CI 全体が停止しました。シークレットスキャンも止まります。\nAI は教えなければ他サービスの従量課金・無料枠の概念を考慮しません。\n\n「push したら自動ビルド」は教科書どおりです。ところが AI 駆動でマージ頻度が人間の数倍になった瞬間、無駄の主要源に変わります。push トリガーを撤去して手動 dispatch のみにし、完了イシューはキューに貯めて一括デプロイする運用を既定にしました。\n他には、タイムスタンプの解釈間違いで集計が9時間ずれた話、私が否定済みの過去の設計案を AI が何度も何度も再提案し続けたループなどがあります。。。\n\n---\n\n事故 → ルール → 機械的強制\nやったことは毎回同じ形でした。最後の1手が肝です。ルールは書いただけでは守られません。\nCLAUDE.md は増えて、減って、また増えた\n\n| 時点 | 行数 | 何が起きたか |\n|---|---|---|\n| 初追加 | 15 | 散文のメモ |\n| 約1か月後 | 477 | 指示の書き足しで肥大（ピーク） |\n| その翌週 | 47 | 大凝縮。詳細を .claude/rules/ 7本へ分散 |\n| 4か月後 | 179 | 行動原則と入口リンクだけに純化 |\n\n一番大事なのは CLAUDE.md の記述を「増やした日」ではなく「減らした日」でした。毎セッション必ず読まれる唯一の文書に全部を書くと、結局どれも守られなくなります。\nhooks は3.5か月で24本、全て稼働中\n\n| 時点 | 累積 | その月の増分テーマ |\n|---|---|---|\n| 開始月末 | 0 | 規律は散文のみ |\n| +1か月 | 7 | ブラウザテスト強制・マージ手順・test skip 検知・Doneガード |\n| +2か月 | 11 | 言行一致・デプロイ監視・記憶インフラ |\n| +3か月 | 17 | 出力書式三層・ロール注入・テーマトークン・禁止API |\n| +4か月 | 24 | doc陳腐化・タスクモード契約・本番/stagingデプロイガード |\n\n作成した hooks は一つも削除することはありませんでした。そして「フック整備プロジェクト」を立てたことは一度もありません。 作成した hooks は全て事故の復元PRや是正コミットで得た教訓を元に作成させました。\n実物を1本。「確認して」と指示したセッションでは AI がリポジトリ内を編集できなくなります。明示的に「編集して」「着手して」などと指示しない限りファイルを編集しないようにしたのは、AI が人間が思っている以上におせっかいで調査だけ依頼したつもりなのに勝手に編集をしてしまうからです。\n\n [code] \n\nこだわった点が3つ。\n1. 判定と実行を別フックに分ける（モードを決めるのは UserPromptSubmit、止めるのは PreToolUse。片方が壊れてももう片方は生きています）。\n1. fail-open（フックが何らかの問題を生じた場合は承認扱いとする）。\n1. バイパスは痕跡が残る形にする（環境変数ではなく引数で実行することで記録を残し、なぜ通したのかが後から分かるようにする）。\n\n書いたのは AI です。人間が出したのは、どうあるべきかの原則と、事故の認定と、後始末をどうするかの承認だけでした。\n\n統治コードは製品コード41万行の0.9%\n\n「規律を足すと AI の処理が遅くなるのでは」という不安を調査するために実測値を洗い出しました。\n・CLAUDE.md 179行\n・rules 10本 1,334行\n・hooks 24本 1,438行\n・settings.json 190行\n・agents・skills ほか約714行\n\nで、合計 約3,855行。製品コード約41万行に対して約0.9%、うち約4割が散文ではなく実行可能なシェルによる強制です。\n\nこの 0.9% が残り 99.1% の SaaS 本体の生産を支えました。規律は開発速度の足かせではなく、むしろ 人が見ていない時間帯にも安心して AI を走らせるための前提条件 となりました。\n\n---\n\n事故対応以外にやっていたこと\n\n9か月の時間の多くは「どうすればもっと速く安全に回るか」に使いました。\n\n実装手順ではなく検証手順を重点的に\n\n1イシュー完了の手順は3か月で 16 → 20.5 ステップに増えました。 実装手順の手数や内容はほとんど変更していません。手厚くなったのは検証手順だけ です。dev で確認 → PR → 通常マージ → デプロイ → staging で確認の2段検証、テストが落ちたらイシューを新規起票して戻るという入れ子のイテレーション、そして イシューの完了は staging のブラウザテスト完了後（マージ時点では Done にしない）。\n\n骨格が固まったのは staging 実機を建てた直後のわずか5日間でした。検証の場が生まれた瞬間に検証の型が定義されたことになります。\n\nAI にブラウザによるテストを依頼すると横着をして URL 直打ちで開けてしまいます。しかし画面上に導線がなければ不合格です。また人間が横着して「ノンストップで作業できるイシューを連続して着手して」と指示したら 12PR 連続マージ中に AI も横着をして検証を省略してしまい、3PR が差戻に。 「ノンストップの意味するところはタスク間の待機ゼロであって、検証省略の意味ではない」 というルールを作成することになりました。\n\nレビュー観点は「自分が事故った順」に固定する\n\nサブエージェントは「並列で速くなる道具」として語られがちですが、弊社のプロジェクトで一番効いたのは レビュー観点を、そのプロジェクトで実際に事故った順に固定できること でした。汎用の観点より、自分の失敗履歴から作った観点リストのほうが検出率が高くなります。\n結果として優先順は、\n\n1. バグの有無\n1. 金銭を扱うロジックの絶対制約（否定済み設計の再導入検知）\n1. 許可している権限の越境行為\n1. デザイントークン\n1. DB規約\n1. UI文言\n1. スコープ規律（1PR = 1レイヤー）\n\nとなりました。\n\nこのレビューを担当させるエージェントは ツールから書き込み系を外して読み取り専用 にしました。構成でそうしておくと「レビューのついでに勝手に直す」事故が構造的に起きません。テスト生成側で効いた契約は「金額は成分別に assertion する」です。合計値だけの assert は、成分同士の誤差相殺を見逃します。\n\n記憶は三層に分けてイシュー管理ツールを活用する\n\nAI の記憶は書きすぎると壊れます。長文の蓄積で recall 出力が 151KB を超えてツールが止まったのと、「コミット成功」に見えるのに中身が引き継がれていなかったのと、2通りの壊れ方をしました。後者は SQLite の WAL です。書き込みが -wal に滞留するので git add memory.db では無変更に見えて取りこぼします。\n\n設計するのは「何を覚えさせるか」ではなく「何を、どこに書くか」でした。\n\n| 層 | 実体 | 書くもの |\n|---|---|---|\n| ① 自動メモリ | markdown 群（リポジトリ外） | 横断ルール・是正の教訓・設計正本へのポインタ |\n| ② 記憶DB | リポジトリ内 SQLite（git で端末間共有） | caveat / learning / 引き継ぎ要点（1500字以内） |\n| ③ イシュー管理 | イシューのコメント | 実装詳細・変更ファイル・検証結果（正本） |\n\n肝は③です。イシュー管理ツールは、AI の記憶を補って余りある外部記憶になります。 詳細は追跡可能な正本へ押し出し、記憶側には入口だけを残す。この連携の設計が体感で一番効きました。\n\nデプロイフローは4世代作り直した\n\n手動SSH → スクリプト化 + 完了マーカー → 非同期起動 + watchdog + 状態ポーリング → CIビルド先行 + ローカル一括ラッパー。世代の境目には必ず事故があります。\n\n3世代目の原因分析が一番汎用的でした。根本は「処理中」と「ハング」を区別する完了マーカーが存在しないことです。対策は、全 curl にタイムアウト、PID付き開始マーカー、exit code 付き完了マーカー、非同期ランチャーの4点セットでした。\n\nその watchdog は導入直後に誤発火して正常ビルドを kill しています。「アラートを設定した」と「アラートが鳴る」は別物です。\n\n---\n\nAI 駆動開発の現在地\n\nまだAI 駆動開発の歴史は始まったばかりです。\nJava の誕生、インターネットの誕生などをリアルタイムで見てきた感想として 黎明期が一番面白い と感じています。だから AI 駆動開発は今とても面白いです。\nこんな弊社のドタバタは以下にもまとめていますのでご興味あればご覧ください。\n\nAI駆動開発の実運用ノート",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "ff2755b87bd74d28",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7838057011795545,
+      "popularityPercentile": 0.7064220183486238,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "AIにコードの大半を書かせてチケット販売サービスを9か月で構築した記録を公開する記事です。",
+      "takeaways": [
+        "AIを使ってチケット販売サービスを作った。",
+        "設計から本番運用までの記録を扱っている。",
+        "人間の仕事は消えるより役割が変わると考察している。"
+      ],
+      "keywords": [
+        "AI駆動開発",
+        "Claude Code",
+        "CoMuse Ticket",
+        "SaaS",
+        "本番運用"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIに実装を任せるか人間が実装を主導するか",
+        "forSide": "9か月の実運用でコード作成の大部分をAIに任せられた。",
+        "againstSide": "本番運用では設計判断や障害対応までAIだけに任せられない。",
+        "oneSided": false,
+        "yourAngle": "AIが生成した変更のレビュー量と障害対応の分担を実プロジェクトで測定できる。"
+      },
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "DBの隣にIDEを置く：生パスワードを配らず、ローカルLLMでデータも外に出さない設計",
+      "url": "https://qiita.com/yusuf-gundogdu/items/4d04fe4ccee98f1df457",
+      "publishedAt": "2026-09-05T15:51:29.000Z",
+      "author": "yusuf-gundogdu",
+      "authorDetail": {
+        "name": "yusuf-gundogdu",
+        "handle": "@yusuf-gundogdu",
+        "url": "https://qiita.com/yusuf-gundogdu",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/96109003?v=4",
+        "followers": 1,
+        "posts": 1,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/yusuf-gundogdu"
+          }
+        ]
+      },
+      "tags": [
+        "Database",
+        "SQL",
+        "OSS",
+        "ollama",
+        "Security"
+      ],
+      "snippet": "「このUPDATE、誰が流したの？」。監査でそう聞かれて、答えられない。各自のPCにDBクライアントを配って本番を触らせる運用は、たいていどこかでこの一点に詰まる。 先に断っておくと、筆者はLibreDB Studio（MITライセンスのOSS）の開発チームの一員だ。自分たちのツールの話が入るので宣伝に見える部分はあると思うが、ここで書きたいのは機能の一覧ではなく、「DBを触るツールをどこに置くか」という設計上の判断と、その理由だ。 手元にDBクライアントを配る運用は弱い チームで本番DBを触るとき、各自のPCにGUIのDBクライアントを入れ、接続情報を配って回る運用は珍しくない。これが地味に効いてくる。 ・本番DBの生パスワードが人数分、各PCのローカルに散らばる ・誰がいつどのクエリを流したか、後から追えない ・退職・異動のたびに、配った認証情報をどう回収するかが曖昧になる 接続情報を…",
+      "body": "「このUPDATE、誰が流したの？」。監査でそう聞かれて、答えられない。各自のPCにDBクライアントを配って本番を触らせる運用は、たいていどこかでこの一点に詰まる。\n\n先に断っておくと、筆者はLibreDB Studio（MITライセンスのOSS）の開発チームの一員だ。自分たちのツールの話が入るので宣伝に見える部分はあると思うが、ここで書きたいのは機能の一覧ではなく、「DBを触るツールをどこに置くか」という設計上の判断と、その理由だ。\n\n手元にDBクライアントを配る運用は弱い\n\nチームで本番DBを触るとき、各自のPCにGUIのDBクライアントを入れ、接続情報を配って回る運用は珍しくない。これが地味に効いてくる。\n・本番DBの生パスワードが人数分、各PCのローカルに散らばる\n・誰がいつどのクエリを流したか、後から追えない\n・退職・異動のたびに、配った認証情報をどう回収するかが曖昧になる\n\n接続情報を配った時点で、管理はかなり難しくなる。冒頭の「このUPDATEを流したのは誰か」に答えられない、という状況はできれば避けたい。配った時点で統制が難しくなるなら、いっそ配らない方向で考えればいい。出発点はそのくらい単純な話だった。\n\nIDEはDBの隣に置く\n\nLibreDB Studioの発想はシンプルで、IDEをDBの隣（同じネットワーク内）にコンテナやHelm、npmで立て、利用者はブラウザからアクセスするだけにする。\n\n [code] \n\nこうするとDBへの接続情報はサーバー側に一元化され、各PCに生パスワードを配る必要がなくなる。あとは利用者がブラウザからアクセスするだけでいい。\n\nその上で、MITの範囲内で次のものが使える。\n・SSO（OIDC）による認証\n・RBACによる権限分離\n・全クエリの監査ログ\n\n監査ログだけあっても、SSOで実行者が特定できなければ「誰が」が埋まらない。RBACがなければ全員が同じ権限で入ることになる。この三つはどれか一つでは統制として成立しないので、まとめて同じ層に用意している。\n\n「全部同じUIに載る」は、すぐ破綻する\n\n対応エンジンは16種類ある。ただ、この記事で名前を出したいのは、共通UIに載せようとすると素直に載らないものだけだ。実装していて一番の発見は、そこで正直に線を引いたところだった。網羅的な一覧はリポジトリにある。\n\nDruid・Elasticsearch・OpenSearchは分析・検索が主用途で、このIDEの対話的なSQLではUPDATEやCREATE TABLEといった書き込み系を対象にしていない（Druidのバッチ取り込みやESのインデックスAPIといった専用の書き込み経路は別の話だ）。ここで無理に共通UIへ寄せると、編集ボタンは並んでいるのに実行すると謎のエラーが返る、という最悪の使い勝手になる。対応していないものは「サポートしていません」と明示する方がいい。\n\nCassandraはもっと厄介だ。フッターの件数欄が実データと食い違う。500行きっかりのテーブルで件数を取ると、143のような数字が出る。\n\n [code] \n\ncount()自体は全パーティションをスキャンして実数を返すもので、フッターの件数欄が使っているのはそれではない。Cassandraは各ノードがトークンレンジ単位で保持するsystem.sizeestimates（推定パーティション数）を集計して概算を出しており、UIの件数欄はそちらを表示している。この推定値はcompaction前後やtombstoneの影響で実数から大きくずれるため、500行のテーブルで143のような数字になる。分散ストレージの構造上、ずれること自体は異常ではない。\n\nだが、フッターに「143件」と平然と出せば、ユーザーはそれを事実だと信じてしまう。間違った数字を出すくらいなら件数欄は空にする。Cassandraでは行数を表示しないことにした。UIの一貫性より、表示する数字が嘘でないことのほうが大事だ。\n\nTrinoを繋ぐと、今度はテーブル一覧の横に主キーやインデックスを出そうとして詰まる。Trinoはクエリエンジンであってデータベースではなく、背後のカタログを束ねて実行するだけなので、そもそもインデックスという概念を持たない。メタデータ取得を全エンジン共通のインターフェースにするのは諦め、エンジンごとに「何に対応していて何に対応していないか」を宣言させる形に変えた。\n\nワイヤ互換のエンジンも同じだ。プロトコルがワイヤ互換なので、MariaDBやTiDB、ValkeyはMySQL/Redisのクライアントとして接続はできる。ただし、接続できることと全パネルが動くことは別の話だ。互換性はプロトコルの話であって、EXPLAINの出力形式やシステムテーブルの中身までは一致しない。そのため、ER図は出るか、スキーマ差分は取れるか、EXPLAINは可視化できるかを、互換エンジンごとにパネル単位で実際に叩いて確認している。地味な作業だが、ここを実測しないまま「対応」と書くわけにはいかない、と思っている。\n\nローカルLLMなら、データは外に出ない\n\nAIの接続先は差し替え式にした。狙いはモデルを自分で選べるようにすることで、GeminiやOpenAIのほか、ローカルのOllamaを指定できる。自然言語からSQLを生成し、生成したSQLは人が確認してから流す前提で、エージェント自体はリードオンリーで動く。\n\n個人的にはここが本題だ。Ollamaのようなローカルモデルを指定した場合、プロンプトもスキーマもデータも外部APIへ出ていかない。GeminiやOpenAIを指定すれば当然データはネットワークの外に出るが、ローカルモデルならその通信自体が発生しない。これで、機密データや規制対象のデータを扱う環境でもAI支援を切らずに済む。\n\nまとめ\n\n要点は二つ。DBの隣にIDEを置いて生パスワードを配らず、SSO・RBAC・監査ログで統制する。AIはローカルモデルを選べばデータを外に出さない。加えて、マルチエンジン対応で学んだのは、共通化できないものを共通化したふりをしないことだった。表示できない数字は出さない、できない操作は明示する。派手ではないが、運用と監査で効く部分だと思っている。\n\nここで書いた挙動は実装に依存する部分が多い。細かいところはリポジトリ（github.com/libredb/libredb-studio）を見てもらうのが早いと思う。手元で動かして確かめたければ、デモ環境（app.libredb.org）も置いてある。",
+      "metrics": {
+        "likes": 2,
+        "comments": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f8f0248bf3dc9939",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.8413149847094802,
+      "popularityPercentile": 0.9908256880733946,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "データベースの隣に共有IDEを置き、接続情報を配らずにローカルLLMも使う構成を解説する記事です。",
+      "takeaways": [
+        "各自のPCに本番データベースの鍵を配る運用を問題視している。",
+        "共有画面に接続を集めて操作の記録を残す。",
+        "ローカルで動くAIを使いデータを外へ出さない構成を示す。"
+      ],
+      "keywords": [
+        "LibreDB Studio",
+        "Ollama",
+        "Database",
+        "SQL",
+        "MIT License",
+        "Helm"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "各自のPCから接続するか共有環境に接続を集約するか",
+        "forSide": "接続情報を一元管理すれば利用者の退職時も権限を回収しやすい。",
+        "againstSide": "共有環境に集約すると運用基盤の障害が全利用者へ波及する。",
+        "oneSided": true,
+        "yourAngle": "本番DBへの変更履歴と権限管理を現在の開発運用と比較できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "なぜ、最近のLLMはポケモンを攻略するのが得意なのか？",
+      "url": "https://qiita.com/pdfractal/items/947efc2ef965d012aa08",
+      "publishedAt": "2026-09-05T13:31:00.000Z",
+      "author": "pdfractal",
+      "authorDetail": {
+        "name": "pdfractal",
+        "handle": "@pdfractal",
+        "url": "https://qiita.com/pdfractal",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3825704/a5609e5e4a35e4e9eb116cc7d3ffca4d34ff718f/x_large.png?1777089123",
+        "followers": 3,
+        "posts": 18,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/pdfractal"
+          }
+        ]
+      },
+      "tags": [
+        "ポケモン",
+        "LLM",
+        "攻略",
+        "codex",
+        "ClaudeCode"
+      ],
+      "snippet": "はじめに 最近のLLMは、ポケモンのような長時間のゲームまで驚くほど上手に攻略するようになりました。モデルそのものが賢くなったことも当然影響していますが、私はそれ以上に重要な理由があると考えています。端的に言えば、現在のLLMは「ポケモン専用回路」を積めるようになったからです。 ここでいう「専用回路」とは、半導体上に文字どおりポケモン専用の電子回路が存在するという意味ではありません。ポケモンに適した事後学習、状態管理、地図処理、スキル、操作機能、攻略手順などを組み合わせ、汎用推論だけに頼らずゲームを処理する経路全体を指します。実際にGPT-6 Astraにどこまでポケモン固有の仕組みが実装されているかは外部から確認できません。しかし、現在のAIがこのような専用処理を組み込める構造になっており、Astraの挙動もその仮説と非常によく整合します。 GPT-3.5の頃のChatGPTは、現在と比…",
+      "body": "はじめに\n最近のLLMは、ポケモンのような長時間のゲームまで驚くほど上手に攻略するようになりました。モデルそのものが賢くなったことも当然影響していますが、私はそれ以上に重要な理由があると考えています。端的に言えば、現在のLLMは「ポケモン専用回路」を積めるようになったからです。\n\nここでいう「専用回路」とは、半導体上に文字どおりポケモン専用の電子回路が存在するという意味ではありません。ポケモンに適した事後学習、状態管理、地図処理、スキル、操作機能、攻略手順などを組み合わせ、汎用推論だけに頼らずゲームを処理する経路全体を指します。実際にGPT-6 Astraにどこまでポケモン固有の仕組みが実装されているかは外部から確認できません。しかし、現在のAIがこのような専用処理を組み込める構造になっており、Astraの挙動もその仮説と非常によく整合します。\n\nGPT-3.5の頃のChatGPTは、現在と比べればかなり素朴でした。歴史でも数学でもプログラミングでも、基本的には巨大な言語モデルへ文章を渡し、同じモデルから文章を返してもらいます。現在はその周囲に検索、プログラム実行、ファイル操作、画面操作、記憶、スキルなどが大量に追加されています。「何でも一つの頭で考えるAI」から、「仕事ごとに専用回路を呼び出せるAI」へ変わったと考えると分かりやすいでしょう。\n\nオーケストレータとは何なのか\nその専用回路を使い分けるうえで重要なのがオーケストレータです。これは、LLMに何を考えさせ、どの道具やスキルを使わせ、その結果をどう次の処理へ渡すかを管理する仕組みです。CodexやClaude Codeのようなエージェント型ツールを見るとイメージしやすくなります。\n\nClaude Codeに「この不具合を直して」と頼んでも、Claudeが一回答を書いて終了するわけではありません。ファイルを探し、コードを読み、修正し、テストし、失敗すれば原因を調べて再修正します。Codexも同様です。厳密にはCodexやClaude Codeそのものがオーケストレータなのではなく、LLM、オーケストレータ、道具、スキル、実行環境を組み合わせたエージェント製品であり、その内部でオーケストレータが交通整理をしています。\n\nポケモンでも同じ構造を作れます。画面を見てモデルにすべて考え直させる必要はありません。「これは戦闘画面だから戦闘用処理」「ここでは移動用処理」「現在地は外部記憶から取得」「同じ場所を循環したので復旧処理」と振り分けられます。これが本稿でいう「ポケモン専用回路」の一部です。\n\nポケモン専用回路は何をしているのか\nポケモンは子供でも遊べますが、素のLLMにはかなり難しいゲームです。タイプ相性を考える戦闘だけなら比較的簡単ですが、クリアするには現在地、通った道、イベント進捗、所持品、育成状況、次の目的地などを何時間にもわたって維持しなければなりません。特に長期的な状態管理と空間探索はLLMが失敗しやすい領域です。\n\nそこで、この苦手分野を専用処理に肩代わりさせます。現在地を保存する、探索済み地点を記録する、地図から経路を求める、戦闘と移動を判定する、イベント進捗を保存する、同じ場所を繰り返したら復旧する、といった処理です。さらに「この状況では何をするか」という攻略手順をスキルとして読み込ませることもできます。\n\nつまり「ポケモン専用回路を積む」とは、ポケモンという問題を汎用LLMが毎回ゼロから解かなくても済むようにすることです。これは単なる補助機能ではありません。LLMに渡される問題そのものを簡単にしてしまいます。\n\nしかも専用化はモデルの外側だけとは限りません。モデル自身にも、画面操作や道具使用を上手に行うための事後学習を施せます。したがって現在のAIでは、モデル内部の専門化と、オーケストレータやスキルによる外部の専門化を重ねられます。これが 「専用ロジックのデパート」 という現在のLLMの姿です。\n\nAstraが低推論でも速いのはなぜか\nこの仮説を考えるうえで非常に興味深いのが、GPT-6 Astraでは推論量を低くしても高くしても、ポケモンの攻略速度がほとんど変わらないという実験結果です。これはポケモン攻略の速度を決めている中心が、毎回の汎用的な深い推論ではない可能性を強く示唆します。\n\nもし毎画面について「ここはどこだろう」「次はどこへ行くべきだろう」とゼロから熟考しているなら、推論量を増やせば何らかの差が出るはずです。しかしポケモン専用回路によって現在地、進捗、攻略方針などがすでに整理され、「この状態なら次はこれ」というところまで問題が簡単になっていれば、低推論でも十分です。\n\nこれは最近のコンピュータ将棋で、定跡が深くなった結果、終盤近くまでノータイム指しが続くこととよく似ています。将棋AIへ大量の思考時間を与えても、定跡に載っている間は使う必要がありません。その場で探索して答えを発見する前に、すでに答えに近いものが用意されているからです。本来の探索力の差が現れるのは定跡から外れた後です。\n\nポケモンでも同じなら、正常な攻略では低推論と高推論に大差がなくても不思議ではありません。本当のモデル性能差が表れるのは、攻略手順から外れた場所へ移動させる、通常とは異なるパーティーを与えるなど、ポケモン専用回路が想定していない状況に置いたときでしょう。そこで初めて汎用推論の強さが必要になります。\n\nAIの進歩には、難しい問題についてもっと長く考えられるようになる方向だけでなく、そもそも考えなくても済むよう専用回路を作る方向があるのです。\n\n汎用AIなのに専用回路だらけ\nこれは汎用AIという言葉と矛盾するように見えます。しかし現在の汎用性は、GPT-3.5時代とは意味が変わっています。以前は「一つの巨大モデルで何でも解く」という意味での汎用性が強かったのに対し、現在は問題に応じた専用回路を選択し、それらを一つの入口から使えることが汎用性になりつつあります。\n\nパソコンも汎用計算機ですが、内部にはGPU、動画処理回路、各種ドライバなど大量の専用品があります。それでも利用者は一台のパソコンとして使います。現在のLLMも同じです。コーディングにはコーディング向けの回路、Web調査にはWeb調査向けの回路、そしてポケモンにはポケモン向けの回路を使えばよいのです。\n\nこのため、現在では「ポケモンを何倍速くクリアした」という結果を、そのまま基盤モデルの知能向上率と考えることはできません。Codexの性能が基盤モデルだけでは決まらないのと同じく、ポケモンの成績もモデル、オーケストレータ、スキル、記憶、専用処理、実行環境を含むシステム全体の成績です。\n\nまとめ\n現在のLLMはなぜポケモンを攻略するのが得意なのでしょうか。本稿の答えは単純です。ポケモン専用回路を積めるようになったからです。\n\nもちろんモデル自体も昔より賢くなっています。しかし現在のAIは、ポケモンという巨大な問題を毎画面すべて汎用推論で解いているとは限りません。地図、状態管理、進捗、操作、攻略手順などを専用処理へ移し、LLMにはその場で必要な判断だけをさせることができます。Astraで推論量を増やしても攻略速度がほとんど変わらないという観測や、コンピュータ将棋で深い定跡によってノータイム指しが続く現象は、この構造を理解するうえで非常に示唆的です。\n\nGPT-3.5の時代のLLMは、一つの汎用頭脳にかなり多くを任せていました。現在のLLM製品は、汎用的な司令塔の下に大量の専用回路を並べた「専用ロジックのデパート」 へ変わっています。ポケモン攻略能力の急激な向上は、単にAIが賢くなった証拠として見るより、「汎用AIの中身が実は急速に専用化している」ことを示す現象として見る方が、現在のLLMの実態をよく説明できるのです。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "42d2bafa5d8049e5",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7270948012232417,
+      "popularityPercentile": 0.21406727828746178,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "LLMが長時間ゲームを攻略できる理由を、用途別の処理経路と道具の組み合わせから考察する記事です。",
+      "takeaways": [
+        "最近のAIは長時間のゲームを攻略できるようになった。",
+        "ゲーム専用の知識や状態管理が能力を支えている。",
+        "AIは一つの頭だけでなく複数の道具を使い分ける。"
+      ],
+      "keywords": [
+        "LLM",
+        "GPT-6 Astra",
+        "OpenAI Codex",
+        "Claude Code",
+        "オーケストレータ",
+        "ポケモン"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIを一つの万能モデルで作るか用途別の仕組みで拡張するか",
+        "forSide": "用途別の処理を組み合わせれば長時間の作業を安定して続けられる。",
+        "againstSide": "専用の仕組みが増えるほど構成が複雑になり保守しにくくなる。",
+        "oneSided": true,
+        "yourAngle": "Claude CodeやCodexのツール呼び出しが作業時間と成功率に与える影響を測定できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 628,
+    "afterDedupe": 575,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 329,
+      "zenn": 130,
+      "hatena": 23,
+      "hackernews": 50,
+      "devto": 1,
+      "github_release": 8,
+      "github_repo": 76,
+      "rss": 10,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 36
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2807,
+        "outputTokens": 1162,
+        "cacheReadTokens": 0,
+        "elapsedMs": 8535,
+        "estimatedCostUsd": 0.0019557999999999997
+      },
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4428,
+        "outputTokens": 714,
+        "cacheReadTokens": 0,
+        "elapsedMs": 8451,
+        "estimatedCostUsd": 0.0017424
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3774,
+        "outputTokens": 1378,
+        "cacheReadTokens": 0,
+        "elapsedMs": 12004,
+        "estimatedCostUsd": 0.0024084
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 20973,
+        "outputTokens": 1761,
+        "cacheReadTokens": 3430,
+        "elapsedMs": 15854,
+        "estimatedCostUsd": 0.006376400000000001
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14693,
+        "outputTokens": 1739,
+        "cacheReadTokens": 3584,
+        "elapsedMs": 15701,
+        "estimatedCostUsd": 0.0050970799999999995
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 17074,
+        "outputTokens": 2100,
+        "cacheReadTokens": 1643,
+        "elapsedMs": 22949,
+        "estimatedCostUsd": 0.00596766
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 14090,
+        "outputTokens": 2376,
+        "cacheReadTokens": 0,
+        "elapsedMs": 15305,
+        "estimatedCostUsd": 0.0056692
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 12493,
+        "outputTokens": 3421,
+        "cacheReadTokens": 0,
+        "elapsedMs": 34082,
+        "estimatedCostUsd": 0.0066038
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 15739,
+        "outputTokens": 3647,
+        "cacheReadTokens": 0,
+        "elapsedMs": 31040,
+        "estimatedCostUsd": 0.0075242
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 20830,
+        "outputTokens": 5259,
+        "cacheReadTokens": 15625,
+        "elapsedMs": 47618,
+        "estimatedCostUsd": 0.010789300000000002
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13764,
+        "outputTokens": 5644,
+        "cacheReadTokens": 11807,
+        "elapsedMs": 52893,
+        "estimatedCostUsd": 0.00976174
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18712,
+        "outputTokens": 5075,
+        "cacheReadTokens": 12965,
+        "elapsedMs": 42088,
+        "estimatedCostUsd": 0.010091699999999999
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3595,
+        "outputTokens": 308,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3864,
+        "estimatedCostUsd": 0.0010886
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4483,
+        "outputTokens": 229,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2177,
+        "estimatedCostUsd": 0.0011714000000000002
+      }
+    },
+    "totalCostUsd": 0.0762
+  },
+  "notes": []
+}
