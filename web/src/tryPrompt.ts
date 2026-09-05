@@ -6,20 +6,30 @@
  * 作業ディレクトリ、始める前に段取りを出させること、終わったら何を報告させるか。
  * 生成し直さずに変えられるよう、collector 側には持たせていない。
  *
- * 渡し方は「開く先」ごとに違う。ローカルの Claude Code には `claude-cli://` の
- * ディープリンクで最初から入った状態で開ける（Enter を押すまで何も走らない）。
- * クラウドの Linux 環境は URL で文字列を受け取れないので、開いてから貼る。
- * どのボタンも押した時点でクリップボードに入れるのは、そのため。
+ * 渡し方は「開く先」ごとに違う。Claude のアプリには `claude://code/new?q=` の
+ * ディープリンクで、入力欄に入った状態で開ける（送るまで何も走らない）。
+ * PC では Claude Desktop の Code タブ、スマホでは Claude アプリの Code タブ
+ * （クラウドのセッション）が開く。クラウドの Linux 環境は URL で文字列を
+ * 受け取れないので、開いてから貼る。どのボタンも押した時点でクリップボードに
+ * 入れるのは、そのため。
  */
 
 /** 本文の 4 節。collector 側の TRY_PROMPT_HEADINGS と同じ */
 const HEADINGS = ['# 試すこと', '# 手順', '# 確認したいこと', '# 前提・注意'] as const;
 
 /**
- * `claude-cli://open?q=` に載せられる上限（文字数）。公式ドキュメントの値。
+ * Claude Desktop の `claude://code/new?q=` が受け取る上限。公式の説明は
+ * 「およそ 14,000 字で切り詰める」なので、切られない側に寄せて 12,000 にしてある。
  * 本文は collector 側で 1,200 字に縛ってあるので、通常はここに当たらない。
  */
-const DEEP_LINK_MAX_CHARS = 5000;
+const DESKTOP_LINK_MAX_CHARS = 12_000;
+
+/**
+ * スマホ向けの `https://claude.ai/code/new?q=` はふつうの URL なので、上限は
+ * エンコード後の長さで決まる（日本語 1 字が 9 文字になる）。受け取り側の
+ * URL とヘッダの上限 16KB 弱から Cookie ぶんを引いた残り。askClaude.ts と同じ根拠。
+ */
+const UNIVERSAL_LINK_MAX_ENCODED = 8000;
 
 /** 要約に失敗した日の howToTry。手順ではないので、これからプロンプトは組まない */
 const FAILED_PLACEHOLDER = '元記事を開いて確認してください。';
@@ -115,18 +125,23 @@ export interface TryExit {
 }
 
 /**
- * 並べる順に意味がある。プロンプトが最初から入る Claude Code を先頭に、
- * あとは「使い捨てで即」「永続する」「予備」の順。
+ * PC の開く先。並べる順に意味がある。プロンプトが最初から入る Claude Desktop を
+ * 先頭に、あとは「使い捨てで即」「永続する」「予備」の順。
  */
 export const TRY_EXITS: readonly TryExit[] = [
   {
     key: 'claude',
     label: '▶ Claude Code で開く',
     title:
-      'この Mac の Claude Code を新しいターミナルで開き、このプロンプトを入力欄に入れます。' +
-      'Enter を押すまで何も実行されません。Claude Code が入っていない端末では動きません。',
+      'Claude Desktop の Code タブを新しいセッションで開き、このプロンプトを入力欄に入れます。' +
+      '送るまで何も実行されません。作業フォルダは開いたあとに選びます。Claude Desktop が入っていない端末では動きません。',
     carriesPrompt: true,
-    href: (prompt) => `claude-cli://open?q=${encodeURIComponent(fitForDeepLink(prompt))}`,
+    /*
+     * `folder` は付けない。絶対パスを公開サイトに焼くことになるうえ、
+     * リンク経由のフォルダは信用されず、どのみち確認のダイアログが出る。
+     * 作業ディレクトリはプロンプトの末尾で指示している。
+     */
+    href: (prompt) => `claude://code/new?q=${encodeURIComponent(fitForDeepLink(prompt))}`,
   },
   {
     key: 'iximiuz',
@@ -158,15 +173,46 @@ export const TRY_EXITS: readonly TryExit[] = [
 ];
 
 /**
- * ディープリンクの上限に収める。
+ * スマホの開く先。Claude アプリの Code タブを、プロンプトが入った状態で開く。
+ *
+ * `https://claude.ai/code/new` は Claude アプリの Universal Link / App Link なので、
+ * アプリが入っていればアプリ側が開き、無ければブラウザで claude.ai/code が開く。
+ * `claude://` を直接書かないのは、アプリが無い端末で何も起きない状態を作らないため。
+ * クラウドのセッションになるので、開いた先でリポジトリを選ぶことになる。
+ */
+export const MOBILE_EXIT: TryExit = {
+  key: 'claude',
+  label: '▶ Claude アプリで開く',
+  title:
+    'Claude アプリの Code タブを新しいセッションで開き、このプロンプトを入力欄に入れます。' +
+    'アプリが入っていなければブラウザで claude.ai が開きます。',
+  carriesPrompt: true,
+  href: (prompt) => `https://claude.ai/code/new?q=${encodeURIComponent(fitForUniversalLink(prompt))}`,
+};
+
+/**
+ * ディープリンクの上限に収める（文字数で数える。Claude Desktop 向け）。
  *
  * 超えたときは本文の後ろの節から落とす（前提・注意 → 確認したいこと）。末尾の固定文は
  * 作業のさせ方なので残す。それでも超えるなら切る——クリップボードには全文が入るので、
  * 貼れば失われない。
  */
-export function fitForDeepLink(prompt: string, max = DEEP_LINK_MAX_CHARS): string {
-  const length = (s: string) => Array.from(s).length;
-  if (length(prompt) <= max) return prompt;
+export function fitForDeepLink(prompt: string, max = DESKTOP_LINK_MAX_CHARS): string {
+  return fit(prompt, (s) => Array.from(s).length <= max, max);
+}
+
+/**
+ * Universal Link の上限に収める（エンコード後の長さで数える。スマホ向け）。
+ * 落とし方はディープリンクと同じ。
+ */
+export function fitForUniversalLink(prompt: string, maxEncoded = UNIVERSAL_LINK_MAX_ENCODED): string {
+  const fits = (s: string) => 'https://claude.ai/code/new?q='.length + encodeURIComponent(s).length <= maxEncoded;
+  // 最後の切り詰めは文字数でしか指定できないので、日本語 1 字 = 9 文字で見積もる
+  return fit(prompt, fits, Math.floor(maxEncoded / 9));
+}
+
+function fit(prompt: string, fits: (s: string) => boolean, hardMaxChars: number): string {
+  if (fits(prompt)) return prompt;
 
   const sep = '\n\n---\n';
   const at = prompt.lastIndexOf(sep);
@@ -175,21 +221,25 @@ export function fitForDeepLink(prompt: string, max = DEEP_LINK_MAX_CHARS): strin
 
   // 後ろの節から落とす。「試すこと」と「手順」は残す
   for (const heading of [HEADINGS[3], HEADINGS[2]]) {
-    if (length(body + tail) <= max) break;
+    if (fits(body + tail)) break;
     const i = body.lastIndexOf(`\n${heading}`);
     if (i > 0) body = body.slice(0, i).trimEnd();
   }
   const joined = body + tail;
-  if (length(joined) <= max) return joined;
-  return Array.from(joined).slice(0, max - 1).join('') + '…';
+  if (fits(joined)) return joined;
+  return Array.from(joined).slice(0, Math.max(hardMaxChars - 1, 1)).join('') + '…';
 }
 
+export type Device = 'desktop' | 'mobile';
+
 /**
- * 開く先を出すか。マウスのある画面（PC）でだけ出す。
+ * どの開く先を出すか。マウスのある画面は PC、それ以外はスマホとみなす。
  *
- * スマホでは Claude Code のディープリンクは動かず、クラウド環境も操作できないので、
- * 列そのものが要らない。コピーだけは端末を問わず出す。
+ * PC には Claude Desktop とクラウド環境の列を出す。スマホではクラウド環境は
+ * 操作できないので、Claude アプリを開くボタンだけを出す。コピーは端末を問わず出す。
  */
-export function canOpenExits(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches;
+export function detectDevice(): Device {
+  return typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches
+    ? 'desktop'
+    : 'mobile';
 }

@@ -4,6 +4,7 @@ import { CopyButton, LoadingCards, Notice, TagInput } from '../components';
 import { editUrl, isRepoSlug } from '../github';
 import { hasPushConfig } from '../push';
 import { PushSection } from '../PushSection';
+import { TryHelp } from './TryHelp';
 import {
   type Theme,
   clearLocalTopics,
@@ -295,6 +296,13 @@ export function SettingsView({ manifest }: { manifest: Manifest | null }) {
           ))}
         </div>
       </section>
+
+      {/* ---------------- ヘルプ ---------------- */}
+      {/*
+        カードの「試し方」を開いた先で止まらないための手順。設定ではないが、
+        画面のどこにも置き場が無く、「使い方が分からない」で開くのはここになる。
+      */}
+      <TryHelp />
 
       {/* ---------------- プッシュ通知 ---------------- */}
       {/* VAPID 鍵か Firebase が未設定のビルドでは、案内も出さず丸ごと隠す */}
