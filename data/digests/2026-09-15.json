@@ -1,0 +1,2300 @@
+{
+  "date": "2026-09-15",
+  "generatedAt": "2026-09-15T00:13:27.194Z",
+  "window": {
+    "start": "2026-09-13T22:00:00.000Z",
+    "end": "2026-09-14T22:00:00.000Z"
+  },
+  "summary": [
+    "AIエージェント周辺で、会話内UIや運用自動化の実装例が相次いだ。",
+    "主要ツールでは新機能リリースが中心となり、認証・モデル選択・React対応が進んだ。",
+    "脆弱性関連では、修正だけでなくログや監査記録による被害確認が重視された。",
+    "Web標準やフレームワークの議論も含め、実運用時の境界設計を問う話題が目立った。"
+  ],
+  "outlook": "AIエージェントは会話内UIや運用自動化として開発基盤に定着しつつある一方、権限境界・監査・評価と脆弱性対応はなお揺れている。この先は、実装速度よりも人間の確認を組み込んだ安全な実運用設計と、被害を追跡できる証跡管理が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Hummingbird(7万サイト)のRCE CVE-2026-83627──デバッグログ経由の確認と対処",
+      "url": "https://qiita.com/jiis-sasaki/items/b6ede357df55b26ed541",
+      "publishedAt": "2026-09-13T22:30:00.000Z",
+      "author": "jiis-sasaki",
+      "authorDetail": {
+        "name": "jiis-sasaki",
+        "handle": "@jiis-sasaki",
+        "url": "https://qiita.com/jiis-sasaki",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4443640/51e197194384b8eba7fa93bc8dae17f08efc3b3e/x_large.png?1780639664",
+        "bio": "兵庫を拠点に、Webセキュリティとインフラ運用を担当。脆弱性診断・GitOps(FluxCD)・IDS運用・コンテナ周りが中心。実務でハマった話と直し方を書きます。所属:日本情報基盤サービス(JIIS)。",
+        "organization": "日本情報基盤サービス(JIIS)",
+        "location": "兵庫・尼崎",
+        "followers": 8,
+        "posts": 45,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/sitedock_jp"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.jiis.co.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "WordPress",
+        "Security",
+        "PHP",
+        "cve",
+        "vulnerability"
+      ],
+      "snippet": "WordPress サイトを自社で運用している方、制作会社として複数サイトの保守を受けている方向けの記事です。 表示速度改善プラグイン Hummingbird に、認証なしでサーバー上の PHP コードを実行されうる脆弱性 CVE-2026-83627 が公開されました。該当するかの確認、更新、更新後も残る「ログファイルの残骸」の点検までを、コピペできるコマンド付きで整理します。 3 行まとめ ・CVE-2026-83627 は Hummingbird 3.21.0 以前のリモートコード実行(RCE)。CVSS 9.8。3.21.2 以降へ更新する ・成立条件は ページキャッシュ有効 + デバッグログ(Debug Log)有効。デバッグログは既定では無効だが、表示崩れの調査で一時的に ON にしてそのまま、というサイトが危ない ・更新しても 既に書き出されたログファイルは消えない。wp-c…",
+      "body": "WordPress サイトを自社で運用している方、制作会社として複数サイトの保守を受けている方向けの記事です。\n\n表示速度改善プラグイン Hummingbird に、認証なしでサーバー上の PHP コードを実行されうる脆弱性 CVE-2026-83627 が公開されました。該当するかの確認、更新、更新後も残る「ログファイルの残骸」の点検までを、コピペできるコマンド付きで整理します。\n\n3 行まとめ\n・CVE-2026-83627 は Hummingbird 3.21.0 以前のリモートコード実行(RCE)。CVSS 9.8。3.21.2 以降へ更新する\n・成立条件は ページキャッシュ有効 + デバッグログ(Debug Log)有効。デバッグログは既定では無効だが、表示崩れの調査で一時的に ON にしてそのまま、というサイトが危ない\n・更新しても 既に書き出されたログファイルは消えない。wp-content/wphb-logs/ の中身とアクセスログを必ず確認する\n\n何が起きたのか\n\n| 項目 | 内容 |\n|---|---|\n| CVE | CVE-2026-83627 |\n| 対象 | WordPress プラグイン Hummingbird(slug: hummingbird-performance / 有効インストール 70,000 件以上) |\n| 影響を受けるバージョン | 3.21.0 以前のすべて |\n| 更新先 | 3.21.2 以降(3.21.0〜3.21.2 はいずれも 2026-09-01 リリース) |\n| CVSS | 9.8(Wordfence 採点 / CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H) |\n| CWE | CWE-94(コードインジェクション) |\n| NVD 公開日 | 2026-09-05 |\n\n出典:\n・NVD: https://nvd.nist.gov/vuln/detail/CVE-2026-83627\n・Wordfence Intelligence: https://www.wordfence.com/threat-intel/vulnerabilities/id/65c3ca36-79e6-47f8-9524-27e7631f4caf\n・配布ページ: https://wordpress.org/plugins/hummingbird-performance/\n\nNVD の影響範囲は「3.21.0 以前」ですが、参照されている修正は 3.21.2 に含まれ、マルチサイトの別の脆弱性 CVE-2026-19224(CVSS 7.2 / 3.21.2 未満)も同版で修正されています。更新先は 3.21.2 以降で揃えるのが安全です。\n\n本記事の執筆時点では、悪用が確認されたという公式情報は見当たりません。ただし原因箇所が公開リポジトリで特定できる状態のため、公開から時間が経つほど狙われやすくなる種類の欠陥です。\n\n仕組み: 「PHP 拡張子のログ」が公開領域にあった\n\nNVD と Wordfence の記述を、運用者向けに噛み砕くとこうなります。\n\n1. デバッグログを有効にすると、ページキャッシュの動作記録が wp-content/wphb-logs/page-caching-log.php に書き出される\n2. このファイルは 拡張子が .php で、Web から直接アクセスできる場所にある。本来は先頭に「直接開かれたら即終了する」ガード行を入れて守る設計だった\n3. ところが、そのガード行を入れるかどうかの判定が PHP の名前空間(namespace)の扱いを誤っており、サイトの表側(フロントエンド)へのアクセスでログが新規作成されたときはガード行が入らない\n4. さらにログには、訪問者が送ってきた Cookie の名前が無害化されずにそのまま記録される\n\nつまり「外部から送られた文字列が、Web から実行できる PHP ファイルにそのまま書き込まれる」状態でした。ログを書く処理そのものが、サーバーにコードを置く入口になっていたわけです。\n\nなお本記事では、実際に成立するリクエストの形や再現手順は扱いません。運用側が今日やるべきことに絞ります。\n\n手順 1: 自分のサイトが該当するか確認する\n\nWP-CLI で確認します(複数サイトは --path を変えて回します)。\n\n [code] \n\nversion が 3.21.2 未満なら更新対象です。\n\n次に、デバッグログが実際に書き出されていたかを見ます。設定画面の状態は「今」しか分かりませんが、ログディレクトリを見れば「過去に有効だったか」が分かります。\n\n [code] \n\npage-caching-log.php が存在するサイトは、更新だけで終わらせず手順 4 の点検まで進めてください。\n\n手順 2: 3.21.2 以降へ更新する\n\n対応の本体です。バックアップを取得してから実行します。\n\n [code] \n\n管理画面から更新する場合は「ダッシュボード → 更新」で実行し、プラグイン一覧の表記が 3.21.2 以降になっていることを確認します。\n\nあわせて、ページキャッシュ設定の デバッグログを OFF にします。本番で常時有効にしておく理由はありません。\n\n手順 3: すぐに更新できないときの暫定対応\n\n検証環境での確認待ちなどですぐ更新できない場合の時間稼ぎです。更新の代わりにはなりません。\n\n(1) デバッグログを OFF にする\n\n成立条件の片方を外す、最も手早い対応です。\n\n(2) ログディレクトリへの Web アクセスを遮断する\n\nログは Web から読めなくても困りません。ディレクトリごと外から届かないようにします。\n\n [code] \n\n [code] \n\nnginx は ^ を付けないと、PHP 用の正規表現 location が先に選ばれて deny が効かないことがあります。反映後は自サイトに curl -I を送り、403 が返ることを確認してください。\n\n手順 4: すでに書き込まれていないか点検する\n\n更新はこれからの被害を止めますが、書き出し済みのログファイルは残ります。\n\n(1) ログファイルを保全してから中身を確認する\n\nいきなり削除すると、後から「何が起きたのか」を追えなくなります。まず公開領域の外へ控えを取ります。\n\n [code] \n\n先頭にガード行が無い、または PHP の開始タグが複数出てくる場合は、書き込みを受けた可能性があるものとして扱ってください。確認後、ログの中身は削除して構いません(デバッグ用の記録です)。\n\n(2) ログファイルへのアクセス痕跡を探す\n\nこのファイルに外部から 200 応答が返っていた記録があれば要注意です。\n\n [code] \n\nApache はログのパスを読み替えます。プロキシ配下では、記録された IP が本当の送信元か先に確認してください。\n\n(3) 乗っ取りの痕跡を確認する\n\n [code] \n\n不審なものが見つかった場合、そのファイルだけ消して終わりにせず、確実に正常だった時点のバックアップへ戻すのが基本です。あわせて管理者パスワードとデータベース接続情報を変更し、wp-config.php の認証用ユニークキー(salt)を入れ替えて既存のログインセッションを無効化します。\n\n自作コードで同じ設計ミスをしないために\n\n今回の根っこは 2 つあり、どちらもプラグインに限らず受託開発のコードで起きます。\n\n落とし穴 1: 名前空間の中の classexists()\n\nclassexists() に文字列でクラス名を渡すと、グローバル名前空間のクラス名として解決されます。名前空間の中で短い名前を書いても、自分のクラスを指しません。\n\n [code] \n落とし穴 2: ログを公開領域に、実行できる拡張子で置く\n\n「先頭にガード行を入れるから .php でも安全」という設計は、ガード行が 1 回でも抜けた瞬間に崩れます。ログは次の原則で書きます。\n\n [code] \n\nWordPress の都合でどうしても wp-content 配下に書く必要がある場合も、.log などの実行されない拡張子にし、Web サーバー側でディレクトリごと遮断してください。「アプリ側の工夫」と「サーバー側の遮断」の二重にしておくと、今回のような片側の欠陥で即座に RCE にはなりません。\n\nまとめ\n・Hummingbird は 3.21.2 以降へ更新する(同時に修正された CVE-2026-19224 もカバーされる)\n・成立条件は ページキャッシュ + デバッグログ有効。デバッグログは本番で OFF、調査後は必ず戻す\n・wp-content/wphb-logs/ が存在したサイトは、控えを取ってから中身とアクセスログを確認し、ログは削除する\n・自作コードでは、ログを公開領域に .php で置かない。classexists() には ::class を渡す\n\n調査のために一時的に有効にした設定は、戻し忘れると攻撃面として残ります。保守の完了チェックに デバッグ系設定の戻し確認 を加えておきましょう。\n\n関連記事\n・WordPressの改ざんを防ぐファイル権限とPHP実行制限\n・アクセスログから不正アクセスの兆候を見つける7つの集計\n・WordPressの改ざんを検知する5つのチェック\n\n---\n\n本記事のようなプラグインの更新漏れや設定の抜けは、Web サイトを 9 つの守りでまるごと守るサイトドックでまとめて対策できます → https://sitedock.jp",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f659ce6aa3ee4db0",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.2656372549019608,
+      "popularityPercentile": 0.821078431372549,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "HummingbirdのCVE-2026-83627について、影響確認から更新後のログ調査までを解説している。",
+      "takeaways": [
+        "Hummingbird 3.21.0以前に重大な欠陥が見つかった。",
+        "ページ保存と記録機能の併用時に攻撃が成立した。",
+        "3.21.2以降へ更新して残存ログも確認する必要がある。"
+      ],
+      "keywords": [
+        "Hummingbird",
+        "CVE-2026-83627",
+        "WordPress",
+        "PHP",
+        "RCE",
+        "wp-content/wphb-logs"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "Hummingbird 3.21.0 以前には、ページキャッシュとデバッグログが有効なサイトで、認証なしのリモートコード実行（RCE）につながる CVE-2026-83627 がある。訪問者の Cookie 名が、Web から直接アクセスできる PHP ログファイルに無害化されず記録され、ログ生成時の namespace 判定ミスでガード行が抜けることが原因である。修正版は 3.21.2 以降で、マルチサイト向けの CVE-2026-19224 も同版で修正されている。更新後も wp-content/wphb-logs/ に既存ログが残るため、保全、内容確認、アクセスログ調査、削除まで必要になる。記事執筆時点では実際の悪用を確認した公式情報はないが、原因箇所が公開リポジトリで特定できる状態である。",
+        "prerequisites": [
+          {
+            "term": "Hummingbird",
+            "stumblingPoint": "記事は Hummingbird 3.21.0 以前と書くが、通常の WordPress プラグイン更新対象と脆弱性対象の対応が読み取りにくい。",
+            "explanation": "Hummingbird は WordPress のページキャッシュや速度改善を担うプラグインで、今回のログ生成処理もその内部機能に含まれる。対象バージョンは 3.21.0 以前で、更新先は 3.21.2 以降である。3.21.0〜3.21.2 は同じ 2026-09-01 リリースとして記載されているため、3.21.0 から 3.21.2 へ上げる必要がある。"
+          },
+          {
+            "term": "RCE",
+            "stumblingPoint": "「認証なしのリモートコード実行(RCE)」とあるが、Cookie の記録がなぜコード実行につながるのかが止まりやすい。",
+            "explanation": "RCE は、攻撃者が対象サーバー上で任意のコードを実行できる状態を指す。この記事では、外部から送られた Cookie 名が PHP ファイルへ書き込まれ、そのファイルを Web 経由で実行できる構成が問題になる。認証不要、権限不要、ユーザー操作不要と評価され、CVSS は 9.8 である。"
+          },
+          {
+            "term": "デバッグログ",
+            "stumblingPoint": "「デバッグログは既定では無効」とあるが、過去に有効だったかを現在の設定画面だけでは判断できない。",
+            "explanation": "デバッグログは、ページキャッシュの動作記録を wp-content/wphb-logs/page-caching-log.php に書き出す設定である。設定画面は現在の ON/OFF しか示さないが、ログディレクトリや page-caching-log.php が残っていれば、過去にログが作られた可能性を確認できる。表示崩れの調査などで一時的に ON にしたままのサイトが確認対象になる。"
+          },
+          {
+            "term": "namespace",
+            "stumblingPoint": "「PHP の名前空間(namespace)の扱いを誤った」とあるが、短いクラス名の解決先が変わる理由を読み取りにくい。",
+            "explanation": "namespace は PHP のクラス名などを分けて管理する仕組みである。記事の問題では、namespace 内で classexists() に文字列の短いクラス名を渡したため、意図した自分のクラスではなくグローバル名前空間側のクラスとして判定された。その結果、PHP ログの先頭に入れるはずの直接アクセス防止用ガード行が抜けた。"
+          },
+          {
+            "term": "ガード行",
+            "stumblingPoint": "「先頭にガード行が無い」とあるが、ログファイルの調査で何を異常と判断するのかが曖昧になりやすい。",
+            "explanation": "ガード行は、PHP ファイルが直接開かれた場合に処理を止めるための先頭の防御コードである。この記事では、先頭にガード行がないログ、または PHP の開始タグが複数あるログを、書き込みを受けた可能性があるものとして扱う。更新後も既存ファイルは自動削除されないため、保全してから確認する。"
+          },
+          {
+            "term": "wp-content/wphb-logs/",
+            "stumblingPoint": "「公開領域の外へ控えを取る」とあるが、ログ自体を残すことと削除することの順序が重要な理由が省略されている。",
+            "explanation": "wp-content/wphb-logs/ は Hummingbird のログが置かれる公開領域内のディレクトリである。先に削除すると、侵入や改ざんの調査に必要な内容と時刻情報を失うため、まず公開領域の外へコピーする。その後に内容とアクセスログを確認し、調査が済んだログを削除する。"
+          },
+          {
+            "term": "CVE-2026-19224",
+            "stumblingPoint": "CVE-2026-83627 と別の CVE-2026-19224 も 3.21.2 で修正とあるが、更新判断との関係が読み取りにくい。",
+            "explanation": "CVE-2026-19224 はマルチサイトに関係する別の脆弱性で、CVSS は 7.2、3.21.2 未満が対象と記載されている。したがって、単一サイトだけを意識して 3.21.1 などへ更新するのではなく、両方の修正を含む 3.21.2 以降へ揃えるのが記事の更新方針である。"
+          },
+          {
+            "term": "salt",
+            "stumblingPoint": "「wp-config.php の認証用ユニークキー(salt)を入れ替える」とあるが、ファイル削除だけでは不十分な理由が分かりにくい。",
+            "explanation": "salt は WordPress の認証用情報を構成するユニークキーで、既存のログインセッションを無効化するために使われる。乗っ取りの痕跡がある場合は、不審ファイルの削除だけでなく、管理者パスワード、データベース接続情報、wp-config.php の salt を変更する必要がある。記事は、正常だった時点のバックアップへ戻すことも基本対応としている。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "RCEにつながる経路",
+          "layers": [
+            {
+              "label": "外部入力",
+              "nodes": [
+                {
+                  "name": "訪問者のCookie名",
+                  "note": "無害化されず送信",
+                  "highlight": false
+                }
+              ],
+              "via": "ログ書き込み"
+            },
+            {
+              "label": "Hummingbird",
+              "nodes": [
+                {
+                  "name": "デバッグログ",
+                  "note": "ページキャッシュ記録",
+                  "highlight": true
+                }
+              ],
+              "via": "PHPログ生成"
+            },
+            {
+              "label": "公開領域",
+              "nodes": [
+                {
+                  "name": "page-caching-log.php",
+                  "note": "ガード行が抜ける場合",
+                  "highlight": true
+                }
+              ],
+              "via": "Webアクセス"
+            },
+            {
+              "label": "サーバー",
+              "nodes": [
+                {
+                  "name": "PHP実行",
+                  "note": "RCEにつながる",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "NVD: CVE-2026-83627",
+            "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-83627"
+          },
+          {
+            "label": "Wordfence Intelligence",
+            "url": "https://www.wordfence.com/threat-intel/vulnerabilities/id/65c3ca36-79e6-47f8-9524-27e7631f4caf"
+          },
+          {
+            "label": "Hummingbird 配布ページ",
+            "url": "https://wordpress.org/plugins/hummingbird-performance/"
+          },
+          {
+            "label": "サイトドック",
+            "url": "https://sitedock.jp"
+          }
+        ],
+        "readingMinutes": 7,
+        "lane": "know",
+        "impact": [
+          "Hummingbird 3.21.0 以前を使う人",
+          "ページキャッシュを有効にしている人",
+          "デバッグログを過去に有効化した人",
+          "複数の WordPress サイトを保守する人"
+        ],
+        "timeline": [
+          "2026-09-01 3.21.0〜3.21.2をリリース",
+          "2026-09-05 NVDがCVE-2026-83627を公開"
+        ],
+        "checkNow": [
+          "HummingbirdのバージョンをWP-CLIで確認する",
+          "wp-content/wphb-logs/の有無とログを保全する",
+          "デバッグログをOFFにし、3.21.2以降へ更新する"
+        ],
+        "unknowns": [
+          "記事執筆時点で実悪用の公式確認はない",
+          "提示本文ではWP-CLIコマンド本体が欠落している"
+        ]
+      }
+    },
+    {
+      "source": "zenn",
+      "sourceLabel": "Zenn / 株式会社サイバーセキュリティクラウド　テックブログ",
+      "title": "AWS SSM Agent の脆弱性(CVE-2026-89049) の被害があったかどうかを CloudTrail で確認する方法",
+      "url": "https://zenn.dev/cscloud_blog/articles/4d6e13b853109e",
+      "publishedAt": "2026-09-14T01:30:42.054Z",
+      "author": "nishikawa",
+      "authorDetail": {
+        "name": "nishikawa",
+        "handle": "@akira1984",
+        "url": "https://zenn.dev/akira1984",
+        "avatarUrl": "https://res.cloudinary.com/zenn/image/fetch/s--BX83Suj5--/c_limit%2Cf_auto%2Cfl_progressive%2Cq_auto%2Cw_70/https://static.zenn.studio/user-upload/avatar/d6b14727e0.jpeg?_a=BACMTiAE",
+        "organization": "株式会社サイバーセキュリティクラウド　テックブログ",
+        "links": [
+          {
+            "label": "Publication",
+            "url": "https://zenn.dev/p/cscloud_blog"
+          }
+        ]
+      },
+      "tags": [
+        "tech"
+      ],
+      "snippet": "どうもサイバーセキュリティクラウドで脅威インテリジェンスをしている西川です。 今日は表題の CVSS v3.1 における CVSS 9.9(Critical) の脆弱性について実際に脆弱性が悪用された場合にどういうログが CloudTrail に出るのかを検証し、皆様の環境で被害が発生していないか確認していただくためにブログを執筆いたしました。ただこのスコアほど影響度は高くないというのが個人的な印象です。それらについてもまとめているので最後までご覧ください。 CVE-2026-89049 とは 2026年9月10日に AWS は AWS Systems Manager Agent（以...",
+      "metrics": {
+        "likes": 12,
+        "stocks": 2,
+        "hatena": 4
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "861bf9de0541aa73",
+      "foundIn": [
+        "zenn",
+        "rss"
+      ],
+      "body": "どうもサイバーセキュリティクラウドで脅威インテリジェンスをしている西川です。\n\n 今日は表題の CVSS v3.1 における CVSS 9.9(Critical) の脆弱性について実際に脆弱性が悪用された場合にどういうログが CloudTrail に出るのかを検証し、皆様の環境で被害が発生していないか確認していただくためにブログを執筆いたしました。ただこのスコアほど影響度は高くないというのが個人的な印象です。それらについてもまとめているので最後までご覧ください。\n\n \n CVE-2026-89049 とは\n\n 2026年9月10日に AWS は AWS Systems Manager Agent（以下、SSM Agent）の Session Manager ポートフォワーディング機能に存在する SSRF の脆弱性（CVE-2026-89049） を公開しました。影響を受けるのは、SSM Agent のバージョンが 3.3.4851.0 未満のもので EC2 から RDS へポートフォワーディングして接続するような仕組みを持っている場合、かつ EC2 へのアクセス権を持っていないユーザーが、EC2 の一時クレデンシャルを取得できてしまうというものです。\n\n \n 悪用されるとどうなるのか\n\n EC2 の IAM ロールについている権限で AWS 環境が侵害され可能性があります。EC2 の権限が絞られているならそれほどリスクならない可能性もあります。\n\n また、そもそもユーザーが通常利用として EC2 へ SSM で接続できる場合や SSM Run Command が実行される場合においては EC2 の一時クレデンシャルは取得できてしまうので、そうなっている場合はこの脆弱性を対応する/しないはあまり関係ありません。あくまでも EC2 に対してそういったコマンドが実行できず、ポートフォワーディング先にしかアクセスできないような制限がかけられている場合のみ対応が必要です。\n\n \n どのようなログが出力されるか\n\n ペイロード部分は隠していますが、下記のようなログが出力されます。\n\n \n\n 本番環境でポートフォワーディングして接続しにいくようなのは頻繁には発生しないと思っていまして、documentName の AWS-StartPortForwardingSessionToRemoteHost で検索するのが一番わかりやすいかなと思います。\n\n host のところにペイロードを入れるのですが、SSRF のアドレス表現がそれなりにある気がするので、検索で引っかからないことを考慮して、上記 documentName で検索していただくことを推奨いたします。\n\n \n CloudTrail の検索\n\n AWS のコンソール画面上から検索するのはかなり大変で、Event history から Loopup attributes で Event name を選択し、StartSession で検索をかけるのですが、何もなければいいのですが数が多いと一つ一つページを開いて中身を確認していく必要があります。\n\nCloudTrail Lake で Query を書いてもいけると思うのですが、個人の環境では使っていないので、AWS CLI で私は確認しています。\n\n aws cloudtrail lookup-events \\ \n --region ap-northeast-1 \\ \n --lookup-attributes \\ \n AttributeKey=EventName,AttributeValue=StartSession \\ \n --start-time '2026-09-11T03:30:00+09:00' \\ \n --end-time '[SSM Agent をアップデートした日時]' \\ \n --output json | \n jq ' \n [ \n .Events[] \n | (.CloudTrailEvent | fromjson) \n | select( \n .eventSource == \"ssm.amazonaws.com\" \n and \n .requestParameters.documentName \n == \"AWS-StartPortForwardingSessionToRemoteHost\" \n ) \n | { \n eventTime, \n eventID, \n principalArn: .userIdentity.arn, \n sourceIPAddress, \n userAgent, \n target: .requestParameters.target, \n documentName: .requestParameters.documentName, \n reason: .requestParameters.reason, \n parameters: .requestParameters.parameters, \n sessionId: .responseElements.sessionId, \n errorCode, \n errorMessage \n } \n ] \n | sort_by(.eventTime) \n | reverse \n ' \n \n\n これで AWS-StartPortForwardingSessionToRemoteHost の一覧が取得できるので、parameters の中の要素の host を見てみてください。169.254.169.254 など IMDS にアクセスするための IP アドレスが記載されていた場合は攻撃を受けている可能性があります。\n\n余談ではありますが、IMDS v1 だけでなく、v2 でも被害に遭います。\n\n \n 最後に\n\n 「実際影響度ってどうなの？」って思われた方もいらっしゃると思うのですが、基本的には内部犯だったり、通常のユーザーのクレデンシャルが攻撃者に窃取されて、そこからの侵害になるのでそれほど攻撃のケースというのは多くないと思っています。\n\nまた、ポートフォワーディングの設定で EC2 にアクセスさせないように AWS-StartPortForwardingSessionToRemoteHost だけを権限としてユーザーに与えている組織がどれほどあるでしょうか。EC2 自体にもアクセスさせているケースが世の中的には多いのではないかと思っていまして、それが良いかどうかはおいておいて、そうなるとこの脆弱性以前の問題です。\n\nそういったこともあり、CVSS としては高いものの実態としてはそこまで脅威を感じるものではないというのが個人の意見です。ただ最初 CVSS をみた時はそこまでの考えに至っていたわけではなく、実際に試している途中でそういえばこれって・・・と思ったので、手を動かすのが大事だなと改めて思いました。\n\n 引き続きこういった情報を発信していこうと思いますので、どうぞよろしくお願いいたします。\n\n一緒に働いてくださる方も随時募集しておりますので、ご興味ございましたらご連絡ください。",
+      "preScore": 0.8942105263157896,
+      "popularityPercentile": 0.9736842105263158,
+      "matchedTopics": [
+        "AI / LLM",
+        "Google Cloud"
+      ],
+      "buzz": true,
+      "score": 72,
+      "titleJa": null,
+      "oneLiner": "AWS SSM AgentのCVE-2026-89049について、CloudTrailから悪用痕跡を調べる方法を検証している。",
+      "takeaways": [
+        "AWS SSM Agentに深刻度9.9の脆弱性が見つかった。",
+        "悪用時にCloudTrailへ残る操作記録を実際に検証した。",
+        "記録を照合して自環境の被害有無を調べられる。"
+      ],
+      "keywords": [
+        "AWS SSM Agent",
+        "CVE-2026-89049",
+        "CloudTrail",
+        "AWS Systems Manager",
+        "CVSS 9.9"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "AWSは2026-09-10、AWS Systems Manager Agent（SSM Agent）3.3.4851.0未満のSession Managerポートフォワーディングに存在するSSRFとしてCVE-2026-89049を公開しました。EC2からRDSなどへポートフォワーディングできる一方、EC2自体への操作権限を持たないユーザーが、EC2の一時クレデンシャルを取得できる条件が対象です。悪用時はEC2のIAMロール権限でAWS環境を操作される可能性があり、IMDS v1だけでなくIMDS v2も影響を受けます。被害確認では、CloudTrailのStartSessionイベントからrequestParameters.documentNameがAWS-StartPortForwardingSessionToRemoteHostの記録を抽出し、parameters内のhostを確認します。hostに169.254.169.254などIMDSのIPアドレスがあれば、攻撃を受けた可能性があります。",
+        "prerequisites": [
+          {
+            "term": "CVE-2026-89049",
+            "stumblingPoint": "記事はCVE-2026-89049をSSRFと説明するが、何を取得される脆弱性かが読み取りにくい。",
+            "explanation": "CVE-2026-89049は、特定条件のSession Managerポートフォワーディングを経由してEC2の一時クレデンシャルを取得される問題です。クレデンシャルはEC2のIAMロールに紐づくため、取得後の操作範囲はそのロール権限に左右されます。単にRDSへ接続できる問題ではなく、EC2内部のメタデータサービスへ到達できる点が攻撃の要所です。"
+          },
+          {
+            "term": "SSM Agent",
+            "stumblingPoint": "「SSM Agentのバージョンが3.3.4851.0未満」とあるが、どの構成が影響対象かが詰まりやすい。",
+            "explanation": "SSM AgentはEC2上でSystems Managerのセッションやコマンドを処理するエージェントです。記事の影響条件は、古いバージョンであることに加え、EC2からRDSなどへのポートフォワーディング構成があることです。古いAgentを使っているだけで、すべてのEC2が同じ条件になるという説明ではありません。"
+          },
+          {
+            "term": "Session Manager",
+            "stumblingPoint": "「Session Managerポートフォワーディング」と書かれるが、通常のシェル接続との違いが読み取れない。",
+            "explanation": "Session Managerは、SSHのようにEC2へ直接ログインするだけでなく、管理対象ノードを経由して別の宛先へ通信を転送できます。今回の記事が扱うのは、EC2へ操作権限を与えず、ポートフォワーディング先だけに到達させる構成です。その制限を越えてEC2のメタデータへアクセスできることが問題になります。"
+          },
+          {
+            "term": "SSRF",
+            "stumblingPoint": "「SSRFの脆弱性」とあるが、hostに入れた値が何を起こすのかが分かりにくい。",
+            "explanation": "SSRFは、利用者が指定した接続先をサーバー側の処理から要求させる攻撃です。この記事ではポートフォワーディングの接続先hostに、外部利用者から直接到達しにくいEC2内部のアドレスを指定します。その結果、EC2上のSSM Agentを踏み台にしてIMDSへ要求できる可能性があります。"
+          },
+          {
+            "term": "IMDS v2",
+            "stumblingPoint": "「IMDS v1だけでなく、v2でも被害に遭う」とあるが、v2の保護が何を防げないのかが詰まる。",
+            "explanation": "IMDS v2は、メタデータ取得前にセッショントークンを要求するEC2の仕組みです。この記事の検証では、攻撃者がEC2上のSSM Agentを経由して通信できるため、IMDS v2の導入だけではこの経路を防げないとされています。したがって、v1を無効化済みという理由だけで確認を省略できません。"
+          },
+          {
+            "term": "CloudTrailEvent",
+            "stumblingPoint": "CLI例で「CloudTrailEventをfromjson」としているが、なぜ二重にJSONを扱うのかが分かりにくい。",
+            "explanation": "CloudTrailのlookup-events結果では、各イベントの詳細がCloudTrailEventというJSON文字列として格納されています。jqでfromjsonを通すことで、eventSourceやrequestParameters.documentNameを通常のJSONフィールドとして選択できます。この変換をしないと、入れ子になったイベント内容を条件検索できません。"
+          },
+          {
+            "term": "AWS-StartPortForwardingSessionToRemoteHost",
+            "stumblingPoint": "記事はdocumentNameで検索するよう勧めるが、StartSessionだけでは広すぎる理由が必要になる。",
+            "explanation": "StartSessionは複数種類のSSMセッションに使われるイベント名です。AWS-StartPortForwardingSessionToRemoteHostは、リモートホストへのポートフォワーディングに使われるdocumentNameなので、今回の経路に絞り込めます。hostのSSRF表現には揺れがあり得るため、まずdocumentNameで一覧化してからparameters内のhostを確認します。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "SSRFの到達経路",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "利用者",
+                  "note": "StartSessionを実行",
+                  "highlight": false
+                }
+              ],
+              "via": "SSM API"
+            },
+            {
+              "label": "SSM処理",
+              "nodes": [
+                {
+                  "name": "SSM Agent",
+                  "note": "ポート転送を処理",
+                  "highlight": true
+                }
+              ],
+              "via": "ポート転送"
+            },
+            {
+              "label": "EC2内部",
+              "nodes": [
+                {
+                  "name": "EC2",
+                  "note": "IAMロールを持つ",
+                  "highlight": false
+                }
+              ],
+              "via": "host指定"
+            },
+            {
+              "label": "接続先",
+              "nodes": [
+                {
+                  "name": "IMDS",
+                  "note": "一時クレデンシャル",
+                  "highlight": true
+                },
+                {
+                  "name": "RDS",
+                  "note": "通常の転送先",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": {
+          "lang": "bash",
+          "caption": "StartSessionイベントから対象documentNameを抽出し、parameters内のhostを確認する。",
+          "content": "aws cloudtrail lookup-events \\\n  --region ap-northeast-1 \\\n  --lookup-attributes AttributeKey=EventName,AttributeValue=StartSession \\\n  --start-time '2026-09-11T03:30:00+09:00' \\\n  --end-time '<SSM Agentをアップデートした日時>' \\\n  --output json | \\\njq '\n[\n  .Events[]\n  | (.CloudTrailEvent | fromjson)\n  | select(\n      .eventSource == \"ssm.amazonaws.com\"\n      and .requestParameters.documentName\n        == \"AWS-StartPortForwardingSessionToRemoteHost\"\n    )\n  | {\n      eventTime,\n      eventID,\n      principalArn: .userIdentity.arn,\n      sourceIPAddress,\n      userAgent,\n      target: .requestParameters.target,\n      documentName: .requestParameters.documentName,\n      reason: .requestParameters.reason,\n      parameters: .requestParameters.parameters,\n      sessionId: .responseElements.sessionId,\n      errorCode,\n      errorMessage\n    }\n]\n| sort_by(.eventTime)\n| reverse\n'"
+        },
+        "relatedLinks": [],
+        "readingMinutes": 6,
+        "lane": "know",
+        "impact": [
+          "SSM Agent 3.3.4851.0未満を使う人",
+          "RDSへのポートフォワーディングを使う人",
+          "EC2への操作権限を制限する人",
+          "CloudTrailでStartSessionを調べる人"
+        ],
+        "timeline": [
+          "2026-09-10 AWSがCVE-2026-89049を公開"
+        ],
+        "checkNow": [
+          "SSM Agentの更新日時を確認し、CLIの--end-timeに指定する",
+          "各リージョンでStartSessionをCloudTrailから抽出する",
+          "parameters.hostに169.254.169.254がないか確認する"
+        ],
+        "unknowns": [
+          "記事の検証環境と実被害件数は不明"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "MCP Appsで「家系ラーメン検索アプリ」を作ってみた",
+      "url": "https://qiita.com/tamakiiii/items/5cc4fd0b49a644a24e23",
+      "publishedAt": "2026-09-14T00:45:42.000Z",
+      "author": "tamakiiii",
+      "authorDetail": {
+        "name": "tamakiiii",
+        "handle": "@tamakiiii",
+        "url": "https://qiita.com/tamakiiii",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/554111/a354b2cfba9305988981785aa71bfb4409c635ed/x_large.png?1687598430",
+        "followers": 5,
+        "posts": 64,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/flashlight999"
+          }
+        ]
+      },
+      "tags": [
+        "MCP",
+        "MCPApps",
+        "AI",
+        "TypeScript",
+        "CloudflareWorkers"
+      ],
+      "snippet": "はじめに AI との会話の中に、自分で作った地図やフォームを出せたら便利だと思いませんか。 MCP（Model Context Protocol）を使うと、AI から外部の機能を呼び出せます。ただし返せるのは、テキストや画像など表示されるだけのコンテンツです。その場で操作できる画面は返せません。 MCP Apps は、その操作できる画面を返せるようにする拡張仕様です。 インタラクティブな UI を表示できます。 最近になって家系ラーメンをよく食べるようになり、出先で店を探すことが増えました。MCP Apps を触ってみたかったので、家系ラーメン × MCP Apps で検索アプリを作りました。 実際に動かした様子がこちらです。 会話の中に検索画面が表示され、そのまま手元で操作できています。 :::note warn 店舗データについて、先にお断りしておきます 調べた限りでは、「家系ラーメン…",
+      "body": "はじめに\n\nAI との会話の中に、自分で作った地図やフォームを出せたら便利だと思いませんか。\n\nMCP（Model Context Protocol）を使うと、AI から外部の機能を呼び出せます。ただし返せるのは、テキストや画像など表示されるだけのコンテンツです。その場で操作できる画面は返せません。\n\nMCP Apps は、その操作できる画面を返せるようにする拡張仕様です。 インタラクティブな UI を表示できます。\n\n最近になって家系ラーメンをよく食べるようになり、出先で店を探すことが増えました。MCP Apps を触ってみたかったので、家系ラーメン × MCP Apps で検索アプリを作りました。\n\n実際に動かした様子がこちらです。\n\n \n\n会話の中に検索画面が表示され、そのまま手元で操作できています。\n\n:::note warn\n店舗データについて、先にお断りしておきます\n\n調べた限りでは、「家系ラーメン」に公式な定義や認定制度は見つかりませんでした。そのため、このアプリの店舗データは OpenStreetMap から取得し、店名やブランド名をもとに機械的に判定しています。\n\n判定は機械的なので、家系ラーメン店なのに含まれていない店舗や、家系ラーメンではないのに含まれてしまっている店舗があります。\n\n正確な店舗一覧ではなく、MCP Apps を試すために作ったものとして見てください。\n:::\n\n1. 何を作ったのか\n\n1-1. 3 つの機能を 1 つの画面に入れた\n\n全国の家系ラーメン店を探すアプリです。tool を 3 つ用意しました。どれも同じ UI を開き、表示するモードだけが変わります。\n\n| tool | 役割 |\n| --- | --- |\n| search-iekei-ramen | 都道府県・味の傾向・キーワードで絞り込む |\n| find-nearby-iekei-ramen | 現在地や指定した地名から近い 5 店舗を出す |\n| show-iekei-ramen-map | 全国の店舗を日本地図に表示する |\n\n検索は、AI に話しかけても、画面のプルダウンを直接操作しても同じ結果になります。\n\n \n\n「現在地から探す」では、ブラウザの Geolocation API を使います。\n\n \n\n地図モードでは、全店舗を日本地図の上に表示します。地図タイルには OpenStreetMap を使い、Leaflet で描画しています。\n\n \n\n1-2. 構成は「静的データ + Cloudflare Workers」\n\n| 項目 | 選んだ技術・サービス |\n| --- | --- |\n| サーバー | Cloudflare Workers |\n| UI | React（1 つの HTML にバンドル） |\n| 地図 | Leaflet + OpenStreetMap |\n| 店舗データ | ビルド時に埋め込む静的 JSON |\n\nお試しで作ったものなので、最小構成になっています。データベースも外部ストレージも使っていません。\n\nソースコードは yamazaki-yuki-23/iekei-ramen-mcp-apps で公開しています。\n\n1-3. 公開しているので、そのまま試せます\n\nMCP サーバーは公開しているので、次の URL をコネクタとして登録すればそのまま使えます。\n\n [code] \n\n設定方法は、Claude なら 設定 → コネクタ → カスタムコネクタを追加、ChatGPT なら 設定 → コネクタ から登録できると思います。\n\nあとは「横浜駅の近くの家系ラーメンを教えて」のように話しかければ、記事冒頭の検索画面が開きます。\n\n2. MCP Apps とは何か\n\n2-1. おさらい：MCP は AI と外部をつなぐ共通規格\n\nMCP は、AI アプリと外部システムをつなぐための共通の通信ルールです。\n\nMCP が登場する前は、AI アプリごとに接続方法がばらばらでした。MCP に対応していれば、1 つのサーバーを複数の AI アプリから同じ方法で使えます。\n\n:::note info\nMCP そのものの仕組みは、以前まとめた記事で詳しく説明しています。\nMCPをゼロから理解する：基本の仕組みから最新の2026-07-28仕様まで\n:::\n\n [code] \n\nMCP サーバーが提供するものは、主に次の 2 種類です。\n\n| 種類 | 意味 | 例 |\n| --- | --- | --- |\n| tool | AI が呼び出せる関数 | 「店舗を検索する」 |\n| resource | AI が読み取れるデータ | 設定ファイル、ドキュメント |\n\n2-2. MCP だけでは、インタラクティブな UI は返せない\n\ntool が返せるのは、テキスト・画像・音声といった、表示されるだけのコンテンツです。ユーザーがその場で操作できる UI は返せません。\n\nそのため、「検索結果を地図で見たい」「条件をフォームで絞り込みたい」といった要求には応えられません。\n\n地図を画像として返すことはできても、拡大したりピンをクリックしたりはできません。\n\n2-3. MCP Apps は、そこにインタラクティブな UI を加えたもの\n\nMCP Apps では、tool の結果と一緒に HTML ページ を返せます。AI アプリがその HTML を画面に描くので、ユーザーはそのまま操作できます。\n\n大事なのは、画面が会話から切り離されていないことです。ユーザーが画面で検索条件を変えると、その結果は AI 側にも渡ります。\n\nそのまま画面で操作を続けてもよいですし、会話に戻って「この中で一番近い店は？」と聞くこともできます。\n\n2-4. 登場人物は 3 つ\n\nMCP Apps には登場人物が 3 つあります。役割を混ぜて読むと仕組みを追えなくなるので、先に分けておきます。\n\n| 呼び方 | 役割 | 具体例 |\n| --- | --- | --- |\n| ホスト | AI アプリ本体。AI モデルを動かし、画面も描画する側 | Claude |\n| MCP サーバー | tool と UI を提供する側。自分が作るもの | 自作の検索サーバー |\n| App | ホストの中で表示される UI そのもの | サーバーが返した HTML |\n\n「App」は、サーバーが返した HTML がホストの中で動いている状態を指します。サーバーそのものとは別のものだと考えてください。\n\n3. 全体の流れを図で見る\n\n実装の詳細に入る前に、1 回のやり取りでどんな処理が起きるのかを図で見ておきます。\n\n [code] \n\n大事なのは次の 2 点です。\n\n1. App はサーバーと直接通信しない。 通信は必ずホストを経由します。\n2. tool 呼び出しの起点は 2 つある。 ホストの中の AI が判断して呼ぶ場合と、ユーザーが画面を操作して App が呼ぶ場合です。図のとおり、どちらもサーバーへ tools/call を送るのはホストです。\n\n4. サーバー側：tool と resource の 2 つを登録する\n\nMCP Apps のサーバー側でやることは、次の 2 つだけです。\n\n1. UI の HTML を返す resource を登録する\n2. その resource の場所を書いた tool を登録する\n\n4-1. UI リソースは ui:// と専用の MIME タイプ\n\nUI リソースには決まりが 2 つあります。どちらも仕様上の必須項目です。\n\n| 項目 | 値 | 理由 |\n| --- | --- | --- |\n| URI のスキーム | ui:// で始める | ホストが「これは UI だ」と判別するため |\n| MIME タイプ | text/html;profile=mcp-app | ホストが UI 向けの HTML だと認識するため |\n\nMIME タイプは SDK が RESOURCEMIMETYPE という定数で持っているので、文字列を直接書く必要はありません。\n\nui:// の後ろのパスは自由に決められます。\n\n [code] \n\n4-2. tool 側に meta.ui.resourceUri を書く\n\ntool と UI は、meta.ui.resourceUri というフィールドで結び付けます。\n\n [code] \n\nこの指定がある tool をホストが呼ぶと、ホストは結果を受け取ったあとに resourceUri のリソースを読みに行き、画面に表示します。\n\n逆に、この 1 行がなければ UI は表示されません。\n\n4-3. 最小のサーバー実装\n\n現在時刻を返すだけの最小構成のサーバーです。公式ドキュメントの例をもとにしています。\n\n [code] \n\nregisterAppTool と registerAppResource は、@modelcontextprotocol/ext-apps が提供するヘルパー関数です。通常の登録処理に、MCP Apps 用のメタデータの扱いを足したものです。\n\nHTML は 1 つのファイルにまとめておくのが簡単です。CSS や JavaScript を別ファイルに分けると、後で説明する CSP（コンテンツセキュリティポリシー）の設定が必要になります。\n\n公式ドキュメントでも vite-plugin-singlefile で 1 ファイルに固める方法を紹介しています。\n\n4-4. tool が増えても resource は 1 つでよい\n\n今回のアプリは tool が 3 つありますが、resourceUri はすべて同じものを指しています。\n\n [code] \n\nUI は 1 つにまとめ、どのモードを開くかは後で説明する structuredContent の mode で切り替えています。\n\ntool ごとに HTML を用意する必要はありません。\n\n4-5. UI を表示できないホストのために、テキストも返す\n\n上の例では content にテキストも入れています。仕様でもそうすることが推奨されています。\n\nMCP Apps に対応していないホストから呼ばれると、UI は表示されず content だけが使われます。\n\nUI が出る前提で content を空にすると、そのホストでは何も返らない tool になります。\n\nたとえば検索結果の上位 10 件をテキストで入れておけば、UI が出ないホストでも AI が結果を言葉で説明できます。\n\n5. UI 側：App クラスでホストとやり取りする\n\nUI 側は普通の HTML と JavaScript です。違うのは、ホストと通信するために SDK の App クラスを使うところだけです。\n\n5-1. 最小の UI 実装\n\n [code] \n\n覚えるポイントは 3 つです。\n\n| API | 役割 |\n| --- | --- |\n| app.connect() | ホストとの接続を開始する。起動時に 1 回だけ呼ぶ |\n| app.ontoolresult | ホストから tool の結果が渡されたときに呼ばれる |\n| app.callServerTool() | App からサーバーの tool を呼ぶ |\n\n5-2. ontoolresult は「ホストが結果を渡してきたとき」に呼ばれる\n\nontoolresult は、ホストから tool の結果が渡されたときに呼ばれる関数です。AI が tool を呼んで UI が出た直後などに、その結果が届きます。\n\n画面は最初、何のデータも持っていません。ontoolresult で受け取って初めて中身を描けます。\n\n5-3. ハマりどころ：callServerTool の結果は自分で反映する\n\nここが一番つまずきやすいところです。\n\n画面のボタンなどから app.callServerTool() を呼んだとき、その結果は ontoolresult には届きません。\n\n戻り値としてそのまま返ってくるので、自分で画面に反映する必要があります。\n\n先ほどのコードでも、ボタンのクリック処理は ontoolresult に任せず、await した戻り値から時刻を取り出しています。\n\n「同じ tool を呼んでいるのだから届き方も同じだろう」と思っていると、画面が更新されない理由が分からず時間を取られます。\n\n整理すると次のとおりです。\n\n| 呼び出しの起点 | 結果の受け取り方 |\n| --- | --- |\n| AI からの呼び出し | ontoolresult が呼ばれる |\n| 画面の操作による呼び出し | callServerTool() の戻り値 |\n\nどちらの経路でも同じ描画処理を通るように書いておくと、後で混乱しません。\n\n6. 構造化データを UI に渡す：structuredContent\n\ncontent の文字列を UI 側で解析するのは手間がかかります。UI には JavaScript のオブジェクトのまま渡す仕組みがあり、それが structuredContent です。\n\n [code] \n\nUI 側では戻り値から取り出すだけです。\n\n [code] \n\nあわせて、返すデータの形を outputSchema で宣言しておきます。tool を登録するときに、4-3 で出てきた inputSchema の隣に書くフィールドです。\n\n [code] \n\n仕様上は任意の項目ですが、宣言しておくとクライアントが structuredContent の中身を検証できます。\n\nなお、宣言した場合は、そのスキーマに沿った structuredContent を返さなければなりません（仕様上の必須要件です）。\n\ncontent と structuredContent の使い分けは次のとおりです。\n\n| フィールド | 誰が読むか | 何を入れるか |\n| --- | --- | --- |\n| content | AI（モデル） | そのまま会話で伝えられる文章。例：「神奈川県で 52 件見つかりました」 |\n| structuredContent | UI | 画面を描くためのデータ。例：店舗の配列と件数 |\n\n7. UI は制限付きの iframe で動く\n\nMCP Apps の UI は、ホストが用意したサンドボックス（隔離された実行環境）の中で動きます。ここを知らないと、「手元では動いたのにホストでは動かない」という状態になります。\n\n7-1. 既定では外部通信が全部止まる\n\nCSP（Content Security Policy）は、ページがどこから何を読み込んでよいかをブラウザに指示する仕組みです。\n\nCSP を何も宣言しないと、ホストは次の設定を適用します。\n\n [code] \n\n目を引くのは最後の connect-src 'none' です。外部への通信がすべて禁止されます。\n\nブラウザで直接開けば動くページでも、ホストの中では地図タイルも外部 API も取得できません。\n\n7-2. 外部ドメインを使うなら csp を宣言する\n\n使いたいドメインは、resource を返すときの meta.ui.csp に書いておきます。\n\n [code] \n\ncsp で指定できる項目は次のとおりです。\n\n| 項目 | 許可する対象 |\n| --- | --- |\n| connectDomains | fetch、XHR、WebSocket の接続先 |\n| resourceDomains | スクリプト、画像、スタイル、フォントの取得元 |\n| frameDomains | 入れ子にする iframe の読み込み元 |\n| baseUriDomains | に指定できる URL |\n\n書いていないドメインへの通信は、ホストが止めます。エラーが出ないまま通信だけ失敗することもあるので、外部リソースを足したときは CSP も一緒に直してください。\n\n7-3. 位置情報やカメラは permissions で申請する\n\nブラウザの機能も、同じく先に申告しておく必要があります。\n\n [code] \n\n申告できるのは次の 4 つです。\n\n| キー | 用途 |\n| --- | --- |\n| camera | カメラ |\n| microphone | マイク |\n| geolocation | 位置情報 |\n| clipboardWrite | クリップボードへの書き込み |\n\nたとえば「現在地から探す」を作って navigator.geolocation を呼んでも、この宣言が抜けていると何も返りません。\n\nなお meta.ui は、tool 側と resource 側で書ける項目が違います。 書く場所を間違えると設定が効きません。\n\n| 場所 | 書ける項目 |\n| --- | --- |\n| tool の meta.ui | resourceUri、visibility |\n| resource の contents[] の meta.ui | csp、permissions、domain、prefersBorder |\n\n7-4. なぜ二重の iframe なのか\n\nホスト自身が Web ページの場合、UI は iframe の中の iframe（二重の iframe）で動きます。\n\n [code] \n\n二重構造にするのは、外側に 2 つの役目があるからです。\n\n1 つ目は、オリジンを分けることです。 オリジンとは、ブラウザがページを区切る単位で、おおよそドメインのことです。オリジンが違うページ同士は、互いの中身を読めません。\n\nUI はサーバーが返した HTML です。ホストと同じオリジンで動かすと、ホスト側の画面や保存データに手が届いてしまいます。そこで、別ドメインの iframe を 1 枚挟みます。\n\n2 つ目は、CSP を適用することです。 7-2 で宣言したドメインは、書いただけでは有効になりません。ブラウザに設定する処理が必要です。\n\nそれを担うのが外側の iframe です。サーバーから届いた UI の HTML を内側の iframe に渡すときに、宣言されたドメインを CSP として設定します。\n\n役割をまとめると次のとおりです。\n\n| | 役割 |\n| --- | --- |\n| 外側 | ホストとは別ドメイン。内側に CSP を適用し、ホストと UI のメッセージを中継する |\n| 内側 | サーバーが返した HTML が実際に動く場所 |\n\nこの構造は実装にも響きます。E2E テストでこの UI を操作するときは、iframe を 2 段たどることになります。\n\n [code] \n\n8. AI に見せない tool を作る：visibility\n\ntool の中には、UI からだけ呼びたいものもあります。今回のアプリでいえば、地名を緯度経度に変換する tool がそれにあたります。\n\n位置情報を許可しなかった人が地名を入力したときに、UI が内部で使います。AI の tool 一覧に出しても使い道がなく、選択肢を増やすだけです。\n\nその場合は visibility で制御します。UI を持たない補助 tool なら、resourceUri は書かずに visibility だけを指定します。\n\n [code] \n\n| 値 | 意味 |\n| --- | --- |\n| \"model\" | AI（モデル）が見つけて呼べる |\n| \"app\" | App からのみ呼べる |\n\n省略した場合は [\"model\", \"app\"] として扱われます。つまり既定では両方から呼べます。\n\n\"model\" を書かなかった tool は、ホストが AI の tool 一覧に載せません。\n\n9. 作り方：公式が Skill を配っている\n\nここまで仕組みを説明してきましたが、セットアップは公式が create-mcp-app という Skill を配っているので、そちらを使うのが良いと思います。\n\nSkill をインストールするだけで、エージェントが MCP Apps の作り方を理解した状態で始められます。\n\nClaude Code の場合は次の 2 行を実行します。\n\n [code] \n\n他のエージェント向けに、Skills CLI からのインストールも用意されています。\n\n [code] \n\nあとは作りたいものを伝えるだけです。\n\n [code] \n\n10. 動かして確認する\n\n10-1. 手元で試す：basic-host\n\n公式リポジトリに、開発用の簡易ホスト（basic-host）が入っています。Claude につながなくても、UI の表示と tool の呼び出しを手元で試せます。\n\n [code] \n\nhttp://localhost:8080 を開くと、tool を選んで実行できる画面が出ます。\n\n10-2. Claude や ChatGPT で試す\n\n実際の UI は、Claude（Web 版とデスクトップ版）と ChatGPT のどちらでも確認できます。\n\nただし、どちらも手元の localhost には接続できません。外部からアクセスできる URL が必要になるので、トンネルを 1 本張ります。\n\n [code] \n\nhttps://xxxx.trycloudflare.com のような URL が表示されます。末尾に /mcp を付けたものを、1-3 と同じ手順でコネクタとして登録します。\n\n [code] \n\n11. まとめ\n\n実際に作ってみて、表現の幅が広がるのが面白いと感じました。\n\n公式 Skill を入れた状態で作りたいものを伝えるだけで、おおかた形になります。気軽に試せるのは良いところだと思います。\n\nインタラクティブな UI が欲しくなったときは、MCP Apps を試してみるのはアリだと思います。\n\n参考\n・今回作ったもののソースコード（GitHub）\n・Build an MCP App（公式ガイド）\n・MCP Apps の仕様（公式）\n・ext-apps リポジトリ\n・MCP Apps SDK API リファレンス\n・Model Context Protocol 公式サイト",
+      "metrics": {
+        "likes": 2,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "1a503475faeab0b0",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8854411764705883,
+      "popularityPercentile": 0.9338235294117647,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 90,
+      "titleJa": null,
+      "oneLiner": "MCP AppsでAIとの会話内に操作できる店舗検索画面を組み込んだ実装例です。",
+      "takeaways": [
+        "AIとの会話画面に操作できる検索画面を埋め込める。",
+        "全国の店舗を地図や条件から探せる画面を作った。",
+        "店舗情報は機械判定なので正確な一覧ではない。"
+      ],
+      "keywords": [
+        "MCP Apps",
+        "MCP",
+        "TypeScript",
+        "Cloudflare Workers",
+        "OpenStreetMap"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "MCP Apps を使うと、AI との会話内に操作可能な HTML UI を埋め込める。記事では、家系ラーメン検索を題材に、3 つの tool と 1 つの React UI を Cloudflare Workers 上で動かしている。AI が tool を呼んだ場合は ontoolresult、画面操作から呼んだ場合は callServerTool() の戻り値で UI を更新する。店舗や検索結果は structuredContent で UI に渡し、content には UI 非対応ホスト向けの文章を返す。地図や位置情報を使うには、resource 側の CSP と permissions の宣言が必要で、UI は制限付き iframe 内で動作する。公式 Skill と basic-host を使えば、Claude や ChatGPT に接続する前にローカルで試せる。",
+        "prerequisites": [
+          {
+            "term": "MCP Apps",
+            "stumblingPoint": "記事は「MCP Apps では HTML ページを返せる」と書くが、通常の MCP tool の返却結果と何が違うか分かりにくい。",
+            "explanation": "MCP Apps は、tool の実行結果と一緒にホスト内へ操作可能な HTML UI を表示する拡張です。通常の MCP ではテキストや画像を返せても、その場でフォーム入力や地図操作はできません。ここでは AI の会話画面から切り離された別アプリを開くのではなく、会話の文脈を保ったまま UI を操作できます。"
+          },
+          {
+            "term": "ホスト",
+            "stumblingPoint": "記事は「通信は必ずホストを経由します」と書くが、App から MCP サーバーへ直接 fetch できない理由を読み取りにくい。",
+            "explanation": "ホストは Claude や ChatGPT のように、AI を動かし UI を描画するアプリ本体です。App はホスト内の iframe で動き、サーバーとの MCP 通信を直接持ちません。App の callServerTool() も、実際の tools/call はホストが代理送信します。"
+          },
+          {
+            "term": "structuredContent",
+            "stumblingPoint": "記事は「JavaScript のオブジェクトのまま渡す」と説明するが、content と併記する理由が分からない。",
+            "explanation": "structuredContent は、店舗配列や件数など、UI がそのまま描画する構造化データです。content は AI が会話で説明する文章として別に返します。structuredContent だけにすると、MCP Apps 非対応ホストでは結果を表示できないため、両方を用意します。"
+          },
+          {
+            "term": "CSP",
+            "stumblingPoint": "記事は既定値で「connect-src 'none'」になると書くが、地図タイルまで表示できなくなるつながりが分かりにくい。",
+            "explanation": "CSP は iframe 内のページが接続・読み込みできる外部ドメインを制限する宣言です。何も許可しなければ、Leaflet の地図タイル、外部 API、画像やスクリプトの取得も止まります。resource の meta.ui.csp に connectDomains や resourceDomains を追加して、使うドメインを明示します。"
+          },
+          {
+            "term": "permissions",
+            "stumblingPoint": "記事は navigator.geolocation を呼ぶ前に「permissions で申請」と書くが、ブラウザ標準 API だけでは足りない理由が省略されている。",
+            "explanation": "MCP Apps の UI はホストが管理する制限付き iframe で動くため、ブラウザ API を呼ぶ権限もホストへ申告します。位置情報なら resource 側の meta.ui.permissions に geolocation を指定します。宣言がないと、コードが正しくても現在地取得が機能しません。"
+          },
+          {
+            "term": "visibility",
+            "stumblingPoint": "記事は visibility の値に「model」「app」があると書くが、AI に見せない tool が必要になる場面が分かりにくい。",
+            "explanation": "visibility は、その tool を AI と App のどちらから発見・呼び出し可能にするかを制御します。地名を座標へ変換するような UI 内部専用処理を app 限定にすれば、AI の tool 一覧を増やさずに済みます。省略時は model と app の両方から使える扱いです。"
+          },
+          {
+            "term": "basic-host",
+            "stumblingPoint": "記事は「開発用の簡易ホスト」とだけ説明するが、Claude や ChatGPT と何を切り分けて検証できるかが分からない。",
+            "explanation": "basic-host は、MCP Apps 対応ホストの代わりにローカルで UI 表示と tool 呼び出しを確認する開発用環境です。まずここで App とサーバー間の処理を検証し、外部 URL が必要な Claude や ChatGPT での接続確認を後に回せます。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "MCP Appsの通信経路",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "Claude / ChatGPT",
+                  "note": "AIとUIを表示",
+                  "highlight": false
+                }
+              ],
+              "via": "tools/call / UI操作"
+            },
+            {
+              "label": "仲介",
+              "nodes": [
+                {
+                  "name": "ホスト",
+                  "note": "Appとサーバーを中継",
+                  "highlight": true
+                }
+              ],
+              "via": "tool結果とHTML"
+            },
+            {
+              "label": "提供側",
+              "nodes": [
+                {
+                  "name": "MCPサーバー",
+                  "note": "toolとresourceを提供",
+                  "highlight": true
+                }
+              ],
+              "via": "structuredContent"
+            },
+            {
+              "label": "表示",
+              "nodes": [
+                {
+                  "name": "App",
+                  "note": "制限付きiframeのUI",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fraw.githubusercontent.com%2Fyamazaki-yuki-23%2Fqiita-tech-blogs%2Fmain%2Fassets%2F2026-09-mcp-apps-iekei-ramen%2Fdemo.gif?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=d693212210cd47057a16a2fdafea43ef",
+            "alt": "Claude との会話から検索フォームが開き、都道府県で絞り込み、地図に切り替えるまでの一連の操作",
+            "caption": "会話から検索フォームを開き、都道府県で絞り込み、同じ画面のまま地図表示へ切り替えられる流れが分かる。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "会話の中で地図や検索フォームを操作できる",
+          "画面操作の検索結果をそのまま会話に戻せる"
+        ],
+        "howToTry": [
+          "https://qiita.com/tamakiiii/items/5cc4fd0b49a644a24e23 を開く",
+          "記事内の公開ソースコードへのリンクを開き、リポジトリを取得する（手動）",
+          "Node.js と npm のバージョンを確認する: `node --version && npm --version`",
+          "記事の「公式が Skill を配っている」にある Claude Code 向け2行を実行する",
+          "記事の「basic-host」にある手順を実行し、`http://localhost:8080` を開く",
+          "Claude または ChatGPT で試す場合は、記事の Cloudflare トンネル手順を実行し、表示された URL の末尾に `/mcp` を付けてカスタムコネクタへ登録する（手動）"
+        ],
+        "fitFor": [
+          "会話画面の中でフォームや地図を操作させたいとき",
+          "MCP tool の結果を React UI で可視化したいとき",
+          "外部ドメインや位置情報を CSP・permissions で管理できるとき"
+        ],
+        "notFor": [
+          "テキストや画像を返すだけで目的を満たせるとき",
+          "localhost だけで Claude や ChatGPT から接続したいとき",
+          "正確な家系ラーメン店舗一覧が必要なとき"
+        ],
+        "caveats": [
+          "店舗データは機械判定で、漏れや誤掲載があります。"
+        ],
+        "tryPrompt": "# 試すこと\nMCP Apps の最小サンプルを起動し、basic-host で tool 実行から UI 表示まで確認する。\nhttps://qiita.com/tamakiiii/items/5cc4fd0b49a644a24e23\n\n# 手順\n1. 記事を読み、本文内の公式 Skill と公開ソースコードのリンクを確認する（手動）\n2. `mkdir -p mcp-apps-lab && cd mcp-apps-lab`\n3. `node --version && npm --version`\n4. 記事の「公式が Skill を配っている」に掲載された Claude Code 向けインストールコマンドを実行する\n5. 記事内の公開ソースコードを clone または取得する（手動）\n6. リポジトリの README に従って依存関係をインストールする\n7. 記事の basic-host 手順で開発用ホストを起動する\n8. ブラウザで `http://localhost:8080` を開き、tool を選んで実行する（手動）\n\n# 確認したいこと\n- basic-host だけで UI の表示と tool 呼び出しを確認できるか\n- AI 起点と画面操作起点で、結果の更新経路が異なることを確認できるか\n- 外部地図や位置情報を追加した場合、CSP と permissions の不足を検出できるか\n\n# 前提・注意\n- Node.js、npm、Git が必要。\n- 記事本文のコードブロックが取得時に欠落しているため、Skill の正確なインストールコマンドと実行コマンドは記事内リンクから補完する。\n- Claude / ChatGPT で試す場合は localhost ではなく Cloudflare トンネルとコネクタ登録が必要（手動）。"
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "unstablebuild/rune — the development environment for pros",
+      "url": "https://github.com/unstablebuild/rune",
+      "publishedAt": "2026-09-10T10:50:03.000Z",
+      "author": "unstablebuild",
+      "authorDetail": {
+        "name": "unstablebuild",
+        "url": "https://github.com/unstablebuild",
+        "avatarUrl": "https://github.com/unstablebuild.png?size=120",
+        "bio": "the development environment for pros"
+      },
+      "tags": [
+        "Go",
+        "agent-orchestration",
+        "ai",
+        "cli",
+        "coding-agents",
+        "developer-tool",
+        "devtools",
+        "go"
+      ],
+      "snippet": "the development environment for pros",
+      "metrics": {
+        "stars": 526,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "c53a297cadcf073c",
+      "foundIn": [
+        "github_repo"
+      ],
+      "body": "rune.build · quick start · hack on rune \n \n\n \n \n \n \n \n \n \n \n \n \n\n---\n\nhttps://github.com/user-attachments/assets/4ab84f7f-47c8-47af-9d32-7c69afd02669\n\nRune is a fast, GPU-accelerated, full-featured IDE and terminal multiplexer, suitable both for automatic and manual programming.\n・continue working from anywhere: All your Rune instances form an e2e-encrypted network of peers, powered by our headscale network. Connect to your workstation from your laptop, and to your laptop from your workstation.\n・batteries included: Production-grade language intelligence, out-of-the-box. Check the list of supported languages.\n・a new organizing model: Stay in the flow for longer. Rune's UI is a screen multiplexer that allows you to organize it freely. Nine workspace slots. Infinite terminals, tabs and windows. A built-in agent or IDE-grade skills for yours.\n・plugins and extensions: Extend Rune's functionality with official packages → or install community ones straight from a Git repository pkg install github.com/unstablebuild/rune-extension-themebuilder.\n・native application: A native graphics pipeline: OpenGL on Linux, Metal on macOS. No Electron.\n\ninstall\n\n [code] \n\ndevelopment\n\n [code] \n\nThen run:\n [code] \n\nTo create a macOS application bundle:\n [code] \n\nSee prerequisites for more details.\n\nMakefile\n\nThe Makefile has a few rules for common operations needed during development.\n\n [code] \n\nThe remaining targets (dist, release, rune-dmg, -docker-,\n-notarize, -dist) drive Unstable Build's internal\nrelease, packaging, and cloud deployment pipelines and are not expected to\nwork outside that environment.\n\nContributing\n\nSee CONTRIBUTING.md.\n\nTo report a security issue, see SECURITY.md.\n\nSponsorship\n\nRune is developed by Unstable Build, LLC, a self-funded organization. If you'd like to\nfinancially support us, you can do so via GitHub Sponsors; we might even send you some swag.\n\nLicense\n\nRune is licensed under the GNU General Public License, version 3\nor, at your option, any later version.",
+      "preScore": 0.44333333333333336,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "rune — AIエージェント向けの開発環境",
+      "oneLiner": "runeはAIコーディングエージェントを扱う開発者向けの開発環境です。",
+      "takeaways": [
+        "AIを使った開発作業をまとめて扱える道具が登場した。",
+        "開発者向けの操作画面を備えた環境を目指している。",
+        "現時点では具体的な機能の説明は少ない。"
+      ],
+      "keywords": [
+        "rune",
+        "unstablebuild",
+        "Go",
+        "coding agents",
+        "agent orchestration"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 2,
+      "deep": {
+        "summary": "Runeは、GPUアクセラレーション付きのネイティブIDE兼ターミナルマルチプレクサです。複数のRuneインスタンスをheadscaleベースのe2e-encrypted networkで接続し、別の端末からワークステーションやラップトップへ移動して作業を継続できます。UIはscreen multiplexerとして動作し、9個のworkspace slotsに無限のターミナル、タブ、ウィンドウを整理できます。language intelligence、組み込みagent、IDE相当のskills、Gitリポジトリからのpkg installに対応します。LinuxではOpenGL、macOSではMetalを使い、Electronではないネイティブアプリとして動作します。",
+        "prerequisites": [
+          {
+            "term": "Rune",
+            "stumblingPoint": "記事は「fast, GPU-accelerated, full-featured IDE」と書くが、既存IDEの代替か端末管理ツールかが読み取りにくい。",
+            "explanation": "Runeは、コード編集と複数ターミナルの管理を1つのネイティブアプリにまとめるIDE兼ターミナルマルチプレクサです。手動操作だけでなく、組み込みagentや自分のcoding agent用のskillsも同じ作業空間に置けます。つまり、エージェントの実行画面と人間の編集・確認画面を別ツールに分けずに扱う道具です。"
+          },
+          {
+            "term": "headscale",
+            "stumblingPoint": "「headscale network powered」とあるが、何が接続され、どこからアクセスできるのかが分からない。",
+            "explanation": "headscaleは、Runeインスタンス同士をつなぐネットワークの土台として記事に登場します。ワークステーション上のRuneとラップトップ上のRuneを同じpeer networkに参加させ、片方からもう片方へ接続する構成です。単一マシン内のタブ共有ではなく、端末をまたいだ作業継続を意味します。"
+          },
+          {
+            "term": "e2e-encrypted network",
+            "stumblingPoint": "「All your Rune instances form an e2e-encrypted network」とあるが、通常のリモート接続との違いが読み取りにくい。",
+            "explanation": "e2e-encrypted networkは、Runeインスタンス間の通信を暗号化したpeer networkです。記事の例では、ラップトップからワークステーションへ接続し、作業中の環境へ戻ります。外部ネットワーク越しに同じ開発環境へ到達する機能として読むと、continue working from anywhereの意味が分かります。"
+          },
+          {
+            "term": "screen multiplexer",
+            "stumblingPoint": "UIを「screen multiplexer」と説明しているが、通常のIDEのタブ構成と何が違うか判断しづらい。",
+            "explanation": "screen multiplexerは、1つの画面内に複数の端末や作業領域を並行して保持する仕組みです。RuneではそれをUIの中心に据え、ターミナル、タブ、ウィンドウを自由に整理します。IDEのファイル編集画面に端末を足すというより、作業画面全体を組み替える発想です。"
+          },
+          {
+            "term": "workspace slots",
+            "stumblingPoint": "「Nine workspace slots」とあるが、スロットがタブやウィンドウとどう違うのかが分からない。",
+            "explanation": "workspace slotsは、Runeの大きな作業領域を切り替えるための9個の枠です。各枠の中にターミナル、タブ、ウィンドウを配置できます。プロジェクトや作業目的ごとに大きな画面構成を分けるための単位で、個々のターミナルとは別レベルの整理機能です。"
+          },
+          {
+            "term": "language intelligence",
+            "stumblingPoint": "「Production-grade language intelligence, out-of-the-box」とあるが、何を追加設定せず使えるのかが不明。",
+            "explanation": "language intelligenceは、コード編集時に言語ごとの理解を提供する機能群を指します。記事では対応言語の一覧が別にあるとされ、Runeの導入直後からproduction-gradeの機能を利用できると説明しています。ただし、補完や診断など具体的な機能範囲は本文には記載されていません。"
+          },
+          {
+            "term": "pkg install",
+            "stumblingPoint": "「pkg install github.com/...」とあるが、拡張機能をどこへ追加するコマンドか分からない。",
+            "explanation": "pkg installは、GitリポジトリにあるRuneの拡張パッケージをインストールする操作です。記事の例ではgithub.com/unstablebuild/rune-extension-themebuilderを直接指定しています。公式パッケージだけでなく、コミュニティ製拡張もGitリポジトリから追加できる、という拡張方法です。"
+          },
+          {
+            "term": "OpenGL",
+            "stumblingPoint": "LinuxではOpenGL、macOSではMetalとあるが、対応OSごとの実行基盤の違いが読み取りにくい。",
+            "explanation": "OpenGLとMetalは、Runeが画面を描画するために使うOS別のグラフィックスAPIです。LinuxではOpenGL、macOSではMetalを使うため、Electron上でWeb技術を描画する構成ではありません。OSごとにネイティブの描画経路を使うことが、native applicationという説明の具体的な意味です。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "端末間の接続構成",
+          "layers": [
+            {
+              "label": "利用端末",
+              "nodes": [
+                {
+                  "name": "ラップトップ上のRune",
+                  "note": "外出先から接続",
+                  "highlight": true
+                },
+                {
+                  "name": "ワークステーション上のRune",
+                  "note": "開発環境を保持",
+                  "highlight": false
+                }
+              ],
+              "via": "暗号化peer通信"
+            },
+            {
+              "label": "ネットワーク",
+              "nodes": [
+                {
+                  "name": "headscale network",
+                  "note": "Rune同士を接続",
+                  "highlight": true
+                }
+              ],
+              "via": "peer接続"
+            },
+            {
+              "label": "接続先",
+              "nodes": [
+                {
+                  "name": "別のRuneインスタンス",
+                  "note": "作業を継続",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Rune GitHubリポジトリ",
+            "url": "https://github.com/unstablebuild/rune"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "build",
+        "unlocks": [
+          "ラップトップからワークステーションの作業を再開できる",
+          "9つの作業領域に端末とタブを自由配置できる"
+        ],
+        "howToTry": [
+          "https://github.com/unstablebuild/rune",
+          "リポジトリのREADMEにあるinstall手順を確認する（本文ではコマンドが欠落）",
+          "READMEのPrerequisitesに記載された環境を用意する",
+          "READMEのquick startまたはinstall手順を実行する",
+          "Runeを起動し、workspace slotsと複数ターミナルを確認する"
+        ],
+        "fitFor": [
+          "LinuxまたはmacOSでネイティブの開発環境を試せるとき",
+          "端末をまたいで同じ開発環境へ戻りたいとき",
+          "ターミナル・タブ・ウィンドウを1画面で整理したいとき"
+        ],
+        "notFor": [
+          "Windowsでの利用を前提にしているとき",
+          "本文だけで確定したインストールコマンドが必要なとき"
+        ],
+        "caveats": [
+          "本文のinstallコマンドとprerequisitesが欠落し、起動手順を確定できない"
+        ],
+        "tryPrompt": "# 試すこと\nRuneをLinuxまたはmacOSに導入し、複数ターミナルをworkspace slotsで管理できる状態まで動かす。\nhttps://github.com/unstablebuild/rune\n# 手順\n1. git clone https://github.com/unstablebuild/rune.git\n2. cd rune\n3. README.mdとPrerequisitesを読み、現在のOSで必要な依存関係を特定する。\n4. README.mdのinstall手順を、記載された順番で実行する。\n5. README.mdのquick startに従ってRuneを起動する。\n6. 9個のworkspace slots、複数のターミナル、タブ、ウィンドウを1つずつ作成する。\n7. 記載されたpkg install例を使い、拡張機能の導入を試す（外部リポジトリの内容を確認してから実行）。\n# 確認したいこと\n- READMEの手順だけで、追加の検索なしに最初の画面表示まで到達できるか。\n- 現在のOSでGPU描画と複数workspace slotsが正常に動くか。\n- pkg installで拡張機能をGitリポジトリから追加できるか。\n# 前提・注意\n- 対応OS、GPU要件、依存関係、ビルドコマンドは本文抜粋に記載されていないため、READMEとPrerequisitesを優先する。\n- リポジトリのコードを実行する前に、READMEの導入手順と依存関係を確認する。"
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "The case against JPEG XL",
+      "url": "https://giannirosato.com/blog/post/case-against-jxl/",
+      "publishedAt": "2026-09-14T01:02:37.000Z",
+      "author": "contact9879",
+      "authorDetail": {
+        "name": "contact9879",
+        "handle": "contact9879",
+        "url": "https://news.ycombinator.com/user?id=contact9879"
+      },
+      "tags": [],
+      "snippet": "Investigating JPEG XL's place as a Web image codec. Why? JPEG XL is a technically impressive image codec; it is a definitive upgrade over JPEG, more versatile than WebP, and well-equipped to serve use cases beyond the Web. However, it was famously rejected from Chrome in 2023. Because this happened to a royalty-free, flexible, compression-efficient codec from the JPEG Committee that was receiving …",
+      "metrics": {
+        "points": 256,
+        "comments": 340,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "8fee3c91abc7d5a1",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.1375,
+      "popularityPercentile": 0.625,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 91,
+      "titleJa": "JPEG XLに反対する理由",
+      "oneLiner": "JPEG XLを画像形式として採用すべきではない理由を論じた記事です。",
+      "takeaways": [
+        "JPEG XLの採用に否定的な立場を示している。",
+        "JPEG XLの価値や導入効果が争点になっている。"
+      ],
+      "keywords": [
+        "JPEG XL",
+        "画像形式",
+        "Hacker News"
+      ],
+      "category": "Web標準/ブラウザ",
+      "lane": "talk",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "durable",
+      "body": "Investigating JPEG XL's place as a Web image codec.\n\n  \n    \n  \n\nWhy?\nJPEG XL is a technically impressive image codec; it is a definitive upgrade over\nJPEG, more versatile than WebP, and well-equipped to serve use cases beyond the\nWeb. However, it was famously\nrejected from Chrome\nin 2023. Because this happened to a royalty-free, flexible,\ncompression-efficient codec from the JPEG Committee that was\nreceiving attention\nfrom large companies, the decision didn't land well with many.\nRecently, a JPEG XL decoder in Rust has made\nits way into Firefox and Chrome in some capacity. The Web's major stakeholders\nmay therefore be reversing course on JPEG XL given that the new decoder may\nprotect the Web from reliving\n2023's WebP vulnerability. Is\nthis all it took to justify JPEG XL for the Web?\nHistorically, I've been a big proponent of JPEG XL for all use cases. I\nendorsed JPEG XL\nfor Interop 2024, and I've interacted with Jon Sneyers and Jyrki Alakuijala (two\nof the format's primary authors) personally many times. I'm consistently\nimpressed with their public conduct, level-headedness, technical aptitude, and\npassion for the field.\nThis piece does not seek to discredit the format's authors or their work, nor to\nclaim any political affiliation relative to the codec's symbolism in free\nsoftware. The spirit of this post is educational; I want to offer an empirical\nlook at the current state of image compression and the Web platform in 2026.\nSome inspiration is drawn from\nRISC-V: They Should Have Known Better\nby Dmitry Grinberg.\nThe Web\nI do image compression work, coming from video compression\noriginally. While working on an AV1 encoder, Julio\nBarba and I made\nsignificant advancements to AVIF, and I\nlearned a lot in the\nprocess. When I decided to start building\nmy own encoder, I had to think very hard about which\nformats I felt had the highest ceilings, could be effectively optimized, and had\nthe most present and potential utility. I decided not to work with JPEG XL.\nBy volume, there are very few use cases on the Web that aren't served by\nversatile lossy compression. The average Web consumer doesn't need lossless;\nthey just need a lossy codec versatile enough to prevent terrible artifacts\n(e.g. JPEG on non-photographic content). This rules out JPEG XL's lossless\nadvantage, which in practice is only roughly\n11.9% smaller than lossless WebP anyway –\nand on an unrealistic test dataset for the Web (157 MP photos, 10 MP\nillustrations, and 27 MP books). It cannot be worth bringing a new image codec\nto browsers to save 12% on a tiny volume of image content with use cases\ninherently less sensitive to bandwidth constraints. I say this because JPEG XL\nisn't competitive for lossy, so lossless would be its only real advantage.\nLossy Compression Efficiency\nOne of the original arguments for JPEG XL was that its reference encoder was\nmore\nperceptually optimized\nthan competing encoders. Now, on both speed and fidelity per bit, other encoders\nare stronger.\nThe AV1 reference encoder received\nspecialized perceptual tuning based on controlled subjective human trials to\nstrengthen its efficiency while maintaining a tuning mode optimized for\nperceptual metrics. SVT-AV1 has\nsimilar tuning modes. There is no compelling argument that modern encoders\naren't tuned for the human eye.\nMetrics aren't perfect, but they paint a daunting picture for JPEG XL:\n\naperture-alpha is Halide Compression's upcoming encoder, codenamed Aperture. I\nincluded it to show just how much ground libjxl needs to make up to compete at\nthe frontier.\nSome analysis claims that\nJPEG XL underperforms in metrics\nrelative to its perceptual strength, but I don't see sufficient evidence that\nthis is to the degree that graphs like the ones I shared could be secretly\ncompletely reversed. CVVDP and SSIMULACRA2 are very strong perceptual metrics,\nand definitely tell us something when the differences are this great. For\nAVIF, libaom's perceptually optimized tune (tune IQ) is only a couple of points\nlower than its perceptual-metric-optimized tune (tune SSIMULACRA2). Plus, the\nJPEG XL reference encoder has historically suffered from\npercep\ntual\nissues that remain largely\nunresolved.\nThere's no such thing as a codec benchmark, only an encoder benchmark; in\ntheory, the ceiling for JPEG XL as a format is higher than libjxl is getting.\nBut how hard would it be to close the gap? As a compression engineer, I believe\nit is disadvantaged here. Some reasons:\n\nJPEG XL doesn't have directional prediction modes. Compressed images are\ndivided into VarDCT blocks (from 2x2 up to 256x256) and transformed into\nfrequency representations of their pixels. Other block-based image codecs like\nWebP let you predict a block's pixels using surrounding data, subtract this\nprediction from the actual pixels, and then do the frequency transform.\nDirectional prediction modes can result in blur if your encoder isn't\nperceptually optimized, but strong mode-decision pipelines can pick the right\nmode for the job and save lots of bits. For example, edge preservation is\nstronger in codecs with directional pred, while JXL is weaker here.\nThe proposed solution for the edge-preservation gap is splines, which are\nvastly more difficult to use. The hard part is on the encoder side: you need\nan efficient algorithm to figure out which pixels can even be represented as a\nspline, then feed every candidate through RDO to decide whether it's worth\ncoding. There's no existing PoC for using splines for edge preservation, and I\nhave no reason to believe they'd be better than dir-pred anyway.\nJPEG XL doesn't have deblocking loop filtering (DLF), or any deblocking\nfilter. It does have two in-loop tools that are sometimes offered as partial\nequivalents: gaborish, which is the closest thing JXL has to AV1's loop\nrestoration filtering, and EPF (edge-preserving filter), whose closest\nanalogue is AV1's CDEF. Neither is a deblocking filter, and the two together\ncan't fully replace proper DLF. The DLF can smooth images out, but if your\nencoder is smart it will only help you avoid mosquito noise, which JPEG XL\nstill suffers from.\nJPEG XL's perceptual \"XYB\" colorspace is based on a lot of intuition, and\ndoesn't always translate to gains in other formats (like JPEG) even when\nmetrics like SSIMULACRA2 work in the exact same colorspace. The claimed\nefficiency savings from using XYB also aren't as big as originally advertised\nbecause libjxl currently relies on aggressively quantizing the B channel. This\nhas resulted in subpar color preservation, which new JXL encoder developers\nmust explicitly undo.\nJXL does poorly with non-photographic images. The proposed solution is using\npatches, but they are more difficult to use than AV1's Intra Block Copy.\n\nTo get a similar range of expressiveness to IntraBC, the encoder has to deal\nwith additional concepts like layers and blending, which aren't cheap to\nrepresent at the bitstream level.\nResidual coding is awkward. With AV1, you predict a block, subtract the\nprediction from the source, and the transform coefficients naturally\nrepresent the residual. With JXL's construction, you decode a residual frame\nand then blend a reference patch, so you need an actual frame or layer whose\ndecoded pixels represent the residual. That would likely be a Modular frame,\nwhich is interesting because Modular isn't restricted to conventional\nunsigned image values the way the final rendered image is.\nAn IntraBC block essentially costs a motion vector plus residual\ncoefficients, whereas a JXL construction potentially costs a reference\nframe, a frame header, a crop, blend information, a patch dictionary entry,\npatch coordinates, and a residual frame. That overhead can overwhelm the\nsavings unless the repeated region is fairly large or reused many times.\nPatches have to be explicitly enabled in libjxl below effort 7 because they\ncurrently have performance issues.\n\nFor non-photographic images, the argument that “they should be vector images”\ndoesn't hold up because many images could be vector images but aren't, and they\ncan't be vectorized perfectly. “The world should be different” is not a\njustifiable defense against optimizing for the way the world actually is.\nIt is tempting to think these points mean the ceiling is higher than libjxl lets\nus reach and that we could do better, but I'm not confident it can eclipse\nwell-optimized AVIF encoders quickly, given its less intuitive (and potentially\nweaker) coding tools.\nDecode Time\nJPEG XL has an impressively flexible specification. In addition to its coding\ntools, it supports up to 4096 channels, arbitrary color depth, progressive\ndecode, JPEG recompression, and more. Many of these features are not broadly\nuseful on the Web; you need 4 channels (RGB/YUV + alpha), reasonable color\ndepth to support HDR (10-bit is fine), and the ability to load quickly.\nProgressive rendering (which AVIF supports) decodes a low-fidelity rendition\nbefore the full image arrives. AVIF didn't support progressive rendering for a\nwhile, and during that time I believe it was deeply oversold. Now that libavif\nhas implemented it (it was always possible), the conversation appears to be\nover. I think this is because the results speak for themselves:\n\nThis is from the\nJPEG-XL info site,\nwhere AVIF shows a usable image much earlier than JXL at just ~2-3% of the full\nimage's size. Combined with the fact that the AVIF is smaller overall, this is\nan easy win. I've screenshotted the page because the AVIF progressive decode\nonly works in Chrome, as it is using the browser's native decoder; JPEG XL uses\na polyfill because even in Safari where it is supported, progressive decode\nisn't.\nJPEG recompression is the ability to losslessly re-encode JPEGs as JXL images\nwhile saving bits; the oft-cited number is 20% savings. However, the user pays\nfor this in decode time, as recompressed JPEGs take ~33% longer to decode.\nModern consumer devices are powerful, but the argument that the savings come\n“for free” is misleading.\nOn that topic, decode time is not competitive with the best:\n\nIn public discourse, AVIF is considered slow to decode; what does that make JXL?\nThis is also a 10-bit AVIF, and all images were size-matched encodes of the same\nsource. The JPEG was 2,478,828 bytes, the JPEG XL was 2,599,428, the AVIF\n2,649,949, and WebP 2,693,794. WebP is over 90kb larger and still manages to\ndecode over 10x faster than jxl-rs with wpd.\nDue to the codec's expressivity, it is possible to craft images that take\nobscenely long to decode. Take\nthis example (open with caution) that\ncomputes primes up to 33,599 and takes 17.43s of user time to decode on my M5\nPro with the Rust decoder. Additionally, keep in mind that this is the decoder\nmaking its way into Chrome, Firefox, etc – the prime wall image is just 1,918\nbytes, so it's about to become trivially easy to JXL-bomb low-end devices. You\ncan already ship a couple dozen of these on a Web page and slow Apple devices\ndown, as they natively support JPEG XL in Safari.\nConclusion and Opinion\nI believe Web codecs should be purpose-built, efficient, and narrowly scoped to\nthe needs of the Web. I think WebP was a bit too narrowly scoped, but the idea\nwas there; AVIF's container could be better, and the AV1 spec could be a bit\nmore specific about handling certain properties of images (e.g. normative 4:2:0\nupsampling), but AVIF was always a guaranteed addition to the Web due to AV1 and\nbenefits from a very mature ecosystem.\nDo we need JPEG XL then? It isn't narrowly scoped whatsoever; it is meant to be\neverything to everyone, by design. I think a lot of other use cases need this,\nbut the Web needs to save bandwidth, decode fast, and prevent foot-guns; I don't\nsee how JPEG XL is even as good a fit as WebP. Not to mention an additional\ncompatibility headache now exists for anyone just trying to download an image\nfrom the Internet and use it somewhere – it was hard enough to get widespread\nWebP adoption, and I don't think it's worth doubling the pain by having to climb\nthe …",
+      "rank": 1,
+      "deep": {
+        "summary": "この記事は、JPEG XL（JXL）をWeb画像コーデックとして採用する価値を、圧縮効率・デコード速度・機能の実用性から検討している。著者は、libjxlのlossy圧縮が最新のAVIFエンコーダーに及ばず、losslessでもWebP比の削減幅は約11.9%にとどまると論じる。JPEG XLにはVarDCT、directional predictionの欠如、DLFの欠如、XYBの色再現性、非写真画像へのpatch依存など、エンコーダー改善を難しくする設計上の課題がある。デコード面でも、progressive decodeの初期表示や通常のデコード速度でAVIF・WebPに劣り、JPEG recompressionや極端なビットストリームがクライアント負荷を増やす可能性が示される。結論として、WebにはJPEG XLの多機能さより、用途を絞った圧縮効率・高速デコード・事故の起きにくさが重要だとしている。",
+        "prerequisites": [
+          {
+            "term": "JPEG XL",
+            "stumblingPoint": "記事はJPEG XLをJXLと略し、lossy・losslessの両方を比較するが、両者の用途の違いが読み取りにくい。",
+            "explanation": "JPEG XLは、写真向けのlossy圧縮だけでなく、画素を完全に戻すlossless圧縮やJPEGの再圧縮まで含む汎用画像形式である。lossyは多少の画質劣化と引き換えにサイズを小さくする方式で、Webの写真配信が主な比較対象になる。losslessは画質を変えない代わりに、Web上で占める画像量が少ないと、形式追加のコストを回収しにくい。この記事では、JPEG XLの多機能さそのものではなく、Webで多い用途に対して既存形式より有利かが問われている。"
+          },
+          {
+            "term": "AVIF",
+            "stumblingPoint": "記事はAVIFのreference encoderやSVT-AV1をJPEG XLと比較するが、AVIFが何を共有しているかが省略されている。",
+            "explanation": "AVIFはAV1の画像用コーデックを使う画像形式で、圧縮のビットストリームと、それを生成するエンコーダーは別のものとして考える必要がある。記事の比較対象は単なる形式名ではなく、libaomやSVT-AV1など、実際に最適化されたエンコーダーである。したがって「JPEG XLという仕様の上限」と「現在のlibjxlの実装結果」は同じ比較ではない。著者はその差を認めつつ、現状のエンコーダー性能ではAVIFに追いつく根拠が弱いと述べている。"
+          },
+          {
+            "term": "VarDCT",
+            "stumblingPoint": "「画像をVarDCTブロックに分ける」とあるが、directional predictionが圧縮にどう効くかが分かりにくい。",
+            "explanation": "VarDCTは、画像を大きさの異なるブロックに分割し、画素を周波数成分へ変換するJPEG XLの方式である。directional predictionは、周囲の画素からブロックの内容を方向付きで予測し、予測との差分だけを変換・符号化する仕組みである。輪郭に沿った予測ができると、エッジの差分が小さくなり、少ないビットで輪郭を保ちやすい。記事では、JPEG XLがこの仕組みを持たず、非写真画像や輪郭の保存で不利になりうると説明している。"
+          },
+          {
+            "term": "DLF",
+            "stumblingPoint": "gaborishやEPFがDLFの部分的な代替と書かれるが、なぜ同等ではないのかが読み取りにくい。",
+            "explanation": "DLFはブロック境界に生じる不自然な段差を、デコード途中で滑らかにするループ内フィルターである。gaborishやEPFも画像を整える処理だが、記事ではDLFと同じ境界処理ではなく、組み合わせても完全な代替にならないとされる。エンコーダーが賢ければDLFは単なるぼかしではなく、mosquito noiseの抑制にも使える。JPEG XLにはその選択肢がないため、画質評価だけでなく、エンコーダーが問題を避ける難しさにも影響する。"
+          },
+          {
+            "term": "XYB",
+            "stumblingPoint": "JPEG XL独自のXYB colorspaceが効率化に使われる一方、B channelの量子化が色再現を損なう理由が省略されている。",
+            "explanation": "XYBはJPEG XLが知覚上の差を扱いやすくするために使う色空間で、RGBのままではなく、明るさや色差を別の成分として符号化する。量子化は、各成分の精度を落としてデータ量を減らす処理である。記事では、libjxlがB channelを強く量子化しているため、サイズ削減の代わりに色の保存が悪化し、新しいエンコーダーが明示的に補正する必要があると指摘する。つまり、色空間の理論的な利点だけでは、実装時の量子化方針まで含めた画質を保証できない。"
+          },
+          {
+            "term": "IntraBC",
+            "stumblingPoint": "非写真画像の比較でIntraBCとpatchが登場するが、同じ領域の再利用をどう表現するかが異なる。",
+            "explanation": "IntraBCは、同じ画像内にある既存ブロックを参照して、繰り返し模様や同一領域を短い参照情報と差分で表すAV1の仕組みである。JPEG XLのpatchは似た目的に使えるが、記事では参照フレーム、レイヤー、blend情報、座標、残差フレームなど複数の情報が必要になると説明される。繰り返し領域が小さい場合、その付加情報が削減量を上回りうる。非写真画像を多く扱うUIスクリーンショットやイラストでは、この差が圧縮率に直結する。"
+          },
+          {
+            "term": "progressive decode",
+            "stumblingPoint": "AVIFは2〜3%の受信量で使える画像を表示するとあるが、通常のデコードとの違いが曖昧である。",
+            "explanation": "progressive decodeは、画像データをすべて受信し終える前に、低品質のプレビューを表示し、後から画質を上げるデコード方式である。ここで重要なのは最終ファイルサイズだけでなく、ユーザーが意味のある画像を見るまでに何バイト必要かである。記事では、AVIFがJPEG XLより早い段階で実用的な表示になると述べる。一方、JPEG XLのprogressive decodeはブラウザ標準デコーダーではなくpolyfillに依存するケースがあるため、同じ機能名でも実行経路が異なる。"
+          },
+          {
+            "term": "JXL-bomb",
+            "stumblingPoint": "1,918バイトの画像が17.43秒かかる例をJXL-bombと呼ぶが、サイズと処理量の関係が問題になる理由が必要である。",
+            "explanation": "JXL-bombは、転送サイズは極端に小さいのに、デコード時に過大な計算量や時間を要求するJPEG XL画像を指す文脈上の呼び方である。ブラウザは画像を表示するだけでデコーダーを実行するため、攻撃者が小さな画像を大量に埋め込むと、帯域ではなくCPU時間や端末の応答性がボトルネックになる。記事の例では、Rust decoderで素数計算を含む画像がM5 Pro上でも17.43秒を要したとされる。Web向け形式では、圧縮率だけでなく、悪意ある入力へのデコード上限も実用性の一部になる。"
+          }
+        ],
+        "visual": null,
+        "figures": [
+          {
+            "url": "https://giannirosato.com/static/img/libjxl_cvvdp.svg",
+            "alt": "CVVDP",
+            "caption": "CVVDPによるエンコーダー比較。JPEG XLのlibjxlが、Apertureなどの新しいエンコーダーとどれだけ差を空けられているかを見る図。"
+          },
+          {
+            "url": "https://giannirosato.com/static/img/libjxl_ssimu2.svg",
+            "alt": "SSIMULACRA2",
+            "caption": "SSIMULACRA2による比較。指標の限界を踏まえても、libjxlと他形式の差が小さな調整では済まないことを確認できる。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 12,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "losslessの追加価値",
+            "claim": "Webの大半はlossyで足り、losslessの約11.9%削減では形式追加に見合わない。",
+            "counter": "アーカイブや編集素材ではlossless・JPEG再圧縮が帯域以外の価値を持つ。",
+            "counterInArticle": false
+          },
+          {
+            "point": "形式とエンコーダーの上限",
+            "claim": "JPEG XLの現行エンコーダーはAVIFに圧縮効率と画質で大きく遅れている。",
+            "counter": "codec benchmarkではなくencoder benchmarkであり、仕様の上限はまだ測れていない。",
+            "counterInArticle": true
+          },
+          {
+            "point": "多機能さの評価",
+            "claim": "Webでは多機能さより、速いデコードと用途を絞った安全な仕様が優先される。",
+            "counter": "HDR、JPEG再圧縮、任意チャンネルなどを同じ形式で扱えること自体が運用価値になる。",
+            "counterInArticle": false
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "実サイトの画像構成",
+            "why": "ReactやNext.jsの画面で写真・アイコン・スクリーンショットを配信しており、種類別の実測を出せる。"
+          },
+          {
+            "angle": "初回表示までの受信量",
+            "why": "フロントエンドのLCPや画像表示を計測しているため、ファイルサイズだけでない体感差を比較できる。"
+          },
+          {
+            "angle": "ブラウザ別デコード負荷",
+            "why": "Chrome・Safariなど実利用ブラウザを日常的に扱うので、端末別のdecode timeと互換性を測定できる。"
+          }
+        ],
+        "verify": [
+          "同一画像をJPEG XL・AVIF・WebPで同程度の容量にし、ブラウザの表示開始とdecode timeを比較する。",
+          "同じ画像をChromeとSafariで読み込み、progressive decodeの表示開始バイト数と標準対応の差を確認する。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Gatsbyは悪くない。会社サイトを案件プラットフォームに育てた私たちが悪い",
+      "url": "https://qiita.com/DEV_LOG/items/814dc6d96d87db6c6fcc",
+      "publishedAt": "2026-09-14T07:42:46.000Z",
+      "author": "DEV LOG",
+      "authorDetail": {
+        "name": "DEV LOG",
+        "handle": "@DEV_LOG",
+        "url": "https://qiita.com/DEV_LOG",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4494071/efb7a6dde238de22009ec2edd238cd0100a61509/x_large.png?1788153645",
+        "bio": "株式会社UKMETAのエンジニアです。Web・アプリ・生成AI・Unity（ゲーム開発）のナレッジを中心に発信しています。現場での開発経験や実践的な技術情報をお届けします！",
+        "organization": "株式会社UKMETA",
+        "location": "東京",
+        "followers": 1,
+        "posts": 1,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://ukmeta.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "gatsby",
+        "React",
+        "microCMS",
+        "技術的負債",
+        "SSG"
+      ],
+      "snippet": "株式会社UKMETAのエンジビズ開発チームです。小さな会社サイトとして始まったGatsbyプロジェクトが、大量の案件を扱うサービスになるまでと、現在感じているつらさを振り返ります。 Gatsby、これからどうする？ 最近、エンジビズのコードを触りながら何度も考えます。 「Gatsby、これからどうする？」 正直、つらいです。 コンテンツを1件直すだけでもビルドが走る。GraphQLのフィールドがデータ次第で消える。公開中案件の条件を変えると、一覧、詳細、スキル別ページ、サイトマップまで確認しなければならない。 「別のフレームワークに移行した方が早いのでは」と思う日もあります。 ただ、最初からGatsbyの選定が間違っていたわけではありません。そもそも私たちは、案件プラットフォームを作るためにGatsbyを選んだわけではありませんでした。 Gatsbyを選んだ、というよりスターターを選んだ …",
+      "body": "株式会社UKMETAのエンジビズ開発チームです。小さな会社サイトとして始まったGatsbyプロジェクトが、大量の案件を扱うサービスになるまでと、現在感じているつらさを振り返ります。\n\nGatsby、これからどうする？\n\n \n \n\n最近、エンジビズのコードを触りながら何度も考えます。\n\n「Gatsby、これからどうする？」\n\n正直、つらいです。\n\nコンテンツを1件直すだけでもビルドが走る。GraphQLのフィールドがデータ次第で消える。公開中案件の条件を変えると、一覧、詳細、スキル別ページ、サイトマップまで確認しなければならない。\n\n「別のフレームワークに移行した方が早いのでは」と思う日もあります。\n\nただ、最初からGatsbyの選定が間違っていたわけではありません。そもそも私たちは、案件プラットフォームを作るためにGatsbyを選んだわけではありませんでした。\n\nGatsbyを選んだ、というよりスターターを選んだ\n\nこのリポジトリは、2024年3月に株式会社UKMETAのコーポレートサイトとして始まりました。\n\n当時のpackage.jsonにはukmeta home pageと書かれ、構成はGatsby 4、React 17、LekoArtsのgatsby-theme-caraでした。必要だったのは、会社概要、事業紹介、問い合わせ先を掲載する小さなサイトです。\n\n正確には、Gatsbyを他のフレームワークと比較して選んだというより、短期間で見栄えのよい会社サイトを公開できるGatsby製スターターを選びました。\n\n当時は新しいメンバー、特に経験の浅いメンバーが入るたびに、まずこのプロジェクトを触ってもらうこともありました。色や余白を直したり、セクションを追加したりする、いわば「会社サイトを少しずつ飾る」ような位置づけでした。\n\nReactで編集でき、サーバーを管理せず、静的ファイルとして公開できる。小規模な会社サイトとしては十分に合理的でした。\n\n気づけば大量の案件を扱うサービスになった\n\nその後、サイトの役割は少しずつ変わりました。\n・MicroCMSを導入\n・ブログと案件データをCMSから取得\n・案件一覧と案件詳細を追加\n・スキル別、職種別、働き方別、単価別ページを追加\n・ページネーション、並び替え、お気に入り、応募フォームを追加\n・サイトマップ、canonical、noindex制御を追加\n\n気づいたときには、会社サイト向けのスターターが、大量の案件データから多くのページを生成するサービスになっていました。\n\nここで、Gatsbyの「便利だった部分」が「つらい部分」に変わり始めます。\n\nつらさ1：CMSの更新がサイトの再ビルドになる\n\nGatsbyはビルド時にMicroCMSからデータを取得し、ページを生成します。\n\n案件が少ないうちは問題ありません。しかし、詳細、一覧、条件別ページ、ページネーションまで増えると、「案件を1件公開する」という小さな操作が、大量のデータを扱うサイト全体のビルドにつながります。\n\n静的サイトの単純さと引き換えに、更新コストがビルド側へ集まりました。\n\nつらさ2：GraphQLの便利な魔法\n\nGatsbyのGraphQLは、CMSデータを短いクエリで扱えるため便利です。一方、任意フィールドに値を持つコンテンツがなくなると、スキーマ推論からフィールド自体が消えてビルドに失敗することがあります。\n\nエンジビズでは、案件の再公開日時を保持するpostedAtがこの問題に当たり、スキーマを明示することになりました。\n\n [code] \n\n便利な魔法は、動いている間はコードを減らしてくれます。壊れると、Gatsby、GraphQL、CMSのどこが原因なのかを追う必要があります。\n\nつらさ3：「公開中」の定義が散らばる\n\n案件の公開判定自体は単純です。\n\n [code] \n\nしかし、この条件はトップページ、案件一覧、条件別ページ、関連案件、詳細、ページネーション、サイトマップ、noindex判定のすべてに関係します。\n\n実際、一時期はトップ、案件一覧、スキル別ページで意味の違う件数が、十分な説明なしに表示されていました。\n\n現在はアプリケーション側の判定を共通化しています。\n\n [code] \n\nただし、GraphQLのfilterには同じ関数を直接使えません。静的生成するページが増えるほど、同じビジネスルールを複数のレイヤーに重複して持ちやすくなります。\n\nつらさ4：昔の「速く作れる」が今の「変更しづらい」になる\n\n現在のプロジェクトには、Gatsby Themeのshadowing、Theme UI、通常のコンポーネント、JavaScript、TypeScriptが共存しています。\n\nどれも、その時点で機能を早く追加するための現実的な選択でした。しかし今は、画面を直す前に「これはテーマ側か、shadowing側か、通常ページ側か」を探すことがあります。\n\n最初に開発速度を上げてくれた構造が、サービスの成長後には理解と変更のコストになりました。\n\nでは、Gatsbyをどうするか\n\n大量の既存URLを一度に移行するのは危険です。URL、canonical、構造化データ、サイトマップ、リダイレクトを誤れば、これまでの検索評価にも影響します。\n\nそのため、今は次の順序が現実的だと考えています。\n\n1. 公開状態などのビジネスルールを共通化する\n2. CMSデータの欠損でGraphQLスキーマが変化しないようにする\n3. 生成するページとサイトマップを整理する\n4. 検索やマッチングなど、更新頻度の高い機能から静的生成の外へ分離する\n5. 移行するなら、SEOページとアプリケーション機能の境界を先に決める\n\nNext.jsやAstroへ替えるだけでは、散らばったビジネスルールは直りません。フレームワーク選定より先に、データと責務の境界を整理する必要があります。\n\nGatsbyはクソだったのか\n\n開発中には「Gatsby、つらい」「これどうするんだ」と言いたくなることがあります。\n\nそれでも、Gatsbyがなければ当時の私たちは会社サイトをあの速度で公開できなかったかもしれません。サーバー管理なしで始め、後からMicroCMSや案件ページを追加できたのも事実です。\n\nGatsbyが突然悪い技術になったわけではありません。\n\n小さな会社サイトに合っていた構成を、前提が変わった後も拡張し続けた結果、現在の要件とのズレが大きくなった。\n\nこれが一番正確な振り返りです。\n\n技術的負債は、間違った選択からだけ生まれるものではありません。当時は正しかった選択を、条件が変わった後も使い続けることでも生まれます。\n\n同じように「会社サイトとして始めたGatsbyが、いつの間にか大きなサービスになっていた」という方がいれば、ぜひ経験を聞かせてください。\n\n---\nEngibiz（エンジビズ）のサイトはこちら",
+      "metrics": {
+        "likes": 2,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "575d540dfb2df548",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8919117647058824,
+      "popularityPercentile": 0.9632352941176471,
+      "matchedTopics": [
+        "React"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "小規模な会社サイトから案件プラットフォームへ拡大したGatsbyプロジェクトの負債を振り返っています。",
+      "takeaways": [
+        "小さな会社サイトが大量の案件を扱うサービスに変わった。",
+        "記事を直すだけでもサイト全体の作り直しが必要になる。",
+        "問題の中心はGatsbyよりも想定を超えた事業規模だった。"
+      ],
+      "keywords": [
+        "Gatsby",
+        "React",
+        "microCMS",
+        "SSG",
+        "技術的負債"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "既存基盤を拡張するか別の構成へ移行するか",
+        "forSide": "初期の開発速度を優先した構成を事業の成長後も活用できる。",
+        "againstSide": "案件数とページ数が増えた時点で移行した方が変更コストを抑えられる。",
+        "oneSided": false,
+        "yourAngle": "Reactや静的生成を使う案件でページ数と更新頻度がどう増えたかを実測できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "このGatsbyプロジェクトは、2024年3月に会社サイト向けのGatsby 4・React 17・LekoArtsのgatsby-theme-caraから始まった。MicroCMSでブログや案件データを扱い、一覧・詳細・条件別ページ・応募フォームなどを追加するうちに、大量のページを生成する案件プラットフォームへ変化した。その結果、CMS更新のたびに全体ビルドが走り、GraphQLのスキーマ推論、公開判定、Theme UIやJavaScript・TypeScriptの共存が変更コストになった。対策として、公開状態などのビジネスルールを共通化し、GraphQLスキーマを安定させ、ページとサイトマップを整理する順序が示されている。Next.jsやAstroへの移行だけでは問題は解決せず、SEOページとアプリケーション機能の境界を先に整理する必要がある。",
+        "prerequisites": [
+          {
+            "term": "Gatsby",
+            "stumblingPoint": "記事はGatsbyがビルド時にMicroCMSからデータを取得すると書くが、更新のたびに何が再生成されるのかが読み取りにくい。",
+            "explanation": "Gatsbyとは、データをビルド時に読み込み、静的なページとして出力する仕組みを中心にしたフレームワークである。この記事では、案件を1件更新しても、その案件だけでなく一覧・条件別ページ・サイトマップなどの生成処理全体が影響を受ける。小規模サイトでは単純さが利点になるが、ページ数と更新頻度が増えるとビルド時間と確認範囲が膨らむ。"
+          },
+          {
+            "term": "MicroCMS",
+            "stumblingPoint": "記事はMicroCMS導入後にブログと案件データを取得したと書くが、Gatsbyとの接続点が説明されていない。",
+            "explanation": "MicroCMSとは、コンテンツをAPI経由で配信するヘッドレスCMSである。この記事では、Gatsbyがビルド時にMicroCMSへ問い合わせ、その時点の案件データから静的ページを作る関係になる。そのため、MicroCMS上の小さな変更が、Gatsby側ではサイト全体の再ビルドとして現れる。"
+          },
+          {
+            "term": "GraphQL",
+            "stumblingPoint": "記事は「GraphQLのフィールドがデータ次第で消える」と書くが、通常のAPIの型定義と何が違うのかが分かりにくい。",
+            "explanation": "GraphQLとは、取得したデータの形をスキーマとして表し、クエリで必要なフィールドを指定する仕組みである。GatsbyではCMSの実データからスキーマを推論するため、任意フィールドを持つコンテンツが一件もないと、そのフィールド自体が存在しない扱いになる。この記事のpostedAt問題は、データ欠損がクエリのビルド失敗へ波及する例である。"
+          },
+          {
+            "term": "postedAt",
+            "stumblingPoint": "記事は案件の再公開日時postedAtで問題が起き、スキーマを明示したと書くが、なぜ一時的な欠損で壊れるのかが省略されている。",
+            "explanation": "postedAtとは、案件を再公開した日時を保持するCMSフィールドである。GraphQLのスキーマ推論では、この値を持つコンテンツが存在しない期間にフィールドが推論対象から外れる可能性がある。その状態でpostedAtを参照するクエリを実行すると、案件データの欠損がビルドエラーになるため、スキーマを明示して形を固定する必要がある。"
+          },
+          {
+            "term": "SSG",
+            "stumblingPoint": "記事は静的ファイル公開の利点と更新コストを対比するが、案件検索や応募フォームまで同じ方式で扱う難しさが明示されていない。",
+            "explanation": "SSGとは、リクエスト時ではなくビルド時にHTMLなどの静的ファイルを生成する方式である。サーバー管理なしで高速に配信しやすい一方、公開案件の条件変更や検索のように更新頻度が高い機能では、変更を反映するたびに生成処理が必要になる。記事は、検索やマッチングを静的生成の外へ分離する方向を示している。"
+          },
+          {
+            "term": "canonical",
+            "stumblingPoint": "記事はURLやcanonicalを誤ると検索評価に影響すると書くが、移行時にどの対応関係を守る話なのかが曖昧である。",
+            "explanation": "canonicalとは、複数のURLで同じ内容を扱う場合に、検索エンジンへ代表URLを伝える情報である。この記事の移行では、既存のSEOページを別構成へ移す際に、各ページの代表URLが変わったり誤ったりしないようにする必要がある。URL、canonical、リダイレクト、サイトマップの対応が崩れると、フレームワークを替える作業が検索流入の問題へつながる。"
+          },
+          {
+            "term": "noindex",
+            "stumblingPoint": "記事はnoindex制御も公開判定に関係すると書くが、同じ案件の表示と検索登録がなぜ同じルールに依存するのかが読み取りにくい。",
+            "explanation": "noindexとは、ページを検索エンジンのインデックスへ登録しないよう指定する制御である。この記事では、案件が公開中かどうかの判定が、画面表示だけでなく検索登録の可否にも使われる。その判定がページごとに異なると、画面には出ない案件がサイトマップに残る、または検索対象にすべきページが除外されるといった不整合につながる。"
+          },
+          {
+            "term": "Gatsby Theme shadowing",
+            "stumblingPoint": "記事はGatsby Theme shadowingと通常コンポーネントが共存すると書くが、修正対象を探すコストとの関係が分かりにくい。",
+            "explanation": "Gatsby Theme shadowingとは、テーマが提供するファイルをプロジェクト側に同じパスで置き、部分的に差し替える仕組みである。テーマ本体を直接変更せず見た目や挙動を変えられる反面、同じ画面の責務がテーマ・shadowing側・通常ページ側に分散しやすい。この記事では、機能追加時の速さに寄与した構造が、成長後には変更箇所を特定するための理解コストになっている。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "Gatsbyの役割変化",
+          "steps": [
+            {
+              "label": "会社サイト開始",
+              "detail": "Gatsbyスターターで小規模公開"
+            },
+            {
+              "label": "CMS導入",
+              "detail": "MicroCMSから案件を取得"
+            },
+            {
+              "label": "機能拡張",
+              "detail": "一覧・条件別・応募を追加"
+            },
+            {
+              "label": "負債化",
+              "detail": "全体ビルドと責務分散が顕在化"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "既存基盤の拡張か移行か",
+            "claim": "当時はGatsbyスターターで会社サイトを速く公開できた。",
+            "counter": "前提が変わった後も拡張し続け、現在の要件とのズレが広がった。",
+            "counterInArticle": true
+          },
+          {
+            "point": "フレームワーク変更の効果",
+            "claim": "Next.jsやAstroへ移行すれば、現在のつらさを解消できる。",
+            "counter": "散らばったビジネスルールは、フレームワークを替えるだけでは直らない。",
+            "counterInArticle": true
+          },
+          {
+            "point": "静的生成の適用範囲",
+            "claim": "案件情報も静的生成に寄せれば、サーバー管理なしで運用できる。",
+            "counter": "検索やマッチングは更新頻度が高く、静的生成の外へ分離した方がよい。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "CMS更新とビルド時間の実測",
+            "why": "GatsbyとCMSを使う開発者なら、更新件数・生成ページ数・ビルド時間を手元で測れる。"
+          },
+          {
+            "angle": "公開判定の重複箇所",
+            "why": "ReactやTypeScriptの実装を日常的に触るため、画面・SEO・APIに同じ条件が何箇所あるか確認できる。"
+          },
+          {
+            "angle": "SEOページと機能ページの境界",
+            "why": "Next.jsなどでプロダクト開発をしていれば、静的ページと検索・応募の責務分離を自分の構成と比較できる。"
+          }
+        ],
+        "verify": [
+          "案件を1件更新し、Gatsbyのビルド時間と生成ページ数の変化を記録する。",
+          "rgで公開判定の条件・canonical・noindex・sitemapの実装箇所を検索し、重複数を数える。"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "729db9878934b9c8",
+      "product": "AI SDK harness layer",
+      "what": "AI SDKのエージェント実行基盤",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "ネイティブなサブスクリプション認証を利用できるようになる",
+      "change": {
+        "before": "ネイティブなサブスクリプション認証に未対応",
+        "after": "ネイティブなサブスクリプション認証に対応"
+      },
+      "scope": [],
+      "summary": "AI SDK harness layerで、ネイティブなサブスクリプション認証をサポートした。",
+      "title": "AI SDK harness layer now supports native subscription authentication",
+      "url": "https://vercel.com/changelog/ai-sdk-harness-native-subscription-authentication",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-09-14T21:28:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "87cf595724732522",
+      "product": "GitHub Copilot",
+      "what": "AIコーディングアシスタント",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "自動モデル選択のコストと品質の優先度を3段階で指定できる",
+      "change": {
+        "before": "自動モデル選択のコスト・品質の重みを指定できない",
+        "after": "efficiency・balance・intelligenceから優先度を選べる"
+      },
+      "scope": [],
+      "summary": "GitHub Copilotの自動モデル選択にefficiency、balance、intelligenceの3段階を追加し、コスト・品質・応答時間の重みを設定可能にした。",
+      "title": "Configure cost and quality in Copilot auto model selection",
+      "url": "https://github.blog/changelog/2026-09-14-configure-cost-and-quality-in-copilot-auto-model-selection",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-09-14T16:05:27.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "0da787dd418e0578",
+      "product": "Oxlint / Oxfmt",
+      "what": "高速なJavaScriptリンターとフォーマッター",
+      "version": "oxlint v1.83.0 / oxfmt v0.68.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "React 19.3の変更に対応したLintルールを利用できるようになる",
+      "change": {
+        "before": "React 19.3の変更を既存ルールで扱う",
+        "after": "React 19.3向けに更新されたルールでLintできる"
+      },
+      "scope": [],
+      "summary": "Oxlint v1.83.0とOxfmt v0.68.0を公開。OxlintはReact 19.3対応ルールや各種Lint修正を追加した。",
+      "title": "oxc-project/oxc oxlint v1.83.0 & oxfmt v0.68.0",
+      "url": "https://github.com/oxc-project/oxc/releases/tag/apps_v1.83.0",
+      "sourceLabel": "GitHub Releases / oxc-project/oxc",
+      "publishedAt": "2026-09-14T12:12:16.000Z",
+      "alsoReleased": [
+        {
+          "label": "oxc crates_v0.150.0",
+          "url": "https://github.com/oxc-project/oxc/releases/tag/crates_v0.150.0"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nOxlint / Oxfmt oxlint v1.83.0 / oxfmt v0.68.0 を入れて、「React 19.3の変更に対応したLintルールを利用できるようになる」を確かめる\nhttps://github.com/oxc-project/oxc/releases/tag/apps_v1.83.0\n\n# 手順\n1. git clone --depth 1 --branch apps_v1.83.0 https://github.com/oxc-project/oxc\n2. cd oxc && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- oxlint v1.83.0 / oxfmt v0.68.0 が実際に入って動くか\n- 「React 19.3の変更に対応したLintルールを利用できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- apps_v1.83.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "f7d0fd544d541ead",
+      "product": "Zod",
+      "what": "TypeScript向けスキーマ検証ライブラリ",
+      "version": "v4.6.5",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "instanceofの型に応じたpropertiesスキーマを定義できるようになる",
+      "change": {
+        "before": ".properties()の形状がインスタンス型に連動しない",
+        "after": ".properties()の形状をインスタンス型に連動できる"
+      },
+      "scope": [],
+      "summary": "Zod v4.6.5では、instanceofの型に応じて.properties()の形状を決められる機能などが追加された。",
+      "title": "colinhacks/zod v4.6.5",
+      "url": "https://github.com/colinhacks/zod/releases/tag/v4.6.5",
+      "sourceLabel": "GitHub Releases / colinhacks/zod",
+      "publishedAt": "2026-09-13T23:25:34.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nZod v4.6.5 を入れて、「instanceofの型に応じたpropertiesスキーマを定義できるようになる」を確かめる\nhttps://github.com/colinhacks/zod/releases/tag/v4.6.5\n\n# 手順\n1. git clone --depth 1 --branch v4.6.5 https://github.com/colinhacks/zod\n2. cd zod && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v4.6.5 が実際に入って動くか\n- 「instanceofの型に応じたpropertiesスキーマを定義できるようにな」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v4.6.5 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "163e82d70bc00745",
+      "product": "@cloudflare/vite-plugin",
+      "what": "Cloudflare Workers向けViteプラグイン",
+      "version": "1.54.9",
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": ".wrangler/stateへの書き込みでhotUpdateが発火する",
+        "after": ".wrangler/への書き込みをファイル監視から除外する"
+      },
+      "scope": [],
+      "summary": "@cloudflare/vite-plugin 1.54.9では、Miniflareが生成する.wrangler/をViteの監視対象から除外し、不要なhotUpdate発火を防ぐ。",
+      "title": "cloudflare/workers-sdk @cloudflare/vite-plugin@1.54.9",
+      "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vite-plugin%401.54.9",
+      "sourceLabel": "GitHub Releases / cloudflare/workers-sdk",
+      "publishedAt": "2026-09-14T08:59:07.000Z",
+      "alsoReleased": [
+        {
+          "label": "@cloudflare/config@0.12.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/config%400.12.0"
+        },
+        {
+          "label": "@cloudflare/workflows-shared@0.14.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workflows-shared%400.14.0"
+        },
+        {
+          "label": "@cloudflare/deploy-helpers@0.11.2",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/deploy-helpers%400.11.2"
+        },
+        {
+          "label": "@cloudflare/build-output-utils@0.5.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/build-output-utils%400.5.0"
+        },
+        {
+          "label": "@cloudflare/containers-shared@0.16.2",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/containers-shared%400.16.2"
+        },
+        {
+          "label": "@cloudflare/remote-bindings@0.0.24",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/remote-bindings%400.0.24"
+        },
+        {
+          "label": "@cloudflare/autoconfig@0.4.5",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/autoconfig%400.4.5"
+        },
+        {
+          "label": "@cloudflare/workers-utils@0.38.1",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workers-utils%400.38.1"
+        },
+        {
+          "label": "@cloudflare/vitest-plugin@1.1.9",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vitest-plugin%401.1.9"
+        },
+        {
+          "label": "@cloudflare/workers-auth@0.6.12",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workers-auth%400.6.12"
+        },
+        {
+          "label": "@cloudflare/cli-shared-helpers@0.1.30",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/cli-shared-helpers%400.1.30"
+        },
+        {
+          "label": "wrangler@4.131.2",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.131.2"
+        }
+      ],
+      "tryPrompt": "# 試すこと\n@cloudflare/vite-plugin 1.54.9 を入れて、この版の変更を確かめる\nhttps://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vite-plugin%401.54.9\n\n# 手順\n1. git clone --depth 1 --branch %40cloudflare https://github.com/cloudflare/workers-sdk\n2. cd workers-sdk && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 1.54.9 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- %40cloudflare のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "95248b473dd28215",
+      "product": "TanStack Router",
+      "what": "Reactなど向けの型安全なルーター",
+      "version": null,
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "TanStack Router周辺パッケージを更新し、Nxエージェント間でPlaywright実行を直列化するE2E修正とRsbuild 2.2.5への更新を含む。",
+      "title": "TanStack/router Release 2026-09-14 09:45",
+      "url": "https://github.com/TanStack/router/releases/tag/release-2026-09-14-0945",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "publishedAt": "2026-09-14T09:45:17.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/solid-start@1.168.52",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.168.52"
+        },
+        {
+          "label": "@tanstack/start-plugin-core@1.171.44",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-plugin-core%401.171.44"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.54",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.54"
+        },
+        {
+          "label": "@tanstack/vue-start@1.168.51",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.168.51"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.53",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.53"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nTanStack Router を入れて、この版の変更を確かめる\nhttps://github.com/TanStack/router/releases/tag/release-2026-09-14-0945\n\n# 手順\n1. git clone --depth 1 --branch release-2026-09-14-0945 https://github.com/TanStack/router\n2. cd router && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 新しい版が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- release-2026-09-14-0945 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ついに Homebrew に公式 GUI が来たぞー！（v7 変更点まとめ・新機能の使い方）",
+      "url": "https://qiita.com/tomy0610/items/4c8ae33fc212dd56e8d0",
+      "publishedAt": "2026-09-14T03:56:47.000Z",
+      "author": "c Tomioka",
+      "authorDetail": {
+        "name": "c Tomioka",
+        "handle": "@tomy0610",
+        "url": "https://qiita.com/tomy0610",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/199602/profile-images/1717144169",
+        "bio": "なんちゃってフルスタック風エンジニア 👨‍💻 ｜ 新技術・変わった技術に興味津々 👀 ｜ ハーフで顔も濃いが、日本生まれ日本育ち 🇺🇸 × 🇯🇵 ｜ Angular と NestJS と Flutter が好き ｜ ハードウェアは Apple、ソフトウェアは Google に依存する典型的な人 ｜ 「そろそろ彼女が欲しいなぁ」とか普通に考えたりする、どこにでもいる健全な男子。",
+        "location": "Japan",
+        "followers": 112,
+        "posts": 71,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/c-tomioka"
+          }
+        ]
+      },
+      "tags": [
+        "homebrew",
+        "macOS"
+      ],
+      "snippet": "概要 2026年9月13日、Homebrew 7.0.0 がリリースされた。 テーマは 「高速化」「セキュリティ強化」「macOS Intel の段階的終了」 そして、「公式GUI登場」 の4つ。 普段の brew install / brew upgrade はほぼそのまま使えますが、Intel Mac・古いmacOS・CI・自作tapを運用している人は移行対応が必要。 この記事では、次の3点をまとめる。 1. v7 の変更点（影響が大きい順） 2. 公式GUIアプリ BrewUI の使い方 3. 標準搭載された脆弱性スキャナ brew vulns の使い方 出典は Homebrew 7.0.0 リリースノート と 7.0.0 移行ガイド が中心。 Homebrew 7 の変更点 まず影響が大きい点をざっくり。 | 対象 | v7での変更 | 対応の目安 | |---|---|---| …",
+      "body": "概要\n2026年9月13日、Homebrew 7.0.0 がリリースされた。\nテーマは 「高速化」「セキュリティ強化」「macOS Intel の段階的終了」 そして、「公式GUI登場」 の4つ。\n\n普段の brew install / brew upgrade はほぼそのまま使えますが、Intel Mac・古いmacOS・CI・自作tapを運用している人は移行対応が必要。\n\nこの記事では、次の3点をまとめる。\n\n1. v7 の変更点（影響が大きい順）\n2. 公式GUIアプリ BrewUI の使い方\n3. 標準搭載された脆弱性スキャナ brew vulns の使い方\n\n出典は Homebrew 7.0.0 リリースノート と 7.0.0 移行ガイド が中心。\n\nHomebrew 7 の変更点\n\nまず影響が大きい点をざっくり。\n\n| 対象 | v7での変更 | 対応の目安 |\n|---|---|---|\n| macOS Catalina 10.15以前 | 即時サポート終了 | macOS 11 Big Sur 以降へ更新 |\n| Intel Mac | Tier 3 へ移行。新しいbottleが原則提供されず、ソースビルドになりやすい | Apple Silicon への移行を検討 |\n| Intel版Homebrew本体 | 2027年9月1日に動作サポート終了予定 | 期限までに環境移行 |\n| macOS Sonoma 14 | Tier 3扱い。新規bottleや .pkg インストーラの対象外 | Sequoia 15 以降を推奨 |\n| Apple Silicon | Golden Gate 27 まで Tier 1 で正式サポート | 基本的に対応不要 |\n\nIntel Mac では既存のbottleは残る一方、更新されたformulaはバイナリ配布されず、ローカルでソースビルドする場面が増えます。2027年9月までは実行自体は可能ですが、定常的なbottleビルドは期待しにくくなります。Intelを長く使う必要がある場合、Homebrew公式も代替として MacPorts を挙げていました。\n\nその上で、注目すべき変更編を以下に紹介💁‍♂️\n\n変更点❶： 日常利用の利便性アップ\n・インストール・更新が速くなった\n・brew install / brew reinstall / brew upgrade で、パッケージの準備・ダウンロードがより並行に進むようになった。複数パッケージの導入や brew bundle による Brewfile 復元ほど効果が出る\n・brew fetch が formula/cask 定義を丸ごと読む前に、APIメタデータからURL・チェックサムを取得してダウンロード開始を早める\n・brew update 後の Ruby キャッシュ準備により、後続コマンドの起動を短縮\n・brew cleanup がキャッシュ再走査を減らし、パッケージ数が多い環境で高速化\n・起動時のサブプロセス数を削減し、コマンドのオーバーヘッドを低減\n・brew config や brew tap-info --installed --json=v1 も並列化\n\n例えば、開発マシンを Brewfile で再現しているなら、CLI・GUI cask・言語ツールを一括復元する待ち時間が縮むのが実用上のメリットです。\n\n変更点❷： セキュリティの強化\n\n単なる脆弱性修正ではなく、パッケージ導入プロセス自体の設計変更が入っています。\n・formula/cask の処理をより強くサンドボックス化\n・ビルド中は原則としてホームディレクトリを読めないようにする\n・依存ダウンロードを fetch フェーズへ寄せ、install フェーズではネットワークを止めてキャッシュを読み取り専用にする方向へ移行中\n・実UIDと有効UIDが異なる setuid ラッパー経由の実行を拒否\n・Cask が LaunchServices、Mach service、Unix socket などを悪用してサンドボックス外でコードを動かせる問題を修正\n\nただしこれは「信頼できないtapやアプリを安全にする」ものではありません。cask で導入したアプリはユーザー権限で動作し、ベンダーの .pkg はサンドボックス外で実行されうる、とHomebrew自身が明示しています。第三者tapの信頼性は依然として重要です。\n\n変更点❸： 使い勝手の追加・変更\n・brew install --dry-run — formula と cask をまとめて、導入せずにプレビュー\n・brew list --no-installed-on-request — 依存として入ったformulaを把握\n・brew deps --brewfile — Brewfile が持ち込む依存を導入前に点検\n・brew doctor --json — CI・自動化向けの構造化診断出力\n・brew untap — tap除去時に、そのtap由来パッケージの削除も提案\n・HOMEBREWAUTOUPDATEQUIET — 自動更新時のパッケージ詳細表示を抑制\n\nbrew services の設定が永続化しやすい\n\nサービスごとの環境変数を次に置けるようになりました。\n\n [code] \n\nこの設定はパッケージ更新後も残り、サービス再起動時に反映されます。ローカルの PostgreSQL / Redis / 各種ワーカーを brew services で運用している場合、生成済みの plist / systemd 設定を直接編集せずに済みます。\n\nmacOS では brew services run がログインサービスとして登録せず、一時実行でも同じ環境変数オーバーライドを適用できます。\n\nCask 周り\n・formula と cask が同じコマンドを提供する場合、formula側のリンクを優先\n・brew upgrade は非互換caskをスキップし、互換なアプリの更新を継続\n・brew link / brew unlink で --cask / --formula を指定可能\n・cask のバイナリ・manページ・補完を再インストールせずにリンク/解除可能\n・API に cask の言語別バリアント情報を追加し、言語に応じたURL・チェックサム・artifact選択を効率化\n\n変更点❹： Linux は Landlock へ\n\nHomebrew on Linux は、v6 の Bubblewrap サンドボックスから Landlock に移行しました。追加依存や Docker の権限昇格なしで使えるのが狙いです。\n・Landlock対応カーネルでは自動的に利用\n・非対応カーネルでは旧来相当の非サンドボックス状態で継続し、brew doctor が注意を出す\n・Linux 6.1 の Landlock ABI 2 をサポート\n・HOMEBREWSANDBOXLINUX は無効化済みなので削除\n・HOMEBREWNOSANDBOXLINUX と HOMEBREWARCH は非推奨（2027年12月11日までに整理対象）\n\n変更点❺： CI 利用時の破壊的変更\n\nGitHub Actions で Homebrew 公式アクションを使っている場合は確認が必要です。\n\n [code] \n\n@master は削除済みで、CalVer のリリースタグまたはフルSHAへ固定する必要があります（@main も移行推奨）。あわせてコンテナイメージ ghcr.io/homebrew/ubuntu22.04 は削除され、ghcr.io/homebrew/brew への移行が必要です。\n\n変更点❻： Tap 開発者向け\n\n自作tapを公開・運用している場合、formula の postinstall と cask の preflight / postflight などの任意Rubyブロックが非推奨になりました。今後は宣言的な steps へ移します。\n\n [code] \n\n公式tapでは旧フックをすでに受け付けず、サードパーティtapは2027年12月11日まで警告期間です。brew style --fix は典型的なパターンを変換できますが、複雑なフックは手動での書き換えが必要です。任意Ruby実行を減らし、検証・サンドボックス化・署名付きAPI配信を可能にするための設計転換です。\n\n公式GUIアプリ「BrewUI」が登場\n\nHomebrew 7 で正式リリースされた公式ネイティブGUIが \"BrewUI\" です。パッケージの検索・閲覧・導入と、導入済みバージョンの確認ができ、操作に対応する brew コマンドも表示されます（GitHub 公式リポジトリ）。\n\n個人的には、コマンド（CLI）でも十分使いやすいんですが、Homebrew は Mac ユーザーなら使うべきデファクトでありながら、CLI による心理的障壁で使わないユーザーも結構多い印象があったので、macOS を初めて使う初心者が Homebrew 使うハードルを下げるのですごく良いと思いました（教育上も使いやすい）。\n\nもう、「公式サイト行って👉ダウンロードボタン押して👉インストーラーダブルクリックして〜」ってのをやらなくて良い体験（アンインストールも簡単になる体験） をみんなに知って欲しいという願望があります。\n\n \n\n前提条件\n\n| 条件 | 確認・対応方法 |\n|---|---|\n| macOS Tahoe 26 以降 | swvers -productVersion |\n| Homebrew が導入済み | brew --version |\n| homebrew-app cask を導入可能 | 先に brew update |\n\nhomebrew-app は Cask として配布され、/Applications/Homebrew.app にインストールされます。公式インデックス上の要件も macOS >= 26 です（formulae.brew.sh/cask/homebrew-app）。\n\n [code] \n\n26.x 未満では BrewUI は利用できません。Sequoia 15 以前は従来どおり CLI を使います。\n\nBrewUI のインストール\n\n [code] \n\n確認と起動:\n\n [code] \n\nFinder なら「アプリケーション → Homebrew」、Spotlight なら ⌘ + Space で「Homebrew」を検索します。\n\nBrewUI の基本的な使い方\n\nBrewUI は「Homebrew を全部GUIで操作するアプリ」というより、パッケージ探索・導入内容の確認・実行コマンドの可視化に重点を置いたアプリです。\n\n使い方❶： アプリを探す\n\n検索欄にツール名を入力し、説明・バージョン・導入状態を確認します。\n\n [code] \n\nHomebrew には CLI・ライブラリ中心の formula と、macOSアプリ中心の cask があり、BrewUI は両方の入口になります。\n\n使い方❷： アプリをインストールする\n\n詳細画面でインストールすると、BrewUI が実際に実行する brew コマンドを表示します。GUI操作がブラックボックスになりません。\n\n| BrewUI上の操作 | 実行されるCLI操作の例 |\n|---|---|\n| uv を導入 | brew install uv |\n| gh を導入 | brew install gh |\n| Raycast を導入 | brew install --cask raycast |\n| パッケージ詳細の確認 | brew info 相当 |\n| 導入済みバージョンの確認 | brew list --versions 相当 |\n\n普段はGUIで発見・確認し、Brewfile やセットアップスクリプトに落とすときはターミナルへ戻る、という使い方と相性がよい設計です。\n\n使い方❸： アプリの導入済みを確認する\n\nCLI で照合するなら次のとおりです。\n\n [code] \n\n不要パッケージを整理する場合は、削除前に依存と稼働サービスを確認しておくと安全です。\n\n [code] \n\nCLI との使い分け\nBrewUI と従来の CLI との使い分け、個人的には以下の印象です。\n\n| 用途 | BrewUI | CLI / Brewfile |\n|---|---|---|\n| 新しいツール・アプリの発見 | 向いている | brew search でも可 |\n| パッケージ詳細の閲覧 | 向いている | brew info |\n| インストールコマンドの確認 | 向いている | 実行・自動化向き |\n| 開発環境の再現 | 補助的 | brew bundle が最適 |\n| CIでの導入 | 不向き | brew install / brew bundle |\n| 構成のGit管理 | 不向き | Brewfile |\n| 大量アップグレード・監査 | 補助的 | brew upgrade / brew vulns |\n\nおすすめの運用は次の流れです。\n\n1. BrewUI で候補を検索し、用途・導入済み状況・裏側のコマンドを確認する\n2. 本採用するものはターミナルで導入する\n3. 採用した formula / cask を Brewfile に記録して Git 管理する\n4. 新Mac や CI では brew bundle で再現する\n\n [code] \n\n [code] \n\nv7 では brew bundle の複数パッケージ導入も並行化されており、新環境のセットアップは従来より速くなります。\n\nBrewUI の注意点\n\nBrewUI は正式リリース済みですが、機能範囲は「検索・閲覧・導入済みバージョン確認・実行コマンド表示」が中心です。高度な運用は引き続き CLI 併用が前提です。\n\nインストールに失敗したら、まず次を確認します（現状、最も多い原因は macOS が 26 未満であることっぽい）。\n\n [code] \n\n脆弱性スキャナ \"brew vulns\"\n\nbrew vulns は v7 で標準搭載された既知脆弱性スキャナです。導入済み formula を OSV.dev と Homebrew 独自のアドバイザリDBに照合し、影響する脆弱性・深刻度・修正版の有無を確認できます（Homebrew Ruby API: Homebrew::Cmd::Vulns）。\n\n最短の使い方\n\n追加tapやRuby gemは不要です。\n\n [code] \n\n旧 homebrew/brew-vulns tap や brew-vulns gem を使っていた場合、機能は本体へ統合済みなので削除できます（Homebrew/homebrew-brew-vulns）。\n\n [code] \n\nよく使うコマンド\n\nコマンド❶： 特定 formula だけ確認\n\n [code] \n\nコマンド❷： 重大度で絞る\n\n [code] \n\n日常確認では High 以上に絞るのが扱いやすく、公式リリースノートでも使用例として案内されています。\n\nコマンド❸： 修正版があるものを優先する\n\n [code] \n\nHomebrew は formula のバージョンだけでなく、Homebrew 側でバックポートしたセキュリティパッチも評価対象にします。上流バージョンが古く見えても formula revision のパッチで修正済みなら、誤検知を避ける設計です。\n\nコマンド❹： 依存関係込みで確認\n\n [code] \n\n全環境を網羅的に監査するとき、または Node / Python / DB / 動画処理系など依存が多いツールを重点確認するときに向きます。\n\nBrewfile を対象にする\n\n [code] \n\n例えば次の流れで、検出→更新可否の切り分けまで進められます。\n\n [code] \n\n導入前に依存を確認する流れも作れます。\n\n [code] \n\n結果の読み方と対処\n\n1. 修正版がある場合\n\n [code] \n\n例えば openssl に High が出て修正版があるなら次のとおりです。\n\n [code] \n\n更新後は、ネイティブ拡張やローカルサービスの動作確認も行います。\n\n [code] \n\n2. 修正版がない場合\n\n [code] \n\n「何もしない」ではなく、次を判断します。\n・該当機能・該当バージョン・該当OS条件を実際に使っているか\n・そのformulaを外部公開サービスや本番ビルドで使っているか\n・使わないなら削除する\n・代替formula・公式配布版・コンテナ・別バージョンへ切り替える\n・ネットワーク露出があるなら、ローカル限定バインドやアクセス制御で緩和する\n・上流または Homebrew の更新を追跡する\n\n検出結果は「既知の脆弱性に該当する可能性」を示す監査情報で、攻撃可能性の最終判定ではありません。ローカル専用CLIと、公開しているDB・Webサーバー・ビルドエージェントでは対応優先度が大きく変わります。\n\nスキャン範囲の注意\n\nbrew vulns は主に formula の既知脆弱性を確認する機能です。Cask はバイナリ配布元・自己更新・署名・ベンダーアップデータの事情が異なるため、formula と同じ粒度で網羅評価できる前提ではありません。\n\n| 対象 | 主な確認手段 |\n|---|---|\n| node openssl ffmpeg postgresql など formula | brew vulns |\n| formula の更新状況 | brew outdated / brew upgrade |\n| Homebrew 本体の健全性 | brew update / brew doctor |\n| Cask アプリ | brew outdated --cask、アプリ側の自動更新、ベンダーのセキュリティ情報 |\n| npm / PyPI / Cargo 依存 | npm audit、pip-audit、cargo audit など |\n| コンテナイメージ | Trivy、Grype、Docker Scout など |\n\nv7 は SBOM の上流パッケージ識別子を強化しており、PyPI・npm・Cargo との関連付けがしやすくなっています。ただしアプリ依存の脆弱性監査自体は、各エコシステム専用ツールの併用が適切です。\n\n未スキャン・除外を確認する\n\n [code] \n\n信頼されていないtap由来のformulaなど、照合できない対象が出ることがあります。「問題ゼロ」と「全対象スキャン済み」は別なので、定期監査ではこの確認も入れる価値があります。\n\n実用的な定期チェック\n\n個人開発マシンなら週1回程度で十分実用的です。\n\n [code] \n\n検出時だけ詳細を見ます。\n\n [code] \n\nBrewfile で環境をコード管理しているなら、CI またはローカル preflight に次を追加します。\n\n [code] \n\n検出時にCIを失敗させるかは運用ポリシー次第です。最初はレポート用途で走らせ、対象・深刻度・修正版有無・外部公開性を整理してから、Critical または「High かつ修正版あり」のみをブロック条件にするのが現実的です。\n\nCI・監査用の出力\n\n機械処理向けJSON、GitHub Code Scanning 向け SARIF、SBOM 用 CycloneDX も出力できます。\n\n [code] \n\nGitHub Actions の最小例です。\n\n [code] \n\nCI で終了コードをブロック条件に使う前に、実際のバージョンで brew vulns --help を確認し、検出時の終了コードや出力の挙動を固定・検証しておくのが安全です。\n\nまとめ\n\n今やることとしては、通常の Apple Silicon Mac ユーザーなら、まず以下で問題なさそう。\n\n [code] \n\nIntel Mac なら、ソースビルドの増加と2027年9月の終了予定を前提に移行時期を決めましょう。\n\nBrewfile・CI・自作tapがある場合の優先順位は次のとおり💁‍♂️\n\n1. GitHub Actions の Homebrew/actions/@master をリリースタグまたはフルSHAへ置換\n2. ghcr.io/homebrew/ubuntu22.04 を ghcr.io/homebrew/brew へ移行\n3. tap の postinstall / flight フックを steps へ移行\n4. brew doctor --json と brew vulns を CI・定期チェックへ組み込む\n5. 非標準prefix・Intel・古いmacOSの利用環境を棚卸しする\n\n参考\n・Homebrew 7.0.0 リリースノート\n・Homebrew 7.0.0 移行ガイド\n・Homebrew/BrewUI (GitHub)\n・homebrew-app cask\n・Homebrew::Cmd::Vulns (Ruby API docs)\n・Homebrew/homebrew-brew-vulns (本体へ統合)",
+      "metrics": {
+        "likes": 1,
+        "stocks": 2,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "e6b98984b643d0c7",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.40647058823529414,
+      "popularityPercentile": 0.946078431372549,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "Homebrew 7.0.0の公式GUIや脆弱性検査機能と移行時の注意点を整理している。",
+      "takeaways": [
+        "Homebrew 7.0.0で公式の画面アプリが追加された。",
+        "macOS Catalina以前は2026年9月に対応終了となった。",
+        "Intel版Homebrewは2027年9月1日に動作サポート終了予定だ。"
+      ],
+      "keywords": [
+        "Homebrew 7.0.0",
+        "BrewUI",
+        "brew vulns",
+        "macOS",
+        "Intel Mac",
+        "Apple Silicon"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "KEV掲載のScreenConnectとArtifactory脆弱性3件：影響と対策（2026-09-14）",
+      "url": "https://qiita.com/Necoze/items/6fd51f39c0ea75702623",
+      "publishedAt": "2026-09-14T14:21:45.000Z",
+      "author": "Necoze",
+      "authorDetail": {
+        "name": "Necoze",
+        "handle": "@Necoze",
+        "url": "https://qiita.com/Necoze",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3528290/profile-images/1749289193",
+        "bio": "SESエンジニアとして2年ちょっと勤務を経て、DX系エンジニアへ転身。\r\n\r\n『Sier会社に入社したのにSESだった』そんな経験も経て、DXエンジニアに転身。\r\n業界は違えどSES時代の経験を駆使し、いまも無難に研鑽中。",
+        "followers": 21,
+        "posts": 89,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/necoze_engineer"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "脆弱性",
+        "CISA"
+      ],
+      "snippet": "CISA KEVは実際の悪用が確認された脆弱性の一覧です。本記事では、2026-09-14時点で取得したCISA・NVD・ベンダーの公開情報から、ScreenConnectとArtifactoryの3件について影響と対策を整理します。CISAが示す対応期限は米国連邦機関向けのもので、一般企業の法的期限ではありません。 --- CVE-2026-84869 KEV登録日: 2026-09-11 概要と分析 この脆弱性は、ConnectWise ScreenConnectに存在する、不適切な権限管理と認可の欠如に関するものです。アクティブなリモートセッションを通じ、ホストの確認や適切な認可なしにファイルを転送・実行できる可能性があります。運用上の見方（推測）: リモート操作に使うクライアントを優先して更新し、一時的な権限制限だけで対応を終えないことが重要です。 影響製品とバージョン ・影響製品…",
+      "body": "CISA KEVは実際の悪用が確認された脆弱性の一覧です。本記事では、2026-09-14時点で取得したCISA・NVD・ベンダーの公開情報から、ScreenConnectとArtifactoryの3件について影響と対策を整理します。CISAが示す対応期限は米国連邦機関向けのもので、一般企業の法的期限ではありません。\n\n---\n\nCVE-2026-84869\n\nKEV登録日: 2026-09-11\n\n概要と分析\nこの脆弱性は、ConnectWise ScreenConnectに存在する、不適切な権限管理と認可の欠如に関するものです。アクティブなリモートセッションを通じ、ホストの確認や適切な認可なしにファイルを転送・実行できる可能性があります。運用上の見方（推測）: リモート操作に使うクライアントを優先して更新し、一時的な権限制限だけで対応を終えないことが重要です。\n\n影響製品とバージョン\n・影響製品: ConnectWise ScreenConnectのクライアント。ベンダーはScreenConnectサーバー自体はこの脆弱性の影響を受けないと説明しています。\n・影響バージョン: バージョン 26.6.5 より前のバージョンが影響を受けます。\n\n現状の対策\n・推奨される対応: ベンダーの指示に従って緩和策を適用することが求められます。\n・ベンダーの指摘: ScreenConnect 26.6.5 パッチを適用することで、ファイル転送およびファイル実行アクションに関するクライアントおよびセッション処理が強化されます。\n・一時的な緩和策: アップデートがすぐに適用できない場合、一時的な緩和策として、Administration > Security > Roles セクションで各ロールを編集し、セッショングループに割り当てられている権限から「TransferFiles」権限のチェックを外すことが可能です。これはセキュリティアップデートの代わりではありません。\n・対応策の詳細:\n・アップデート適用: ConnectWise ScreenConnect バージョン 26.6.5 以上へのアップグレードが必要です。\n・クライアント/エージェント: ベンダーはアップグレード後にホストクライアントの再インストールとアクセスエージェントの更新を案内しています。クラウド環境はベンダー側で更新済みとされています。\n・一時緩和策: 上記のロール設定の変更を実施します。\n\n関連情報\n・NVD URL: https://nvd.nist.gov/vuln/detail/CVE-2026-84869\n・CISA KEV URL: https://www.cisa.gov/known-exploited-vulnerabilities-catalog\n・ベンダー資料 URL: https://www.connectwise.com/company/trust/security-bulletins/2026-09-08-screenconnect-bulletin\n・ベンダー資料 URL: https://www.connectwise.com/company/trust/advisories\n\nCVE-2026-42016\n\nKEV登録日: 2026-09-11\n\n概要と分析\nこの脆弱性は、JFrog Artifactoryの認可検証の不備です。トークンの署名・発行元は確認してもスコープを確認しないため、権限昇格につながる可能性があるとベンダーは説明しています。運用上の見方（推測）: トークンが有効であることと、その操作が許可されることは別です。セルフホスト環境のバージョンを確認し、修正版への更新を優先します。\n\n影響製品とバージョン\n・影響製品: JFrog Artifactory (Self Hosted)\n・影響バージョン: バージョン 7.133.11 より前のバージョンが影響を受けます。\n\n現状の対策\n・推奨される対応: ベンダーの指示に従って緩和策を適用することが求められます。\n・ベンダーの指摘: クラウド環境で利用している場合は既に防御が施されているため、対応は不要です。セルフホスト環境の場合は、JFrog Artifactoryをパッチ適用済みのバージョン（7.133.11）にアップグレードする必要があります。\n・対応策の詳細:\n・アップグレード: セルフホスト環境の場合、Artifactoryをバージョン 7.133.11 にアップグレードしてください。\n\n関連情報\n・NVD URL: https://nvd.nist.gov/vuln/detail/CVE-2026-42016\n・CISA KEV URL: https://www.cisa.gov/known-exploited-vulnerabilities-catalog\n・ベンダー資料 URL: https://docs.jfrog.com/releases/docs/jfrog-security-advisories\n\nCVE-2026-42018\n\nKEV登録日: 2026-09-11\n\n概要と分析\nこの脆弱性は、JFrog Artifactoryにおける認証の不備に関するものです。匿名アクセスが無効になっている状況で、Artifactoryが内部の匿名ユーザー・トークンを認証されていない呼び出し元に返してしまう可能性があり、機密性の高いリソースが漏洩するおそれがあります。運用上の見方（推測）: 匿名アクセスを無効にした設定だけで安全と判断せず、使用中のリリース系列に対応する修正版を確認する必要があります。\n\n影響製品とバージョン\n・影響製品: JFrog Artifactory\n・影響バージョン: 対象は複数のリリース系列に分かれます。7.111系だけでなく、7.117系・7.125系・7.133系・7.146系の影響範囲もベンダー告知で確認してください。\n\n現状の対策\n・推奨される対応: ベンダーの指示に従って緩和策を適用することが求められます。\n・ベンダーの指摘: クラウド環境で利用している場合は既に防御が施されているため、対応は不要です。セルフホスト環境の場合は、Artifactoryをパッチ適用済みのバージョン（7.111.20、7.117.27、7.125.19、7.133.28、7.146.8）にアップグレードする必要があります。\n・対応策の詳細:\n・アップグレード: セルフホスト環境の場合、Artifactoryを該当するパッチバージョンにアップグレードしてください。\n\n関連情報\n・NVD URL: https://nvd.nist.gov/vuln/detail/CVE-2026-42018\n・CISA KEV URL: https://www.cisa.gov/known-exploited-vulnerabilities-catalog\n・ベンダー資料 URL: https://docs.jfrog.com/releases/docs/jfrog-security-advisories",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8c17f6b574a056b1",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.25632352941176473,
+      "popularityPercentile": 0.13480392156862744,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "ScreenConnectとArtifactoryに関する実悪用中の脆弱性3件の影響と対策を整理している。",
+      "takeaways": [
+        "CISAが実際に悪用された3件を危険な脆弱性一覧へ追加した。",
+        "ScreenConnectでは古いクライアントからファイルを操作できた。",
+        "ScreenConnectは26.6.5以降へ更新する必要がある。"
+      ],
+      "keywords": [
+        "CISA KEV",
+        "ScreenConnect",
+        "Artifactory",
+        "CVE-2026-84869",
+        "26.6.5",
+        "JFrog"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ODP-RFCが使用できなくなる件",
+      "url": "https://qiita.com/tatsu_it/items/16ef215df53a825b40c9",
+      "publishedAt": "2026-09-14T08:34:41.000Z",
+      "author": "TATSU IT",
+      "authorDetail": {
+        "name": "TATSU IT",
+        "handle": "@tatsu_it",
+        "url": "https://qiita.com/tatsu_it",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/110632/368e2338fbf60f926dfc01fe40eb069a1397aab4/x_large.png?1686528178",
+        "bio": "SAP歴が結構長い人。\r\n好きなトランザクションコードは/h。\r\n嫌いなトランザクションコードはST22。",
+        "followers": 3,
+        "posts": 13,
+        "links": []
+      },
+      "tags": [
+        "SAP",
+        "odp"
+      ],
+      "snippet": "Azure Data FactoryのCDCコネクタ等で使用されているODP-RFCが使用できなくなるよと結構前から耳にしていて気になってはいたので、今回きちんと調べてみました。 1．Note：3244746 SAP社から2022年ごろにNote：3244746が公開され、サードパーティーのデータ連携でODP-RFCを使用されるのはこちらの意図した使用方法じゃないので非推奨・サポートも対象外ですよとNoteとして明記されました。(私が認識したのは2024年ごろでした……) 2026年4月にAPIの利用ルールが厳格化され(SAP API Policy v4.2026)ODP-RFCを使用した大規模なデータ抽出もブロックする事となり、2026年6月から実際にサードパーティー製アプリ等に対するブロックを適用するセキュリティノート(Note：3635619、3748819)が公開されました。 ・3…",
+      "body": "Azure Data FactoryのCDCコネクタ等で使用されているODP-RFCが使用できなくなるよと結構前から耳にしていて気になってはいたので、今回きちんと調べてみました。\n\n1．Note：3244746\nSAP社から2022年ごろにNote：3244746が公開され、サードパーティーのデータ連携でODP-RFCを使用されるのはこちらの意図した使用方法じゃないので非推奨・サポートも対象外ですよとNoteとして明記されました。(私が認識したのは2024年ごろでした……)\n\n2026年4月にAPIの利用ルールが厳格化され(SAP API Policy v4.2026)ODP-RFCを使用した大規模なデータ抽出もブロックする事となり、2026年6月から実際にサードパーティー製アプリ等に対するブロックを適用するセキュリティノート(Note：3635619、3748819)が公開されました。\n\n・3255746 - 許可されていない ODP データ複製 API の使用\n\nhttps://me.sap.com/notes/3255746\n\n・3635619 - ODP データ複製 API の呼出元 ID チェックインの欠落\n\nhttps://me.sap.com/notes/3635619\n\n・748819 - (CVE-2026-44754) ODP データ複製 API の呼出元 ID チェックインの欠落\n\nhttps://me.sap.com/notes/3748819\n\n2．ODP-RFCのチェックツール\nではどのODPがダメなのか、使用しているODP-RFCをチェックできるプログラムがSAPから提供されています。\n\n・3439624 - ODP データ複製 API へのデータアクセスに対する自己評価\n\nhttps://me.sap.com/notes/3439624\n\n上記Noteを適用するとプログラム： [code] を実行できるようになります。\nトランザクション： [code] からプログラムID： [code] を入力し実行するとチェック実行画面が表示されます。\n \n\n各項目の詳細はNoteを参照してもらうとして、実行すると結果が表示されます。\n \n\n表示されている結果をダブルクリックすると、詳細が表示されます。\n \n\nさらに結果をダブルクリックすると、依頼まで表示されます。\n \n\nこのプログラムでODP-RFCを使用しているか確認していく訳なのですが、プログラムを見るとデータ抽出した結果の監査データ(CDSビュー： [code] )を元にチェックしているようなので実際にODP-RFCのAPIを使用しているかのチェックではないため、このチェックですべて網羅できるわけではないようです。\nアドオンなどではABAP Test Cockpitを使いODP-RFCのAPIが使用されていないことを確認できます。\n\n3．一時的な回避方法\n上記に書いたセキュリティノート(Note：3635619、3748819)を適用して場合は、一時的な回避方法が提供されています。\n\n・3731818 - ODP データ複製 API に対するサブスクライバタイプの自動評価の一時停止 (SAP ノート 3748819 参照)\n\nhttps://me.sap.com/notes/3731818\n\nチェックプログラムと同様に、上記Noteを適用するとプログラム： [code] が実行できるようになります。\n\n実行画面は以下のような感じです。\n \n\nチェックボックスにチェックを入れて実行すると制限されたODP-RFCコールを一時的に保留にして実行できるようになるようです。\n\n ただし、2026年末にこの一時回避は期限切れになり使えなくなります！！ \n\n4.まとめ\nODP-RFCのAPIやAPIを使用している製品はかなり便利だったので使えなくなってしまうのは残念ですが、SAP社の使用して欲しくないのもわかるしもどかしいところですが、最初から内部用なので使わないで！って言ってくれたら…たら……",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "436b5a3d257491ac",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.07495098039215686,
+      "popularityPercentile": 0.34068627450980393,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 76,
+      "titleJa": null,
+      "oneLiner": "SAPがODP-RFCによる第三者の大規模データ取得を段階的に制限する経緯と確認方法を解説している。",
+      "takeaways": [
+        "SAPは第三者によるODP-RFC利用を以前から非推奨としていた。",
+        "2026年6月から第三者製品への利用制限が始まった。",
+        "SAPの確認ツールで影響を受けるデータ連携を特定できる。"
+      ],
+      "keywords": [
+        "SAP",
+        "ODP-RFC",
+        "SAP API Policy v4.2026",
+        "Note 3244746",
+        "Note 3635619",
+        "CVE-2026-44754"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "Apple、「iOS 27」「iPadOS 27」の一般提供を開始 ～「Siri AI」の日本語対応は年内／126件の脆弱性修正も",
+      "url": "https://forest.watch.impress.co.jp/docs/news/2140863.html",
+      "publishedAt": "2026-09-14T20:43:45.000Z",
+      "tags": [
+        "テクノロジー",
+        "iPad",
+        "iOS",
+        "software",
+        "Apple",
+        "あとで読む"
+      ],
+      "snippet": "Apple、「iOS 27」「iPadOS 27」の一般提供を開始 ～「Siri AI」の日本語対応は年内／126件の脆弱性修正も",
+      "metrics": {
+        "hatena": 16
+      },
+      "sourceWeight": 3,
+      "id": "4325d22b7b3ad9cf",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.16689655172413792,
+      "popularityPercentile": 0.7586206896551724,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 70,
+      "titleJa": null,
+      "oneLiner": "AppleがiOS 27とiPadOS 27を一般提供し、126件の脆弱性を修正した。",
+      "takeaways": [
+        "AppleがiOS 27とiPadOS 27の一般提供を開始した。",
+        "今回の更新では126件の脆弱性が修正された。",
+        "Siri AIの日本語対応は2026年内に予定されている。"
+      ],
+      "keywords": [
+        "Apple",
+        "iOS 27",
+        "iPadOS 27",
+        "Siri AI",
+        "脆弱性修正"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code Artifactsとは？ 作ったHTMLをURLで共有できる機能",
+      "url": "https://qiita.com/inoyu-qiita/items/f02c46fa50a78fe54573",
+      "publishedAt": "2026-09-14T01:44:38.000Z",
+      "author": "inoyu-qiita",
+      "authorDetail": {
+        "name": "inoyu-qiita",
+        "handle": "@inoyu-qiita",
+        "url": "https://qiita.com/inoyu-qiita",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4475351/cee181fffe72b3ceab51f6ee83169806b99c329d/x_large.png?1786970435",
+        "bio": "都内のプログラミング専門学校を卒業後、株式会社AGESTにて、2年間ソフトウェアテストを中心にQA業務に携わりました。\r\nその後開発経験を積みたいと考え、株式会社イーディーエーにジョイン。現在はバックエンドエンジニアとして開発業務に携わっています。\r\n主にAI活用や、自己学習・業務の振り返り、外部勉強会の参加記事を書いていきます！",
+        "organization": "株式会社イーディーエー",
+        "followers": 5,
+        "posts": 22,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/inoyu_it"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "生成AI",
+        "AI",
+        "AI活用"
+      ],
+      "snippet": "はじめに Claude Code Artifactsは、作ったHTMLやMarkdownをURLで見られるページにして、そのまま共有できる機能です。 これからClaude Codeで、調査結果やチェックリスト、ダッシュボードなどを「自分以外も見られる形」にしたい人向けに、実際の画面を見ながら使い方を紹介します。 自分は最初、Claude CodeがHTMLを書いてくれる機能だと思っていました。それだけではありませんでした。 作って、リンクにして、同じURLのまま更新できる。 そこまでがArtifactsです。 この記事では、Claude Code 2.1.267をClaude Maxで使い、2026年9月10日に実際に動かして確認しました。 Claude Code Artifactsとは 普段Claude Codeに資料を作ってもらうと、ローカルへHTMLやMarkdownが保存されます。…",
+      "body": "はじめに\n\nClaude Code Artifactsは、作ったHTMLやMarkdownをURLで見られるページにして、そのまま共有できる機能です。\n\nこれからClaude Codeで、調査結果やチェックリスト、ダッシュボードなどを「自分以外も見られる形」にしたい人向けに、実際の画面を見ながら使い方を紹介します。\n\n自分は最初、Claude CodeがHTMLを書いてくれる機能だと思っていました。それだけではありませんでした。\n\n作って、リンクにして、同じURLのまま更新できる。\n\nそこまでがArtifactsです。\n\nこの記事では、Claude Code 2.1.267をClaude Maxで使い、2026年9月10日に実際に動かして確認しました。\n\nClaude Code Artifactsとは\n\n普段Claude Codeに資料を作ってもらうと、ローカルへHTMLやMarkdownが保存されます。\n\nArtifactsを使うと、その成果物をClaudeのホスティング環境へ公開し、ブラウザで開けるURLにできます。\n\n \n\nざっくり言うと、こうです。\n\n [code] \n\n「HTMLを作って終わり」ではなく、見る場所までClaude Codeが用意してくれるのがポイントです。\n\n| | ローカルのHTML | Artifact |\n| --- | --- | --- |\n| 見る場所 | 自分のPC | ブラウザのURL |\n| 人に見せる方法 | ファイルを渡す、別途ホスティングする | 共有設定したリンクを渡す |\n| 更新 | ファイルを作り直す | 同じURLへ新しい版を反映できる |\n| 過去の版 | 自分で管理する | バージョン履歴から確認できる |\n\n実際にArtifactを作ってみる\n\n今回はQiita記事用のデモとして、「技術記事の公開前チェックリスト」を作ってもらいました。\n\nClaude Codeへ渡したプロンプトはこちらです。\n\n [code] \n\nClaude Codeはページを作ったあと、外部へ公開する前に確認を出しました。\n\nここで許可すると、作った内容がAnthropicのサーバーへアップロードされます。仕事のコードや社内情報をArtifactにするときは、勢いで許可せず中身を確認したほうがよさそうです。\n\n \n\nこれは更新後の実画面です。見出しの下に「更新テスト済み」が入り、右上には共有ボタンが表示されています。\n\n公開後はブラウザが開き、次のような1ページのチェックリストが表示されました。\n・全34項目の進捗が上部に表示される\n・「タイトル」「本文」「コード」「画像」「公開前確認」の5分類に分かれる\n・チェックを付けると進捗バーが動く\n・右上に共有ボタンと公開範囲が表示される\n\n普通の説明資料だけでなく、チェックを付けたり、タブを切り替えたりするページも作れます。\n\nMarkdownをきれいに見せるだけだと思っていたので、思ったよりアプリでした。\n\n同じArtifactを更新してみる\n\n次に、作ったArtifactへ小さな表示を追加してみました。\n\n [code] \n\nClaude Codeから返ってきたURLは、最初に公開したものと同じでした。ブラウザを開くと「更新テスト済み」が追加され、バージョンも新しくなっていました。\n\n [code] \n\nレビューでもらった修正を反映するたびに、新しいURLを送り直さなくていい。これは地味に助かります。\n\nArtifactを共有する\n\n作ったArtifactは、ブラウザ右上の共有ボタンから共有範囲を変更できます。\n\n公式ドキュメントによると、共有方法は契約プランや組織の設定で変わります。Team・Enterpriseでは、組織外への共有が初期状態で無効になっており、オーナーが有効にできます。Pro・Maxでは公開リンクで共有できます。\n\n今回は、自分だけが見られる初期状態での作成と更新まで確認しました。共有範囲の変更は未検証です。\n\nまず非公開で作る。中身を確認する。それから必要な相手だけに見せる。この順が安心です。\n\nArtifactで作れそうなもの\n\n公式ドキュメントでは、次のような使い方が紹介されています。\n・PRの変更点を順番に見せるウォークスルー\n・実装案やデザイン案を並べる比較ページ\n・メトリクスを見せるダッシュボード\n・障害調査のタイムライン\n・進捗や確認項目を操作できるチェックリスト\n\n自分が今回作ったのは最後のチェックリストです。\n\n文章を読ませるだけならMarkdownで十分です。一方で「比較する」「順番に追う」「触って確認する」なら、Artifactにする意味が出てきます。\n\n作る前に知っておくこと\n\n2026年9月10日時点の公式ドキュメントでは、主な条件は次のとおりです。\n\n| 項目 | 内容 |\n| --- | --- |\n| 対象プラン | Pro、Max、Team、Enterprise |\n| Claude Code | CLI 2.1.183以降、またはデスクトップ 1.13576以降 |\n| ログイン | Claude.aiアカウントで/loginする |\n| 対応ファイル | HTML、HTM、Markdown |\n| サイズ | 1つのArtifactにつき16MiBまで |\n| ページ構成 | 1つの自己完結したページ |\n| 実行環境 | 静的ページ。バックエンド処理は置けない |\n\nClaude CodeをAPIキー、Amazon Bedrock、Google Vertex AI、Microsoft Foundry経由で使っている場合は、Artifactsを公開できません。\n\nまた、読み込める外部リソースにはセキュリティ上の制限があります。画像やライブラリを外部から持ってくるページを作る場合は、公式ドキュメントのContent Security Policyも確認したほうがよさそうです。\n\n機能の対象プランや共有範囲は変わりやすいです。実際、公開当初の案内と現在の公式ドキュメントでは対象範囲が違いました。使う直前に公式ドキュメントを見るのが確実です。\n\nまとめ\n\nClaude Code Artifactsは、セッションで作った成果物をブラウザで見られるページにする機能です。\n・HTMLやMarkdownをURLで見られる\n・チェックリストのような操作できるページも作れる\n・修正しても同じURLを使い続けられる\n・共有範囲を設定して人に見せられる\n・公開前に、アップロードする内容の確認が必要\n\nまずは公開しても問題ないMarkdownを1つ選んで、こう頼むと試せます。\n\n [code] \n\nArtifactsが「成果物を見られる場所」なら、見やすいデザインを考えるのがClaude Code組み込みのartifact-design Skillです。\n\n次は、artifact-designが配色・文字・レイアウトをどう考えているのかを書きます。名前が似てる。先にArtifactsを知っておいて正解でした。\n\n参考\n・Create and share interactive artifacts from Claude Code - Claude Code Docs … 対象プラン、作成・更新・共有方法、技術的な条件を確認した公式ドキュメント\n・Build, host, and share AI-powered apps with Claude Code - Claude Blog … Claude CodeからArtifactsを作る機能の発表記事\n・What are Artifacts and how do I use them? - Claude Help Center … ClaudeのArtifacts全般に関するヘルプ\n・Claude Code の Artifacts とは？ … Artifactsの作成・更新・共有を詳しく試したQiita記事\n\n関連記事\n・artifact-design Skillとは？ Claude Codeのデザイン担当 … 次の記事。Artifactの見た目をClaude Codeがどう考えているのかを掘ります\n・読みにくいmdはClaudeに投げてHTML/CSSにするだけでよかった … Markdownを、人が読みやすいHTML資料へ変えてみた話\n・Claude Code新出力スタイル「Concise」で、Claudeが結果ファーストの有能な相棒になった … Claude Codeに組み込まれた仕組みを、実際に使ってみた別の記事\n\n告知\n\n最後にお知らせとなりますが、イーディーエーでは一緒に働くエンジニアを\n募集しております。詳しくは採用情報ページをご確認ください。\n\nhttps://eda-inc.jp/recruit/\n\nhttps://www.wantedly.com/companies/eda-inc/projects\n\nみなさまからのご応募をお待ちしております。",
+      "metrics": {
+        "likes": 2,
+        "stocks": 4
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "232e388f895da6f9",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.8946078431372549,
+      "popularityPercentile": 0.9754901960784313,
+      "matchedTopics": [
+        "ブラウザ / Web標準",
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "Claude Code Artifactsで生成したHTMLやMarkdownをURL公開し同じリンクで更新する方法を紹介しています。",
+      "takeaways": [
+        "作ったHTMLをブラウザで開けるリンクにできる。",
+        "共有したページは同じリンクのまま更新できる。",
+        "調査結果や資料をファイルなしで見せられる。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "Claude Code Artifacts",
+        "Claude Max",
+        "HTML",
+        "Markdown"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "GPT-Live-1 をPython から使ってみる #1 - 音声AIとコールセンターのこれから ",
+      "url": "https://qiita.com/kataoka_se_sionic/items/b4b00bc39a0ed1fbd73c",
+      "publishedAt": "2026-09-14T03:50:19.000Z",
+      "author": "片岡 誠一",
+      "authorDetail": {
+        "name": "片岡 誠一",
+        "handle": "@kataoka_se_sionic",
+        "url": "https://qiita.com/kataoka_se_sionic",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4328109/0c4466fccccca90a07ecd87b933aa8faf3148be1/large.png?1768813867",
+        "bio": "サイオニックエイアイ（株）で、AI Agent フレームワークのプリセールス・カスタマーサポートを担当しています。",
+        "organization": "サイオニックAI（株）",
+        "location": "日本",
+        "followers": 1,
+        "posts": 13,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "gpt-live",
+        "LLM",
+        "CTI",
+        "コールセンター"
+      ],
+      "snippet": "はじめに 生成AIの活用領域は、テキストチャットから音声へと広がっています。 特にコールセンターやカスタマーサポートでは、 ・オペレーター不足 ・問い合わせ件数の増加 ・24時間対応へのニーズ ・応対品質の均一化 ・FAQ・マニュアル検索の効率化 といった課題から、AIを活用した顧客対応への期待が高まっています。 市場の背景と関連する技術に関しては、以下の動画も参考になりました。 <iframe width=\"480\" height=\"270\" src=\"https://www.youtube.com/embed/nrisAHitKtE\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; pictu…",
+      "body": "はじめに\n\n生成AIの活用領域は、テキストチャットから音声へと広がっています。\n\n特にコールセンターやカスタマーサポートでは、\n・オペレーター不足\n・問い合わせ件数の増加\n・24時間対応へのニーズ\n・応対品質の均一化\n・FAQ・マニュアル検索の効率化\n\nといった課題から、AIを活用した顧客対応への期待が高まっています。\n\n市場の背景と関連する技術に関しては、以下の動画も参考になりました。\n\n<iframe\n width=\"480\"\n height=\"270\"\n src=\"https://www.youtube.com/embed/nrisAHitKtE\"\n title=\"YouTube video player\"\n frameborder=\"0\"\n allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\"\n allowfullscreen>\n \n\nデロイトの日本版「グローバルコンタクトセンターサーベイ2024」では、海外企業全体の 83%が2025年までに生成AIをコンタクトセンター業務へ本格導入済み、または導入予定としています。デロイトは生成AIを、単に質問へ答えるだけでなく、問題解決や手続き完了まで支援する「見届け型サポート」につながる技術として位置付けています。\nグローバルコンタクトセンターサーベイ2024\n\nさらに2026年のSalesforce調査では、顧客サービス組織におけるAIエージェント利用率が 2025年の39%から2026年には66%へ上昇しています。また導入企業の70%が、60日以内に何らかの測定可能な価値を確認したとしています。\n\nNew Research: AI Service Agents Are Scaling and Delivering CSAT\n\n日本でも OKI電気さんが、次世代コンタクトセンターシステム「CTstage®シリーズ」の新商品として、AIを活用した「CTstage AIコンシェルジュ」を発表されました。\n\nhttps://prtimes.jp/main/html/rd/p/000000910.000017036.html\n\n音声AIの技術動向\n2024年10月1日に OpenAI が Realtime API を発表し、低遅延の Speech-to-Speech アプリケーションを開発できるようになりました。\nその後 2025年8月28日に Realtime API が正式版となり、gpt-realtime が登場。SIPによる電話接続、Remote MCP、画像入力などが追加され、「デモ用音声AI」から「業務用音声エージェント」にかなり近づきました。\n\nそして 2026年7月8日に GPT-Live が発表され、GPT-Live-1 / GPT-Live-1 mini が ChatGPT Voice に導入されました。ここで大きいのが、単に音声をリアルタイム処理するだけでなく、聞きながら話せる Full Duplex（全二重）アーキテクチャになったことです。\n\nさらに、つい先日の 2026年9月10日に GPT-Live-1 が API で一般提供されました。\n\nコールセンターで進むAI活用\n\n音声AIはどのように進化してきたか\n\n従来の音声AI\n従来の音声AIでは、一般的に次のような構成が使われます。\n\nユーザーの音声\n　　　↓\nSTT（Speech-to-Text）\n　　　↓\nLLM\n　　　↓\nTTS（Text-to-Speech）\n　　　↓\nAIの音声\n\nまず STT（Speech-to-Text） でユーザーの音声をテキストに変換します。\n次に、そのテキストを LLM（Large Language Model） に入力し、回答文を生成します。\n最後に TTS（Text-to-Speech） で生成された回答文を音声へ変換し、ユーザーに返します。\n\nこの方式は、それぞれの処理を独立したサービスやモデルとして組み合わせられるため、柔軟にシステムを構成できるというメリットがあります。\n\n一方で、\n・音声認識\n・LLMによる回答生成\n・音声合成\n\nという複数の処理を順番に実行するため、処理ごとに待ち時間が発生します。また、ユーザーの発話途中での割り込みや、相づち、自然な話者交代などを実現するには、アプリケーション側で追加の制御が必要になります。\n\nOpenAI Realtime API の登場\n\nOpenAI は 2024年10月に Realtime API を発表しました。\n\nRealtime API は、音声をいったんテキスト化してから処理する従来の構成ではなく、音声を入力し、音声で応答する Speech-to-Speech のリアルタイム対話を構築するためのAPIです。\n従来のような、複数の処理をアプリケーション側で組み合わせる必要がなく、Realtime API を介して音声を直接モデルへ入力し、そのまま音声レスポンスを受け取ることができます。\n\nまた、WebRTC や WebSocket などの低遅延通信を利用できるため、音声アシスタントやリアルタイム翻訳、カスタマーサポートなど、人との自然な会話が求められる用途を想定した仕組みになっています。\n\nGPT-Live の登場\n\n2026年7月、OpenAI は新しい音声モデル GPT-Live を発表しました。\n\nGPT-Live の大きな特徴は、Full Duplex（全二重） の音声対話に対応していることです。\n\nOpenAI Realtime でも、かなりレスポンスの良い処理を実装することができてはいましたが、「ターン制」である点は否めない部分がありましたが、GPT-Live では、聞くことと話すことを同時に行うことができる真のリアルタイムな会話へと進化したと思います。\n\n単に双方向というだけではなく\n・ユーザーが話している途中でAIが短く相づちを打つ\n・AIが話している途中でユーザーが割り込む\n・ユーザーが少し考えている間は、そのまま待つ\n・会話のテンポや間を考慮して、話すか聞き続けるかを判断する\n\nといった、人間同士の会話に近いインタラクションを実現できるようになりました。OpenAI はこの仕組みを、従来のターンベースの音声モデルとは異なる Continuous Interaction（継続的な対話） と説明しています。\n\nFull Duplex による自然な会話\n\nGPT-Live 以前の音声モデルでも、音声を直接入力して音声を生成することで、従来の\n\nSTT → LLM → TTS\n\nという構成より低遅延な音声対話は可能でした。\nそのため、gpt-realtime で実装を行った際「Full Duplex通信できた」と勘違いしていました。\n\nしかし、実際にはユーザーの発話終了を判断してからAIが応答する必要があり、「どちらが話す番なのか」というターン管理が重要な「ターン制」からは完全に脱却できてはいませんでした。\n\nGPT-Live では、モデル自身が音声の流れを継続的に処理します。\n\nユーザー ───────話す──────────→\n ↓\n GPT-Live\n ↑\nAI ──相づち───回答────────→\n\nこのように入力音声と出力音声を同時に扱えるため、短い相づちや割り込みなども含めた、より自然な会話が可能になります。\n\nこのページの中に、GPT-Live-1 を体験できるコンテンツがあります。\n\nhttps://openai.com/index/introducing-gpt-live-1-in-the-api/\n\ngpt-realtime と GPT-Live-1 の比較\n| 観点 | gpt-realtime | GPT-Live-1 |\n| -------- | --------------- | ------------------ |\n| 主な登場時期 | 2025年8月 | 2026年7月 / API 9月 |\n| 基本用途 | リアルタイム音声AI | 自然なリアルタイム会話 |\n| 音声入出力 | ○ | ○ |\n| 割り込み | 対応 | より自然にモデル自身が処理 |\n| 同時に聞く・話す | リアルタイム処理 | Full Duplexが中核 |\n| 間・相づち | VAD等を利用 | 会話そのものとして扱う |\n| 深い推論 | 音声モデル側で処理・ツール利用 | バックエンドモデルへ委任可能 |\n| RAG/外部処理 | Tool Call等 | Delegationとの相性がよい |\n| 電話 | SIP対応 | Telephony対応 |\n\n変化を短くいうと、gpt-realtime は低遅延で反応が早いという進歩でしたが、GPT-Live-1 では、双方向通信になったことで、自然なリアルタイムな会話 まで進歩したといえます。\n\nSionic AI STORM Platform の RAG との接続\n弊社 Sionic AI は、「すべての企業がAIを活用できる未来へ」を掲げ、企業向けAIエージェント構築プラットフォーム「STORM Platform」を開発・提供するAI企業です。\n2023年に韓国・ソウルで設立され、2025年には日本法人「サイオニックエーアイ株式会社」を東京に設立しました。\n\n今回、GPT-Live-1 と STROM の RAG を接続した簡単なコールセンターっぽいデモを作成しました。\n現時点では、残念ながら STROM Platform ではGPT-Live-1 をサポートできていないので、対話自体は、GPT-Live-1 の API を直接使用し、GPT-Live-1 から STROM の RAG を使う構成としました。\n\n \n\n録音デモ\n\n<iframe\n src=\"https://drive.google.com/file/d/1dvVRGbJ3wl5j0WF0fzBS6XHJZOQHJAw/preview\"\n width=\"640\"\n height=\"360\"\n allow=\"autoplay\"\n allowfullscreen>\n \n\nターン制ではなく、割り込みができているのが確認できると思います。\n0:33 ぐらいで先回りして、RAGを検索してほぼ待ち時間なしで回答しています。\n\n次回以降\n今回は、音声AI・コールセンターのAI 活動の状況と関連する技術動向として GPT-Live-1 と 弊社 STORM Platform の RAG との接続をご紹介させていただきました。\n次回以降、より実装面のご紹介（反応があれば）をさせていただこうと思います。",
+      "metrics": {
+        "likes": 3,
+        "stocks": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9fe9cb38fb308dce",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.8368627450980393,
+      "popularityPercentile": 0.9705882352941176,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "GPT-Live-1をPythonから呼び出し音声で応答するAIの可能性を検証しています。",
+      "takeaways": [
+        "AIとのやり取りを文字ではなく音声で行える。",
+        "音声AIは問い合わせ対応への利用が進んでいる。",
+        "コールセンターの応答を自動化する方向が見える。"
+      ],
+      "keywords": [
+        "GPT-Live-1",
+        "Python",
+        "音声AI",
+        "LLM",
+        "コールセンター"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIエージェントに自宅インフラのGitOps構築を任せてみた",
+      "url": "https://qiita.com/takao-shimizu/items/37f8de8d7b76dcc3d2b4",
+      "publishedAt": "2026-09-14T02:36:40.000Z",
+      "author": "孝郎 清水",
+      "authorDetail": {
+        "name": "孝郎 清水",
+        "handle": "@takao-shimizu",
+        "url": "https://qiita.com/takao-shimizu",
+        "avatarUrl": "https://lh3.googleusercontent.com/a-/AFdZuco0RChIhZN38FRqLPPPQHNCQl9WjhMM7NDWn4Iqjw=s50",
+        "bio": "よろしくお願いします。",
+        "organization": "Sysdig",
+        "location": "日本",
+        "followers": 11,
+        "posts": 30,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/TakaoShimizu1"
+          },
+          {
+            "label": "Web",
+            "url": "https://sysdig.jp/blog/"
+          }
+        ]
+      },
+      "tags": [
+        "kubernetes",
+        "Ansible",
+        "GitOps",
+        "ClaudeCode",
+        "AIエージェント"
+      ],
+      "snippet": "この記事について これは、私（TK）が自宅で運用している小さなKubernetesクラスタ「home-nuc」の外に新しいサーバ（NUC5）を1台立て、その構成管理をAnsible + GitHub + Kubernetes Jobで完全にGitOps化するまでの記録です。 作業の大部分——設計文書のレビュー、要件の整理、Ansibleコードの作成、Kubernetesマニフェストの適用、トラブルシューティング、そしてGitHubへのPull Request作成まで——は、Claude Codeを使ったAIエージェント（本記事では「Falcoya-co-CTO」と呼びます）が担当しました。私が直接手を動かしたのは、物理的な操作（USB挿入、BIOS操作、ケーブル接続)と、秘密鍵の生成やパスワードハッシュの生成といった「AIエージェントに絶対にログを残させたくない」操作だけです。 この記事は…",
+      "body": "この記事について\n\nこれは、私（TK）が自宅で運用している小さなKubernetesクラスタ「home-nuc」の外に新しいサーバ（NUC5）を1台立て、その構成管理をAnsible + GitHub + Kubernetes Jobで完全にGitOps化するまでの記録です。\n\n作業の大部分——設計文書のレビュー、要件の整理、Ansibleコードの作成、Kubernetesマニフェストの適用、トラブルシューティング、そしてGitHubへのPull Request作成まで——は、Claude Codeを使ったAIエージェント（本記事では「Falcoya-co-CTO」と呼びます）が担当しました。私が直接手を動かしたのは、物理的な操作（USB挿入、BIOS操作、ケーブル接続)と、秘密鍵の生成やパスワードハッシュの生成といった「AIエージェントに絶対にログを残させたくない」操作だけです。\n\nこの記事は2つの角度から書きます。1つは「AIエージェントにどこまで自律的にインフラ構築を任せられるのか」という実験としての側面。もう1つは、実際にどういうGitOpsパイプラインを組んだのかという技術的な側面です。どちらも省略せず、両方をバランスよく扱います。\n\nなお、実際のIPアドレスやホスト名は192.168.1.75のような形でこの記事にも登場しますが、これは自宅ラボの構成例として一般化したものであり、実際に公開されている値ではありません。以降「NUC5」という名前で呼ぶ新規サーバも、実機のホスト名を単純化した表記です。\n\n---\n\n0. 発端——よくあるGitOpsパターンを、家で試す\n\nきっかけは、Ansibleでサーバの構成管理を行い、GitHubでコードを管理し、Pull Requestのマージをきっかけにサーバ構成を反映する——GitOpsの世界でよく見られるパターンでした。\n\nSecure AIやHeadless Cloud Securityといった製品・機能を軸に、こうしたGitOps環境と組み合わせた「実際に使えるワークフロー」を考案したいと考えていました。ただ、いきなり実運用環境で試すことはできません。そこで、自宅のKubernetesラボ（home-nuc、nuc1〜nuc4の4ノード構成）に、同種の「Ansible + GitHub + Kubernetes」パイプラインをまず自分の手元で再現してみることにしました。\n\nFalcoya-co-CTOに依頼したのは、nuc5infrastructuremanual.mdという19章構成の手順書を土台に、実際にサーバを1台構築し、tk-teamのガバナンス（作業指示→要件定義→実装→レビュー→承認、というプロセス）に載せて実行することでした。この19章にわたる手順書自体も、別のセッションでAIエージェントが作成したものです。ちなみに、この記事の文章自体も、Falcoya-co-CTOとの対話を通じてAIエージェントが作成しています。\ntk-teamとは: 私が設計したAIエージェント組織のフレームワークです。Falcoya-co-CTOという単一のオーケストレータ役エージェントが人間（私）の唯一の窓口となり、必要に応じてDev・QA・Securityといった配下エージェントに作業を委譲します。本番環境への直接変更（mutation）の禁止、人間承認なしのmainブランチへの直push禁止、秘密情報を一切出力しないこと、といった「ハードルール」がガバナンスの中核にあります。\n\n---\n\n1. 最初の判断——「これは要件定義書を切り出すべきタスクだ」\n\nFalcoya-co-CTOが最初にしたことは、手順書を読み込むことではなく、このタスクをどう進めるかを判断することでした。\n\ntk-teamのフレームワークには「作業指示（WI）→要件定義→タスク定義→実装リハーサル→実装→3点ゲート」という段階があります。前提条件や受け入れ条件が3件を超えるようなタスクは、要件定義書を本体から切り出す、というルールです。Falcoya-co-CTOはこの基準を最初から適用し、要件定義書を独立したファイルとして分離しました。\n\nこのとき興味深かったのは、Falcoya-co-CTOが自分自身の見落としを後から発見して記録している点です。要件定義書の初期レビュー（7ラウンド）は、すべて「誰が何を実行できるか」という自律性・権限の軸に終始していました。私が「アーキテクチャ要件やワークフロー要件が定義されていないと思う」と指摘したことで、Falcoya-co-CTOは自分が与えたレビューの観点そのものが偏っていたことに気づき、要件定義書に新しい章を追加しました。この一連の経緯は、要件定義書の中に「見落としの経緯」として自己言及的にそのまま記録されています。消してごまかすのではなく、なぜ見落としたかを含めて残す、という運用です。\n\n---\n\n2. 権限の線引き——「技術的に可能」と「方針として任せる」は違う\n\n自宅のクラスタなので、私は最初からFalcoya-co-CTOに「家のKubernetesなので、実行して良いです」と明示的に許可を出していました。実際、Falcoya-co-CTOのセッションからはkubectlが管理者権限で到達可能で、既存ノードへのSSHも可能だと確認できていました。\n\nしかし、Falcoya-co-CTOはこの許可をそのまま「全操作OK」とは解釈しませんでした。むしろ、権限を次の3つの領域に自分で切り分けました。\n\n| 領域 | 内容 | 誰が実行するか |\n| --- | --- | --- |\n| A. kubectl/SSH操作 | 既存クラスタへの読み書き、マニフェスト適用、Job実行 | Falcoya-co-CTO（私の許可済み） |\n| B. リポジトリ内のファイル作成 | Ansibleコード・Kubernetesマニフェストの作成 | Dev（Falcoya-co-CTOへの委譲先）、PRゲート必須 |\n| TK専属 | 物理操作、秘密鍵やパスワードハッシュの生成 | 私自身のみ |\n\n図にすると、この3領域とその境界線がどう動いたかがよく分かります。\n\n \n\n最後の「TK専属」の理由が、この記事で一番重要なポイントかもしれません。Falcoya-co-CTOは「SSH鍵をkubectlに登録するコマンド自体は実行できる」と明言していました。技術的な制約ではなく、方針としての線引きです。理由は「秘密鍵やパスワードハッシュを生成すると、その結果を私に伝える必要があり、会話ログに秘密そのものが残ってしまう」という、構造的な問題でした。\n\n実際、作業が進む中で私は何度か「Falcoya-co-CTOが実行できるのでは?」と確認しました。たとえば、既存の秘密ファイルをkubectl create secret --from-file=...のようにファイル参照で渡す操作は、コマンドのペイロードに実際の値が乗るわけではありません。Falcoya-co-CTOはこの違いを説明した上で「技術的には可能だが、慣習的にTK専属としている」と答え、最終的に私がこの区分を緩和する決定をしました。一方で、鍵やハッシュの新規生成そのものは最後まで私の専属のままでした。「結果を会話で伝える必要がある操作は、会話ログに秘密が残る」という理由は、AIエージェントに秘密を触らせる際の一般的な判断基準として、そのまま使えると思います。\n\n---\n\n3. 全体アーキテクチャ——8つの役割分担\n\n実際に構築したパイプラインは、次の8つの要素に役割を分担しています。手順書の第1.1節にある表がベースです。\n\n \n\nここで一番誤解しやすいのが「NUC5自体はKubernetesクラスタのノードではない」という点です。NUC5は単に、Ansibleで構成管理される対象のLinuxサーバです。実際にKubernetes上で動くのは、既存クラスタのノード（nuc2）で起動する短命のJob（Pod）で、そのJobがSSH経由でNUC5に接続し、Ansible playbookを実行します。「Kubernetes上で動く自動化の実行環境」と「Ansibleの管理対象サーバ」は、別のマシンです。\n\nもう1つの重要な設計判断は、「PRをマージすれば自動的にサーバ構成が反映される」という当初のイメージを、あえて字義通りには再現しなかったことです。手順書は最初から「段階的な自動化」という設計思想を採っていて、Job起動は私（管理者）の判断・指示を受けてFalcoya-co-CTOが手動でトリガーする前提になっています。\n\nFalcoya-co-CTOはこの不整合——当初の目標は「自動的に反映される」ことだったのに、手順書は手動トリガーだ——を要件定義の途中で発見し、私に判断を求めました。私の回答は「今回は手順書の設計（手動トリガー）のまま進める」でした。理由は、この段階の目的は「Gitでの追跡・レビュー・検査ができる状態を作ること」であり、完全無人化は将来の拡張として別に検討すべきだからです。ここは、AIエージェントが要件の矛盾を自動で\"解決\"せず、判断が必要な分岐点として人間に持ち上げてきた、という点が実務上重要でした。\n\n---\n\n4. 実際に起きたこと——構築ログから\n\nここからは、実際に何が起きたかを時系列で紹介します。きれいな成功談ばかりではなく、AIエージェント自身のミスも含めて書きます。\n \n\n4.1 事前診断とnamespaceの準備\n\nFalcoya-co-CTOはまずkubectl get nodesで既存クラスタの状態を確認し、NUC5がまだ存在しないこと（物理構築が未完了であること）を確認しました。次に、Secret・ConfigMapがまだ存在しないことも確認し、「本体のJob/Deploymentを適用するのは時期尚早」と自分で判断して見送りました。この時点で実施したのは、影響が小さく可逆な準備作業——namespaceの作成と、ベースイメージの実際のダイジェスト値の確認（skopeo inspect、認証不要）——だけでした。\n\n4.2 写真から実機情報を読み取る\n\nNUC5本体には型番やMACアドレスが記載されたラベルが貼られています。これは「実機確認が必要な値」として、当初は完全に私の専属作業だと想定されていました。しかし私がラベルの写真を撮って渡したところ、Falcoya-co-CTOはその画像からMACアドレス（XX-XX-XX-XX-XX-XX形式の表記）を読み取り、設定ファイルに反映できることが分かりました。「物理作業そのもの」と「物理的な値の読み取り」は違う、という区別がここで明確になりました。\n\n4.3 Falcoya-co-CTO自身のミスと、その修正\n\nUSBからのインストール作業で、netplan applyが失敗するというエラーが発生しました。ログを確認すると、原因はInvalid MAC address ... must be XX:XX:XX:XX:XX:XXというエラーでした。\n\n理由はシンプルでした。Falcoya-co-CTOがラベルの写真から読み取ったMACアドレスは、ラベル表記のハイフン区切り（XX-XX-XX-XX-XX-XX）のままファイルに書き込まれていて、Linuxのネットワーク設定（netplan）が要求するコロン区切り（XX:XX:XX:XX:XX:XX）に変換されていなかったのです。\n\nこれはAIエージェントの単純な変換ミスでした。Falcoya-co-CTOは自分でこのミスを発見し、「MACアドレス自体は秘密情報ではないので、Falcoya-co-CTOが直接修正して良い」と判断してファイルを修正、Secretを更新し、再度インストールを試みました。今度は成功しました。この一件は、私にとって「AIエージェントも当然ミスをする。だからこそ、ログとエラーメッセージから根本原因を特定するプロセス自体が重要」という、当たり前ですが実感の伴う教訓になりました。\n\n4.4 「鍵で安全に接続できるOS」に到達するまで\n\nOSインストール自体はInstallation complete!という表示で完了しましたが、その後ネットワークイベントのログが無限に繰り返され、電源が落ちない、という想定外の挙動が起きました。原因の完全な特定はできませんでしたが、ディスクへの書き込み自体は完了していると判断し、私が電源を強制的に落として次の作業（内蔵ディスクからの起動）に進みました。すべての現象を解明しきれなくても、リスクを評価して次に進む、という判断も必要になる場面でした。\n\n内蔵ディスクからの起動に成功した後、Falcoya-co-CTOはリモートからssh-keyscanでホスト鍵を取得し、既知のホストとして登録しました。ここで本来は手順書上、実機のコンソールで鍵のフィンガープリントを目視照合するステップがあったのですが、私は「なりすます人は家にいないので大丈夫です」と判断し、このステップを省略しました。Falcoya-co-CTOはリスクを説明した上で、この省略を明示的な私の判断として記録しています。セキュリティ手順の「省略」自体を悪いことだとせず、リスクと判断の記録として残す、というやり方です。\n\n4.5 Ansibleの適用、そして冪等性の確認\n\n鍵で安全に接続できる状態になった後、Falcoya-co-CTOはスクラッチ環境でAnsibleを構築し、まず--checkモード（実際には変更を加えないドライラン）で構文と前提条件（OSバージョン、IP割当など)を検証しました。すべて成功したのを確認して、実際の適用（ansible-playbook playbooks/site.yml --limit nuc5）を実行し、9個のタスクのうち3個が変更を加えて成功しました。\n\nここで重要なのは、同じplaybookをもう一度実行したことです。GitOpsの前提である冪等性——「同じ構成をもう一度適用しても、意図しない変更が起きない」——を実証するためです。1回目はchanged=3、2回目はchanged=0。この結果が出て初めて、「このAnsible構成は安全に何度でも再適用できる」と言えます。\n\nちなみに、この時点ではFalcoya-co-CTOが直接SSH経由でansible-playbookを実行しています。まだGHCRへのコンテナイメージpushができる状態になっていなかったための、意図的な簡略化でした。「Kubernetes Job経由」という最終形に到達する前段階として、こういう暫定手段を使い、その事実を隠さず記録する、という姿勢が徹底されていました。\n\n4.6 コンテナ化、GHCRへのpush、そして3度目の確認\n\n構成管理の実行環境をコンテナ化し、GitHub Container Registry（GHCR）にpushする段階で、私はwrite:packagesスコープのPersonal Access Tokenを発行しました。Falcoya-co-CTOはベースイメージ（python:3.12-slim-bookworm)の実際のダイジェストを確認した上でイメージをビルドし、GHCRへpushし、公開範囲がprivateであることを確認しました。\n\nこの後、nuc5-sshというSecret（SSH秘密鍵の実体を含む）をKubernetesに登録する場面で、私は3回目の「Falcoya-co-CTOが実行できるのでは?」という確認をしました。Falcoya-co-CTOはここで、「技術的には実行可能（値は表示せず、ファイル参照のみで渡せる）だが、これまでは方針として一線を引いていた」と説明し、私はこの区分を正式に緩和する決定をしました。秘密の\"生成\"は最後までAIエージェントにやらせない。しかし、既にある秘密ファイルを、値を表示させずに参照で渡す操作は、必要な確認を経た上で任せる。——この線引きが、私にとって実用的な落としどころになりました。\n\n4.7 Kubernetes Job経由での本適用、そして「完成」の判定\n\n最後に、コンテナ化されたAnsible実行環境をKubernetes Jobとして実行しました。まず--check付きでドライラン、ログを確認してJobを削除、その後--checkを外した本適用のJobを実行——9タスク中1つが変更されて成功し、実際に適用したGitのコミットIDがNUC5のファイルシステム上に記録されるようになりました。再度同じJobを実行するとchanged=0。コンテナ化された実行環境でも、冪等性が保たれていることを確認できました。\n\n手順書には、「GitOps基盤として完成した」と判定するための17項目のチェックリストがあります。Falcoya-co-CTOは実機へのSSH接続、kubectl、Gitの履歴を実際に調べて15項目を自己検証し、残り2項目のうち1つは「意図的に旧OSから転用したため対象外」、もう1つは私が認証情報の暗号化バックアップを別途実施して完了させました。17項目すべてが揃って、この構築は完了と判定されました。\n\n---\n\n5. GitHubの上で何が起きていたか\n\n裏側では、複数のPull Requestがhome-nucリポジトリ上でやり取りされていました。ファイルのひな型作成、プレースホルダの解決、--checkモードの切り替えなど、変更のたびにブランチを作り、CIで構文検査を通し、私が承認してマージする、という流れが繰り返されました。\n\nここが、発端で触れたGitOpsパターンを再現した部分です。ただし前述の通り、マージそのものが自動でNUC5への適用をトリガーすることはありません。Gitは変更の提案・検査・履歴の正本であり、実際の適用はKubernetes Jobという別のステップとして、意図的に手動トリガーのまま残されています。これは手を抜いたのではなく、「build成功と実機への適用を同じ無承認処理にしない」という手順書自身の設計判断を、そのまま踏襲した結果です。\n \n\n---\n\n6. 振り返り——AIエージェントに任せて良かったこと、任せなかったこと\n\n任せて良かったこと\n・手順書の読み込みと構造化: 19章にわたる手順書を読み、要件定義書・タスク定義書という形に構造化し、抜け漏れを自己点検する作業。人間がやると数時間かかる整理を、AIエージェントは短時間で、かつ「見落とした観点」まで含めて記録してくれました。\n・繰り返しの多い定型作業: Ansibleの構文チェック、--checkモードでのドライラン、冪等性の再検証。これらは「もう一度やって確認する」という地味だが重要な作業で、AIエージェントに向いていました。\n・ログからの原因調査: MACアドレスのフォーマットミスのように、エラーメッセージから原因を特定し、修正案を出す作業。これはAIエージェント自身のミスの修正でもありましたが、調査プロセス自体は有効でした。\n\n意図的に任せなかったこと\n・秘密情報の生成: SSH鍵やパスワードハッシュを新規に作ることは、最後まで人間の専属でした。理由は「生成結果を確認可能な形で伝えようとすると、会話ログに秘密の実体が残ってしまう」という構造的なリスクです。これはAIエージェント固有の限界というより、生成結果を人に報告する必要がある作業全般に共通する制約です。\n・物理操作: USBの挿入、BIOS画面での操作、ケーブルの接続。AIエージェントには文字通り「手」がないので、これは自明に人間の作業でした。\n・当初の目標とマニュアル設計の食い違いの最終判断: 「PRマージで自動的に反映する」という当初の目標と、「段階的な自動化」という手順書の設計方針が食い違っていることをAIエージェントは発見しましたが、どちらを採るかの決定は人間に委ねられました。これは技術的な正解がある問題ではなく、私の判断に委ねるべき問題だったからです。\n\n一番印象に残ったこと\n\n正直に言うと、一番印象に残ったのは「うまくいった自動化」よりも、AIエージェントが自分自身の見落としやミスを、隠さずにそのまま記録として残したことでした。要件定義書のレビュー観点が偏っていたこと、MACアドレスの区切り文字を間違えたこと——どちらも、消してやり直すのではなく、「何が起きて、なぜ起きて、どう直したか」という経緯そのものを文書に残しています。自宅の小さなラボだからこそ試せたことですが、AIエージェントに任せる範囲を広げていく上で、この透明性は再現性のある安心材料になると感じています。\n\n---\n\n次にやること\n\nこのGitOps基盤は、あくまで「土台」です。Secure AI・Headless Cloud Securityと組み合わせた、より実践的なワークフローの検証は、この基盤を前提にした次のステップとして、これから着手する予定です。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "b6094ccbc25cb7e1",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8457843137254902,
+      "popularityPercentile": 0.8823529411764706,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 79,
+      "titleJa": null,
+      "oneLiner": "Claude CodeのAIエージェントに自宅サーバーの構築からGitOps運用までを任せています。",
+      "takeaways": [
+        "AIエージェントが自宅サーバーの構築を進めた。",
+        "設計から設定変更までの作業を自動化した。",
+        "秘密情報を扱う作業だけは人が担当した。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "GitOps",
+        "Kubernetes",
+        "Ansible",
+        "GitHub"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 15,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Cloudflare OSを学ぶ：まずは最小のAIエージェントとMCPサーバーをTypeScriptで作る",
+      "url": "https://qiita.com/koji0705/items/0dba4a8ab6578f73640b",
+      "publishedAt": "2026-09-14T04:10:56.000Z",
+      "author": "河村 康治",
+      "authorDetail": {
+        "name": "河村 康治",
+        "handle": "@koji0705",
+        "url": "https://qiita.com/koji0705",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/599049/profile-images/1700449853",
+        "bio": "大阪でエンジニアやってます。Go/React/関西型言語が得意です。",
+        "organization": "kkfactory",
+        "location": "大阪府",
+        "followers": 23,
+        "posts": 510,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kouji0705"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/kkfactory0705"
+          },
+          {
+            "label": "Web",
+            "url": "https://speakerdeck.com/koji_kawamura"
+          }
+        ]
+      },
+      "tags": [
+        "cloudflare",
+        "AIエージェント"
+      ],
+      "snippet": "はじめに 先月、2026年8月にCloudflare OSがリリースされました。AIエージェント用のOSとのことです。 せっかくなので、記事にしながら少しずつ学習していきたいと思います。 Cloudflare OSとは Cloudflare OSを一言で表すと、AIエージェント用の社内ワークスペースとセキュリティ基盤です。 中心となる要素は3つです。 | 要素 | 役割 | |---|---| | Workspace | 会話、エージェント、会社の知識を管理する | | Gadget | AIが作成し、隔離環境で動く小さな業務アプリ | | Gatekeeper | 外部APIの認証情報、権限、監査、承認を管理する | 全体像は次のようになります。 [code] 何がすごいのか AIにコードを書かせるだけなら、既存のAIツールでもできます。Cloudflare OSが扱うのは、その後の問題…",
+      "body": "はじめに\n\n先月、2026年8月にCloudflare OSがリリースされました。AIエージェント用のOSとのことです。\nせっかくなので、記事にしながら少しずつ学習していきたいと思います。\n\nCloudflare OSとは\n\nCloudflare OSを一言で表すと、AIエージェント用の社内ワークスペースとセキュリティ基盤です。\n\n中心となる要素は3つです。\n\n| 要素 | 役割 |\n|---|---|\n| Workspace | 会話、エージェント、会社の知識を管理する |\n| Gadget | AIが作成し、隔離環境で動く小さな業務アプリ |\n| Gatekeeper | 外部APIの認証情報、権限、監査、承認を管理する |\n\n全体像は次のようになります。\n\n [code] \n\n何がすごいのか\n\nAIにコードを書かせるだけなら、既存のAIツールでもできます。Cloudflare OSが扱うのは、その後の問題です。\n\n1. AIが作ったアプリを、利用者ごとの隔離環境ですぐ動かす\n2. エージェントには、必要なデータへの権限だけを渡す\n3. APIキーやOAuthトークンを、生成コードから隔離する\n4. AIが何を読んだか記録する\n5. 生成物を共有するとき、共有相手にも元データの権限があるか確認する\n\n特に重要なのは5番目です。\n\n例えば、AIが機密性の高い売上データからダッシュボードを作った場合、ダッシュボードだけを無制限に共有できてしまうと、元データの権限を迂回できます。\n\nCloudflare OSは、エージェントが参照したリソースを記録し、生成物の共有時にも権限を確認します。\n\n [code] \n\nLinuxではダメなのか\n\nLinuxでも同じ仕組みは作れます。Cloudflare OSは、Linuxの代替ではなく、その上で動くアプリケーション基盤です。\n\n| Linux | Cloudflare OS |\n|---|---|\n| プロセスやメモリを分離する | エージェントやGadgetを分離する |\n| ファイル権限を管理する | GitHubリポジトリや社内データの権限を管理する |\n| ネットワーク通信を制御する | 外部APIをGatekeeper経由に限定する |\n| OS上の操作を記録する | AIが読んだデータと操作を記録する |\n\nLinux上で、サンドボックス、OAuthプロキシ、監査ログ、承認画面、共有権限を個別に構築する代わりに、それらをAIエージェント向けに統合している点がCloudflare OSの価値です。\n\nMCPサーバーは必須か\n\n必須ではありません。既存システムがREST APIなら、そのまま利用できます。\n\n [code] \n\nGatekeeperがREST APIを呼び、エージェントにはlistIssues()のような限定された操作だけを公開します。認証情報や自由なfetch()は渡しません。\n\nMCPは、複数のAIクライアントから再利用できる共通のツール接続方式です。便利ですが、Cloudflare OSの必須条件ではなく、REST APIと置き換えるか、併用できます。\n\nHands-on\n\nまずはCloudflare OS全体ではなく、最小のツール呼び出しだけをTypeScriptで確認します。\n\n [code] \n\nセットアップ\n\n [code] \n\n実装は2ファイルです。\n\n [code] \n\nMCPサーバー側では、公式SDKを使ってツールを登録します。\n\n [code] \n\nエージェント側は、ツールを発見して呼び出します。\n\n [code] \n\n実行結果です。\n\n [code] \n\nこのサンプルでは、料金が発生しないようLLMを使わず、簡単なルールで次の行動を決めています。そのため、分かるのは「エージェントとツールの境界」までです。\n\nCloudflare OSの強みを体験するには、次の段階でMCPの足し算を、Gatekeeper経由で社内REST APIを読む例に置き換える必要があります。\n\nまとめ\n\nCloudflare OSは、新しいLinuxではありません。\n\nAIエージェントと生成アプリに対して、実行環境、業務データの権限、認証情報、監査、承認、共有をまとめて提供する基盤です。\n\nMCPは必須ではなく、既存のREST APIもGatekeeper経由で利用できます。重要なのは接続方式よりも、エージェントへ何を許可し、AIが見たデータをその後どこへ流せるかを管理することです。\n\n参考資料\n・Cloudflare OS公式リポジトリ\n・Cloudflare公式ブログ：Cloudflare OS\n・MCP TypeScript SDK v2",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0bdc8946f0f12c64",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7980882352941177,
+      "popularityPercentile": 0.5367647058823529,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "Cloudflare OSで権限管理と監査を備えた最小のAIエージェントをTypeScriptで作っています。",
+      "takeaways": [
+        "AIが作った小さなアプリを隔離して動かせる。",
+        "必要なデータだけをAIに見せる仕組みがある。",
+        "作った画面の共有時にも権限を確認できる。"
+      ],
+      "keywords": [
+        "Cloudflare OS",
+        "TypeScript",
+        "AIエージェント",
+        "MCP",
+        "Cloudflare"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "When LLM judges agree, should we believe them?",
+      "url": "https://www.amazon.science/blog/when-llm-judges-agree-should-we-believe-them",
+      "publishedAt": "2026-09-14T16:29:30.000Z",
+      "author": "Betelbuddy",
+      "authorDetail": {
+        "name": "Betelbuddy",
+        "handle": "Betelbuddy",
+        "url": "https://news.ycombinator.com/user?id=Betelbuddy"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 48,
+        "comments": 37
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "36283a8ba54efdf5",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.5075000000000001,
+      "popularityPercentile": 0.375,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": "LLMの判定者が一致したとき本当に信じてよいのか",
+      "oneLiner": "複数のLLM判定者が同じ結論を出したときの信頼性を問う記事です。",
+      "takeaways": [
+        "複数のAIが同じ判定を出しても正解とは限らない。",
+        "判定者同士の一致には共通の偏りが含まれる可能性がある。"
+      ],
+      "keywords": [
+        "LLM",
+        "AI評価",
+        "LLM-as-a-judge",
+        "Hacker News"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "GPT-5.6 Luna vs. GPT-6 Astra: Is a $1.20 Model Good Enough for Code Review?",
+      "url": "https://entelligence.ai/blogs/gpt-5.6-luna-vs-gpt-6-astra-is-a-1.20-model-good-enough-for-code-review",
+      "publishedAt": "2026-09-14T19:56:20.000Z",
+      "author": "theanonymousone",
+      "authorDetail": {
+        "name": "theanonymousone",
+        "handle": "theanonymousone",
+        "url": "https://news.ycombinator.com/user?id=theanonymousone"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 92,
+        "comments": 100
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "4f8bb5031d70002d",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.6100000000000001,
+      "popularityPercentile": 0.8409090909090909,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "GPT-5.6 LunaとGPT-6 Astraのコードレビュー比較",
+      "oneLiner": "GPT-5.6 LunaとGPT-6 Astraをコードレビュー用途で比較し価格性能を問う記事です。",
+      "takeaways": [
+        "2つのAIモデルをコードレビュー用途で比べている。",
+        "1.20ドルのモデルで十分かどうかが焦点になっている。"
+      ],
+      "keywords": [
+        "GPT-5.6 Luna",
+        "GPT-6 Astra",
+        "コードレビュー",
+        "LLM"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Proposed Rule: Eliminating the Discretionary 60-Day Grace Period",
+      "url": "https://www.regulations.gov/document/USCIS-2026-0364-0001/comment",
+      "publishedAt": "2026-09-14T20:38:31.000Z",
+      "author": "la64710",
+      "authorDetail": {
+        "name": "la64710",
+        "handle": "la64710",
+        "url": "https://news.ycombinator.com/user?id=la64710"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 65,
+        "comments": 59
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "c41c3c7d2291e976",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.18000000000000002,
+      "popularityPercentile": 0.8181818181818182,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "裁量による60日間の猶予期間を廃止する提案",
+      "oneLiner": "裁量で認められてきた60日間の猶予期間を廃止する規則案を扱っています。",
+      "takeaways": [
+        "60日間の猶予期間をなくす規則案が示されている。",
+        "制度変更の対象や影響は本文の確認が必要になる。"
+      ],
+      "keywords": [
+        "60日間の猶予期間",
+        "規則案",
+        "Proposed Rule",
+        "Hacker News"
+      ],
+      "category": "その他",
+      "lane": "talk",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "コードレビューで「正しいけど刺さる」コメントをして後輩に距離を置かれた話",
+      "url": "https://qiita.com/fe1ix/items/6d78460c9be9cacc1fce",
+      "publishedAt": "2026-09-14T00:54:13.000Z",
+      "author": "fe1ix",
+      "authorDetail": {
+        "name": "fe1ix",
+        "handle": "@fe1ix",
+        "url": "https://qiita.com/fe1ix",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4025790/ea098505b0e173679fefa40a378fd15152fc16ec/x_large.png?1772286239",
+        "bio": "毎日1記事アウトプット中（2026/2/28〜）。\r\n実務で詰まったエラーやインフラ知識を中心に投稿しています。\r\nPL業務で学んだことも随時整理。\r\n検索で辿り着いた方の役に立つ記事を書き続けます。",
+        "followers": 54,
+        "posts": 172,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/Fellixxity"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/REGRUB_SOM"
+          }
+        ]
+      },
+      "tags": [
+        "新人プログラマ応援",
+        "エンジニア",
+        "マネジメント",
+        "プロジェクト管理",
+        "プロジェクトマネジメント"
+      ],
+      "snippet": "はじめに 新人リーダーになったばかりの頃、後輩のPRに「このロジックだと将来バグります。設計から見直したほうがいいです」ってコメントしたことがあるんですよね。 技術的には間違ってなかったと思うんです。実際そのロジックには穴があって、指摘自体は妥当でした。でも次の日から、その後輩がSlackで話しかけてくる回数が明らかに減って、PRのdescriptionも妙に硬くなっていったんです。 正しいことを言ったはずなのに、なんで関係が悪くなるんだろうって、しばらく本気で悩みました。 間違ったアプローチ 当時の自分がやっていたのは、こういうコメントでした。 [code] [code] [code] 一見普通の指摘に見えるんですが、後から振り返ると全部同じ構造をしていて、「コードの評価」のつもりで書いた言葉が「あなたの評価」として読まれてしまう書き方だったんです。 とくに「普通はこうしませんか？」は最…",
+      "body": "はじめに\n新人リーダーになったばかりの頃、後輩のPRに「このロジックだと将来バグります。設計から見直したほうがいいです」ってコメントしたことがあるんですよね。\n技術的には間違ってなかったと思うんです。実際そのロジックには穴があって、指摘自体は妥当でした。でも次の日から、その後輩がSlackで話しかけてくる回数が明らかに減って、PRのdescriptionも妙に硬くなっていったんです。\n正しいことを言ったはずなのに、なんで関係が悪くなるんだろうって、しばらく本気で悩みました。\n間違ったアプローチ\n当時の自分がやっていたのは、こういうコメントでした。\n [code] \n [code] \n [code] \n一見普通の指摘に見えるんですが、後から振り返ると全部同じ構造をしていて、「コードの評価」のつもりで書いた言葉が「あなたの評価」として読まれてしまう書き方だったんです。\nとくに「普通はこうしませんか？」は最悪でした。質問の形をしてるだけに、相手は「反論できない詰め方をされた」と感じてしまう。自分では中立的な問いかけだと思っていても、受け取る側は違う。\n『NVC(非暴力コミュニケーション)』の著者マーシャル・ローゼンバーグは、評価や判断を含んだ言葉は、相手にとって「攻撃」として受け取られやすいと指摘しています。技術的な妥当性と、伝え方の暴力性はまったく別の軸にある、ということに当時の自分は気づいていませんでした。\n正しい理解\nステップ1: 主語を「コード」から動かさない\n「あなたはなぜ〜」ではなく「このコードは〜」を主語にする。これだけで、指摘が人格批判に変わる確率がかなり下がります。\n [code] \n主語が変わると、後輩も「自分が否定された」ではなく「このコードに改善点がある」として受け取れるようになるんです。\nステップ2: 指摘の強度をラベル付けする\nGoogleのエンジニアリングプラクティスでは、コメントに「これは必須(must)」「これは提案(nit)」といった強度のラベルを付けることが推奨されています。強度を明示しないと、些細な言い回しの好みも重大な設計ミスも同じ重さに見えてしまうからです。\n [code] \nこのラベルがあるだけで、後輩は「全部直さなきゃ」というプレッシャーから解放されます。\nステップ3: 疑問文で「決めつけ」を避ける\n「これは間違っています」と「これ、意図があってこうしてますか？」は、伝える情報量はほぼ同じでも、相手の反応が全然違います。\n [code] \n後者は、相手が知らなかった可能性だけでなく、自分が知らない意図があった可能性も残してくれるんですよね。実際、聞いてみたら想定していないエッジケースへの配慮だったりして、こちらが勉強になったことも何度もありました。\nステップ4: 良い部分には必ず触れる\n指摘ばかりのレビューは、後輩からすると「ダメ出しされる時間」になってしまいます。『駆動力』を書いたダニエル・ピンクも、内発的モチベーションの維持には「承認されている」という実感が欠かせないと述べています。\n [code] \n良い点への言及は媚びではなく、相手が安心して指摘を受け取れる土台を作る作業だと考えるようになりました。\nステップ5: 非同期コメントと同期会話を使い分ける\nPRのコメント欄で議論が3往復以上続いたら、それはテキストで解決すべき話じゃなくなっているサインです。感情のニュアンスが伝わらないテキストのやり取りは、拗れるほど誤解が増幅されます。\n [code] \nこれをルール化してからは、レビューのやり取りが原因で気まずくなることがほぼなくなりました。\nおわりに\nあの後輩とは、伝え方を変えてから半年ほどかけて、また普通に雑談するくらいの関係に戻りました。技術的な正しさは、伝え方が間違っていると相手に届かないどころか、関係そのものを壊してしまう。\nコードレビューは「コードの品質を上げる場」であると同時に「チームの信頼を積み上げる場」でもあるんだなと、痛い思い出とともに学びました。今もコメントを書く前に、一呼吸置いて「これは主語がコードになっているか」を確認するようにしています。",
+      "metrics": {
+        "likes": 3,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "1ad95d305045d9de",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.4679901960784314,
+      "popularityPercentile": 0.9681372549019608,
+      "matchedTopics": [
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 81,
+      "titleJa": null,
+      "oneLiner": "コードレビューで技術的に正しい指摘が人間関係を悪化させた経験から伝え方を整理しています。",
+      "takeaways": [
+        "正しい指摘でも人格への攻撃として伝わることがある。",
+        "コードを主語にすると相手への評価と切り分けやすい。",
+        "技術的な正しさと伝え方の安全さは別の問題になる。"
+      ],
+      "keywords": [
+        "コードレビュー",
+        "NVC",
+        "PR",
+        "マネジメント",
+        "Git"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "レビューの厳密さを優先するか関係性を優先するか",
+        "forSide": "問題を早く具体的に指摘すれば将来の不具合を防ぎやすい。",
+        "againstSide": "伝え方で心理的安全性を失うとレビュー自体が機能しなくなる。",
+        "oneSided": false,
+        "yourAngle": "日々のPRで指摘後の修正速度と追加質問の変化を観察できる。"
+      },
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 792,
+    "afterDedupe": 730,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 409,
+      "zenn": 122,
+      "hatena": 31,
+      "hackernews": 89,
+      "devto": 18,
+      "github_release": 24,
+      "github_repo": 68,
+      "rss": 30,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 43
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4423,
+        "outputTokens": 833,
+        "cacheReadTokens": 0,
+        "elapsedMs": 9683,
+        "estimatedCostUsd": 0.0018841999999999997
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2945,
+        "outputTokens": 1742,
+        "cacheReadTokens": 0,
+        "elapsedMs": 18389,
+        "estimatedCostUsd": 0.0026794
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4673,
+        "outputTokens": 2096,
+        "cacheReadTokens": 0,
+        "elapsedMs": 19989,
+        "estimatedCostUsd": 0.0034498
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14265,
+        "outputTokens": 1739,
+        "cacheReadTokens": 3558,
+        "elapsedMs": 23584,
+        "estimatedCostUsd": 0.00501096
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 19840,
+        "outputTokens": 1621,
+        "cacheReadTokens": 3404,
+        "elapsedMs": 28328,
+        "estimatedCostUsd": 0.00598128
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14032,
+        "outputTokens": 1879,
+        "cacheReadTokens": 3260,
+        "elapsedMs": 28018,
+        "estimatedCostUsd": 0.0051264
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 12371,
+        "outputTokens": 2291,
+        "cacheReadTokens": 0,
+        "elapsedMs": 20400,
+        "estimatedCostUsd": 0.0052234
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 13143,
+        "outputTokens": 2297,
+        "cacheReadTokens": 0,
+        "elapsedMs": 22897,
+        "estimatedCostUsd": 0.005385
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 12995,
+        "outputTokens": 3085,
+        "cacheReadTokens": 0,
+        "elapsedMs": 37621,
+        "estimatedCostUsd": 0.006301
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 16288,
+        "outputTokens": 5647,
+        "cacheReadTokens": 11807,
+        "elapsedMs": 61276,
+        "estimatedCostUsd": 0.01027014
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 22382,
+        "outputTokens": 6251,
+        "cacheReadTokens": 15625,
+        "elapsedMs": 74200,
+        "estimatedCostUsd": 0.0122901
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18317,
+        "outputTokens": 5999,
+        "cacheReadTokens": 12965,
+        "elapsedMs": 72612,
+        "estimatedCostUsd": 0.0111215
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3610,
+        "outputTokens": 262,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4365,
+        "estimatedCostUsd": 0.0010364
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4465,
+        "outputTokens": 287,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4944,
+        "estimatedCostUsd": 0.0012374
+      }
+    },
+    "totalCostUsd": 0.077
+  },
+  "notes": []
+}
