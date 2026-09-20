@@ -1,0 +1,2104 @@
+{
+  "date": "2026-09-21",
+  "generatedAt": "2026-09-20T23:49:09.406Z",
+  "window": {
+    "start": "2026-09-19T22:00:00.000Z",
+    "end": "2026-09-20T22:00:00.000Z"
+  },
+  "summary": [
+    "セキュリティ調査が9件に集中し、深刻な脆弱性や攻撃経路の検証が目立った。",
+    "AIエージェントは開発・デバッグ・ゲーム制作へ広がる一方、制御や無駄も論点になった。",
+    "エージェント関連では、複数モデルや外部サービスを組み合わせる実装例が相次いだ。",
+    "知る・作る・話すが各6件ずつで、関心の偏りは比較的小さい一日だった。"
+  ],
+  "outlook": "AIエージェントは開発・検証・外部サービス連携へ定着しつつある一方、権限逸脱や過剰請求、脆弱性悪用、障害による依存リスクはなお揺れている。この先は、複数モデルを組み合わせる実装を前提に、実行制御・監査・復旧まで含む運用設計が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "攻撃コードは、ログで待っていた。Magento「StyleSmuggler」の怖い仕組み",
+      "url": "https://qiita.com/emi_ndk/items/f7e0a57b9b70c856db41",
+      "publishedAt": "2026-09-20T07:25:17.000Z",
+      "author": "Babushka Ai",
+      "authorDetail": {
+        "name": "Babushka Ai",
+        "handle": "@emi_ndk",
+        "url": "https://qiita.com/emi_ndk",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/54173850?v=4",
+        "bio": "元々 Google Cloud Vertex AI エンジニア、現在はMr MLOps, Founder of BabushkaML. 日本のエンジニア業界を再び世界レベルで盛り上げたい目的で新規情報をぞくぞく配信しています！",
+        "location": "Netherlands",
+        "followers": 807,
+        "posts": 259,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/babushkai"
+          },
+          {
+            "label": "Web",
+            "url": "https://desktop.babushkaml.com/ja/"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "Magento",
+        "PHP",
+        "GraphQL"
+      ],
+      "snippet": "エラーとして記録した文字列が、あとからPHPとして実行される。 Adobe Commerce／Magentoで悪用が確認された「StyleSmuggler」（CVE-2026-75650）は、この連鎖を使います。認証不要。Adobeの評価はCVSS 3.1で 10.0。9月7日に緊急修正が公開されています。[1][2] 怖いのは、攻撃コードを置くリクエストと、動かす処理が別になっていることです。不正な入力にエラーを返しても、その文字列を保存した先で攻撃が続きます。 AI生成の説明用イメージです。実際の被害現場やMagentoの管理画面ではありません。 エラーを返した。その裏で仕込みが進む Akamaiが9月14日に公開した分析では、代表的な経路はこうなります。[2] [code] 入口はGraphQLへのHTTPリクエスト。ヘッダやパラメータに入った攻撃コードが、エラー処理を通ってサーバー…",
+      "body": "エラーとして記録した文字列が、あとからPHPとして実行される。\n\nAdobe Commerce／Magentoで悪用が確認された「StyleSmuggler」（CVE-2026-75650）は、この連鎖を使います。認証不要。Adobeの評価はCVSS 3.1で 10.0。9月7日に緊急修正が公開されています。[1][2]\n\n怖いのは、攻撃コードを置くリクエストと、動かす処理が別になっていることです。不正な入力にエラーを返しても、その文字列を保存した先で攻撃が続きます。\n\n \n\nAI生成の説明用イメージです。実際の被害現場やMagentoの管理画面ではありません。\n\nエラーを返した。その裏で仕込みが進む\n\nAkamaiが9月14日に公開した分析では、代表的な経路はこうなります。[2]\n\n [code] \n\n入口はGraphQLへのHTTPリクエスト。ヘッダやパラメータに入った攻撃コードが、エラー処理を通ってサーバー側のログに残ります。その後、別の処理からそのファイルが読み込まれ、実行に至ります。\n\n「不正な値だから記録した」が、攻撃者のファイル書き込みを手伝ってしまう。\n\nログを保存した瞬間にPHPが動くわけではありません。保存と実行をつなぐ、後段の読み込み経路が問題です。\n\n調査でも、最終的にコードが動いたリクエストだけを見ると、最初に文字列を置いた操作を見落とします。入口と実行地点を分けて追う必要があります。\n\nメールを開かなくても実行される\n\nSansecが報告した経路の一つは、決済失敗の通知メールを生成させるものでした。攻撃コードが動くのは、サーバーがメール本文を組み立てる段階です。受信者が開く必要はなく、配送に失敗しても成立し得ます。[3]\n\nここで「では、メール送信を止めよう」と考えると、対処を狭めすぎます。\n\nSansecの9月14日更新には、メールを使わずに実行する経路も記載されています。報告ファイルやログを経由するため、セッションの保存先をRedisに変えるだけでも防げません。[3]\n\n見るべきなのはメール機能の有無ではなく、外部入力が保存されたファイルを、どの処理が実行可能なものとして読み込むかです。\n\n.logという名前は、安全装置にならない\n\nPHPのincludeは、指定されたファイルを取り込み、評価します。PHPとして評価される内容を含むファイルを渡せば、拡張子が.phpでなくても、その名前だけでは実行を止められません。[4]\n\n読み方の違いを、概念的に並べるとこうです。\n\n [code] \n\n「自分のサーバーが作ったファイル」と「中身を信頼できるファイル」は同じではありません。HTTPヘッダ、検索語、フォーム入力など、ログの材料は外から届きます。OWASPも、別の信頼領域から来たイベント情報には、偽造や悪意あるデータが混じる前提で扱うよう求めています。[5]\n\n自分の実装を点検するなら、ファイルごとに次の二つを突き合わせてください。\n・誰が中身に影響できるか。 未認証の利用者でも、エラーを起こして文字列を残せるか。\n・何として読み直すか。 単なるデータか、テンプレートか、実行するコードか。\n\nこの二つが別々のチームやモジュールに分かれると、危険な組み合わせが見えにくくなります。\n\nたとえば、ログ側は「この値は表示せず保存するだけ」と考え、テンプレート側は「サーバー内のファイルだから安全」と考える。個々の説明はもっともらしくても、つなげると外部の文字列が実行地点まで届きます。\n\nレビューで描くべき矢印は、入力から保存まで、その先の読み込みまでです。\n\n対応は「パッチを当てた」で終わらせない\n\nまず、Adobeの最新版の対応表で、製品名と正確なバージョンに合うVULN-39341の修正を確認してください。9月11日更新の手順には、同じ2.4.8系でもパッチレベルによって異なるアーカイブが載っています。「2.4.8向け」を一つ選べば済む話ではありません。[6]\n\nそのうえで、作業を三つに分けます。\n\n1. 侵入口を塞ぐ。 対象バージョン用の修正を適用し、適用結果を確認する。\n2. 侵入済みの痕跡を調べる。 ログ、実行中のプロセス、その実体のパス、永続化設定、想定外のPHPファイルを調査する。パッチは、すでに置かれたバックドアまで消してくれるものではありません。[3]\n3. 持ち出された可能性のある資格情報を無効化する。 Adobeは暗号化キーだけでなく、関連するAPI・連携・サーバーの資格情報も、発行元で更新するよう案内しています。[6]\n\n保管庫の鍵を交換しても、すでにコピーされたAPIキーは失効しません。\n\nAdobeの手順にはメンテナンスモードやcronの停止・再開も含まれます。本番で暗号化キーだけを単発で変えず、利用環境に合う一連の手順として実施してください。[6]\n\nStyleSmugglerから持ち帰るべき問いは、一つです。\n\nあなたのシステムで、外から来た文字列が「保存したから信頼できるもの」に変わる場所はありませんか。\n\nログ、テンプレート、アップロード、ジョブの再実行。その接続部分まで確認する価値があります。\n\n参考資料\n\n確認日：2026年9月20日。影響範囲と修正ファイルは、適用時にもAdobeの最新情報を確認してください。\n\n[1] Adobe — Security update available for Adobe Commerce | APSB26-146（9月7日）\n\nhttps://helpx.adobe.com/security/products/magento/apsb26-146.html\n\n[2] Akamai — CVE-2026-75650: StyleSmuggler — Critical RCE in Adobe Commerce and Magento（9月14日）\n\nhttps://www.akamai.com/blog/security-research/cve-2026-75650-stylesmuggler-adobe-commerce-magento\n\n[3] Sansec — StyleSmuggler: Magento and Adobe Commerce 0-day RCE under active attack（9月5日公開、9月14日更新）\n\nhttps://sansec.io/research/stylesmuggler-0day\n\n[4] PHP Manual — include\n\nhttps://www.php.net/manual/en/function.include.php\n\n[5] OWASP — Logging Cheat Sheet\n\nhttps://cheatsheetseries.owasp.org/cheatsheets/LoggingCheatSheet.html\n\n[6] Adobe — Critical Security Update Available for Adobe Commerce (APSB26-146)（9月11日更新）\n\nhttps://experienceleague.adobe.com/en/docs/commerce-knowledge-base/kb/announcements/commerce-apsb26-146",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c45ab8c096637583",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7841489361702128,
+      "popularityPercentile": 0.4734042553191489,
+      "matchedTopics": [
+        "JavaScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Magentoのエラー処理と後段の読み込みを悪用する未認証RCE攻撃を解説する。",
+      "takeaways": [
+        "Magentoの記録機能が攻撃コードの置き場にされた。",
+        "別の処理が記録内容を読み込み攻撃が成立した。",
+        "CVE-2026-75650はCVSS 10.0で9月7日に修正された。"
+      ],
+      "keywords": [
+        "Magento",
+        "Adobe Commerce",
+        "StyleSmuggler",
+        "CVE-2026-75650",
+        "GraphQL",
+        "PHP"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "StyleSmuggler（CVE-2026-75650）は、認証不要のGraphQLリクエストから外部入力をログや報告ファイルへ保存させ、後段の処理でそのファイルをPHPとして読み込ませる攻撃です。Adobeの評価はCVSS 3.1で10.0で、攻撃コードを置くリクエストと実行するリクエストが分かれるため、実行時のアクセスログだけでは侵入経路を見落とし得ます。PHPのincludeは拡張子が.logでも内容をPHPとして評価できるため、ファイル名だけでは防御になりません。決済失敗メールの生成が利用される経路のほか、メールを使わずログや報告ファイルを経由する経路も報告されています。対応はVULN-39341の適用だけでなく、既存のバックドア・プロセス・永続化設定・流出した資格情報の調査と更新まで必要です。",
+        "prerequisites": [
+          {
+            "term": "StyleSmuggler",
+            "stumblingPoint": "記事はStyleSmugglerを脆弱性名のように扱うが、何が連鎖する攻撃か読み取れない。",
+            "explanation": "StyleSmugglerは、外部入力をエラー処理経由で保存させ、その保存先を後段で読み込ませてコード実行につなげる攻撃です。入力を置く処理と実行する処理が分離している点が特徴で、単一リクエストの検査だけでは追跡しにくくなります。"
+          },
+          {
+            "term": "CVE-2026-75650",
+            "stumblingPoint": "記事はCVE-2026-75650をStyleSmugglerと併記するが、識別子の役割が分からない。",
+            "explanation": "CVE-2026-75650は、StyleSmugglerとして説明されている脆弱性を識別する番号です。Adobeのセキュリティ情報や修正対象を照合するときに使うため、製品名だけでなくこの番号でも確認する必要があります。"
+          },
+          {
+            "term": "GraphQL",
+            "stumblingPoint": "記事はGraphQLへのHTTPリクエストを入口とするが、入力がどこで保存処理に渡るか不明瞭になる。",
+            "explanation": "GraphQLはAPIへの問い合わせ形式で、この記事ではヘッダやパラメータに細工した値を含むHTTPリクエストの入口として登場します。GraphQL自体がPHPコードを実行するという意味ではなく、受け取った値がエラー処理とログ保存へ渡ることが問題です。"
+          },
+          {
+            "term": "include",
+            "stumblingPoint": "記事はPHPのincludeがファイルを評価すると説明するが、.logでも実行される理由で止まりやすい。",
+            "explanation": "includeは指定ファイルの内容をPHPとして取り込んで評価する仕組みです。評価対象を拡張子で安全判定するわけではないため、攻撃コードを含む.logや報告ファイルでも、includeに渡れば実行地点になり得ます。"
+          },
+          {
+            "term": "VULN-39341",
+            "stumblingPoint": "記事はVULN-39341の修正確認を求めるが、2.4.8なら一つのパッチでよいとは限らない。",
+            "explanation": "VULN-39341はAdobeの対応手順で確認すべき修正項目です。記事では同じ2.4.8系でもパッチレベルによりアーカイブが異なるとされているため、製品名と正確なバージョンを対応表に照合します。"
+          },
+          {
+            "term": "CVSS 3.1",
+            "stumblingPoint": "記事はCVSS 3.1で10.0と示すが、その数値が対応判断にどう関係するか分かりにくい。",
+            "explanation": "CVSS 3.1は脆弱性の深刻度を評価する基準で、10.0はこの評価体系の最上位です。この記事では認証不要のRCEとして緊急修正の対象になっていることを示す指標として使われています。"
+          },
+          {
+            "term": "Redis",
+            "stumblingPoint": "記事はセッション保存先をRedisに変えても防げないと書くが、なぜ単一の保存先対策で足りないか不明になる。",
+            "explanation": "Redisはセッションなどを保持するデータストアです。この記事の攻撃経路はセッションだけでなく、ログや報告ファイルなど複数の保存先と後段の読み込みを利用するため、セッションをRedisへ移すだけでは連鎖全体を断てません。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "StyleSmugglerの実行経路",
+          "steps": [
+            {
+              "label": "細工した入力",
+              "detail": "GraphQLリクエストに攻撃コードを含める"
+            },
+            {
+              "label": "エラー処理",
+              "detail": "不正値として処理し、文字列を保存する"
+            },
+            {
+              "label": "ファイル化",
+              "detail": "ログや報告ファイルに外部入力が残る"
+            },
+            {
+              "label": "後段の読み込み",
+              "detail": "別処理が保存ファイルを読み込む"
+            },
+            {
+              "label": "PHP実行",
+              "detail": "includeなどが内容をPHPとして評価する"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Adobe APSB26-146",
+            "url": "https://helpx.adobe.com/security/products/magento/apsb26-146.html"
+          },
+          {
+            "label": "Akamai StyleSmuggler分析",
+            "url": "https://www.akamai.com/blog/security-research/cve-2026-75650-stylesmuggler-adobe-commerce-magento"
+          },
+          {
+            "label": "Sansec StyleSmuggler報告",
+            "url": "https://sansec.io/research/stylesmuggler-0day"
+          },
+          {
+            "label": "PHP Manual include",
+            "url": "https://www.php.net/manual/en/function.include.php"
+          },
+          {
+            "label": "OWASP Logging Cheat Sheet",
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/LoggingCheatSheet.html"
+          },
+          {
+            "label": "Adobe対応手順",
+            "url": "https://experienceleague.adobe.com/en/docs/commerce-knowledge-base/kb/announcements/commerce-apsb26-146"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "know",
+        "impact": [
+          "Magento/Adobe Commerceを運用する人",
+          "VULN-39341の修正対象を使う人",
+          "外部入力をログ保存する人",
+          "ファイルをPHPで読み込む人"
+        ],
+        "timeline": [
+          "2026-09-07 緊急修正公開",
+          "2026-09-11 対応手順更新",
+          "2026-09-14 分析・報告更新"
+        ],
+        "checkNow": [
+          "Adobe対応表で製品名・正確な版とVULN-39341を照合する",
+          "ログ・実行中プロセス・PHPファイル・永続化設定を調査する",
+          "Adobe・API・連携・サーバー資格情報を発行元で更新する"
+        ],
+        "unknowns": [
+          "記事だけでは影響する製品版の全範囲は確定しない"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "arvindear/wp2shell-PoC — CVE-2026-63030 & CVE-2026-60137 RCE chain proof-of-concept",
+      "url": "https://github.com/arvindear/wp2shell-PoC",
+      "publishedAt": "2026-09-18T16:35:32.000Z",
+      "author": "arvindear",
+      "authorDetail": {
+        "name": "arvindear",
+        "url": "https://github.com/arvindear",
+        "avatarUrl": "https://github.com/arvindear.png?size=120",
+        "bio": "CVE-2026-63030 & CVE-2026-60137 RCE chain proof-of-concept"
+      },
+      "tags": [
+        "Python",
+        "cve-2026-60137",
+        "cve-2026-63030",
+        "wp2shell",
+        "wp2shell-exploit",
+        "wp2shell-poc"
+      ],
+      "snippet": "CVE-2026-63030 & CVE-2026-60137 RCE chain proof-of-concept",
+      "metrics": {
+        "stars": 563
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "031537d1534ebc47",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.21000000000000002,
+      "popularityPercentile": 0.7272727272727273,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 48,
+      "titleJa": "wp2shell-PoC — WordPressを狙う攻撃の検証コード",
+      "oneLiner": "wp2shell-PoCはCVE-2026-63030とCVE-2026-60137を連鎖させる攻撃検証コードを公開している。",
+      "takeaways": [
+        "WordPressを狙う二つの弱点を組み合わせる。",
+        "攻撃を再現するための検証用コードが公開された。",
+        "実運用環境での無断実行は被害につながる。"
+      ],
+      "keywords": [
+        "wp2shell-PoC",
+        "CVE-2026-63030",
+        "CVE-2026-60137",
+        "WordPress",
+        "RCE",
+        "Python"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "body": "wp2shell-PoC\n⚠ This tool is created solely for educational or bug bounty purpose only. Unauthorized use outside of controlled environments is strictly prohibited.\n\nOverview\n\nProof-of-concept for the wp2shell vulnerability chain affecting WordPress Core, combining CVE-2026-63030 and CVE-2026-60137. The project demonstrates the interaction between the REST API Batch route confusion vulnerability and a WPQuery SQL injection, resulting in an unauthenticated path to full WordPress compromise and remote code execution (RCE).\n\nRead the full advisory here\n\nHow it works\n\nwp2shell is a pre-authentication RCE chain in WordPress core, combining CVE-2026-63030 (route confusion in the batch REST endpoint) and CVE-2026-60137 (SQL injection in WPQuery).\n\nThe route confusion: /wp-json/batch/v1 processes multiple sub-requests via parallel $matches and $validation arrays indexed by position. A sub-request with a malformed path (e.g., http://:) is appended to $validation but not $matches due to a continue statement, desynchronizing the arrays. Later requests are dispatched under the handler meant for the next request, bypassing schema validation and permission checks.\n\nThe SQL injection: Two nested batch calls exploit this. The outer batch bypasses the method allow-list (normally blocking GET). The inner batch delivers a scalar authorexclude string to GET /wp/v2/posts - the desync routes it past validation, and WPQuery interpolates the unsanitized string directly into SQL, yielding a UNION-based blind injection.\n\nCache poisoning: The SQLi returns forged WPPost objects, which WordPress caches in-memory. These fake posts contain [embed] shortcodes that cause WordPress to create real oembedcache database rows from the fake references.\n\nChangeset escalation: Using the SQLi, the attacker forges a customizechangeset post in-memory with \"userid\": 1 in its JSON. A cycle-detection gadget triggers wpupdatepost() without overwriting postcontent, preserving the attacker's payload. Applying the changeset temporarily assumes the administrator's identity.\n\nHook re-entry: A fabricated post with status parse and type request fires the parserequest hook, replaying the entire batch request with the assumed admin role. This time, a POST /wp/v2/users sub-request succeeds, creating a new admin account.\n\nCode execution: The attacker logs in as the created admin and uploads a malicious plugin to run arbitrary commands.\n\nAffected versions\n\n| Version| Status |\n|---------------|--------|\n| WordPress 6.9.0 – 6.9.4 | Vulnerable |\n| WordPress 7.0.0 – 7.0.1 | Vulnerable |\n| WordPress 6.9.5 | Fixed |\n| WordPress 7.0.2+ | Fixed |\n\nUsage\n\nTo use this PoC, the only requirement is Python 3.8+.\n\nRun it from the repository directory to perform a vulnerability check:\n\n [code] \n\nCheck Mode (default)\n\nPerforms a single vulnerability check. Sends a benign batch marker probe that detects the route confusion bug without executing SQLi payloads. A vulnerable target returns HTTP 207 with the error pattern parsepathfailed, blockcannotread, and restbatchnotallowed.\n\nUse --confirm-sqli to also send an active SQLi confirmation payload. The confirmation tries UNION reflection first, then falls back to timing-based probes.\n\n Check single target (default mode)\n \n [code] \n\nCheck with explicit mode\n\n [code] \n\nCheck with SQLi confirmation\n\n [code] \n\nRead Mode - Extract Data Through SQL Injection\n\nExtracts data from the database using the pre-authentication SQL injection. By default uses --technique auto, which tries available methods in this order:\n・union - forges a fake WPPost row via UNION and reads its title back from the REST response as ||HEX(value)||. One request per value. Fastest.\n・error - uses EXTRACTVALUE/UPDATEXML to leak 15 bytes per request. Works when the target reflects MySQL errors (e.g., WPDEBUGDISPLAY on).\n・blind - boolean binary search, 8 requests per character. Reads the X-WP-Total header as the true/false signal. Works even when no data is reflected.\n\nForce a specific technique with --technique union|error|blind. These read paths are read-only and do not write to the database.\n\nServer fingerprint (default query)\n\n [code] \n\nDump logins and password hashes\n\n [code] \n\nCustom SQL query\n\n [code] \n\nForce blind technique\n\n [code] \n\nExtract with error-based technique\n\n [code] \n\nShell Mode \n\nExecutes commands on the target server. Works in two modes:\n\nWith credentials (logs in as existing admin and uploads plugin shell):\n\nExecute specific command\n\n [code] \n\nInteractive shell\n\n [code] \n\nExecute single command\n\n [code] \n\nInteractive shell\n\n [code] \n\nThe plugin webshell is uploaded with a random path and a per-run token. The uploaded webshell is removed automatically. When the pre-auth bridge creates an administrator, that generated account is removed automatically after the shell session finishes.\n\nAll flags list:\n\n| Flag | Description |\n| :--- | :--- |\n| --check | Run vulnerability check (default mode if no other mode specified) |\n| --read | Extract data via SQL injection |\n| --shell | Execute commands on the server |\n| --query | Custom SQL query for read mode |\n| --preset | Predefined query preset (users, config, versions) |\n| --technique | SQLi extraction technique: union, error, blind, or auto (default) |\n| --confirm-sqli | Send SQLi confirmation payload after check |\n| --cmd | Command to execute in shell mode (default: id) |\n| --interactive, -i | Interactive shell mode |\n| --user | Admin username for authenticated shell |\n| --password | Admin password for authenticated shell |\n| --proxy | HTTP/HTTPS proxy (e.g., http://127.0.0.1:8080) |\n| --timeout | Request timeout in seconds (default: 30) |\n| --verbose, -v | Verbose output |\n\nReferences:\n1. https://slcyber.io/research-center/exploit-brokers-pay-500000-for-a-wordpress-rce-i-found-one-with-gpt5-6/\n2. https://www.picussecurity.com/resource/blog/cve-2026-63030-and-cve-2026-60137-wp2shell-wordpress-rce-explained\n\nDisclaimer\n\nThis tool is created solely for educational or bug bounty purpose only. Unauthorized use outside of controlled environments is strictly prohibited.",
+      "rank": 2,
+      "deep": {
+        "summary": "wp2shell-PoC は、WordPress Core の REST API Batch route confusion と WPQuery SQL injection を組み合わせた、未認証の RCE chain を実証する Python 3.8+ ツールです。CVE-2026-63030 により batch リクエストの検証・権限確認をすり抜け、CVE-2026-60137 の SQL injection を未認証で到達可能にします。SQLi で偽の WPPost や customizechangeset を生成し、cache poisoning と changeset escalation を経て管理者権限を一時的に取得します。さらに hook re-entry で管理者アカウントを作成し、最終的に悪意あるプラグインをアップロードして任意コマンドを実行します。WordPress 6.9.5 および 7.0.2 以降は本文記載上の修正版で、影響バージョンを運用環境から除外することが先決です。",
+        "prerequisites": [
+          {
+            "term": "REST API Batch",
+            "stumblingPoint": "記事は「REST API Batch route confusion」と書くが、Batch が複数のサブリクエストをまとめて処理する仕組みを知らないと、配列のずれが権限回避になる理由を読み取れない。",
+            "explanation": "REST API Batch は、1回のリクエスト内で複数の WordPress API サブリクエストを処理する仕組みです。この記事では各サブリクエストのパスと検証結果を位置で対応付けています。異常なパスが一方の配列にだけ追加されると、後続リクエストに別の検証結果が対応し、通常なら拒否される処理が通過します。"
+          },
+          {
+            "term": "route confusion",
+            "stumblingPoint": "「malformed path が $validation にだけ追加される」とあるが、route confusion が単なる不正パスではなく、検証対象と実行対象の対応を崩す問題だと分からないと影響を判断しにくい。",
+            "explanation": "route confusion は、受け付けたルートと適用する検証・ハンドラーの対応が混同される状態です。本文では malformed path に対する continue により $matches と $validation の位置がずれます。その結果、後続リクエストが本来別のリクエスト用だった schema validation や permission check を受ける構造になります。"
+          },
+          {
+            "term": "WPQuery",
+            "stumblingPoint": "記事は「WPQuery interpolates the unsanitized string directly into SQL」と述べるが、WPQuery が WordPress の投稿取得を担う層だと知らないと、GET /wp/v2/posts が SQL injection の入口になる流れが見えない。",
+            "explanation": "WPQuery は WordPress の投稿検索条件を SQL に変換して実行する仕組みです。この記事の脆弱性では、投稿取得 API の authorexclude に渡された文字列が適切に安全化されず SQL に組み込まれます。通常は GET を含むメソッド制限が入口を塞ぎますが、Batch の検証ずれを利用してその制限を回避します。"
+          },
+          {
+            "term": "pre-authentication",
+            "stumblingPoint": "「pre-authentication RCE chain」とあるが、認証前に成立することが、管理者アカウントや既存資格情報を持たない攻撃者に何を意味するかが省略されている。",
+            "explanation": "pre-authentication は、ログインや API キーなどの認証を通過する前の段階を指します。この記事では SQL injection から changeset の適用、管理者アカウント作成へ進むため、既存の WordPress 管理者資格情報を最初から必要としない経路が示されています。"
+          },
+          {
+            "term": "cache poisoning",
+            "stumblingPoint": "「forged WPPost objects are cached in-memory」とあるが、DB に正規保存されていない偽オブジェクトが後続処理の入力になる仕組みを知らないと、SQLi から oembedcache 作成へ進む理由が分からない。",
+            "explanation": "cache poisoning は、正規のデータに見える偽データをキャッシュへ入れ、後続処理に利用させる攻撃です。本文では SQLi の UNION 結果から偽の WPPost オブジェクトを作り、それが実在する投稿のように扱われます。偽参照中の [embed] shortcode により、WordPress が oembedcache のデータベース行を作成します。"
+          },
+          {
+            "term": "changeset escalation",
+            "stumblingPoint": "「customizechangeset post with userid: 1」とあるが、changeset が何を保持し、適用時の userid が権限にどう関係するかを知らないと管理者権限取得の段階を追えない。",
+            "explanation": "changeset は、WordPress のカスタマイズ変更を保存して後から適用する投稿形式です。この記事では SQLi で管理者を示す userid: 1 を持つ偽の customizechangeset を作り、cycle-detection gadget から wpupdatepost() を誘発します。changeset を適用した瞬間だけ管理者の identity を仮定する、というのが changeset escalation の段階です。"
+          },
+          {
+            "term": "hook re-entry",
+            "stumblingPoint": "「fabricated post ... fires the parserequest hook」とあるが、hook が処理途中で再実行される仕組みを知らないと、なぜ同じ batch request が管理者権限で再生されるのか理解しづらい。",
+            "explanation": "hook re-entry は、処理中に WordPress の hook を再び発火させ、別の処理経路へ入り直すことです。本文では status parse と type request を持つ偽投稿が parserequest を発火させます。その結果、元の batch request が管理者 identity を伴って再実行され、POST /wp/v2/users による管理者作成へ進みます。"
+          },
+          {
+            "term": "oembedcache",
+            "stumblingPoint": "「real oembedcache database rows」とあるが、oembedcache が投稿内の埋め込み結果を保持するデータであることを知らないと、偽投稿が別の永続データ作成につながる点を見落とす。",
+            "explanation": "oembedcache は、WordPress が埋め込みコンテンツの取得結果をキャッシュするためのデータです。この記事では偽の WPPost に含めた [embed] shortcode が通常の投稿処理として評価され、偽参照から実際の oembedcache 行が作られます。SQLi の結果が単なる読み取りで終わらず、後続の状態変化を誘発する接点です。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "wp2shell の攻撃経路",
+          "layers": [
+            {
+              "label": "攻撃者",
+              "nodes": [
+                {
+                  "name": "未認証リクエスト",
+                  "note": "Batch を送信",
+                  "highlight": false
+                }
+              ],
+              "via": "HTTP"
+            },
+            {
+              "label": "REST API",
+              "nodes": [
+                {
+                  "name": "REST API Batch",
+                  "note": "検証対応がずれる",
+                  "highlight": true
+                }
+              ],
+              "via": "SQLi 到達"
+            },
+            {
+              "label": "WordPress Core",
+              "nodes": [
+                {
+                  "name": "WPQuery",
+                  "note": "SQL injection",
+                  "highlight": true
+                },
+                {
+                  "name": "changeset",
+                  "note": "管理者 identity",
+                  "highlight": false
+                }
+              ],
+              "via": "偽投稿・hook"
+            },
+            {
+              "label": "最終結果",
+              "nodes": [
+                {
+                  "name": "管理者アカウント",
+                  "note": "users API で作成",
+                  "highlight": false
+                },
+                {
+                  "name": "悪意あるプラグイン",
+                  "note": "任意コマンド実行",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Full advisory",
+            "url": "https://slcyber.io/research-center/exploit-brokers-pay-500000-for-a-wordpress-rce-i-found-one-with-gpt5-6/"
+          },
+          {
+            "label": "WordPress RCE explained",
+            "url": "https://www.picussecurity.com/resource/blog/cve-2026-63030-and-cve-2026-60137-wp2shell-wordpress-rce-explained"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "know",
+        "impact": [
+          "WordPress 6.9.0〜6.9.4を運用している人",
+          "WordPress 7.0.0〜7.0.1を運用している人",
+          "WordPress REST API Batchを公開している人",
+          "WordPress管理者アカウントを管理している人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "WordPressのコアを6.9.5または7.0.2以降へ更新する",
+          "管理者一覧と追加プラグインを確認し、不審なアカウントを無効化する",
+          "Webアクセスログで/wp-json/batch/v1への異常なPOSTを調査する"
+        ],
+        "unknowns": [
+          "実環境での悪用事例や影響範囲は本文に記載なし",
+          "各CVEの公式アドバイザリURLは本文から確認できない"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "HTMLで書いた画面をMP4動画にするOSS「HyperFrames」をREADMEから整理する",
+      "url": "https://qiita.com/gitmeshi/items/c8c81599b752264abf68",
+      "publishedAt": "2026-09-20T01:46:53.000Z",
+      "author": "ギット飯",
+      "authorDetail": {
+        "name": "ギット飯",
+        "handle": "@gitmeshi",
+        "url": "https://qiita.com/gitmeshi",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4485911/dd015d1fecc308f6d807e2702b9287a6a8a1b2d6/x_large.png?1787746575",
+        "bio": "GitHubで伸びているOSSを、毎朝ひとつずつ日本語で紹介しています。\r\n一日一膳、GitHub。オープンソースの潮流を、好みの深さで。\r\n甘口・中辛・辛口の三段階で、AIが要約します。毎朝7時更新。",
+        "organization": "COLDBYTE",
+        "followers": 0,
+        "posts": 6,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://www.gitbap.com/ja"
+          }
+        ]
+      },
+      "tags": [
+        "OSS",
+        "HTML",
+        "動画生成",
+        "ffmpeg",
+        "AIエージェント"
+      ],
+      "snippet": "製品紹介やプルリクエストの解説など、短い動画を作りたい場面は増えていますが、動画編集ソフトのタイムラインを手で調整するのは手間がかかり、内容を少し直すたびに作業をやり直すことになりがちです。こうした作業を、Webページと同じHTMLとCSSで書き、コマンドでMP4に書き出す形にしようとしているのが、OSSの「HyperFrames」です。HeyGenのGitHub組織で公開されており、READMEでは「HTML、CSS、メディア、シーク可能なアニメーションを決定的なMP4動画に変えるオープンソースのフレームワーク」(筆者訳)と説明されています。 公式READMEに記載されている情報をもとに、どのような仕組みで、どのような場面で検討対象になり得るかを整理します。 42秒の概要動画も作りました(音声あり)。 https://x.com/gitmeshi/status/2100878850595…",
+      "body": "製品紹介やプルリクエストの解説など、短い動画を作りたい場面は増えていますが、動画編集ソフトのタイムラインを手で調整するのは手間がかかり、内容を少し直すたびに作業をやり直すことになりがちです。こうした作業を、Webページと同じHTMLとCSSで書き、コマンドでMP4に書き出す形にしようとしているのが、OSSの「HyperFrames」です。HeyGenのGitHub組織で公開されており、READMEでは「HTML、CSS、メディア、シーク可能なアニメーションを決定的なMP4動画に変えるオープンソースのフレームワーク」(筆者訳)と説明されています。\n\n公式READMEに記載されている情報をもとに、どのような仕組みで、どのような場面で検討対象になり得るかを整理します。\n\n42秒の概要動画も作りました(音声あり)。\n\nhttps://x.com/gitmeshi/status/2100878850595184707\n\n動画をHTMLとして書く\n\nHyperFramesでは、動画の構成(コンポジション)を1つのHTMLファイルとして書きます。要素ごとに、いつ表示を始めるか、どれだけの長さ表示するか、どのトラックに置くかをdata属性で指定します。READMEの例を簡略化すると、次のような形です。\n\n [code] \n\nREADMEでは、Reactは必須ではなく独自のタイムライン形式もないこと、ビルドステップがなく index.html をそのままブラウザでプレビューできることが特徴として挙げられています。\n\nアニメーションは既存のライブラリで\n\nアニメーションはアダプター方式で、GSAP、CSSアニメーション、Lottie、Three.js、Anime.js、WAAPI、または独自のランタイムを使えるとされています。条件は、フレーム単位で任意の時点に移動(シーク)できるアニメーションであることです。\n\n同じ入力から同じ動画を作る仕組み\n\nレンダラーはヘッドレスChromeで各フレームにシークして撮影し、FFmpegでエンコードします。READMEではこれを「same input, same frames, same output」と表現し、CIや回帰テスト、自動レンダリング向けとしています。ローカルのほか、DockerやAWS Lambdaでのレンダリング経路も挙げられています。\n\n導入方法\n\nREADMEに記載されている、CLIでの基本的な流れは次のとおりです。\n\n [code] \n\n必要なものは Node.js 22以上 と FFmpeg です。AIコーディングエージェントから使う場合は、HyperFramesのスキルをインストールして、作りたい動画を説明する方法も紹介されています。ライセンスはApache 2.0で、READMEにはレンダリングごとの料金や商用利用の上限はないと書かれています。\n\nRemotionとの違い\n\nREADMEには、同じくヘッドレスChromeとFFmpegで動画を作るRemotionとの比較表があります。HyperFramesはRemotionから着想を得たとしたうえで、違いを書き方に置いています。RemotionはReactコンポーネントで書き、バンドラーが必要です。HyperFramesは素のHTMLで書き、人もエージェントも扱いやすいことを重視しています。一方で、クラウドでの分散レンダリングについてはRemotion Lambdaを「成熟した」ものとして挙げています。\n\nどのような場面で検討するか\n\nこうした特徴から見て、製品紹介やドキュメントの解説動画をコードとして管理したい場合、AIエージェントに動画の構成を書かせたい場合、同じテンプレートで内容だけ変えた動画を繰り返し作りたい場合に、検討候補として挙がりそうです。\n\nREADMEだけでは判断できない点\n\nREADMEは機能と比較の一覧であり、長尺動画のレンダリング時間やマシン負荷、音声の細かな編集への向き不向き、既存の動画編集ワークフローとの併用のしやすさは書かれていません。フレームごとにブラウザで撮影する方式のため、動画の長さや解像度によっては書き出しに時間がかかる可能性もあります。導入を検討する場合は、公式ドキュメントやShowcaseを確認し、自分たちの環境で試す必要があります。\n\n出典: https://github.com/heygen-com/hyperframes/blob/main/README.md\n公式READMEをもとに、AIを執筆・推敲支援に使用しています。実機検証の報告ではありません。概要動画はREADMEをもとに作成した説明用のモーショングラフィックで、HyperFramesで制作したものではありません。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "3f18bd50e5158d16",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8332978723404256,
+      "popularityPercentile": 0.6968085106382979,
+      "matchedTopics": [
+        "ブラウザ / Web標準",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "HyperFramesはHTMLとCSSで構成した画面をMP4動画へ変換するOSSです。",
+      "takeaways": [
+        "HyperFramesはHTMLで動画の画面を組み立てる。",
+        "表示時間や順番を要素ごとに指定できる。",
+        "ブラウザで確認した内容をMP4へ書き出せる。"
+      ],
+      "keywords": [
+        "HyperFrames",
+        "HTML",
+        "CSS",
+        "MP4",
+        "ffmpeg",
+        "HeyGen"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "HyperFramesは、動画の構成を1つのHTMLファイルに書き、HTMLとCSS、メディア、アニメーションをMP4へ変換するOSSです。要素の表示開始時刻・表示時間・トラックをdata属性で指定し、GSAPやCSSアニメーション、Lottie、Three.jsなどをアダプター経由で利用できます。レンダラーはヘッドレスChromeで各フレームへシークして撮影し、FFmpegでエンコードするため、同じ入力から同じフレーム列・同じ出力を作ることを狙っています。Node.js 22以上とFFmpegが必要で、ローカルのほかDockerやAWS LambdaでのレンダリングもREADMEに記載されています。Reactとバンドラーを前提にするRemotionに対し、HyperFramesは素のHTMLを直接ブラウザでプレビューできる点を差分としています。",
+        "prerequisites": [
+          {
+            "term": "HyperFrames",
+            "stumblingPoint": "記事は「HTML、CSS、メディア、シーク可能なアニメーションをMP4に変える」と書くが、何を実行して出力する道具かが一読で分かりにくい。",
+            "explanation": "HyperFramesは、HTMLファイルを動画の設計図として読み込み、ブラウザで各時点の画面を撮影してMP4にするフレームワークです。動画編集ソフトのタイムラインではなく、コードを直して再出力する運用を想定しています。"
+          },
+          {
+            "term": "data属性",
+            "stumblingPoint": "「表示開始時刻、表示時間、トラックをdata属性で指定する」とあるが、HTML要素の見た目の指定と時間軸の指定がどう分かれるか読み取れない。",
+            "explanation": "data属性は、HTML要素に動画用の時刻情報を持たせる記述欄です。CSSで見た目を、data属性でいつ表示するかを管理するため、構成をHTMLとして読める形に保てます。記事本文では具体的な属性名とコードが省略されています。"
+          },
+          {
+            "term": "アダプター",
+            "stumblingPoint": "GSAPやLottieなどを「アダプター方式で使える」とあるが、既存のアニメーションライブラリをそのまま使えるのか判断しにくい。",
+            "explanation": "アダプターは、各ライブラリのアニメーションをHyperFramesのフレーム単位の時間制御につなぐ接続部分です。任意の時点へシークできることが条件なので、時間を進めながら再生するだけの実装では目的を満たせません。"
+          },
+          {
+            "term": "シーク",
+            "stumblingPoint": "「各フレームにシークして撮影する」とあるが、通常の動画再生との違いを知らないと決定的な出力になる理由が分からない。",
+            "explanation": "シークは、動画やアニメーションを指定した時刻へ直接移動する操作です。HyperFramesは再生速度に依存せず、フレームごとに同じ時刻の画面を取得するため、同じ入力から同じフレーム列を作りやすくなります。"
+          },
+          {
+            "term": "ヘッドレスChrome",
+            "stumblingPoint": "レンダラーが「ヘッドレスChromeで撮影する」とあるが、ブラウザを表示せずにHTMLをどう動画化するのかが詰まりやすい。",
+            "explanation": "ヘッドレスChromeは、画面を開かずにChromeの描画処理を実行できるモードです。HyperFramesではこのブラウザがHTML・CSS・JavaScriptを描画し、指定時刻の画面をフレームとして取り出します。"
+          },
+          {
+            "term": "FFmpeg",
+            "stumblingPoint": "「FFmpegでエンコード」と書かれているが、ブラウザが作ったフレーム列と最終MP4の間で何を担当するのかが省略されている。",
+            "explanation": "FFmpegは、画像や音声などのメディアを動画ファイルへ変換・圧縮するコマンドラインツールです。HyperFramesではChrome側のフレーム取得後に、フレーム列をMP4として書き出す役割を担います。"
+          },
+          {
+            "term": "Remotion",
+            "stumblingPoint": "Remotionとの比較で「React」「バンドラー」「Remotion Lambda」が並ぶが、HyperFramesを選ぶ判断軸が書き方以外にもあるのか迷う。",
+            "explanation": "RemotionはReactコンポーネントとバンドラーを使って動画を構成する同系統のツールです。記事の比較では、HyperFramesの主な差分は素のHTMLを使い、index.htmlをビルドせずプレビューできる書きやすさにあります。一方、分散レンダリングはRemotion Lambdaの成熟度が高いとREADMEは説明しています。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "MP4生成経路",
+          "layers": [
+            {
+              "label": "入力",
+              "nodes": [
+                {
+                  "name": "index.html",
+                  "note": "動画の構成と時間軸",
+                  "highlight": true
+                }
+              ],
+              "via": "HTML/CSS"
+            },
+            {
+              "label": "描画",
+              "nodes": [
+                {
+                  "name": "ヘッドレスChrome",
+                  "note": "各フレームへシークして撮影",
+                  "highlight": true
+                }
+              ],
+              "via": "フレーム列"
+            },
+            {
+              "label": "出力",
+              "nodes": [
+                {
+                  "name": "FFmpeg",
+                  "note": "フレームをMP4へエンコード",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "HyperFrames README",
+            "url": "https://github.com/heygen-com/hyperframes/blob/main/README.md"
+          },
+          {
+            "label": "概要動画",
+            "url": "https://x.com/gitmeshi/status/2100878850595184707"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "build",
+        "unlocks": [
+          "HTMLを直して、同じ画面をMP4として何度でも出力できる",
+          "GSAPやLottieのアニメーションをフレーム単位で動画化できる"
+        ],
+        "howToTry": [
+          "https://github.com/heygen-com/hyperframes/blob/main/README.md",
+          "`git clone https://github.com/heygen-com/hyperframes.git && cd hyperframes`",
+          "READMEの導入手順に従い、Node.js 22以上とFFmpegを用意する",
+          "READMEの最小例を`index.html`として保存し、記載されたCLIコマンドでローカルレンダリングする",
+          "生成されたMP4を再生し、HTMLの文言や表示時刻を変更して再レンダリングする"
+        ],
+        "fitFor": [
+          "HTML/CSSで製品紹介やPR解説動画をコード管理したいとき",
+          "同じ構成で内容だけ変えた動画を繰り返し作るとき",
+          "Node.js 22以上とFFmpegを使える環境があるとき"
+        ],
+        "notFor": [
+          "長尺動画のレンダリング時間やマシン負荷を事前に保証したいとき",
+          "音声の細かな編集を主に行うワークフロー"
+        ],
+        "caveats": [
+          "Node.js 22以上とFFmpegがないとレンダリングを始められない"
+        ],
+        "tryPrompt": "# 試すこと\nHTMLで短い画面を作り、HyperFramesでMP4に書き出せるか確認する。\nhttps://github.com/heygen-com/hyperframes/blob/main/README.md\n# 手順\n1. `git clone https://github.com/heygen-com/hyperframes.git`\n2. `cd hyperframes`\n3. `node --version` を実行し、22以上であることを確認する。\n4. `ffmpeg -version` を実行し、FFmpegが使えることを確認する。\n5. READMEの最小サンプルを`index.html`として保存する。\n6. READMEに記載された依存関係のインストールコマンドを実行する。\n7. READMEに記載されたCLIコマンドで`index.html`をMP4へレンダリングする。\n8. 生成されたMP4を再生し、HTMLのテキストを変更して再度レンダリングする。\n# 確認したいこと\n- READMEの手順だけで、追加の設定なしに最初のMP4まで到達できるか\n- HTMLの変更が再レンダリング後のMP4に反映されるか\n- アニメーションの途中のフレームが意図した時刻で出力されるか\n# 前提・注意\n- Node.js 22以上とFFmpegが必要。\n- 記事本文ではCLIの具体的なコマンドが省略されているため、READMEから実行する。"
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "TianyuCodings/NanoJev — A nano replica of Jev: parallel decisions, dynamic candidates, and an end-to-end training pipeline.",
+      "url": "https://github.com/TianyuCodings/NanoJev",
+      "publishedAt": "2026-09-17T16:08:30.000Z",
+      "author": "TianyuCodings",
+      "authorDetail": {
+        "name": "TianyuCodings",
+        "url": "https://github.com/TianyuCodings",
+        "avatarUrl": "https://github.com/TianyuCodings.png?size=120",
+        "bio": "A nano replica of Jev: parallel decisions, dynamic candidates, and an end-to-end training pipeline."
+      },
+      "tags": [
+        "Python"
+      ],
+      "snippet": "A nano replica of Jev: parallel decisions, dynamic candidates, and an end-to-end training pipeline.",
+      "metrics": {
+        "stars": 1391,
+        "hatena": 4
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "4275b480930fa829",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.245,
+      "popularityPercentile": 0.8863636363636364,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 72,
+      "titleJa": "NanoJev — Jevの判断処理を再現する学習基盤",
+      "oneLiner": "NanoJevはJevの並列判断と候補選択を小規模に再現する学習基盤です。",
+      "takeaways": [
+        "NanoJevはJevの判断処理を小さく再現する。",
+        "複数の候補を同時に比べる仕組みを備える。",
+        "学習から評価までの流れを一通り用意する。"
+      ],
+      "keywords": [
+        "NanoJev",
+        "Jev",
+        "parallel decisions",
+        "dynamic candidates",
+        "training pipeline",
+        "Python"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "body": "NanoJev — A nano replica of Jev\n\nEnglish | 简体中文\n\nA 0.6B parallel decision model: states and questions in, complete probability distributions out. Zero output-token decoding.\n\nPlay ViZDoom · Maze & Snake · Model · Dataset\n\nNow playing ViZDoom: one shared checkpoint handles Basic aiming and Predict Position's moving-target rocket shots, alongside Maze and Snake.\n\n4 tasks · 18,760 decision questions per data variant · 896 Predict Position expert episodes\n\nWhat's new\n\nSeptember 20, 2026 — One model, four games.\n・ViZDoom Basic: 128/128 test successes, compared with 56/128 for Jev.\n・ViZDoom Predict Position: 27/128 test successes, up from 11/128 before this round; the matched Jev run also scores 11/128. The policy learns when to turn, wait and fire at a moving target.\n・16,333 ViZDoom questions within an 18,760-question mixed-task dataset per target variant, spanning train, dev, calibration, test and OOD.\n・One model, four games: the same step-400 checkpoint also completes the 50×50 maze in 225 attempts and collects 30 food items during a full 256-step Snake run.\n\nThree models, side by side\n\nReal browser replays of Jev, NanoJev and Untuned Qwen. These animations loop automatically; click either one to open its interactive player. All four demos use the same current NanoJev checkpoint. The interactive development site currently requires access; all recordings can also be played locally using the commands below.\n\nViZDoom Basic · Aim, then fire\n\n \n\nMove into position, line up the target, fire. NanoJev eliminates the target with one shot in 1.40 s; Jev and Untuned Qwen each fire 19 shots without an elimination before the deadline. The three panels share the same game clock and show original frames and action probabilities.\n\nFind the exit · 50×50 Maze\n\n \n\nNanoJev reaches the exit in 225 attempts, versus 2,738 for Jev and 4,726 for Untuned Qwen. Each system combines local safety probabilities with the same exploration code and remembered open paths.\n\nPlay Snake · Play Predict Position\n\nWhat NanoJev does\n・Parallel decisions: batch independent states, questions and candidate paths in one backbone forward.\n・Dynamic candidates: Choice returns a distribution over 2–255 supplied candidates using a shared scoring head.\n・Boolean and ordered scores: predict a proposition's probability, or a distribution and expectation over 2–10 ordered levels.\n・Direct probabilities: rank, select or sample actions without generating answer tokens.\n・One small backbone: Qwen3-0.6B with decision heads, reused across all four game tasks and a persistent inference service.\n\nEach request supplies a state, a question and its candidates. The backbone encodes candidate paths; shared heads produce the requested probabilities. Choice uses set attention and a softmax, Boolean uses a sigmoid, and Score returns a probability-weighted level.\n\nHeld-out gameplay\n\nSuccessful episodes on the complete 274-case test set, using the same observation interface, candidate actions and seeded epsilon-greedy controller across systems:\n\n| Model | Maze | Snake | Basic | Predict Position |\n|---|---:|---:|---:|---:|\n| NanoJev | 4/10 | 8/8 | 128/128 | 27/128 |\n| Jev | 7/10 | 8/8 | 56/128 | 11/128 |\n| Untuned Qwen3-0.6B | 2/10 | 0/8 | 56/128 | 11/128 |\n\nTest and OOD together contain 548 cases per model. Every evaluated trajectory passes independent simulator replay. The large navigation showcases above use their displayed local-question and code-planning settings.\n\nComplete test and OOD results · Training pipeline\n\nDataset scale and model\n\n18,760 decision questions per target variant, including 16,333 ViZDoom questions. The matched hard-target and soft-target variants cover the same questions across train, dev, calibration, test and OOD.\n\n| Task | All five splits | Training split |\n|---|---:|---:|\n| ViZDoom Predict Position | 11,173 | 6,788 |\n| ViZDoom Basic | 5,160 | 3,054 |\n| Maze | 1,469 | 653 |\n| Snake | 958 | 403 |\n| Total per variant | 18,760 | 10,898 |\n\nExpert gameplay: the package includes 896 Predict Position episodes with 17,498 recorded decisions, including 512 episodes assigned to training. It also contains the original mixed-task inputs, hard/soft targets, evaluation trajectories and replay checks.\n\nOf the 10,898 stored training questions, 10,893 pass the target-validity filter. Existing Maze, Snake and Basic splits are preserved.\n\nRelease version and training run\n\nunified-games-v1 packages the step-400 checkpoint from the hardlr1e5 training run. Both names refer to the same selected model used across the four demos.\n\n| Name | Meaning | When to use it |\n|---|---|---|\n| unified-games-v1 | Hugging Face release tag identifying the matching model and dataset snapshots. | Download with revision=\"unified-games-v1\". |\n| hardlr1e5 | Training experiment: hard (one-hot) action targets for Predict Position, backbone learning rate 1e-5, decision-head learning rate 1e-4. | Inspect training configs, logs and experiment comparisons. |\n\nThe shared model is trained with complete-question cross entropy. Updates mix Maze, Snake, Basic and Predict Position with weights 1/3, 1/3, 1/6, 1/6.\n\nHugging Face release complete: the model and complete dataset are uploaded and verified as unified-games-v1. Both release tags resolve to their recorded snapshots; every uploaded file passes remote identity checks.\n\nThe model and dataset are public and can be downloaded without signing in.\n\nQuick start\n\n [code] \n\nDownload the current checkpoint and data:\n\n [code] \n\nStart inference in a CUDA environment:\n\n [code] \n\nThe service loads the model once. Send state/question batches to POST http://127.0.0.1:8765/api/evaluate.\n\nTo explore the recorded games locally:\n\n [code] \n\nOpen http://127.0.0.1:8080/dev/?autoplay=1 for ViZDoom Basic or http://127.0.0.1:8080/dev/side-by-side.html?autoplay=1#maze for Maze.\n\nDevelopment notes\n\nRelease contents and reproduction · Input contract · Unified environments · Atomic planning · Predict Position replay · Shooting replay\n\nRoadmap\n・[x] One unified checkpoint for Maze, Snake and both shooting tasks.\n・[x] 50×50 Maze, long Snake games and synchronized three-model browser replays.\n・[x] Mixed-task SFT, reproducible data splits and independently replayed evaluation.\n・[ ] RLCD post-training for broader long-horizon tasks.\n・[ ] Shared-prefix inference and larger candidate batches.\n・[ ] Broader shooting scenarios and structured input support.",
+      "rank": 2,
+      "deep": {
+        "summary": "NanoJevは、Qwen3-0.6Bを土台にした0.6Bのparallel decision modelで、状態・質問・候補を入力すると、回答トークンを生成せず確率分布を返す。Choice、Boolean、Scoreのdecision headsを使い、候補選択・命題判定・順序付きスコアを同じbackboneで処理する。unified-games-v1として公開されたstep-400 checkpointは、ViZDoomのBasicとPredict Position、Maze、Snakeの4タスクを1つのモデルで扱う。CUDA環境では推論サービスを起動し、POST http://127.0.0.1:8765/api/evaluateへ状態・質問・候補のバッチを送れる。データセット、評価軌跡、リプレイ検証も含むため、ゲーム環境での推論だけでなくtraining pipelineの再現にも使える。",
+        "prerequisites": [
+          {
+            "term": "NanoJev",
+            "stumblingPoint": "記事は「A 0.6B parallel decision model」と書くが、通常の文章生成モデルと何が違うかを知らないと出力形式を読み取れない。",
+            "explanation": "NanoJevは文章を1トークンずつ生成するモデルではなく、状態と質問に対する候補の確率を直接返すモデルである。たとえば「次にどの行動を選ぶか」を候補ごとの分布として受け取るため、回答文をデコードして行動へ変換する処理が不要になる。この記事では、この形式を4種類のゲームのコントローラから共通利用している。"
+          },
+          {
+            "term": "parallel decision model",
+            "stumblingPoint": "「states and questions in, complete probability distributions out」とあるが、parallelがゲーム内の並列実行なのか、1回の推論で複数判断することなのか判別しにくい。",
+            "explanation": "parallel decision modelは、独立した複数のstate・question・candidate pathを1回のbackbone forwardにまとめて処理する設計を指す。ゲームを4本同時に動かすという意味ではなく、推論リクエスト内の複数判断をバッチ化する仕組みである。"
+          },
+          {
+            "term": "decision heads",
+            "stumblingPoint": "「Qwen3-0.6B with decision heads」とあるが、backboneと何を分担しているかを知らないとChoiceやScoreの説明がつながらない。",
+            "explanation": "decision headsは、backboneが候補を表現した後に、用途別の確率を計算する出力部分である。Choiceは候補集合からの選択、Booleanは命題の真偽、Scoreは順序付きレベルの分布を担当する。つまり同じQwen3-0.6Bを共有しながら、質問の型に応じて出力方法だけを切り替える。"
+          },
+          {
+            "term": "dynamic candidates",
+            "stumblingPoint": "「2–255 supplied candidates」とあるが、候補数が固定ではないことが実際の呼び出しにどう効くかが読み取りにくい。",
+            "explanation": "dynamic candidatesでは、リクエストごとに2〜255個の候補を渡せる。モデル側に固定された行動ラベル一覧から選ぶのではなく、その時点の状態から生成した候補パスや行動集合を入力し、候補間のスコアを比較する。Mazeや射撃のように局面ごとに選択肢が変わるタスクで使いやすい。"
+          },
+          {
+            "term": "unified-games-v1",
+            "stumblingPoint": "「release tag」と「hardlr1e5」が同じモデルを指すと書かれているが、配布物を取得するときにどちらを指定すべきか迷いやすい。",
+            "explanation": "unified-games-v1はHugging Face上のモデルとデータセットの対応スナップショットを識別するリリースタグで、ダウンロード時はrevision=\"unified-games-v1\"を使う。hardlr1e5は学習実験名であり、学習率やhard targetなどの設定・ログを調べるための名前である。"
+          },
+          {
+            "term": "CUDA",
+            "stumblingPoint": "Quick startは「Start inference in a CUDA environment」とだけ書いているが、CPU環境でも同じ手順で起動できると考えると開始時点で詰まる。",
+            "explanation": "CUDA環境は、公開された推論サービスを起動してNanoJevを実行する前提である。記事本文にはGPUの型、CUDAのバージョン、依存パッケージの導入コマンドが記載されていないため、手元のGPU環境とREADMEの実行条件を先に確認する必要がある。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "推論経路",
+          "layers": [
+            {
+              "label": "入力",
+              "nodes": [
+                {
+                  "name": "state",
+                  "note": "現在のゲーム状態",
+                  "highlight": false
+                },
+                {
+                  "name": "question",
+                  "note": "判断したい問い",
+                  "highlight": false
+                },
+                {
+                  "name": "candidates",
+                  "note": "2〜255個の候補",
+                  "highlight": false
+                }
+              ],
+              "via": "入力バッチ"
+            },
+            {
+              "label": "共有モデル",
+              "nodes": [
+                {
+                  "name": "Qwen3-0.6B",
+                  "note": "候補パスをエンコード",
+                  "highlight": true
+                }
+              ],
+              "via": "候補表現"
+            },
+            {
+              "label": "出力",
+              "nodes": [
+                {
+                  "name": "Choice",
+                  "note": "候補の確率分布",
+                  "highlight": false
+                },
+                {
+                  "name": "Boolean",
+                  "note": "命題の確率",
+                  "highlight": false
+                },
+                {
+                  "name": "Score",
+                  "note": "順序付き期待値",
+                  "highlight": false
+                }
+              ],
+              "via": "判定確率"
+            },
+            {
+              "label": "利用先",
+              "nodes": [
+                {
+                  "name": "推論サービス",
+                  "note": "POST /api/evaluate",
+                  "highlight": false
+                },
+                {
+                  "name": "4ゲーム",
+                  "note": "Maze・Snake・ViZDoom",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://github.com/TianyuCodings/NanoJev/raw/main/assets/basic_unified_autoplay.gif",
+            "alt": "NanoJev eliminates the target with one shot while Jev and Untuned Qwen fail, shown side by side on the same game clock",
+            "caption": "同じゲーム時計で比較すると、NanoJevだけが1.40秒で1発撃破し、JevとUntuned Qwenは19発撃っても撃破できていない。"
+          },
+          {
+            "url": "https://github.com/TianyuCodings/NanoJev/raw/main/assets/maze_unified_autoplay.gif",
+            "alt": "Jev, current NanoJev and Untuned Qwen explore the same 50×50 maze in the live three-panel viewer",
+            "caption": "50×50 Mazeの同一探索で、NanoJevは225回、Jevは2,738回、Untuned Qwenは4,726回で出口に到達した。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "NanoJev GitHubリポジトリ",
+            "url": "https://github.com/TianyuCodings/NanoJev"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "build",
+        "unlocks": [
+          "1つのcheckpointで4種類のゲームを動かせる",
+          "候補を渡すだけで行動確率をまとめて取得できる"
+        ],
+        "howToTry": [
+          "git clone https://github.com/TianyuCodings/NanoJev.git",
+          "cd NanoJev",
+          "READMEのQuick startにあるダウンロード手順で、unified-games-v1のcheckpointとデータを取得する",
+          "CUDA環境でREADMEの推論サービス起動コマンドを実行する",
+          "POST http://127.0.0.1:8765/api/evaluateへstate・question・candidatesのバッチを送る"
+        ],
+        "fitFor": [
+          "CUDA環境で公開checkpointの推論を試せるとき",
+          "ゲーム状態と候補行動を自分で用意できるとき",
+          "評価軌跡やtraining pipelineも再現したいとき"
+        ],
+        "notFor": [
+          "CUDAを使えないCPU-only環境",
+          "固定APIだけで文章生成モデルを試したいとき",
+          "インタラクティブ開発サイトへのアクセスだけで確認したいとき"
+        ],
+        "caveats": [
+          "記事本文ではQuick startの具体的なコマンドと依存関係が省略されている。"
+        ],
+        "tryPrompt": "# 試すこと\nNanoJevをローカルに取得し、READMEのQuick startに従ってunified-games-v1のモデルをCUDA環境で起動し、最初の推論結果を得る。\nhttps://github.com/TianyuCodings/NanoJev\n# 手順\n1. `git clone https://github.com/TianyuCodings/NanoJev.git`\n2. `cd NanoJev`\n3. `README.md`のQuick start、依存関係、モデル・データ取得手順を確認する。\n4. READMEに記載された依存関係をCUDA環境へインストールする。\n5. READMEに記載されたコマンドでunified-games-v1を取得する。\n6. READMEに記載されたコマンドで推論サービスを起動する。\n7. `curl`またはREADMEのサンプルを使い、`http://127.0.0.1:8765/api/evaluate`へstate・question・candidatesを送信する。\n# 確認したいこと\n- READMEの手順だけでモデル取得からサービス起動まで到達できるか\n- `/api/evaluate`へ候補付きのリクエストを送り、確率分布が返るか\n- 付属のローカルゲームリプレイを再生できるか\n# 前提・注意\n- CUDA環境が必要。\n- 元記事ではQuick startの具体的なコマンドが省略されているため、READMEの記載を使う。"
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "危ない使い方を、禁止しない ― 親リポジトリと子リポジトリを、重ねて登録する",
+      "url": "https://qiita.com/R2-san/items/15131e6df3eb88359cd6",
+      "publishedAt": "2026-09-20T07:48:23.000Z",
+      "author": "R2-san",
+      "authorDetail": {
+        "name": "R2-san",
+        "handle": "@R2-san",
+        "url": "https://qiita.com/R2-san",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/72678/profile-images/1473699237",
+        "bio": "個人開発で、AI coding agent、WordPress、Web開発に取り組んでいます。\r\n現在は「R2 Fugu Agent Runtime」をメイン開発中。\r\nAIにすべてを任せるのではなく、Repository理解やContext管理、安全な実行基盤をどう作るかを試行錯誤しています。",
+        "followers": 1,
+        "posts": 6,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "生成AI",
+        "AIエージェント",
+        "LLM",
+        "設計"
+      ],
+      "snippet": "本記事の内容は私（R2-san）の体験（実装コード）・判断・指示に基づきますが、文章作成は生成 AI が行い、私の監修・確認を経て公開しています。 今回は、 R2 を、サーバー用のコードとクライアント用のコードを並行して開発できるようにする。 という事を実装した話です。 先に結論を書きます。 危ない使い方を、禁止しない。通したうえで、起きることをこちらが引き受ける。 --- 重ね登録とは何か 手元のフォルダはこうなっています。 [code] サーバーだけ直したいときもあれば、共通の設定を両方まとめて見てほしいときもあります。 R2（R2 Fugu Agent Runtime。私が個人で作っている AI coding agent の runtime です）では、「ここを触っていい」と登録したフォルダを登録リポジトリ、「ここをこう直したい」という 1 件の依頼を Task と呼びます。Task…",
+      "body": "本記事の内容は私（R2-san）の体験（実装コード）・判断・指示に基づきますが、文章作成は生成 AI が行い、私の監修・確認を経て公開しています。\n\n今回は、\n\nR2 を、サーバー用のコードとクライアント用のコードを並行して開発できるようにする。\n\nという事を実装した話です。\n\n先に結論を書きます。\n\n危ない使い方を、禁止しない。通したうえで、起きることをこちらが引き受ける。\n\n---\n\n重ね登録とは何か\n\n手元のフォルダはこうなっています。\n\n [code] \n\nサーバーだけ直したいときもあれば、共通の設定を両方まとめて見てほしいときもあります。\n\nR2（R2 Fugu Agent Runtime。私が個人で作っている AI coding agent の runtime です）では、「ここを触っていい」と登録したフォルダを登録リポジトリ、「ここをこう直したい」という 1 件の依頼を Task と呼びます。Task は、調べる → AI モデルに案を作らせる → ファイルへ当てる（実際に書き込む）→ テストを走らせる、までがひとまとまりです。当てる直前には、あとから元へ戻せるように、そのファイルの今の内容を控えとして保存します。\n\nそして、1 つの Task は、1 つの登録リポジトリだけを対象にします。 範囲がはっきりしていないと、失敗したときに何を戻せばいいのかも決まりません。\n\nこの決まりを変えずに、どう成り立たせるか。答えは単純でした。3 つとも登録すればいい。\n\n [code] \n\n登録が入れ子になる。これを重ね登録と呼んでいます。範囲は、どの登録で Task を作るかで決まる。 新しい設定項目も、新しい概念も要りません。\n\nこのとき私が伝えた要望は、作業指示書にこう要約されて残っています。\nリポジトリ名 → 共通 / サーバー / クライアント → タスクリスト\n\n画面にこう見えてほしい、という話です。重ねて登録すると、親の下に子がぶら下がり、それぞれに Task が並ぶ形が、そのまま出ます。\n\n---\n\nいちばん簡単な案は、「拒否する」だった\n\n重ねて登録すればいい ―― これは当たり前に見えると思います。ただ、設計の段階で並んだ案には、逆向きのものがありました。\n\n親子関係にあるフォルダを、両方登録することを拒否する。\n\n理屈は通っています。親と子は同じファイルを指しうる。同じファイルを 2 つの Task が別々に書き換えたら、何が起きるか読めない。\n\n却下しました。記録の言葉をそのまま引きます。\n人の意図を妨げる。R2 の一貫した方向性は人がやろうとすることを可能な限り許し、帰結を R2 が引き受けることであり、禁止で安全を作らない。\n\n禁止は、いちばん安い安全です。実装も簡単で、事故も起きません。やりたいことができなくなるだけです。 しかも禁止された側には理由が分かりません。並行で開発したいだけの人にとって「親子は登録できません」は理不尽な仕様にしか見えず、道具としてはそこで使われなくなります。\n\nほかの案も全部却下しました。理由だけ短く。\n・命名規約 / 「同時に動かさないで」という運用ルール … ユーザーに名付けさせる・覚えさせる・気を付けさせる案。この形の案は、いつも採りません。できる人にはできるので設計の場では通ってしまい、できなかった人のところで事故になる。\n・親を登録したら中の子を自動で登録する … 意図していないフォルダを勝手に管理下へ置きます。候補として見せるのは情報提供、登録するのは権限の話。\n・フォルダ名（server、client など）から推測する … その名前を使っていないリポジトリでは見つけられず、たまたま同名の無関係なフォルダは拾います。\n・Task に「サーバー用」のようなグループ属性を足す … 登録の入れ子という既存の事実と食い違いうる 2 つ目の事実になります。\n\n却下理由を残してあるのは、後から同じ案をもう一度思いつくからです（AI も人も思いつきます）。\n\n---\n\n調べたら、穴はロックだけだった\n\nでは、禁止しないと決めて何を作ったか。安全に関わる部分は、ほとんど何も作っていません。\n\n壊れる箇所を先に洗い出したら、1 か所だけでした。作業指示書の言葉を引きます。\n鮮度検証・divergence check は実ファイルの内容ハッシュを見るので、子の Task が書いた後の親の restore は『diverged』として既に fail-closed に止まる。穴はロックだけである。\n\n言い換えます。R2 には「当てる前に、今そこにある内容が思っていたとおりか確かめる」仕組みと、「戻すときに、当てた内容と今の内容が食い違っていないか確かめる」仕組みがあります。この食い違いを 乖離 と呼びます。乖離があれば、差分を見せて確認を取るまで書き戻しません（確認が取れないなら、止まるほうを選ぶ。これを fail-closed と言います。扉や弁が壊れたとき、開くのではなく閉じるほう）。\n\nこの 2 つはどちらも、ファイルの中身そのものを見ています。 パスの文字列でも、登録の構造でもない。だから、親の Task が当てたファイルを子の Task が書き換えても、親を戻そうとした時点で気づきます。親子だからといって足すものが無かった。（大仕事に聞こえたものが、切り分けたら大半は出来ていた、という形です。）\n\n開いていた窓 ― 同時に書けてしまう、短い隙間\n\nR2 は、2 つの Task が同時に同じ場所へ書き込まないよう、書き込みの経路にだけ鍵を掛けています。問題は、その鍵が登録リポジトリごとに独立していたことでした。\n\n [code] \n\n②の控えは「親が書く前の内容」なので、あとで子を戻すと、親の仕事まで一緒に消えます。\n\n親の鍵と子の鍵は別物なので、互いに見えません。控えが壊れると、戻せるという保証そのものが壊れます。 R2 は「最後は git がある」を前提にしていないので、これは致命的です。\n\n作ってから、見回す\n\n塞ぎ方は地味でした。\n\n [code] \n\n順番が肝です。先に作ってから、見回す。 見回してから作ると、2 つが同時に「誰もいませんね」と確認して両方とも作ってしまいます。先に作れば、後から作り終えた側は先の鍵を必ず見つける。両方が引き下がる場合も残りますが、外れ方が安全な側なので、もう一度押せば解消します。\n\n判断の材料は、鍵のファイルに書いてある「どのフォルダのものか」だけ。登録の一覧は見に行きません。登録が増減しても鍵の意味が変わらないようにするためです。\n\n待たない。そして、誰が持っているかを見せる\n\n鍵が取れなかったとき、R2 は待ちません。即座に、使用中で実行できないという理由付きの失敗を返します。使うのが画面の前にいる個人だからです。待たせると、押した本人に何が起きているか分からなくなる。失敗して、もう一度押してもらうほうが分かりやすい。\n\nただし重ね登録では、それだけでは足りません。親も子も自分のもので、どちらも自分が動かしています。どっちのことを言われているのか分からない。 そこで、今それを使っている側 ―― 親リポジトリ「app」の Task なのか、子なのか、このリポジトリ自身なのか ―― を添えました。ここで 2 つ決めています。この問い合わせは、鍵を取れるかどうかの判断には一切関わらない（表示のためだけ）。そして取れなかったら推測で埋めない。登録と完全一致しなければ、フォルダのパスをそのまま出します。\n\n余談 ― .DSStore で全部止まった\n\n「作ってから見回す」には副作用があります。見回す途中で失敗したら、作ったばかりの自分の鍵が残る。 実際、鍵の置き場に macOS が勝手に作る .DSStore が 1 つ紛れ込むだけで想定外のエラーになり、残った鍵のせいでそのプロセスからの適用が以後すべて失敗する ―― という経路が見つかりました。見つけたのはレビュー AI です。実装 AI の報告を読んで納得したのではなく、突き合わせの検証でここまで辿り着いています。\n\n---\n\n親子関係は、保存しない\n\n画面に入れ子を出すには、どれが誰の親かを知る必要があります。登録時に保存しておくか、毎回その場で導き出すか。毎回導き出すほうを選びました。保存すると、登録の追加や解除のたびに整合を保つ仕事が生まれ、正しさの根拠が 2 か所に増えます。この 2 つは、いつかずれます。毎回導けば、ある登録を解除した瞬間に、次の答えが自動的に正しくなります。\n\nそしてもう 1 つ。「誰の親か、誰の子か、同じものか」を判定する関数を、1 つしか作らない。 鍵の相互排他も、画面の入れ子も、後で出てくる「この変更は誰の仕事か」の突き合わせも、全部これを呼びます。別々に実装すると「鍵は無関係だと思っているのに画面は親子として見せている」が起こり得る。テストで見つける問題ではなく、実装の構造で潰せる問題です。\n\n子の候補は、観測できる事実だけで出す\n\n親を登録したとき、中にまだ登録していないプロジェクトがあれば教えてほしい。判定は、そのフォルダに独立したプロジェクトの目印になるファイルがあるかだけにしました。ex. パッケージ設定のファイル、ビルド設定のファイル、バージョン管理のフォルダ。目印の存在は、そのフォルダがプロジェクトのいちばん上だと、道具が実際に目印として使っている事実です。名前は事実ではありません。\n\n見せ方も、見つかった目印を並べるだけ。「これはサーバーですね」という分類はしません。そして、見つけても勝手には登録しません。 押すかどうかは、使う側が決めます。\n\n余談 ― ちょうど 100 件で、嘘をついた\n\n探す件数には上限（100）があり、打ち切ったときは「上限に達したため一部のみ表示しています」と添えます。最初の実装はそれを返ってきた件数が上限と同じかどうかで判定していたので、ちょうど 100 件で本当に全部だったときだけ嘘になりました。是正は、数える側が上限の次の 1 件まで探しに行き、打ち切ったかどうかを自分で答えること。受け取る側は件数から推測しません。\n\n---\n\nApp と app が同じ場所のとき\n\n2 つ目の山場です。親子かどうかの判定は、結局パスの文字列を比べています。ところが macOS の既定では /work/App と /work/app は同じ場所です。 一方を App、もう一方を app と打って登録すると、R2 は「無関係」と判定します。実体は親子なのに。塞いだはずの穴が、綴り違いでもう一度開く。\n\n素直な対処は「macOS なら区別しないものとして扱う」です。却下しました。\n大文字小文字の区別可否はファイルシステムのフォーマット時の性質であり、OS の性質ではない。\n\n同じ macOS でも、区別する設定でフォーマットしたボリュームがあります。OS の名前から決めるのは、推測です。 なので、測ることにしました。\n\n [code] \n\nレビューで見つかった不備 ―「測らずに True」\n\n第 1 版には欠陥がありました。レビュー AI が見つけています。\n\nこの測り方は、名前に大文字小文字の区別を持つ文字があることが前提です。ところがかな・漢字・ハングルは、大文字小文字を入れ替えても元と同じ文字列のままです。「入れ替えた名前」が元と一字一句同じになる。当然その場所は実在し、当然同じ場所を指します。ファイルシステムを一切測らないまま、常に「区別しない」と答えていました。\n\nしかも机上の話ではありません。このリポジトリ自身が、日本語の名前が入ったパスの下に置いてあります。 レビュー AI も設計・監督 AI も、実際に動かして到達できることを確認しました。是正は、入れ替えた名前が元と違う文字列になり、長さも変わらない場合だけ測定に使う、というものです。\n\n測定は、排他を足すことしかできない\n\n同じレビューで、もう 1 つ指摘が出ています。測定が「区別する」（＝親子と見なす範囲を狭める側）と答えたとき、それをそのまま信じていいのか。いいえでした。間違えたときに起きることが、どちらに間違えたかで釣り合っていないからです。\n\n [code] \n\n測定は、排他の対象を増やすことしかできない。減らすことは一切できない。 効くのは「区別しないと分かった」ときだけで、「区別すると測れた」「測れなかった」は何も動かしません。そしてこれを、書き方で気を付けるのではなく、やり取りする値の形そのものを、片側にしか動けないものにしました（「区別する」という測定結果は、そもそも先へ渡りません）。気を付けることを人に要求しない、をコードの内側でもやっている例です。\n\n---\n\n「この Task の後に変更が加わっています」の、その先\n\n3 つ目の山場です。\n\n親の Task A が触ったファイルを、あとから子の Task B が触る。重ね登録では、これが普通に起きます。 同じファイルが、親からも子からも射程に入っているからです。そのあと A を戻そうとすると、R2 は乖離を検出して「この Task の後に変更が加わっています ―― この復元はそれも巻き戻します」と言います。\n\n正しい表示です。嘘はひとつもありません。ただ、画面の前の人には何も分かりません。 自分が動かしたもう 1 つの Task の仕事なのか、外で何かが変えたのか。前者なら「ああ、あれか」で終わり、後者なら手を止めて調べる必要があります。\n\n中身の指紋で、逆に引く\n\nR2 は、当てたときに「このファイルにはこういう内容を書いた」という短い印（中身から計算する指紋のようなもの。1 文字でも変われば印も変わります）を残しています。なので、今そこにある内容の印を計算して、記録を逆に引けばいい。\n\nここに、重ね登録ならではの落とし穴がありました。親と子では、同じファイルの相対パスが違います。\n\n [code] \n\n文字列では一致しません。照らし合わせは、フォルダの先頭からの完全なパス（絶対パス）で行います（「判定関数は 1 つだけ」が、ここでも効いています）。\n\n一致が複数あったら、全部返します。 同じ内容を別々の Task が独立に作ることはあり得るので、1 つに絞る基準を探すと、どれも推測になるからです。時刻を使う案も却下しました。「いちばん最近このファイルを触った Task」はもっともらしいけれど、時系列の近さは因果を証明しません。\n\n「無い」と「読めなかった」は、違う\n\nここがレビューで出たいちばん大きな是正です。\n\n最初の実装は、逆引きが空振りしたときに「R2 の Task が残した内容とは一致しません」と表示していました。一見、正しい。でも空振りには理由が何種類もあります。 どの記録とも一致しなかったのか。記録に問い合わせる手段が使えなかったのか。それとも、今そこにある内容を読むことができなかったのか。\n\n3 つ目が問題でした。バイナリだったり読み取りの上限を超えていたりして中身を読めないとき、読めないまま逆引きに進んでいた。そして実際に、実在するバイナリファイルが、無関係な Task の「ファイルを削除した」という記録と偶然一致して、「Task B が残した内容と一致します」と表示されました。 レビュー AI が、動かして再現しています。\n\n記録の言葉を引きます。\nこの製品が最も避けるべき『分からないことを分からないと言わず、たまたま一致した無関係な事実を確定的な帰属として見せる』という振る舞いそのもの\n\n是正は、表示を 3 つに分けることでした。\n\n [code] \n\n表面上はどれも「分かりません」です。でも、ユーザーが次に取る行動は違います。1 つ目なら外の変更を疑う。3 つ目なら、そもそも調べられていないと分かる。\n\n二度目の是正 ― 生きた symlink\n\n同じところを、もう一度直しています。「読めなかったら逆引きしない」と決めたのに、別名で参照しているだけのファイル（symlink）は、参照先まで辿って読めてしまう経路が残っていました。辿った先が普通のファイルなら中身が読めるので、「読めなかった」の分岐に入らない。外から中身を同じ内容の別ファイルへの参照に置き換えると、参照先の内容で逆引きされて「Task B が残した内容と一致します」と表示されました。 これも動かして確かめたうえでの報告です。\n\n是正は、読めるかどうかを判断する前に、無条件に「これは別名参照か」を先に見ることでした。2 回とも同じ形の見落としです。「読めた」と「読めた内容が、この場所の内容である」は違う。\n\n---\n\nまとめ\n\n重ね登録は、機能としては地味です。フォルダを 3 つ登録できるようにしただけとも言えます。でも、そこから出てきた判断は、この製品でやりたいことを一番よく表していました。\n\n1. 禁止で安全を作らない\n\n通したうえで、同時に書き込みが起きないようにし、起きたら理由を添えて失敗し、誰が使っているかを見せる。禁止は、こちらが引き受けるべき帰結を、ユーザーに押し付け返す行為です。\n\n2. 着手する前に、どこまでが既に効いているかを切り分ける\n\n控えも、鮮度の確認も、乖離の検出も、ファイルの中身を見ていたおかげで、親子でも無改造のまま効いていました。 開いていたのは、親と子が同時に書き込める窓だけ。先に切り分けたので、作るものはそこだけで済みました。\n\n3. 分からないときに分からないと言う。そのために「分からない」を分ける\n\n一致ゼロ、照会できない、読み取れない。表面上はどれも「分かりません」ですが、次に取る行動は違います。たまたま一致した無関係な事実を確定した答えとして見せることが、この製品にとっていちばん悪い振る舞いです。\n\n次回は、リポジトリの索引が、宣言しないまま Python 専用になっていた話を書く予定です。Python 専用だとはどこにも書いていないのに、実際に働いていたのはほぼ Python だけだった、という回です。\n\n---\n\nあとがき\n\n現在、R2 Fugu Agent Runtime は開発中断しています。記事を書きながら、R2 Fugu Agent Runtime を公開できればいいな、と考えていましたが、記事の方が製品開発に追いついてしまいそうです。\n\n中断理由はサブスクリプション AI のリソース（トークン）を他のものにかけているためです。財布は有限。\n\n---\n\n関連記事\n\nこのシリーズ（Qiita・製品設計）:\n・AI coding agentは、なぜ毎回リポジトリを調べ直すのか ― Repository理解を使い捨てにしない設計\n・AIに全部判断させるのをやめた ― AI ModelとCoding Agent Runtimeの責務をどう分けたか\n・AIも人間も設計判断を忘れる ― Repository Decision Memoryを作った理由\n・失敗したら、何も変えない ― AIの変更提案を、リポジトリに当てるまで\n・「検証に通りました」が嘘になっていた ― 許可と検証を、ユーザーが握る\n\nこの製品を AI に作らせる開発の進め方については、Zenn に別のシリーズを書いています:\n・設計も実装もレビューもAIがやる個人開発で、精度をどう出しているか — 全体像\n・作業指示書は、最初に書かせない ― 設計AIとのやり取りを全部見せる — 設計 AI 編\n・実装AIには、指示書のパスを渡すだけ ― コピペで始めた運用が仕組みになるまで — 実装 AI 編\n・レビューAIには、報告を信じさせない ― 突合レビューをどうさせているか — レビュー AI 編",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "4ec8e1909b5a9f5b",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6817730496453902,
+      "popularityPercentile": 0.9095744680851063,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "R2 Fugu Agent Runtimeで親子リポジトリの重ね登録を許しつつTask単位の安全性を保つ設計を実装した。",
+      "takeaways": [
+        "R2は複数の開発範囲を重ねて登録できる。",
+        "作業の範囲は依頼を作った登録先で決まる。",
+        "変更前の内容を保存して失敗時の復元に備える。"
+      ],
+      "keywords": [
+        "R2 Fugu Agent Runtime",
+        "AI coding agent",
+        "重ね登録",
+        "Task",
+        "リポジトリ設計"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "危ない使い方を許すか禁止するか",
+        "forSide": "禁止せず復元手段と責任範囲を設計した方が利用の幅を保てる。",
+        "againstSide": "危険な操作を先に止めれば事故と復旧コストを減らせる。",
+        "oneSided": false,
+        "yourAngle": "AIエージェントの変更範囲と復元処理を実装した経験を比較できる。"
+      },
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "R2 Fugu Agent Runtime で、親リポジトリと子リポジトリを同時に登録する「重ね登録」を、危険だから禁止するのではなく、そのまま許す設計を実装した。既存の鮮度検証と divergence check はファイル内容を見るため、親子間で変更が重なっても復元時に乖離を検出できた。新たに必要だったのは、登録リポジトリごとに独立していたロックを、親子で共有するファイルにも効くようにすることだった。ロック取得は「作ってから見回す」ことで競合を安全側に倒し、待たずに使用者を表示して失敗させる。さらに、変更元の推定では「一致しない」「照会できない」「読み取れない」を分け、分からないことを確定情報として見せないようにした。",
+        "prerequisites": [
+          {
+            "term": "R2 Fugu Agent Runtime",
+            "stumblingPoint": "記事は「R2（R2 Fugu Agent Runtime）」を前提に進むが、何を管理する実行基盤か知らないと設計判断の対象が読めない。",
+            "explanation": "R2 Fugu Agent Runtime は、AIモデルに変更案を作らせ、ファイルへ適用し、テストや復元まで扱うAI coding agentの実行基盤です。単なるチャット画面ではなく、書き込み前の控えや変更後の検証を持つため、親子登録の問題が「AIの回答品質」ではなく「変更を安全に適用・復元できるか」の問題になります。"
+          },
+          {
+            "term": "登録リポジトリ",
+            "stumblingPoint": "記事は「ここを触っていい」と登録したフォルダを登録リポジトリと呼ぶが、通常のGitリポジトリと同じ意味かは読み取れない。",
+            "explanation": "登録リポジトリは、R2がTaskの対象として操作を許可されたフォルダです。Git管理の有無そのものではなく、R2がどの範囲に書き込めるかを決める単位なので、親と子を別々に登録すると同じ実ファイルが複数のTaskの対象になります。"
+          },
+          {
+            "term": "Task",
+            "stumblingPoint": "記事はTaskを「1つの登録リポジトリだけを対象」にすると書くが、なぜ対象範囲を一つに固定する必要があるかで手が止まる。",
+            "explanation": "Taskは、調査・AIによる変更案の作成・ファイルへの適用・テスト・復元用の控えの保存をまとめた作業単位です。対象範囲が一つなら、失敗時にどのファイルを戻すかを決めやすくなります。重ね登録はこのTaskの単位を変えず、どの登録からTaskを作るかだけで範囲を選びます。"
+          },
+          {
+            "term": "fail-closed",
+            "stumblingPoint": "記事は乖離があれば「fail-closed」に止めると説明するが、安全側に倒れることが復元処理で何を意味するかが必要になる。",
+            "explanation": "fail-closed は、検証できない状態で処理を続けず、閉じた状態として失敗させる設計です。R2では、復元対象のファイルがTask適用後に変わっていた場合、変更を上書きして戻さず差分確認へ止まります。これにより、復元の名目で別のTaskや外部変更を消すことを避けます。"
+          },
+          {
+            "term": "divergence check",
+            "stumblingPoint": "記事は「鮮度検証・divergence check」が既存機能として効いたと書くが、パスや親子構造ではなく何を比較するのかが分からない。",
+            "explanation": "divergence check は、Taskが想定していたファイル内容と、現在の実ファイル内容が一致するかを調べる確認です。登録構造ではなく内容のハッシュを見るため、親Taskと子Taskが同じファイルを別の相対パスで扱っても、復元時に実体の変更を検出できます。この記事では、この既存の内容ベース検証が重ね登録の大部分を無改造で支えました。"
+          },
+          {
+            "term": "symlink",
+            "stumblingPoint": "記事は「生きたsymlink」を別名参照として扱うが、参照先を読めても元の場所を読んだことにはならない理由が必要になる。",
+            "explanation": "symlink は、別のファイルやディレクトリを指すファイルシステム上の別名です。参照先の内容を読めても、検証対象のパス自身の内容や種類を確認したことにはなりません。R2ではsymlinkかどうかを先に判定しないと、参照先の内容を元のファイルの内容と誤認し、無関係なTaskへ変更を帰属させる危険があります。"
+          },
+          {
+            "term": "fail-closed",
+            "stumblingPoint": "記事は「一致ゼロ」「照会できない」「読み取れない」を分けるが、いずれも画面上は分からないように見えるため差が掴みにくい。",
+            "explanation": "一致ゼロは調べた結果として記録と一致しなかった状態、照会できないは記録へ問い合わせる手段が使えない状態、読み取れないは現在のファイル内容を取得できない状態です。3つは次に取る行動が異なるため、同じ「Taskの変更ではない」とまとめると誤誘導になります。ここではfail-closedを、単に止めるだけでなく、停止理由を分解して伝える設計として使っています。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "重ね登録の書き込み経路",
+          "layers": [
+            {
+              "label": "Task",
+              "nodes": [
+                {
+                  "name": "親Task",
+                  "note": "親範囲から変更",
+                  "highlight": false
+                },
+                {
+                  "name": "子Task",
+                  "note": "子範囲から変更",
+                  "highlight": false
+                }
+              ],
+              "via": "書き込み要求"
+            },
+            {
+              "label": "ロック",
+              "nodes": [
+                {
+                  "name": "親ロック",
+                  "note": "親側の排他",
+                  "highlight": true
+                },
+                {
+                  "name": "子ロック",
+                  "note": "子側の排他",
+                  "highlight": true
+                }
+              ],
+              "via": "実体パスの競合"
+            },
+            {
+              "label": "実ファイル",
+              "nodes": [
+                {
+                  "name": "共有ファイル",
+                  "note": "親子双方の射程",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "危険な重ね登録",
+            "claim": "親子が同じファイルを書ける登録は、競合が読めないので拒否する。",
+            "counter": "禁止せず、共有ファイルのロックと乖離検出で帰結を引き受ける。",
+            "counterInArticle": true
+          },
+          {
+            "point": "安全の作り方",
+            "claim": "命名規約や「同時に動かさない」運用で利用者に注意させればよい。",
+            "counter": "注意できる人向けの運用は事故を防げないので、ロックと型で機械的に塞ぐ。",
+            "counterInArticle": true
+          },
+          {
+            "point": "変更元の特定",
+            "claim": "一致しそうなTaskを一つ推測して表示すれば、利用者には十分役立つ。",
+            "counter": "読めない状態を一致扱いせず、調査不能も含めて分からない理由を分ける。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AI coding agentの変更範囲",
+            "why": "ReactやNext.jsの親プロジェクトと子パッケージを日常的にAIへ触らせる読者なら、Task単位と実ファイル範囲のズレを具体例で出せる。"
+          },
+          {
+            "angle": "復元失敗時の次の行動",
+            "why": "TypeScript開発でAI変更をレビュー・テスト・差し戻しまで回しているため、失敗理由を一つにまとめた場合の手戻りを観測できる。"
+          },
+          {
+            "angle": "symlinkとケース感度",
+            "why": "macOS上でNode.jsやNext.jsの開発環境を扱う経験から、パス表記・symlink・ファイルシステム差異がツール挙動に与える影響を確認できる。"
+          }
+        ],
+        "verify": [
+          "tmp=$(mktemp -d); touch \"$tmp/a\"; test -e \"$tmp/A\" && echo case-insensitive || echo case-sensitive; rm -rf \"$tmp\""
+        ]
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Frontier Labs Are Selling Garbage to Fools in Washington",
+      "url": "https://deadneurons.substack.com/p/frontier-labs-are-selling-garbage",
+      "publishedAt": "2026-09-20T19:55:36.000Z",
+      "author": "nr378",
+      "authorDetail": {
+        "name": "nr378",
+        "handle": "nr378",
+        "url": "https://news.ycombinator.com/user?id=nr378"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 125,
+        "comments": 53
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "a5bf3f8a9375d0bb",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.2019672131147541,
+      "popularityPercentile": 0.9180327868852459,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 88,
+      "titleJa": "Frontier Labsがワシントンで粗悪品を売り込む構図",
+      "oneLiner": "記事はFrontier Labsがワシントンで粗悪な製品を売り込んでいると批判している。",
+      "takeaways": [
+        "Frontier Labsの政治向け売り込みを批判している。",
+        "製品の価値より宣伝の強さを問題にしている。",
+        "AI企業の説明責任が争点になっている。"
+      ],
+      "keywords": [
+        "Frontier Labs",
+        "AI",
+        "ワシントン",
+        "ロビー活動"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "AI企業の政治活動を規制するか任せるか",
+        "forSide": "公的判断に影響する企業ほど製品の実力を厳しく検証されるべきだ。",
+        "againstSide": "政治家や市場が製品の価値を判断すべきで企業活動を一律に疑うべきではない。",
+        "oneSided": true,
+        "yourAngle": "AIツールを業務で使う立場から宣伝と実装性能の差を比較できる。"
+      },
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 2,
+      "deep": {
+        "summary": "本文が提供されていないため、記事の主張・根拠・反論を確認できない。タイトルから、米国ワシントンにおけるAI企業の政治活動や、最先端AI企業への評価を批判する記事と推測できるが、本文に基づく要約は作成できない。提示された争点は「AI企業の政治活動を規制するか任せるか」だが、記事内での立場や具体例は不明である。発信材料にするには、本文または主要な引用・リンク先の追加が必要になる。",
+        "prerequisites": [],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 1,
+        "lane": "talk",
+        "clashes": [],
+        "firsthand": [],
+        "verify": []
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "b79cc9935775f203",
+      "product": "pnpm",
+      "what": "Node.js向けパッケージマネージャー",
+      "version": "11.27.1",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": {
+        "before": "pn・pnpx・pnxがPATH上のpnpmを検索",
+        "after": "同梱されたpnpmを直接実行"
+      },
+      "scope": [],
+      "summary": "pn・pnpx・pnxが同梱pnpmを実行するよう修正。@pnpm/bins.cmd-shimの追加と、キャッシュ一覧のレジストリURL表示も含む。",
+      "title": "pnpm/pnpm pnpm 11.27.1",
+      "url": "https://github.com/pnpm/pnpm/releases/tag/v11.27.1",
+      "sourceLabel": "GitHub Releases / pnpm/pnpm",
+      "publishedAt": "2026-09-20T21:38:41.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\npnpm 11.27.1 を入れて、この版の変更を確かめる\nhttps://github.com/pnpm/pnpm/releases/tag/v11.27.1\n\n# 手順\n1. git clone --depth 1 --branch v11.27.1 https://github.com/pnpm/pnpm\n2. cd pnpm && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 11.27.1 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v11.27.1 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "9/20、今日のセキュリティニュース｜北朝鮮の攻撃グループがIT技術者に「技術力を確認したい」などと近づき暗号資産を窃取、警察庁・NCOが手口を解説｜AIで脆弱性の発見が加速、いま「パッチ管理」が重要になる理由",
+      "url": "https://qiita.com/Kerdy/items/596d4321c01ff8236923",
+      "publishedAt": "2026-09-19T23:33:34.000Z",
+      "author": "鎌田 誠 かーでぃ",
+      "authorDetail": {
+        "name": "鎌田 誠 かーでぃ",
+        "handle": "@Kerdy",
+        "url": "https://qiita.com/Kerdy",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/2952925/profile-images/1733066139",
+        "bio": "IT知識はひろーく、浅ーく、幅広くをモットーにいろんな分野をちょっとずつかじってる、なんちゃってエンジニアです。",
+        "location": "豊橋市",
+        "followers": 9,
+        "posts": 159,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/_0447222690292"
+          },
+          {
+            "label": "Web",
+            "url": "https://lit.link/Kerdy"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "サイバーセキュリティ",
+        "セキュリティニュース",
+        "WaterPlum",
+        "暗号資産盗難"
+      ],
+      "snippet": "この記事は、note掲載記事の転載です。 おはようございます、かーでぃです。 本記事は、様々なネットニュースサイトからセキュリティ記事を集めて提供している”セキュリティ関連ニュースRSS”から、気になったニュースをピックアップして紹介しています。 情シスさんやサイバーセキュリティを担当されている方、逆に私のようにセキュリティ商材を取り扱う営業の皆様などに活用頂けると幸いです。 30秒のショート動画解説 https://www.youtube.com/shorts/zekX9CxeeKY?feature=share 北朝鮮の攻撃グループがIT技術者に「技術力を確認したい」などと近づき暗号資産を窃取、警察庁・NCOが手口を解説 https://internet.watch.impress.co.jp/docs/news/2142320.html 警察庁と国家サイバー統括室（NCO）は9月18日…",
+      "body": "この記事は、note掲載記事の転載です。\n\n \n\nおはようございます、かーでぃです。\n本記事は、様々なネットニュースサイトからセキュリティ記事を集めて提供している”セキュリティ関連ニュースRSS”から、気になったニュースをピックアップして紹介しています。\n情シスさんやサイバーセキュリティを担当されている方、逆に私のようにセキュリティ商材を取り扱う営業の皆様などに活用頂けると幸いです。\n\n30秒のショート動画解説\n\nhttps://www.youtube.com/shorts/zekX9CxeeKY?feature=share\n\n北朝鮮の攻撃グループがIT技術者に「技術力を確認したい」などと近づき暗号資産を窃取、警察庁・NCOが手口を解説\n\nhttps://internet.watch.impress.co.jp/docs/news/2142320.html\n警察庁と国家サイバー統括室（NCO）は9月18日、北朝鮮を背景とするサイバー攻撃グループ「WaterPlum」（ウォータープラム。関連名称「Contagious Interview」）の攻撃手口や、北朝鮮IT労働者による外貨獲得活動及び採用応募活動の実態について、米・豪・独の司法機関と合同で注意喚起の文書を発表した。\n\nXで「初めてAI面接の応募があった」という投稿が話題になってますよね。テレビのニュースでも取り上げられてました。\n\nhttps://x.com/1230yuji/status/2097590501629374490?s=20\n\nこの裏には北朝鮮が…なんてテレビではやってましたが、こちらの記事でも同様のことが書かれてますね！\n\nちょっと前にも書いたけど、ルートDNSを更新して中国・ロシア・北朝鮮からのアクセスは海外に抜けれないように変更して欲しいですわ…。\nそしたら、かなりのサイバー攻撃が減るはず。\n\nまぁ、どっかのプロキシや自前DNSを経由することになるんだろうけど、それはそれで監視範囲が劇的に狭くなるので、監視もしやすくなるし！！\n\n---\n\nAIで脆弱性の発見が加速、いま「パッチ管理」が重要になる理由\n\nhttps://news.mynavi.jp/techplus/article/20260918-4982758/\nAIの進化によって、ソフトウェアの脆弱性を発見するスピードが大きく変わりつつあります。従来は人手により多くの時間を要していた脆弱性の発見が、AIの支援によって加速し始めています。\n\nAI時代における攻撃のスピードアップに対抗して、防御側もスピードで対策しようというのはナンセンスです。\nスピード勝負したところで、攻撃側には勝てません。\n\nでも、脆弱性に関してだけは、できるだけ早くパッチを当てたいところ。\n\nということで、より具体的にどうやって脆弱性やパッチを管理すればええんや…と思って、少し調べてみました。\n世の中、PCやネットワーク機器の脆弱性を管理してくれる便利なツールもあるんです。\n\nhttps://www.tenable.com/products/vulnerability-management\n\nネットワークに繋がっている機器を「自動で丸裸」にする\n\n「社内にどんな機器が何台あるか、すべて把握できていない」という状態でも、ネットワーク内をスキャンして自動で機器を検出し、リスト化します。見落としがちな古いルーターや、社員が勝手に繋いだ端末なども見つけ出すことができます。\n\n世界最高レベルの「脆弱性検知」の精度\n\n開発元の Tenable 社は、世界中で使われている脆弱性スキャンツール「Nessus」の生みの親です。世界で最も多くの脆弱性データ（シグネチャ）を持っており、新しく発見されたサイバー攻撃の隙（脆弱性）も、素早く正確に検知します。\n\n「今すぐ直すべき危険」をAIが教えてくれる\n\n脆弱性が見つかると、AIや独自のアルゴリズムが「その脆弱性を突いた攻撃が、いま世の中で実際に流行しているか」を分析します。何千件もの問題の中から、「これは今すぐパッチを当てないと危ない」「これは後回しでOK」と優先順位（VPRスコア）を自動でランク付けしてくれます。\n\nただし、Tenableはパッチの適用状況までは可視化してくれますが、パッチを適用する機能はありません。パッチ適用には別のツールが必要になりますので、ご注意を。\n\n---\n\nセキュリティニュースの選定には、こちらのRSSを利用していますので、よかったらご利用ください。\n\n [code] \n\n RSSについては、👇の記事をご参照ください。\n\nhttps://note.com/kerdy/n/nc4944ad9442e\n\n[PR]月額500円で最新のセキュリティ事情がわかる❣\n\n毎日のセキュリティニュースをご覧くださいまして、ありがとうございます。 noteのメンバーシップ機能を使い、毎日のセキュリティニュースを「点」ではなく「線」で見るために、1か月分のニュースをまとめて振り返っていきます。\n記事数や注目テーマを集計し、データをみながら「この1か月は何が起きていたのか」を整理していきます。\n\nhttps://note.com/kerdy/membership\n\n---\n\n元記事\n\n9/20、今日のセキュリティニュース｜",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "25ef4c4e916e74b7",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.2859397163120567,
+      "popularityPercentile": 0.7845744680851063,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 64,
+      "titleJa": null,
+      "oneLiner": "北朝鮮系攻撃やAIによる脆弱性発見など9月20日の主要セキュリティニュースをまとめる。",
+      "takeaways": [
+        "北朝鮮系の攻撃グループがIT技術者に接近した。",
+        "採用活動を装って暗号資産を盗む手口が紹介された。",
+        "AIで発見が速まり修正状況の管理が重要になった。"
+      ],
+      "keywords": [
+        "WaterPlum",
+        "Contagious Interview",
+        "北朝鮮",
+        "暗号資産",
+        "パッチ管理",
+        "NCO"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "OpenAI APIで20件の障害が発生、Agent API過剰請求は要確認",
+      "url": "https://qiita.com/picnic/items/fd2261f9753de62ba324",
+      "publishedAt": "2026-09-20T14:48:31.000Z",
+      "author": "picnic",
+      "authorDetail": {
+        "name": "picnic",
+        "handle": "@picnic",
+        "url": "https://qiita.com/picnic",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKJ3kiIjdUf7zPvCPsjLhdpqsl9XSc0xblptYG809gyvXXYhvQ1=s96-c",
+        "followers": 3,
+        "posts": 199,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/PICNIC-A-DAY"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/h_picnic"
+          }
+        ]
+      },
+      "tags": [
+        "OpenAI",
+        "ChatGPT",
+        "API",
+        "codex",
+        "AI"
+      ],
+      "snippet": "はじめに 2026年9月20日時点で、OpenAIの公式ステータスページに 20件のインシデント が新規掲載されました。いずれも既に解決済みですが、ChatGPT Work、Codex、SSO/SCIM、GPT-5.6系モデル、Agent APIの課金など幅広いコンポーネントで一時的な障害が発生していたことがわかります。 新機能や破壊的な仕様変更はありませんが、Agent APIでOpenAIホスト型コンテナを利用しているユーザーは、過剰請求が発生していた可能性があるため請求内容の確認が推奨されます。本記事では20件のインシデントを重要度別に整理し、開発者・運用担当者が取るべきアクションをまとめます。 📌 影響を受ける人 ・Agent API上でOpenAIホスト型コンテナ（コードインタープリタ等）を利用しているユーザー ・エンタープライズプランでSSO/SCIMによるユーザー管理を行っ…",
+      "body": "はじめに\n\n2026年9月20日時点で、OpenAIの公式ステータスページに 20件のインシデント が新規掲載されました。いずれも既に解決済みですが、ChatGPT Work、Codex、SSO/SCIM、GPT-5.6系モデル、Agent APIの課金など幅広いコンポーネントで一時的な障害が発生していたことがわかります。\n\n新機能や破壊的な仕様変更はありませんが、Agent APIでOpenAIホスト型コンテナを利用しているユーザーは、過剰請求が発生していた可能性があるため請求内容の確認が推奨されます。本記事では20件のインシデントを重要度別に整理し、開発者・運用担当者が取るべきアクションをまとめます。\n📌 影響を受ける人\n・Agent API上でOpenAIホスト型コンテナ（コードインタープリタ等）を利用しているユーザー\n・エンタープライズプランでSSO/SCIMによるユーザー管理を行っている組織の管理者\n・ChatGPT Work、Codex、GPT-5.6系モデルを業務フローに組み込んでいるチーム\n\n変更の全体像\n\n20件のインシデントを影響コンポーネントと重要度で整理すると、以下のような構図になります。\n\n [code] \n\n赤色は severity: high の項目です。件数としては ChatGPT Work 関連が最多（5件以上）ですが、重大度が高いのは課金・認証・全体エラー率・GPT-5.6系の4系統です。\n\n変更内容\n\n重要度別サマリ\n\n| Severity | 件数 | 代表的な内容 |\n|---|---|---|\n| High | 4件 | Agent API過剰請求、SSO/SCIM不具合、API全体エラー率上昇、GPT-5.6系エラー増加 |\n| Medium | 12件 | ChatGPT Work・Codex・欧州リージョン・特定モデルでのエラー増加、Agents APIの性能低下 |\n| Low | 4件 | サポート応答遅延、Ads Managerログイン不具合、ターン失敗（約1%）、共有Project不具合 |\n\nHigh severity（重点確認項目）\n\n| ID | タイトル | 影響範囲 | 対応要否 |\n|---|---|---|---|\n| change-001 | Agent APIホスト型コンテナで過剰請求 | Agent API | 要確認 |\n| change-003 | SSOサインイン/SCIMプロビジョニング不具合 | SSO, SCIM | 復旧済み・再発監視推奨 |\n| change-004 | API全体でエラー率上昇（12コンポーネント） | Moderations, Responses, Sora, Audio, Files, Embeddings, Login, Images, Batch, Chat Completions, Fine-tuning, Realtime | 復旧済み |\n| change-009 | 有料プランのGPT-5.6/GPT-5.6 Instantでエラー増加 | Conversations | 復旧済み |\n\nchange-004は影響コンポーネントが12個にのぼり、事実上API全体に波及した障害でした。一方、他の\"medium\"インシデントの多くはChatGPT Workの単発エラーであり、根本原因が異なる複数の別インシデントとして記録されている点も特徴です（change-005/006/010/019など計5件がすべて別インシデント）。\n⚠️ Breaking Change\n今回の20件に破壊的変更（API仕様変更、非推奨化、モデル廃止など）は含まれていません。すべて一時的な障害の発生・復旧報告です。\n\n影響と対応\n\n1. Agent APIの請求確認（最優先）\n\nAgent APIでOpenAIがホストするコンテナ（コードインタープリタ等）を利用している場合、過剰請求が発生していた可能性があります。\n・過去の請求明細をダッシュボードで確認する\n・想定外の利用量・コストが計上されていないかチェックする\n・異常があればOpenAIサポートへ問い合わせる\n💡 Tips\n障害自体は復旧済みのため、今後の利用に追加対応は不要です。あくまで過去分の請求確認のみが必要なアクションです。\n\n2. エンタープライズ管理者向け\n\nSSO/SCIMの障害中にログインやユーザープロビジョニングが正しく反映されなかった可能性があります。特に障害期間中にユーザーの追加・削除・権限変更を行った組織は、IDプロバイダー側とOpenAI組織設定の同期状態を再確認することを推奨します。\n\n3. 開発者・運用担当者向け\n・ChatGPT Work / Codex / GPT-5.6系を業務フローや自動化パイプラインに組み込んでいる場合、障害期間中のエラーログにこれらのインシデントが原因のものが混在していないか確認する\n・監視・アラート基盤にOpenAI Statusページのステータス変化を組み込んでおくと、今後同様の障害を切り分けやすくなる\n\n [code] \n\nまとめ\n・OpenAI Statusページに9月20日、20件のインシデントが新規掲載され、すべて解決済み\n・破壊的変更や新機能追加はなく、いずれも一時的な障害\n・唯一アクションが必要なのはAgent APIの過剰請求で、OpenAIホスト型コンテナ利用者は請求内容の確認を推奨\n・SSO/SCIM、API全体のエラー率上昇、GPT-5.6系のエラー増加もseverity: highだが、いずれも復旧済みで追加対応は基本不要\n・ChatGPT Work関連のエラー増加は同日中に複数回（別インシデントとして）発生しており、同機能を業務利用しているチームは念のため障害期間中のログを見直すとよい\n\n今回はいずれも軽微〜一時的な障害でしたが、Agent APIのような課金に直結する機能の障害は実害につながりやすいため、ステータスページの定点観測を仕組み化しておくことをおすすめします。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9ce966fa236b3df7",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6920390070921987,
+      "popularityPercentile": 0.18351063829787234,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 62,
+      "titleJa": null,
+      "oneLiner": "OpenAIで20件の障害が発生し一部のAgent API利用者に過剰請求の可能性が生じた。",
+      "takeaways": [
+        "OpenAIで9月20日までに20件の障害が起きた。",
+        "コード実行用の機能で過剰請求の可能性がある。",
+        "障害は解消済みだが利用料金の確認が必要になった。"
+      ],
+      "keywords": [
+        "OpenAI",
+        "Agent API",
+        "Codex",
+        "GPT-5.6",
+        "SSO",
+        "SCIM"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "2026/9/21主にITとかセキュリティの記事",
+      "url": "https://qiita.com/pitopito/items/ce0173e67b0b0c80b2b9",
+      "publishedAt": "2026-09-20T19:21:23.000Z",
+      "author": "浩 釜本",
+      "authorDetail": {
+        "name": "浩 釜本",
+        "handle": "@pitopito",
+        "url": "https://qiita.com/pitopito",
+        "avatarUrl": "https://secure.gravatar.com/avatar/d301ec427285245483cff6d1c8f4fb3c",
+        "followers": 105,
+        "posts": 1703,
+        "links": []
+      },
+      "tags": [
+        "Security",
+        "ニュース"
+      ],
+      "snippet": "UAT-8837－北米の重要インフラを標的とする脅威(9/18) https://kpmg.com/jp/ja/insights/2026/09/cyber-ti-20260127.html SynologyのNAS向けOSに深刻な脆弱性 - 修正版を提供(9/18) https://www.security-next.com/190538 マルウェアがWindowsで7つの暗号資産ウォレットの拡張機能をすり替える(9/18) https://portalcripto.com.br/ja/malware-changes-extensions-of-7-crypto-wallets-on-windows-18-09-2026-0936 Transparent Tribe－武器化されたLNKファイルによる越境スパイ活動(9/18) https://kpmg.com/jp/ja/insights…",
+      "body": "UAT-8837－北米の重要インフラを標的とする脅威(9/18)\nhttps://kpmg.com/jp/ja/insights/2026/09/cyber-ti-20260127.html\n\nSynologyのNAS向けOSに深刻な脆弱性 - 修正版を提供(9/18)\nhttps://www.security-next.com/190538\n\nマルウェアがWindowsで7つの暗号資産ウォレットの拡張機能をすり替える(9/18)\nhttps://portalcripto.com.br/ja/malware-changes-extensions-of-7-crypto-wallets-on-windows-18-09-2026-0936\n\nTransparent Tribe－武器化されたLNKファイルによる越境スパイ活動(9/18)\nhttps://kpmg.com/jp/ja/insights/2026/09/cyber-ti-20260113.html\n\nイーサリアム、GlamsterdamのSepoliaテストネット稼働を10月6日に設定、開発者は低コストのビルダー攻撃に警鐘(9/19)\nhttps://finance.biggo.jp/news/fff99f04-5507-4426-bd6f-f63359070bd4\n\nCrazyHunter Ransomware－Goベースの二重恐喝型ランサムウェア(9/18)\nhttps://kpmg.com/jp/ja/insights/2026/09/cyber-ti-20260120.html\n\n北朝鮮によるサイバー攻撃の手口を政府が公表　約17億円相当の暗号資産が送金　木原官房長官「適切なセキュリティ対策を」(9/18)\nhttps://news.livedoor.com/article/detail/32362625/\n\n不正アクセスでサイト改ざん、内部に個人情報 - コンサル会社(9/18)\nhttps://www.security-next.com/189792\n\nGoogle、アプリからデバイスの安全性を確認できる AndroidX Security State を公開(9/18)\nhttps://helentech.jp/news-android-security-state-libraries-91396/\n\nStealer Panel を起点とした C2サーバハンティングと攻撃者分析(9/18)\nhttps://jpn.nec.com/cybersecurity/blog/260918/\n\nClaude Code の Bash sandbox、有効化しただけでは認証情報が読めてしまいます(9/18)\nhttps://dev.classmethod.jp/articles/claude-code-bash-sandbox-secure-config/\n\nシステムは戻せても『個人情報』は戻らない　～ニチレイ5万件超漏えいが示した現実～(9/19)\nhttps://news.yahoo.co.jp/expert/articles/03b6ac10d9bd911cb2ada0e6f7b21931e7ccea86\n\n新たに968人分の個人情報漏洩が判明　兵庫県、編集ソフトで黒塗り外せる状態に(9/18)\nhttps://www.sankei.com/article/20260918-55QNSYKUOBO6LBDQ5IVVRBBSIE/\n\n生成AIによる「データ漏えいリスク」企業の重要課題　CPR調査(9/18)\nhttps://ecnomikata.com/ecnews/marketing/51653/\n\n「そのスマホ、大丈夫？」サイト閲覧だけで乗っ取りも…最新のハッキングから身を守る方法(9/18)\nhttps://trilltrill.jp/articles/5036952\n\n日米豪独7機関、北朝鮮ハッカー「WaterPlum」が仮想通貨17億円窃取と公表　国内初のラップトップファーム摘発も判明(9/18)\nhttps://coinpost.jp/?p=738590\n\n3人チームがClaudeでOpenAIのコアコードベースに侵入、6,500ドルの報奨金がAIセキュリティ警鐘を鳴らす(9/18)\nhttps://finance.biggo.jp/news/423413a4-6f50-41eb-b852-8d926ae88621\n\n暗号資産でAI詐欺が急増　KuCoinが新たなセキュリティ基準導入(9/18)\nhttps://jp.beincrypto.com/kucoin-ai-certification-crypto-crime-security/\n\n北朝鮮、サイバー攻撃で外貨獲得　１７億円相当、ＩＴ技術者標的に(9/18)\nhttps://www.sanyonews.jp/article/1991293\n\n福山市採用試験 個人情報が外部漏えい(9/18)\nhttps://www.sanyonews.jp/article/1991462/?c=39546741839462401\n\nAndroidのセキュリティパッチ日付だけでは不十分に？Googleが新しい判定機能を提供(9/18)\nhttps://sumahodigest.com/?p=70908\n\nMS、Microsoft Defenderの不具合を修正。誤って「ウイルス対策が無効になっています」と表示される問題が解決(9/19)\nhttps://www.nichepcgamer.com/archives/post-132354.html\n\n英国警察、仮想通貨詐欺対策で500人を増員しマネーロンダリングの取り締まり強化へ(9/18)\nhttps://nextmoney.jp/?p=88705\n\nSafePayランサムウェア－新たなグローバル二重恐喝型脅威(9/18)\nhttps://kpmg.com/jp/ja/insights/2026/09/cyber-ti-20260107.html\n\n【注意喚起】不正なアプリのインストール、マルウェア感染に関する注意喚起(9/18)\nhttps://www.docomo.ne.jp/info/notice/page/26091800.html\n\nニュースム知事の行政命令、フロンティアモデル向けAIキルスイッチを推進(9/18)\nhttps://www.unite.ai/ja/newsom-executive-order-advances-ai-kill-switch-for-frontier-models/\n\nノストラ、9月の暗号資産被害累計は3億2600万ドル超(9/18)\nhttps://jp.beincrypto.com/nostra-starknet-oracle-exploit-market-paused/\n\nテープストレージの時代が再来？　出荷容量57％増、AI時代に復調した理由(9/18)\nhttps://news.infoseek.co.jp/amp/article/itmediaenterprise20260904023/\n\nJev（TypeSafe AI）はみんなどうやって使っているのか？(9/17)\nhttps://qiita.com/hisashi-ito/items/3d8d26ea591009e7a58e\n\nアップルの「iPhone 18 Pro」カメラ、真価は可変絞りではなくソフトウェアにあり(9/19)\nhttps://finance.biggo.jp/news/1f4e91095c3c6c38\n\n職員採用試験の応募者の個人情報漏えいの可能性　委託業者のシステムに不正アクセスか　奈良・橿原市役所(9/18)\nhttps://www.excite.co.jp/news/article/MBSnewsarticle2957699/\n\n北朝鮮系ハッカー集団WaterPlum、マルウェアで暗号資産を17億円以上搾取か(9/18)\nhttps://bitbank.cc/knowledge/breaking/article/zskbobew0\n\n「主要行等向けの総合的な監督指針」等の一部改正（案）に対するパブリックコメントの結果等の公表について(9/18)\nhttps://www.fsa.go.jp/news/r8/sonota/20260918/20260918.html\n\n「OK, this is a big deal」——Opus 4.8は突破できず、Opus 5が一晩で成功させたOpenAI侵入の顛末(9/18)\nhttps://hashout.jp/ai/10949/\n\nハイブリッドAIとは？クラウド×ローカルAIの仕組み・メリットを実機検証で解説(9/18)\nhttps://weel.co.jp/media/hybrid-ai/\n\nAIデータセンターが長時間蓄電ブームを喚起：米国の計画設備容量が5倍に急増、Metaは100時間ソリューションに賭ける(9/19)\nhttps://finance.biggo.jp/news/1050d70e-f675-45be-8384-79934321d06f\n\n北朝鮮、サイバー攻撃で外貨獲得　１７億円相当、ＩＴ技術者標的に(9/18)\nhttps://www.fukuishimbun.co.jp/articles/-/2701880\nhttps://www.saitama-np.co.jp/articles/215429/postDetail\n\n北朝鮮、サイバー攻撃で外貨17億円盗んだか　警察庁などが発表(9/18)\nhttps://www.sankei.com/article/20260918-V6EGMUQB3ROZ3MELSRHFS5JYQU/\n\nAI関連セクターの最近の動向（最先端AIの開発スピード減速はAI関連セクターに何をもたらすか）(9/18)\nhttps://media.rakuten-sec.net/articles/-/53544\n\n米中はなぜ首脳会談でAIを協議するのか――開発競争を続けながら重大事故や悪用に備える情報共有(9/19)\nhttps://news.yahoo.co.jp/expert/articles/b9a662f5647c16627b35cc38c81385d51cf29799\n\n北朝鮮が育てる「金正恩総書記に質問しないAI」―閉鎖国家＆人工知能、本当の相性(9/19)\nhttps://news.yahoo.co.jp/expert/articles/140c6efc7d6bc19fd9d4310e236127fb4cfd59c0\n\n第1回 産業サイバーセキュリティ研究会 ワーキンググループ1（事業者におけるAIエージェントの安全な利活用に関するサブワーキンググループ）(9/18)\nhttps://www.meti.go.jp/shingikai/monoinfoservice/sangyocyber/wgseido/wgaiagent/001.html",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "168e58204329d807",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.4054432624113476,
+      "popularityPercentile": 0.0398936170212766,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 50,
+      "titleJa": null,
+      "oneLiner": "2026年9月18日から19日を中心としたITとセキュリティのニュースを一覧化している。",
+      "takeaways": [
+        "重要インフラを狙う攻撃の情報が掲載された。",
+        "Synology製品の深刻な弱点と修正版が紹介された。",
+        "暗号資産窃取や身代金要求の動きも取り上げている。"
+      ],
+      "keywords": [
+        "Synology",
+        "UAT-8837",
+        "Transparent Tribe",
+        "CrazyHunter Ransomware",
+        "Ethereum",
+        "北朝鮮"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「研究がハードを進化させ、ハードが研究を加速する」― Google TPU「Ironwood」の仕組みを整理する",
+      "url": "https://qiita.com/kuno_/items/d88b2b33201834a9fe03",
+      "publishedAt": "2026-09-20T03:53:42.000Z",
+      "author": "kuno_",
+      "authorDetail": {
+        "name": "kuno_",
+        "handle": "@kuno_",
+        "url": "https://qiita.com/kuno_",
+        "avatarUrl": "https://secure.gravatar.com/avatar/9c664f51703deb0ee1e029a7b33a7956",
+        "followers": 1,
+        "posts": 23,
+        "links": []
+      },
+      "tags": [
+        "GoogleCloud",
+        "Gemini",
+        "初心者",
+        "AI",
+        "AIエージェント"
+      ],
+      "snippet": "はじめに Googleが独自開発するAI専用チップ「TPU(Tensor Processing Unit)」の最新世代「Ironwood」は、2025年4月のGoogle Cloud Next '25で発表され、その最初の具体的な製品である「TPU7x」が2026年3月31日に一般提供(GA)となりました。「推論の時代における初のTPU」と位置づけられるこのチップには、どのような特徴があるのでしょうか。本記事では、公式情報をもとにIronwoodの仕組みを整理します。 Ironwood とは Google Cloud公式ブログによると、Ironwoodは2025年4月のGoogle Cloud Next '25で発表された第7世代のTPUで、これまでで最大かつ最も強力なTPUとして紹介されました。直前の高性能TPU世代と比べて10倍以上の性能向上を実現しているとされています(Ironwoo…",
+      "body": "はじめに\n\nGoogleが独自開発するAI専用チップ「TPU(Tensor Processing Unit)」の最新世代「Ironwood」は、2025年4月のGoogle Cloud Next '25で発表され、その最初の具体的な製品である「TPU7x」が2026年3月31日に一般提供(GA)となりました。「推論の時代における初のTPU」と位置づけられるこのチップには、どのような特徴があるのでしょうか。本記事では、公式情報をもとにIronwoodの仕組みを整理します。\n\nIronwood とは\n\nGoogle Cloud公式ブログによると、Ironwoodは2025年4月のGoogle Cloud Next '25で発表された第7世代のTPUで、これまでで最大かつ最も強力なTPUとして紹介されました。直前の高性能TPU世代と比べて10倍以上の性能向上を実現しているとされています(Ironwood TPU を発表 | Google Cloud 公式ブログ)。\n\nその後、Google Cloud公式のリリースノートによると、Ironwoodファミリーの最初の具体的な製品である「TPU7x」は、2025年11月24日にPreview提供が開始され、2026年3月31日に一般提供(GA)となりました(Cloud TPU release notes | Google Cloud Documentation)。TPU7xは、大規模言語モデル(LLM)、Mixture of Experts(MoE)、拡散モデルといった負荷の高いワークロード向けに、性能とコスト効率を提供するとされています。\n\n英語版の公式ブログでは、Ironwoodは計算能力・メモリ容量・ICIネットワーク・信頼性のそれぞれで独自のブレークスルーを実現しているとされています(Ironwood: The first Google TPU for the age of inference | Google Cloud)。\n\n主な性能スペック\n\n公式情報を整理すると、Ironwoodの主な性能は以下の通りです。\n\n| 項目 | 内容 |\n|---|---|\n| チップ構成 | 1ポッドあたり9,000個以上のチップを搭載可能。256チップまたは9,216チップの2構成を、それぞれ単一のスケールアップポッドとして利用できる |\n| 計算能力 | 最大構成で1ポッドあたり42.5エクサフロップス(FP8)という計算能力を提供 |\n| 電力効率 | 前世代(Trillium)と比較して、ほぼ2倍の電力効率を実現 |\n| 対応フレームワーク | 最適化されたスタックを通じて、PyTorchおよびJAXでアクセス可能 |\n\n研究とハードウェアが互いに進化を加速する仕組み\n\n公式ブログでは、Ironwoodについて興味深い開発の考え方が紹介されています。Googleでは、研究者がハードウェアの設計に影響を与え、そのハードウェアがさらに研究を加速するという循環的なループが継続的に発生しているとされています。外部ベンダーに依存する競合他社とは異なり、Google DeepMindがGeminiのようなモデルに特定のアーキテクチャ上の進化を必要とする際には、TPUのエンジニアチームと直接協力する体制になっているとのことです(3 things to know about Ironwood, Google's latest TPU | Google)。\n\nこの結果として、Googleのモデルは常に最新世代のTPU上で学習されており、以前のハードウェア世代と比較して大幅な高速化が確認されることが多いとされています。ノーベル賞を受賞したAlphaFoldをはじめ、Gemini 2.5のような主要な思考モデルは、いずれもTPU上で稼働しています。\n\nPathways: 複数チップを束ねる独自のMLランタイム\n\nIronwoodには、Google DeepMindが開発した独自の機械学習ランタイム「Pathways」が組み合わされています。Pathwaysは、複数のTPUチップ間での効率的な分散コンピューティングを可能にする仕組みで、単一のIronwoodポッドを超えて数十万個のIronwoodチップを組み合わせることができ、生成AIの計算能力のフロンティアを急速に押し広げられるようになっています。\n\nまた、Ironwoodには、高度なランキングや推薦ワークロードで一般的な超大規模なエンベディングを処理する専用アクセラレータ「強化されたSparseCore」も搭載されており、従来のAI領域を超えて、金融や科学分野など、より広範なワークロードを加速できるとされています。\n\nまとめ\n・Ironwoodは第7世代のTPUで、2025年4月のGoogle Cloud Next '25で発表され、最初の具体的な製品「TPU7x」が2026年3月31日に一般提供(GA)となった、「推論の時代のための最初のTPU」と位置づけられるチップ\n・最大構成で1ポッドあたり9,216チップ、42.5エクサフロップス(FP8)の計算能力を提供し、前世代比でほぼ2倍の電力効率を実現している\n・Googleでは、研究がハードウェア設計に影響を与え、ハードウェアが研究を加速するという循環的な開発体制があり、Gemini 2.5やAlphaFoldといった主要モデルはすべてTPU上で稼働している\n・Google DeepMind開発のMLランタイム「Pathways」により、単一ポッドを超えて数十万個のチップを組み合わせた分散コンピューティングが可能\n・強化されたSparseCoreにより、AI以外の金融・科学分野のワークロードも加速できる\n\nGoogleのAIインフラがどのように進化しているかを知る参考になれば幸いです。\n\n---\n\n参考リンク\n・Ironwood TPU を発表 | Google Cloud 公式ブログ\n・Cloud TPU release notes | Google Cloud Documentation\n・Ironwood: The first Google TPU for the age of inference | Google Cloud\n・3 things to know about Ironwood, Google's latest TPU | Google\n\n本記事は2026年9月時点の公式情報をもとにまとめています。仕様は変更される可能性があるため、実際の導入を検討される際は最新の公式情報をご確認ください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "09d0408ca0c52cf2",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5861524822695036,
+      "popularityPercentile": 0.6037234042553191,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 45,
+      "titleJa": null,
+      "oneLiner": "Googleの第7世代TPU「Ironwood」と製品版TPU7xの性能や用途を整理する。",
+      "takeaways": [
+        "IronwoodはGoogleが開発したAI専用チップの第7世代である。",
+        "前世代の高性能製品より10倍以上の性能向上をうたう。",
+        "TPU7xは2026年3月31日に一般提供が始まった。"
+      ],
+      "keywords": [
+        "Google Cloud",
+        "Ironwood",
+        "TPU7x",
+        "TPU",
+        "Gemini",
+        "AI"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude CodeのStop hookからJevで差分を評価するPluginを作った",
+      "url": "https://qiita.com/yusukekikuta/items/22b7e694133e9a47456e",
+      "publishedAt": "2026-09-20T13:55:53.000Z",
+      "author": "yusuke kikuta",
+      "authorDetail": {
+        "name": "yusuke kikuta",
+        "handle": "@yusukekikuta",
+        "url": "https://qiita.com/yusukekikuta",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocLQJ6TxyztBIIgfdQgGF4UniZVNdLeKxgtHMQc6y0aopGejdg=s96-c",
+        "bio": "Crypto Dev Solana maxi 21y/o",
+        "followers": 0,
+        "posts": 1,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "Jev",
+        "Go"
+      ],
+      "snippet": "はじめに jevを知ったとき、最初に思ったのがこれでした。 「これ、Claude CodeのStop hookに挟んだら面白いのでは？」 Claudeが「実装できました！」と帰ろうとする直前に、そのターンの差分を別モデルで確認する。 怪しい変更があれば、一度だけ席に戻して調べ直してもらう。みたいな。 そこで、Claude Code pluginのjev-preflightを作り、v0.1.0をリリースしました。 気づけば、リスク判定本体よりも ・ユーザーのGitを壊さずに差分を取る ・絶対に無限ループさせない ・6環境で同じreleaseを配る に大量のコードを書いていました。 何が起きるのか 例えばClaudeが、こんな変更を入れたとします。 [code] コンパイルは通りそうです。でも認可チェックは消えています。 lintは構文を見られても、この比較はtrust boundaryだとい…",
+      "body": "はじめに\njevを知ったとき、最初に思ったのがこれでした。\n\n「これ、Claude CodeのStop hookに挟んだら面白いのでは？」\n\nClaudeが「実装できました！」と帰ろうとする直前に、そのターンの差分を別モデルで確認する。\n怪しい変更があれば、一度だけ席に戻して調べ直してもらう。みたいな。\n\nそこで、Claude Code pluginのjev-preflightを作り、v0.1.0をリリースしました。\n\n気づけば、リスク判定本体よりも\n・ユーザーのGitを壊さずに差分を取る\n・絶対に無限ループさせない\n・6環境で同じreleaseを配る\n\nに大量のコードを書いていました。\n\n何が起きるのか\n\n例えばClaudeが、こんな変更を入れたとします。\n\n [code] \n\nコンパイルは通りそうです。でも認可チェックは消えています。\nlintは構文を見られても、この比較はtrust boundaryだという意図までは知りません。\n\njev-preflightは、Claudeが終了する直前にturn全体のdiffをTypeSafeのJev APIへ送り、次の8軸で確認します。\n・behavior regression\n・authorization\n・input validation\n・data integrity\n・error handling\n・compatibility\n・lifecycle\n・regression tests\n\n閾値以上の軸があれば、Claudeへこんな形の追加contextを返します。\n\n [code] \n\njev-preflight自身がバグを断定したり、自動修正したりするわけではありません。\n\nやるのは「もう一度だけ調べて」まで。\nClaudeは実際のdiff・周辺コード・テストを読み、根拠があるときだけ修正します。\n\n全体アーキテクチャ\n\njev-preflightがやっていることを一言でいうと、\nClaude Codeが作業を終える直前に、そのターンで生まれた差分だけを確認するpluginです。\n\n処理の流れは、次のようになっています。\n\n1. ユーザーがpromptを送った時点のworking treeを保存する\n2. Claudeがコードを編集する\n3. Stop hookで現在のworking treeをもう一度保存し、turn差分を作る\n4. 差分をfilter・redactしてJev APIへ送る\n5. 閾値を超えたrisk axisがあれば、Claudeへ一度だけ再調査を依頼する\n\n \n\nrepository全体をJevへ送っているわけではありません。\n\n外部へ送るのは、ローカルで生成してfilter・redactしたturn差分と、あらかじめ固定した8つの質問だけです。ユーザーのpromptやClaudeの会話履歴は送りません。\n\nまた、Jevが返すのもレビュー文章ではなく、それぞれのrisk axisに対するyesの確率です。\n\nその確率を見て、実際に問題があるかを調査するのは、codebase全体を読めるClaudeへ戻しています。\n\nplugin側のhook定義はかなり小さいです。\n\n以下のコードは流れを追いやすくするため、error handlingなどを一部省略しています。\n\n [code] \n\nUserPromptSubmitで開始地点を保存し、Stopで終了地点との差分を見る。\n\nEditイベントだけを監視しないので、Writeやshell経由の変更も、ひとつのturnで行われた変更としてまとめて扱えます。\n\n技術選定\n\n全体図だけを見ると、「Stop hookからAPIを呼ぶだけ」に見えるかもしれません。\n\nところが、実際に他の人へ配れるpluginにしようとすると、APIを呼ぶ前に決めることがかなりあります。\n・どのタイミングの変更を見るのか\n・「今回Claudeが変更した範囲」をどう切り出すのか\n・外部APIが落ちたらどうするのか\n・再調査が無限に続かないか\n・利用者の環境へ何をインストールさせるのか\n\n今回は「何ができるか」だけでなく、壊れたときに影響をどこまで限定できるかを基準に選びました。\n\nなぜEditではなくStop hookなのか\n\n最初に決めたのは、Jevへ評価を依頼するタイミングです。\n\nEditのたびに評価すると、まだ作業途中のコードへ何度も反応してしまいます。一時的にコンパイルが通らない状態や、後から修正する予定のコードまで拾うため、noiseもAPI callも増えます。\n\njev-preflightが見たいのは、編集操作ひとつひとつではありません。\n\nClaudeが「このターンの作業は終わった」と判断した時点の変更全体です。\n\nそこで、Claudeが応答を終えようとしたタイミングで呼ばれるStop hookを使いました。これならEditだけでなく、Writeやshell command経由の変更も、ひとつのturnで行われた変更としてまとめて確認できます。\n\nなぜJevにレビュー文章を書かせないのか\n\n別のLLMへdiffを渡して、自由形式のコードレビューを書かせる方法も考えられます。\n\nただ、それをやると今度は「そのレビューが正しいのか」を確認したくなります。Claudeと別モデルが異なる修正案を出し、どちらを信じるかという話にもなりかねません。\n\n今回Jevに求めたのは、完成されたレビューではありません。\n\n欲しかったのは、Claudeがどのrisk axisを再調査すべきかを決める、小さなrouting signalでした。\n\nそのため、Jevへ渡す質問は8つのyes/no形式に固定しています。\n・behavior regression\n・authorization\n・input validation\n・data integrity\n・error handling\n・compatibility\n・lifecycle\n・regression tests\n\nJevから受け取るのも、それぞれの質問に対するyesの確率だけです。\n\n閾値を超えた軸があれば、その中から上位3つをClaudeへ返します。実際に問題があるかを判断するのは、diffだけでなく周辺コードやテストも読めるClaude側です。\n\nJevのscoreは欠陥の証明ではなく、次にどこを調べるべきかを決める優先度として扱っています。\n\nなぜGoなのか\n\nClaude Codeのpluginとして配る以上、利用者にはできるだけ追加のruntimeを要求したくありませんでした。\n\nNode.jsやPythonで実装すると、利用者の環境によってversionやpackage manager、依存packageの状態が変わります。plugin本体より先に、環境差分の問題を調査することになりかねません。\n\nGoなら、次の6環境へ単一binaryとして配布できます。\n・macOS amd64\n・macOS arm64\n・Linux amd64\n・Linux arm64\n・Windows amd64\n・Windows arm64\n\nruntime dependencyはGo standard libraryだけです。\n\n「pluginを入れるために、まず別のruntimeを整えてください」という状態を避けられることが、Goを選んだ一番大きな理由でした。\n\nなぜprivate Git treeが必要なのか\n\n今回もっとも悩んだのが、そのターンでClaudeが変更した範囲だけをどう取り出すかでした。\n\n単純にgit diff HEADを見ると、ユーザーがpromptを送る前から持っていたstaged、unstaged、untrackedな変更まで混ざります。\n\nそれでは、人間が作業中だったコードまでClaudeの変更として外部APIへ送ることになります。\n\n一方で、差分を取るために利用者のGit indexやrefsを書き換えるのはもっと避けたい。\n\nそこで、prompt開始時とStop時のworking treeを、privateなindexとobject storeへそれぞれ保存し、その2つのtreeを比較する構成にしました。\n\nGitの差分計算は利用しつつ、実際のrepositoryにあるindex、refs、objectsには書き込みません。\n\nこの仕組みによって、ユーザーがもともと持っていた変更と、Claudeがそのturnで行った変更を分離しています。\n\nなぜsecurity pluginなのにfail-openなのか\n\nsecurity系のpluginなら、API errorが起きたときも作業を止めた方が安全に見えます。\n\nただし、jev-preflightは外部APIを利用するPublic Betaです。timeout、network error、設定ミス、API側の障害は必ず起こります。\n\nそのたびにClaude Codeまで停止すると、補助tool自体が開発作業のsingle point of failureになります。\n\nまた、Jevのscoreは欠陥の証明ではありません。あくまで再調査の優先度なので、jev-preflightを強制的なsecurity gateとして扱うのも違うと考えました。\n\nそのため、API errorやtimeoutが発生した場合は、短いnoticeだけを表示してClaudeの終了を許可します。\n\njev-preflightは、通過しなければ開発できないgateではなく、終了前に一度だけ振り返るためのguardrailとして設計しています。\n\ngit diff HEADではダメだった\n\n最初に困ったのが、今回Claudeが変えたものだけをどう取るかでした。\n\ngit diff HEADを使うと、ユーザーがプロンプトを送る前から持っていたstaged・unstaged・untracked changesまで混ざります。\n人間が書きかけていたコードを、Claudeの変更として外部APIへ送るのはまずい。\n\nそこで、prompt開始時のworking treeをprivate Git treeとして保存し、Stop時点のtreeと比較しています。\n\n [code] \n\nStop側では、同じprivate object databaseへcurrent treeを作ります。\n\n [code] \n\nsnapshot用のindexとobject storeは実リポジトリの外に置きます。\n実際のindex、refs、objectsへ書き込まないためです。\n\n [code] \n\n実装はinternal/gitstateにあります。\npreflight toolを入れたらGitが壊れました。は、さすがに笑えません。\n\n外へ送るdiffは、いったん細くする\n\ntree間のdiffをそのまま送ることもしません。\n\nまずlockfile、build output、vendor、minified asset、document、mediaなどを除外します。その後、よくあるsecret形式をbest-effortでredactし、canonical JSONへ変換してsize limitを確認します。\n\n [code] \n\n既定のmaxDiffBytesは64 KiBです。超えた場合は途中で切って送るのではなく、その評価全体をskipします。中途半端なdiffを完全な変更だと誤解させたくなかったためです。\n\nもちろん、redactionはDLPではありません。未知のsecret、file name、business logic、personal dataは残る可能性があります。pluginを有効にすると選択されたdiffがTypeSafeへ送られるので、data boundaryを読んだ上で使う前提にしています。\n\nJevには「レビュー文」を書かせない\n\nJevへ渡すのは、固定した8つのyes/no questionです。返ってきた確率から閾値以上を選び、上位3軸だけをClaudeへ渡します。\n\n [code] \n\n長いレビュー文をもう一つ生成するのではなく、Claudeの注意を向ける場所だけを返す。\nこの小ささがjev-preflightの設計の芯です。\n\nJevそのものについては、すでに面白い解説がいくつもあります。\n僕はJevをClaudeの代わりではなく、Claudeへ再調査をrouteする軽い判定層として使いました。\n\n一番怖いのは無限「もう一回」\n\nStop hookからadditional contextを返すと、Claudeは再び処理して、またStopへ来ます。\nここで毎回「もう一度調べて」と返すと、Claudeは永遠に帰れません。かわいそうです。\n\nそのため、次の3つでloopを止めています。\n\n1. Claude Codeから来るstophookactive\n2. promptごとに永続化したContinuationCount\n3. normalized diffのLastDiffHash\n\n [code] \n\nAPI callの前にdiff hashを保存し、feedbackを返す前にcontinuation countを保存します。途中でprocessが落ちても、同じrequestやfeedbackを繰り返しにくくしています。\n\n壊れたときは、Claudeを帰す\n\nv0.1.0はfail-openです。\n・API keyがない\n・timeoutした\n・network errorになった\n・responseが壊れている\n・diffが大きすぎる\n・configが不正\n\nこのどれかが起きても、短いnoticeを出してClaudeの終了を許します。\n\n [code] \n\nPublic Betaの外部API連携を、開発を止めるsecurity gateにはしたくありませんでした。\njev-preflightはmerge blockerでも、tests・linters・SAST・secret scannerの代わりでもありません。\n\nrelease周り\n\nruntimeはGo standard libraryだけで作った単一binaryです。配布対象はこの6つ。\n・macOS: amd64 / arm64\n・Linux: amd64 / arm64\n・Windows: amd64 / arm64\n\narchiveのentry順、timestamp、permission、compression条件を固定し、source path・locale・timezoneが違っても同じSHA-256になるようにしました。\nClaude Code marketplace側もversioned archiveのSHA-256をpinしています。\n\n使ってみる\n\nv0.1.0 Public Betaを公開しています。\n\n [code] \n\nClaude Code 2.1.257以降、Git、Bash、TypeSafe API keyが必要です。WindowsではGit for WindowsのGit Bashを使います。\n\nAPI keyはClaude Codeの/plugin UIにあるsensitive optionへ設定できます。repositoryやcommand argumentへ書かないでください。\n\nrepositoryごとの任意設定は.jev-preflight.jsonです。\n\n [code] \n\nassistは一度だけ再調査、reportは結果表示だけ、offはsnapshotもAPI callも行いません。\n\nまだできないこと\n\n正直に、v0.1.0でできないことも書いておきます。\n・scoreは欠陥の証明ではない\n・既定の0.85は未calibration\n・誤検知も見逃しもある\n・redactionはDLPではない\n・API障害時はfail-openする\n・diffが大きすぎる場合は評価しない\n・自動修正やmerge blockingはしない\n\nこのpluginの価値は「安全を保証する」ことではなく、Claudeが自信満々に帰る前に、怪しい場所へもう一度だけ視線を戻すことだと思っています。\n\nおわりに\n\n今回で一番学んだのは、AIのscoreを出す部分より、その前後の境界を作る方がずっと大変だということでした。\n\nどの差分を送るのか。何を送らないのか。何回までやり直させるのか。\n壊れたら止めるのか、通すのか。検証できなかったことを、できたように書かないか。\n\nAI agentが速くなるほど、こういう小さな制約の積み重ねが効いてくる気がしています。\n\nRepository: https://github.com/muse0509/jev-preflight\n\nIssueやfeedback、お待ちしています。\njev-preflightは独立したopen-source projectであり、TypeSafe AIおよびAnthropicとは提携・承認関係にありません。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8a9991d763492580",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7262234042553192,
+      "popularityPercentile": 0.21010638297872342,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "jev-preflightはClaude Codeの変更内容を別モデルで確認するPluginです。",
+      "takeaways": [
+        "Claude Codeが作った変更を終了前に点検する。",
+        "認可や入力確認など8つの観点で調べる。",
+        "問題の可能性があれば追加調査を促せる。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "jev-preflight",
+        "Jev",
+        "Stop hook",
+        "TypeSafe",
+        "Go"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Jevのwaitlistが待てないのでVercel AI Gateway経由で今すぐ試す",
+      "url": "https://qiita.com/nnhkrnk/items/7967a64812ef70aab3c6",
+      "publishedAt": "2026-09-20T03:17:49.000Z",
+      "author": "Koya",
+      "authorDetail": {
+        "name": "Koya",
+        "handle": "@nnhkrnk",
+        "url": "https://qiita.com/nnhkrnk",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/430841/profile-images/1753278673",
+        "bio": "バックエンドエンジニア。PHPとFlowが好き。",
+        "followers": 11,
+        "posts": 160,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/nnhkrnk"
+          }
+        ]
+      },
+      "tags": [
+        "Jev",
+        "Vercel",
+        "AI"
+      ],
+      "snippet": "はじめに 今話題のJevを試そうとしたのですが、2日前にwaitlistに入ってからまだ招待メールがきません。 Vercel の AI Gateway を利用することで今すぐに試す事が可能のようなので、試してみようと思います。 Jevとは Jevとは判断に特化したAIモデルです。 判断に特化させることでLLMよりも高速で安価に利用することが可能のようで、現在話題となっています。 https://docs.typesafe.ai/introduction 今すぐJevを試す方法 現状はwaitlistに入り利用できるまで待つことになりますが、VercelのAI Gatewayであれば今すぐ実行を試す事ができました。 https://vercel.com/ai-gateway 指定するモデルは以下です。 https://vercel.com/ai-gateway/models/jev 試してみ…",
+      "body": "はじめに\n今話題のJevを試そうとしたのですが、2日前にwaitlistに入ってからまだ招待メールがきません。\nVercel の AI Gateway を利用することで今すぐに試す事が可能のようなので、試してみようと思います。\n\nJevとは\nJevとは判断に特化したAIモデルです。\n判断に特化させることでLLMよりも高速で安価に利用することが可能のようで、現在話題となっています。\n\nhttps://docs.typesafe.ai/introduction\n\n今すぐJevを試す方法\n\n現状はwaitlistに入り利用できるまで待つことになりますが、VercelのAI Gatewayであれば今すぐ実行を試す事ができました。\n\nhttps://vercel.com/ai-gateway\n\n指定するモデルは以下です。\n\nhttps://vercel.com/ai-gateway/models/jev\n\n試してみる\n\nまずはAPIキーを発行し、AIGATEWAYAPIKEYという値でexportします。\n\n [code] \n\n続いてSDKのインストールです。\n\n [code] \n\nそして、リクエスト用のjsonファイルと、送信用のjsファイルを作成しました。\nmodelでtypesafe-ai/jevと指定する事でjevを利用できるようです。\n\n [code] \n\n [code] \n\n実行してみると、ちゃんとレスポンスが返ってきました。\nレスポンスもあっという間に返ってきます。\ntimeで実行時間を測っているためnodeの起動なども含んでいますが、それでも速いですね。\n\n [code] \n\n3種類の質問\n現状、jevは以下の3種類の質問（question）タイプを処理できるようです。\n・choice：選択肢の中から選ぶ\n・score：点数をつける\n・noul（Vercelだとboolean）：yes/no の質問に対して確率で答える\n\nリクエストでは、stateに背景情報を記載し、questionsに先の3つの質問を記載して送信します。\n\n [code] \nそれに対するレスポンスがこちらです。\n各質問に対し、確率付き（probabilities）で回答がなされています。\n [code] \n\nstateで背景を伝える\n先ほどはマヨネーズをオススメされましたが、コレステロールの値が上がってきたという条件を追加してみましょう。\n\n [code] \n\nすると、マヨネーズは食べないほうが良いという回答になりました。\n\n [code] \n\nおわりに\n\n今回はJevを試してみました。\nこれだけ話題になっている中waitlistに入るのが遅れてしまいいつ使えるようになるかなぁと思っていたのですが、Vercelで試す事ができよかったです。\n使い方についてもこれからどんどん開拓されていきそうな予感なので、直近は追っておこうと思います。\n\nここまでご覧いただきありがとうございました！\n\n参考\n\nJevについてやVercel AI SDK で試す事が可能なことはこちらの記事で知りました。\nありがとうございます！\n\nhttps://speakerdeck.com/minorun365/konwadai-no-ai-jev-tte-nani-uchuu-saisoku-de-manabu-kai?slide=47",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5723356404e2df06",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8180851063829788,
+      "popularityPercentile": 0.6276595744680851,
+      "matchedTopics": [
+        "Next.js",
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Vercel AI Gatewayを使ってwaitlist登録中のJevをすぐ試す手順を紹介しています。",
+      "takeaways": [
+        "Vercel AI Gateway経由でJevを実行できる。",
+        "APIキーと小さなJavaScriptの準備で試せる。",
+        "返答はNode.jsの起動時間を含めても速い。"
+      ],
+      "keywords": [
+        "Jev",
+        "Vercel AI Gateway",
+        "Node.js",
+        "JavaScript",
+        "typesafe-ai/jev"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Riderで、AIエージェントにデバッガーを自動で操作させ、デバッグさせる",
+      "url": "https://qiita.com/RyotaMurohoshi/items/4738def2bc7ec73a1c6e",
+      "publishedAt": "2026-09-20T06:43:19.000Z",
+      "author": "Ryota Murohoshi",
+      "authorDetail": {
+        "name": "Ryota Murohoshi",
+        "handle": "@RyotaMurohoshi",
+        "url": "https://qiita.com/RyotaMurohoshi",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4125/profile-images/1664368655",
+        "bio": "プログラミングが大好きで、 C#が大好きで、 .NETが大好きで、 LINQが大好きで、 JVM言語が大好きで、 ゲームで遊ぶことが大好きで、 ゲーム開発が大好きで、 頑張るのが大好きで、 Unityが大好きだったから...！",
+        "followers": 414,
+        "posts": 296,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/RyotaMurohoshi"
+          },
+          {
+            "label": "Web",
+            "url": "http://mrstar-memo.hatenablog.com/"
+          }
+        ]
+      },
+      "tags": [
+        "Rider",
+        "JetBrainsAI",
+        "Junie"
+      ],
+      "snippet": "Riderにおいて、AIエージェントにデバッガーを自動で操作させ、デバッグさせることができます。 ※ 本投稿は、2026年9月20日時点の情報です。 何が嬉しいか Junie、Claude Code、Codex などの AIエージェントにバグや問題を自然言語で伝えるだけで、AIエージェントがRiderのデバッガーを使って自動でデバッグしてくれます。 ブレークポイントを置く場所の判断、値の調査、ステップ実行などの操作も、AIエージェントが自動で行います。ソースやログだけでは分からない原因を、実行時の値から調べられます。 デバッグにかかる時間を効率化できます。 使い方 Junie（RiderのAIチャット） 1. AIチャットで、Junieを選びます。Junieの利用には、インストールと有効化が必要です。 2. バグや問題を、自然言語で伝えます。 Claude Codeなど、外部のAIエージェ…",
+      "body": "Riderにおいて、AIエージェントにデバッガーを自動で操作させ、デバッグさせることができます。\n\n※ 本投稿は、2026年9月20日時点の情報です。\n\n何が嬉しいか\n\nJunie、Claude Code、Codex などの AIエージェントにバグや問題を自然言語で伝えるだけで、AIエージェントがRiderのデバッガーを使って自動でデバッグしてくれます。\n\nブレークポイントを置く場所の判断、値の調査、ステップ実行などの操作も、AIエージェントが自動で行います。ソースやログだけでは分からない原因を、実行時の値から調べられます。\n\nデバッグにかかる時間を効率化できます。\n\n使い方\n\nJunie（RiderのAIチャット）\n\n1. AIチャットで、Junieを選びます。Junieの利用には、インストールと有効化が必要です。\n2. バグや問題を、自然言語で伝えます。\n\n \n\nClaude Codeなど、外部のAIエージェント\n\nrider-skills のREADMEの「Install」を参照してください。\n\n内部仕様\n\nRider 2026.2.1で、debugging-code スキルが追加されました（Riderに同梱）。debugging-code は、AIエージェントに読ませる手順書（SKILL.md）です。\n\nAIエージェントは debugging-code スキルに従い、RiderのMCPサーバーが提供するデバッガー用ツール（xdebug から始まる名前）を、executetool 経由で呼び出します。これにより、ブレークポイントの設定、デバッグの開始、停止待ち、スタックと変数の取得を行い、原因を調べます。\n\nまとめ\n\nRiderでは、JunieやClaude CodeなどのAIエージェントが、デバッガーを通じて実行時の値を確認しながら、バグや問題の原因を調べられます。\n\n関連リンク\n・Rider 2026.2.1 リリース記事\n・What's New in Rider\n・SKILL.md\n・rider-skills（README）\n・Increase agent intelligence with skills and hooks\n・MCP Server – Rider Help\n・Junie by JetBrains – AI Assistant Help（Debug mode）\n\n補足：別JetBrains IDEの対応\n\nIntelliJ IDEA、CLion、RubyMine、PhpStormにも、AIエージェントにデバッガーを操作させる機能が公式ドキュメントに記載されています（仕組みや対応バージョンはIDEごとに異なります）。\n・IntelliJ IDEA：Agentic debugging\n・CLion：Agentic debugging\n・RubyMine：Agentic debugging\n・PhpStorm：MCP Server（「PHP debugger tools」の章）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "b62ca6c18926295e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7917553191489363,
+      "popularityPercentile": 0.5079787234042553,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "RiderのデバッガーをAIエージェントが操作して原因を調べられるようになりました。",
+      "takeaways": [
+        "AIエージェントが実行中の問題を調べられる。",
+        "停止位置や変数の確認を自動で進める。",
+        "ログだけでは分からない原因も追跡できる。"
+      ],
+      "keywords": [
+        "Rider",
+        "JetBrains AI",
+        "Junie",
+        "Claude Code",
+        "Codex",
+        "MCP"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Codex の Astra に Unity ゲームを作ってもらった",
+      "url": "https://qiita.com/AllegroMoltoV/items/d1534c2362e94b582473",
+      "publishedAt": "2026-09-20T07:37:18.000Z",
+      "author": "あれぐろもると",
+      "authorDetail": {
+        "name": "あれぐろもると",
+        "handle": "@AllegroMoltoV",
+        "url": "https://qiita.com/AllegroMoltoV",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4318473/787da99af219f7fd4f14be9367dc8c56cd956b9d/large.png?1767061068",
+        "bio": "ピアノ即興系 Vtuber。タフグミが好き。アイコンイラスト: 三日月ネコさん",
+        "organization": "Allegro Molto Channel",
+        "location": "日本",
+        "followers": 0,
+        "posts": 15,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/AllegroMoltoV"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/AllegroMoltoV"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.allegromoltov.jp"
+          }
+        ]
+      },
+      "tags": [
+        "codex",
+        "OpenAI",
+        "Unity",
+        "ゲーム制作",
+        "GPT-6"
+      ],
+      "snippet": "はじめに Twitter の相互さんから、Codex の Astra について次の質問を受けました。 ざっくばらんな印象でいいんだけど、指示だけであっさりゲームとか作れそうか教えてほしい。 ちなみにユーザーにプログラミングの技術は一切無いものとして。 そこで、自然言語で依頼し、短い 3D ゲームを作ってもらいました。 依頼したプロンプトの抜粋 [code] ざっくばらんな印象でいいんだけど、指示だけであっさりゲームとか作れそうか教えてほしい。 ちなみにユーザーにプログラミングの技術は一切無いものとして。 [code] ` 実行ファイルを作るだけでなく、Astra 自身によるテストプレイと、私自身の試遊まで行っています。 ゲームとしての体を成すものはできました。 https://allegromoltov.itch.io/relic-the-last-light 一方、今回のような小さなプロ…",
+      "body": "はじめに\n\nTwitter の相互さんから、Codex の Astra について次の質問を受けました。\nざっくばらんな印象でいいんだけど、指示だけであっさりゲームとか作れそうか教えてほしい。\nちなみにユーザーにプログラミングの技術は一切無いものとして。\n\nそこで、自然言語で依頼し、短い 3D ゲームを作ってもらいました。\n\n 依頼したプロンプトの抜粋 \n\n [code] \nざっくばらんな印象でいいんだけど、指示だけであっさりゲームとか作れそうか教えてほしい。\nちなみにユーザーにプログラミングの技術は一切無いものとして。\n [code] `\n\n \n\n実行ファイルを作るだけでなく、Astra 自身によるテストプレイと、私自身の試遊まで行っています。\n\nゲームとしての体を成すものはできました。\n\nhttps://allegromoltov.itch.io/relic-the-last-light\n\n一方、今回のような小さなプロトタイプでは、Astra でなく Sol でも作れそうだという印象が残りました。 Sol で同じ制作はしていないので、モデル間の性能比較ではありません。\n\n検証環境\n・検証日: 2026 年 9 月 20 日\n・OS: Windows\n・AI エージェント: Codex / GPT-6 Astra (推論設定: high)\n・Unity: 6000.6.2f1\n・Unity との接続: CoplayDev/unity-mcp v10.0.0\n\n対象読者\n・Codex などの AI エージェントに自然言語でゲーム制作を依頼してみたい方\n・Astra が実際に作ったゲームや Computer Use の挙動を見たい方\n\nAstra が選んだ構成\n\n採用された構成は次のとおりです。\n\n| 対象 | Astra が選んだ構成 |\n| --- | --- |\n| Unity との接続 | CoplayDev/unity-mcp v10.0.0。プロジェクト内の Python クライアントから接続 |\n| 描画 | URP。発光や画面効果を使った遺跡の表現 |\n| ゲームと素材 | C# でゲーム処理、地形、基本図形を組み合わせたモデル、環境音・効果音を生成。購入素材は不使用 |\n| 操作と UI | Input System と IMGUI。キーボード・マウス操作に加え、画面上の操作ボタンを用意 |\n| 成果物 | Windows 向けの実行ファイル、Unity プロジェクト、追加依頼による Web 版 |\n| Web 版 | WebAssembly でビルドし、Noto Sans JP を同梱。itch.io で配信 |\n\n画面のボタンは、Computer Use からのキー入力がうまく反映されないという理由で、制作途中に追加されたものです。\n\n \n\nできたゲームとプレイ動画\n\nできたのは、遺跡の 3 つの祭壇で敵を倒し、強化を選んでからボスに挑むゲームです。タイトル、探索、戦闘、勝敗、再挑戦まで一通りつながっています。\n\n \n\n \n\n \n\n後から Web 版も依頼しました。Unity の Web Build Support のインストールとitch.io へのログインだけ私がやって、あとは Astra が互換対応・ビルド・アップロード・ブラウザー上での動作確認を担当しました。\n\nhttps://allegromoltov.itch.io/relic-the-last-light\n\n以下は、Astra が Computer Use でゲームを起動し、画面を見ながら操作した動画です。\n\n<iframe width=\"888\" height=\"500\" src=\"https://www.youtube.com/embed/rw6xLHNoOQk\" title=\"Computer Use によるデバッグ進行のキャプチャ\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen> \n\nゲームのプロトタイプが触って遊べるようになるまでの時間もざっくり計測しました。初期調査・環境構築から Windows 版の起動と表示確認まで、約 40 分かかりました。\n\n自分で遊んだ感想\n\n全体としてゲームの体を成していて、よくできていると感じました。探索して戦い、強化してボスへ進む流れが明確です。最終的にボスが中央に出現するのですが、今まで目にしていた場所が最後の戦場になる展開がアツく、Astra やるやんけ……と思いました。\n\n気になった点もあります。祭壇に近づくと E キーかクリックで起動できる案内が出ましたが、私の試遊ではクリックで反応せず、E キーが必要でした。\n\nまた、戦闘に入ったら BGM が変わる程度の演出は欲しかったです。音は鳴っていますが、探索と戦闘の変化を伝える部分は物足りませんでした。\n\nおわりに\n\n人間がゲームのコードを書かなくても、自然言語で方針を伝え、遊べる短編 3D ゲームを作れることがわかりました。環境構築や不具合の修正も Astra が進めました。ただし、人間が実際に遊ぶと、操作や演出の不足は残っていました。\n\nAstra だからできたことがあるかというと、今回の成果からはよく分かりません。私の所感では Sol でも作れそうという気がしていて、この規模のプロトタイプから大きな違いを感じることはできませんでした。\n\nより複雑な仕様や繰り返しの変更で差が出る可能性はありますが、今回は確認していません。相互さんへの回答としては「自然言語の依頼でゲームのプロトタイプは作れた。ただし、人間の試遊は必要で、Astra と Sol の差を語れる検証にはならなかった」というところでしょう。\n\n参考\n・MCP for Unity v10.0.0 - CoplayDev/unity-mcp\n・Universal Render Pipeline (URP) - Unity マニュアル\n・Web Build folder - Unity マニュアル\n・Uploading HTML5 games - itch.io\n・Noto CJK fonts - notofonts/noto-cjk",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "ec8ba44744f78948",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.878936170212766,
+      "popularityPercentile": 0.9042553191489362,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 81,
+      "titleJa": null,
+      "oneLiner": "CodexのAstraに自然言語だけでUnityの3Dゲームを作らせて試遊しました。",
+      "takeaways": [
+        "自然な文章の指示から小さなゲームを作れる。",
+        "AI自身がテストプレイまで進められる。",
+        "完成した作品は実際に人間も遊べる形になった。"
+      ],
+      "keywords": [
+        "Codex",
+        "Astra",
+        "GPT-6",
+        "Unity",
+        "CoplayDev/unity-mcp"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Nobody pays for FOSS, we can force them to",
+      "url": "https://seldo.com/posts/nobody-pays-for-open-source-we-can-force-them-to/",
+      "publishedAt": "2026-09-20T21:04:32.000Z",
+      "author": "Muhammad523",
+      "authorDetail": {
+        "name": "Muhammad523",
+        "handle": "Muhammad523",
+        "url": "https://news.ycombinator.com/user?id=Muhammad523"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 102,
+        "comments": 66
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "68a57dd7383cfc6c",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.20557377049180328,
+      "popularityPercentile": 0.9344262295081968,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 85,
+      "titleJa": "FOSS利用者に料金を強制するという発想",
+      "oneLiner": "記事はFOSSの利用者から対価を得るために強制的な仕組みを導入すべきだと主張している。",
+      "takeaways": [
+        "無償で公開されたソフトの収益化を論じている。",
+        "利用者に料金を負担させる方法を主張している。",
+        "自由な利用と開発者の収入が衝突している。"
+      ],
+      "keywords": [
+        "FOSS",
+        "オープンソース",
+        "収益化",
+        "ライセンス"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "FOSSの利用を自由にするか料金を求めるか",
+        "forSide": "持続的な保守には利用企業から確実に対価を得る仕組みが必要だ。",
+        "againstSide": "強制課金はFOSSの自由を壊し別の代替実装を生むだけだ。",
+        "oneSided": true,
+        "yourAngle": "依存パッケージの更新費用と利用規約を日常的に扱う経験が接点になる。"
+      },
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "AI and the Destruction of the Creative Commons",
+      "url": "https://www.chesterwisniewski.com/post/2026-09-13-ai-is-destroying-the-creative-commons/",
+      "publishedAt": "2026-09-20T10:07:51.000Z",
+      "author": "rakel_rakel",
+      "authorDetail": {
+        "name": "rakel_rakel",
+        "handle": "rakel_rakel",
+        "url": "https://news.ycombinator.com/user?id=rakel_rakel"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 220,
+        "comments": 263
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "206662f18a618b42",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.17311475409836066,
+      "popularityPercentile": 0.7868852459016393,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 85,
+      "titleJa": "AIがCreative Commonsを壊す構図",
+      "oneLiner": "記事はAIの学習利用がCreative Commonsの共有文化を破壊すると論じている。",
+      "takeaways": [
+        "AIの学習利用と作品共有の関係を批判している。",
+        "公開作品が機械学習に使われる問題を扱っている。",
+        "共有の仕組みがAI時代に揺らいでいる。"
+      ],
+      "keywords": [
+        "AI",
+        "Creative Commons",
+        "著作権",
+        "機械学習"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "公開作品をAI学習に使えるようにするか制限するか",
+        "forSide": "共有許可を学習利用まで広げると創作者の意思が実質的に失われる。",
+        "againstSide": "広い学習利用を認めなければ知識共有の利点とAI研究の進歩が損なわれる。",
+        "oneSided": true,
+        "yourAngle": "生成AIを開発工程で使う側として学習元と成果物の権利関係を確認できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "ChatGPT now knows what you do on other websites via ad collector",
+      "url": "https://www.buchodi.com/chatgpt-now-knows-what-you-do-on-other-websites-via-ad-collector/",
+      "publishedAt": "2026-09-20T15:18:44.000Z",
+      "author": "lmbbuchodi",
+      "authorDetail": {
+        "name": "lmbbuchodi",
+        "handle": "lmbbuchodi",
+        "url": "https://news.ycombinator.com/user?id=lmbbuchodi"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 526,
+        "comments": 298
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "58bc6d4dfa88def7",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.645,
+      "popularityPercentile": 1,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 84,
+      "titleJa": "ChatGPTが広告収集経由で他サイトの行動を把握する問題",
+      "oneLiner": "記事は広告収集の仕組みによってChatGPTが他サイト上の利用者の行動を把握できると問題視している。",
+      "takeaways": [
+        "ChatGPTと広告収集による追跡を問題にしている。",
+        "他のサイトでの行動が把握される可能性を示している。",
+        "AIサービスの便利さとプライバシーが衝突している。"
+      ],
+      "keywords": [
+        "ChatGPT",
+        "広告収集",
+        "プライバシー",
+        "行動追跡"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "便利な連携を優先するか行動追跡を制限するか",
+        "forSide": "サイトをまたぐ追跡は本人が明確に理解して選べる場合だけ許されるべきだ。",
+        "againstSide": "関連性の高い広告や機能のためなら一定のデータ利用は受け入れられる。",
+        "oneSided": true,
+        "yourAngle": "AIサービスを開発で使う際の権限と送信データを実装単位で検証できる。"
+      },
+      "readingMinutes": 7,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "エージェントを増やしても賢くならない — graph engineering を Claude Code の Dynamic Workflow だけで実装して分かったこと",
+      "url": "https://qiita.com/banquet_kuma/items/f43a22ab24f219ed0569",
+      "publishedAt": "2026-09-20T09:13:55.000Z",
+      "author": "マルチンゲール",
+      "authorDetail": {
+        "name": "マルチンゲール",
+        "handle": "@banquet_kuma",
+        "url": "https://qiita.com/banquet_kuma",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/318960/e0db712a1b0130eae5c602a2ad94bae75d0d0714/x_large.png?1765367990",
+        "bio": "データ分析、機械学習、LLMを用いた効率的な\"モノ作り\"に興味があります。",
+        "location": "Aichi",
+        "followers": 94,
+        "posts": 26,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/Martingale_DS"
+          },
+          {
+            "label": "Web",
+            "url": "https://x.com/Martingale_DS"
+          }
+        ]
+      },
+      "tags": [
+        "AI駆動開発",
+        "ClaudeCode",
+        "LLM",
+        "コードレビュー",
+        "マルチエージェント"
+      ],
+      "snippet": "なぜ今graph engineeringが重要なのか？ 昨今、コンサル・SIer業界を中心に、AI駆動開発で作成したデモを基にオファリングを仕掛けていく流れが主流になりました。 これまでの、PPTスライド作成 ⇒ クライアントに当てる ⇒ FBを反映してスライド修正 ⇒ クライアントに当てる というやり方を止め、デモを見せて意見を貰いクイックに改善する方が受注に繋がり易いということが分かってきました。 しかし、ここで問題になるのが速度とコストです。 他社に先駆けてクライアントに深く入り込み、オファリングのコスト（AI利用コスト＋人件費）を以下に抑えるか、が重要です。 速度の観点では、Codingエージェントをなるべく自律的に走らせる必要があります（コンサルタントが働けない深夜、休日も稼働させる必要があります）。そして、如何に無駄なトークンを消費せずに、クライアントの1次情報を反映したデモを…",
+      "body": "なぜ今graph engineeringが重要なのか？\n\n昨今、コンサル・SIer業界を中心に、AI駆動開発で作成したデモを基にオファリングを仕掛けていく流れが主流になりました。\n\nこれまでの、PPTスライド作成　⇒　クライアントに当てる　⇒　FBを反映してスライド修正　⇒　クライアントに当てる　というやり方を止め、デモを見せて意見を貰いクイックに改善する方が受注に繋がり易いということが分かってきました。\n\nしかし、ここで問題になるのが速度とコストです。\n他社に先駆けてクライアントに深く入り込み、オファリングのコスト（AI利用コスト＋人件費）を以下に抑えるか、が重要です。\n\n速度の観点では、Codingエージェントをなるべく自律的に走らせる必要があります（コンサルタントが働けない深夜、休日も稼働させる必要があります）。そして、如何に無駄なトークンを消費せずに、クライアントの1次情報を反映したデモを作れるか、が勝負です。\n\nそこで重要になるのが、Anthropicが提唱したgraph engineering です。\nこの記事では、graph engineeringで陥りがちなミスについて、実業務で遭遇した事例を基にまとめます。\n\nTL;DR\n・複数のエージェントループを並列分岐・検証・受け渡し・停止条件でつないだものを graph engineering と呼びます。Claude Code の Dynamic Workflow は、これを外部フレームワークなしでそのまま書ける道具です。\n・ただし素朴に組むと organized nonsense（整然とした無意味） が出ます。同じモデルの同じコンテキストを読むエージェントは、何体並べても互いを承認し合うだけだからです。\n・実際に起きました。初版の検証段は 9件の指摘を9件とも「再現できた」と判定し、棄却ゼロでした。100%通過するフィルタはフィルタではありません。\n・効いた対策は3つです。システム外の証拠（実テストの実行）、反証フレーミング（「裏づけよ」ではなく「誤りを示せ」）、モデルの分散（最上位を「誤りが不可逆になる位置」に置く）。\n・それでも残る限界があります。スクリプトは人の回答を待てません。エージェントだけで閉じたグラフの外側に、人間をどう戻すか——それが次回の主題です。\n本記事が参照する一次情報: Graph Engineering vs Loop Engineering — Louis-François Bouchard (2026-07-22)\n\n目次\n\n1. graph engineering とは何か — Bouchard の定義と4つの構成要素\n2. 最大の落とし穴 organized nonsense — なぜエージェントを増やしても賢くならないのか\n3. Dynamic Workflow で何が書けるか — 4要素とAPIの対応\n4. 実装: graph-review の全体像 — DAGのどこに4要素が現れるか\n5. organized nonsense への3本の対策 — 外部証拠・反証フレーミング・モデルの分散\n6. 実測: 3回の実行で何が変わったか — 棄却ゼロからの脱出\n7. ここから先は人間が要る — 残る4つの限界とHILへの橋渡し\n8. まとめ\n9. 付録: graph-review.js 全文\n\n---\n1. graph engineering とは何か\n\nLouis-François Bouchard 氏が 2026年7月に公開した記事「Graph Engineering vs Loop Engineering」に、簡潔な定義があります。\nGraph engineering is this week's name for connecting several agent loops into one orchestrated system: parallel branches, verifiers, handoffs, and stop conditions.\n（graph engineering とは、今週の呼び名でいえば、複数のエージェントループを1つのオーケストレーションされたシステムにつなぐことである。すなわち並列分岐、検証者、受け渡し、そして停止条件である。）\n\n重要なのは、これがループの否定ではないという点です。同記事はこうも書いています。\nGraphs contain loops.\nA graph is just the extra layer where we trust agents even more to replace us.\n\nつまりループエンジニアリングは土台であり、graph engineering はその上に載る層です。「1本のループをどう回すか」から「複数のループをどう束ねるか」へ関心が移った、という整理になります。\n\n構成要素は4つです。\n\n [code] \n\n| 要素 | 役割 |\n| --- | --- |\n| 並列分岐（parallel branches） | 複数のエージェントが同時に作業や監査を行う |\n| 検証者（verifiers） | 並列作業の結果を検査し、統合する |\n| 受け渡し（handoffs） | エージェント間で作業を渡す。失敗したタスクは戻って再実行される |\n| 停止条件（stop conditions） | オーケストレーションを終わらせる明示的な終端 |\n\n \n---\n\n2. 最大の落とし穴 organized nonsense\n\n同じ記事の中で、最も重要な警告はここだと考えています。\nA graph of agents checking agents can produce extremely organized nonsense. Twenty agents on the same model, reading the same flawed context, agree with each other at industrial scale.\n（エージェントがエージェントを検査するグラフは、極めて整然とした無意味を生み出しうる。同じモデルの20体のエージェントが同じ欠陥のあるコンテキストを読めば、産業的な規模で互いに同意し合う。）\n\n\"organized\" と \"nonsense\" が両方かかっているのが肝です。出力は整然としています。観点別のレビュー、多数決、finding台帳、深刻度ラベル——厳密さの装いはすべて揃います。揃っていないのは中身だけです。\n\nなぜそうなるのでしょうか。LLMは自分の出力を好む傾向があります。同じモデルが同じコンテキストを読めば、判断はほぼ同じ方向に倒れます。3体が同じモデル・同じ入力なら、それは実質1票です。 票数を増やしても独立性は増えません。\n\nでは何を足せば独立性が生まれるのでしょうか。記事は明確です。\nSome evidence has to come from outside the agent system. Tests that actually ran. Money that reached the bank. Customers who stayed. Or an expert human reviewer.\n（証拠の一部は、エージェントのシステムの外側から来なければならない。実際に走ったテスト。銀行に届いた金。離れなかった顧客。あるいは熟練した人間のレビュアー。）\n\nこの一文が本記事の設計方針そのものです。そして最後の「あるいは熟練した人間のレビュアー」が、次回記事の主題になります。\n\n3. Dynamic Workflow で何が書けるか\n\nClaude Code の Workflow ツールは、複数のサブエージェントを決定論的に統率するスクリプトを書く機能です。LangGraph のような外部フレームワークを持ち込まなくても、graph engineering の4要素がそのまま書けます。\n\n3.1 主要なAPI\n\n [code] \n\nparallel と pipeline の違いは、実務では効いてきます。parallel は全件が揃うまで次へ進めません。全件を俯瞰しないと書けない処理（重複排除、集計、0件なら後続を丸ごと省く早期終了）のときだけ使い、それ以外は pipeline が既定です。\n\n3.2 書けないもの\n\nここは先に知っておくとよい制約です。\n\n| 制約 | 内容 |\n| --- | --- |\n| 言語 | プレーンJavaScript固定。TypeScriptの型注釈も構文エラーになります。Pythonでは書けません |\n| 時刻・乱数 | Date.now() / Math.random() / 引数なし new Date() は例外になります（レジューム機構が決定性を要求するため） |\n| ファイルシステム | スクリプト側からは触れません。Node APIも使えません |\n| meta | 変数・関数呼び出し・テンプレート補間を書けません |\n\nただし制約があるのはオーケストレーション層だけです。agent() が起動するエージェントは通常の Claude Code エージェントなので、Bash が使えます。重い処理をPythonで書きたければ、エージェントに実行させて schema で結果を受け取れば済みます。\n\n [code] \n\n3.3 4要素との対応\n\n| Bouchard の要素 | Dynamic Workflow での書き方 |\n| --- | --- |\n| 並列分岐 | parallel() / pipeline() に観点ごとの agent() を渡す |\n| 検証者 | 検証専用の agent()。schema で判定を構造化して受け取る |\n| 受け渡し | スクリプト側の素のJS（配列操作・Set による重複排除）。エージェントに任せない |\n| 停止条件 | while の条件式。maxRounds / 停滞検知 / budget.remaining() |\n\n受け渡しをスクリプト側で書けるのが、この道具の地味に大きい利点です。重複排除や集計をエージェントにやらせると、そこにも同質性の問題が入り込みます。素のJSで書けば、その工程はモデルの気分に左右されません。\n\n---\n\n4. 実装: graph-review の全体像\n\n以上を踏まえて実装したのが graph-review です。diff を観点別に並列レビューし、各指摘を実コマンドで反証してから採用するワークフローです。\n\n図1: ① Discover から ② Review まで（観点を並べて指摘を集める）\n\n [code] \n\n図2: ③ Verify から ④ Report まで（集めた指摘を反証してから採用する）\n\n [code] \n\n4要素がどこに現れるかを対応づけます。\n\n| 要素 | 図中の位置 | 実装 |\n| --- | --- | --- |\n| 並列分岐 | 図1 ② Review の4観点、図2 ③ Verify の各指摘 | parallel() を2箇所 |\n| 検証者 | 図2 ③ Verify → refuted ? | 反証専用エージェント。schema で refuted: boolean を受ける |\n| 受け渡し | 図1 file:line で重複排除 → severity 順に整列 | 素のJS。エージェントを使わない |\n| 停止条件 | 図2 停止条件 の菱形 | round < maxRounds && stalled < 2 && budget残 |\n\nもう1つ、図1にある ① Discover は Bouchard の4要素には出てきません。これは organized nonsense 対策として足した段です。次章で説明します。\n\n \n\n---\n5. organized nonsense への3本の対策\n\n3つ入れています。上から順に効きます。\n\n5.1 システム外の証拠（最重要）\n\nBouchard の \"Tests that actually ran\" を、そのまま構造にします。① Discover 段が、対象リポジトリで実際に使えるコマンドを実地で特定します。\n\n [code] \n\nポイントは2つあります。\n\n「推測で一般的なコマンド名を答えることを禁止する」を明記する。 これを書かないと npm test のような一般名を返してきます。存在しないコマンドは証拠を生みません。\n\nevidence フィールドを必須にする。 どのファイルのどの記述から特定したかを言わせることで、実読したかどうかが戻り値から確認できます。\n\nこの段で得たコマンドが Verify 段に渡り、エージェントが何体合意しようとテストが落ちれば落ちるという構造ができます。\n\n5.2 反証フレーミング\n\nここが一番の学びでした。初版は「指摘を検証せよ」と書いていて、機能しませんでした。\n\n結果は confirmed 9 / discarded 0 でした。検証エージェントは有能なので、その場で node -e の即席スクリプトを組み立て、9件すべてを再現してしまったのです。「再現できるか試せ」と言われたエージェントは、再現する方法を見つけるのが仕事だと解釈します。\n\n100%通過するフィルタは、フィルタではありません。\n\n [code] \n\n改訂後のプロンプトはこうなっています。役割を反転させ、棄却を既定側に置いたのが要点です。\n\n [code] \n\n採否ロジックも、安全側に倒しています。\n\n [code] \n\nj.evidence.refuted === false という厳密比較にしているのは、evidence が欠損したときに undefined が偽と評価されて採用側に落ちるのを防ぐためです。エージェントが応答しなかったケースは、無条件で棄却になります。\n\n5.3 モデルの分散\n\n同質性を下げる直接的な手段です。ただしどこに最上位を置くかは自明ではありませんでした。\n\n初版は生成役（Review）に最上位を置いていました。「よいレビュアーがよい指摘を出す」という発想です。これは間違いでした。判断基準は誤りが不可逆になる位置はどこかであるべきです。\n・Review の誤りは Verify が濾します\n・Verify の誤りは誰も濾しません\n・しかも Verify には「迷ったら棄却」という偏りを意図的に入れてあります。本物の欠陥を誤って棄却すると、痕跡なく消えます\n\n [code] \n\nコメントに書いてあるとおり、モデル指定は必ず定数を経由させます。一度、定数ブロックに opus が無いのに観点定義の中でインラインに 'claude-opus-5' と書いていた箇所があり、「モデルを散らす」というコメントの直下に散らしていない定義が並ぶ状態になっていました。指定箇所が散ると、分散設計そのものが壊れます。\n\n5.4 補足: severity の定義も書く\n\nseverity は enum: ['blocker', 'major', 'minor'] で3値に縛っていますが、値の意味をプロンプトに書かないとモデルごとに基準がばらつきます。これは実害があります。深刻度は検証枠（maxVerify）の優先順位付けに実際に使われるためです。\n\n [code] \n\n5.5 停止条件は必ず二重にする\n\nBouchard の4要素の最後です。達成条件だけにすると、agent() が null を返し続けた場合や、そもそも達成不能な場合に止まりません。\n\n [code] \n\n3つ入っています。回数上限、停滞検知（2回続けて採用件数が増えなければ打ち切り）、予算残です。停滞検知は単純な回数上限より賢く働きます。\n\nなお時間による打ち切りは書けません。Date.now() が例外になるためです。件数・試行回数・予算で代替します。\n\n \n\n---\n6. 実測: 3回の実行で何が変わったか\n\n検証には、意図的にバグを1つ仕込んだ小さなユーティリティ集（clamp / sum / avg / chunk / median / buildQuery など12関数、変更行数52行）を使いました。仕込んだのは clamp の上限処理で、上限を超えた値をクランプせずそのまま返す欠陥です。\n\n| 回 | 変更点 | confirmed | discarded | unverified | 総トークン（表示値） |\n| --- | --- | --- | --- | --- | --- |\n| 1 | 初版（再現フレーミング） | 9 | 0 | 0 | 736K |\n| 2 | 反証フレーミング導入 | 6 | 1 | 2 | 420K |\n| 3 | 反証基準3を「到達可能性」で再定義 | 6 | 1 | 2 | 411K |\n\n:::note warn\nトークン数はワークフロー実行後に表示された値です。この表示値の内訳定義は確認していません。 参考までに、3回を通じたトランスクリプト上の実測は、出力トークンが約106,000、キャッシュ読取が約1,660万でした。\n:::\n\n6.1 1回目 → 2回目: 棄却ゼロからの脱出\n\n5.2 で述べたとおりです。棄却が0件から1件になったことより、「棄却されうる構造になった」ことが重要です。\n\n棄却された1件は SQL文字列の連結（buildQuery）でした。判定理由はこうです。\n症状自体（エスケープなしで生SQL文字列に埋め込まれること）は再現するが、この関数を実DBクエリとして呼び出す経路がリポジトリ内に一切存在しない。（中略）grep -rn \"buildQuery\" は定義行以外に一件もヒットせず、テストファイルも別関数のみを検証しており未使用\n\n症状は再現するが、害が成立しない——これは再現フレーミングでは絶対に出てこない判定です。\n\n6.2 2回目 → 3回目: 件数が同じでも中身が変わった\n\n2回目には残った問題がありました。同じ事実から反対の結論が出ていたのです。\n\nchunk（サイズ0でハングする）と buildQuery（SQLインジェクション）は、どちらも「export済み・リポジトリ内に呼び出し元ゼロ」という同一条件でした。にもかかわらず chunk は採用、buildQuery は棄却という結果でした。しかも chunk を採用した理由は「外部の消費者がいる想定だから」という推測でした。\n\nそこで反証基準3を「呼び出し元の有無」ではなく「害が生じるために信頼できない外部入力の到達を要する種類か」で切り直し、明示的な禁止条項を足しました。\n※ 呼び出し元の有無だけを根拠にしてはならない。 正常な呼び出しでも誤動作する欠陥（誤った計算結果・ハング・未処理の例外）は、呼び出し元がゼロでも反証にならない\n\n3回目の判定文は、この区別を正面から使うようになりました。\n・chunk: 「呼び出し元がリポジトリ内に無くても、正常な直接呼び出しでハングする欠陥は反証対象外」\n・median: 「本欠陥は『信頼できない外部入力の到達』を要する種類ではなく（中略）呼び出し元が現状ゼロであることは反証の根拠にならない」\n\n件数は変わっていません。変わったのは、推測に基づく判定が事実に基づく判定になったことです。マルチエージェントの評価では、件数だけを見ていると改善を見落とします。\n\n6.3 副作用について\n\n「監査だから読み取りだけ」は成り立ちません。 全エージェントのプロンプトに次のガードを埋め込んでいますが、これで防げるのはエージェント自身のファイル操作までです。\n\n [code] \n\nVerify 段は実コマンドを走らせるので、コマンド由来の副作用（.pytestcache、pycache、カバレッジ、ビルド成果物）は避けられません。本番リポジトリを汚したくないなら、git worktree add /tmp/xxx した worktree を対象に渡します。副作用は /tmp 側に閉じます。\n\n \n\n---\n\n7. ここから先は人間が要る\n\n実はここまでの3本の対策を入れてなお、以下は解けていません。\n\n7.1 外部証拠がゼロでも、それが見えない\n\n検証コマンドが1つも見つからないリポジトリでは、Verify はコードの読解だけで判定します。このとき 5.1 の対策は実質無効になり、判定はエージェントの合議に戻ります。\n\n問題は、戻り値からその区別がつかないことです。テストを実行して採用したのか、読んだだけで採用したのかが、レポートを見ても分かりません。これは静かな劣化です。\n\n7.2 severity は「検証前の自己申告」\n\nseverity は検証枠の優先順位付けに使われますが、付けるのはまだ何も検証されていない時点のレビュアーです。\n\n実測でも起きました。buildQuery は blocker と自己申告して検証枠を1つ消費し、その後棄却されました。一方で unverified に落ちた2件は、本物かどうか誰も確かめていません。過大申告したレビュアーが枠を占有できてしまいます。\n\n5.4 の定義追加で基準のばらつきは減らせますが、「検証前の申告で優先順位が決まる」という構造そのものは残ります。\n\n7.3 打ち切りと収束が区別できていない\n\n [code] \n\nmaxRounds の既定は1なので、通常運用では converged は常に false になります。「上限に達した」と「もう出ない」を戻り値で区別する意図でしたが、既定値では機能していません。\n\n7.4 予算ガードの桁が足りない\n\n [code] \n\nトークン上限はハードで、使い切ると次の agent() が例外を投げます。ループ途中で投げられると Report まで到達せず、積み上げた採否がまるごと失われます。それを防ぐ予備枠です。\n\nしかし1ラウンドは最大12体（sizeProbe 1 + Review 4 + Verify 7）で、実測は40万トークン超でした。30,000 は1ラウンドの100分の1にも満たず、「残り30Kあるから次へ」という判断は成立しません。しかも予算指定なしで走らせた3回では budget.total が null だったため、この経路は一度も実行されていません。\n\n7.5 そして、人間を待てない\n\nこれが本質的な限界です。Workflow スクリプトは人の回答を待てません。 agent() は起動して結果を返す関数であり、「ここで人に聞く」という中断点を作れません。\n\nBouchard の一文をもう一度引きます。\nSome evidence has to come from outside the agent system. Tests that actually ran. Money that reached the bank. Customers who stayed. Or an expert human reviewer.\n\n本記事で実装できたのは「実際に走ったテスト」までです。最後の「熟練した人間のレビュアー」は、まだグラフの中に入っていません。\n\n7.1 から 7.4 までを見直すと、いずれも「機械が判定を誤ったとき、あるいは判定できないとき、誰も気づかない」という同じ形をしています。外部証拠がゼロでも黙って進みます。過大申告が枠を奪っても黙って進みます。収束していなくても収束したように見えます。判断を止めて人に渡す仕組みが無いことが、これらに共通する根です。\n\nワークフローを分割してセッション層で人の判断を挟む、という回避策はあります。次回はそこを扱います。エージェントだけで閉じたグラフに、どうやって人間を構造として組み込むか——Human in the Loop が主題です。\n\n8. まとめ\n・graph engineering は、複数のエージェントループを並列分岐・検証者・受け渡し・停止条件でつなぐ設計です。Claude Code の Dynamic Workflow は、外部フレームワークなしでこれを書けます\n・ただし素朴に組むと organized nonsense が出ます。同じモデルの同じコンテキストを読むエージェントは、何体並べても実質1票です\n・実際に再現しました。9件の指摘が9件とも採用され、棄却ゼロでした\n・効いた対策は3つ。システム外の証拠（実コマンドの実行）、反証フレーミング（役割を「裏づけよ」から「誤りを示せ」へ反転し、迷ったら棄却へ倒す）、モデルの分散（最上位は「誤りが不可逆になる位置」＝検証段に置く）\n・マルチエージェントの改善は件数では測れません。3回目は件数が2回目と同一でしたが、判定理由が推測から事実へ変わっていました\n・受け渡し（集約・重複排除）はエージェントに任せず素のJSで書くのが有効です。その工程だけはモデルの気分に左右されなくなります\n・残る限界はすべて「機械が判定を誤ったとき誰も気づかない」という同じ形をしています。次はここに人間を戻します\n\n---\n\n付録: graph-review.js 全文\n\n/.claude/workflows/ 配下に置くとワークフロー名で解決できます。ただしレジストリはセッション開始時に構築されるため、作成直後は名前で呼べないことがあります。その場合は絶対パスを scriptPath に渡せば即実行できます。\n\n [code] \n\n参考\n・Graph Engineering vs Loop Engineering — Louis-François Bouchard (2026-07-22) — 本記事が下敷きにした一次情報。organized nonsense の警告と「証拠は外部から来なければならない」という原則\n・Getting started with loops — Claude Blog — ループの分類。graph engineering の土台となる層\n・Claude Code documentation — Workflow / サブエージェント / スキルの公式ドキュメント",
+      "metrics": {
+        "likes": 2,
+        "stocks": 0,
+        "comments": 2
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c196c599216b9243",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8918085106382979,
+      "popularityPercentile": 0.9627659574468085,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "記事はClaude CodeのDynamic Workflowで複数エージェントをつなぐ際に生じる無駄と制御不足を実例から分析している。",
+      "takeaways": [
+        "エージェントを増やしても成果は自動で良くならない。",
+        "作業を分けるだけでは整った無意味さが生まれる。",
+        "分岐と検証と停止条件が品質を左右する。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "Dynamic Workflow",
+        "graph engineering",
+        "マルチエージェント",
+        "コードレビュー"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "エージェントを増やすか一つに絞るか",
+        "forSide": "分業と検証を組み合わせれば複雑な開発作業を長時間自動化できる。",
+        "againstSide": "同じモデルを増やすほど確認と調整が増え品質より費用が膨らむ。",
+        "oneSided": false,
+        "yourAngle": "Claude Codeを日常利用して作業時間と手戻りを実測できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 677,
+    "afterDedupe": 626,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 377,
+      "zenn": 116,
+      "hatena": 32,
+      "hackernews": 62,
+      "devto": 3,
+      "github_release": 1,
+      "github_repo": 75,
+      "rss": 10,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 34
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3111,
+        "outputTokens": 293,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4264,
+        "estimatedCostUsd": 0.0009737999999999999
+      },
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3472,
+        "outputTokens": 853,
+        "cacheReadTokens": 0,
+        "elapsedMs": 6035,
+        "estimatedCostUsd": 0.001718
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2994,
+        "outputTokens": 1304,
+        "cacheReadTokens": 0,
+        "elapsedMs": 9887,
+        "estimatedCostUsd": 0.0021636
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 20382,
+        "outputTokens": 1605,
+        "cacheReadTokens": 3404,
+        "elapsedMs": 13997,
+        "estimatedCostUsd": 0.00607048
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 15276,
+        "outputTokens": 1693,
+        "cacheReadTokens": 3260,
+        "elapsedMs": 15662,
+        "estimatedCostUsd": 0.005152
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 13606,
+        "outputTokens": 1844,
+        "cacheReadTokens": 3558,
+        "elapsedMs": 17832,
+        "estimatedCostUsd": 0.00500516
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13817,
+        "outputTokens": 3111,
+        "cacheReadTokens": 7979,
+        "elapsedMs": 22973,
+        "estimatedCostUsd": 0.00665618
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 12982,
+        "outputTokens": 2431,
+        "cacheReadTokens": 0,
+        "elapsedMs": 16730,
+        "estimatedCostUsd": 0.0055136000000000004
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 13526,
+        "outputTokens": 3715,
+        "cacheReadTokens": 0,
+        "elapsedMs": 21227,
+        "estimatedCostUsd": 0.007163200000000001
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 15467,
+        "outputTokens": 5047,
+        "cacheReadTokens": 11807,
+        "elapsedMs": 37698,
+        "estimatedCostUsd": 0.009385939999999999
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18797,
+        "outputTokens": 5505,
+        "cacheReadTokens": 15625,
+        "elapsedMs": 37812,
+        "estimatedCostUsd": 0.0106779
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18979,
+        "outputTokens": 3406,
+        "cacheReadTokens": 12965,
+        "elapsedMs": 26566,
+        "estimatedCostUsd": 0.0081423
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3285,
+        "outputTokens": 226,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2766,
+        "estimatedCostUsd": 0.0009282
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4141,
+        "outputTokens": 280,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2339,
+        "estimatedCostUsd": 0.0011642
+      }
+    },
+    "totalCostUsd": 0.0707
+  },
+  "notes": []
+}
