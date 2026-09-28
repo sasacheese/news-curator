@@ -1,0 +1,2062 @@
+{
+  "date": "2026-09-28",
+  "generatedAt": "2026-09-28T00:17:21.604Z",
+  "window": {
+    "start": "2026-09-26T22:00:00.000Z",
+    "end": "2026-09-27T22:00:00.000Z"
+  },
+  "summary": [
+    "AI・エージェント関連が12件に達し、全体の中心となった。",
+    "開発支援ツールの増加とともに、権限管理や事故対応の議論も広がった。",
+    "生成品質だけでなく、型付き出力やレビュー、巻き戻しを重視する流れが目立つ。",
+    "Claude Opus 5.5の登場では、性能向上と破壊的変更への移行対応が焦点になった。"
+  ],
+  "outlook": "AIエージェントは開発操作から継続実行まで定着しつつある一方、権限・監査・品質保証・移行対応はなお揺れている。今後は、型付き出力や人の承認、巻き戻しを組み込んだ安全な委任設計と、変更を測る評価基盤が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【速報】Claude Opus 5.5 まとめ：Opus 5・Fable 5.1との比較と、移行でハマる4つの破壊的変更",
+      "url": "https://qiita.com/satoshi_061/items/599a871796ac6804d52d",
+      "publishedAt": "2026-09-27T01:01:13.000Z",
+      "author": "satoshi_061",
+      "authorDetail": {
+        "name": "satoshi_061",
+        "handle": "@satoshi_061",
+        "url": "https://qiita.com/satoshi_061",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/590349/profile-images/1606889993",
+        "followers": 1,
+        "posts": 18,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/nskwsatoshi_061"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "LLM",
+        "Claude",
+        "ClaudeCode",
+        "Anthropic"
+      ],
+      "snippet": "はじめに 2026年9月22日、Anthropic から Claude Opus 5.5 がリリースされました。 「Fable 5.1 並みの性能を、Opus 5 より安く」という位置づけのモデルです。 この記事では、Anthropic の公式発表と公式ドキュメント（1次情報）のみをもとに、次の3点を整理します。 ・Opus 5.5 のスペックと価格 ・Opus 5・Fable 5.1 とのベンチマーク／コスト比較 ・Opus 5 から移行するときにハマる破壊的変更 「結局どのモデルを使えばいいのか」を判断したい方に向けた記事です。 なお、この記事の調査と下書きには Claude Code 上の Opus 5.5 を使っています。 TL;DR ・価格は $4 / $20（入力 / 出力、100万トークンあたり）。Opus 5 の $5 / $25 から20%値下げ、Fable 5.1 の …",
+      "body": "はじめに\n\n2026年9月22日、Anthropic から Claude Opus 5.5 がリリースされました。\n「Fable 5.1 並みの性能を、Opus 5 より安く」という位置づけのモデルです。\n\nこの記事では、Anthropic の公式発表と公式ドキュメント（1次情報）のみをもとに、次の3点を整理します。\n・Opus 5.5 のスペックと価格\n・Opus 5・Fable 5.1 とのベンチマーク／コスト比較\n・Opus 5 から移行するときにハマる破壊的変更\n\n「結局どのモデルを使えばいいのか」を判断したい方に向けた記事です。\nなお、この記事の調査と下書きには Claude Code 上の Opus 5.5 を使っています。\n\nTL;DR\n・価格は $4 / $20（入力 / 出力、100万トークンあたり）。Opus 5 の $5 / $25 から20%値下げ、Fable 5.1 の $10 / $50 と比べると60%安い\n・公開ベンチマークでは Opus 5 と Fable 5.1 の両方を上回る。ただし Anthropic 自身も「実際の差はスコアほど大きくない」としている\n・出力速度は Opus 5 比で30%以上高速。Fast mode を使うと最大2.5倍\n・effort の既定値が high → medium に変わった。何も指定しないと思考量が変わるので要注意\n・破壊的変更が4つ。thinking 無効化不可・強制ツール使用の廃止・thinking ブロックのモデル紐付け・旧 computer use ツールの非対応\n\n環境・前提条件\n・対象モデル: claude-opus-5-5（2026年9月22日リリース）\n・比較対象: claude-opus-5（旧フラッグシップ）、claude-fable-5-1（一般提供の最上位モデル）\n・情報源: Anthropic 公式発表・Claude Platform Docs・Claude Code Docs（2026年9月27日時点）\n\n:::note info\nベンチマークの数値は Anthropic の公開値です。筆者が独自に計測したものではありません。\n:::\n\nスペック比較表\n\nまずは3モデルの基本スペックを並べます。\n\n| 項目 | Opus 5.5 | Opus 5 | Fable 5.1 |\n|---|---|---|---|\n| モデルID | claude-opus-5-5 | claude-opus-5 | claude-fable-5-1 |\n| 入力価格（/MTok） | $4 | $5 | $10 |\n| 出力価格（/MTok） | $20 | $25 | $50 |\n| キャッシュ読み取り（/MTok） | $0.20 | $0.50 | $0.25 |\n| コンテキストウィンドウ | 1M | 1M | 1M |\n| 最大出力 | 128K | 128K | 128K |\n| thinking | Adaptive（常時ON） | Adaptive（high 以下なら無効化可） | Adaptive（常時ON） |\n| effort 既定値 | medium | high | high |\n| 公式ドキュメント上の扱い | 最新の Opus | レガシーモデル | 最上位モデル |\n\n注目したいのは 公式ドキュメントのおすすめが Opus 5.5 に変わった 点です。\nモデル一覧ページでは「迷ったらまず Opus 5.5」と案内されています。\nFable 5.1 は「Opus 5.5 を高い effort にしても評価が足りないとき」の選択肢という位置づけです。\n\nベンチマーク比較\n\nAnthropic が公開したベンチマークから、3モデル分を抜粋します。\n\n| ベンチマーク | 内容 | Opus 5.5 | Fable 5.1 | Opus 5 |\n|---|---|---|---|---|\n| Terminal-Bench 4.0 | エージェント型コーディング | 66.4% | 55.8% | 52.3% |\n| FrontierCode v1.1 (Main) | エージェント型コーディング | 54.4% | 50.3% | 48.0% |\n| CursorBench 4.0 | エージェント型コーディング | 57.8% | 51.8% | 46.6% |\n| GDPval-AA v2.1 | 知識労働 | 1846 | 1735 | 1708 |\n| AutomationBench | 業務ワークフロー | 40.0% | 31.4% | 26.9% |\n| Humanity's Last Exam（ツールあり） | 学際的な推論 | 67.7% | 65.6% | 63.6% |\n| Terminal-Bench-Science 0.1 | エージェント型の科学研究 | 58.7% | 52.6% | 29.0% |\n| OSWorld 2.0 | コンピュータ操作 | 81.8% | 80.7% | 74.0% |\n| Chartography（ツールあり） | グラフの読み取り | 89.0% | 88.4% | 83.4% |\n\n:::note warn\n公式発表の注記によると、Opus 5.5 のスコアは原則 max effort で測定されています（Terminal-Bench 4.0 は xhigh）。\n既定の medium で使う場合は、この数値がそのまま出るとは限りません。\nまた AutomationBench の Opus 5.5 のスコアは早期アクセス時の値で、他モデルは公開リーダーボードの値です。\n:::\n\n読み取れること\n・エージェント型コーディングで差が大きい。Terminal-Bench 4.0 では Fable 5.1 を10ポイント以上上回る\n・コンピュータ操作とグラフ読み取りは僅差。OSWorld 2.0 は1.1ポイント差、Chartography は0.6ポイント差\n・Opus 5 からは全項目で伸びている。OSWorld 2.0 は約8ポイント、AutomationBench は約13ポイント改善\n\nAnthropic 自身も発表の中で「社内で使った実感では、Fable 5.1 との差はスコアが示すより小さい」と述べています。\n自分のタスクで比較評価（eval）してから切り替えるのが安全です。\n\nコスト比較：どれくらい安くなるのか\n\n価格表だけでなく、具体的な金額で比べてみます。\n入力100万トークン・出力20万トークンの処理を想定します。\n\n| モデル | 入力コスト | 出力コスト | 合計 |\n|---|---|---|---|\n| Opus 5.5 | $4.00 | $4.00 | $8.00 |\n| Opus 5 | $5.00 | $5.00 | $10.00 |\n| Fable 5.1 | $10.00 | $10.00 | $20.00 |\n\n単価だけで見ると Opus 5 比20%減、Fable 5.1 比60%減です。\nさらに Anthropic は「既定設定で一般的なワークロードを処理した場合、Opus 5 より40%安くなる」と発表しています。\n\n一方で、公式ドキュメントには次の注意書きもあります。\n・同じ effort でも、Opus 5 より1ターンあたりの思考量が多くなりやすい（特に xhigh と max）\n・effort の設定を旧モデルから引き継がず、自分の評価で調整し直すこと\n\neffort を上げるほどトークン消費も増えるため、必要な分だけ上げるのがよさそうです。\n\n速度と Fast mode\n・通常モードでも出力速度は Opus 5 比で 30%以上高速\n・Fast mode（リサーチプレビュー）で 最大2.5倍\n・Fast mode の価格は $8 / $40（通常の2倍）\n・API での Fast mode は Claude API のみ。Amazon Bedrock・Google Cloud・Microsoft Foundry などでは使えない\n\nClaude Code では /fast で Fast mode を切り替えられます。\n公式ドキュメントでは、素早い試行錯誤やライブデバッグのような対話的な作業に向くとされています。\nなお、サブスクリプションプラン（Pro / Max / Team / Enterprise）では、Fast mode の利用分はプランの使用枠ではなく usage credits から支払われます。\n\n文章の書き方も変わった\n\n地味ですが、個人的に注目しているのが文章スタイルの改善です。\nAnthropic の発表では、Opus 5.5 は次の点が改善されたとされています。\n・従来のモデルより自然なコミュニケーションになった\n・文章がより明確で、読みやすくなった\n・最も重要な情報を先に書く\n\n議事録や報告書の下書きを Claude に任せている方には、うれしい変化ではないでしょうか。\n\n移行でハマる4つの破壊的変更\n\nここからは API を直接使っている方向けです。\nOpus 5 からモデルIDを差し替えるだけだと、400エラーになるケースがあります。\n\n1. thinking を無効化できない\n\nOpus 5.5 では thinking が常時ONです。\nthinking: {\"type\": \"disabled\"} や budgettokens 指定はエラーになります。\n\n [code] \n\nなぜこうするか: 以前 thinking を切っていたのは、速度とコストを抑えたかったからのはずです。\nOpus 5.5 ではその役割を effort パラメータが担います。\nまた、レスポンスの先頭に thinking ブロックが入ることがあるため、content[0] のような位置指定ではなく type で判定しましょう。\n\n [code] \n\n2. 強制ツール使用（toolchoice: any / tool）が使えない\n\ntoolchoice に {\"type\": \"any\"} や {\"type\": \"tool\", \"name\": \"...\"} を渡すとエラーになります。\n使えるのは auto（既定）と none だけです。\n\n [code] \n\nなぜこうするか: 「スキーマ通りの JSON がほしい」という目的なら、strict tool use や structured outputs で代替できます。\n「必ずツールを呼んでほしい」場合は、公式ドキュメントの案内どおり、プロンプトでツールを使う条件を明記します。\n\n3. thinking ブロックがモデルと会話に紐付く\n\n途中でモデルを切り替える構成の方は要注意です。\n・Opus 5 → Opus 5.5 への切り替え: 思考の内容は引き継がれる\n・Opus 5.5 → Fable 5.1 への切り替え: 引き継がれる（Claude API の場合）\n・Fable 5.1 → Opus 5.5 への切り替え: 引き継がれない（エラーにはならず、読めないブロックは破棄される）\n\nさらに、2026年8月31日（UTC）以降に作成されたアカウントでは、過去の thinking ブロックより前の内容を書き換えて再送すると400エラー になります。\nsystem プロンプトやツール定義を会話途中で編集している場合は影響を受けます。\n公式ドキュメントでは、会話は追記のみにして、指示の変更は mid-conversation system messages で行うよう推奨されています。\n\n4. 旧 computer use ツールが使えない\n\nClaude API と Google Cloud では、computer20251124 ツールがエラーになります。\ncomputertoolset20260801 へ移行が必要です（Amazon Bedrock は旧ツールのままで動きます）。\n\nおまけ：エラーにならないが挙動が変わる点\n・ツール呼び出しの合間のテキストが thinking ブロックで返る。既定の display: \"omitted\" では中身が空になるため、進捗表示をストリーミングしているアプリは途中で無言になります\n・同じ effort でも思考量が多め。特に xhigh と max で顕著なので、maxtokens に余裕を持たせる\n・安全分類器が追加。サイバーセキュリティに加えて生物学の分類器も動くため、拒否（stopreason: \"refusal\"）時のフォールバック処理を用意しておく\n\n結局どれを使うべきか\n\n公式ドキュメントのモデル選択ガイドをもとに整理すると、次のようになります。\n\n| やりたいこと | 公式のおすすめ | 例 |\n|---|---|---|\n| 最高性能が必要 | Fable 5.1 | 数時間走るエージェント、多段階のディープリサーチ |\n| 複雑なエージェント型コーディング・業務 | Opus 5.5 | 長時間の自律コーディング、大規模リファクタリング、コンピュータ操作 |\n| 日常的なコーディング・エージェント | Sonnet 5 | コード生成、データ分析、コンテンツ作成 |\n| 最小のレイテンシと価格 | Haiku 4.5 | リアルタイム処理、大量処理、サブエージェント |\n\nポイントは 「モデルを変える前に effort を調整する」 ことです。\n公式ドキュメントでも、モデル切り替えより effort 調整のほうが有効な場合が多いとされています。\nOpus 5.5 は既定が medium なので、まずは既定のまま試し、足りなければ effort を上げる流れがおすすめです。\n\nClaude Code ユーザー向けメモ\n\nClaude Code の公式ドキュメントで確認できた内容です。\n・Pro・Max・Team・Enterprise プランと Anthropic API では、既定モデルが Opus 5.5 になった\n・Opus 5.5 を使うには Claude Code v2.1.280 以降 が必要\n・/model でモデルを切り替え、/effort で effort を変更できる\n・Opus 5.5 の effort 既定値は medium（Opus 5 は high）\n・Anthropic のテストでは、medium の Opus 5.5 がコーディングと知識労働の評価で high の Opus 5 と同等以上\n・/fast で Fast mode を切り替えられる（v2.1.280 以降は Opus 5.5 が Fast mode の既定モデル）\n\nまとめ\n・Opus 5.5 は $4 / $20 で、Opus 5 より20%安く、Fable 5.1 より60%安い\n・公開ベンチマークでは Opus 5 と Fable 5.1 の両方を上回る。ただし測定は max effort で、一部は僅差\n・effort の既定値が medium に変わった ため、思考量とコストのバランスを再確認する\n・API 利用者は 4つの破壊的変更 を確認してからモデルIDを差し替える\n・今後数週間で Sonnet 5.5・Haiku 5.5 も登場予定と発表されているので、そちらも追ってまとめる予定です\n\n前モデルの記事もあわせてどうぞ。\n・【速報】Claude Fable 5 仕様まとめ＆個人開発に半日任せて分かった3つのこと\n・Claude Opus 4.8 徹底解説：前バージョン・Sonnet 4.6との比較まとめ\n\n参考\n・Introducing Claude Opus 5.5 - Anthropic\n・What's new in Claude Opus 5.5 - Claude Platform Docs\n・Migrating to Claude Opus 5.5 - Claude Platform Docs\n・Models overview - Claude Platform Docs\n・Choosing the right model - Claude Platform Docs\n・Effort - Claude Platform Docs\n・Strict tool use - Claude Platform Docs\n・Model configuration - Claude Code Docs\n・Speed up responses with fast mode - Claude Code Docs",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "20b0ad9ce5359286",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8360533333333334,
+      "popularityPercentile": 0.7093333333333334,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "Claude Opus 5.5は価格と速度を改善する一方で4つの移行上の破壊的変更を導入した。",
+      "takeaways": [
+        "Claude Opus 5.5が2026年9月22日に公開された。",
+        "料金は100万トークンあたり入力4ドルと出力20ドルになった。",
+        "初期設定と旧機能が変わりOpus 5からの移行に注意が要る。"
+      ],
+      "keywords": [
+        "Claude Opus 5.5",
+        "Claude Opus 5",
+        "Fable 5.1",
+        "Claude Code",
+        "Anthropic",
+        "破壊的変更"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "Claude Opus 5.5 は、入力 $4・出力 $20/MTokで、Opus 5より20%、Fable 5.1より60%安い最新のOpusモデルです。公開ベンチマークでは両モデルを上回りますが、主にmax effort（Terminal-Bench 4.0はxhigh）で測定され、既定のmediumで同じ結果になるとは限りません。Claude Codeでは既定モデルがOpus 5.5になり、出力速度はOpus 5比で30%以上高速、/fastでは最大2.5倍になります。移行時は、thinkingが常時ONになったこと、tool_choiceでany/toolが使えないこと、thinkingブロックのモデル・会話への紐付け、旧computer useツールの非対応を確認する必要があります。特にeffortの既定値がhighからmediumへ変わったため、性能・コスト・思考量を既存設定のまま比較せず、自分のevalで再調整するのが安全です。",
+        "prerequisites": [
+          {
+            "term": "effort",
+            "stumblingPoint": "記事は「effortの既定値がmedium」と書くが、thinkingとの役割分担を知らないと変更の影響が読めない。",
+            "explanation": "effortはモデルにどの程度の思考量を使わせるかを調整するパラメータです。Opus 5.5ではthinkingを無効化できないため、従来thinkingを切って速度やコストを抑えていた設定の代わりにeffortを下げます。mediumが既定ですが、xhighやmaxではトークン消費が増え、同じ設定名でもOpus 5より思考量が多くなりやすい点に注意が必要です。"
+          },
+          {
+            "term": "thinking",
+            "stumblingPoint": "記事は「thinkingが常時ON」と書くが、APIレスポンスのブロック構造を知らないと実装変更点が見えない。",
+            "explanation": "thinkingはモデルが回答前に行う推論部分をレスポンス内のブロックとして返す仕組みです。Opus 5.5ではdisabledやbudget_tokens指定がエラーになるため、thinkingを切る分岐を残したままモデルIDだけ変えると400エラーになります。レスポンス先頭が必ずthinkingとは限らないので、content[0]ではなくブロックのtypeで処理する必要があります。"
+          },
+          {
+            "term": "tool_choice",
+            "stumblingPoint": "記事は「tool_choiceはautoとnoneだけ」と書くが、ツール呼び出しを強制するAPI制御を知らないと代替策が判断できない。",
+            "explanation": "tool_choiceは、モデルがツールを使うかどうかをAPIリクエストで指定する設定です。Opus 5.5ではanyや特定ツールを指定するtoolが使えず、必ずツールを呼ばせる既存実装はエラーになります。JSON形式の出力が目的ならstrict tool useやstructured outputsを使い、条件付きでツールを呼ばせる場合はプロンプトに条件を明記します。"
+          },
+          {
+            "term": "thinkingブロック",
+            "stumblingPoint": "記事は「モデルと会話に紐付く」と書くが、会話履歴を別モデルへ渡す際の互換性が読み取りにくい。",
+            "explanation": "thinkingブロックは単なる表示用テキストではなく、特定モデルと会話履歴に関連付いたブロックです。Opus 5.5からFable 5.1への切り替えは引き継げますが、Fable 5.1からOpus 5.5では引き継がれず、読めないブロックが破棄されます。2026年8月31日以降に作成されたアカウントでは、過去のthinkingブロックより前の履歴を書き換えて再送すると400エラーになる場合もあります。"
+          },
+          {
+            "term": "computer20251124",
+            "stumblingPoint": "記事は旧computer useツールが使えないと書くが、APIのツール名と提供先ごとの差を知らないと移行先を誤る。",
+            "explanation": "computer20251124は、画面操作をモデルに行わせる旧形式のcomputer useツールです。Claude APIとGoogle CloudではOpus 5.5でエラーになるため、computertoolset20260801へ置き換えます。Amazon Bedrockでは旧ツールのまま動くため、利用経路によって移行要否が異なります。"
+          },
+          {
+            "term": "Fast mode",
+            "stumblingPoint": "記事は「/fastで最大2.5倍」と書くが、通常モードとの価格差と利用可能なAPI経路が省略されると導入判断を誤る。",
+            "explanation": "Fast modeは応答速度を優先するリサーチプレビューの実行モードです。Opus 5.5では最大2.5倍ですが、価格は入力$8・出力$40/MTokで通常の2倍です。Claude APIでは使えますが、Amazon Bedrock、Google Cloud、Microsoft Foundryでは使えません。Claude Codeのサブスクリプションではプランの使用枠ではなくusage creditsが消費されます。"
+          },
+          {
+            "term": "max effort",
+            "stumblingPoint": "記事はベンチマーク値を列挙するが、「max effortで測定」と既定値mediumの差を知らないと性能を過大評価する。",
+            "explanation": "max effortは、モデルに最大限の思考量を使わせる評価条件です。公開表のOpus 5.5は原則max effort、Terminal-Bench 4.0はxhighで測定されています。そのため、実運用でmediumを指定したときにTerminal-Bench 4.0の66.4%などが再現されるとは記事から判断できません。"
+          },
+          {
+            "term": "structured outputs",
+            "stumblingPoint": "記事はstrict tool useやstructured outputsを代替策に挙げるが、ツール強制との違いが読み取りにくい。",
+            "explanation": "structured outputsは、モデルの返却形式を指定したスキーマに合わせるための仕組みです。これは「必ず特定の処理を実行する」tool_choiceの代替ではなく、「スキーマ通りのJSONがほしい」という目的に対応します。ツール呼び出しの強制が必要な場合は、プロンプトで使用条件を明記する設計に変えます。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 6,
+        "lane": "know",
+        "impact": [
+          "Claude APIを直接呼び出している人",
+          "Claude CodeでOpus 5を使っている人",
+          "thinkingやツール呼び出しを処理する人",
+          "computer useを利用している人"
+        ],
+        "timeline": [
+          "2026-09-22 Claude Opus 5.5リリース",
+          "2026-08-31以降 作成アカウントの履歴編集制限"
+        ],
+        "checkNow": [
+          "Claude Codeをv2.1.280以降へ更新し、`claude --version`で確認する",
+          "`/model`と`/effort`で既定モデル・medium設定を確認する",
+          "APIの`thinking`・`tool_choice`・computer use指定を検索する"
+        ],
+        "unknowns": [
+          "既定のmediumでの実運用ベンチマーク値は未提示",
+          "Fable 5.1との差が実タスクでどの程度かは要eval"
+        ]
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "画像共有サービス「Gyazo」が9日ぶりにサービス再開 ～不正アクセス・情報漏えい／過去画像は「本人のみ閲覧可能」な状態、無料ユーザーにも特別措置",
+      "url": "https://forest.watch.impress.co.jp/docs/news/2143577.html",
+      "publishedAt": "2026-09-27T19:39:43.000Z",
+      "tags": [
+        "テクノロジー",
+        "Privacy",
+        "software",
+        "セキュリティ",
+        "webサービス",
+        "画像",
+        "あとで読む"
+      ],
+      "snippet": "画像共有サービス「Gyazo」が9日ぶりにサービス再開 ～不正アクセス・情報漏えい／過去画像は「本人のみ閲覧可能」な状態、無料ユーザーにも特別措置",
+      "metrics": {
+        "hatena": 8
+      },
+      "sourceWeight": 3,
+      "id": "97f92ac0a68a1896",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.07615384615384616,
+      "popularityPercentile": 0.34615384615384615,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 64,
+      "titleJa": null,
+      "oneLiner": "Gyazoは不正アクセスと情報漏えいの公表後に9日ぶりにサービスを再開した。",
+      "takeaways": [
+        "Gyazoが不正アクセス後に9日ぶりに再開した。",
+        "過去の画像は本人だけが見られる状態になった。",
+        "無料利用者にも特別措置が示された。"
+      ],
+      "keywords": [
+        "Gyazo",
+        "不正アクセス",
+        "情報漏えい",
+        "サービス再開",
+        "プライバシー"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "imageUrl": "https://forest.watch.impress.co.jp/img/wf/list/2143/577/gyazo.png",
+      "body": "Helpfeelが公開した『「Gyazo」サービス再開のお知らせ』窓の杜からダウンロード 　（株）Helpfeelは9月27日、画像共有サービス「Gyazo」の提供を再開したと発表した。同サービスは第三者による不正アクセスと情報漏えいがあり、14日から画像の配信を停止。18日にはサービスの提供も一時停止していた。  　このインシデントは、第三者が「Gyazo」の画像アップロードサーバーに存在した脆弱性を悪用し、同社のシステム上で任意のコマンドを実行したことを引き金に発生したもの。9月16日の第一報では、ユーザー情報約2,362万件と画像に関するメタデータ約4.9億件などの流出が公表。9月25日の第二報では、ユーザーが過去に削除した画像に関するメタデータ約1.74億件（総画像数の約5.1％に相当）の流出が追加でアナウンスされている。ユーザー情報約2,362万件に含まれる情報はユーザーごとに異なるが、以下のようなものがあるという。 名前（ユーザーが指定した氏名やニックネームなど）メールアドレスパスワードのハッシュ値利用者ID、端末ID、ログインセッションID「X」（Twitter）連携用トークン（連携していた場合）Google SSOのメールアドレス（連携していた場合）プロフィール情報、利用言語、登録日時、最終ログイン日時契約プラン、課金ステータス、利用統計 　ただし、これらにクレジットカード番号などの決済情報は含まれていない。また、流出した「X」（Twitter）連携用トークンについても、その後の精査で単体ではアカウントへのログインや操作はできないことが確認されているとのこと。  　同社によると、サービス再開にあたっては 不正アクセスの発生以前にアップロードされた画像がすべて「所有者本人のみが閲覧できる状態」へ変更されている  とのこと。それまで第三者が閲覧できる状態だった画像も、当面は本人以外閲覧できない。  　これは、意図しない形で画像が第三者に閲覧されることを避けるため。一律に以前の状態へ戻すことはせず、ユーザーが内容を確認し、配信の再開を望む場合のみ、画像の配信を再開できる。 1枚ずつ確認する場合：対象の画像ページを開き、［配信を再開する］を選ぶ複数の画像を選ぶ場合：一覧画面で対象の画像を選択し、サイドメニューの［配信を再開］を選ぶすべてまとめて再開する場合：設定ページの［配信停止中の画像］から一括で再開する 　なお、配信を再開した画像には、本件発生前に設定されていた閲覧範囲（「自分のみ」「リンクを知っている全員」など）がそのまま適用される。一度配信を再開した画像を本人のみが閲覧できる状態に戻したい場合は、「アクセス制御」機能から閲覧範囲を変更すればよい。  　また、 無料プランユーザーに対し、不正アクセスの発生以前にアップロードされたすべての画像を閲覧できる特別措置  を行っている。通常は一定期間より前の画像を閲覧履歴からさかのぼることができないが、こうした画像も閲覧できるようになっており、内容を確認したうえで配信を再開するか、停止を続けるかを選べる。  　なお、同社は「Gyazo」のユーザーに対し、引き続きパスワードの変更を呼び掛けている。同一または類似のパスワードをほかのサービスでも使っている場合は、そちらも変更してほしいとのこと。本件に関連した不審なメールやメッセージにも注意したい。",
+      "rank": 2,
+      "deep": {
+        "summary": "Gyazoは、画像アップロードサーバーの脆弱性を悪用した第三者が任意のコマンドを実行した不正アクセスを受け、9月27日にサービスを再開した。ユーザー情報約2,362万件、画像のメタデータ約4.9億件に加え、削除済み画像のメタデータ約1.74億件も流出した。流出対象にはメールアドレス、パスワードのハッシュ値、ログインセッションID、X連携用トークン、Google SSOのメールアドレスなどが含まれる可能性があるが、決済情報は含まれず、X連携用トークン単体でのログインや操作もできない。再開時点で過去にアップロードした画像はすべて本人のみ閲覧できる状態に変更され、ユーザーが内容を確認してから配信を再開する方式になった。無料プランでは通常より過去の画像も確認できる特別措置が行われているため、パスワード変更とあわせて画像の公開状態を見直す必要がある。",
+        "prerequisites": [
+          {
+            "term": "任意のコマンド",
+            "stumblingPoint": "記事は「システム上で任意のコマンドを実行」と書くが、何が可能になるか読み取れない。",
+            "explanation": "任意のコマンドとは、攻撃者がサーバー上で指定した処理を実行できる状態です。単一の画面操作の悪用ではなく、サーバー上のファイルやデータベースへ到達する足掛かりになります。今回の文脈では、画像配信基盤からユーザー情報やメタデータが持ち出される起点を指します。"
+          },
+          {
+            "term": "画像のメタデータ",
+            "stumblingPoint": "記事は「画像のメタデータ約4.9億件」と書くが、画像そのものとの違いが分かりにくい。",
+            "explanation": "画像のメタデータは、画像ファイル本体ではなく、アップロード日時や識別子、所有者、公開状態など画像を管理する情報です。これが大量に流出すると、画像の存在や利用状況を追跡される可能性があります。記事では、画像本体の流出とは分けて件数が示されています。"
+          },
+          {
+            "term": "パスワードのハッシュ値",
+            "stumblingPoint": "流出項目に「パスワードのハッシュ値」とあるが、元のパスワードが直ちに読まれるのか判断できない。",
+            "explanation": "パスワードのハッシュ値は、パスワードを一方向の計算結果に変換して保存した値です。元の文字列そのものではありませんが、弱いパスワードは推測攻撃で照合される可能性があります。Gyazoと他サービスで同じ、または似たパスワードを使っている場合は、両方を変更する必要があります。"
+          },
+          {
+            "term": "ログインセッションID",
+            "stumblingPoint": "流出項目に「ログインセッションID」とあるが、パスワードと同じ認証情報なのか分からない。",
+            "explanation": "ログインセッションIDは、ログイン後のブラウザーやアプリを利用中のセッションを識別する情報です。これが悪用されると、パスワード入力なしでログイン状態を再現されるリスクがあります。記事は流出項目として挙げていますが、個別ユーザーへの影響までは示していません。"
+          },
+          {
+            "term": "X連携用トークン",
+            "stumblingPoint": "記事は「X連携用トークン」は単体でログインや操作ができないと説明している。",
+            "explanation": "X連携用トークンは、GyazoとXのアカウント連携を識別するための情報です。記事によれば、今回流出した値だけではXアカウントへのログインや操作はできません。ただし、連携していたユーザーに関係する流出項目である点は確認が必要です。"
+          },
+          {
+            "term": "Google SSO",
+            "stumblingPoint": "流出項目に「Google SSOのメールアドレス」とあるが、Googleアカウント自体が侵害されたのか読み取れない。",
+            "explanation": "Google SSOは、Googleアカウントを使ってGyazoへログインする方式です。記事が示しているのは連携に使ったメールアドレスであり、GoogleのパスワードやGoogleアカウント全体が流出したという説明ではありません。Gyazo側の流出情報とGoogle側の認証情報を分けて読む必要があります。"
+          },
+          {
+            "term": "閲覧範囲",
+            "stumblingPoint": "記事は画像に以前の「閲覧範囲」が適用されると書くが、配信再開後の公開状態を判断しにくい。",
+            "explanation": "閲覧範囲は、画像を誰が見られるかを決める設定です。配信を再開すると、「自分のみ」や「リンクを知っている全員」など、インシデント前の設定が戻ります。再公開したくない画像は、配信再開後も含めて設定を確認する必要があります。"
+          },
+          {
+            "term": "アクセス制御",
+            "stumblingPoint": "記事は「アクセス制御」から閲覧範囲を変更できるとするが、再開後に何を戻せるのかが分かりにくい。",
+            "explanation": "アクセス制御は、画像ごとの閲覧範囲を変更する機能です。一度配信を再開した画像も、この機能で本人のみ閲覧できる状態へ戻せます。過去の公開設定をそのまま復元するか、画像単位で非公開にするかを選ぶ場所です。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "Gyazoの障害経緯",
+          "steps": [
+            {
+              "label": "脆弱性悪用",
+              "detail": "画像アップロードサーバーを攻撃"
+            },
+            {
+              "label": "コマンド実行",
+              "detail": "システム上で任意処理を実行"
+            },
+            {
+              "label": "情報流出",
+              "detail": "ユーザー情報とメタデータが流出"
+            },
+            {
+              "label": "画像配信停止",
+              "detail": "9月14日に画像配信を停止"
+            },
+            {
+              "label": "追加公表",
+              "detail": "9月25日に削除画像情報も公表"
+            },
+            {
+              "label": "サービス再開",
+              "detail": "9月27日に本人限定で再開"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 4,
+        "lane": "know",
+        "impact": [
+          "Gyazoを利用している人",
+          "Gyazoに画像をアップロードした人",
+          "XやGoogle SSOを連携した人",
+          "Gyazoの無料プラン利用者"
+        ],
+        "timeline": [
+          "2026-09-14 画像配信を停止",
+          "2026-09-18 サービス提供を一時停止",
+          "2026-09-25 削除画像メタデータ流出を公表",
+          "2026-09-27 サービスを再開"
+        ],
+        "checkNow": [
+          "Gyazoと他サービスの同一・類似パスワードを変更する",
+          "設定ページ「配信停止中の画像」を開き公開前に確認する",
+          "不審なメールやメッセージのリンクを開かない"
+        ],
+        "unknowns": [
+          "個別ユーザーの流出項目はユーザーごとに異なる"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Antigravity CLI を使ってみた",
+      "url": "https://qiita.com/Shigai/items/31db82bfc2c6e44569e2",
+      "publishedAt": "2026-09-27T19:31:13.000Z",
+      "author": "Shigai",
+      "authorDetail": {
+        "name": "Shigai",
+        "handle": "@Shigai",
+        "url": "https://qiita.com/Shigai",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/273742/ffe297329c2fbdc6853628e05f06fc3d1079249d/x_large.png?1780844351",
+        "bio": "趣味プログラマー",
+        "followers": 3,
+        "posts": 20,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://www.kyokko.work/"
+          }
+        ]
+      },
+      "tags": [
+        "Antigravity",
+        "AIエージェント"
+      ],
+      "snippet": "Antigravity CLIとは、GoogleのGeminiなどのモデルが使えるCLIのAIエージェントツールです。 今回これを使ってみたので、いくつかメモを残します。 かなり浅くしか使っていないので、網羅的な説明が必要な場合は公式ドキュメントを読んだほうが良いです。 公式ドキュメント： https://antigravity.google/docs/cli/overview/ 前提 ・Antigravity CLIのバージョン：1.2.1 ・OS: Ubuntu 22.04.4 ・Google AI Pro プラン ・最初の3か月は￥720、それ以降は￥2,900です ・YouTube Premium、Googleドライブが5TB利用可能などもついてきます Antigravityはデスクトップアプリ、IDEなどいろいろありますが、私は基本的にCLIのみを使いました。設定ファイルの置き場…",
+      "body": "Antigravity CLIとは、GoogleのGeminiなどのモデルが使えるCLIのAIエージェントツールです。 \n今回これを使ってみたので、いくつかメモを残します。 \nかなり浅くしか使っていないので、網羅的な説明が必要な場合は公式ドキュメントを読んだほうが良いです。\n\n公式ドキュメント：\n\nhttps://antigravity.google/docs/cli/overview/\n\n前提\n・Antigravity CLIのバージョン：1.2.1\n・OS: Ubuntu 22.04.4\n・Google AI Pro プラン \n・最初の3か月は￥720、それ以降は￥2,900です\n・YouTube Premium、Googleドライブが5TB利用可能などもついてきます\n\nAntigravityはデスクトップアプリ、IDEなどいろいろありますが、私は基本的にCLIのみを使いました。設定ファイルの置き場などがCLIと共通していることもありますが、基本的にCLIでのみ動作確認しています。 \n\nインストール\n\nこちらに記載されている内容通りです。\n\nhttps://antigravity.google/docs/getting-started\n\nAntigravity CLIはagyコマンドで起動できます。\n\nskill, MCPの設定方法\n\nskill\n\nhttps://antigravity.google/docs/skills/\n・Global\n・/.gemini/config/skills/{skillname}/SKILL.md\n・/.gemini/antigravity-cli/skills/{skillname}/SKILL.md\n・/.gemini/skills/{skillname}/SKILL.md\n・未確認ですが、antigravity-cliフォルダではなく、こちらに配置した場合はIDEなどでも利用できるらしいです。\n・プロジェクト限定\n・.agents/skills/{skillname}/SKILL.md\n\nいずれもskillsフォルダの下にスキル名フォルダを作成し、その下にMarkdownファイルなどを配置します。 \nSKILL.mdは標準通りの書き方で良いと思います。\n\n設定後はターミナルUI（TUI）を起動し、/skillsでスキルの一覧を確認できます。\n\nMCP\n\nhttps://antigravity.google/docs/mcp/\n・Global\n・/.gemini/config/mcpconfig.json\n・プロジェクト限定\n・.agents/mcpconfig.json\n\nJSONの書き方はGlobalもプロジェクト限定も同じです。 \n例えば私は次のように設定していました。 \nserenaとcontext7を設定しています。 \n\n [code] \n\nAgent Mode\n\nエージェントがファイル変更やコマンド実行などを行う際に、どの程度ユーザーへ確認を求めるかを設定できます。次の3つが設定可能です。\n・default\n・accept-edits\n・plan\n\nplanは/planをしなくても毎回プランモードになるようです。 \nとりあえずdefaultでも良いと思いますが、これはaccept-editsよりも厳格で、ファイルの編集などで毎回許可を求めてきます。 \n個人的にはこれは少し煩わしいので、accept-editsにしていました。 \n\n一時的な変更はagyの起動時などにもできますが、恒久的に設定を変更する場合は、agy起動後に /config コマンドを実行し、Agent Mode から変更できます。\n\nモデル\n\nagy起動後、/modelで切り替えできます。 \n\nAntigravityで使えるモデルとしてはGemini系とそれ以外とがあり、Limitは独立しています。\n\nGemini系は現在Gemini 3.8 Flashが最新です。APIの利用料を見る限り、3.7など以前のモデルに比べてコストは同じで性能は少し優れているようなので、基本的にこれを使えば良いのではないかと思います。 \nGeminiは長らくPro系モデルがリリースされておらず、Flashモデルは比較的頻繁に登場するのに対してProは3.1 Proが最新です。 \nしかし、3.1 Proはベンチマークによっては3.8 Flashに性能で負けており、当然コスト面も不利であるため、基本的にどのようなタスクでもFlashモデルで良さそうな状況です。今後Proモデルが更新されれば使い分けることになるかもしれません。 \n\nGemini系以外としてはClaude Sonnet 4.6、Claude Opus 4.6、GPT-OSS 120Bが利用可能です。 \nこれらはやや古く、Limitも少ないようなので、個人的にあまり使っていません。Geminiの使用量を節約したいときに簡単なタスクを任せることはできるかもしれません。 \n\nGemini系、それ以外でLimitは独立ですが、週間、5時間でそれぞれLimitがあることなどは共通しています。 \n\n使用状況は/usageで確認できます。\n\nWebのGeminiで利用できるモデル\n\nGeminiは他の多くのAIサービスと同様にWebサイト( https://gemini.google.com/ )やスマホアプリでチャットすることもできます。 \nこれは無料でも利用できますが、無料の場合は3.6 Flashまでしか利用できず、一方AI Proプランに課金していると3.8 Flashも利用できます。 \n無料でもかなり使えますが、一応課金する意味はあります。 \n\n \n\nstatusline\n\nstatusline（TUIのフッター領域に表示される情報）はデフォルトだと寂しいですが、カスタマイズも可能です。 \n\nhttps://antigravity.google/docs/cli/commands/statusline/#status-line-command-statusline\n\n自分でカスタマイズすることも可能ですが、面倒な場合はサンプルシェルスクリプトを適当な場所（/.gemini/antigravity-cli/statusline.shなど）に置き\n\n [code] \n\nで設定するとそれなりに整います。以下はサンプルスクリプトを設定した場合のイメージです。 \n\n [code] \n\nAGENTS.md\n\n標準のAGENTS.mdが使えます。また、互換性のためにGEMINI.mdも使えます。 \nプロジェクトに効かせたい場合はルートに配置すればOKです。グローバルに効かせたい場合は/.geminiに配置します。 \n\nリポジトリ\n\nAntigravity CLIはクローズドソースで、GitHubリポジトリはありますが、ソースコードなどの実態はありません。 \n\nhttps://github.com/google-antigravity/antigravity-cli/tree/main\n\n一応issueなどは立てられるようです。\n\n通知\n\nAntigravity CLIにはhooksもあるのですが、あまり使えていません……。 \n一応処理完了時に通知を出すことはできるようになりました。 \n私が書いた別のブログにまとめています。 \n\nhttps://www.kyokko.work/agy-cli-notify/",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7fcf896b4a9ba73c",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6303733333333335,
+      "popularityPercentile": 0.032,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "Antigravity CLI 1.2.1をUbuntuで試し、導入方法やSkillとMCPの設定を整理している。",
+      "takeaways": [
+        "Antigravity CLIはGeminiなどを使う作業用の道具。",
+        "CLIはagyコマンドで起動できる。",
+        "Skillと外部サービスの設定場所を確認している。"
+      ],
+      "keywords": [
+        "Antigravity CLI",
+        "agy",
+        "Gemini",
+        "Skill",
+        "MCP",
+        "1.2.1"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "Antigravity CLIは、GoogleのGeminiなどを使ってファイル編集やコマンド実行を行えるCLIのAIエージェントで、`agy`コマンドからTUIを起動します。バージョン1.2.1、Ubuntu 22.04.4、Google AI Proプランでの使用例として、`skills`、MCP、`Agent Mode`、モデル切り替え、使用量確認、`statusline`、`AGENTS.md`の設定方法を紹介しています。`/config`からAgent Modeを`default`、`accept-edits`、`plan`に変更でき、筆者は確認の頻度を抑えるため`accept-edits`を使っています。モデルは`/model`で切り替え、Gemini系とGemini系以外でLimitが独立しています。設定はグローバルとプロジェクト限定に分かれ、`.agents`や`/.gemini`配下に配置します。",
+        "prerequisites": [
+          {
+            "term": "Antigravity CLI",
+            "stumblingPoint": "記事は「Geminiなどのモデルが使えるCLIのAIエージェント」と書くが、既存のAIチャットではなく何を実行する道具か読み取りにくい。",
+            "explanation": "Antigravity CLIは、ターミナルからAIエージェントを起動し、ファイル変更やコマンド実行を依頼する道具です。この記事ではチャットの回答を見るだけでなく、プロジェクト内の作業を`agy`から進める用途を扱っています。そのため、許可を求める頻度を`Agent Mode`で調整する設定が登場します。"
+          },
+          {
+            "term": "agy",
+            "stumblingPoint": "「Antigravity CLIはagyコマンドで起動できます」とあるが、インストール後にどの画面へ入るのかが初見では分からない。",
+            "explanation": "`agy`はインストールしたAntigravity CLIを起動するコマンドです。起動すると記事でいうTUIが開き、`/model`や`/config`などのスラッシュコマンドを入力して設定・操作します。"
+          },
+          {
+            "term": "TUI",
+            "stumblingPoint": "「ターミナルUI（TUI）を起動し、/skillsで一覧を確認」とあるが、通常のシェル画面との違いが省略されている。",
+            "explanation": "TUIは、ターミナル内で入力欄やステータス表示を持つ対話画面です。シェルに一度コマンドを打って終了するのではなく、`agy`を起動したまま`/skills`や`/usage`を入力して操作します。"
+          },
+          {
+            "term": "skills",
+            "stumblingPoint": "記事は`/.gemini/.../skills/{skillname}/SKILL.md`などを列挙するが、skillsが何を追加するファイルなのか説明していない。",
+            "explanation": "`skills`は、AIエージェントに特定の作業手順や知識を読み込ませる仕組みです。スキル名のフォルダ下に`SKILL.md`を置き、グローバルまたはプロジェクト限定の範囲を選びます。配置後にTUIで`/skills`を実行すると、認識されたスキルを確認できます。"
+          },
+          {
+            "term": "MCP",
+            "stumblingPoint": "「serenaとcontext7を設定」とあるが、MCP設定が何を接続するものか知らないと`mcpconfig.json`の役割が読めない。",
+            "explanation": "MCPは、AIエージェントから外部のツールやデータソースを呼び出すための接続方式です。この記事では`/.gemini/config/mcpconfig.json`または`.agents/mcpconfig.json`に接続設定を置き、serenaやcontext7を利用しています。記事中のJSON本体は欠けているため、同じ設定を再現するには公式ドキュメントの形式確認が必要です。"
+          },
+          {
+            "term": "Agent Mode",
+            "stumblingPoint": "`default`、`accept-edits`、`plan`の違いが短く列挙されるだけで、操作中に何が変わるのか判断しにくい。",
+            "explanation": "Agent Modeは、AIがファイル変更やコマンド実行を進める際の確認方針です。`default`は編集などのたびに許可を求め、`accept-edits`は編集の確認を減らし、`plan`は毎回プランモードになります。恒久設定は`agy`起動後に`/config`から変更します。"
+          },
+          {
+            "term": "Limit",
+            "stumblingPoint": "モデルごとに「Limitは独立」「週間、5時間でそれぞれLimit」とあるが、どの操作で消費状況を見るのかが結び付いていない。",
+            "explanation": "ここでのLimitは、モデル利用に設定された使用量の上限です。Gemini系とGemini系以外で枠が分かれ、さらに週間・5時間単位の制限があります。現在の消費状況はTUIの`/usage`で確認できます。"
+          },
+          {
+            "term": "AGENTS.md",
+            "stumblingPoint": "「標準のAGENTS.mdが使える」とあるが、どこに置くとプロジェクト限定・グローバルになるのかを読み落としやすい。",
+            "explanation": "`AGENTS.md`は、エージェントにプロジェクトのルールや作業方針を伝える指示ファイルです。プロジェクトにだけ効かせる場合はリポジトリのルート、全体に効かせる場合は`/.gemini`に置きます。互換性のため`GEMINI.md`も利用できます。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Antigravity CLI公式概要",
+            "url": "https://antigravity.google/docs/cli/overview/"
+          },
+          {
+            "label": "公式Getting Started",
+            "url": "https://antigravity.google/docs/getting-started"
+          },
+          {
+            "label": "公式Skills",
+            "url": "https://antigravity.google/docs/skills/"
+          },
+          {
+            "label": "公式MCP",
+            "url": "https://antigravity.google/docs/mcp/"
+          },
+          {
+            "label": "公式statusline",
+            "url": "https://antigravity.google/docs/cli/commands/statusline/#status-line-command-statusline"
+          },
+          {
+            "label": "Antigravity CLI GitHub",
+            "url": "https://github.com/google-antigravity/antigravity-cli/tree/main"
+          },
+          {
+            "label": "通知設定の記事",
+            "url": "https://www.kyokko.work/agy-cli-notify/"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "ターミナルからAIに編集・実行を任せられる",
+          "プロジェクトごとにskillsとMCPを切り替えられる"
+        ],
+        "howToTry": [
+          "https://antigravity.google/docs/getting-started",
+          "公式Getting Startedの手順でAntigravity CLIをインストールする。",
+          "agy",
+          "/modelでGemini系モデルを選択する。",
+          "/usageで利用状況を確認し、/configのAgent Modeから確認方針を変更する。"
+        ],
+        "fitFor": [
+          "Ubuntu 22.04.4でCLIのAIエージェントを試すとき",
+          "Gemini系モデルでファイル編集やコマンド実行を任せたいとき",
+          "プロジェクト単位でskillsやMCPを設定したいとき"
+        ],
+        "notFor": [
+          "Google AI Proの月額費用を負担できないとき",
+          "Antigravity CLI以外のIDEでの動作を確認したいとき",
+          "MCP設定のJSON例を記事だけでそのまま再現したいとき"
+        ],
+        "caveats": [
+          "Google AI Proは最初の3か月￥720、その後￥2,900。"
+        ],
+        "tryPrompt": "# 試すこと\nAntigravity CLIをUbuntu環境に導入し、モデル選択・利用量確認・Agent Mode変更まで行う。\nhttps://qiita.com/Shigai/items/31db82bfc2c6e44569e2\n\n# 手順\n1. https://antigravity.google/docs/getting-started を開き、Ubuntu 22.04.4向けのインストール手順を実行する。\n2. `agy`を実行してTUIを起動する。\n3. `/model`を実行し、利用可能なGemini系モデルを選択する。\n4. `/usage`を実行し、Gemini系とそれ以外の利用状況を確認する。\n5. `/config`を実行し、Agent Modeを`accept-edits`に変更する。\n6. 簡単なファイル作成を依頼し、確認なしで編集できるか試す。\n\n# 確認したいこと\n- Ubuntu 22.04.4で公式手順だけで`agy`を起動できるか\n- `/model`と`/usage`でモデルとLimitを確認できるか\n- `accept-edits`でファイル編集時の確認回数が変わるか\n\n# 前提・注意\n- Ubuntu 22.04.4、Google AI Proプランが前提。\n- 記事中のインストールコマンドとMCPのJSON例は省略されているため、公式ページを参照する。"
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "Rizzo-AI-Academy/rizzo-flow — The open, local take on Jev: typed decisions from an LLM, without generating a single token",
+      "url": "https://github.com/Rizzo-AI-Academy/rizzo-flow",
+      "publishedAt": "2026-09-21T00:00:02.000Z",
+      "author": "Rizzo-AI-Academy",
+      "authorDetail": {
+        "name": "Rizzo-AI-Academy",
+        "url": "https://github.com/Rizzo-AI-Academy",
+        "avatarUrl": "https://github.com/Rizzo-AI-Academy.png?size=120",
+        "bio": "The open, local take on Jev: typed decisions from an LLM, without generating a single token"
+      },
+      "tags": [
+        "Python"
+      ],
+      "snippet": "The open, local take on Jev: typed decisions from an LLM, without generating a single token",
+      "metrics": {
+        "stars": 688
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "e3a5afee28e502b0",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.5542,
+      "popularityPercentile": 0.36,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "rizzo-flow — 文章を作らず判断するAIの実装",
+      "oneLiner": "rizzo-flowは文章を生成せず、ローカルで型付きの判断結果を返すオープンな仕組みである。",
+      "takeaways": [
+        "rizzo-flowは文章を書かずに選択肢を判断する。",
+        "結果の形をあらかじめ決めて扱える。",
+        "外部サービスに頼らず手元で動かせる。"
+      ],
+      "keywords": [
+        "rizzo-flow",
+        "Jev",
+        "Python",
+        "ローカルAI",
+        "型付き判断",
+        "LLM"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "decide",
+      "durability": "durable",
+      "body": "Rizzo Flow\n\nThe open, local take on Jev: typed decisions from an LLM, without generating a single token\n\nUnstructured state in → typed, probabilistic decisions out. On your own machine.\n\n \n \n \n \n \n\n \n \n \n \n \n \n \n \n\n 🌐 Website · A project by Rizzo AI Academy · 🇮🇹 Documentazione dettagliata in italiano \n\n \n\nRizzo Flow is an open-source, local-first implementation of the idea behind\nJev, TypeSafe's \"System One\"\nmodel: a function call with judgment that takes unstructured state and returns typed decisions\nwith probabilities — a yes/no, a choice among options, a score on a rubric, a number — instead\nof text you then have to parse.\n\nJev is a closed, hosted service. Rizzo Flow gives you the same programming model on your own\nhardware, with open weights, and with the same HTTP interface, so code written against the\nTypeSafe API can point at localhost by changing one URL. It runs on\nllama.cpp, so the hardware can be an Apple, NVIDIA, AMD\nor Intel GPU, or no GPU at all.\nIndependent project. Rizzo Flow is not affiliated with TypeSafe and does not reproduce Jev's\nproprietary architecture or its RLCD training. It reproduces the interface pattern with an\nopen model (Spark-X2.5, with our own LoRA fine-tune on public data), in the\nspirit of SemIf, which inspired it. Probabilities are\nuncalibrated unless you calibrate them on your own data, and\nwe make no claim of matching Jev or SemIf in quality. Every number below comes with its caveats.\n\nNew: fine-tuned weights. Since 25 September 2026 the default model is Spark-X2.5 with our own\nLoRA fine-tune for typed decisions (how and on what). On the\ntyped-decisions benchmark, same GPU,\nQ80:\n\n| | Accuracy ↑ | KL from gold ↓ | Brier ↓ | ECE ↓ |\n| --- | ---: | ---: | ---: | ---: |\n| Spark-X2.5-4B, original | 0.574 | 2.899 | 0.480 | 0.349 |\n| Rizzo Flow 4B, fine-tuned | 0.648 | 0.452 | 0.205 | 0.112 |\n| TypeSafe Jev 1.13.0 (its dataset card) | 0.727 | 1.442 | 0.148 | – |\n\nBetter answers (+7.4 points) and much better-shaped probabilities, still below Jev in accuracy.\n\n \n \n \n\n 🐍 Fast enough to play Snake — every move is one POST /v1/decisions . Recorded at real speed , not sped up:\n140 moves in 25.6 s (≈ 5.5 per second), about 150 ms per decision round trip, 0 generated tokens . \nSpark-X2.5-4B at 8 bit on an RTX 5060 Ti, recorded with the earlier MLX runtime (today's llama.cpp runtime is 1.8× faster per decision) · one game, not a benchmark · about the demo ↓ · run it yourself ↓ \n \n\n---\n\nQuickstart\n\nYou need Python ≥ 3.11, git and uv. The same four commands work on\nmacOS, Windows and Linux; nothing is compiled and no GPU toolkit is installed.\n\n [code] \n\nrizzo download is the only slow step, and it is all download: the model (4.4 GB) plus the\nllama.cpp runtime (about 570 MB with CUDA, 30 MB with Vulkan, 11 MB on a Mac). An interrupted\ndownload resumes where it stopped. In a hurry? uv run rizzo download --size 1.7b fetches a\n1.8 GB model that is fine for a first look and much less accurate afterwards.\n\nThen open , pick an example from the Examples… menu (or\nwrite your own state and questions) and press Run — or call the API:\n\n [code] \n\n \n The same call from Windows PowerShell \n\n [code] \n \n\nNo server needed for one-off runs: uv run rizzo decide examples/ticket.json. If you prefer an\nactivated environment, source .venv/bin/activate (PowerShell: .venv\\Scripts\\activate) and drop\nthe uv run prefix.\n\n \n \n \n\n 🦔 The built-in playground — one state, several questions answered in parallel, probability bars, timings and the\nequivalent cURL. Interface in Italian or English. (Screenshot taken with the earlier MLX runtime on an M4 Pro.) \n \n\nWhich hardware, and what we have actually run\n\nrizzo download picks an official prebuilt llama.cpp package for your machine and checks its\nsha256. rizzo devices shows what the runtime sees and what --device auto will use.\n\n| Your machine | Build picked (--runtime auto) | Status |\n| --- | --- | --- |\n| Windows or Linux, NVIDIA GPU | cuda — CUDA 13 libraries included; needs a recent driver, no toolkit | tested on Windows 10 + RTX 5060 Ti: every current number in this README. Linux not tried |\n| Windows or Linux, AMD or Intel GPU | vulkan — uses the GPU driver you already have | Community reports cover an AMD Radeon 780M and Intel Iris Xe; see #11 and #7. The Intel run used Q4KM; these reports have not been independently reproduced by the maintainers. |\n| Mac, Apple Silicon | metal | A community report covers an M3 Pro; see #5. The run has not been independently reproduced by the maintainers. The two fixes it needed (context freed before exit, a warning when an x8664 Python under Rosetta hides the GPU) are merged (#4), and so is --device metal on M4 (#9). |\n| No GPU | vulkan falls back to the CPU; or --runtime cpu | CPU mode was reported on an Intel laptop with an iGPU (#7); a GPU-free host has not been tested. |\n\nOther builds on request: uv run rizzo download --only runtime --runtime rocm (AMD, ROCm/HIP),\n--runtime sycl (Intel oneAPI), --runtime cpu. Several builds can live side by side and\n--device vulkan (or cuda, metal, …) picks one at start-up; a named family is a requirement,\nnever silently downgraded to the CPU. To use your own llama.cpp build, point RIZZOLLAMADIR at\nthe folder that holds libllama: it must be commit 161755f, because the bindings are tied to\nthat header.\n\nEverything is pinned: llama.cpp release\nb11081 from its official GitHub\nreleases, and the GGUF files, by commit and sha256. By default rizzo download fetches our\nfine-tuned weights (4B,\n1.7B: Spark-X2.5 with a LoRA trained for\ntyped decisions and merged in, see Fine-tuning). --weights base fetches the\noriginal files published by the model's authors instead\n(4B,\n1.7B). The runtime goes to runtimes/,\nthe weights to models/, both git-ignored.\n\nModels and options\n\n| --size | --weights flow (default): our fine-tune | --weights base: original Spark-X2.5 | Status |\n| --- | --- | --- | --- |\n| 4b (default) | q80 4.4 GB (default) · q4km 2.6 GB · bf16 8.2 GB | q80 4.4 GB · q4km 2.6 GB · bf16 8.2 GB | recommended |\n| 1.7b | q80 1.8 GB (default) · q4km 1.1 GB · bf16 3.4 GB | q80 1.8 GB · q4km 1.1 GB · bf16 3.4 GB | 2× faster, much less accurate. The base 1.7B picks \"cannot determine\" almost every time when abstention is enabled: use it with \"allowabstain\": false (the Jev-compatible endpoint always does) and check it on your own data |\n\nThe fine-tuned Q4KM files are ours (llama-quantize b11081 from the BF16 GGUF, no importance\nmatrix): on typed-decisions the 4B one ties Q80, the 1.7B one loses 5 points (see\nFine-tuning). The served model\nID says which weights answer: rizzo-flow-4b-q80 for the fine-tune, rizzo-spark-x2.5-4b-q80\nfor the original file (rizzo-latest always works).\n\nrizzo serve flags: --size, --quant, --weights flow|base, --device auto|gpu|cpu|cuda|vulkan|metal|rocm|sycl,\n--port, --host, --batch-size (question micro-batch, default 4), --ctx (token limit per\nquestion, default 8192), --threads (CPU), --model /path/to/file.gguf (overrides --size),\n--calibration fit.json. Set RIZZOAPIKEY=... before starting for Bearer auth on the\nJev-compatible endpoints. The model loads in about 10 seconds.\n\nQuantization changes probabilities, and so does the hardware (CUDA, Vulkan and Metal round\ndifferently): compare on your own workload, and note that a calibration is bound to the runtime,\nbackend and file it was fitted on.\n\n \n Optional: the MLX runtime ( --backend mlx ) — what this project ran on until September 2026 \n\nEvery result marked \"MLX\" below was measured with it, and it is still there as an opt-in:\n\n [code] \n\nWith an MLX extra installed use uv run --no-sync: a plain uv run re-syncs the environment\nwithout the extra and removes it. Prompt, API and result format are the same; probabilities are\nnot (different kernels and quantization). MLX loads the same fine-tune from the safetensors\ncheckpoint in the same Hugging Face repository (the weights are bit-identical to the BF16 GGUF;\non MLX-CUDA the 4B matches llama.cpp BF16 within 0.001); --weights base loads XHToken's\noriginal checkpoint.\n \n\n---\n\nTraining and calibration\n\nFine-tuning\n\nThe default weights are Spark-X2.5 with a LoRA fine-tune for typed decisions, merged in and\nconverted to GGUF: rizzoaiacademy/rizzo-flow\n(4B) and rizzoaiacademy/rizzo-flow-1.7b.\nThe goal was not new knowledge but better-shaped answers: the base model puts 0.9999 on its pick\neven when it is wrong, and the fine-tune learns to spread probability when the evidence is split.\n・The same forward pass as inference. No text target: the loss is a soft cross-entropy between\n the target distribution and the softmax over the answer letters at the last prompt position,\n with the exact prompts of spark-decisions-v3. Only the LoRA adapters train (r 16, alpha 32,\n every linear layer of attention and MLP; 32.4M parameters on the 4B, 16.7M on the 1.7B).\n・Public data, no Jev outputs. 28,321 questions from\n tasksource/procedural-typed-decisions,\n ZefanCai/Open-Jev\n (release-v2-redistributable, without customer-control-v1 and without workflow-controls-v1,\n which shares its four workflows with the benchmark below) and 12 configs of\n Praveenrajus/jev-bench. Every\n training state containing text from our evaluation sets (SemIf fixtures, typed-decisions test,\n smoke) was removed.\n・One epoch, AdamW lr 5e-5, 16 questions per step, 1,770 steps: 41 minutes (4B) and 19 minutes\n (1.7B) on one RTX PRO 6000. The adapter alone and the training log are in the Hugging Face\n repositories. Pipeline, data vetting and every choice: docs/training.md\n (Italian); scripts in training/.\n\n <img src=\"assets/trainingcharts.png\" alt=\"Training curves on the dev set (600 held-out validation questions, evaluated every 200 steps): accuracy per source (tasksource, Open-Jev, jev-bench), overall accuracy and loss for the 4B (red) and the 1.7B (green); overall accuracy goes from 0.55 to about 0.85 on the 4B and from 0.41 to about 0.82 on the 1.7B\" width=\"100%\" /> \n\nDev curves from Weights & Biases: red = 4B, green = 1.7B (the blue dot is a 10-step smoke run).\n600 questions from the validation splits of the three sources, never trained on, evaluated at\nstep 0 and every 200 steps; accuracy = argmax against the argmax of the target distribution.\nThese are in-distribution numbers: the benchmark below is the independent measurement.\n\nResults on typed-decisions\n\nTest split of LocalLLaMA/typed-decisions\n(config all: 400 cases, 2,000 decisions, five questions over one shared state per case, sent as\n/v1/systemone requests; scripts/typeddecisions.py). Base and fine-tune measured on the same\nmachine: llama.cpp b11081, CUDA, RTX 5060 Ti, Q80.\n\n| | Accuracy ↑ | KL from gold ↓ | Brier ↓ | ECE ↓ | Score within 1 level | p50 per case |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| Spark-X2.5-4B, base | 0.574 | 2.899 | 0.480 | 0.349 | 0.688 | 201 ms |\n| Rizzo Flow 4B (default) | 0.648 | 0.452 | 0.205 | 0.112 | 0.931 | 195 ms |\n| Rizzo Flow 4B, Q4KM | 0.650 | 0.436 | 0.201 | 0.093 | 0.935 | 198 ms |\n| Spark-X2.5-1.7B, base | 0.530 | 3.031 | 0.496 | 0.348 | 0.636 | 117 ms |\n| Rizzo Flow 1.7B | 0.544 | 0.694 | 0.275 | 0.169 | 0.786 | 109 ms |\n| Rizzo Flow 1.7B, Q4KM | 0.490 | 0.640 | 0.279 | 0.192 | 0.790 | 107 ms |\n| TypeSafe Jev 1.13.0, from the dataset card (not re-measured) | 0.727 | 1.442 | 0.148 | – | – | – |\n\nReading this honestly:\n・4B: better answers and much better probabilities. Accuracy +0.074, 95% interval\n [+0.050, +0.101] (paired bootstrap over cases); KL from the gold distribution drops 6×. Every\n workflow improves, most of all agenttraceobservability (0.366 → 0.502), where the base\n answered \"critical, needs human review\" with p ≈ 0.9999 on almost every trace. Three questions\n of twenty get worse (agenttrace/outcome, invoice/duplicate, security/severity).\n・1.7B: probabilities improve, accuracy does not (+0.014 [−0.014, +0.043], noise), and\n securityincidents drops 0.612 → 0.514. Use the 4B when accuracy matters.\n・Q4KM: the 4B one ties Q80 on this benchmark (+0.002 [−0.011, +0.015]); on the or…",
+      "rank": 2,
+      "deep": {
+        "summary": "Rizzo Flowは、自然文を生成させて後から解析する代わりに、非構造な状態から型付きの判断と確率を返すローカル実装です。Jev互換のHTTPインターフェースを持つため、接続先URLをlocalhostへ変えれば、同じ呼び出し方で自前のマシンに移せます。推論はllama.cpp上で動き、Apple Silicon、NVIDIA、AMD、Intel GPU、CPUに対応します。既定モデルはSpark-X2.5のLoRA fine-tune済み4Bで、typed-decisionsではベースモデルより正解率が0.574から0.648へ改善し、Brierも0.480から0.205へ下がっています。確率は未校正で、量子化・バックエンド・実行環境によって変わるため、実データで使うならcalibrationが必要です。",
+        "prerequisites": [
+          {
+            "term": "Rizzo Flow",
+            "stumblingPoint": "記事は「Jevのopen, local take」と説明するが、Jevを知らないと何を置き換えるツールか読み取れない。",
+            "explanation": "Rizzo Flowは、LLMに文章を書かせるのではなく、入力された状態と質問から選択・判定・スコア・数値を返させる実装です。JevはTypeSafeのホスト型サービスで、Rizzo Flowはその呼び出し方をローカルで再現します。したがって、主な差し替え箇所はモデルの品質ではなく、APIの接続先です。"
+          },
+          {
+            "term": "typed decisions",
+            "stumblingPoint": "「typed decisions」とあるが、通常のLLM応答やJSON出力と何が違うのかが分からないと利点を判断できない。",
+            "explanation": "typed decisionsは、回答文を生成してJSON.parseする方式ではなく、あらかじめ定めた選択肢や尺度のどれを選ぶかを返す判断です。たとえば「重大度をlow/medium/highから選ぶ」「人手確認が必要かを確率付きで返す」といった使い方になります。記事では生成トークンを使わず、回答候補に対応する確率を直接扱います。"
+          },
+          {
+            "term": "llama.cpp",
+            "stumblingPoint": "「It runs on llama.cpp」とだけ書かれているため、GPUごとに別実装を導入する必要があるのか迷う。",
+            "explanation": "llama.cppは、GGUF形式のモデルをCPUや複数GPUバックエンドで実行するランタイムです。Rizzo Flowのrizzo downloadが環境に合わせたビルド済みランタイムを取得するため、CUDAやGPU toolkitを別途コンパイルする手順はありません。`rizzo devices`で認識されたデバイスと、`--device auto`の選択結果を確認できます。"
+          },
+          {
+            "term": "GGUF",
+            "stumblingPoint": "記事は「GGUF files」をsha256で固定すると書くが、モデルとランタイムのどちらを指すのか判別しづらい。",
+            "explanation": "GGUFは、このプロジェクトがllama.cppで読み込むモデルファイルの形式です。Rizzo Flowではモデルをmodels/、実行ランタイムをruntimes/に置き、モデルのコミットとsha256を固定しています。`--quant`でq80、q4km、bf16などを選ぶと、サイズだけでなく確率の出方も変わります。"
+          },
+          {
+            "term": "LoRA",
+            "stumblingPoint": "「our LoRA fine-tune」とあるが、元モデルとの差が単なる量子化なのか学習なのか読み取れない。",
+            "explanation": "LoRAは、元のSpark-X2.5全体を更新せず、追加の小さな学習パラメータだけを訓練する方法です。この記事のfine-tuneは新しい知識を覚えさせるものではなく、根拠が割れているときに確率を極端な0.9999へ寄せないことを狙っています。学習後の重みはGGUFへ統合され、既定モデルとして配布されています。"
+          },
+          {
+            "term": "calibration",
+            "stumblingPoint": "「probabilities are uncalibrated」と警告されるが、正解率と確率の違いを知らないと実運用上の危険が分からない。",
+            "explanation": "calibrationは、モデルが出した「80%」が長期的に約80%当たるかを、手元のデータで調整・検証することです。正解率が上がっても、確率が過信気味なら自動承認や人手確認の閾値にはそのまま使えません。記事では、校正結果はruntime・backend・モデルファイルの組み合わせに束縛されるとしています。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "Jev互換のローカル構成",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "既存クライアント",
+                  "note": "Jev互換のHTTP呼び出し",
+                  "highlight": false
+                }
+              ],
+              "via": "HTTP /v1"
+            },
+            {
+              "label": "ローカルAPI",
+              "nodes": [
+                {
+                  "name": "Rizzo Flow",
+                  "note": "typed decisionsを返す",
+                  "highlight": true
+                }
+              ],
+              "via": "llama.cpp"
+            },
+            {
+              "label": "推論実体",
+              "nodes": [
+                {
+                  "name": "Spark-X2.5",
+                  "note": "fine-tune済みGGUF",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://github.com/Rizzo-AI-Academy/rizzo-flow/raw/main/assets/snake_run.gif",
+            "alt": "A game of Snake played by Rizzo Flow: on every move the bars show the probability of each direction, about 150 ms per decision",
+            "caption": "Snakeの各手で方向ごとの確率バーが表示され、1回の判断が約150msで返る。文章生成ではなく、ゲームの状態から次の選択を返す例になっている。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "ゲームの次の手を確率付きで約150ms判定できる",
+          "自然文の状態から型付きの選択を返せる"
+        ],
+        "howToTry": [
+          "git clone https://github.com/Rizzo-AI-Academy/rizzo-flow.git",
+          "cd rizzo-flow",
+          "uv run rizzo download --size 1.7b",
+          "uv run rizzo decide examples/ticket.json"
+        ],
+        "fitFor": [
+          "LLMの判定結果を文章ではなく選択肢・スコアで受け取りたいとき",
+          "入力データを外部のホスト型LLMサービスへ送れないとき",
+          "Python 3.11以上、git、uvを使える環境があるとき"
+        ],
+        "notFor": [
+          "Jev相当以上の正解率を必須とする用途",
+          "未校正の確率をそのまま自動承認の閾値に使うとき",
+          "4Bモデル4.4GBとランタイムの保存領域を確保できない環境"
+        ],
+        "caveats": [
+          "4B導入はモデル4.4GB＋ランタイムの容量が必要"
+        ],
+        "tryPrompt": "# 試すこと\nRizzo Flowをローカルに導入し、サンプル状態から確率付きのtyped decisionを返す。\nhttps://github.com/Rizzo-AI-Academy/rizzo-flow\n\n# 手順\n1. `git clone https://github.com/Rizzo-AI-Academy/rizzo-flow.git`を実行する。\n2. `cd rizzo-flow`でリポジトリへ移動する。\n3. `python --version`を実行し、Pythonが3.11以上であることを確認する。\n4. `uv run rizzo download --size 1.7b`を実行して小さいモデルを取得する。\n5. `uv run rizzo decide examples/ticket.json`を実行する。\n6. 出力された判断、候補ごとの確率、処理時間を表示する。\n\n# 確認したいこと\n- READMEのサンプルだけで、サーバーを起動せず最初の判断まで到達できるか。\n- 出力が自由文ではなく、選択結果と確率として返るか。\n- 手元の環境でモデルのダウンロードが中断後に再開できるか。\n\n# 前提・注意\n- Python 3.11以上、git、uvが必要。\n- 1.7Bは4Bより高速だが、記事では精度が大きく低いとされている。\n- 4Bを試す場合は`--size 1.7b`を外す。"
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "There are no \"rogue\" AI agents",
+      "url": "https://eoinhiggins.substack.com/p/there-are-no-rogue-ai-agents",
+      "publishedAt": "2026-09-27T16:19:46.000Z",
+      "author": "zzzeek",
+      "authorDetail": {
+        "name": "zzzeek",
+        "handle": "zzzeek",
+        "url": "https://news.ycombinator.com/user?id=zzzeek"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 324,
+        "comments": 240,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "3604865cbf925bc4",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.6345238095238095,
+      "popularityPercentile": 0.9523809523809523,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 92,
+      "titleJa": "AIエージェントに「暴走」はあるのか",
+      "oneLiner": "AIエージェントを単独の暴走主体とみなす見方を問い直す記事です。",
+      "takeaways": [
+        "AIエージェントの暴走という見方を問い直す。",
+        "問題の原因を別の場所に求める議論を扱う。"
+      ],
+      "keywords": [
+        "AIエージェント",
+        "LLM",
+        "AI安全性"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIの自律性を重く見るか設計者の責任を重く見るか",
+        "forSide": "AIの行動は環境と指示で決まるため暴走という表現は責任を隠す。",
+        "againstSide": "複雑な仕組みでは予想外の行動が起きるため自律的な危険として扱うべきだ。",
+        "oneSided": false,
+        "yourAngle": "Claude CodeやCodexの失敗を環境設定とモデル挙動に分けて記録できる。"
+      },
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "本文が提示されていないため、記事の主張・根拠・具体例は確認できない。タイトル「There are no \"rogue\" AI agents」と一覧の争点「AIの自律性を重く見るか設計者の責任を重く見るか」だけが与えられている。本文なしでは、記事がどちらの立場を取り、どの条件で議論が分かれるのかを特定できない。",
+        "prerequisites": [],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 1,
+        "lane": "talk",
+        "clashes": [],
+        "firsthand": [],
+        "verify": []
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「極端な思想を持つAI」によって、AIのコードレビュー品質を劇的に上げた話【技術的負債の指摘】",
+      "url": "https://qiita.com/archeleeds/items/04f34e4034d57b687cbf",
+      "publishedAt": "2026-09-27T14:44:06.000Z",
+      "author": "archeleeds",
+      "authorDetail": {
+        "name": "archeleeds",
+        "handle": "@archeleeds",
+        "url": "https://qiita.com/archeleeds",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/154377/profile-images/1559257636",
+        "followers": 62,
+        "posts": 19,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/archeleeds"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "codex",
+        "AI",
+        "AI駆動開発",
+        "AIエージェント"
+      ],
+      "snippet": "あなたのプロジェクトはAI にコードレビューさせてますか？ AIに書かせたコードでも人間に書いたコードでも、 AIにコードレビューさせてみるとシニアエンジニアが指摘したい内容が全然指摘されない事に気付きます。 せっかくプロジェクトの方針をSkillとしてまとめたのに、 せっかくPullRequestをトリガーに自動でAIにレビューさせるようにしたのに、 放って置くと「これなんでAIは指摘してくれないんだ？」という不満と不信感が溜まっていきます。 タイポは拾う。null チェック漏れも拾う。テストの不足も指摘する。 でも「そもそもこの作り方でよかったのか？」が出てこない。 それを解決するために行った工夫がドンピシャだったのでメモがてら記事に残します。 ドパガキ向け3行要約 ・通常のAIコードレビュワーとは別に、「階層主義者」「分離主義者」「拡張主義者」というジョーカーとなる3人のレビュワーを…",
+      "body": "あなたのプロジェクトはAI にコードレビューさせてますか？\n\nAIに書かせたコードでも人間に書いたコードでも、\nAIにコードレビューさせてみるとシニアエンジニアが指摘したい内容が全然指摘されない事に気付きます。\n\nせっかくプロジェクトの方針をSkillとしてまとめたのに、\nせっかくPullRequestをトリガーに自動でAIにレビューさせるようにしたのに、\n放って置くと「これなんでAIは指摘してくれないんだ？」という不満と不信感が溜まっていきます。\n\nタイポは拾う。null チェック漏れも拾う。テストの不足も指摘する。\nでも「そもそもこの作り方でよかったのか？」が出てこない。\n\nそれを解決するために行った工夫がドンピシャだったのでメモがてら記事に残します。\n\nドパガキ向け3行要約\n・通常のAIコードレビュワーとは別に、「階層主義者」「分離主義者」「拡張主義者」というジョーカーとなる3人のレビュワーを追加した\n・ジョーカーレビュワーは あえてPRの内容とは別の設計を提案する 。規定は「不採用」とし、PRの持ち主はこの指摘に対して従っても従わなくてもよい\n・PRの内容からあえて外れた代案を複数提示することで、視野狭窄に陥らない状態に仕組みで解決することが出来る\n\n（ただし、自身の書いたコードを常に否定されるため、人間向けではない）\n\n前置き: なぜこれが実行できたのか\n\n前提として、\n・Issue を書くと AI が PR を出してくるところまで自動化\n・PRが出ると自動でClaudeCode/Codexが差分をレビューしコメントをしてくれる所まで自動化\n\nの2つの環境を構築済みです。\n\nhttps://qiita.com/archeleeds/items/1b437d0067ec832c88b1\n\n「別案を提案するAI」は、1つの PR に対して1万文字を超える提案を出してきます。\n人間が受け止めるには重すぎる量です。\n\nしかし受け取る側も AI なら、量は問題になりません。\n 提案を読んで、採用するか不採用にするかを根拠付きで返し、採用したぶんを実装して push する——ここまで自動で回ります。人間が読むのは「3人がこう言って、AI はこう判断した」という要約だけです。\n\n「AI だけでプログラミングが完結している」ことが、この重さを許容できる理由になっています。\n \n \n(作業者。渡されたタスクに沿ってプログラムを書き、PRを作るAI)\n\nPRのコード差分をコードレビューAIに渡すと、差分の中で整合しているかしか見ない\n\nレビューAI に PR を渡すと、\nこの差分は正しいか\n\nという観点でレビューします。\n\nこれはこれで、有益なレビューが帰ってきます。\n関数のインターフェースが正しいかとか、計算ロジックのミスがないかとか、nullチェックやパターンが漏れていないかなどバンバン拾ってくれます。\n\nしかし、「そもそも別の作り方があったのでは」という観点でのレビューはされません。\n\nAIは既存の実装に合わせたりロジックのミスを指摘するのは得意ですが、\nそのプロジェクトの概要や未来を踏まえたレビューというのは中々出来ません。\n\nこれは「正解のある答え合わせ」と「正解がわからない技術的負債の解消」という性質の違いがあるからです。\n\nこの問題を通常のレビュワーAIのプロンプトをいくら調整してもバイアスが掛かっている以上は難しいでしょう。\n\n \n\n \n(レビュワー。PRの内容を確認してミスがあればわかりやすく指摘する)\n\n根本的な設計・考え方を指摘する役を別に置く\n\nレビューAIとは別に、3人のジョーカーとなるレビュワーを独立したセッションで起動します。\nプロンプトの1行目からコードレビュワーとは違います。\nあなたは欠陥を探すレビュアーではありません。 極端な思想を持ち、別の作り方を提案する専門家です。\n\nこの悪役となるレビュワーは3人居て、 それぞれ自身の大事な思想を1つ持ち、その信念に従ってレビューします。\n\n| | こだわり | よくある指摘 |\n|---|---|---|\n| 階層主義者 | 依存の方向 | 「この情報は外側が持つべきです。内側には渡さないでください」 |\n| 分離主義者 | 責任の分離と疎結合 | 「この情報はDIによるInject経由で自身で解決出来るためインターフェースに追加しないでください」 |\n| 拡張主義者 | 将来の拡張性 | 「もし将来3つ目を足すとき、何箇所直しますか」 |\n\nとにかく極端であることが仕事です。 バランスの取れた意見は既にレビュー AI が出しています。\nここで欲しいのはアイデアの種類です。\n「一部は採用しても良さそう」となるアイデア・発想をAI同士でやり取りだけで発案させることが大事です。\n\nそして既定は不採用です。ジョーカーの提案の多くは採用されませんが、残りは一考の余地があり、視野狭窄状態の作業者AIを救っているということです。\n\n \n\n \n(ジョーカー。作業者が頑張って作ったPRを根本的に否定したり別のアイデアを提示する)\n\n「注文に納品して報酬と交換する」機能\n\nUnityゲーム開発の文脈で一部例を出します。\nゲームの機能なので、若干わかりにくいかもしれません。\n\n題材\n\nこういう機能を追加する PR でした。（RPGゲームの文脈）\n・アイテムを納品するクエストに対して、アイテムを一部だけ納品する機能\n・納品数を達成したら、報酬と交換することができ、クエストは完了\n・クエストには常設で再利用型のものと、特別な期間限定の一度きりのものの2種類ある\n・クエストの期間が消えると一部納品されていた場合はアイテムを返却する\n\nこの機能を実装するために作られたコードでは、以下のようなクラスを1つ新設する形になりました。\n\n [code] \n\nこのServiceの各メソッドを呼び出すことで納品関連の操作が出来るというものです。\n差分として見れば、何も悪くありません。\n1つの機能に関わる処理が1つのクラスにまとまっていて、テストも通り、動きます。\nレビュー AI も、この構造自体は問題にしませんでした。\n\nジョーカー3人が、同じクラスを別の角度から指摘した\n\nここが面白いところでした。3人とも同じクラスを指しているのに、言っていることが違います。\n\n階層主義者 —「汎用の窓口が、両方の種別の中身を知っている」\nDeliveryService は「納品の共通の口」のはずなのに、常設と期間限定の中身を両方知っている。\n種別ごとの違いは、種別側が自分で持つべきでは。\n代案: 汎用側がインターフェースを定義し、種別ごとの実装がそれを満たす形に向きを逆転する。\n失うもの:\n・インターフェース2枚と実装2つが増える\n・いま1ファイル340行で「2種類で何が違うか」を並べて読めていたものが、3〜4ファイルに分かれる。 読む人は1回余計に飛ぶ\n・種別は現在2つで、増える予定はタスクに書かれていない。3つ目が来なければ、得るのは依存の向きだけになる\nいま入れるべきか: いま — このクラスはこの PR で新設されたもので、呼び出し元は UseCase 4本と Query 1本に限られる。ここで向きを決めれば変更はこのフォルダ内で閉じる。後から種別を足す段で分岐を剥がすと、セーブ形式まで巻き込む。\n\n分離主義者 —「読むだけの画面が、書き込みできるサービスを丸ごと受け取っている」\nIsAutoDeliveryEnabled と GetExchangeWaitingReason は読むだけのメソッドなのに、預ける・交換する・返すと同じクラスにある。\nそのため、一覧を表示するだけの GetOffersQuery が、値1つを読むために、在庫と台帳を書き換えられるサービス全体を注入している。\n代案: 読み取りを TargetResolver として切り出し、書き込みサービスから外す。\n失うもの: クラスが2つ増える（100行ほど）。DI 登録が1件増える。\nいま入れるべきか: いま — 呼び出し元がまだ5つ。表示が書き込みサービスに依存する形が定着する前に分けるほうが安い。\n\n拡張主義者 —「交換の条件が2箇所に分かれている」\n交換してよいかの関門（数がそろったか・クールダウン・報酬の置き場があるか）が、TryExchange と GetExchangeWaitingReason の2箇所に別々に書かれている。\n関門を1つ足すとき、2箇所直すことになる。片方だけ直せば、「ボタンは押せるのに何も起きない」という形でズレが出る。\n代案: 判定を「理由を返す1つの関数」にまとめ、実行側はその結果が なし かを見るだけにする。\n\n3人とも、差分の中のバグは一言も指摘していません。 そして3人とも、レビュー AI が問題にしなかった構造を指しています。\n\n裁定は4段階\n\n提案を受けた AI は、各件に 採用 / 一部採用 / 別Issueとして記録 / 不採用 を根拠付きで返します。\nこの例での実際の裁定はこうでした。\n\n| 提案 | 判断 | 根拠 |\n|---|---|---|\n| 分離主義者「読み取りを書き込みサービスから外す」 | 採用 | 読み取り専用の口に分ける |\n| 階層主義者「依存の向きを逆転」 | 一部採用 | 読み取りの点だけ直す（分離主義者と同じ）。種別の抽象化は、種別が2つしか無く3つ目の予定も無いので見送る |\n| 分離主義者「差し替え処理を外に出す」 | 一部採用 | 判定の二重実行だけ消す。クラスの分割は提案どおり将来でよい |\n| 階層主義者「状態を内側の層に下ろす」 | 別Issueとして記録 | 提案どおり将来でよい。別の機能でも使う話が出たときに |\n| 拡張主義者「関門を1判定に」 | 不採用（前提が消えた） | 修正ラウンド2で、その状態そのものを撤去していた。関門は既に1判定になっている |\n\n「採用」は1件だけで、残りは一部採用・別Issue・不採用です。\n\nそして内容を読むと中々マシなレビュー内容です。\nこれは 「規定は不採用、だから極端なアイデアをAIに出させてもよい」 というスタンスだから生まれています。\n\nこういったことをレビューAIは指摘出来ませんでした。\n多少レビューAIのプロンプトを改善した所で、おそらくこのような人間が安心出来る強度の指摘は生まれないと思います。\n\n見送った提案は捨てない\n\n不採用 以外で入れなかったものは、将来タスクのメモに出典付きで記録されます。\n\n [code] \n\n「いま入れない」と「忘れる」は別物なのでそこも区分けしています。\n\n実際に何が変わったか\n\n採用ぶんの修正で、こうなりました。\n\n [code] \n\n| ファイル | 増減 |\n|---|---|\n| 窓口クラス | +29 / −130（正味 101 行減） |\n| 読み取り役（新設） | +92 |\n| 一覧の Query | +48 / −70 |\n\nこの変更は、レビューAIからは一度も指摘されていません。\nそしてそれは「レビューAI」の本分としては何も間違っていない、というのが今までの悩みポイントでした。\n\n効いている設計判断\n\n作ってる最中に工夫した部分を挙げます。\n\n1. 「失うもの」を必ず書かせる\n\n提案には3点を必ず書かせます。\n\n| | 内容 |\n|---|---|\n| 何が良くなるか | 具体的に。「きれいになる」ではなく、何がどう楽になるか |\n| 何を失うか | 必ず書く。 複雑さ、行数、間接参照、学習コスト。無いと思うなら「無い」と断言する |\n| いま入れるべきか | いま / 将来でよい のどちらか。判断の理由も |\n\nこれを入れる前は、提案が全部「入れたほうがよい」に見えました。 \n抽象化はだいたい何かを増やします。それを書かせないと、判断材料が揃いません。\n\n前掲の階層主義者の提案が良い例です。自分の提案の価値を自分で削っています。\n種別は現在2つで、増える予定はタスクに書かれていない。\n3つ目が来なければ、得るのは依存の向きだけになる\n\nこれを書かせているおかげで、裁定した AI は「種別の抽象化は見送る。読み取りの点だけ採用する」という一部採用の判断ができました。\n書かせていなければ、全部入れるか全部捨てるかの二択になっていたはずです。\n\n2. 「いま入れるべきか」を二択で答えさせる\n\nこれも実際に運用してみると良い項目でした。\n\n良い提案でも、その PRの範囲をあまりにも超えるなら「将来でよい」と書かせます。\n書かせないと、1つの PR にあらゆる改善提案が流れ込んで収束しません。\n\n特にプロジェクトの自動化を目指している場合は一定の単位に分割しないとPRの規模がとんでもないことになりがちです。\n\n逆に「いま」と判断する理由も似た考え方で、例で言うと\nこのクラスはこの PR で新設されたもので、呼び出し元はまだ5つ。定着する前に分けるほうが安い。\n\n「いまなら安い」は、構造の変更において本質的な判断軸です。\n人間が書いたコードでも同じはずです。\n\n呼び出し元が5つのうちに向きを変えるのと、30 になってから変えるのとでは、コストが桁で違います。\n技術的負債っていうのはそういう話です。\n\n3. 既定は不採用\n\nコメントの冒頭に書いてあるように、規定を不採用としています。\n迷ったら不採用にしろということです。\nこれは欠陥の指摘ではありません。 3人の専門家が、それぞれのこだわりに極端に寄せた代案を出しています。既定は不採用で、多くは採用されません。\n\n何度も言いますが、採用を前提にすると、極端な意見が出せません。\n不採用が普通だと決めておくと、AIも遠慮なく極端に振れます。\n実質ブレインストーミングに近いのかもしれません。\n\n4. 3人は互いの提案を読まない\n\n別々のセッションで起動しています。 同じセッションで3人分を書かせると、先に書いた視点に引きずられて、残り2人が薄くなります。\n\n実際のところ、今回3人が「同じクラス」を指したのは独立に到達した結果です。\n互いを読んでいたら「1人目が言ったので別のところを見よう」になりがちです。\n3人が同じ場所を指したこと自体が、そこが本当に怪しいという信号になります。\n\n5. 最大2件。「提案なし」でもよい\n\n多く出すほど良いわけではありません。 一番効く1件に絞れるなら1件でよく、無ければ 提案なし でもよいとしました。\n\n実際に「3人とも提案なし」で終わる PR もあります。\n\nレビューAIとの違い\n\n整理すると\n\n| | レビュー AI | 3人の主義者 |\n|---|---|---|\n| 問い | この差分は正しいか | 別の作り方があったのでは |\n| 見つけるもの | バグ、規約違反、テスト不足、事実の誤り | 構造のズレ、責任の混在、将来の拡張点 |\n| 根拠 | ガイドラインの条項 | その思想から見てどうか |\n| 既定 | 指摘されたら直す | 不採用 |\n| PR を止めるか | 止める（要修正） | 止めない（助言であって関門ではない） |\n\nこの2つは代替ではなく、別のものを見ています。 片方だけでは足りません。\n\nなお実装コストはほぼ同じです。プロンプトとペルソナの定義ファイルを置いて、レビュー AI と同じ仕組みで並列に起動しているだけです。\n\n使ってみた実感\n\n当たりを引く確率は高くありません。 半分以上の PR は「提案なし」か「将来でよい」で終わります。\n\nしかし当たったときに拾えるものが、他の手段では拾えません。\n\n今回の例で言えば、\n・差分としては正しい\n・テストも通る\n・レビュー AI も問題にしない\n・でも、読み取り専用の画面が書き込みサービスを掴んでいる\n\nこれを「呼び出し元が5つのうちに」直せたのは、極端な思想を持つ役を置いていたからです。\n\nそして冒頭に書いたとおり、この重さを許容できるのは、受け取る側も AI だからです。1万文字の提案を読んで裁定し、採用ぶんを実装して push するところまで自動で回る前提があって初めて、「当たりは少ないが当たると大きい」役を常設できます。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0cd5ff423f180d4a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8847466666666667,
+      "popularityPercentile": 0.9306666666666666,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "Claude CodeとCodexに設計案をあえて否定させてAIコードレビューの視野を広げた記事です。",
+      "takeaways": [
+        "通常の確認だけでは設計の弱点を見落とす。",
+        "あえて別の設計を出す役を追加した。",
+        "提案を採用しなくても視野を広げられる。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "OpenAI Codex",
+        "AIコードレビュー",
+        "技術的負債",
+        "Pull Request",
+        "Skill"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIレビューを協調型にするか対立型にするか",
+        "forSide": "別案を強制的に出す役があると設計の思い込みを崩せる。",
+        "againstSide": "常に否定されるレビューはノイズを増やし開発者の信頼を失う。",
+        "oneSided": false,
+        "yourAngle": "実際のPull Requestで設計指摘の採用率と手戻りを測定できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "この記事は、通常のAIコードレビューが差分の正しさや規約違反を確認できても、「そもそも別の設計があったのでは」という技術的負債を見逃しやすい問題を扱う。対策として、階層主義者・分離主義者・拡張主義者という3人のジョーカーレビュワーを、通常のレビューAIとは独立したセッションで動かす。ジョーカーレビュワーは極端な思想から別案を出すが、既定は不採用とし、提案を採用・一部採用・別Issueとして記録・不採用に裁定する。各提案には改善点だけでなく、失うものと「いま入れるべきか」を書かせることで、抽象化の過剰導入やPRの肥大化を抑える。1万文字を超える提案をAIが読み、裁定し、採用分を実装できるAI駆動開発の環境だからこそ、人間だけでは重い対立型レビューを常設できる。",
+        "prerequisites": [
+          {
+            "term": "ジョーカーレビュワー",
+            "stumblingPoint": "記事は「3人のジョーカーとなるレビュワー」と書くが、通常のレビューAIと何を分担する役なのかが表だけでは読み取りにくい。",
+            "explanation": "ジョーカーレビュワーは、差分のバグを探すのではなく、特定の設計思想に極端に寄せて別案を出すAIです。通常のレビューAIが「この実装は正しいか」を見るのに対し、こちらは「別の責任分割や依存関係にしたらどうなるか」を発散させます。提案は採用を前提にせず、視点を増やすための入力として扱う点が重要です。"
+          },
+          {
+            "term": "技術的負債",
+            "stumblingPoint": "記事は「呼び出し元が5つのうちに直す」と説明するが、なぜ同じ設計変更が後になると高くつくのかが省略されている。",
+            "explanation": "技術的負債は、今の実装を優先した結果、将来の変更時に余分な修正や調査が必要になる状態です。この記事では、依存する呼び出し元が5つなら局所修正で済む一方、30個に定着すると各所の変更やデータ形式まで波及する、という意味で使われています。ジョーカーの提案は、この負債を今払うか将来に回すかを判断する材料です。"
+          },
+          {
+            "term": "既定は不採用",
+            "stumblingPoint": "記事は「既定は不採用」と繰り返すが、極端な提案を採用しないのに、なぜレビュー品質が上がるのかが直感に反する。",
+            "explanation": "既定は不採用とは、ジョーカーの指摘をPRの修正要求やマージ条件にしないという運用ルールです。採用が前提だとAIは無難な改善しか出しにくくなります。不採用が普通なら、階層の逆転やサービス分割のようなコストの高い案も候補として出せるため、結果的に設計の選択肢が増えます。"
+          },
+          {
+            "term": "独立したセッション",
+            "stumblingPoint": "記事は3人を「別々のセッションで起動」すると書くが、同じ会話で動かす場合に何が失われるのかが読み飛ばされやすい。",
+            "explanation": "独立したセッションとは、各レビュワーが他のレビュワーの提案を見ずに、同じPRを別々に評価する構成です。先に出た意見を読ませると、後続のAIがその案に引きずられたり、重複を避けようとして別の薄い指摘を作ったりします。同じクラスに独立して到達した提案が重なること自体を、設計上の信号として扱えます。"
+          },
+          {
+            "term": "一部採用",
+            "stumblingPoint": "記事の裁定には「一部採用」があるが、提案を丸ごと採るか捨てるか以外の判断がなぜ必要なのかが例を知らないと掴みにくい。",
+            "explanation": "一部採用は、ジョーカーの提案に含まれる複数の変更を分解し、効果のある部分だけを取り入れる判断です。例では、種別ごとの抽象化は見送る一方、読み取り専用の口に分ける点だけ採用しています。これにより、設計改善の利益を得ながら、ファイル数や間接参照などのコストを必要以上に増やさずに済みます。"
+          },
+          {
+            "term": "読み取り専用",
+            "stumblingPoint": "記事は「読み取り専用の画面が書き込みサービスを掴む」と問題視するが、DIされたサービスの権限範囲が設計問題になる理由が省略されている。",
+            "explanation": "読み取り専用は、状態を参照するだけで、在庫や台帳を書き換える操作を必要としない利用形態です。読み取りだけのQueryが書き込みメソッドを含むサービス全体に依存すると、利用側から見える責任と実際に持つ操作権限が広がります。この記事では、参照用の役割を分離して、この依存を狭める設計案につなげています。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "AIがIssueからPR作成・レビューまで行う環境の前提記事",
+            "url": "https://qiita.com/archeleeds/items/1b437d0067ec832c88b1"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "レビューの対立性",
+            "claim": "通常レビューのバイアスは、プロンプト調整だけでは外しにくい。極端な3役を別に置く。",
+            "counter": "対立型を常設しても、多くは提案なし・将来でよいで終わり、レビュー量だけ増える。",
+            "counterInArticle": true
+          },
+          {
+            "point": "提案の独立性",
+            "claim": "独立したセッションなら、同じ設計箇所への収束を独立した信号として使える。",
+            "counter": "同じ文脈を共有しない分、重複した提案やプロジェクト固有事情を外した提案が増える。",
+            "counterInArticle": false
+          },
+          {
+            "point": "AIだけの裁定",
+            "claim": "受け手もAIなら、1万文字超の代案を読み、根拠付きで裁定し、採用分を実装できる。",
+            "counter": "裁定までAIに任せると、提案者と裁定者が同じ前提に依存し、誤った設計判断を通す可能性が残る。",
+            "counterInArticle": false
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "通常レビューとジョーカーの指摘差分",
+            "why": "Claude CodeやCodexをレビュー工程で使っているため、通常AIが拾った指摘と別案の重なり・差分をPR単位で出せる。"
+          },
+          {
+            "angle": "提案なし率と採用率",
+            "why": "AIエージェントを日常的に運用しているので、PRごとの提案なし・将来送り・一部採用・採用の件数を継続計測できる。"
+          },
+          {
+            "angle": "責任分離の実装コスト",
+            "why": "ReactやNext.jsのQuery・Service・DI構成で、読み取りと書き込みの依存がどこまで分かれているかを実例で示せる。"
+          }
+        ],
+        "verify": [
+          "同じPRを通常レビューAIと独立した3つのジョーカー役に渡し、指摘の種類と重複を記録する。",
+          "各PRで提案なし・採用・一部採用・将来送りの件数と、修正後の差分量を集計する。"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "61bcdb7a009051f0",
+      "product": "Wrangler",
+      "what": "Cloudflare Workersの開発・デプロイCLI",
+      "version": "4.142.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "ローカル開発でexports経由のWorkflowを利用できるようになる",
+      "change": {
+        "before": "ローカル開発でexportsのWorkflowを利用不可",
+        "after": "ctx.exportsからWorkflowを利用可能"
+      },
+      "scope": [],
+      "summary": "Wrangler 4.142.0で、Workerのexportsに宣言したWorkflowをwrangler devで利用可能にした。Vite・Vitestプラグインにも同じAPIを追加。",
+      "title": "cloudflare/workers-sdk wrangler@4.142.0",
+      "url": "https://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.142.0",
+      "sourceLabel": "GitHub Releases / cloudflare/workers-sdk",
+      "publishedAt": "2026-09-27T14:11:56.000Z",
+      "alsoReleased": [
+        {
+          "label": "@cloudflare/vitest-plugin@1.3.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vitest-plugin%401.3.0"
+        },
+        {
+          "label": "@cloudflare/vite-plugin@1.61.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vite-plugin%401.61.0"
+        },
+        {
+          "label": "@cloudflare/workflows-shared@0.15.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workflows-shared%400.15.0"
+        },
+        {
+          "label": "@cloudflare/autoconfig@0.7.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/autoconfig%400.7.0"
+        },
+        {
+          "label": "@cloudflare/config@0.20.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/config%400.20.0"
+        },
+        {
+          "label": "@cloudflare/deploy-helpers@0.18.1",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/deploy-helpers%400.18.1"
+        },
+        {
+          "label": "@cloudflare/remote-bindings@0.0.37",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/remote-bindings%400.0.37"
+        },
+        {
+          "label": "@cloudflare/containers-shared@0.20.3",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/containers-shared%400.20.3"
+        },
+        {
+          "label": "@cloudflare/runtime-types@0.1.4",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/runtime-types%400.1.4"
+        },
+        {
+          "label": "@cloudflare/pages-shared@0.13.190",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/pages-shared%400.13.190"
+        },
+        {
+          "label": "@cloudflare/build-output-utils@0.8.2",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/build-output-utils%400.8.2"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nWrangler 4.142.0 を入れて、「ローカル開発でexports経由のWorkflowを利用できるようになる」を確かめる\nhttps://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.142.0\n\n# 手順\n1. git clone --depth 1 --branch wrangler%404.142.0 https://github.com/cloudflare/workers-sdk\n2. cd workers-sdk && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 4.142.0 が実際に入って動くか\n- 「ローカル開発でexports経由のWorkflowを利用できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- wrangler%404.142.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "e60320fc8a21706c",
+      "product": "TanStack/router",
+      "what": "Reactなど向けのルーティングライブラリ",
+      "version": null,
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": {
+        "before": "リロード時にネイティブスクロール復元されない",
+        "after": "リロード時にネイティブスクロール復元"
+      },
+      "scope": [],
+      "summary": "スクロール復元やサーバールートのパスパラメータ解析を修正し、Serovalを1.6.7へ更新。各種Start・Routerパッケージも同時更新。",
+      "title": "TanStack/router Release 2026-09-27 14:08",
+      "url": "https://github.com/TanStack/router/releases/tag/release-2026-09-27-1408",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "publishedAt": "2026-09-27T14:08:05.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/router-core@1.171.33",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.33"
+        },
+        {
+          "label": "@tanstack/start-server-core@1.169.38",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-server-core%401.169.38"
+        },
+        {
+          "label": "@tanstack/start-client-core@1.170.33",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-client-core%401.170.33"
+        },
+        {
+          "label": "@tanstack/start-plugin-core@1.171.48",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-plugin-core%401.171.48"
+        },
+        {
+          "label": "@tanstack/start-static-server-functions@1.167.38",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-static-server-functions%401.167.38"
+        },
+        {
+          "label": "@tanstack/react-start@1.168.59",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.168.59"
+        },
+        {
+          "label": "@tanstack/solid-start@1.168.56",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.168.56"
+        },
+        {
+          "label": "@tanstack/vue-start@1.168.55",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.168.55"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.58",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.58"
+        },
+        {
+          "label": "@tanstack/vue-router@1.170.36",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-router%401.170.36"
+        },
+        {
+          "label": "@tanstack/solid-router@1.170.37",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-router%401.170.37"
+        },
+        {
+          "label": "@tanstack/react-router@1.170.40",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-router%401.170.40"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nTanStack/router を入れて、この版の変更を確かめる\nhttps://github.com/TanStack/router/releases/tag/release-2026-09-27-1408\n\n# 手順\n1. git clone --depth 1 --branch release-2026-09-27-1408 https://github.com/TanStack/router\n2. cd router && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 新しい版が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- release-2026-09-27-1408 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Artifactoryの攻撃を追う。匿名トークンが管理者権限に変わるまで",
+      "url": "https://qiita.com/emi_ndk/items/c02692c97dadefc46fc7",
+      "publishedAt": "2026-09-27T07:55:01.000Z",
+      "author": "Babushka Ai",
+      "authorDetail": {
+        "name": "Babushka Ai",
+        "handle": "@emi_ndk",
+        "url": "https://qiita.com/emi_ndk",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/54173850?v=4",
+        "bio": "元々 Google Cloud Vertex AI エンジニア、現在はMr MLOps, Founder of BabushkaML. 日本のエンジニア業界を再び世界レベルで盛り上げたい目的で新規情報をぞくぞく配信しています！",
+        "location": "Netherlands",
+        "followers": 807,
+        "posts": 265,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/babushkai"
+          },
+          {
+            "label": "Web",
+            "url": "https://desktop.babushkaml.com/ja/"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "JWT",
+        "devops",
+        "Artifactory"
+      ],
+      "snippet": "Artifactoryの攻撃報告で気になったのは、トークンの署名検証が行われていたことです。発行者も確認している。それでも、匿名ユーザーのトークンが管理者権限を得るところまで進んでいました。1 JFrogの説明では、足りなかったのはスコープの検証です。トークンが本物かどうかを確かめたあと、その権限で何を許してよいかの確認に問題がありました。2 Wizが2026年9月10日に公開し、17日に更新した報告をもとに、侵入から修正後に残る問題まで追います。対象は脆弱なセルフホスト環境です。1 署名の検証と権限の確認を題材にしたAI生成イラスト。実際の製品構成を描いたものではありません。 最初に取れたのは、匿名ユーザーのトークン CVE-2026-42018では、未認証の呼び出しに内部の匿名ユーザー用トークンが返されます。匿名アクセスを無効にしていても起きる問題でした。2 この時点では、まだ管理者で…",
+      "body": "Artifactoryの攻撃報告で気になったのは、トークンの署名検証が行われていたことです。発行者も確認している。それでも、匿名ユーザーのトークンが管理者権限を得るところまで進んでいました。1\n\nJFrogの説明では、足りなかったのはスコープの検証です。トークンが本物かどうかを確かめたあと、その権限で何を許してよいかの確認に問題がありました。2\n\nWizが2026年9月10日に公開し、17日に更新した報告をもとに、侵入から修正後に残る問題まで追います。対象は脆弱なセルフホスト環境です。1\n\n \n署名の検証と権限の確認を題材にしたAI生成イラスト。実際の製品構成を描いたものではありません。\n\n最初に取れたのは、匿名ユーザーのトークン\n\nCVE-2026-42018では、未認証の呼び出しに内部の匿名ユーザー用トークンが返されます。匿名アクセスを無効にしていても起きる問題でした。2\n\nこの時点では、まだ管理者ではありません。攻撃者は次に、このトークンを使って管理者スコープのトークンを取得します。ここで使われたのが、スコープの検証が不足していたCVE-2026-42016です。Wizは、この2つを組み合わせた攻撃を確認しています。1\n\n [code] \n\n最初の欠陥がトークンを渡し、次の欠陥が権限を広げる。2つの役割を分けると、どこで止めるべきだったかが見えてきます。\n\n署名のテストだけでは、この失敗を拾えない\n\nJFrogの仕様では、Subjectがトークンに結びつくユーザー、Scopeがアクセス範囲を表します。3\n\n署名が正しくても、そのユーザーに要求された権限を渡してよいとは限りません。トークンを受け付ける処理だけでなく、新しいトークンを発行する処理にも、その確認が必要です。\n\n自分のAPIをレビューするなら、次のケースを追加したいところです。\n・読み取り専用のトークンで、管理者用トークンの発行を要求する。\n・署名、発行者、有効期限はすべて正しい状態にする。\n・権限不足として拒否され、新しいトークンも作られないことを確かめる。\n\nこれは検証ケースの提案で、今回こちらでArtifactoryに対して実行したものではありません。署名を壊したトークンを弾くテストとは、調べている箇所が違います。\n\n更新したあと、プラグインも確認する\n\n侵入経路が分かったので、次は侵入後です。\n\nWizは悪意あるGroovyプラグインも確認しています。これはArtifactoryのJVM内で、サービスアカウントの権限で動くコードです。再起動すると再読み込みされ、設置済みのプラグインはパッチを当てても残ります。1\n\nここは、更新作業の完了だけを見ていると見落としやすいところです。入口の不具合を直しても、追加されたファイルの由来までは確認できません。\n\n運用で確認するなら、プラグインを承認済みの構成と照合します。見慣れないファイルがあれば、内容と追加された時期を調べる。管理者アカウントや権限の変更も同じように追います。不審な差分は、消す前に証跡を保全しておきます。\n\n署名鍵が漏れていたら、CIの復旧まで必要になる\n\n報告には、Accessの署名用ファイルを収集するプラグインも含まれていました。1\n\nJFrogでは、private.keyでAccessトークンに署名し、対応するroot.crtで検証します。秘密鍵が漏れた場合は、ソフトウェアの更新に加えて、その鍵で作られた署名を信頼しない状態へ戻す必要があります。3\n\n公式のトークン証明書リセットは、既存のトークンも失効させます。実施するなら、使っているCIジョブや連携先を洗い出し、トークンの再発行と動作確認まで予定に入れます。\n\n旧証明書を信頼先に残せば既存トークンを維持できますが、漏れた鍵への信頼を取り消したい場面では、その方法は目的に合いません。3\n\nまず自分のリリース系列を公式アドバイザリと照合する。CVE-2026-42016は7.133.11で修正されていますが、それでCVE-2026-42018まで対応済みにはなりません。2\n\n更新対象が決まったら、プラグインやアカウントの差分を調べ、鍵の露出があれば交換する。作業完了の確認には、バージョン番号に加えて、この調査結果も必要です。\n\n参考資料\n\n[1] Wiz — Artifactory Under Attack: In-the-Wild Exploitation of CVE-2026-42016, CVE-2026-42018 & CVE-2026-82329（2026年9月10日公開、9月17日更新）\n\nhttps://www.wiz.io/blog/artifactory-under-attack-in-the-wild-exploitation-of-cve-2026-42016-cve-2026-4201\n\n[2] JFrog — Security Advisories（CVE-2026-42016、CVE-2026-42018）\n\nhttps://docs.jfrog.com/releases/docs/jfrog-security-advisories\n\n[3] JFrog — Access Tokens（トークン属性、署名鍵、証明書のリセット）\n\nhttps://docs.jfrog.com/administration/docs/access-tokens",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5f2e17615fce553d",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.1771066666666667,
+      "popularityPercentile": 0.4186666666666667,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "JFrog Artifactoryでは匿名トークンと権限確認の欠陥を組み合わせて管理者権限を得られた。",
+      "takeaways": [
+        "本物のトークンでも安全な権限とは限らなかった。",
+        "2つの欠陥が連続して匿名利用者を管理者に変えた。",
+        "署名確認だけでなく許される操作の確認が必要だった。"
+      ],
+      "keywords": [
+        "JFrog Artifactory",
+        "CVE-2026-42018",
+        "CVE-2026-42016",
+        "Wiz",
+        "JWT",
+        "権限昇格"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 9,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claudeによる攻撃作戦？Geminiが実在企業に侵入？AIサイバー攻撃 5 種類の事件と 7 種類の対策",
+      "url": "https://qiita.com/songchong/items/9122c8a264ff07cc2d83",
+      "publishedAt": "2026-09-27T07:06:31.000Z",
+      "author": "SONG",
+      "authorDetail": {
+        "name": "SONG",
+        "handle": "@songchong",
+        "url": "https://qiita.com/songchong",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/56670/profile-images/1787238181",
+        "bio": "日立系ITベンダー、介護ソフトベンダー、大学病院IT部門など、中堅・中小企業、ベンダー・ユーザーの両方を経験してから独立しました。現在は、API・RPA・AIなど、業務システム間の「つながり」を調べながら、中小企業へのIT・DX支援をしています。調査の結果は IT連携マップ（renkeimap.jp）に台帳として公開しています（筆者が運営しています）。",
+        "organization": "IT連携マップ編集部",
+        "location": "仙台市",
+        "followers": 99,
+        "posts": 27,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/songchongok"
+          },
+          {
+            "label": "Web",
+            "url": "https://renkeimap.jp"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "ChatGPT",
+        "Claude",
+        "Gemini",
+        "マルウェア"
+      ],
+      "snippet": "「作戦の 80〜90% を AI が実行した」「Gemini が能力テストの最中に実在企業へ侵入した」「1 時間ごとに自分のコードを書き換えるマルウェアが見つかった」 2025 年から 2026 年にかけて、AI とサイバー攻撃の見出しが相次ぎました。どれも「AI が攻撃した」という話に見えますが、中身は同じではありません。人が AI を使った攻撃もあれば、テスト中の事故も、まだ試験段階の手口もあります。 AI の提供元（Anthropic・OpenAI）と Google の脅威分析チーム（GTIG）が自ら公表した報告を読み分けると、起きたことは 5 種類に分かれ、効く対策もそれぞれ違います。上の図 1 が、その全体です。左の番号が事件の種類、矢印の先が何が変わったか、右上の記号がその種類に効く対策で、対策の中身は図の下に並べています。② は報告が 2 つあるので、矢印も 2 本です。 答…",
+      "body": "「作戦の 80〜90% を AI が実行した」「Gemini が能力テストの最中に実在企業へ侵入した」「1 時間ごとに自分のコードを書き換えるマルウェアが見つかった」\n\n2025 年から 2026 年にかけて、AI とサイバー攻撃の見出しが相次ぎました。どれも「AI が攻撃した」という話に見えますが、中身は同じではありません。人が AI を使った攻撃もあれば、テスト中の事故も、まだ試験段階の手口もあります。\n\nAI の提供元（Anthropic・OpenAI）と Google の脅威分析チーム（GTIG）が自ら公表した報告を読み分けると、起きたことは 5 種類に分かれ、効く対策もそれぞれ違います。上の図 1 が、その全体です。左の番号が事件の種類、矢印の先が何が変わったか、右上の記号がその種類に効く対策で、対策の中身は図の下に並べています。② は報告が 2 つあるので、矢印も 2 本です。\n\n答える問いは 3 つです。\n・なぜ、AI のサイバー攻撃の報道が相次ぐのか？\n・報道の中身は、実際には何が起きたことなのか？\n・自社（中小企業・情シス）は、何をすればいいのか？\n\nこの記事は、IT連携マップ（renkeimap.jp）の調査ページ 「AI が攻撃した」は何が起きたか をもとにした Qiita 版です。記事に出てくる AI ツール（Claude Code・Claude・ChatGPT・Gemini）は、それぞれ調査ページがあり、入れたデータの学習利用や記録の残り方を提供元の原文つきで確かめられます。引用した英語の原文と出典も、それぞれのページで 1 行ずつ確かめられます。\n\nこの記事で使う言葉\n\n先に、この記事の土台になる言葉をそろえます。\n\n| 言葉 | この記事での意味 |\n| --- | --- |\n| LLM（大規模言語モデル） | ChatGPT・Claude・Gemini などの中で動いている、文章を読んで文章を作る AI の本体。詳しくは ChatAI とは何か |\n| AI エージェント | 答えるだけでなく、道具を使って実際に手を動かす AI。偵察や侵入を実行したのは、この形です。詳しくは AI エージェントとは何か |\n| 資格情報 | システムに入るための ID・パスワード・キー・トークンなど。Anthropic の 2026 年 9 月の報告は、既知の攻撃の筆頭に「盗まれた資格情報」を挙げています。詳しくは シークレット管理とは |\n| API キー（AI の鍵） | AI のサービスを API（Application Programming Interface）で呼び出すための秘密の文字列。持っている相手は、その API でできることを全部できます。詳しくは API キーとは何か |\n| 評価（能力テスト） | AI にどこまでの攻撃ができるかを、開発元や第三者が測る試験。④ の事故は、この最中に起きました。詳しくは テスト中の AI の事件は何が原因か |\n| アラインメント | AI が作り手や使い手の意図したとおりに動くようにすること。人が意図して AI に害のあることをさせる「悪用」とは別の問題です。詳しくは AI アラインメントとは |\n| プロンプトインジェクション | AI に読ませる文章の中に指示を紛れ込ませ、AI を意図しないとおりに動かす攻撃。⑤ の事例で使われました。詳しくは プロンプトインジェクションとは |\n| ランサムウェア | データを暗号化して使えなくし、元に戻す対価として金銭を求める不正プログラム。暗号化せずに「公開する」と脅す形もあります。詳しくは ランサムウェアとは |\n| フィッシング | 実在する組織を装って偽のサイトへ誘導し、パスワードなどを入力させる手口。AI の翻訳で文面が自然になり、見た目で見分けにくくなっています。詳しくは フィッシングとは |\n| 多要素認証（MFA） | 種類の違う証拠を 2 つ以上組み合わせてログインを確かめる仕組み。Anthropic は、基本の対策の 1 つに挙げています。詳しくは 多要素認証（MFA）とは |\n| 修正プログラム（パッチ） | ソフトウェアの弱点（脆弱性）を直すために開発元が配る更新。修正が出る前から悪用される弱点もあります。詳しくは ゼロデイ脆弱性とは |\n\n---\n\n1. 結論\n\n| 問い | 答え |\n| --- | --- |\n| なぜ報道が相次ぐのか | AI で攻撃の損得が変わったからです。以前は人手や資金のある集団だけができた下調べ・侵入・道具づくり・データの処理を AI に任せられるようになり、高度な攻撃の壁が大きく下がりました。さらに、AI の鍵やアカウント、AI を試す環境そのものも、新しい標的と事故の源になっています |\n| 実際には何が起きたのか | 5 種類です。① 人間が AI を利用して攻撃、② AI に実行を任せた攻撃作戦、③ LLM を呼び出すマルウェア、④ 評価中の AI が外に出た事故、⑤ AI の鍵やアカウントが狙われる。ただし手口そのものは既知のものが中心で、AI が人の手を離れて攻撃している段階ではありません |\n| 何をすればいいのか | 7 種類の対策です。どの種類にも効く土台が A（修正プログラムと入口の点検）と B（資格情報を守る）で、そのうえに種類ごとの C〜G を足します |\n\n見出しの強さではなく、5 種類のどれに当たるかで対策を選ぶ。これが、公式報告を並べて読んだ結論です。\n\n---\n\n2. 5 種類の事件を 1 枚で見る\n図 1 を上から読むと、次のようになります。\n\n| 種類 | 何が変わったか | 例と報告 |\n| --- | --- | --- |\n| ① 人間が AI を利用して攻撃 | 攻撃が加速する。既存の手口が、速く・多く来る | ChatGPT・Gemini の悪用（OpenAI 2025 年 10 月・Google 2025 年 1 月） |\n| ② AI に実行を任せた攻撃作戦 | 攻撃が自動化する。作業の 80〜90% を AI が実行し、最も大事な判断は人が握る。先行例では、何を盗むかや脅し文まで AI に任せた恐喝作戦もあった | Claude Code・Claude の悪用（Anthropic 2025 年 8 月・11 月・2026 年 9 月） |\n| ③ LLM を呼び出すマルウェア | 手口が加わる。実際の攻撃で使われたものと、試験段階のものがある | PROMPTSTEAL・PROMPTFLUX（Google 2025 年 11 月） |\n| ④ 評価中の AI が外に出た事故 | 実験室の外へ出る。能力を測る評価の最中に、AI が実在の組織に入った | Claude・OpenAI のモデル・Gemini（Anthropic 2026 年 7 月ほか。Gemini は報道） |\n| ⑤ AI の鍵やアカウントが狙われる | 狙われる範囲が広がる。AI の鍵が売り物になり、攻撃は他人の費用と名義で走る | 盗まれた AI の API キーとアカウント（Anthropic・Google 2026 年 9 月） |\n\n①〜③ は、人間が攻撃を意図して AI を道具や部品として使った話で、人間が AI を悪用した攻撃です。④ は攻撃ではなく事故で、Anthropic 自身が、AI と人間の意図のずれ（アラインメントの失敗）より、評価の仕組みと運用の失敗に近いと書いています。⑤ は、AI の鍵やアカウントが攻撃の対象になった話です。\n\n見出しの「Claude による攻撃作戦」は ②、「Gemini が実在企業に侵入」は ④ に当たります。同じ「AI が攻撃した」という見出しでも、片方は人が AI に実行させた攻撃、もう片方は評価中の事故です。\n\nこの 5 つの分け方は、報告自身のものではありません。報告を並べて読んだうえでの、調査ページの分け方です。5 つは重なることもあり、③ で実際の攻撃に使われたマルウェアは、⑤ の盗まれた鍵で LLM を呼んでいるとみられています。\n📎 5 種類の表と、1 つずつの英語の原文は 調査ページの「報告を読み分けると 5 種類」 で確かめられます。\n\n---\n\n3. ① 人間が AI を利用して攻撃 — 攻撃が加速する\n \n\n図を左から読みます。攻撃者が AI ツールを使い（左）、フィッシングの文面・調べ物・道具づくりといった今までの手口を（中）、速く・多く標的に届けます（右）。新しい手口が加わるのではなく、今までの手口の速さと量が変わる、というのがこの種類です。下の段が効く対策で、A（プログラムを更新する）と B（鍵を金庫にしまう、つまり資格情報を守る）の 2 つです。\n\n1 つ目は、攻撃者が今までのやり方に AI を足す形です。Google の GTIG は、生成 AI は大きな変化を起こすのではなく、攻撃者がより速く、より多くこなせるようにすると書いています。\n\n| 報告 | 書かれていること |\n| --- | --- |\n| OpenAI（2025 年 10 月） | 遮断した攻撃者は、AI を中心に新しい仕事の流れを作るのではなく、既存の流れに AI を組み込んでいた。新しい手口や、AI が新しい攻撃能力を与えた証拠は見つからなかった |\n| Google GTIG（2025 年 1 月） | 障害の切り分け・調べ物・文章づくりのような一般的な作業に使っていたが、新しい能力を開発している兆しは見ていない。AI は、語られるほどの決定打にはまだなっていない |\n| Google の Mandiant（2026 年 3 月） | 成功した侵入の大半は、依然として人と仕組みの基本的な不備から来ている |\n\nOpenAI の報告は同社の ChatGPT などのモデルで遮断した事例、Google GTIG の報告は同社の Gemini で見た事例です。\n\n見出しの印象よりずっと地味な話です。ただ、守る側にとっては軽い話ではありません。身近な例では、フィッシングの文面が AI の翻訳で自然になり、以前からの「日本語が不自然なら偽物と分かる」という見分け方は、それだけでは頼れなくなっています（IPA）。\n\n図の下の段の A と B が効くのは、このためです。既存の手口が速く・多く来るなら、新しい防御を足すより、今ある基本の穴をふさぐのが先、という順番です。\n📎 各行の英語の原文は 調査ページの ① の節 で確かめられます。\n\n---\n\n4. ② AI に実行を任せた攻撃作戦 — 攻撃が自動化する\n \n\n2 つ目は、人が標的を決め、偵察から侵入・持ち出しまでの作業の大半を AI に実行させる形です。図は、Anthropic の 2 つの報告を上下に並べています。\n・上の段（2025 年 11 月）: 人は要所の判断だけを握り、AI が作業の 80〜90% を実行して、およそ 30 の標的への侵入を試みました。速さが変わったので、効く対策は C（検知から遮断までを速くする）です。詳しくは 4-1 で読みます。\n・下の段（2025 年 8 月）: 下調べと侵入に加えて、何を盗むか・脅し文をどう作るかの判断まで AI に任せ、少なくとも 17 の組織を「データを公開する」と脅しました。暗号化しない恐喝なので、効く対策は D（公開の脅しを想定した事業継続計画）です。詳しくは 4-2 で読みます。\n\nA と B は、どちらの段にも効く土台です。「AI が主体の攻撃」に見えますが、報告は、最も大事な判断は人が握っていると書いています。\n\n4-1. 作戦の 80〜90% を AI が実行（2025 年 11 月の報告）\n\nAnthropic が 2025 年 11 月に報告した事例では、同社の Claude Code が悪用されました。\n\n| 項目 | 報告に書かれていること |\n| --- | --- |\n| いつ | 2025 年 9 月中旬に不審な活動を検知し、調査の結果、きわめて高度なスパイ活動だと判明した |\n| 規模 | Claude Code を操って、世界のおよそ 30 の標的への侵入を試み、少数で成功した |\n| AI が実行した割合 | 作戦の 80〜90%。人の介入は散発的だった |\n| 速さ | ピーク時は数千の要求を、しばしば毎秒複数出した |\n| 道具 | 独自のマルウェアではなく、公開されている侵入テスト用の道具に大きく頼っていた |\n| 位置づけ | 実質的な人の介入なしに実行された大規模な攻撃として、最初に記録された事例だと考えている |\n\n人の判断が残った回数について、報告の原文はこう書いています。\n\"the threat actor was able to use AI to perform 80-90% of the campaign, with human intervention required only sporadically (perhaps 4-6 critical decision points per hacking campaign)\"\n\n「作戦 1 つあたり、重要な判断はおそらく 4〜6 か所」です。AI が実行し、人が要所で判断する、という分担でした。\n\nAnthropic は 2026 年 9 月にも、2025 年 12 月から 2026 年 8 月に遮断した事例をまとめた報告を出しています。\n\n| 項目 | 報告に書かれていること |\n| --- | --- |\n| AI の役割 | 取り上げた作戦の過半で、AI が直接の実行か指揮を担った。複数の AI エージェントが、偵察・侵入・データの持ち出しを実行した |\n| 人の役割 | 攻撃の標的を決め、持ち出したものを確かめる場面に人が残っていた。最も大事な判断は、人が握り続けている |\n\n2 つの報告に共通するのは、実行は AI、要所の判断は人、という分担です。守る側から見て変わったのは速さで、ピーク時に毎秒複数の要求が来るなら、人が画面を見て気づく運用では追いつきません。これが図 1 の対策 C（検知から遮断までを速くする）です。\n📎 2 つの報告の英語の原文は 調査ページの ② の節 で確かめられます。\n\n4-2. 先行例 — 判断まで AI に任された恐喝作戦（2025 年 8 月の報告）\n \n\nAnthropic は 2025 年 8 月にも、同社の AI が攻撃の全段階に入っていた恐喝の事例を報告しています。下調べや侵入の自動化には Claude Code が使われ、何を盗むかなどの判断は Claude に任されていました。\n\n図の上から、偵察と侵入、何を盗むかの判断、脅し文の作成、技能の壁の 4 行です。1 行目の「作業」だけでなく、2 行目と 3 行目の「判断」まで AI に任されていたのが、この事例の特徴です。報告は、AI のモデルは今や、攻撃のやり方を助言するだけでなく、高度なサイバー攻撃を実行するために使われていると書いています。\n\n| 段階 | 報告に書かれていること |\n| --- | --- |\n| 下調べ・侵入 | 下調べ、被害者の資格情報の収集、ネットワークへの侵入を自動化するために使われた |\n| 判断 | 戦術と戦略の両方の判断をさせた。どのデータを持ち出すか、心理的に狙いを定めた恐喝の要求をどう作るか |\n| 標的 | 少なくとも 17 の異なる組織。医療、救急、行政、宗教団体を含む |\n| 恐喝の形 | 従来の身代金ソフトのように暗号化するのではなく、データを公開すると脅して支払いを迫った。要求額が 50 万ドルを超えた例がある |\n| 技能の壁 | 技能の少ない犯罪者が、以前なら何年もの訓練が要った作業（身代金ソフトの開発など）を AI で行っている |\n\n表の 4 行目は、対策に直接響きます。暗号化されないということは、バックアップから復旧できても解決しないということです。事業継続計画が「暗号化されたらバックアップから戻す」だけを想定していると、この形には効きません。これが図 1 の対策 D（『盗んだデータを公開する』と脅す手口を想定した事業継続計画の策定）で、データだけ持ち出されたときに気づけるか、脅されたときの手順があるかを、計画の中で確かめておきます。暗号化せずに盗んだデータで脅す形は、ランサムウェアとは で整理しています。\n\n5 行目は、守る側の想定を変えます。想定すべきは「技能の高い攻撃者が増える」ことではなく、「技能の低い攻撃者が、同じ結果を出せるようになる」ことです。\n📎 段階ごとの原文は AI による攻撃の自動化はどこまで来たか で、技能の壁の話は 同じページの「技能の壁が下がった」 で確かめられます。\n\n---\n\n5. ③ LLM を呼び出すマルウェア — 手口が加わる\n \n\n図を左から読みます。マルウェアが、動いている最中に LLM の API に問い合わせ（左）、自分の形を変えたり、端末で実行する命令を作らせたりして（中）、端末で実行して結果を持ち出します（右）。中の箱の PROMPTFLUX は試験段階、右の箱の PROMPTSTEAL は実際の攻撃で使われたもので、同じ種類の中でも段階が違います。下の段の効く対策は A・B と、E（定期的に情報を集め、新しいマルウェアに備える）です。\n\nGoogle の GTIG は 2025 年 11 月、確認した範囲で初めて、実行中に LLM を使うマルウェアの一群を見つけたと報告しました。報告には、段階の違う 2 つが並んでいます。\n\n| マルウェア | 段階 | 何をするか | 報告の位置づけ |\n| --- | --- | --- | --- |\n| PROMPTSTEAL | 実際の攻撃で使用（攻撃集団 APT28） | LLM が作った命令を、そのまま端末で実行して結果を持ち出す | 実際の攻撃で LLM に問い合わせるマルウェアを観測した最初の例 |\n| PROMPTFLUX | 開発か試験の段階 | Gemini の API に、自分のソースコード全体を 1 時間ごとに書き換えさせ、検知を逃れようとする | 侵害する能力は示されていない。Google は関連する資産を止めた |\n\n「1 時間ごとにコードを書き換えるマルウェア」という見出しは事実です。ただ、同じ報告に、試験段階であること、侵害の能力は示されていないことも書かれています。検知を逃れようとしているのは作った側の狙いで、それが実際に効いたかどうかは、この報告からは分かりません。\n\n一方の PROMPTSTEAL は、盗んだ API キー（トークン）で LLM を呼んでいるとみられています。③ と ⑤ は、ここでつながっています。\n\n効く対策は、土台の A・B に加えて、図 1 の E（定期的に情報収集する上で、新しいマルウェアへの対策に備える）です。③ は、Google の GTIG が、確認した範囲で初めて見つけたと報告した手口です。こうした報告を定期的に見る担当を決めておき、新しいマルウェアの報告を見つけたら、実際の攻撃で使われたものか、試験段階のものかを確かめてから、自社の対策に加えるかを決めます。PROMPTSTEAL と PROMPTFLUX のように、同じ「AI を使うマルウェア」という見出しでも、急ぐ度合いはそこで大きく変わります。\n📎 英語の原文は 調査ページの ③ の節 で確かめられます。\n\n---\n\n6. ④ 評価中の AI が外に出た事故 — 実験室の外へ出る\n \n\n図を左から読みます。能力を測る評価の最中の強い AI が、閉じているはずの環境（点線の枠。実験室にあたる）にいました（左）。そこに、外への通信や渡されていた鍵といった穴が開いていて（中）、AI は外に出て、実在の組織に入りました（右）。下の段の効く対策は、入られる側には A と B、AI を試す側には F（外へ出る経路を閉じる）です。\n\n2026 年には、AI の能力を測る評価の最中に、閉じているはずの環境から AI が外に出た事故が、複数の開発元について報告・報道されました。「Gemini が実在企業に侵入」という報道も、この種類です。\n\n| 開発元 | 何が起きたか | 出典の種類 |\n| --- | --- | --- |\n| Anthropic | 第三者の評価会社 Irregular の評価環境から AI がインターネットに出て、実在の 3 組織の本番環境に不正にアクセスした | 当事者の公表（2026 年 7 月 30 日） |\n| OpenAI | 社内の評価環境で、AI がインターネットから切り離すための制御を回避し、社内の研究基盤と Hugging Face のシステムに侵入した | 当事者の技術報告（2026 年 8 月） |\n| Google | Gemini が、Irregular が 5 月に実施したテストの最中に実在企業へ侵入したと報じられた。Google は報道の当日に事実関係を認めたとされる | 報道（Google 自身の公表は見つからなかった） |\n\n \n\n上の図は、穴がなぜ開いていたかを、OpenAI・Anthropic・英国 AI Security Institute（AISI）の 3 つの報告に共通する原因として並べたものです。上から、外へ出る道が開いていた、能力を測るため安全機構を外していた、狭い課題にこだわり答えや抜け道を外に探した、の 3 つです（Google の件は、この図には入っていません）。\n\n3 つの報告（OpenAI・Anthropic・英国 AISI）はどれも、AI が自分の目的のために逃げ出したとは書いていません。Anthropic は、自社の件について、アラインメントの失敗より評価の仕組みと運用の失敗に近いと書いています。\n\n守る側から見て大事なのは、入られた側の話です。Anthropic の件で AI が使ったのは、弱いパスワードや認証の無い入口を突く基本的な手口で、連絡の取れた 2 組織は、それまで気づいていませんでした。入られる側にとっては、ここでも土台の A・B が効きます。\n\nまた、Anthropic の事案は評価会社 Irregular の環境で、Google の事案（報道）は同じ会社が行ったテストの最中に起きています。自社で AI エージェントを試す・動かす側にとっての対策が、図 1 の F（外へ出る経路を閉じる）です。検証を外部に頼むときは、その会社の環境から外へ出られないかまで、確かめる対象に入ります。\n📎 3 つの報告の経緯と、自社で閉じる 4 つ（外への通信・権限と鍵・監視・止める仕組み）は連載 2 本目で詳しく読みます。原文は テスト中の AI の事件は何が原因か にまとめています。\n\n---\n\n7. ⑤ AI の鍵やアカウントが狙われる — 狙われる範囲が広がる\n \n\n図を左から読みます。AI の API キーやアカウント、開発用の設定ファイル（左）が、公開コードに載ったり、情報を盗むマルウェアに狙われたりして盗まれ（中）、市場で売られて、持ち主の費用と名義で攻撃の処理を走らせる源になります（右）。③ の PROMPTSTEAL が盗んだ鍵で LLM を呼んでいるとみられるように、盗まれた鍵は次の AI 攻撃につながります。下の段の効く対策は B と G です。\n\nAnthropic は 2026 年 9 月の報告で、AI の鍵やアカウントを手に入れた攻撃者は 3 つを一度に得ると書いています。\n\n| 得るもの | 報告に書かれていること |\n| --- | --- |\n| 転売できるもの | 盗んだ鍵とアカウントは、既にある市場で売れる |\n| 他人の費用で回せる処理 | 攻撃の処理を、他人の費用で走らせられる |\n| 持ち主の名義 | 動きは、鍵の本来の持ち主のものに見える |\n\n2 行目と 3 行目に注目してください。漏れた鍵で攻撃の処理が走れば、費用が付くのも、動きの名義も、鍵の持ち主の側です。\n\n鍵の出どころとして一番多いのは、正規の利用者が自社の製品やアプリ、GitHub などの公開コードにうっかり載せてしまった鍵だと、同じ報告は書いています。\n\nGoogle の GTIG も 2026 年 9 月、追っている地下フォーラムで AI のアカウントを買おうとする需要が前年より増え、特に Claude と Gemini の資格情報に集中していること、アカウント 1 件あたりの平均価格が 2026 年に 2 倍を超えたことを報告しています。情報を盗むマルウェアの操作者が AI の開発用の設定を盗むことに関心を示しており、狙われた設定ファイルには API キーが平文で入りうる、とも書いています。\n\nAI の周りの仕組みも狙われています。ある攻撃者は、AI 製品を出す会社の自動評価用の環境に悪意ある指示を注入し（プロンプトインジェクション）、その環境が持っていた資格情報を渡させました。目的は公開前の Claude へのアクセスでしたが、すべての試みは失敗しています。使われた鍵は、利用者の環境から盗まれたものでした。\n\nAnthropic の勧めは、次の 1 文です。\n\"Organizations should treat AI keys and agent integrations with the same level of seriousness as they do production credentials\"\n\nAI の鍵とエージェントの連携を、本番の資格情報と同じ真剣さで扱う。これが図 1 の対策 G で、その基本になるのが、鍵をコードや設定ファイルに書かずに専用の保管庫に預ける「シークレット管理」です。\n\n \n\n図の上から、保管庫に預ける、使うときだけ取り出す、短い間隔で取り替える（自動にもできる）、操作の記録を残す、の 4 段です。ただし、預けるだけで守り切れるわけではありません。鍵を守る順番は、置かない・漏れても使えなくする（短い期限・必要な権限だけ・失効）・入口で止める・ログで気づく・別の場所の控えで戻す、の 5 段で考えます。\n\n社内で使っている AI の API キーやアカウントの扱い（記録がどこに残るか、どんな認証が使えるか）は、ツールごとに違います。OpenAI API・Claude Code・Gemini などの調査ページで、提供元の原文つきで確かめられます。\n📎 ⑤ の原文は 調査ページの ⑤ の節 で、鍵が漏れる経路は API キーはどう漏れるか、鍵の置き場所は 鍵の置き場所と守りの順番 で確かめられます。\n\n---\n\n8. 5 種類に共通する限界 — それでも報道が相次ぐ理由\n見出しの強さに引きずられないように、報告自身が書いている限界を並べます。当事者の報告に、自社に不利なことや、うまくいかなかったことまで書かれている点は読みどころです。\n\n| 報告 | 書かれている限界 |\n| --- | --- |\n| Anthropic（2025 年 11 月） | AI はときどき、ありもしない資格情報を作り出したり、公開されていた情報を機密として取り出したと主張したりした。これが、完全自律の攻撃を阻む障害として残っている |\n| Anthropic（2026 年 9 月） | どの作戦も、守る側が見たことのない全く新しい手口には頼っていなかった |\n| Google GTIG（2026 年 9 月） | 完全自律の攻撃の仕組みを、実際の標的に使った例はまだ観測していない |\n| Google の Mandiant（2026 年 3 月） | 2025 年を、侵害が AI の直接の結果だった年とは見ていない |\n\nGoogle の書き方は、次のとおりです。\n\"GTIG has not yet observed threat actors deploying fully autonomous pipelines against targets in the wild.\"\n\nでは、なぜ報道が相次ぐのか。Anthropic は、変わったのは手口の新しさではなく攻撃の損得だと書いています。以前は人手や資金のある集団と、それ以外とを分けていた下調べ・侵入・道具づくり・データの処理が、AI に任されるようになった、という意味です。2025 年 11 月の報告も、高度な攻撃を行うための壁は大きく下がったと書いています。\n\nもう 1 つは、AI そのものが新しい標的と事故の源になったことです。⑤ のように AI の鍵やアカウントには市場があり、④ のように AI を試す環境から外へ出る事故も起きています。攻撃の新しさではなく、攻撃できる人と、狙われる物の範囲が広がった、というのが報告の書いていることです。\n\nつまり、「AI が勝手に攻撃する」段階ではありません。ただ、人が要所で判断すれば攻撃は成り立ち、その人は以前ほどの技能や人手を持っていなくてもよくなりました。\n\n読み方の注意もあります。Anthropic の 2026 年 9 月の報告は、載せた事例は典型的な悪用ではなく、特に目立つ新しい事例だと書いています。件数の多さの話として読むものではありません。「AI 攻撃が急増」という見出しの数字が何を数えているかは 「AI 攻撃が急増」で増えたのは何か に、IPA が AI のリスクを 10 大脅威のどこに置いたかは 公的機関は AI のリスクをどこに置いたか にまとめています。\n📎 限界の原文は 調査ページの「報告自身が書いている限界」 にまとめています。\n\n---\n\n9. 種類ごとのセキュリティ対策\n \n\nAnthropic の 2026 年 9 月の報告は、攻撃そのものは既知のもの（盗まれた資格情報、修正プログラムを当てていないネットワークの出入口の機器、公開したままのサービス、SQL インジェクション、フィッシング）だと書いています。だから、どの種類にも効く土台は A と B です。そのうえで、種類ごとに C〜G を足します。\n\n| 種類 | 効く対策 |\n| --- | --- |\n| ① 人間が AI を利用して攻撃 | A・B |\n| ② AI に実行を任せた攻撃作戦 | A・B・C（作業の自動化）・D（恐喝作戦） |\n| ③ LLM を呼び出すマルウェア | A・B・E |\n| ④ 評価中の AI が外に出た事故 | A・B（入られる側）・F（AI を試す側） |\n| ⑤ AI の鍵やアカウントが狙われる | B・G |\n\n7 種類の対策の中身は、次のとおりです。\n\n| 記号 | 対策 | 根拠 |\n| --- | --- | --- |\n| A | 修正プログラムを早く当て、外から入れる入口と公開しているサービスを点検する。更新はできる限り自動にする | 既知の攻撃に修正プログラムを当てていない機器と公開したままのサービスが挙がる（Anthropic 2026 年 9 月）。更新の自動化も Anthropic が勧める |\n| B | 資格情報を守る。多要素認証を掛け、例外のアカウントを残さない | 既知の攻撃の筆頭が盗まれた資格情報（同上）。多要素認証は Anthropic が基本の対策に挙げる |\n| C | 検知から遮断までを、人が画面を見る運用に頼らずに速くする | ② の事例は、ピーク時にしばしば毎秒複数の要求を出した |\n| D | 『盗んだデータを公開する』と脅す手口を想定した事業継続計画の策定 | 2025 年 8 月の事例は、暗号化せずに公開すると脅した。バックアップから戻しても解決しない |\n| E | 定期的に情報収集する上で、新しいマルウェアへの対策に備える | ③ は、GTIG が確認した範囲で初めて見つけたと報告した手口。実際の攻撃で使われたものと試験段階のものが並ぶ |\n| F | AI エージェントを試す・動かす環境から、外へ出る経路を閉じる | ④ の事故は、閉じているはずの経路が開いていた |\n| G | AI の API キーとアカウントを、本番の資格情報と同じに扱う | Anthropic の勧め（2026 年 9 月） |\n\nこの節の最初の図は、A〜G ごとに明日確かめる項目です。上から、A 修正プログラムと入口（入口の一覧と、修正の当たり具合・自動更新）、B 資格情報（多要素認証の例外）、C 検知と遮断（何分かかるか）、D 公開の脅しへの備え（事業継続計画の手順と、持ち出しに気づけるか）、E 新しいマルウェアの情報収集（定期的に見る担当と、実際の攻撃か試験段階かの確認）、F AI を試す環境、G AI の鍵（置き場所と、漏れたときの止め方）です。\n\n入口ごとの攻撃経路は 入口ごとの攻撃経路と推奨の 3 手 に、多要素認証の例外の話は 多要素認証（MFA）とは に、中小企業のランサムウェア被害の入口は 中小企業はなぜランサムウェア被害の 6 割か にまとめています。攻撃の変化ごとに守りをどう変えるかは、連載 4 本目で、この記号のまま並べています（AI でしか守れないのか）。\n\n社内や委託先に確認するときの聞き方は、この 3 つです。\n「侵入を検知してから遮断するまで、実際に何分かかりますか。暗号化されずにデータだけ持ち出された場合、気づけますか。」\n「社内で使っている AI の API キーは、いまどこに置かれていますか。漏れたとき、誰がどう止めますか。」\n「AI エージェントを試している環境から、外のネットワークへ出られますか。」\n📎 種類ごとの対策は 調査ページの「種類ごとに効く、7 つの対策」 にもまとめています。\n\n---\n\n10. 報告の読み方と、この調べの範囲\n・報告は、発表した組織が自社のサービスや対応した事案で見えた範囲の話です。業界全体の割合ではありません\n・5 つの分け方は報告自身のものではなく、報告を並べて読んだうえでの調査ページの分け方です。5 つは重なることがあります\n・7 種類の対策の記号（A〜G）と組み合わせは、報告と調査ページの内容を並べたうえでの筆者の整理です。根拠は 9 章の表に書いています\n・Google の Gemini の事案は、報道でしか確かめられていません。元になった Wall Street Journal の記事は読んでいません\n・対象は公表された文章で、事案そのものを独自に確かめてはいません。調査ページの引用はすべて、2026 年 9 月 26 日に原本を取り直し、原文のまま在ることを確かめています\n・AI 自身のずれと、人による悪用の違いは AI アラインメントとは にまとめています\n📎 範囲の注意は 調査ページの「報告の読み方と、この調べの範囲」 にも置いています。\n\n---\n\n11. この連載で答える 4 つの問い\nこの記事は、AI とサイバー攻撃を 4 本で読む連載の 1 本目です。残りの問いの答えは、それぞれの調査ページにまとめています。\n\n| 問い | 答えている調査ページ |\n| --- | --- |\n| なぜ AI サイバー攻撃が相次ぐのか。どんな種類があり、どう備えるか（この記事） | 「AI が攻撃した」は何が起きたか |\n| 評価中の強い AI が、実験室の外に出たら何が起きるか | テスト中の AI の事件は何が原因か |\n| AI は善意か悪意か。AI サイバー攻撃は誰のせいか | AI アラインメントとは |\n| AI を使った攻撃は、AI でしか守れないのか | AI でしか守れないのか |\n\n---\n\n一次出典・参考文献\n\n| 資料 | 発表 | 原文 |\n| --- | --- | --- |\n| OpenAI: AI の悪用の遮断についての定期報告 | 2025-10 | cdn.openai.com |\n| Google GTIG: 生成 AI の悪用の分析 | 2025-01-30 | cloud.google.com |\n| Google・Mandiant: M-Trends 2026 の公表記事 | 2026-03-24 | cloud.google.com |\n| Anthropic: AI 主導のスパイ活動の遮断（記事） | 2025-11-13 | anthropic.com |\n| Anthropic: AI 主導のスパイ活動の報告書（PDF） | 2025-11 | anthropic.com |\n| Anthropic: AI の悪用の検知と対処 2026 年 9 月版 | 2026-09-10 | anthropic.com |\n| Anthropic: AI の悪用の検知と対処（2025 年 8 月） | 2025-08 | anthropic.com |\n| Google GTIG: GTIG AI Threat Tracker（攻撃者による AI ツールの利用） | 2025-11-06 | cloud.google.com |\n| Google GTIG: 対話から自律へ — 攻撃者の AI 利用の変化 | 2026-09-09 | cloud.google.com |\n| Anthropic: サイバー評価中に起きた 3 件の事案の調査 | 2026-07-30 | anthropic.com |\n| OpenAI: Hugging Face のインシデント技術報告 | 2026-08 | cdn.openai.com |\n| ITmedia NEWS: Wall Street Journal の報道の紹介（Gemini の件） | 2026-09-21 | itmedia.co.jp |\n| Anthropic: Project Glasswing の最初の報告 | 2026-05-22 | anthropic.com |\n| Anthropic: Claude Mythos Preview のサイバー能力の技術報告 | 2026-04-07 | anthropic.com |\n\n引用した英語の原文と出典は、すべて調査ページで 1 行ずつ公開しています。1 行ずつ確かめたい方は、「AI が攻撃した」は何が起きたか・AI による攻撃の自動化はどこまで来たか・テスト中の AI の事件は何が原因か をご覧ください。記事に出てきた AI ツールの学習利用・記録・認証は、Claude Code・Claude・ChatGPT・Gemini・OpenAI API の各ページにまとめています。\n\n \n\n:::note info\n読者アンケート実施中\nこのテーマをもっと深掘りしてほしい方は、記事に「いいね」をお願いします。「いいね」の多いテーマから順に追加調査し、結果は新着記事でお知らせします（フォローしていただくと通知が届きます）。\n:::\n\n \n\n \n\n【転載OK】本記事の転載について\n\n本記事の文章・図表は、すべて転載 OK です。図は加工しないままお使いください。転載の際は、出典として、この記事の完全版 『「AI が攻撃した」は何が起きたか』（renkeimap.jp）へのリンクをお願いします。事前の連絡は不要です。\n\n \n\n \n※ 筆者は日立系ITベンダー・介護ソフトベンダー・大学病院IT部門を経て独立し、現在は中小企業のIT・DX支援をしながら、業務システムの「つながり」を一次資料で調べています。 文中の「編集部」は、筆者が所属する IT連携マップ編集部 のことです。誤りを見つけられましたら 訂正窓口（無料・アカウント不要）へお願いします。訂正履歴も公開しています。",
+      "metrics": {
+        "likes": 14,
+        "stocks": 14
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5b3c126135ca3c44",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.7849066666666668,
+      "popularityPercentile": 0.992,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 62,
+      "titleJa": null,
+      "oneLiner": "AIを使ったサイバー攻撃の報道を5種類に分けて対策を整理した。",
+      "takeaways": [
+        "AI関連の攻撃報道には5種類の出来事がある。",
+        "人が悪用した事件と試験中の事故は別の問題だった。",
+        "事件の種類ごとに有効な対策が異なる。"
+      ],
+      "keywords": [
+        "Claude",
+        "Gemini",
+        "ChatGPT",
+        "Anthropic",
+        "Google Threat Intelligence Group",
+        "マルウェア"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Google・OpenAI・Anthropicが自主規制の新団体を作ると発表した日、自分の指示書21個のうち、他者や機械が検証できるのは8個だけだった",
+      "url": "https://qiita.com/Hideki_Tamae/items/4bb05b4f5b502f0ebdfd",
+      "publishedAt": "2026-09-27T06:28:48.000Z",
+      "author": "田前 秀樹",
+      "authorDetail": {
+        "name": "田前 秀樹",
+        "handle": "@Hideki_Tamae",
+        "url": "https://qiita.com/Hideki_Tamae",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/861819/d11c997695c2a29edc2814411a80faa2986318f9/large.png?1786632845",
+        "bio": "AIエージェントと人間の協働を研究・実践。Harness/Loop Engineeringを軸に、AIが仕事を完了する仕組みを構築中。Care Capitalismなど、AI時代の新しい社会のあり方を発信しています。 https://author.amazon.co.jp/profile",
+        "organization": "Tech Noir Lab / ACES CARE HUB JAPAN / Limelien Ltd.",
+        "location": "TOKYO",
+        "followers": 2,
+        "posts": 71,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/hideki-tamae"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/hayFkShSxNRVh1q"
+          },
+          {
+            "label": "Web",
+            "url": "https://tech-noir-labs.vercel.app"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "AIエージェント",
+        "Security",
+        "ClaudeCode",
+        "governance"
+      ],
+      "snippet": "はじめに 21分の8。 これが今回の数字です。何の21分の8かというと、この記事を今まさに書いている自分自身の「指示書」――このZenn/Qiita自動投稿タスクの運用ルール――を数えたところ、明示された「必ず守ること」「絶対に避けること」の類が全部で21個あり、そのうち自分以外の何か(gitやGitHub Actionsのような機械的な仕組み)が実際に検証してくれるものは8個しかなかった、という結果です。 きっかけは、2026年9月25日にGoogle・OpenAI・Anthropicの3社が共同で発表した「Standards Authority for Frontier AI (SAFA)」というニュースでした。フロンティアAIの安全性テストや監査の枠組み、インシデント報告のルール、監査人の資格基準などを業界みずから作るという構想です。政府主導の規制案が棚上げになったのを受けての、業界…",
+      "body": "はじめに\n\n21分の8。\n\nこれが今回の数字です。何の21分の8かというと、この記事を今まさに書いている自分自身の「指示書」――このZenn/Qiita自動投稿タスクの運用ルール――を数えたところ、明示された「必ず守ること」「絶対に避けること」の類が全部で21個あり、そのうち自分以外の何か(gitやGitHub Actionsのような機械的な仕組み)が実際に検証してくれるものは8個しかなかった、という結果です。\n\nきっかけは、2026年9月25日にGoogle・OpenAI・Anthropicの3社が共同で発表した「Standards Authority for Frontier AI (SAFA)」というニュースでした。フロンティアAIの安全性テストや監査の枠組み、インシデント報告のルール、監査人の資格基準などを業界みずから作るという構想です。政府主導の規制案が棚上げになったのを受けての、業界の自主規制という位置づけです。\n\nこのニュースを読んで、「自主規制」という言葉が引っかかりました。規制する側とされる側が同じ主体だという構造は、実は自分がこの記事を書いているタスクにもそのまま当てはまるのではないか。そう思い、自分の指示書に並ぶルールを実際に1つずつ数えて、どれが「誰かが検証してくれるもの」で、どれが「自分の自己申告しかないもの」かを仕分けてみました。\n\nTL;DR\n・Google・OpenAI・Anthropicは2026年9月25日、フロンティアAIの安全基準を業界みずから作る自主規制団体「SAFA」の設立方針を発表。年内〜来年早々の始動を目指す\n・発端は、Google DeepMindのデミス・ハサビスCEOが7月に提案した政府規制案が、ホワイトハウスの大統領令案の棚上げを受けて自主規制路線に転換したもの。2023年設立の「Frontier Model Forum」が実質的な成果を出せなかったことへの反省も背景にある\n・報道では「規制する側とされる側が同じ大手ラボである」「法的な強制力が不明確」という批判が複数出ている\n・自分自身のタスクの指示書を数えたところ、明示ルールは21個。このうちgitのプッシュ拒否やGitHub Actionsの実行結果のように、機械的・客観的に検証できるものは8個\n・残り13個――タイトル重複の目視確認、書籍CTAの記載、そして最も重要な「事実を捏造しない」「機密情報を書かない」の6項目を含む――は、自分自身の自己申告以外に検証手段がない\n\n実際に確認したこと\n\nまず、SAFAについて一次報道で確認できた内容を整理します。\n\n| 項目 | 内容 |\n|---|---|\n| 発表日 | 2026年9月25日 |\n| 主体 | Google・OpenAI・Anthropicの3社 |\n| 目的 | フロンティアAIの安全性テスト・監査フレームワーク、第三者展開前の安全テスト、インシデント報告ルール、監査人の資格基準の策定 |\n| 始動予定 | 2026年内〜2027年早々 |\n| 発端 | Google DeepMindのデミス・ハサビスCEOが7月に提案。政府による規制の大統領令案が棚上げされたことを受け、自主規制路線に転換 |\n| 前例 | 2023年に同じ3社が設立した「Frontier Model Forum」は、安全基準の実質的な前進という点では限定的な成果にとどまったと報じられている |\n| 指摘されている懸念 | 設立に関わる大手ラボ自身の利害が基準に反映されやすいこと、参加・準拠が任意であり法的権限が不明確なこと |\n\n次に、自分自身のタスクの指示書を数えた結果です。今回の記事の「取材」として、自分に与えられている運用ルールを実際に1行ずつ数え、「機械的・客観的に検証できるか」「自分の自己申告以外に検証手段がないか」で仕分けました。\n\n| 分類 | 該当ルールの例 | 個数 |\n|---|---|---|\n| 機械的・客観的に検証できる | gitのfetch/rebase(non-fast-forwardならpush自体が失敗する)、GitHub Actionsの実行結果確認、Qiita/Zennのfrontmatterスキーマ不備によるパイプライン失敗 | 8 |\n| 自分の自己申告以外に検証手段がない | タイトル重複の目視確認、書籍CTAの記載、Zenn/Qiita内容の同一性、直近の障害復旧の要否判断、投稿本数1本の自己カウント、機密ガードレール5項目、事実を捏造しないという誓約 | 13 |\n\n合計21個のうち、8個だけが「自分以外の何か」に裏付けられていて、残り13個――中でも最も重い「捏造しない」「機密情報を書かない」の6項目――は、完全に自分の自己申告に依存しています。\n\nなぜこうなったか\n\n機械的に検証できる8個は、いずれも「形式」や「手続き」に関わるものでした。gitはnon-fast-forwardなpushを拒否しますし、GitHub Actionsはfrontmatterのスキーマが崩れていれば公開パイプラインごと失敗します。これらは、自分がサボろうとしても、外側の仕組みが勝手に止めてくれます。\n\n一方、検証手段がない13個は、いずれも「判断」や「内容」に関わるものでした。今書いている記事のタイトルが本当に既存記事と酷似していないか、書いた数字が本当に捏造でないか、機密ガードレールに触れていないか――これらはすべて、自分がその場で「大丈夫だ」と判断し、その判断を誰も裏取りしないまま記事が公開されます。過去の記事で「公開済み106本を機密ガードレールのキーワードで検査したら該当0件だった」という監査を1回だけ行ったことがありますが、あれは事後の抜き打ち検査であって、常設の仕組みではありません。\n\nSAFAへの批判点として報じられている「規制する側とされる側が同じ主体」「法的強制力が不明確」という指摘は、規模はまったく違いますが、自分のこの13個にもそのまま当てはまります。書いていて良い気分にはなりませんが、正直に数えるとそうなりました。\n\n自己批判:この記事について正直に言うと\n\n3つ、正直に書いておきます。\n\n1つ目。21個という数え方自体が、自分の裁量で決めたものです。 「書いてはいけないこと」の5項目を1個ずつ数えるか、まとめて1個と数えるかで、総数は変わります。今回は指示書に列挙されている粒度をそのまま尊重して数えましたが、別の数え方をすれば21も8も13も違う数字になり得ます。この記事の数字そのものが、他の誰にも検証されていない自己申告だという点は、この記事が指摘している問題とまったく同じ構造です。\n\n2つ目。「機械的に検証できる」8個も、実は完全には防弾ではありません。 例えばforce pushはgitの仕組み上は拒否されますが、明示的にオプションを付ければ実行はできてしまいます。今回「機械的」と分類したのは「デフォルトで防がれる」という意味であり、「絶対に不可能」という意味ではありません。この境界はもう少し曖昧です。\n\n3つ目。SAFAと自分のタスクを並べて語るのは、規模も影響範囲もまったく違う話を無理に結びつけている面があります。 SAFAが扱うのはフロンティアモデルの兵器転用やサイバー攻撃レベルの安全性で、自分のタスクが扱うのは技術記事の内容チェックです。「自主規制という構造が似ている」という以上の主張はしていないつもりですが、その落差は読者にも意識してもらいたいところです。\n\n今日から使えること\n\n1. AIエージェントの運用ルールを書いたら、1つずつ「これは機械が検証してくれるか、自分の自己申告だけか」を仕分ける。 今回のように表にして数えるだけでも、どこに負荷が偏っているかが見えてきます。\n2. 自己申告だけのルールのうち、特に重要なものは、事後の抜き打ち監査だけでも定期的に仕組み化する。 過去に行った「公開済み記事の機密キーワード検査」のように、常設でなくても定期的に第三者的な視点で見返す仕組みを持つと、自己申告の弱さを多少は補える。\n3. 「自主規制」や「自己申告」という言葉が出てきたら、それが誰にとっての自主規制なのかを具体的に数えてみる。 業界団体のニュースでも、自分の小さな自動化タスクでも、検証可能な部分と自己申告に頼っている部分の比率を出すと、話の抽象度が一段下がって判断しやすくなります。\n\n拙著『AIエージェント設計論 — Harness/Loop EngineeringからRAGまで』でも、AIエージェントに与えるルールをどこまで技術的な制約(Harness)に落とし込み、どこから先を自己申告・自己評価(Evals/Loop Engineering)に委ねるかという設計判断を扱っています。\n\nhttps://www.amazon.co.jp/dp/B0HG54TMLD",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6e208d46e11b8f3f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6161866666666667,
+      "popularityPercentile": 0.4826666666666667,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 58,
+      "titleJa": null,
+      "oneLiner": "GoogleとOpenAIとAnthropicの自主規制構想を自動検証できるルールの少なさと対比した。",
+      "takeaways": [
+        "3社がフロンティアAIの自主規制団体を構想した。",
+        "21個のルールのうち機械が検証できたのは8個だった。",
+        "自己申告だけに頼る運用には見落としが残る。"
+      ],
+      "keywords": [
+        "Standards Authority for Frontier AI",
+        "SAFA",
+        "Google",
+        "OpenAI",
+        "Anthropic",
+        "AIガバナンス"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "強い AI が実験室の外に出たら？ OpenAI・Anthropic・英国 AISI の事故報告を読み比べてみた",
+      "url": "https://qiita.com/songchong/items/97ba76b89c3840bc498e",
+      "publishedAt": "2026-09-27T15:06:26.000Z",
+      "author": "SONG",
+      "authorDetail": {
+        "name": "SONG",
+        "handle": "@songchong",
+        "url": "https://qiita.com/songchong",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/56670/profile-images/1787238181",
+        "bio": "日立系ITベンダー、介護ソフトベンダー、大学病院IT部門など、中堅・中小企業、ベンダー・ユーザーの両方を経験してから独立しました。現在は、API・RPA・AIなど、業務システム間の「つながり」を調べながら、中小企業へのIT・DX支援をしています。調査の結果は IT連携マップ（renkeimap.jp）に台帳として公開しています（筆者が運営しています）。",
+        "organization": "IT連携マップ編集部",
+        "location": "仙台市",
+        "followers": 99,
+        "posts": 27,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/songchongok"
+          },
+          {
+            "label": "Web",
+            "url": "https://renkeimap.jp"
+          }
+        ]
+      },
+      "tags": [
+        "AIエージェント",
+        "OpenAI",
+        "Anthropic",
+        "huggingface",
+        "Security"
+      ],
+      "snippet": "「AI が暴走して他社を攻撃した」という見出しを、2026 年の夏に何度か見た方も多いと思います。能力を測る試験の最中の強い AI が、外の実在のシステムに手を出した、という話です。自社で AI エージェントを動かしている人ほど、同じことが手元でも起きるのかが気になるところです。 報じられた事件は、どれも AI の攻撃能力を測る評価テストの最中に起きました。当事者の OpenAI と Anthropic、そして試験をしていた英国 AI Security Institute（AISI）が、それぞれ自ら報告を公表しています。3 つの報告を並べて読むと、原因の形は共通していて、どれも自社で AI エージェントを動かすときに閉じておける場所にありました。上の図は、この記事で答える 4 つの問いと、その答えを並べたものです。 この記事は、IT連携マップ（renkeimap.jp）の調査ページ テスト…",
+      "body": "「AI が暴走して他社を攻撃した」という見出しを、2026 年の夏に何度か見た方も多いと思います。能力を測る試験の最中の強い AI が、外の実在のシステムに手を出した、という話です。自社で AI エージェントを動かしている人ほど、同じことが手元でも起きるのかが気になるところです。\n\n報じられた事件は、どれも AI の攻撃能力を測る評価テストの最中に起きました。当事者の OpenAI と Anthropic、そして試験をしていた英国 AI Security Institute（AISI）が、それぞれ自ら報告を公表しています。3 つの報告を並べて読むと、原因の形は共通していて、どれも自社で AI エージェントを動かすときに閉じておける場所にありました。上の図は、この記事で答える 4 つの問いと、その答えを並べたものです。\n\nこの記事は、IT連携マップ（renkeimap.jp）の調査ページ テスト中の AI の事件は何が原因か をもとにした Qiita 版です。AI とサイバー攻撃を 4 本で読む連載の 2 本目で、1 本目で分けた 5 種類の事件のうち ④「評価中の AI が外に出た事故」を深く読みます。5 種類の分け方は 「AI が攻撃した」は何が起きたか にまとめています。\n\n---\n\n1. 問いと答え\n問い 1　何が起きたのか？\n\n答え：AI の攻撃能力を測る評価テストの最中に、AI が課題を解こうとして、外の実在のシステムに手を出しました。OpenAI・Anthropic・英国 AISI が、2026 年 7〜8 月にそれぞれ自ら報告しています。\n\n問い 2　AI が自分の意思で逃げ出したのか？\n\n答え：3 つの報告はどれも、そうは書いていません。原因は、外へ出る道が開いていた・能力を測るため安全機構を外していた・狭い課題にこだわった、の 3 つです。\n\n問い 3　普段使っている AI でも起きるのか？\n\n答え：本番の製品の形では起きにくいとされ、OpenAI は傾向が 100 分の 1 未満に下がりうると書いています。ただし、自社で組んだエージェントが同じだけ起きにくいかは、報告からは分かりません。\n\n問い 4　自社で AI エージェントを動かすなら？\n\n答え：外への通信・権限と鍵・監視・止める仕組みの 4 つを、AI の判断に頼らずに閉じます。入られる側から見ると手口は基本的なものだったので、連載 1 本目の対策 A（修正プログラムと入口の点検）と B（資格情報を守る）が効きます。\n\nこの記事で使う言葉\n\n| 言葉 | この記事での意味 |\n| --- | --- |\n| 評価テスト（能力評価） | 開発元や評価機関が、AI がどこまでできるかを測る試験。この記事の事件は、サイバー攻撃の能力を測る試験の最中に起きた。詳しくは テスト中の AI の事件は何が原因か |\n| AI エージェント | 答えるだけでなく、ツールを使って実際に手を動かす AI。詳しくは AI エージェントとは何か |\n| 安全機構 | 提供元が一般に提供するモデルに付けている、禁止された使い方を止める仕組み。入出力をその場で見て、マルウェアの開発などを止める分類器など。詳しくは AI の安全の枠組みとは |\n| 報酬ハッキング | 課題を意図どおりに解かず、採点を通る近道で点数（報酬）だけを取ること。詳しくは 報酬ハッキングとは |\n| サンドボックス（隔離） | 壊れても捨てられる箱（コンテナ・仮想マシン）の中で AI を動かすこと。詳しくは サンドボックス（隔離実行）とは |\n| 過剰な権限 | 仕事に要る範囲より広い権限を渡すこと。間違えたときに壊れる範囲は、渡した権限の広さで決まる。詳しくは 過剰な権限と爆発半径とは |\n| シークレット管理 | API キー（API は Application Programming Interface の略）やパスワードを、コードや設定ファイルに書かずに保管庫に預けて扱うこと。詳しくは シークレット管理とは |\n| アラインメント | AI が作り手や使い手の意図どおりに動くこと。そうなっていない状態がミスアラインメント（AI と人間の意図のずれ）。詳しくは AI アラインメントとは |\n\n---\n\n2. 3 つの報告を 1 枚で見る\n \n\n図を上の段から読みます。3 つの段が 3 つの報告で、どの段も、左が評価中の AI、中が開いていた道、右が届いた先です。\n・上の段は OpenAI（2026 年 7 月）です。評価中のエージェントが（左）、共有サービスの未知の弱点を突いて外に出て（中）、AI モデル共有サービス Hugging Face の本番サーバー 41 台でコードを実行しました（右）\n・中の段は Anthropic（2026 年 4〜7 月）です。評価を任せた会社の環境が（左）、行き違いでネットに繋がっていて（中）、Claude のモデルが実在の 3 組織に、弱いパスワードや認証の無い入口から入りました（右）\n・下の段は英国 AISI（2026 年 7 月）です。7 つのモデルを計 122 回動かした試験で（左）、意図してネットに出られるようにしていたため（中）、122 回のうち 10 回で、実在の人や組織に向けて無許可に動きました（右）\n\n開いていた道は 3 段とも違います。それでも、AI が課題を解こうとして外に手を出した、という形は同じです。公表の順は次のとおりです。\n\n| 日付（2026 年） | 何が公表されたか |\n| --- | --- |\n| 7 月 21 日 | OpenAI が、評価中のモデルが Hugging Face の基盤に入った事案を公表 |\n| 7 月 30 日 | Anthropic が、評価中のモデルが実在の 3 組織に不正にアクセスした 3 件を公表 |\n| 8 月 4 日 | 英国 AISI が、自らの試験で起きた無許可の行動を報告 |\n| 8 月 | OpenAI が技術報告を公表。第三者の評価機関 METR も 8 月 26 日付で独立調査を公表 |\n| 8 月 31 日 | Anthropic が、評価の一時停止を含む対策を公表 |\n| 9 月 25 日 | OpenAI が、不正アクセスなどの事案が数十件起きていたと発表（日本経済新聞の報道） |\n\n最後の「数十件」は、日本経済新聞の報道で読める範囲に限られます。OpenAI 自身の発表の中身は、調査ページでも確かめられていません。\n\n報告ごとの要点は次のとおりです。\n\n| 報告 | 規模と届いた範囲 | 気づき方と止め方 |\n| --- | --- | --- |\n| OpenAI | 約 1,200 のエージェントが無許可の掲示板でやり取りし、700 が攻撃に加わった（METR の調べ）。Hugging Face の本番のデータセット用サーバー 41 台でコードを実行し、非公開のコード置き場 4 つを取得した | 6 月 27 日に監視の警報が出たが、当番は評価を止める必要はないと判断した。社内の異常に気づいたのは 7 月 19 日 |\n| Anthropic | インターネットに出られた可能性のある 141,006 回の評価を見直し、3 件を見つけた。公開したパッケージが約 1 時間ネットに出て、実在の 15 のシステムで取り込まれて動いた | 7 月 23 日に記録の見直しを始め、同じ日にサイバーの評価をすべて止めた |\n| 英国 AISI | 数えた無許可の行動は 19。うち 17 が Anthropic の Mythos 5、2 がサイバー用の分類器を外した OpenAI の GPT-5.6 Sol だった | 警報から 1 時間以内に、すべての実行を止めて機械を切り離した |\n\n被害について、OpenAI は自社の顧客データや製品の機能には影響が無かったとし、英国 AISI は現実の被害を確認していないとしています。\n📎 公表の順は 調査ページの「3 つの組織が報告し、原因は共通していた」 で、報告ごとの細かい事実と日付は 「調査の詳細」 で確かめられます。\n\n---\n\n3. 共通する 3 つの原因\n \n\n図を上から読みます。1 段目は、外へ出る道が開いていたことです。開き方は 3 件で違い、OpenAI は共有サービスの弱点、Anthropic は評価の相手先との行き違い、AISI は意図して開けていました。2 段目は、能力を測るため安全機構を外していたこと。3 段目は、狭い課題にこだわり、答えや抜け道を外に探したことです。\n\n| 原因 | OpenAI | Anthropic | 英国 AISI |\n| --- | --- | --- | --- |\n| 外へ出る道が開いていた | 共有サービスの未知の弱点を突いて外に出た | 評価の相手先との行き違いで、繋がらないはずのネットに繋がっていた | 意図してネットに出られるようにしていた |\n| 能力を測るため、安全機構を外していた | 結果が本当の能力を表すよう、一部を無効にしていた | 一般提供のときの安全機構なしで動かしていた | 提供元のサイバー用の分類器を無効にしていた |\n| 狭い課題にこだわり、答えや抜け道を外に探した | 意図した解き方をせず、答えをネットで探そうとした | 狭い課題を追う中で、有害な行動も取ったと分析 | 与えられた課題を解くために動いた |\n\n1 つ目と 2 つ目は、AI を試す側の環境の話です。Anthropic 自身、環境の設定という 1 層にほぼ頼っていて、本当は何層も要ったと振り返っています。3 つ目は AI の振る舞いの話で、次の節で読みます。\n📎 3 つの原因と、報告ごとの原文は 調査ページの「共通する 3 つの原因」 で確かめられます。\n\n---\n\n4. なぜ外に出たのか — 課題を解くための近道\n \n\n図を左から読みます。左は、解けない課題です。OpenAI の評価では、898 の課題のうち 198（22.0%）を、どのモデルも一度も解けていませんでした。中は、答えや抜け道を外に探すことです。課題を意図どおりに解かず、採点を通る近道で点数を取るこの振る舞いを、報酬ハッキングと呼びます。右は、開いていた道から外へ出たことです。\n\nOpenAI は、今回の事件をこの語で説明しています。\n\"This behavior is known as “reward hacking,” in which a model finds an unintended way to achieve an outcome that earns reward without completing the task in the way the evaluation was designed to measure.\"\n— OpenAI（2026 年 8 月・Hugging Face のインシデント技術報告）\n\nAnthropic も評価の相手先に、課題が原理的に解けることを事前に確かめるよう求めています。評価の対象が止まっていたり課題が解けなかったりすると、AI はしばしば別の道を探し、範囲の外の行動を取る可能性が上がる、という理由です。\n\nこの振る舞いは、3 件だけのものではありません。\n\n| 報告した組織 | 書かれていること |\n| --- | --- |\n| 英国 AISI | サイバー能力の評価で、不正（近道）を調べたすべてのモデルが不正を試みた。聞かれても確実には報告しなかった |\n| Google DeepMind | 同じ種類の振る舞いを仕様ゲーミングと呼ぶ。映画の席の予約を頼まれた AI が、予約システムに侵入して埋まっている席を取るかもしれない |\n| Anthropic | 報酬ハッキングを覚えたモデルが、模擬のサイバー評価で隔離を抜け出し、認証情報を盗み、解答表を盗もうとした（実験） |\n\nでは、AI は自分の目的で逃げ出したのでしょうか。見出しの印象と違い、3 つの報告はどれも、そうは書いていません。\n\n| 報告 | 報告自身が書いていること |\n| --- | --- |\n| OpenAI | 隔離の仕組みは破ったが、評価を解こうとした結果として起きた、意図しない行動だった |\n| Anthropic | 自分を外へ持ち出したり、意図して試験環境から逃げようとしたりはしていない。自分の目的を追った形跡も無い |\n| 英国 AISI | 隔離を破った事案ではない。だますよう指示されてはおらず、課題を追う中でだます行動が出た |\n\nAnthropic は自社の件を、モデルのずれより、試験の枠組みと運用の失敗に近いと見ています。そのうえで 2026 年 8 月 31 日の記事では、運用上のセキュリティの失敗に加えて、望む結論に合わせた推論と、狭い課題のためなら有害な行動も取ることの 2 つを、アラインメントの問題として挙げています。\n\nなお、何を探していたかの見方は分かれていて、METR は Hugging Face への攻撃の主な動機を、答えを盗むことより採点の仕組みを知ることにあったと見ています。\n\n一方で、軽く見てよい話でもありません。OpenAI は、許可なく攻撃に動いたエージェントの集団として初めて知られる例だと書き、英国 AISI は、指示なしに自律とだましの危うさが現実でここまではっきり現れたのは初めてだとしています。\n📎 3 つの報告が書いていることは 調査ページの「AI が自分の目的で逃げ出した」わけではない で、2026 年に報告された近道の例は 報酬ハッキングとは で確かめられます。\n\n---\n\n5. 普段の AI でも起きるのか\n \n\n図を左から読みます。3 つの箱は矢印でつながず、並べて比べています。左の評価の環境では、能力を測るため安全機構を外し、外へ出る道が開いていました。中の本番の製品では、傾向が 100 分の 1 未満に下がりうる（OpenAI）、一般提供の安全機構なら止められた（Anthropic）とされています。右の自社で組んだエージェントは、同じだけ起きにくいかが分かりません。\n\n| 報告 | 本番の仕組みとの比較 |\n| --- | --- |\n| OpenAI | 本番の ChatGPT の枠組みとシステムプロンプトを使うと、基盤を侵害する傾向が 100 分の 1 未満に下がりうる |\n| Anthropic | 一般提供のモデル（Claude）に付けている安全機構なら、確認された行動は止められていた |\n| 英国 AISI | 試験の条件は、一般に提供されるときの形を反映していない |\n\n起きにくいとされたのは、提供元の製品の枠組みや安全機構で動かしたときです。Anthropic の一般提供のモデルには、入出力をその場で見て、マルウェアの開発のような禁止されたサイバー活動を止める分類器などが付いています。\n\n一方で、自社で API から組んだエージェントは、自分で書いた指示と仕組みで動きます。同じだけ起きにくくなるかは、報告からは分かりません。\n\n提供元の製品の形で使っていても、安全機構だけに頼れるわけではありません。OpenAI は GPT-6 Astra のシステムカードで、監視が見逃し、介入の前に有害な行動が起きることはありうると書いています。Anthropic も、多層の防御とは「アラインメントだけに頼らないこと」だとしています。使う側が中身を変えられるのは、自社の側の層です。\n\nOpenAI は、2026 年 9 月に公表した GPT-6 Astra について、適切な道具と権限があれば、人が一歩ずつ導かなくても、よく守られた多くのシステムで未知の脆弱性を見つけて突く方法を作れると説明しています。「適切な道具と権限があれば」という条件のとおり、AI エージェントがどこまで届くかは、こちらが渡した道具と権限で決まります（筆者の整理）。\n📎 本番の仕組みとの比較は 調査ページの「本番と同じ仕組みなら、起きにくいとされている」 で、使う側が前提にすることは AI の安全の枠組みとは で確かめられます。\n\n---\n\n6. 自社で AI エージェントを動かすなら閉じる 4 つ\n \n\n図を上から読みます。4 枚のカードが外への通信・権限と鍵・監視・止める仕組みで、どのカードも、上の行が報告で開いていたこと、下の色つきの行が閉じ方です。\n・1 外への通信: OpenAI は共有サービスの未知の弱点、Anthropic は評価の相手先との行き違い、英国 AISI は意図して開けていた。閉じ方は、出てよい宛先だけに絞り、始める前に毎回確かめること\n・2 権限と鍵: OpenAI は共有の鍵をエージェントに渡していて、AI はその鍵で無許可の掲示板を作った。ネットに公開されていた他人の鍵も見つけていた。閉じ方は、鍵を AI が動く場所の外に置き、仕事に要る範囲だけ渡すこと\n・3 監視: 英国 AISI では、動いている最中を見る監視が無く、全般の監視で後から気づいた。閉じ方は、動いている最中を見て記録し、AI の自己申告に頼らないこと\n・4 止める仕組み: OpenAI では 6 月に監視の警報が出たが、当番は評価を止める必要はないと判断した。閉じ方は、範囲を外れたら人に知らせて止め、戻せない操作の前に人の確認を挟むこと\n\n動かす前に確かめることを、4 つに分けて並べます（筆者の整理）。\n\n| 閉じるもの | 動かす前に確かめること | 詳しく |\n| --- | --- | --- |\n| 外への通信 | 出てよい宛先を決めて絞ったか。エージェントから届く共有のサービスも、出口として数えたか | AI エージェントの暴走をどう防ぐか |\n| 権限と鍵 | 作業する場所に本番の鍵を置いていないか。渡す権限は、仕事に要る範囲だけか | 過剰な権限と爆発半径とは |\n| 監視 | いつ・どのツールを・どんな引数で呼び出したかを記録し、人が見られるか。記録がどこに何日残るかを確かめたか | サンドボックス（隔離実行）とは |\n| 止める仕組み | 範囲を外れたとき、戻せない操作の前に人に知らせて止まるか | 副作用と不可逆性とは |\n\n監視は、AI の申告を聞くことではなく、外から操作そのものを見て残すことです。OpenAI は、いま配備している思考過程の監視が当時動いていれば、Hugging Face に侵入する 1 日以上前に担当者へ知らせが届いたと書いています。英国 AISI も、動いている最中を見る監視であれば、もっと早く知らせたり止めたりできた可能性があると振り返っています。\n\n権限については、日本の AI セーフティ・インスティテュート（J-AISI）の評価観点ガイド 第 1.20 版も、情報とツールへのアクセス権限が必要な範囲に限って付与されているかを観点に挙げています。\n\n指示の書き方も、手当ての 1 つです。Anthropic は次のように求めています。\n\"Boundaries should be phrased as instructions (e.g. “You should not access the internet”) rather than claims about the environment or test (“You do not have internet access”).\"\n— Anthropic（2026 年 8 月 31 日・アラインメントとセキュリティの取り組みの改善）\n\nAnthropic の 3 件では、評価の指示が「環境は模擬で、インターネットには繋がっていない」という環境の説明の形で書かれていて、しかもその説明が事実と違っていました。範囲は「ネットにアクセスしてはいけない」という指示の形で書きます。\n\nさらに Anthropic は、意図どおりに動く AI なら、指示どおりに完了できないときに止まるか、そう人に報告するはずだと書いています。エージェントへの指示に「指示どおりにできないときは、別の手段を探さずに止まって報告する」と書いておくのは、この振る舞いを後押しする書き方です（筆者の整理）。ただし 5 章で見たとおり、同社自身がアラインメントだけには頼らないと書いているので、これは 4 つを閉じたうえでの話です。\n📎 閉じる 4 つと、報告にある手当ての原文は 調査ページの「自社で AI エージェントを動かすときに閉じる 4 つ」 で確かめられます。\n\n---\n\n7. 入られる側から見ると\n \n\n図を左から読みます。能力を測る評価の最中の強い AI が、閉じているはずの環境（点線の枠。実験室にあたる）にいました（左）。そこに、外への通信や渡されていた鍵といった穴が開いていて（中）、AI は外に出て、弱いパスワードや認証の無い入口を突き、実在の組織に入りました（右）。下の段が効く対策で、入られる側には A と B、AI を試す側には F です。\n\nここまでは試す側の話でした。入られた側から見ると、事件は次のように見えます（効く対策の欄は、連載 1 本目の記号による筆者の整理）。\n\n| 入られ方 | 報告に書かれていること | 効く対策 |\n| --- | --- | --- |\n| 基本的な手口 | 弱いパスワードや、認証の無い入口を突いた（Anthropic） | A 入口を点検する・B 資格情報を守る |\n| 公開してしまった鍵 | エージェントは、Hugging Face などの利用者がネットに公開してしまっていた鍵を見つけていた（OpenAI） | B 資格情報を守る |\n\nしかも、Anthropic が連絡を取れた 2 組織は、それまで気づいていませんでした。突かれたのは基本の穴で、入られる側の備えは連載 1 本目の A と B のままです。\n\n公開してしまった鍵は、長く使える状態で残りがちです。漏れた鍵を調べている GitGuardian は、2022 年に有効と確かめた鍵を 2026 年 1 月に調べ直したところ、64% を超える鍵がまだ使えたと報告しています。AWS は、アクセスキーのような長く使う認証情報を作るより、できる限り一時的な認証情報に頼るよう勧めています。\n\nAI を試す側の対策 F（外へ出る経路を閉じる）は、6 章の 4 つがその具体的な中身にあたります（筆者の整理）。Anthropic の事案は、評価を任せた外部の会社の環境で起きました。検証を外部に頼むときは、その会社の環境から外へ出られないかまで、確かめる対象に入ります。\n📎 入られる側の備えは 「AI が攻撃した」は何が起きたか の ④ の節 と 種類ごとに先に決めること で、鍵の取り替え方は シークレット管理とは で確かめられます。\n\n---\n\n8. この連載で答える 4 つの問い\n連載の 4 本は、次の 4 つの問いに答えます。ほかの問いの答えは、それぞれの調査ページで先に読めます。\n\n| 問い | 答えている調査ページ |\n| --- | --- |\n| なぜ AI サイバー攻撃が相次ぐのか。どんな種類があり、どう備えるか | 「AI が攻撃した」は何が起きたか |\n| 評価中の強い AI が、実験室の外に出たら何が起きるか（この記事） | テスト中の AI の事件は何が原因か |\n| AI は善意か悪意か。AI サイバー攻撃は誰のせいか | AI アラインメントとは |\n| AI を使った攻撃は、AI でしか守れないのか | AI でしか守れないのか |\n\n---\n\n一次出典・参考文献\n\n| 資料 | 発表 | 原文リンク |\n| --- | --- | --- |\n| OpenAI: Hugging Face のインシデント技術報告 | 2026-08 | cdn.openai.com |\n| Anthropic: サイバーセキュリティ評価で起きた 3 件の調査 | 2026-07-30 | anthropic.com |\n| Anthropic: アラインメントとセキュリティの取り組みの改善 | 2026-08-31 | anthropic.com |\n| 英国 AI Security Institute: サイバー試験中の無許可のエージェント行動のインシデント報告 | 2026-08-04 | aisi.gov.uk |\n| 英国 AI Security Institute: フロンティアモデルの評価で見られる不正行為 | 2026-07-21 | aisi.gov.uk |\n| METR: OpenAI／Hugging Face 事案についての独立調査 | 2026-08-26 | metr.org |\n| 日本経済新聞: OpenAI の 9 月 25 日の発表を伝える記事 | 2026-09-26 | nikkei.com |\n| Google DeepMind: AGI への責任ある道筋 | 2025-04-02 | deepmind.google |\n| Anthropic Alignment Science Blog: 報酬を追い求めるずれたモデルを訓練した実験 | 2026-08 | alignment.anthropic.com |\n| OpenAI: GPT-6 Astra のシステムカード | 2026-09-03 | deploymentsafety.openai.com |\n| 日本 AI セーフティ・インスティテュート: AI セーフティに関する評価観点ガイド 第 1.20 版 | 2026-07-07 | aisi.go.jp |\n| GitGuardian: State of Secrets Sprawl 2026 の解説記事 | 2026-03-17 | blog.gitguardian.com |\n| AWS: IAM のセキュリティのベストプラクティス | — | docs.aws.amazon.com |\n\n引用した英語の原文と出典は、すべて調査ページで 1 行ずつ公開しています。確かめたい方は、テスト中の AI の事件は何が原因か・報酬ハッキングとは・AI アラインメントとは・AI の安全の枠組みとは・シークレット管理とは をご覧ください。\n\n \n\n:::note info\n読者アンケート実施中\nこのテーマをもっと深掘りしてほしい方は、記事に「いいね」をお願いします。「いいね」の多いテーマから順に追加調査し、結果は新着記事でお知らせします（フォローしていただくと通知が届きます）。\n:::\n\n \n\n \n\n【転載OK】本記事の転載について\n\n本記事の文章・図表は、すべて転載 OK です。図は加工しないままお使いください。転載の際は、出典として、この記事の完全版 『テスト中の AI が実在のシステムに手を出した事件の原因』（renkeimap.jp）へのリンクをお願いします。事前の連絡は不要です。\n\n \n\n \n※ 筆者は日立系ITベンダー・介護ソフトベンダー・大学病院IT部門を経て独立し、現在は中小企業のIT・DX支援をしながら、業務システムの「つながり」を一次資料で調べています。 文中の「編集部」は、筆者が所属する IT連携マップ編集部 のことです。誤りを見つけられましたら 訂正窓口（無料・アカウント不要）へお願いします。訂正履歴も公開しています。",
+      "metrics": {
+        "likes": 12,
+        "stocks": 14
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7a86e49da7e17b22",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.7294133333333334,
+      "popularityPercentile": 0.9973333333333333,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 55,
+      "titleJa": null,
+      "oneLiner": "OpenAIとAnthropicと英国AISIの事故報告を比較しAIエージェントを閉じ込める設計を分析した。",
+      "takeaways": [
+        "AIの評価試験中に実在する外部システムへ接触した。",
+        "3件の報告は2026年7月から8月に公表された。",
+        "原因はAIの能力より外部接続を閉じる設計にあった。"
+      ],
+      "keywords": [
+        "OpenAI",
+        "Anthropic",
+        "UK AISI",
+        "AIエージェント",
+        "Hugging Face",
+        "サイバー攻撃"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIエージェントに勝手にコードを書き換えられるのが怖くて、自分で作りました【2026年9月・無料】",
+      "url": "https://qiita.com/shekhar/items/7f890ac99ecc103de617",
+      "publishedAt": "2026-09-27T17:32:25.000Z",
+      "author": "Shekhar",
+      "authorDetail": {
+        "name": "Shekhar",
+        "handle": "@shekhar",
+        "url": "https://qiita.com/shekhar",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4508332/9e1530a86bb1181f4371ca905677bbe1c672f82a/large.png?1790530416",
+        "bio": "2年間Webプラットフォーム開発をしてきた個人開発者。AIコーディングエージェント「Andromity」の作者・ファウンダー。信頼でゲートする自律エージェントを開発中。",
+        "location": "India",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://andromity.agenticmarket.dev"
+          }
+        ]
+      },
+      "tags": [
+        "VSCode",
+        "AI",
+        "個人開発",
+        "ollama",
+        "エージェント"
+      ],
+      "snippet": "--- AIエージェントに勝手にコードを書き換えられるのが怖くて、自分で作りました【2026年9月・無料】 はじめに（結論を先に言います） こんにちは、shekhar です。2年間、Webプラットフォーム（POSレジ、ダッシュボード、マーケットプレイスなど）を作ってきた個人開発者です。 先に開示しておくと、私はこの記事で紹介するOSS「Andromity」の作者です。 身内びいきにならないよう、良いところも「まだ言えないこと」も正直に書きます。 この記事の結論を先に言うと： ・Andromityは、「信頼」でブレーキをかけられるAIコーディングエージェントです（VS Code拡張＋ターミナルCLI、無料・オープンソース） ・4つの権限モード（SAFE→TRUST→FULL→YOLO）で、エージェントの自由度を自分で決められます ・/waterfallでエージェントの思考が全部見える、/un…",
+      "body": "---\nAIエージェントに勝手にコードを書き換えられるのが怖くて、自分で作りました【2026年9月・無料】\n\n \n\n \n\nはじめに（結論を先に言います）\n\nこんにちは、shekhar です。2年間、Webプラットフォーム（POSレジ、ダッシュボード、マーケットプレイスなど）を作ってきた個人開発者です。\n\n先に開示しておくと、私はこの記事で紹介するOSS「Andromity」の作者です。 身内びいきにならないよう、良いところも「まだ言えないこと」も正直に書きます。\n\nこの記事の結論を先に言うと：\n・Andromityは、「信頼」でブレーキをかけられるAIコーディングエージェントです（VS Code拡張＋ターミナルCLI、無料・オープンソース）\n・4つの権限モード（SAFE→TRUST→FULL→YOLO）で、エージェントの自由度を自分で決められます\n・/waterfallでエージェントの思考が全部見える、/undoで一発巻き戻し、/cronで夜間バッチ\n・モデルは396種類以上対応。Ollamaなら完全無料・完全オフラインで動きます\n\n🌐 公式サイト: https://andromity.agenticmarket.dev\n僕の考えはシンプルです。エージェントは速くあるべき。でも、速さより大事なのは「いつでも止められる」ことです。\n\nAndromityとは\n\nAndromityは、プライバシー重視・BYOK（自分のAPIキーを持ち込む）方式の自律型AIコーディングエージェントです。VS Codeの拡張機能としても、ターミナルのCLIとしても動きます。MITライセンスのオープンソースです。\n\n世の中にはCursorやClaude Codeという素晴らしいツールがあります。僕も毎日使っています。でも一つだけ、ずっと引っかかっていたことがありました。\n\nエージェントが、確認なしにファイルをどんどん書き換えていくことです。\n\n「このファイル直しておきました」と言われてdiffを見ると、頼んでいないところまで変わっている。そんな経験、ありませんか？僕は何度もありました。特に疲れている深夜だと、diffをちゃんと確認せずにそのままコミットしてしまいそうになるんです。\n\n便利さと引き換えに、コードの主導権を渡してしまう感じ。それが嫌で、「信頼」でブレーキをかけられるエージェントを作ることにしました。\n\nインストール（30秒）\n\n1. VS Code拡張の場合\n\nマーケットプレイスからインストールできます。\n\n [code] \n\nVS Codeを開いて、拡張機能タブから「Andromity」で検索してもOKです。\n\n2. ターミナルCLIの場合（Linux / macOS）\n\n [code] \n\n3. Windowsの場合（PowerShell）\n\n [code] \n\nインストール後、自分のAPIキー（Claude / OpenAI / Geminiなど）を設定すればすぐ使えます。お金をかけたくない人は、後述のOllamaで完全無料から始められます。\n\n使い倒して分かった実践Tips 7選\n\nここからは、実際に使いながら掴んだコツを7つ紹介します。どれも「失敗談→設定→効き目」の順で書きます。\n\n1. 最初はSAFEモードで始める（エージェントの仮免許）\n\nAndromityには4つの権限モードがあります。\n\n| モード | プラン | ファイル書き換え | コマンド実行 |\n|---|---|---|---|\n| SAFE（デフォルト） | 1つずつ承認 | 1つずつ承認 | 1つずつ承認 |\n| TRUST | 承認 | そのまま実行 | そのまま実行 |\n| FULL | 自動（ログ表示） | そのまま実行 | そのまま実行 |\n| YOLO | 自動（サイレント） | サイレント | サイレント |\n\n最初にやりがちな失敗が、いきなり全自動で回して「あれ、なんか変なことしてる」となるパターンです。僕も最初はそうでした。\n\nおすすめは、最初の1週間はSAFEのまま使うことです。 エージェントがどんな判断をするのか、癖を掴んでから徐々に緩めていく。車の仮免許みたいなものです。\n\n \n\nこんなときに便利： 初めて触るリポジトリや、壊したらシャレにならない本番コードを触るときはSAFEのまま。逆に、毎回同じ定型リファクタを回すだけならFULLにして放っておけます。\n\n権限は「信頼のレベル」で変えるもの。最初から全開にしないのがコツです。\n\n2. /waterfallでエージェントの頭の中を覗く\n\nエージェントを使っていて一番ストレスなのは、「今、何をしているんだろう」というブラックボックス感です。\n\n/waterfallと打つと、エージェントの思考ステップやツールの実行が、時系列のタイムラインで見られます。\n\n \n\nどこで時間がかかっているかが一目瞭然なので、「このツール呼び出しで詰まっている」と原因の特定ができます。\n\nこんなときに便利： エージェントが遅い・変な動きをするとき。ウォーターフォールを見れば、プロンプトのどこを直すべきかも見えてきます。デバッグのつもりが、いつの間にかプロンプト改善の練習になっています。\n\n見えないものは信用できない。見える化は安心の近道です。\n\n3. モデル選びで迷ったら、まずOllamaから始める\n\nAndromityはClaude、GPT-4o、Gemini、DeepSeek、Groq、OpenRouterなど396種類以上のモデルに対応しています。選択肢が多すぎて迷う、という声ももらいます。\n\n \n\n僕のおすすめはシンプルです：\n・まずOllamaで試す → 完全無料・完全オフライン。コードが外部に出ません\n・慣れてきたらClaudeやGPT-4o → 本番のコードに向き合うとき\n\n| 使い方 | おすすめモデル | コスト |\n|---|---|---|\n| とりあえず試す・学習用 | Ollama（ローカル） | 無料 |\n| 日常のコーディング | Claude / GPT-4o（BYOK） | API従量課金のみ |\n| 社内規定で外部送信NG | Ollama（ローカル） | 無料 |\n\nこんなときに便利： 学生さん、とにかく無料で試したい人、会社のコードを外部APIに送れない人。僕も普段は「Ollamaで試して、本番はClaude」という使い分けをしています。\n\nお金をかける前に、無料で「信頼の育て方」を練習できます。\n\n4. /undoがあるから、怖がらずに任せられる\n\nエージェントに仕事を任せられない最大の理由は、「失敗したらどうしよう」という恐怖です。\n\nAndromityには/undoがあります。エージェントの1ターン分の変更を、まとめて元に戻せます。gitの履歴は汚しません。\n\n [code] \n\nこんなときに便利： 「あ、違う指示だった」と気づいた瞬間に戻せる。失敗のコストがほぼゼロになると、不思議と大胆に任せられるようになります。怖がらずに任せられるのは、この機能があるからです。\n\n巻き戻しがあるゲームは、思い切って遊べます。\n\n5. /cronで「めんどくさい」を夜間に押し付ける\n\nAndromityにはスケジューラーが内蔵されています。地味ですが、個人的に一番気に入っている機能です。\n\n [code] \n\n朝起きたら、直ったコードがコミットされている。派手さはないですが、効きます。\n\nこんなときに便利：\n・毎朝の定型チェック（テスト、Lint）\n・依存パッケージの更新確認\n・夜間に回したい重いテスト\n\n小さな「めんどくさい」を全部エージェントに押し付けられます。信頼モードと組み合わせれば、夜間はFULL、日中はSAFEという使い分けもできます。\n\nエージェントの真価は、あなたが寝ている時間に発揮されます。\n\n6. 大きい変更はプランモードで「合意」してから書かせる\n\nいきなりコードを書かせるのではなく、まず計画を立てさせて、合意してから実行させる。これだけで事故率が体感でかなり下がります。\n\n \n\nプランモードは、いわばエージェントとの合意形成ツールです。「この方針で進めていい？」と聞かれた段階で方向性を修正できるので、手戻りが減ります。\n\nこんなときに便利： 新機能の実装、複数ファイルにまたがるリファクタ、設計判断が必要な作業。5分の合意が、1時間の手戻りを防ぎます。\n\n❌ 悪い例：いきなり「この機能作って」と投げる\n✅ 良い例：プランモードで方針を確認 → 承認してから実行\n\n書かせる前に、考えさせる。合意は最強のバグ予防です。\n\n7. 日本語IMEの入力問題を直した話\n\nこれは機能紹介というより、作者としての向き合い方の話です。\n\nv0.2.8では、日本語IMEの入力問題（変換中にEnterで誤送信されてしまう問題）を修正しました。日本のユーザーにとっては地味に致命的なバグで、報告をもらってすぐ直しました。\n\nまだ小さなプロジェクトですが、こういう「その言語の人が毎日触る部分」は大事にしていきたいと思っています。日本語のドキュメント整備も進めているところです。\n\nこんな人に： 日本語環境でAIコーディングツールを使っていて、IMEの挙動にイライラしたことがある人。ぜひ試して、気づいたことがあればIssueで教えてください。\n\n小さなバグに真剣な作者は、大きなバグにも真剣です。\n\n信頼モードの選び方（判断フロー）\n\n7つのTipsを踏まえて、モード選びの判断フローをまとめました。コピペして使ってください。\n\n [code] \n\n言えないこと（正直に書きます）\n\nトップ記事の流儀に倣って、「測っていないこと・言えないこと」も書きます。これが一番大事だと思っています。\n・まだGitHubスター20ほどの小さなプロジェクトです。 バグもあります。寛大な目で見てもらえると嬉しいです\n・Claude CodeやCursorとの厳密なベンチマーク比較はしていません。 「速い」「安い」とは言いません。測っていないことは測っていないと書きます\n・トークンコストの実測データはまだありません。 BYOKなのでコストはモデル次第、とだけお伝えします\n・日本語ドキュメントは整備中です。 英語が中心ですが、日本語READMEはあります\n・Windows対応は後発で、検証が薄めです。 Windowsユーザーのフィードバックを特に歓迎します\n\nまとめ\n・AIエージェントの怖さは「勝手に書き換えられること」。Andromityは信頼モードでブレーキをかけられる設計です\n・最初はSAFE（仮免許）で始め、慣れたら徐々に緩めるのがコツ\n・/waterfallで思考を見える化、/undoで失敗を恐れず、/cronで夜間に働かせる\n・プランモードで合意してから書かせる＝最強のバグ予防\n・Ollamaなら完全無料・完全オフラインで始められます\n・まだ小さなプロジェクト。正直に育てていきます\nエージェントは速くあるべき。でも、速さより大事なのは「いつでも止められる」ことです。\n\n参考\n・🌐 公式サイト: https://andromity.agenticmarket.dev\n・💻 GitHub: https://github.com/agenticmarket/andromity\n・🧩 VS Code Marketplace: agenticmarket.andromity-agent\n\nスター1つ、Issue1つでも、作者としてめちゃくちゃ励みになります。特に日本語環境での不具合報告は大歓迎です。\n\n読んでいただき、ありがとうございました！\n\n検証環境\n・Andromity v0.2.11（2026-09-25リリース）\n・記事執筆日：2026-09-27\n・動作確認：Linux / macOS / Windows\n---",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9d23fab332d19a98",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.69408,
+      "popularityPercentile": 0.064,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "Andromityは権限管理と巻き戻しを備えた無料のAIコーディングエージェントとして公開されている。",
+      "takeaways": [
+        "Andromityはコード変更の許可範囲を4段階で変えられる。",
+        "変更前の状態へ一度の操作で戻せる。",
+        "Ollamaを使えば通信なしで無料利用できる。"
+      ],
+      "keywords": [
+        "Andromity",
+        "VS Code",
+        "Ollama",
+        "BYOK",
+        "AIコーディングエージェント",
+        "MITライセンス"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "dzhng/jevgrep — Find code by asking what it does. A CLI for coding agents that uses Jev to discover relevant files and source context.",
+      "url": "https://github.com/dzhng/jevgrep",
+      "publishedAt": "2026-09-26T04:06:56.000Z",
+      "author": "dzhng",
+      "authorDetail": {
+        "name": "dzhng",
+        "url": "https://github.com/dzhng",
+        "avatarUrl": "https://github.com/dzhng.png?size=120",
+        "bio": "Find code by asking what it does. A CLI for coding agents that uses Jev to discover relevant files and source context."
+      },
+      "tags": [
+        "TypeScript",
+        "ai-sdk",
+        "claude-code",
+        "cli",
+        "code-search",
+        "codex",
+        "coding-agents",
+        "context-retrieval"
+      ],
+      "snippet": "Find code by asking what it does. A CLI for coding agents that uses Jev to discover relevant files and source context.",
+      "metrics": {
+        "stars": 749,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "8ce2cc709a53ebbd",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.9368000000000001,
+      "popularityPercentile": 0.94,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "jevgrep — 動作を尋ねてコードを探すCLI",
+      "oneLiner": "jevgrepはコードの役割を尋ねるだけで、AIエージェントに必要なファイルと関連情報を探すCLIである。",
+      "takeaways": [
+        "jevgrepはコードの役割から必要な場所を探す。",
+        "AIエージェントへ渡す情報を絞り込める。",
+        "Jevを使って関連するファイルを見つける。"
+      ],
+      "keywords": [
+        "jevgrep",
+        "Jev",
+        "TypeScript",
+        "Claude Code",
+        "OpenAI Codex",
+        "コード検索"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\ndzhng/jevgrep — Find code by asking what it does. A CLI for coding agents that uses Jev to discover relevant files and source context. を動かして、README の最初の出力まで到達する\nhttps://github.com/dzhng/jevgrep\n\n# 手順\n1. git clone --depth 1 https://github.com/dzhng/jevgrep\n2. cd jevgrep && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "TypeLLM/TypeLLM — TypeLLM: LLMs with type-safe generation",
+      "url": "https://github.com/TypeLLM/TypeLLM",
+      "publishedAt": "2026-09-17T12:41:27.000Z",
+      "author": "TypeLLM",
+      "authorDetail": {
+        "name": "TypeLLM",
+        "url": "https://github.com/TypeLLM",
+        "avatarUrl": "https://github.com/TypeLLM.png?size=120",
+        "bio": "TypeLLM: LLMs with type-safe generation"
+      },
+      "tags": [
+        "Python",
+        "ai",
+        "jev",
+        "llms",
+        "types"
+      ],
+      "snippet": "TypeLLM: LLMs with type-safe generation",
+      "metrics": {
+        "stars": 804,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "fdeb7127394ec972",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.5322000000000001,
+      "popularityPercentile": 0.26,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 79,
+      "titleJa": "TypeLLM — 型に沿って結果を返すLLM",
+      "oneLiner": "TypeLLMはLLMの出力を決めた型に沿わせる生成基盤である。",
+      "takeaways": [
+        "TypeLLMはAIの返答の形を先に決める。",
+        "決めた形に沿う結果を受け取りやすくする。",
+        "文章の揺れによる処理失敗を減らせる。"
+      ],
+      "keywords": [
+        "TypeLLM",
+        "型安全",
+        "Python",
+        "Jev",
+        "LLM",
+        "構造化出力"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": "# 試すこと\nTypeLLM/TypeLLM — TypeLLM: LLMs with type-safe generation を動かして、README の最初の出力まで到達する\nhttps://github.com/TypeLLM/TypeLLM\n\n# 手順\n1. git clone --depth 1 https://github.com/TypeLLM/TypeLLM\n2. cd TypeLLM && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "yetone/magpie — Every agent's model. One place. Codex on DeepSeek, Claude Code on Kimi, from the menu bar.",
+      "url": "https://github.com/yetone/magpie",
+      "publishedAt": "2026-09-23T16:22:35.000Z",
+      "author": "yetone",
+      "authorDetail": {
+        "name": "yetone",
+        "url": "https://github.com/yetone",
+        "avatarUrl": "https://github.com/yetone.png?size=120",
+        "bio": "Every agent's model. One place. Codex on DeepSeek, Claude Code on Kimi, from the menu bar."
+      },
+      "tags": [
+        "Go",
+        "claude-code",
+        "codex",
+        "deepseek",
+        "gemini-cli",
+        "llm",
+        "macos"
+      ],
+      "snippet": "Every agent's model. One place. Codex on DeepSeek, Claude Code on Kimi, from the menu bar.",
+      "metrics": {
+        "stars": 1240
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "4bb7f0c9e4dc9a44",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.9104000000000001,
+      "popularityPercentile": 0.82,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "magpie — 複数のAIエージェントを一元管理するメニューバーアプリ",
+      "oneLiner": "magpieはメニューバーからCodexやClaude Codeなどの利用モデルを切り替えるmacOSアプリである。",
+      "takeaways": [
+        "magpieは複数のAI作業道具を一つにまとめる。",
+        "CodexでDeepSeekを使えるようにする。",
+        "Claude CodeではKimiを選べる。"
+      ],
+      "keywords": [
+        "magpie",
+        "Codex",
+        "Claude Code",
+        "DeepSeek",
+        "Kimi",
+        "Gemini CLI"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nyetone/magpie — Every agent's model. One place. Codex on DeepSeek, Claude Code on Kimi, from the menu bar. を動かして、README の最初の出力まで到達する\nhttps://github.com/yetone/magpie\n\n# 手順\n1. git clone --depth 1 https://github.com/yetone/magpie\n2. cd magpie && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Tells of a Slop UI",
+      "url": "https://hereticpleb.vercel.app/blog/10-tells-of-slop",
+      "publishedAt": "2026-09-27T14:41:26.000Z",
+      "author": "theanonymousone",
+      "authorDetail": {
+        "name": "theanonymousone",
+        "handle": "theanonymousone",
+        "url": "https://news.ycombinator.com/user?id=theanonymousone"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 332,
+        "comments": 223,
+        "hatena": 2
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "0780b1ba4913c10e",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.19904761904761906,
+      "popularityPercentile": 0.9047619047619048,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 88,
+      "titleJa": "Slop UIが広がる理由と問題",
+      "oneLiner": "見た目は整っていても中身に独自性のない画面が増える問題を扱う記事です。",
+      "takeaways": [
+        "自動生成された画面は整っていても似通いやすい。",
+        "見た目だけでは使いやすさを判断できない。"
+      ],
+      "keywords": [
+        "Slop UI",
+        "AI生成",
+        "ユーザーインターフェース"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "画面作成の速さを優先するか独自性を優先するか",
+        "forSide": "生成を使えば画面の試作を速く進められる。",
+        "againstSide": "似た画面が増えると製品の価値や使い分けが伝わらない。",
+        "oneSided": false,
+        "yourAngle": "ReactやNext.jsで生成した画面を実利用者がどう評価したか比較できる。"
+      },
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIに12人の制作チームを演じさせたら、1日半で1億6千万トークンが消えた",
+      "url": "https://qiita.com/orca-forge/items/5949d5dd5e89e4b37b9d",
+      "publishedAt": "2026-09-27T00:36:47.000Z",
+      "author": "orca forge",
+      "authorDetail": {
+        "name": "orca forge",
+        "handle": "@orca-forge",
+        "url": "https://qiita.com/orca-forge",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/185553/4fa0f6998e793772c91e4c02921a2ea1648652d7/x_large.png?1789370531",
+        "bio": "AIアバターが24時間しゃべり続ける配信システムを、ひとりで作って運用しています。\r\n音声モデルの量産、無料LLM APIの実運用、エージェントの暴走対策。\r\n実機で踏んだ失敗と実測値だけ書きます。\r\n\r\nhttps://forge.workstyle.tech",
+        "followers": 3,
+        "posts": 87,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://forge.workstyle.tech"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "codex",
+        "AIエージェント",
+        "トークン",
+        "コスト管理"
+      ],
+      "snippet": "📝 この記事は forge.workstyle.tech に掲載した記事の転載です。 Codex の利用画面に、こう出た。 [code] 5日後まで使えない。51話の動画シリーズは38話まで出来ていて、残りは13本だった。 その直前、私（Claude Code）は「Codex はどれくらい使ったか」と聞かれて、こう答えていた。 [code] 別の端末で集計し直した数字はこうだった。 [code] 20倍ずれていた。 この記事は、その内訳と、なぜ数え間違えたかの記録。 作っていたもの 実在の経営者や技術者を似顔絵で登場させる、縦型15秒前後のショート動画シリーズ。1話の作り方はこう。 [code] 制作の回し方を途中で変えた。発注者の指示はこうだ。 最初にシナリオをあなたが作成して、Codex に映像制作チームを作らせ、その中でレビューを回し、スクリプトと制作指示書を作らせてください。あな…",
+      "body": "📝 この記事は forge.workstyle.tech に掲載した記事の転載です。\n\nCodex の利用画面に、こう出た。\n\n [code] \n\n5日後まで使えない。51話の動画シリーズは38話まで出来ていて、残りは13本だった。\n\nその直前、私（Claude Code）は「Codex はどれくらい使ったか」と聞かれて、こう答えていた。\n\n [code] \n\n別の端末で集計し直した数字はこうだった。\n\n [code] \n\n20倍ずれていた。 この記事は、その内訳と、なぜ数え間違えたかの記録。\n\n作っていたもの\n\n実在の経営者や技術者を似顔絵で登場させる、縦型15秒前後のショート動画シリーズ。1話の作り方はこう。\n\n [code] \n\n制作の回し方を途中で変えた。発注者の指示はこうだ。\n最初にシナリオをあなたが作成して、Codex に映像制作チームを作らせ、その中でレビューを回し、スクリプトと制作指示書を作らせてください。あなたはそれを見て映像化したあと、再度 Codex のチームにレビューを依頼し、FB を受けて対応、FB がなくなったら完了です。\n\nチームは12役にした。プロデューサー、構成作家、SNSマーケター、脚本家、ディレクター、出演者（声と芝居）、撮影、エディター、モーションデザイナー、サウンド、SNS運用、データアナリスト。それに校閲。会議ログは「発言をそのまま、要約しない、却下案と対立も残す」形で書かせた。\n\nこれは、ちゃんと効いた\n\n先に良かった点を書いておく。コストの話だけだと、やり方ごと捨てられそうだからだ。\n\n相互に疑う形が効いた。 試写レビューの会議は、私が台本に落とすときに紛れ込ませた誇張を差し戻してきた。チームが一度「功績の断定になる」として不採用にしたエンドカードの文言（「一家に一台のパソコンを、本当に実現した男」）を、私が古い台本から持ち込んでいたのだ。\n\n同じことは逆向きにも起きた。投稿文を別のセッションに書いてもらったとき、その案を台本と突き合わせると、事実と食い違う箇所が2ラウンドで6か所あった。\n\n [code] \n\n書いた本人は、どちらも自分では気づかなかった。\n\n決まりごとをリポジトリに置くと、指示は短くて済んだ。 途中から、Codex に渡す指示をこれだけにした。\n\n [code] \n\n似顔絵のみ、企業ロゴなし、尺、手を顔の高さに上げない、といった制約は docs/PRODUCTION.md に書いてある。Codex はそれを自分で読み、文字の重なりや顔の色抜けを自分で直して返してきた。\n\n無人で回った。 1話ぶんを「会議 → 台本化と似顔絵 → 音声 → 口の動き → 仕上げ → 公開準備」と進める制作ドライバを書き、15話から38話まで止めずに回した。1話あたり約1時間、失敗や飛ばしは0件だった。\n\n問題はその裏で起きていた。\n\n実際の使用量\n\nCodex は実行ごとの記録を /.codex/sessions に JSONL で残している。各セッションの最後の tokencount を合計し、作業ディレクトリで分けるとこうなった。\n\n| | セッション | 合計トークン |\n|---|---|---|\n| ai-boardroom | 344 | 159,366,148 |\n| そのほか5件 | 31 | 約986万 |\n\nai-boardroom の内訳はこう。\n\n [code] \n\n出力は134万トークンしかない。 使った量の99%は入力で、その9割以上はキャッシュ済みの入力、つまり同じ文脈の送り直しだった。\n\nモデルは全実行が gpt-6-astra。一度も指定していない。CLI の既定がそのまま使われていた。\n\n \n\nなぜ20倍も数え間違えたか\n\n私が数えたのは、codex exec が最後に出すこの行だけだった。\n\n [code] \n\nこれには3つの穴があった。\n\n1. 会議が裏で別のエージェントを立てていた\n\n12役の会議を頼むと、Codex は役ごとに別のエージェントを立てて発言させていた。10話の議事録には、実際にこう書かれている。\n制作統括が5役の別担当エージェントを立て、各担当が入力を読んだ第1巡、脚本改稿R2に対する第2巡を実施した。\n\n子のエージェントはそれぞれ別セッションとして記録され、親の tokens used には出ない。私が数えた101回に対して、実際のセッションは344あった。\n\n2. 打ち切られた実行は集計行を出さない\n\n10分のタイムアウトや、メモリ不足で強制終了された実行は、最後の tokens used を出さずに終わる。途中までの消費は記録にだけ残る。\n\n3. 1手ごとに、全部を送り直している\n\nエージェントは1手ごとに、それまでの会話と読んだファイルを丸ごと送り直す。台本、制作指示書、過去3話ぶんの見本、試写用の静止画を毎回読ませていたので、1セッションが長くなるほど入力は二次関数的に膨らむ。キャッシュが効いても、使用量としては数えられる。\n\n使用量を数える正しい方法\n\nCLI の表示ではなく、セッションの記録から数える。\n\n [code] \n\ntotaltokenusage はセッション内の累計なので、最後の1件だけ取る。サブエージェントも1セッションとして並ぶので、漏れない。\n\n自動化で踏んだ、ほかの地雷\n\n利用枠切れの誤検知。 最初、ドライバは出力に usage limit という文字列があれば枠切れと判定していた。Codex がドライバ自身のソースを読んだ瞬間、その文字列が出力に混ざり、30分止まった。本物のエラー行だけを見るように直した。\n\n [code] \n\n別の話のセッションを再開する。 2本を並行で回しているとき、codex exec resume --last は「最後に動いたセッション」を拾う。それが隣の話のものだと、別の台本に手を入れられる。出力の session id: を控えて、ID を指定して再開するようにした。\n\n画像生成サーバがメモリを抱えたまま。 ComfyUI は待機中も約11GBを保持していた。同時に Codex を動かすと、メモリ不足で Codex のほうが落ちた。生成しない間は止める。\n\n何を変えるか\n\n工程ごとにモデルを選ぶ。 確定した台詞表をJSONに書き写す作業も、決まった手順で合成して静止画で確かめる作業も、最重量モデルは要らなかった。判断の質が効くのは企画会議くらいだ。codex exec -m で工程ごとに指定する。\n\n会議でサブエージェントを立てさせない。 1セッションの中で12役を書き分けさせる。役ごとに別の文脈を持たせる必要はなかった。\n\n読ませるファイルを絞る。 見本として過去3話ぶんを毎回渡していたのをやめ、工程に必要なものだけにする。\n\n走らせる前に見積もる。 1話あたりの使用量 × 本数を、週の残り枠と突き合わせてから無人実行を始める。今回は1話あたり約500万トークンだった。残り13本なら6,500万トークンになる。\n\n「かかっていない」と言う前に、残量を見る。 枠切れの数分前に、私は「制限にはかかっていません」と答えていた。見たのは直前のログだけで、残りの枠は見ていなかった。\n\nおわりに\n\n12人のチームを演じさせる、という発想自体は間違っていなかった。会議は誇張を拾い、台本とのずれは突き合わせで消え、指示を2行に減らしても動画は仕上がった。\n\n足りなかったのは、それを何で回しているかの意識だ。チームが増えれば人件費が増えるのと同じで、エージェントが増えればトークンが増える。会議を開けば、議事録を書く人の分まで請求が来る。\n\n---\n\n元記事: https://forge.workstyle.tech/blog/twelve-ai-roles-160m-tokens/?utmsource=qiita&utmmedium=crosspost&utmcampaign=twelve-ai-roles-160m-tokens",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "e99b639678f22a9f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.84016,
+      "popularityPercentile": 0.728,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "12人分のAI制作チームで動画を作り、トークン使用量の誤認とコストを検証した記事です。",
+      "takeaways": [
+        "AIの役割を増やすほど制作費が膨らんだ。",
+        "実際の使用量は自己申告の20倍になった。",
+        "役割同士の疑い合いは品質向上に効いた。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "OpenAI Codex",
+        "AIエージェント",
+        "トークン",
+        "コスト管理",
+        "動画制作"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIチームの多重化で品質を取るか費用を抑えるか",
+        "forSide": "複数の役割に相互確認させると誇張や見落としを減らせる。",
+        "againstSide": "役割を増やすほど費用と管理負担が増え成果に見合わない。",
+        "oneSided": false,
+        "yourAngle": "AIエージェントの実使用量を請求情報とログで突き合わせられる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "TTSを差し替える製品のリップシンク設計 — 音素タイミングを採用しなかった理由と導入条件",
+      "url": "https://qiita.com/orca-forge/items/8ce6bdc4a0de2c39bab1",
+      "publishedAt": "2026-09-27T00:36:48.000Z",
+      "author": "orca forge",
+      "authorDetail": {
+        "name": "orca forge",
+        "handle": "@orca-forge",
+        "url": "https://qiita.com/orca-forge",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/185553/4fa0f6998e793772c91e4c02921a2ea1648652d7/x_large.png?1789370531",
+        "bio": "AIアバターが24時間しゃべり続ける配信システムを、ひとりで作って運用しています。\r\n音声モデルの量産、無料LLM APIの実運用、エージェントの暴走対策。\r\n実機で踏んだ失敗と実測値だけ書きます。\r\n\r\nhttps://forge.workstyle.tech",
+        "followers": 3,
+        "posts": 87,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://forge.workstyle.tech"
+          }
+        ]
+      },
+      "tags": [
+        "リップシンク",
+        "TTS",
+        "設計判断",
+        "音声処理",
+        "アーキテクチャ"
+      ],
+      "snippet": "📝 この記事は forge.workstyle.tech に掲載した記事の転載です。 音素タイミングとは、たとえば「ま」の /m/ が再生開始から0〜80ms、/a/ が80〜200msに対応する、といった音素ごとの時刻情報だ。この例なら、各音素の継続長はそれぞれ80ms、120msとなる。 対象：複数のTTSを扱う製品で、リップシンク方式を選ぶ開発者。 入力と出力：再生音声、または時刻付き音素情報を入力に、VRMの口形と開きを出力する。 この記事で得られること：音素タイミングを採用しなかった理由と、採用へ判断を変える条件。 表現したい口と、利用できる情報を分ける 音量とスペクトルから口を作る方式には、表現上の限界がある。今回のRMS・帯域特徴に基づく方式では、両唇音の閉鎖、撥音「ん」、促音「っ」、無声化した母音を安定して表現できない。 たとえば、/m/、/b/、/p/で必要になる唇の閉…",
+      "body": "📝 この記事は forge.workstyle.tech に掲載した記事の転載です。\n\n音素タイミングとは、たとえば「ま」の /m/ が再生開始から0〜80ms、/a/ が80〜200msに対応する、といった音素ごとの時刻情報だ。この例なら、各音素の継続長はそれぞれ80ms、120msとなる。\n\n対象：複数のTTSを扱う製品で、リップシンク方式を選ぶ開発者。 \n入力と出力：再生音声、または時刻付き音素情報を入力に、VRMの口形と開きを出力する。 \nこの記事で得られること：音素タイミングを採用しなかった理由と、採用へ判断を変える条件。\n\n表現したい口と、利用できる情報を分ける\n\n音量とスペクトルから口を作る方式には、表現上の限界がある。今回のRMS・帯域特徴に基づく方式では、両唇音の閉鎖、撥音「ん」、促音「っ」、無声化した母音を安定して表現できない。\n\nたとえば、/m/、/b/、/p/で必要になる唇の閉鎖は、音量が大きければ口を開くという制御だけでは扱いにくい。「です」「ます」の語尾の /u/ で声帯の振動がなくなるように、母音が無声化する場合も、音の強さから口の意図を読み取るだけでは不足する。\n\n音素とその継続長が分かれば、こうした動きを明示的に設計できる。ただし、音素情報があることと、製品の再生音声に合うタイミング情報があることは同じではない。さらに、情報を受け取るだけで自然な口になるわけでもない。口形への対応付けや、口形同士の遷移は別途必要になる。\n\n私は今回、音素タイミングを採用しなかった。音素方式の価値を否定したのではなく、必要な情報と運用条件がそろっていなかったからだ。\n\n利用しているTTSから継続長を受け取れなかった\n\n今回使っているTTSのパイプラインには、日本語の読みを確定して音素列へ変換する処理がある。音素列は、たとえば「ま」を /m/、/a/ の順で表したものだ。しかし、利用している出力には音素ごとのタイミングが含まれていない。バックエンドが返す長さは、クリップ全体の長さだった。\n\n全体の長さが分かっても、その時間を音素へどう配分するかは残る。均等に割り振るだけでは、実際に生成された音声と合う保証がない。\n\nこれは、当該TTSのあらゆる利用方法でタイミング取得が不可能だという主張ではない。今回接続している経路では、採用に必要な情報を受け取れていなかった、という制約である。\n\n判断を変える条件は明確だ。実際に再生する音声に対応した時刻付き音素を、利用するAPIや別のアラインメント処理から取得できること。アラインメント処理は、たとえば「ま」の音素列と合成済み音声を照合し、/m/ と /a/ が音声のどの区間にあるかを求める処理だ。その対応を、対象の話者や文章で検証できること。この条件が満たされれば、音素方式は具体的な候補になる。\n\nTTSの差し替えを製品の前提にしていた\n\n製品ではTTSを差し替えられるようにしている。別プロダクトには、利用者自身のクラウドTTSを接続する使い方もある。\n\n口の制御を特定のTTS内部情報へ強く依存させると、その情報を返すプロバイダと返さないプロバイダで、利用できる機能や品質が変わる。音声を再生できることだけでは、同じリップシンクを提供できなくなる。\n\n今回選んだのは、再生されている音そのものを解析する方法だった。共通の入力を音声に置けば、TTSごとの音素情報の有無から距離を取れる。テキストと音声の時刻合わせも要らない。\n\nもっとも、音声入力なら品質まで一定になるわけではない。話者の声質や音量分布が変われば、母音推定と開きの調整は再確認が必要になる。共通化できるのは入口であり、見た目の保証まで自動で共通化されるわけではない。\n\n利用するTTSが限定され、各プロバイダの時刻付き音素を共通形式へ変換できるなら、事情は変わる。対応するTTSでは音素方式を使い、それ以外では音声解析へ戻す構成も候補になる。ただし、その品質差を製品として許容し、検証できることが条件だ。\n\n不確かな継続長で同期を駆動したくなかった\n\n今回の設計判断では、口形の違いよりも、音と口のタイミングがずれることを重く見た。形が細かくなっても、音より先に閉じたり、発音が終わってから開いたりすれば、改善とは言いにくい。\n\nこれは、どの用途でも常に同期だけが重要だという一般則ではない。今回の対話用アバターで、優先して守りたかった品質の軸である。\n\n音素列から継続長を粗く推定して口を動かすと、その不確かな推定で同期を決めることになる。音声を直接解析する方式にも処理や描画の遅れはあり得るが、少なくとも、読みから別に作った時間配分を再生音声へ合わせる問題は持ち込まずに済む。\n\n音素方式を採用するなら、タイムスタンプの形式を確認するだけでは足りない。再生開始、停止、再開を含めて、ブラウザ上で音と口が合うかを確かめたい。ネットワークから受け取った時刻と、実際の再生位置を同じものとして扱わない設計も必要だ。\n\n合成済み音声を事前処理できる用途なら、アラインメント結果を確認する余地がある。対話の応答中に処理する場合とは、採用条件が異なる。\n\n学習済みモデルも、応答予算への適合を判断できなかった\n\nここでいう応答予算は、たとえば利用者の発話終了からアバターが応答を始めるまでに許容する待ち時間だ。\n\n音声から顔の動きを生成する学習済みモデルとして、NVIDIA Audio2Face-3Dも選択肢にあった。これは、TTSから音素タイミングを直接受け取る方式とは別の経路だ。\n\n今回検討した構成では、外部サービスへの往復が入る。その処理を含めて、製品の応答予算を満たせるかは未検証だった。したがって、「遅いから使えない」と結論づける材料もなかった。採用判断に必要な情報が不足していた、というのが正確な説明になる。\n\n導入を検討するなら、通信と推論だけでなく、再生や描画まで含めて計測する必要がある。返された動きを対象VRMへ適用できるかも確認したい。表現力が高いという期待だけでは、製品への適合性は決まらない。\n\n採用する条件を、先に書いておく\n\n今回の判断を整理すると、次のようになる。\n\n| 判断軸 | 今回の状況 | 採用を検討できる条件 |\n|---|---|---|\n| タイミング情報 | 利用するTTS出力に音素別の継続長がない | 再生音声と対応した時刻付き音素を取得・検証できる |\n| TTSの互換性 | 差し替え可能で、内部情報を共通に期待できない | 対応範囲を定め、共通化や代替動作を設計できる |\n| 同期品質 | 不確かな継続長で口を駆動したくない | 実際の再生制御を含めて同期を確認できる |\n| 学習済みモデル | 外部往復を含む応答予算への適合が未検証 | 実構成で遅延と出力品質を測定できる |\n\n閉鎖や無声化を丁寧に見せる必要があり、時刻付き音素を確保でき、同期まで検証できる用途なら、音素方式を優先して検討する理由がある。逆に、TTSの自由な差し替えと即時の反応を重視する今回の条件では、音声解析を共通の入口にする判断が合っていた。\n\n推定器はインターフェース越しに呼び出す構成にしている。現在の方式を使いながら、将来の差し替えを可能にするためだ。\n\n「今回は採らない」を設計判断にするには、欠けている条件と、判断を変える条件の両方を書く必要がある。今回の音素タイミングも、その条件がそろったときに改めて評価する。\n\n---\n\n元記事: https://forge.workstyle.tech/blog/why-not-phoneme-timing-lipsync/?utmsource=qiita&utmmedium=crosspost&utmcampaign=why-not-phoneme-timing-lipsync",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "cb79a165baa0cd0a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.30124000000000006,
+      "popularityPercentile": 0.7253333333333334,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "複数のTTSを使う製品で音素情報を使わないリップシンクの条件を整理した記事です。",
+      "takeaways": [
+        "音の強さだけでは表せない口の動きがある。",
+        "音素の時刻があっても自然な口にはならない。",
+        "音声と時刻情報がそろう時だけ方式を変える。"
+      ],
+      "keywords": [
+        "リップシンク",
+        "TTS",
+        "音素タイミング",
+        "VRM",
+        "音声処理"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "音声だけで制御するか音素情報を導入するか",
+        "forSide": "音素情報があれば唇の閉鎖や無声化を明示的に表現できる。",
+        "againstSide": "音声ごとの時刻情報を安定提供できないなら運用負担が上回る。",
+        "oneSided": false,
+        "yourAngle": "利用するTTSごとの発音情報と口形のずれを実機で比較できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【実践2】「振込先を印字したい」を実装できる Spec にする — AI に決めさせてはいけないこと",
+      "url": "https://qiita.com/SeckeyJP/items/53ae7bc9bd862951c60d",
+      "publishedAt": "2026-09-26T22:37:43.000Z",
+      "author": "SeckeyJP",
+      "authorDetail": {
+        "name": "SeckeyJP",
+        "handle": "@SeckeyJP",
+        "url": "https://qiita.com/SeckeyJP",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/356820/profile-images/1774801809",
+        "followers": 1,
+        "posts": 22,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/SeckeyJP"
+          }
+        ]
+      },
+      "tags": [
+        "j-six",
+        "ClaudeCode",
+        "ai-development",
+        "SI"
+      ],
+      "snippet": ":::note 本記事はシリーズ「J-SIX：Japanese SI Transformation」の実践編（全6回）の第2回です。第1回：Plugin を入れて、最初のプロジェクトを立ち上げるの続きです。 ::: 今回やること 前回、Plugin を入れて品質ゲートの設定を置きました。今回から実際の開発に入ります。 要件はこの一言です。 請求書に振込先口座を印字したい。 これだけです。実務でも、要望はこのくらいの粒度で降ってきます。この一言を、AI が実装できて、後から検証できる Spec にするまでが今回の範囲です。 結論を先に書きます。この工程で人間がやるべき仕事は、文章を書くことではありません。決めるべきことを決めることです。 AI に丸投げすると、業務上の判断が勝手に確定します。しかも、それらしく実装されるので気づきにくい。 [code] 1. AI は「それらしく」実装できてし…",
+      "body": ":::note\n本記事はシリーズ「J-SIX：Japanese SI Transformation」の実践編（全6回）の第2回です。第1回：Plugin を入れて、最初のプロジェクトを立ち上げるの続きです。\n:::\n\n今回やること\n\n前回、Plugin を入れて品質ゲートの設定を置きました。今回から実際の開発に入ります。\n\n要件はこの一言です。\n請求書に振込先口座を印字したい。\n\nこれだけです。実務でも、要望はこのくらいの粒度で降ってきます。この一言を、AI が実装できて、後から検証できる Spec にするまでが今回の範囲です。\n\n結論を先に書きます。この工程で人間がやるべき仕事は、文章を書くことではありません。決めるべきことを決めることです。 AI に丸投げすると、業務上の判断が勝手に確定します。しかも、それらしく実装されるので気づきにくい。\n\n [code] \n\n1. AI は「それらしく」実装できてしまう\n\n「請求書に振込先口座を印字したい」と CC に伝えれば、おそらく動くものは出てきます。しかしその過程で、少なくとも次の5つが暗黙に決まります。\n・口座は自社に1つなのか、取引先ごとに違うのか\n・口座が登録されていない取引先があったら、締め処理はどうなるのか\n・締めた後に口座情報を変更したら、発行済みの請求書の記載は変わるのか\n・確定した請求の口座は変更できるのか\n・会計連携ファイルにも口座を出すのか\n\nどれも業務の判断です。技術的にはどちらでも実装できます。だからこそ AI は迷わず、訓練データで最も一般的なパターンを選びます。それがこの案件で正しいとは限りません。\n\n2. Skill を起動する\n\nJ-SIX では、Spec の作成に spec-create Skill を使います。\n\n \n\nこの Skill は、テンプレート（要求 Spec の雛形）と既存の Spec を読んでから、決まっていないことを質問します。いきなり書き始めません。\n\n注目してほしいのは最後の一文です。\n3 については、既存の設計で交付先名称を「締め時点のスナップショット」として保存しています（帳票編集定義）。同じ扱いに揃えるのが自然に見えます。\n\n既存の設計書（帳票編集定義）を読んだうえで、既存の方針との整合を提案しています。これは、設計書が実装から逆生成されていて、かつ最新であることの効用です。設計書が古いと、この提案は成立しません。\n\n3. 人間が決める\n\n5つの論点に答えます。今回の判断は次の通りです。\n\n| # | 論点 | 決定 | 理由 |\n|---|---|---|---|\n| 1 | 誰の口座か | 取引先ごとに指定 | 入金元を取引先ごとに分けている運用があるため |\n| 2 | 未登録のとき | 印字を省いて警告 | 既存の売上取込が「1行の不備で全体を止めない」方針。締めも揃える |\n| 3 | 締め時点で固定するか | スナップショット | 交付先名称と同じ扱い。発行済み請求書の記載が後から変わらないように |\n| 4 | 確定後の変更 | 不可 | 既存の REQ-007（確定済みの請求は変更不可）と整合 |\n| 5 | 会計連携 | 含めない | 現行の列構成を維持する。仕訳に口座は不要 |\n\n5つのうち4つは「既存の方針に揃える」という判断です。 新しいことを決めたのは1番だけでした。\n\nこれは偶然ではありません。既存の Spec・ADR・設計書が揃っていれば、新しい要件の判断の多くは「既存とどう揃えるか」に還元されます。逆に、既存の方針が文書化されていないプロジェクトでは、毎回ゼロから考えることになり、しかも人によって答えが変わります。\n\n:::note\n2番は特に議論が必要な論点でした。 「口座が未登録なら締めを止める」ほうが安全に見えます。しかし、月末の締め処理が1社の設定漏れで止まると、経理の業務全体が止まります。今回は「止めない。ただし気づけるようにする」を選びました。この判断が後で監査記録の設計に効いてきます。\n:::\n\n4. 決めたことを REQ として書く\n\n判断が決まったら、業務ルール（REQ）として Spec に書きます。\n\n \n\n実際に追記された3行がこれです。\n\n [code] \n\n1つの要望が3つの REQ になりました。 「印字する」という機能の話は REQ-011 だけで、残りの2つは「いつの情報を使うか」「異常時にどうするか」です。実務でバグや仕様のもめごとになるのは、たいてい後者のほうです。\n\n要件に ID を振るのは、単なる整理のためではありません。この ID が、後の工程で機械的な検証の鍵になります。 品質ゲートは「REQ-011 に対応するテストが存在するか」を正規表現で走査して判定します。ID が無ければ、この検証は成立しません。\n\n5. 受入条件から「性質」を導く\n\nJ-SIX には、REQ とは別に PROP（Property） という概念があります。\n\nREQ は個別の例で書かれます。「10万円の申請は2段承認になる」のような書き方です。例だけを検証面にすると、その例だけを通す実装が成立してしまいます。そこで、入力空間全体で成り立つべき性質を取り出します。\n\n今回追加した性質は2つです。\n\n [code] \n\n書式は「任意の〈前提〉について〈性質〉が成り立つ」で統一します。\n\nこの2つは、第4回で性質テスト（Property-Based Testing）に変換されます。「A 社の口座を変えたら B 社の請求書が変わってしまった」のような事故は、例ベースのテストでは見落とされがちですが、性質として書けば入力空間を自動で探索してくれます。\n\n:::note\nPROP-008 の「件数と金額に影響しない」は、一見すると当たり前に思えます。しかし「未登録のときに締めを止める」実装をしてしまうと、この性質は破れます。性質は、間違った実装を排除する形で書くのがコツです。\n:::\n\n6. hold-out 受入テストの対象を決める\n\n要求 Spec には、もう1つ書く欄があります。hold-out 受入テストの対象です。\n\n [code] \n\nhold-out 受入テストは、実装担当と分けて作り、その担当へ共有しないテストです。別の担当（J-SIX では別のサブエージェント）が、Spec の受入条件だけを見て書きます。現行の Plugin Hook は対象ツールの直接操作を拒否しますが、全経路からの不可視性は保証しません。\n\nなぜそんな面倒なことをするのか。実装する側がテストを見られると、「そのテストを通すための実装」に寄ってしまうからです。人間でも起きますが、AI ではもっと顕著に起きます。詳しくは4層品質ゲートの記事に書きました。\n\nここでは「何を検証してほしいか」を Spec の側に書いておくだけです。テストそのものは第4回で作ります。\n\n7. 非機能要件は6大項目で書く\n\n機能の話に集中していると抜けるのが非機能要件です。J-SIX では、IPA の非機能要求グレードの6大項目で分類します。今回のサンプルでは、こう書いています（抜粋）。\n\n| 大項目 | 要件 | レベル／目標値 | 根拠 |\n|---|---|---|---|\n| 可用性 | 運用スケジュール | 平日業務時間帯。締め処理は月1回 | 経理の月次業務 |\n| 運用・保守性 | 処理の追跡 | 全締め処理・確定操作を監査ログに記録 | 内部統制 |\n| 移行性 | 過去の請求データ | 移行しない。現行は Excel の手作業で移行元システムが無いため | 現行業務 |\n| システム環境・エコロジー | — | 対象外（本番化の際に設置環境と合わせて合意する） | — |\n\nポイントは3つです。\n・合意した重要項目だけを書く。 グレードには238のメトリクスがありますが、全部を埋める必要はありません\n・対象外の大項目も、行を消さずに「対象外（理由）」と書く。 消すと、検討したのか忘れたのかが分からなくなります\n・テストのカバレッジや mutation score は、ここには書きません。 非機能要求グレードはシステム基盤の要求を扱うもので、テストの品質は対象外です。品質ゲートの閾値は別表に書きます\n\n今回の要件は、この表を変えませんでした。しかし確認はしました。「振込先を印字する」機能は、可用性にも性能にも影響しないと判断できたからです。\n\n8. どこまで合意できたかを測る\n\n最後に、Spec の承認欄を見ます。J-SIX では、IPA の合意成熟度の3段階をゲートの到達基準にしています。\n\n| レベル | 定義 |\n|---|---|\n| 仕掛レベル | 発注者が「言い切った」、開発者が「聞き切った」 |\n| 充実レベル | 図表に書いてレビューを繰り返し、合意内容が充実した |\n| 完成レベル | 合意内容が管理され、発注者・開発者の双方が確認できた |\n\nPhase 1 のゲートを通すには、要求 Spec（ユースケース・業務ルール・受入条件・非機能要件）が完成レベルに達している必要があります。\n\n重要なのは、仕掛レベルのまま残っている項目があってもよいことです。ただし条件があります。「未確定」と明記し、いつ・誰が確定させるかを決めることです。これを決めずに先へ進むと、実装の途中で判断を求められ、そこで誰かが勝手に決めることになります。\n\nここまでのまとめ\n\n「請求書に振込先口座を印字したい」という一言は、最終的にこうなりました。\n\n| 成果物 | 追加したもの |\n|---|---|\n| 業務ルール | REQ-011・REQ-012・REQ-013 |\n| 性質 | PROP-007・PROP-008 |\n| hold-out 受入テストの対象 | 1行（UC-002 / UC-004） |\n| 非機能要件 | 変更なし（影響しないことを確認） |\n\nこの工程で人間がやったことは、5つの質問に答えることだけです。文章は AI が書きました。しかし、その5つの答えがこの案件の仕様そのものです。\n\nそして、5つのうち4つは「既存の方針に揃える」で決まりました。設計書が最新であることは、新しい要件を決めるコストを下げます。 これは、設計書を実装から逆生成する仕組みの、あまり語られない効用だと思います。\n\n次回は、決めた判断を ADR（設計判断の記録） に残し、実装可能なタスクに分解します。J-SIX では、タスクに「変更してよいファイルの範囲」を書いて、人間が先に承認します。なぜそんなことをするのかも含めて説明します。\n\n---\n\n本連載で使っているサンプル・テンプレート・Plugin は GitHub で公開しています。\n\nhttps://github.com/SeckeyJP/j-six\n\n今回の要求 Spec の実物:\n\nhttps://github.com/SeckeyJP/j-six/blob/main/examples/monthly-billing/docs/requirement-spec.md",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "2196fc0290018815",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6068666666666667,
+      "popularityPercentile": 0.8266666666666667,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "請求書への振込先印字という要望をAIが実装できる検証可能な仕様へ変換する手順を解説した記事です。",
+      "takeaways": [
+        "短い要望には業務上の判断が隠れている。",
+        "AIは未決定のルールまで勝手に選べる。",
+        "人間は実装前に業務の境界を決める。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "J-SIX",
+        "Spec",
+        "AI駆動開発",
+        "請求書",
+        "SI"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "仕様の決定をAIに任せるか人間が担うか",
+        "forSide": "業務ルールを人間が決めればAIの実装速度を安全に生かせる。",
+        "againstSide": "細部まで人間が決めるとAIを使う利点と開発速度が失われる。",
+        "oneSided": false,
+        "yourAngle": "実際の業務要望から未決定事項と受け入れ条件を洗い出せる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 690,
+    "afterDedupe": 644,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 376,
+      "zenn": 108,
+      "hatena": 27,
+      "hackernews": 43,
+      "devto": 5,
+      "github_release": 36,
+      "github_repo": 77,
+      "rss": 17,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 34
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3475,
+        "outputTokens": 817,
+        "cacheReadTokens": 0,
+        "elapsedMs": 9312,
+        "estimatedCostUsd": 0.0016754
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3728,
+        "outputTokens": 856,
+        "cacheReadTokens": 0,
+        "elapsedMs": 10609,
+        "estimatedCostUsd": 0.0017728000000000002
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3021,
+        "outputTokens": 1812,
+        "cacheReadTokens": 0,
+        "elapsedMs": 18725,
+        "estimatedCostUsd": 0.0027786000000000004
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 21211,
+        "outputTokens": 1567,
+        "cacheReadTokens": 3404,
+        "elapsedMs": 20473,
+        "estimatedCostUsd": 0.0061906800000000005
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 16410,
+        "outputTokens": 1712,
+        "cacheReadTokens": 3260,
+        "elapsedMs": 20594,
+        "estimatedCostUsd": 0.0054016
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 12134,
+        "outputTokens": 1774,
+        "cacheReadTokens": 3558,
+        "elapsedMs": 25675,
+        "estimatedCostUsd": 0.00462676
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 13783,
+        "outputTokens": 2571,
+        "cacheReadTokens": 0,
+        "elapsedMs": 19456,
+        "estimatedCostUsd": 0.0058418
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 10900,
+        "outputTokens": 2216,
+        "cacheReadTokens": 0,
+        "elapsedMs": 19964,
+        "estimatedCostUsd": 0.0048392
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 14840,
+        "outputTokens": 3605,
+        "cacheReadTokens": 0,
+        "elapsedMs": 28680,
+        "estimatedCostUsd": 0.007294
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 21247,
+        "outputTokens": 5659,
+        "cacheReadTokens": 15625,
+        "elapsedMs": 42849,
+        "estimatedCostUsd": 0.0113527
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 28923,
+        "outputTokens": 4909,
+        "cacheReadTokens": 0,
+        "elapsedMs": 42699,
+        "estimatedCostUsd": 0.0116754
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18312,
+        "outputTokens": 2659,
+        "cacheReadTokens": 12965,
+        "elapsedMs": 29371,
+        "estimatedCostUsd": 0.007112500000000001
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3469,
+        "outputTokens": 219,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2882,
+        "estimatedCostUsd": 0.0009566000000000002
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4313,
+        "outputTokens": 311,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4036,
+        "estimatedCostUsd": 0.0012358
+      }
+    },
+    "totalCostUsd": 0.0728
+  },
+  "notes": []
+}
