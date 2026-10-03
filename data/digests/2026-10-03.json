@@ -1,0 +1,2546 @@
+{
+  "date": "2026-10-03",
+  "generatedAt": "2026-10-03T00:56:15.786Z",
+  "window": {
+    "start": "2026-10-01T22:00:00.000Z",
+    "end": "2026-10-02T22:00:00.000Z"
+  },
+  "summary": [
+    "AIエージェント関連が6件に達し、実装・レビュー・運用の分業が目立った。",
+    "Claude CodeやCodexを軸に、複数エージェント連携と仕様・証拠重視の流れが重なった。",
+    "リリース14件中13件が新機能で、Cloudflareを中心に観測・検索・安全性が強化された。",
+    "メモリ不足の長期化と、公開当日から攻撃された脆弱性が、基盤リスクとして際立った。"
+  ],
+  "outlook": "AIエージェントは実装からレビュー・運用まで分業する基盤として定着しつつある一方、権限・証拠・脆弱性・計算資源の揺らぎが残っている。今後は複数エージェントを監査可能に束ね、人は例外判断と仕様確定に集中する開発体制が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.287 解説：Claude Mods追加とセキュリティ修正・1Mコンテキスト既定化",
+      "url": "https://qiita.com/picnic/items/c78fb9b182bca71b5956",
+      "publishedAt": "2026-10-01T22:40:41.000Z",
+      "author": "picnic",
+      "authorDetail": {
+        "name": "picnic",
+        "handle": "@picnic",
+        "url": "https://qiita.com/picnic",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKJ3kiIjdUf7zPvCPsjLhdpqsl9XSc0xblptYG809gyvXXYhvQ1=s96-c",
+        "followers": 4,
+        "posts": 222,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/PICNIC-A-DAY"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/h_picnic"
+          }
+        ]
+      },
+      "tags": [
+        "Claude",
+        "Anthropic",
+        "ClaudeCode",
+        "MCP",
+        "AI"
+      ],
+      "snippet": "はじめに Claude Code v2.1.287 では、プラグインの表現力を広げる Claude Mods の追加に加え、権限・安全装置まわりのセキュリティ修正、Bedrock・Vertex・Foundry での既定 1M コンテキスト化など、対応が必要な変更が複数入りました。 特に次の項目は、アップデート前に確認しておくことをおすすめします。 ・危険な rm の確認や、組織の権限上限がすり抜けていた問題の修正（critical） ・クラウドプロバイダ経由での既定コンテキスト長の変更（コスト・クォータに影響） ・MCP の URL プロンプト対応に伴う、接続できなくなるサーバーの発生 ・OpenTelemetry の prompttext 追加による、プロンプト漏えいのリスク 📌 影響を受ける人 ・Bedrock / Vertex AI / Microsoft Foundry で Cl…",
+      "body": "はじめに\n\nClaude Code v2.1.287 では、プラグインの表現力を広げる Claude Mods の追加に加え、権限・安全装置まわりのセキュリティ修正、Bedrock・Vertex・Foundry での既定 1M コンテキスト化など、対応が必要な変更が複数入りました。\n\n特に次の項目は、アップデート前に確認しておくことをおすすめします。\n・危険な rm の確認や、組織の権限上限がすり抜けていた問題の修正（critical）\n・クラウドプロバイダ経由での既定コンテキスト長の変更（コスト・クォータに影響）\n・MCP の URL プロンプト対応に伴う、接続できなくなるサーバーの発生\n・OpenTelemetry の prompttext 追加による、プロンプト漏えいのリスク\n📌 影響を受ける人\n・Bedrock / Vertex AI / Microsoft Foundry で Claude Code を使っている人\n・組織の権限ルールや hook で Bash を制御している管理者\n・OTel でテレメトリを収集し、prompt をマスクしている人\n・MCP サーバーを自作・運用している人\n\n変更の全体像\n\n [code] \n\n対応の優先度は次のとおりです。\n\n| 優先度 | 変更 | 理由 |\n|---|---|---|\n| 最優先 | 権限・安全装置の修正と挙動変更 | critical。人の確認が入る場面が変わる |\n| 高 | 既定 1M コンテキスト | コスト・クォータに影響しうる |\n| 高 | OTel prompttext | マスク漏れで本文が流出しうる |\n| 高 | MCP URL elicitation | 更新後に接続不能になる場合がある |\n| 中 | alwaysLoad: false | ツールの見え方が変わる |\n\n変更内容\n\n1. 権限・安全装置まわりのセキュリティ修正（critical）\n\n修正された問題は 3 つです。\n\n| # | 問題 |\n|---|---|\n| 1 | / やホームディレクトリへの危険な rm は常に確認を求める仕組みだが、同一コマンド内で やワイルドカードのパスへ出力をリダイレクトすると、確認が外れていた |\n| 2 | proto という名前の MCP ツールに対し、組織のツール別権限上限が黙って無視されていた |\n| 3 | Linux のサンドボックス内の Bash コマンドが、Claude Code 実行ファイルのハンドルを開いたまま引き継いでいた |\n\nあわせて、挙動も 2 点変わりました。\n⚠️ Breaking Change\n以前は自動で通っていた操作に、人の確認が入るようになります。自動化パイプラインが止まる可能性があります。\n・リポジトリにコミットされたシンボリックリンク経由で、機密ファイルや作業ツリー外へシェルで書き込む場合、書き込み先を明示して人の確認を待つようになりました（ を対象とする行も含みます）。\n・Bash ツール全体を許可するルールや、許可を返す hook があっても、ファイルツールが常に拒否するファイル（Anthropic プロファイルストア、ホストの認証情報ファイル）へのシェル書き込みは、実行されず確認を求めます。\n\nつまり、Bash 全許可のルールを入れていても、認証情報ファイルへの書き込みは素通りしなくなりました。\n\n2. 既定 1M コンテキスト（high）\n\nBedrock、Vertex、Foundry、Claude apps gateway では、Opus 4.7 以降と Fable が [1m] サフィックスなしで 1M コンテキストを使うようになりました。\n\n| 項目 | Before | After |\n|---|---|---|\n| 1M コンテキストの使用 | [1m] を付けたときのみ | 既定で 1M |\n| 200K に保つ方法 | 何もしない | CLAUDECODEDISABLE1MCONTEXT=1 |\n\n対象モデルは Opus 4.7 / 4.8 / 5.5 と Fable です。コストやクォータに影響する可能性があります。\n\n3. MCP 2025-11-25 の URL プロンプト（high）\n\n2025-11-25 プロトコルの MCP サーバーが、サインインなどのために URL プロンプト（URL elicitation）を出せるようになりました。更新後に接続できなくなったサーバーは、該当する MCP 設定エントリに \"bareElicitationCapability\": true を追加してください。\n\n4. OTel userprompt イベントに prompttext を追加（high）\n\nuserprompt イベントに、prompt の複製である prompttext が追加されました。ドット区切りのキーを入れ子にするバックエンド向けの追加です（#70763）。\n⚠️ 注意\nprompt だけをマスク・削除していると、prompttext からプロンプト本文が漏れるおそれがあります。\n\n5. Claude Mods と組み込み Mod「You should know」（high）\n・Claude Mods: プラグイン機構の拡張で、これまでより深いレイヤーの挙動をプラグインから変更できます。\n・You should know: サイドエージェントが作業を見守り、ユーザーや Claude が見落としそうな点を指摘する組み込み Mod です。利用できるのは、テレメトリが有効なファーストパーティのセッションに限られます。\n\n6. MCP alwaysLoad: false の意味変更（medium）\n\nalwaysLoad: false を設定した MCP サーバーは、そのサーバーのツールがすべて tool search の背後に遅延されます。最初から読み込まれず、tool search 経由でのみ使われます。\n\n7. そのほかの主な修正・改善\n\n| 領域 | 内容 |\n|---|---|\n| モデル | Sonnet 5.5 が Opus 4.7・4.8 の advisor になれるよう修正。claude.ai ログインで選んだ Fable は最新版に追従。取り消された claude.ai ログインは \"OAuth token revoked\" と表示 |\n| Remote Control | 再接続は 30 秒であきらめて再試行。アップロード待機を 35 秒に延長。8,000px 超の画像は縮小して送信 |\n| MCP | 大きなツール結果のメモリ使用量を削減。headless での接続リトライ改善 |\n| SDK | ツールのハートビート、messagestop、fork スキルのストリーミングを修正 |\n| Hooks | スクリプトのない asyncRewake hook が通知を連発する問題を修正 |\n| Windows | Bash 拒否で PowerShell も無効になる場合に起動時警告。パイプ入力のハングを修正（パイプ入力には -p を使う） |\n| VSCode | 実行中のコマンドやサブエージェントに \"Run in background\" を追加 |\n| セルフホストランナー | 組み込み gh api（REST のみ）を追加 |\n| claude agents | n: フィルタ追加。返信はキューに入るメッセージとして届く |\n| アクセシビリティ | 行出力時の一時停止をやめた（戻すには CLAUDEAXPREPARKMS=50） |\n\n影響と対応\n\n [code] \n💡 Tips\n1M コンテキストが既定になると、長いセッションほど入力トークンが増えやすくなります。コストを一定に保ちたいチームは、更新前に環境変数を配布しておくと安全です。\n\nCLAUDE.md への追記候補（提供された更新提案に基づく）は次のとおりです。\n・Bedrock・Vertex・Foundry では既定 1M コンテキストであること、200K に戻す CLAUDECODEDISABLE1MCONTEXT=1\n・bareElicitationCapability: true の設定方法\n・alwaysLoad: false の新しい意味\n・prompttext も prompt と同様にマスクすること\n・Bash 全許可ルールや許可 hook でも、認証情報ファイルへの書き込みには確認が入ること\n・You should know Mod の有効化コマンドと利用条件\n\nコード例\n\n200K コンテキストに戻す\n\n [code] \n\nMCP サーバーが接続できなくなった場合\n\n [code] \n\nmy-server と URL は例です。実際の設定エントリに bareElicitationCapability を足してください。\n\nalwaysLoad: false の挙動\n\n [code] \n\nBefore / After の違いは次のとおりです。\n\n| | 挙動 |\n|---|---|\n| 今回の更新後 | このサーバーの全ツールが tool search の背後に遅延され、最初は見えない |\n\nツールが最初から見えている前提のプロンプトやワークフローがある場合は、見直してください。\n\nOTel のマスク処理\n\nマスク処理の実装はバックエンドや Collector によって異なります。ここでは設定の考え方のみ示します（属性名は例です）。\n\n [code] \n\nYou should know Mod の有効化\n\n [code] \n\nテレメトリが有効なファーストパーティのセッションでのみ利用できます。\n\nまとめ\n・セキュリティ: rm の確認すり抜け、proto ツールの権限上限無視、サンドボックスのハンドル継承が修正された。機密ファイルへのシェル書き込みは、Bash 全許可でも確認が入る。\n・コンテキスト: Bedrock・Vertex・Foundry では Opus 4.7 以降と Fable が既定 1M。200K に保つなら CLAUDECODEDISABLE1MCONTEXT=1。\n・MCP: URL elicitation 対応。接続できなければ bareElicitationCapability: true。alwaysLoad: false は全ツール遅延になった。\n・テレメトリ: prompttext にも prompt と同じマスク処理を。\n・拡張: Claude Mods でプラグインの表現力が拡大。組み込みの You should know Mod も追加された。\n\nアップデート前に、クラウドプロバイダ利用・OTel マスク・MCP 設定・Bash 許可ルールの 4 点を確認しておけば、大半の影響は防げます。\n\n参考: Claude Code v2.1.287 リリースノート",
+      "metrics": {
+        "likes": 2,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "4ca5cf418c1afd44",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8791061452513967,
+      "popularityPercentile": 0.9050279329608939,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "Claude Code v2.1.287はClaude Modsや安全性修正を追加し、クラウド版の既定コンテキスト長も変更した。",
+      "takeaways": [
+        "Claude Code v2.1.287で複数の重要変更が入った。",
+        "Bedrockなどでは既定容量が1Mトークンに変わった。",
+        "MCP接続や本文の記録に影響する変更もある。"
+      ],
+      "keywords": [
+        "Claude Code v2.1.287",
+        "Claude Mods",
+        "1Mコンテキスト",
+        "MCP",
+        "OpenTelemetry",
+        "Bedrock"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "Claude Code v2.1.287 は、権限・安全装置の修正と挙動変更、Claude Mods の追加、MCP と OpenTelemetry の仕様変更を含む更新です。危険な rm の確認すり抜け、proto ツールの組織権限上限無視、Linux サンドボックスでの実行ファイルハンドル継承が修正されました。Bedrock・Vertex・Foundry・Claude apps gateway では、対象モデルの 1M コンテキストが既定になり、200K に戻すには CLAUDECODEDISABLE1MCONTEXT=1 が必要です。MCP 2025-11-25 の URL elicitation、alwaysLoad: false、OTel の prompttext 追加により、接続設定・ツール探索・プロンプトマスクの見直しが必要になります。Claude Mods ではプラグインからより深い挙動を変更でき、組み込みの You should know Mod はテレメトリ有効なファーストパーティセッションで利用できます。",
+        "prerequisites": [
+          {
+            "term": "Claude Mods",
+            "stumblingPoint": "記事は「Claude Mods: プラグイン機構の拡張」と書いているが、通常のプラグインとの差分が読み取りにくい。",
+            "explanation": "Claude Mods は、プラグインから従来より深いレイヤーの挙動を変更するための拡張機構です。単に新しいツールを追加するだけでなく、Claude Code の動作に介入できる範囲が広がった、という文脈です。組み込みの You should know Mod もこの仕組みの一例ですが、利用条件はテレメトリ有効なファーストパーティセッションに限定されます。"
+          },
+          {
+            "term": "URL elicitation",
+            "stumblingPoint": "記事は「MCP サーバーが URL プロンプトを出せる」と書くが、接続不能との関係が読み取りにくい。",
+            "explanation": "URL elicitation は、MCP サーバーがサインインなどのためにユーザーを外部 URL へ誘導する仕組みです。MCP 2025-11-25 のこの能力を扱う設定が不足すると、更新後にサーバー接続が成立しない場合があります。該当サーバーでは MCP 設定エントリに bareElicitationCapability: true を追加します。"
+          },
+          {
+            "term": "alwaysLoad: false",
+            "stumblingPoint": "記事は「全ツールが tool search の背後に遅延」と書くが、既存プロンプトへの影響が読み取りにくい。",
+            "explanation": "alwaysLoad: false は、MCP サーバーのツールを起動時から利用可能な一覧へ出さない設定です。必要なツールは tool search 経由で探してから使われるため、ツール名が常に見えている前提のプロンプトやワークフローは動作が変わる可能性があります。"
+          },
+          {
+            "term": "prompttext",
+            "stumblingPoint": "記事は「prompt の複製である prompttext」と書くが、既存のマスク処理との関係が読み取りにくい。",
+            "explanation": "prompttext は、OTel の userprompt イベントに追加されたプロンプト本文の属性です。バックエンドや Collector が prompt だけを削除していると、同じ本文が prompttext から残ります。OTel でテレメトリを収集する構成では、両方を同じ基準でマスクまたは削除する必要があります。"
+          },
+          {
+            "term": "1M コンテキスト",
+            "stumblingPoint": "記事は対象モデルの「既定 1M」を示すが、既存の [1m] 指定との変更点が読み取りにくい。",
+            "explanation": "1M コンテキストは、モデルが扱える入力コンテキスト長を最大 100 万トークンとして利用する設定です。今回の対象環境では、従来の [1m] サフィックスを付けなくても既定で有効になります。長いセッションでは入力トークンが増えやすく、コストやクォータに影響するため、200K を維持する場合は CLAUDECODEDISABLE1MCONTEXT=1 を設定します。"
+          },
+          {
+            "term": "サンドボックス",
+            "stumblingPoint": "記事は「Linux のサンドボックス内の Bash」と書くが、ハンドル継承の修正対象が読み取りにくい。",
+            "explanation": "サンドボックスは、Claude Code から実行する Bash コマンドを隔離された環境で動かす仕組みです。今回の修正前は、内部で動く Bash コマンドが Claude Code 実行ファイルのハンドルを開いたまま引き継ぐ可能性がありました。修正対象はコマンドの通常の入出力ではなく、プロセス間で不要なファイルハンドルが残る挙動です。"
+          },
+          {
+            "term": "proto",
+            "stumblingPoint": "記事は「proto という名前の MCP ツール」と書くが、なぜ権限上限の対象になるかが読み取りにくい。",
+            "explanation": "proto は、記事で権限上限の無視が確認された MCP ツール名です。組織のツール別権限上限を適用する仕組みが、この特定名のツールに対して黙って働いていませんでした。v2.1.287 ではその上限無視が修正されるため、該当ツールの自動実行可否が変わる可能性があります。"
+          }
+        ],
+        "visual": {
+          "type": "comparison",
+          "title": "v2.1.287の主な変更",
+          "beforeLabel": "更新前",
+          "afterLabel": "更新後",
+          "rows": [
+            {
+              "aspect": "コンテキスト",
+              "before": "[1m] 指定時のみ 1M",
+              "after": "対象環境では既定で 1M"
+            },
+            {
+              "aspect": "200K維持",
+              "before": "追加設定なし",
+              "after": "CLAUDECODEDISABLE1MCONTEXT=1"
+            },
+            {
+              "aspect": "MCP読み込み",
+              "before": "alwaysLoad: false でも初期表示",
+              "after": "全ツールを tool search に遅延"
+            },
+            {
+              "aspect": "機密ファイル書き込み",
+              "before": "Bash許可・hookで通る場合あり",
+              "after": "確認を要求し実行を止める"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 6,
+        "lane": "know",
+        "impact": [
+          "BedrockでClaude Codeを使っている人",
+          "Vertex AIでClaude Codeを使っている人",
+          "OTelでプロンプトを収集する人",
+          "MCPサーバーを自作・運用する人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "200K維持なら export CLAUDECODEDISABLE1MCONTEXT=1 を設定",
+          "MCP設定に bareElicitationCapability: true を追加",
+          "OTelの prompt と prompttext のマスク設定を確認"
+        ],
+        "unknowns": [
+          "接続不能になるMCPサーバーの条件は個別設定次第",
+          "1M化による具体的なコスト増加額は不明"
+        ]
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "MicronのCEOがメモリ不足が2028年かそれ以降も続く可能性があると警告、「顧客は今年支払った価格よりも『はるかに高い価格』を支払うことになるだろう」",
+      "url": "https://gigazine.net/news/20261002-micron-ceo-ram-supply/",
+      "publishedAt": "2026-10-02T04:22:20.000Z",
+      "tags": [
+        "テクノロジー",
+        "AI",
+        "あとで読む",
+        "社会"
+      ],
+      "snippet": "メモリメーカーのMicronが、メモリとストレージの供給不足は2027年と2028年にさらに深刻化するとの見通しを示しました。サンジェイ・メロートラCEOは需要と供給が均衡する時期を見通せないと説明し、不足が2028年以降も続く可能性を示唆しています。また、2027年向けの高帯域幅メモリ(HBM)について、顧客が2026年よりも...",
+      "metrics": {
+        "hatena": 32
+      },
+      "sourceWeight": 3,
+      "id": "7e3593778d9a1ee6",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.35435483870967743,
+      "popularityPercentile": 0.45161290322580644,
+      "matchedTopics": [
+        "FDE / プロダクトエンジニアリング"
+      ],
+      "buzz": true,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "MicronのCEOはメモリと保存装置の不足が2028年以降も続き、価格がさらに上がる可能性を示した。",
+      "takeaways": [
+        "メモリ不足は2027年と2028年に深まる見通しだ。",
+        "供給が需要に追いつく時期はまだ見えていない。",
+        "顧客価格は2026年より大幅に上がる可能性がある。"
+      ],
+      "keywords": [
+        "Micron",
+        "メモリ不足",
+        "HBM",
+        "ストレージ",
+        "2028年"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://i.gzn.jp/img/2026/10/02/micron-ceo-ram-supply/00_m.jpg",
+      "body": "2026年10月02日 12時48分\n    ハードウェア\n  \n  \n\n \n\n価格の上昇は、既に翌年の契約にも反映されています。Micronは2027年に供給するHBMの大部分について契約を締結しており、メロートラCEOは「顧客が2026年よりも『はるかに高い価格』を支払うことになる」と説明しました。WinBuzzerによると、HBMを含む2027年の全生産量の75％超について供給先が決まっており、顧客との協議の中心は2028年分へ移っています。\n\n背景にあるのは、AIによるメモリ需要の拡大です。AIモデルの大規模化に加え、一度に扱う情報量や同時に処理するリクエストが増えることで、必要なメモリとストレージの容量も増加しています。需要はAIチップ向けのHBMだけでなく、サーバーで処理中のデータを保持するDRAMや、SSDに使われるNANDフラッシュにも及んでいます。\n\n供給量そのものは増える見通しで、Micronは2027年と2028年に業界全体の容量ベースの出荷量がDRAMで毎年20％台前半、NANDで毎年20％台半ば伸びると予測しています。それでも需要に追いつかず、両年とも供給不足が続くとみています。\n\nMicronは増産に向けて工場の建設を進めており、アメリカのアイダホ州にあるID1工場では2027年半ば、ID2工場では2028年後半にウエハーの生産を始める予定です。日本のDRAM工場の拡張分は2028年後半、シンガポールの新しいNAND工場は2028年下半期の生産開始を見込んでいます。ただし、新工場は稼働直後から大量に出荷できるわけではなく、供給への貢献が本格化するまでには数四半期かかると説明しています。\n\n将来の需要として挙げられているのが、自動運転車やヒューマノイドロボットなど、現実世界で動作する「フィジカルAI」です。Micronによると、レベル4以上の自動運転車では通常200GB超のメモリと数TBのストレージが必要で、ヒューマノイドロボットにも同程度の容量が求められると予想されています。既に複数のフィジカルAI関連顧客が次世代製品のサンプルを評価しており、同社はこの分野が2020年代末までにメモリとストレージの需要を大きく押し上げる可能性があるとみています。$MU says humanoid robots could need 200GB+ of DRAM and multiple terabytes of storage per unit with several physical AI customers already sampling next gen products.Micron says physical AI can become a “significant driver of memory and storage demand by the end of this decade”… pic.twitter.com/67K2xJbJWN— Shay Boloor (@StockSavvyShay) September 30, 2026 \n\n半導体事情に詳しいメディア・Computerworldは、こうした供給不足が企業の機器調達にも影響していると報じています。Computerworldによると、市場調査企業TrendForceの予測では、2026年第4四半期の従来型DRAMの契約価格は前四半期比で10～15％、NANDフラッシュは15～20％上昇する見通しだとのこと。値上がりのペースは鈍化しているものの、供給不足は解消していません。\n\nTrendForceによると、メモリメーカーは先端製造プロセスの生産能力を高性能なサーバー向け製品に優先的に振り向けています。このため、2027年にはPC向けDRAMの供給が減少する可能性があります。スマートフォン向けでも、AI関連製品への生産能力の振り替えによって供給が制約されており、消費者向けの需要が弱くても値上がりが続く構図になっています。\n\n購入するメモリの容量を抑える動きも出ています。TrendForceは、クラウド事業者や機器メーカーが2026年上半期以降、一部のサーバーで96GBや128GBのメモリモジュールから32GBや64GBのモジュールへ構成を変更していると報告しました。また、複数年の供給契約を結んだ顧客は契約条件によって価格上昇が抑えられる一方、契約のない顧客や契約量を超えて追加購入する顧客に値上げの影響が集中すると分析しています。\n\nComputerworldの取材に応じたCounterpoint Researchのニール・シャー氏は、企業が機器の更新時期と既存設備の活用方法を見直す必要があると指摘しました。一般的な事務用PCなどは更新を遅らせる余地がある一方、基幹システムや技術者向けの機器では、生産性や故障リスクへの影響も考慮すべきだとしています。また、クラウドに移行しても事業者がハードウェアや電力のコストを利用料金に転嫁するため、値上がりを回避できるとは限らないと説明しました。\n\n同氏は、費用を抑えるために旧世代のメモリを選ぶことにも注意を促しています。メーカーがHBMやDDR5へ生産を移しているため、DDR4も安価で豊富に供給される状況ではなくなっているとのことです。新しい機器の購入に先立ち、仮想マシンに割り当てるメモリ容量などを見直し、既存の設備で無駄に使っているメモリを減らすことを勧めています。\n\n  \n\n・関連コンテンツ\n\n  \n    \n  << 次の記事610億円相当の仮想通貨が盗まれたBitgetハッキング事件、第三者製セキュリティ製品のゼロデイ脆弱性が侵入経路前の記事 >>OpenAIが機密情報の取扱ポリシー違反で研究者3人を解雇、AI安全組織に情報を共有したため",
+      "rank": 2,
+      "deep": {
+        "summary": "Micronは、AIモデルの大規模化と同時処理量の増加で、HBMだけでなくDRAMやNANDフラッシュも含むメモリ需要が拡大し、2028年以降も供給不足が続く可能性を示した。2027年の全生産量の75％超はすでに供給先が決まり、顧客は2026年より「はるかに高い価格」を支払う見通しだ。DRAMとNANDの出荷量は2027年・2028年に毎年20％台伸びる予測だが、需要には追いつかない。新工場は2027年半ばから2028年後半に稼働予定で、本格的な供給増にはさらに数四半期かかる。PC・スマートフォン向けの生産能力もサーバー向けへ振り替えられ、機器更新、クラウド料金、VMのメモリ設計まで調達コストの見直しが必要になる。",
+        "prerequisites": [
+          {
+            "term": "HBM",
+            "stumblingPoint": "記事は「AIチップ向けのHBM」と書いているが、通常のDRAMとの役割の違いを知らないと価格高騰の対象が読みにくい。",
+            "explanation": "HBMとは、AIチップの近くで大量のデータを高速に受け渡すためのメモリだ。一般的なサーバー用DRAMとは用途と接続方式が異なるが、同じ製造能力を取り合う。この記事では、AI向けHBMへの生産集中が他のメモリ製品の供給制約にもつながっている。"
+          },
+          {
+            "term": "DRAM",
+            "stumblingPoint": "記事はDRAMをHBMやNANDと並べて扱うが、サーバー、PC、スマートフォンで何に使われるかが省略されている。",
+            "explanation": "DRAMとは、CPUやGPUが処理中のデータを一時的に置く揮発性メモリだ。容量が不足すると、サーバーの同時処理数やVMの割り当てに直接影響する。記事では、サーバー向けが優先され、PC向けDRAMの供給が減る可能性が示されている。"
+          },
+          {
+            "term": "NANDフラッシュ",
+            "stumblingPoint": "記事はNANDフラッシュの価格上昇をDRAMと別に示すが、ストレージ需要との関係を知らないと影響範囲を誤解しやすい。",
+            "explanation": "NANDフラッシュとは、電源を切ってもデータを保持する記憶媒体で、SSDなどに使われる。DRAMが処理中のデータ、NANDフラッシュが保存データを担うため、AIシステムの大容量化では両方の需要が増える。"
+          },
+          {
+            "term": "フィジカルAI",
+            "stumblingPoint": "記事は「フィジカルAI」を自動運転車やヒューマノイドロボットの需要要因として挙げるが、既存のAIサービスとの違いが読み取りにくい。",
+            "explanation": "フィジカルAIとは、自動運転車やロボットのように現実世界を認識し、動作まで行うAIだ。車両やロボット内で大量のセンサーデータを処理するため、1台あたり200GB超のメモリと複数TBのストレージが必要になると予想されている。この記事では、2020年代末の新たな需要源として扱われている。"
+          },
+          {
+            "term": "複数年の供給契約",
+            "stumblingPoint": "記事は「複数年の供給契約」で価格上昇を抑えられると書くが、契約の有無が購入価格にどう効くかが重要になる。",
+            "explanation": "複数年の供給契約とは、一定期間・数量の購入をあらかじめ取り決める契約だ。契約済みの数量には価格上昇の影響が抑えられる場合がある一方、契約外の追加購入は市況価格の影響を受ける。機器更新を後から増やす企業ほど、契約量の上限が調達リスクになる。"
+          },
+          {
+            "term": "DDR4",
+            "stumblingPoint": "記事は旧世代のDDR4も安価で豊富ではないと述べるが、古い規格へ逃げれば解決するとは限らない理由が省略されている。",
+            "explanation": "DDR4とは、DDR5より前の世代にあたるDRAM規格だ。メーカーがHBMやDDR5へ生産能力を移すと、旧世代のDDR4も供給が増えず、価格面の代替策にならない場合がある。この記事では、世代を下げるだけでコストを抑えられるとは限らないと指摘している。"
+          },
+          {
+            "term": "ウエハー",
+            "stumblingPoint": "記事は新工場が「ウエハーの生産を始める」と書くが、生産開始日がそのまま製品供給の増加日ではない。",
+            "explanation": "ウエハーとは、半導体の回路を形成する前段階の薄い基板だ。ウエハー生産が始まっても、製造装置の立ち上げ、歩留まり改善、後工程を経なければ出荷できない。この記事が供給への本格貢献まで数四半期かかるとするのは、この立ち上げ期間を含むためだ。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "メモリ需要の経路",
+          "layers": [
+            {
+              "label": "需要源",
+              "nodes": [
+                {
+                  "name": "AIモデル",
+                  "note": "大規模化・同時処理",
+                  "highlight": true
+                },
+                {
+                  "name": "自動運転",
+                  "note": "200GB超を想定",
+                  "highlight": false
+                },
+                {
+                  "name": "ヒューマノイド",
+                  "note": "大容量処理を想定",
+                  "highlight": false
+                }
+              ],
+              "via": "容量・並列処理"
+            },
+            {
+              "label": "メモリ製品",
+              "nodes": [
+                {
+                  "name": "HBM",
+                  "note": "AIチップ向け",
+                  "highlight": true
+                },
+                {
+                  "name": "DRAM",
+                  "note": "処理中データ用",
+                  "highlight": false
+                },
+                {
+                  "name": "NANDフラッシュ",
+                  "note": "SSD向け",
+                  "highlight": false
+                }
+              ],
+              "via": "生産能力の配分"
+            },
+            {
+              "label": "供給先",
+              "nodes": [
+                {
+                  "name": "AIサーバー",
+                  "note": "高性能品を優先",
+                  "highlight": true
+                },
+                {
+                  "name": "PC・スマホ",
+                  "note": "供給制約の可能性",
+                  "highlight": false
+                },
+                {
+                  "name": "機器更新",
+                  "note": "調達費に波及",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "AIサーバーの調達を担当する人",
+          "PC・スマートフォンの更新を計画する人",
+          "VMのメモリ割り当てを管理する人",
+          "メモリの複数年契約を結んでいない人"
+        ],
+        "timeline": [
+          "2027年半ば ID1がウエハー生産開始予定",
+          "2027年 DRAM・NANDの供給不足継続予測",
+          "2028年後半 新工場・拡張分が順次生産開始予定"
+        ],
+        "checkNow": [
+          "VMのメモリ割り当てと実使用量を棚卸し、過剰分を減らす",
+          "2027年の機器更新計画をDRAM・NAND値上がり込みで再見積もり",
+          "調達契約の数量上限と追加購入時の価格条件を確認する"
+        ],
+        "unknowns": [
+          "供給不足が2028年以降いつ解消するかは未確定",
+          "フィジカルAIの需要規模はMicronの予測段階"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Opus 5.5 は Opus 5 と何が変わったの？【開発者目線でまとめてみた】",
+      "url": "https://qiita.com/tsubasa_k0814/items/193fbba3cb05349a303c",
+      "publishedAt": "2026-10-02T03:39:20.000Z",
+      "author": "Tsubasa",
+      "authorDetail": {
+        "name": "Tsubasa",
+        "handle": "@tsubasa_k0814",
+        "url": "https://qiita.com/tsubasa_k0814",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/636995/599473cc9670daf5aa3d41460b70f5d201dfe0ca/large.png?1675757228",
+        "bio": "主食:PHP |3週間でSAA、Ruby Gold合格 | 2023年2月からQiitaにジョイン",
+        "followers": 132,
+        "posts": 78,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kimkim0814"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/te_sin_"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.credly.com/users/tsubasa-kimura.3bd56c1e/badges"
+          }
+        ]
+      },
+      "tags": [
+        "Opus",
+        "ClaudeCode"
+      ],
+      "snippet": "はじめに みなさんは Claude を使っていますか？ 私は業務でも個人開発でも、Claude Code にかなりお世話になっています。 そんな中、2026年9月22日に Anthropic から Claude Opus 5.5 がリリースされました。 「また新しいモデル？」「Opus 5 と何が違うの？」と思った方も多いのではないでしょうか。 私もリリースノートを読んだとき、正直どこが変わったのかすぐには分かりませんでした。 そこで今回は、Opus 5 と比べて 何が変わったのか を、使う人の目線でまとめてみました！ Opus 5.5 とは Opus 5.5 は、Claude 5.5 ファミリーで最初に出たモデルです。 Sonnet 5.5 と Haiku 5.5 も、数週間以内に出ると予告されています。 一言で言うと、「Fable 5.1 並みの性能を、Opus 5 より安く・速く使え…",
+      "body": "はじめに\n\nみなさんは Claude を使っていますか？\n私は業務でも個人開発でも、Claude Code にかなりお世話になっています。\n\nそんな中、2026年9月22日に Anthropic から Claude Opus 5.5 がリリースされました。\n\n「また新しいモデル？」「Opus 5 と何が違うの？」と思った方も多いのではないでしょうか。\n私もリリースノートを読んだとき、正直どこが変わったのかすぐには分かりませんでした。\n\nそこで今回は、Opus 5 と比べて 何が変わったのか を、使う人の目線でまとめてみました！\n\nOpus 5.5 とは\n\nOpus 5.5 は、Claude 5.5 ファミリーで最初に出たモデルです。\nSonnet 5.5 と Haiku 5.5 も、数週間以内に出ると予告されています。\n\n一言で言うと、「Fable 5.1 並みの性能を、Opus 5 より安く・速く使えるモデル」 です。\n\n何が変わったの？\n\n1. 安くなった\n\n| 項目 | Opus 5 | Opus 5.5 |\n| --- | --- | --- |\n| 入力（100万トークンあたり） | $5 | $4 |\n| 出力（100万トークンあたり） | $25 | $20 |\n| キャッシュ読み取り | $0.50 | $0.20 |\n\n単価は 20% 下がっただけですが、一般的な使い方でのコストは約 40% 下がる そうです。\n単価が安くなったうえに、同じ作業を少ないトークンでこなせるようになったので、\nその分も合わせて安くなっている、ということですね。\n\n2. 速くなった\n\n出力の速さは Opus 5 より 30% 以上 上がりました。\nClaude Code で長い実装を任せたときの待ち時間が短くなるのは、地味にうれしいポイントです。\n\n3. 賢くなった\n\n主なベンチマークの結果はこちらです。\n\n| ベンチマーク | 何を測る？ | Opus 5 | Opus 5.5 |\n| --- | --- | --- | --- |\n| Terminal-Bench 4.0 | ターミナルでの作業 | 52.3% | 66.4% |\n| CursorBench 4.0 | エディタ上のコーディング | 46.6% | 57.8% |\n| OSWorld 2.1 | PC 操作 | 74.0% | 81.8% |\n\n特に Terminal-Bench が 14 ポイント伸びているので、\nClaude Code のようにターミナルで動くエージェントには効きそうです。\n\n4. thinking がオフにできなくなった\n\nここは開発者が一番注意すべきところかもしれません。\n\nOpus 5.5 では thinking（考えてから回答する機能）が 常にオン になりました。\nオン・オフは切り替えられず、effort パラメータで どれくらい深く考えるかだけを調整します。\n\n「thinking って何？」という方は、「回答の前に頭の中で下書きをする時間」だと思ってもらえれば大丈夫です。\n\n5. 使える量が増えた・安全性も上がった\n・Pro / Max / Team プランなどで、5時間ごとの利用上限が引き上げられた\n・コンテキストは標準で 100 万トークン、出力は最大 12.8 万トークン\n・Anthropic の自動行動監査で、これまでで一番良いスコアを出した\n\nAPI から使う人が気をつけること\n\nAPI で使っている人は、Opus 5 からの 破壊的変更 に注意が必要です。\n・thinking を無効にする指定ができない\n・ツール使用を強制する指定（toolchoice の any / tool）がエラーになる\n・thinking ブロックが、生成したモデルと会話に紐づくようになった\n・Claude API と Google Cloud では computer20251124 ツールが使えず、computertoolset20260801 への移行が必要（Amazon Bedrock では引き続き使える）\n\nモデル ID を claude-opus-5-5 に書き換えるだけでは動かないことがあるので、\n移行するときは公式の移行ガイドを一度読んでおくのがおすすめです。\n\n実際に使ってみよう\n\n公式の発表だけでは実感がわかないので、AtCoder の問題を Opus 5 と Opus 5.5 に解かせて比べてみました。\n\n比べ方\n・問題: ABC472 の F - Centroid of a Slice と G - Cascading Grid\n・Opus 5.5 の知識カットオフ（2026年6月）より後の問題なので、答えを覚えているだけ、ということはありません\n・実行方法: Claude Code のヘッドレスモード（claude -p）で、同じプロンプトを同時に実行\n・使えるツール: ファイル操作とコンパイル・実行だけ（Web 検索はなし）\n・判定: 公式テストケース + 自分で書いた愚直解とのランダム比較\n\n結果\n\n| | F: Opus 5 | F: Opus 5.5 | G: Opus 5 | G: Opus 5.5 |\n| --- | --- | --- | --- | --- |\n| かかった時間 | 86秒 | 38秒 | 167秒 | 43秒 |\n| 出力トークン | 6,648 | 2,154 | 11,681 | 2,916 |\n| 換算コスト | $0.69 | $0.35 | $0.86 | $0.36 |\n\n正しさはどちらも同じでした。2つのモデルは、どちらの問題でもほぼ同じ解き方にたどり着いていました。\n\n一方で、時間は約 1/2〜1/4、コストは約半分 になりました。\n公式発表の「コスト約 40% 減」「30% 以上速い」よりも大きな差です。\n\nでも、速いだけじゃなかった\n\nログを読んでみると、おもしろい違いがありました。\n\nOpus 5は、自分で愚直解を書いて何百ケースも突き合わせてから「できました」と答えていました。\nOpus 5.5 は、サンプルをいくつか確かめた時点で答えていて、「最大サイズでの実行時間は測っていません」と正直に書いていました。\n\nつまり Opus 5.5 は、確かめる手間を省いたぶん速い 面もあるようです。\n今回はどちらも正解でしたが、大事な場面では「テストまでしてね」と一言添えるのが良さそうです。\n\n:::note\n1問につき1回しか試していないので、たまたまの差も含まれています。\n換算コストは API 料金での計算値で、サブスクリプションの請求額ではありません。\n:::\n\n最後に\n\nいかがでしたでしょうか。\n\nまとめると、Opus 5.5 は\n・安い（一般的な使い方でコストが約 40% 下がる）\n・速い（出力が 30% 以上速くなった）\n・賢い（Fable 5.1 に近い性能）\n\nの3つがそろったアップデートでした。\n\n一方で thinking が常にオンになるなど、API から使う人には注意点もあります。\nこれから Sonnet 5.5 や Haiku 5.5 も出るそうなので、そちらも楽しみですね🔥\n\n最後まで読んで頂きありがとうございました！\n\n参考資料\n・Introducing Claude Opus 5.5 - Anthropic\n・Everything Claude Opus 5.5 Actually Ships With - KDnuggets\n・Anthropic Launches Claude Opus 5.5 With Lower Prices and Faster Output - TechRepublic",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "750b833634f0ff39",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8551396648044693,
+      "popularityPercentile": 0.7960893854748603,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 89,
+      "titleJa": null,
+      "oneLiner": "Claude Opus 5.5はOpus 5より安く速くなり性能も向上した。",
+      "takeaways": [
+        "Claude Opus 5.5がOpus 5の後継として登場した。",
+        "料金は単価が20％下がり実利用では約40％下がる。",
+        "同じ作業を少ない量でこなせるため応答も速くなった。"
+      ],
+      "keywords": [
+        "Claude Opus 5.5",
+        "Claude Opus 5",
+        "Claude Code",
+        "Anthropic",
+        "料金",
+        "速度"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "Claude Opus 5.5 は、Opus 5 と比べて入力単価が $5 から $4、出力単価が $25 から $20、キャッシュ読み取りが $0.50 から $0.20 に下がったモデルです。一般的な使い方では、トークン数の削減も含めてコストが約 40% 下がり、出力速度は 30%以上向上しました。Terminal-Bench 4.0 は 52.3% から 66.4% に伸び、Claude Code のようなターミナルエージェントでの改善が目立ちます。一方、thinking は常時オンとなり、API では thinking の無効化や tool_choice の一部指定が破壊的変更になります。記事の AtCoder 検証では、Opus 5.5 は Opus 5 と同じ正解に到達しつつ、実行時間と出力トークンを大きく削減しました。ただし、Opus 5.5 は検証を早く切り上げる傾向も見られたため、重要な実装ではテスト実行を明示的に指示する必要があります。",
+        "prerequisites": [
+          {
+            "term": "Claude Opus 5.5",
+            "stumblingPoint": "記事は「Opus 5.5 は Fable 5.1 並み」と書いているが、Fable 5.1 を知らないと性能比較の意味が読めない。",
+            "explanation": "Claude Opus 5.5 は、Anthropic の Claude 5.5 ファミリーに属する大規模モデルです。記事では Fable 5.1 を性能の比較対象として使っていますが、Fable 5.1 自体の詳細や比較条件は説明されていません。ここでは、Opus 5 より安く速く、複数の開発者向けベンチマークでスコアが上がった新モデルだと捉えれば、変更点の読み取りには十分です。"
+          },
+          {
+            "term": "Terminal-Bench 4.0",
+            "stumblingPoint": "「Terminal-Bench 4.0 が 52.3% から 66.4%」とあるが、何をこなす能力のスコアか分からないと Claude Code への影響を判断できない。",
+            "explanation": "Terminal-Bench 4.0 は、ターミナル上でコマンド実行やファイル編集などを伴う課題を、モデルがどれだけ解けるかを見るベンチマークです。Claude Code は同じくターミナルを操作するため、一般的な文章問題のスコアよりも、実際の開発エージェント利用に近い指標です。記事の 14.1 ポイント改善は、CLI を介した実装タスクでの成功率向上として読むことができます。"
+          },
+          {
+            "term": "thinking",
+            "stumblingPoint": "「thinking は常にオンで effort だけ調整」とあるが、従来のオン・オフ指定を使う API 利用者は移行方法を読み違えやすい。",
+            "explanation": "thinking は、モデルが最終回答の前に内部で推論する処理です。Opus 5.5 ではこの処理自体を無効化できず、effort パラメータで推論の深さだけを調整します。そのため、Opus 5 用に thinking を無効化していたリクエストは、その指定を削除または移行する必要があります。推論が常に発生するため、低遅延・低コストを狙った既存設定の見直しが必要です。"
+          },
+          {
+            "term": "effort",
+            "stumblingPoint": "記事は「effort パラメータで深さを調整」とだけ説明しており、thinking のオン・オフとの違いが曖昧に見える。",
+            "explanation": "effort は thinking の有無を切り替えるフラグではなく、常時オンの推論にどれだけ計算を割くかを調整するパラメータです。したがって、最小設定にしても thinking が完全に消えるとは限りません。Opus 5.5 への移行では、従来の無効化指定を effort の調整へ置き換える、という考え方になります。"
+          },
+          {
+            "term": "tool_choice",
+            "stumblingPoint": "API の破壊的変更として「any / tool がエラー」とあるが、ツールを必ず呼ばせる実装では単なるモデル ID 変更では済まない。",
+            "explanation": "tool_choice は、モデルにツールを選ばせるか、特定のツール利用を要求するかを指定する設定です。記事では Opus 5.5 で any / tool の強制指定がエラーになるとしています。ツール呼び出しを前提にしたエージェント実装では、リクエストがモデル回答前に失敗する可能性があるため、移行時に該当指定を検索して確認する必要があります。"
+          },
+          {
+            "term": "thinking ブロック",
+            "stumblingPoint": "「thinking ブロックがモデルと会話に紐づく」とあるが、過去の応答を別モデルや別会話へ渡す実装では意味が分かりにくい。",
+            "explanation": "thinking ブロックは、モデルの推論処理を表す API 上の応答要素です。Opus 5.5 では、そのブロックを生成したモデルと会話コンテキストとの対応が厳密になっています。以前の応答を保存して別のモデルや別セッションで再利用する処理がある場合、単に履歴へ戻すだけでは受け付けられない可能性があります。"
+          },
+          {
+            "term": "computertoolset20260801",
+            "stumblingPoint": "Claude API と Google Cloud では「computer20251124 から移行」とあるが、どの環境で何を置き換えるかを確認しないと詰まる。",
+            "explanation": "computertoolset20260801 は、コンピューター操作用ツールの新しい指定です。記事では Claude API と Google Cloud では従来の computer20251124 が使えず、新しいツールセットへ移行する必要があるとしています。一方、Amazon Bedrock では従来の指定を引き続き使えるため、利用している提供経路によって移行作業が変わります。"
+          },
+          {
+            "term": "ヘッドレスモード",
+            "stumblingPoint": "「claude -p のヘッドレスモードで同じプロンプト」とあるが、対話なしで何を入力し、結果をどこで比較したかが読み取りにくい。",
+            "explanation": "ヘッドレスモードは、Claude Code を対話的な画面なしで一度のコマンドとして実行する方法です。記事の検証では、同じ課題とプロンプトを Opus 5 と Opus 5.5 に渡し、ファイル操作・コンパイル・実行だけを許可しています。CI やスクリプトから同じ条件のエージェント実行を比較する用途に近い方法です。"
+          }
+        ],
+        "visual": {
+          "type": "metrics",
+          "title": "AtCoder検証の比較",
+          "items": [
+            {
+              "label": "Fの実行時間",
+              "value": "38秒",
+              "baseline": "86秒",
+              "direction": "down-good",
+              "note": "Opus 5.5 / Opus 5"
+            },
+            {
+              "label": "Gの実行時間",
+              "value": "43秒",
+              "baseline": "167秒",
+              "direction": "down-good",
+              "note": "Opus 5.5 / Opus 5"
+            },
+            {
+              "label": "Fの換算コスト",
+              "value": "$0.35",
+              "baseline": "$0.69",
+              "direction": "down-good",
+              "note": "API料金による計算値"
+            },
+            {
+              "label": "Gの換算コスト",
+              "value": "$0.36",
+              "baseline": "$0.86",
+              "direction": "down-good",
+              "note": "API料金による計算値"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 6,
+        "lane": "build",
+        "unlocks": [
+          "Claude Codeの長い実装を、半分以下の待ち時間で終わらせる",
+          "同じ課題を Opus 5.5 と Opus 5 で並列比較する"
+        ],
+        "howToTry": [
+          "https://qiita.com/tsubasa_k0814/items/193fbba3cb05349a303c",
+          "Claude Code をインストールし、API または利用中のサブスクリプションで実行できる状態にする。",
+          "AtCoder ABC472 F / G の問題文をそれぞれ作業ディレクトリに用意する。（手動）",
+          "`claude -p \"この問題を解いてください。ファイル操作とコンパイル・実行だけを使い、解答コードを作成して公式テストと追加テストを実行してください。\"` を Opus 5 と Opus 5.5 で実行する。",
+          "各実行の経過時間、出力トークン、換算コスト、テスト結果を比較する。"
+        ],
+        "fitFor": [
+          "Claude Code をターミナルの実装エージェントとして使っている",
+          "API のモデル ID とツール設定を自分で変更できる",
+          "長い実装で待ち時間またはトークン費用が問題になっている"
+        ],
+        "notFor": [
+          "thinking の無効化や tool_choice の強制指定が必須",
+          "Windows など、記事で動作確認環境が示されていない環境だけで試す",
+          "1回の実行結果だけでモデル性能を評価したい"
+        ],
+        "caveats": [
+          "Opus 5.5 は thinking 無効化と tool_choice の any / tool が使えない"
+        ],
+        "tryPrompt": "# 試すこと\nClaude Code のヘッドレスモードで、同じ AtCoder 課題を Opus 5 と Opus 5.5 に解かせ、速度・コスト・検証の違いを比べる。\nhttps://qiita.com/tsubasa_k0814/items/193fbba3cb05349a303c\n\n# 手順\n1. Claude Code がインストール済みで、`claude --version` が成功することを確認する。\n2. AtCoder ABC472 F または G の問題文を作業ディレクトリに保存する。（手動）\n3. `claude -p \"このディレクトリの問題を解いてください。ファイル操作とコンパイル・実行だけを使い、解答コードを作成してください。公式テストと追加のランダムテストも実行し、結果を報告してください。\"` を Opus 5 で実行する。\n4. 同じディレクトリを複製し、同じプロンプトを Opus 5.5 で実行する。\n5. 実行時間、出力トークン、換算コスト、テスト結果、ログ上の検証回数を記録する。\n\n# 確認したいこと\n- Opus 5.5 でも同じ正解に到達するか\n- 実行時間と出力トークンがどれだけ変わるか\n- テストを明示した場合も検証を早く切り上げるか\n\n# 前提・注意\n- API キーまたは Claude Code の利用権限が必要。\n- 問題文の準備手順とモデル指定方法は環境依存。\n- 1回の試行だけでは偶然の差を除けない。"
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "edenfunf/reelmimic — Show it a video you love. Get a new video in the same style. An AI crew (Claude Code or Codex) plans, builds and reviews it with you.",
+      "url": "https://github.com/edenfunf/reelmimic",
+      "publishedAt": "2026-09-28T19:14:59.000Z",
+      "author": "edenfunf",
+      "authorDetail": {
+        "name": "edenfunf",
+        "url": "https://github.com/edenfunf",
+        "avatarUrl": "https://github.com/edenfunf.png?size=120",
+        "bio": "Show it a video you love. Get a new video in the same style. An AI crew (Claude Code or Codex) plans, builds and reviews it with you."
+      },
+      "tags": [
+        "JavaScript",
+        "2d-animation",
+        "ai-agents",
+        "ai-video",
+        "animation",
+        "claude-code",
+        "codex",
+        "multi-agent"
+      ],
+      "snippet": "Show it a video you love. Get a new video in the same style. An AI crew (Claude Code or Codex) plans, builds and reviews it with you.",
+      "metrics": {
+        "stars": 960
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "29597efb0e52c88a",
+      "foundIn": [
+        "github_repo"
+      ],
+      "body": "ReelMimic\n\nShow it a video you love. Get a new video in the same style.\n\n \n \n \n \n \n\nEnglish · 繁體中文 · 简体中文\n\n \n \n \n \n \n \n \n Sugar Rush music video · hand-painted · 58 s \n Sunshine Boy music video · hand-painted · 63 s \n Bath Time narrated comic · 30 s \n \n \n\n Each one made with ReelMimic from a reference video and a one-line brief. Previews are silent, with the lyrics cropped out. \n\n \n\nWhat is this?\n\nEver watched a video and thought \"I want one in that style, but completely my own\"?\n\nJust drop it into ReelMimic. A file, a phone recording or a YouTube link all work. Then tell it what you want to make.\n\nFirst it takes the reference apart: editing rhythm, shot lengths, transitions, framing, colors and camera moves. Then\nit puts together a plan for you to check. You can chat right next to it, change settings or add assets, and start\nwhen you're happy.\n\nOnce production starts, the work is split across several AI agents. Different parts of the video are made at the same\ntime, and every shot is handed to a different agent to check. If something's wrong it goes back to be fixed, so it's\nnot a one-shot generate-and-done.\n\nReelMimic learns how the reference was made. It doesn't carry over the original footage, characters or assets.\n\nThe whole thing runs on your own computer, with your own Claude Code or Codex.\n\n \n \n \n \n \n \n\n \n \n \n \n \n \n\nWhat it does\n・Breaks down the reference. Shot count, shot lengths, BPM, transitions, colors, framing and camera moves.\n・Shows you the plan first. Storyboard, characters, assets and a few style frames. Chat about it until you like it, then approve.\n・Several AI agents share the work. Up to 6 work on different parts of the video. Each finished shot goes to a new agent for review, so nobody grades their own work.\n・Fixes need proof. Every fix comes with before and after screenshots, and the reviewer checks them.\n・You can see what it's doing. What each agent is thinking, what it ran, which frames it looked at. The full log is there too.\n・Comment right on the video. When it's done, scrub to any second and type a note. Send them all at once.\n・New styles are just Markdown. One file per style, no code.\n・Three languages. 繁體中文, English and 简体中文, switch in the top right.\n\nGood to know\n・2D only, seven drawing engines: vector / motion graphics (built on\n HyperFrames), hand-painted watercolor (built on\n painted-animation), crayon picture book, pixel art, paper\n cut-out stop-motion, whiteboard doodle, and anime cel. The newer five are young and have had less real-world use than\n the first two. When a reference doesn't match a known style, it uses the closest engine and writes up a proposal\n for a new style.\n・It takes a while. A 30–60 second video usually takes 1–3.5 hours after you approve the plan, depending on the\n length and the look. Watercolor and crayon are the slowest, because every frame is painted with brushes.\n・It uses your AI plan. All the work runs through your Claude Code or Codex account, so it counts toward that\n account's usage. If you hit a limit, the job pauses and can pick up where it stopped.\n・Tested mostly on Windows. macOS and Linux should work, but they've had less testing. Issues are welcome.\n・No real people. It makes animation, not live-action footage of real people.\n\nRoadmap\n・More built-in characters and styles for each engine\n・Save a newly discovered style from the web app, so the next similar reference matches it directly\n・Faster watercolor rendering\n\nGetting started\n\nYou'll need Node.js 22.18+, Python 3.10+, FFmpeg, Chrome, and either\nClaude Code or Codex CLI (logged in).\n\n [code] \n\nThen open . The install script checks your setup and tells you if anything's missing. You can run\nthe check again any time with cd app && npm run doctor. Claude Code picks up the skills in this repo on its own, and\nCodex reads AGENTS.md, so there's nothing else to set up.\n\nYour first video\n\n1. On the home page, drop in a reference video or paste a link, say what you want, and pick Claude Code or Codex.\n2. Wait for the breakdown and the plan. If you want changes, say so in the chat on the right. Screenshots work too.\n3. If the plan asks you for something (lyrics, say), add it or skip it, then hit Approve and start.\n4. The Production line tab shows where each character and each part of the video is, with the review screenshots.\n5. When it's done, leave a note at whatever second looks off.\n\nSettings\n\nAPI keys and a few paths go in /.reelmimic/secrets.json. That file lives outside the repo, so it never gets\ncommitted. See secrets.example.json for the format.\n\n| Key | What it's for |\n|---|---|\n| YATINGKEY | Yating's Taiwanese Mandarin voices, for narration |\n| PIXABAYKEY, FREESOUNDKEY | More images, music and sound effects you're allowed to use (optional, Openverse works without a key) |\n| FFMPEGDIR, CHROMEPATH, CODEXBIN, PYTHON | Where to find these tools if they're not on your PATH |\n| CODEXSANDBOX | Codex sandbox mode (default danger-full-access, like Claude Code with Bash allowed; workspace-write blocks the Chrome renderer) |\n| BUILDERS, MAXAGENTS | How many agents work on one video at once (default 6), and the limit across all projects (default 12) |\n| PORT | Web port (default 4318) |\n\nDocs\n・Architecture: how the whole thing runs, where files go, how the AI plugs in\n・Extending: adding styles, rendering engines, or another AI\n・Contributing\n\nGround rules\n・It learns technique from the reference (pacing, framing, transitions, how the jokes land). It never reuses the\n footage, characters, logos or assets.\n・Characters are original unless you bring your own designs, in which case it follows yours.\n・Anything it finds online gets logged with its source, author and license. Unclear licenses are flagged.\n・Lyrics only come from text you give it. It won't download commercial songs.\n・What you do with the videos is up to you, so make sure you have the rights.\n\nLicense\n\nThe code is MIT. Third-party skills and assets bundled here keep their own licenses, listed in\nTHIRDPARTYNOTICES.md.",
+      "preScore": 0.8864444444444446,
+      "popularityPercentile": 0.7111111111111111,
+      "matchedTopics": [
+        "JavaScript",
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "reelmimic — 動画の雰囲気を再現する制作基盤",
+      "oneLiner": "reelmimicは好きな動画の作風をAIエージェントと再現する制作ツールだ。",
+      "takeaways": [
+        "好きな動画を見本に新しい動画を作れる。",
+        "計画から実装と確認までAIが分担する。",
+        "Claude CodeやCodexを制作チームとして使う。"
+      ],
+      "keywords": [
+        "reelmimic",
+        "Claude Code",
+        "OpenAI Codex",
+        "AIエージェント",
+        "AI動画",
+        "JavaScript"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 2,
+      "deep": {
+        "summary": "ReelMimicは、参照動画の編集リズム、ショット長、トランジション、色、構図、カメラ移動を分析し、別の内容を同じ作風で作るローカル実行の動画制作アプリです。動画ファイル、スマホ録画、YouTubeリンクと1行の brief を渡すと、まず storyboard・characters・assets・style frames を含む計画を提示します。承認後は最大6個の AI agents がショットを並行制作し、別の agent が各ショットをレビューし、必要なら before / after screenshots 付きで修正します。制作には手元の Claude Code または Codex CLI の利用量を使い、30〜60秒の動画で承認後1〜3.5時間かかります。Node.js 22.18+、Python 3.10+、FFmpeg、Chrome、ログイン済みの Claude Code または Codex CLI が必要です。",
+        "prerequisites": [
+          {
+            "term": "ReelMimic",
+            "stumblingPoint": "記事は「参照動画を分解してAI agentsが制作する」と書くが、何を入力し、どこで承認するのかが最初は掴みにくい。",
+            "explanation": "ReelMimicは、参照動画と作りたい内容を入力し、分析結果から生成計画を確認してから制作を始めるWebアプリです。いきなり完成動画を一発生成するのではなく、計画へのチャット修正とApproveを挟みます。そのため、最初に用意するのは完成台本ではなく、真似したい動画と短い制作指示です。"
+          },
+          {
+            "term": "reference video",
+            "stumblingPoint": "「reference videoから同じstyleを作る」とあるが、元動画の何を再利用するのか読み違えやすい。",
+            "explanation": "reference videoは素材をコピーする入力ではなく、pacing、framing、transitions、colors、camera movesを学習する見本です。元のfootage、characters、logos、assetsは引き継がれません。したがって、既存映像の内容を置き換えた新作を作る用途であり、映像そのものの加工ツールではありません。"
+          },
+          {
+            "term": "AI agents",
+            "stumblingPoint": "「最大6個のAI agentsが同時に働く」とあるが、生成とレビューの役割分担が読み取りにくい。",
+            "explanation": "AI agentsは、動画の別々の部分を担当する作業単位です。最大6個が異なるパートを並行制作し、完成した各ショットは別のagentに渡されます。作った本人が自分の成果を採点しないため、問題があればレビュー結果とbefore / after screenshotsを根拠に修正へ戻ります。"
+          },
+          {
+            "term": "Claude Code",
+            "stumblingPoint": "「自分のClaude CodeまたはCodexで動く」とあるが、ReelMimic専用のAPIキーが必要なのか判断しにくい。",
+            "explanation": "Claude Codeは、ReelMimicが制作作業を依頼する手元のAIコーディングエージェントです。記事ではClaude CodeまたはCodex CLIにログイン済みであることを前提にし、リポジトリ側のskillsをClaude Codeが自動認識するとしています。つまり、別の生成APIを追加するのではなく、選択したCLIのアカウント利用量で処理します。"
+          },
+          {
+            "term": "Codex CLI",
+            "stumblingPoint": "Codex CLIを使う場合だけ「AGENTS.md」や「CODEXSANDBOX」が出てきて、実行権限の意味が分かりにくい。",
+            "explanation": "Codex CLIはClaude Codeの代わりに制作を実行するCLIです。リポジトリのAGENTS.mdを読み、CODEXSANDBOXでsandbox modeを指定できます。既定値はdanger-full-accessで、workspace-writeではChrome rendererが動かないと説明されているため、最初の動作確認ではsandbox設定が詰まりどころになります。"
+          },
+          {
+            "term": "seven drawing engines",
+            "stumblingPoint": "「seven drawing engines」とあるが、参照動画をどの種類の描画で再現するのかが分からない。",
+            "explanation": "seven drawing enginesは2D動画を描くための7種類の実装です。vector / motion graphics、hand-painted watercolor、crayon picture book、pixel art、paper cut-out stop-motion、whiteboard doodle、anime celがあり、未知の作風には最も近いengineを使って新styleの提案を書きます。実写の人物動画を生成する仕組みではありません。"
+          },
+          {
+            "term": ".reelmimic/secrets.json",
+            "stumblingPoint": "API keysやツールのパスを「.reelmimic/secrets.json」に置くとあるが、リポジトリ内に保存するのか迷う。",
+            "explanation": ".reelmimic/secrets.jsonはリポジトリの外側に置く設定ファイルです。記事ではコミットされない場所として説明され、YATINGKEY、任意のPIXABAYKEYやFREESOUNDKEY、FFMPEGDIR、CHROMEPATH、CODEXBIN、PYTHONなどを設定できます。まずはPATH上のツールとOpenverseを使えば、任意キーなしで試せる範囲があります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "動画制作の経路",
+          "layers": [
+            {
+              "label": "入力",
+              "nodes": [
+                {
+                  "name": "reference video",
+                  "note": "ファイル・録画・YouTubeリンク",
+                  "highlight": false
+                },
+                {
+                  "name": "one-line brief",
+                  "note": "作りたい内容の指示",
+                  "highlight": false
+                }
+              ],
+              "via": "分析結果"
+            },
+            {
+              "label": "計画",
+              "nodes": [
+                {
+                  "name": "breakdown",
+                  "note": "リズム・色・構図を抽出",
+                  "highlight": false
+                },
+                {
+                  "name": "storyboard",
+                  "note": "制作前にチャットで修正",
+                  "highlight": true
+                }
+              ],
+              "via": "Approve"
+            },
+            {
+              "label": "制作",
+              "nodes": [
+                {
+                  "name": "AI agents",
+                  "note": "最大6個が並行制作",
+                  "highlight": true
+                }
+              ],
+              "via": "ショットとレビュー"
+            },
+            {
+              "label": "出力",
+              "nodes": [
+                {
+                  "name": "review agent",
+                  "note": "別agentが各ショットを確認",
+                  "highlight": false
+                },
+                {
+                  "name": "new 2D video",
+                  "note": "修正後の完成動画",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "好きな動画と一行の指示から、別内容の同作風2D動画を作れる",
+          "完成前のStoryboardをチャットで直し、複数agentで制作・レビューできる"
+        ],
+        "howToTry": [
+          "https://github.com/edenfunf/reelmimic",
+          "Node.js 22.18+、Python 3.10+、FFmpeg、Chrome、Claude CodeまたはCodex CLIを用意する。",
+          "リポジトリのREADMEに記載されたinstall scriptを実行する（記事本文ではコマンドが欠落）。",
+          "ブラウザで起動したReelMimicのhome pageを開き、参照動画をドロップするかYouTubeリンクを貼る。",
+          "作りたい動画を一行で入力し、Claude CodeまたはCodexを選択する。",
+          "breakdownとplanを確認し、必要なら右側のchatで修正してApprove and startを押す。"
+        ],
+        "fitFor": [
+          "2Dアニメーションをローカルで生成したいとき",
+          "参照動画の作風だけを学習した新作を作りたいとき",
+          "Claude CodeまたはCodex CLIの利用枠を使えるとき"
+        ],
+        "notFor": [
+          "実写の人物動画を生成したいとき",
+          "元動画の映像・キャラクター・素材をそのまま再利用したいとき",
+          "30〜60秒の制作に1〜3.5時間を待てないとき"
+        ],
+        "caveats": [
+          "Claude Code/Codexの利用量を消費し、処理中に上限で停止することがある"
+        ],
+        "tryPrompt": "# 試すこと\n参照動画から作風を分析し、Storyboardを確認して2D動画制作を開始する。\nhttps://github.com/edenfunf/reelmimic\n\n# 手順\n1. `git clone https://github.com/edenfunf/reelmimic.git`\n2. `cd reelmimic`\n3. READMEに記載されたinstall scriptを確認し、そのコマンドを実行する（記事本文ではコマンドが欠落）。\n4. `node --version && python3 --version && ffmpeg -version && google-chrome --version`\n5. Claude CodeまたはCodex CLIにログインする（手動）。\n6. READMEの起動手順でWebアプリを起動する。\n7. ホーム画面に参照動画を投入し、「同じテンポの手描き絵本風で、雨の日の猫が本を探す30秒動画」と入力する。\n8. breakdownとStoryboardを確認し、必要なら右側のchatで修正する。\n9. Approve and startを押す。\n\n# 確認したいこと\n- READMEの手順だけでinstallからWeb画面表示まで到達できるか\n- 参照動画からショット長、色、構図、カメラ移動が抽出されるか\n- Production lineで各ショットのレビュー結果を確認できるか\n\n# 前提・注意\n- Node.js 22.18+、Python 3.10+、FFmpeg、Chromeが必要。\n- Claude CodeまたはCodex CLIはログイン済みであること。\n- Windows中心にテストされ、macOS/Linuxは検証が少ない。\n- 初回制作は30〜60秒で1〜3.5時間かかる場合がある。"
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIでPRが1000本出る時代、人間が全部レビューするの無理じゃない？",
+      "url": "https://qiita.com/kayowa/items/1aa370525d33d9e0f653",
+      "publishedAt": "2026-10-02T01:51:09.000Z",
+      "author": "kayowa",
+      "authorDetail": {
+        "name": "kayowa",
+        "handle": "@kayowa",
+        "url": "https://qiita.com/kayowa",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4510456/2159961e84cd29e03406663008ab575b358a89fc/large.png?1790903942",
+        "followers": 0,
+        "posts": 1,
+        "links": []
+      },
+      "tags": [
+        "生成AI",
+        "コードレビュー",
+        "自動化",
+        "個人開発",
+        "ポエム"
+      ],
+      "snippet": "はじめに AIコーディングを使い始めてから、ずっと引っかかっていたことがあります。 「AIで開発速度が何倍にも上がる」と言われる一方で、最後にはだいたいこう言われます。 最終的な判断と責任は人間が持つ。 それ自体は正しいと思います。 でも、AIが人間よりはるかに速くコードを書き、Issueを処理し、PRを作れるようになったとき、そのPRを人間が全部読んで判断する運用は本当にスケールするのか？ という疑問が残りました。 もしAIが1日に100本、1000本と変更を作れるなら、人間がその全部をコードレビューするモデルは、AIではなく人間がボトルネックになります。 そこで逆に考えました。 人間が本当に決めなければならないことだけ残して、それ以外はAIに持たせられないか。 その実験として作ったのが Human-on-Exception です。 きっかけは「それ、人間がやる必要ある？」だった 普段は…",
+      "body": "はじめに\n\nAIコーディングを使い始めてから、ずっと引っかかっていたことがあります。\n\n「AIで開発速度が何倍にも上がる」と言われる一方で、最後にはだいたいこう言われます。\n最終的な判断と責任は人間が持つ。\n\nそれ自体は正しいと思います。\n\nでも、AIが人間よりはるかに速くコードを書き、Issueを処理し、PRを作れるようになったとき、そのPRを人間が全部読んで判断する運用は本当にスケールするのか？ という疑問が残りました。\n\nもしAIが1日に100本、1000本と変更を作れるなら、人間がその全部をコードレビューするモデルは、AIではなく人間がボトルネックになります。\n\nそこで逆に考えました。\n\n人間が本当に決めなければならないことだけ残して、それ以外はAIに持たせられないか。\n\nその実験として作ったのが Human-on-Exception です。\n\nきっかけは「それ、人間がやる必要ある？」だった\n\n普段はWebエンジニアとして働きつつ、個人でもAIを使った開発をいろいろ試していました。\n\nAIを使って実装を進めているうちに、コードを書くことだけでなく、設計、Issue分割、テスト、ドキュメント更新、PR修正までかなりAIに任せられることが分かってきました。\n\nそこで、今までテックリードやエンジニアの価値だと思っていたものに対して、何度も同じ疑問が出ました。\n・アーキテクチャを考えるのは、毎回人間である必要があるのか\n・DDDやレイヤ分割を適用するのは、人間の仕事である必要があるのか\n・Issueを分割して依存順を決めるのは、人間がやらないといけないのか\n・単体テストやドキュメントを人間が細かく読む必要があるのか\n・PRを人間が1行ずつレビューしないと「責任を持った」と言えないのか\n\nもちろん、AIは間違えます。\n\nでも人間も間違えます。テストも100%ではありません。レビューを増やしても、不具合が完全にゼロになることはありません。\n\nだったら目指すべきは「絶対に失敗しない開発」ではなく、\n\n意味を勝手に変えないこと、失敗を検知できること、検知したら修正できること、そしてそのループを人間の注意力に依存しすぎないこと\n\nなのではないか、と考えるようになりました。\n\nHuman-on-Exception の基本方針\n\nHuman-on-Exception の一番大きなルールはこれです。\nHumans decide intent and boundaries. AI owns execution.\n\n日本語にすると、\n\n人間は意図と境界を決める。AIは実行を持つ。\n\nという考え方です。\n\n人間が決めるのは、主に次のようなものです。\n・何を作りたいか\n・どこまでを今回のScopeにするか\n・複数の意味が成立する場合、どれを正とするか\n・何を同じ意味として扱い、何を別概念として残すか\n・セキュリティ、プライバシー、コストなどのリスクを許容するか\n\n逆にAI側が持つのは、\n・repositoryの調査\n・設計\n・Issue作成と分割\n・実装\n・テスト\n・静的解析\n・ドキュメント更新\n・PR作成\n・レビュー指摘の分類と修正\n・再検証\n\nです。\n\nつまり、「人間が最後に全部読む」のではなく、AIが決めてはいけない意味だけを人間へ返すようにしています。\n\n最初はレビュー工程だけを強くすればよいと思っていましたが、実際には要件の曖昧さ、仕様補完、更新漏れ、再検証、マージ条件まで含めて設計する必要がありました。\n\nまず、普通の開発工程をそのまま分解した\n\nHuman-on-Exceptionがやっているのは、開発工程そのものをなくすことではありません。\n\n各工程で、人間が本当に必要なところだけ残すことです。\n\n1. 要件を決める — 何を作るか・どこまで作るか（Intent / Scope）を人間が決める\n2. 仕様を決める — AIがrepositoryを調べ、意味が分かれるところだけ人間に質問する\n3. コードを書く — AIが設計・実装・テスト・docs更新まで行う\n4. レビューする — 実装AIとは別contextのAIが、diffと変更されるべき範囲を確認する\n5. マージ条件を確認する — tests、docs、survey、review、最新headのchecksなど、必要な証拠が揃ったらマージする\n\nこの中で、人間に戻す必要がある判断を切り出すのがQuestionsです。\n\nQuestions は「分からないこと一覧」ではない\n\nこの仕組みで重要なのが Questions です。\n\n最初は自分も、AIが分からないことを人間に質問するためのファイルとして作っていました。\n\nただ、使っていくうちに変わりました。\n\n今は、\n\nQuestions = AIに決定権がないことだけを人間へ返すための「判断待ち一覧」\n\nとして扱っています。\n\nたとえば、frameworkの構成、file placement、普通のlayer分割、transactionの張り方などは、repositoryのルールからAIが決められるなら人間に聞きません。\n\n一方で、\n\n「この記録は後からマスターが変わったとき、過去の確定記録まで意味が変わるのか？」\n\n「この操作は本人の記録なのか、代理で登録する記録なのか？」\n\nのように、ユーザーへの約束そのものが変わる場合は人間へ戻します。\n\nここで前提にしているのは、要件定義の粒度は人によってかなり違うということです。\n\n数行の箇条書きだけ渡す人もいれば、画面仕様やAPI、DB設計までかなり細かく決めてから渡す人もいます。Human-on-Exceptionでは、人間に最初から「正しい粒度の要件書」を書くことは求めません。\n\n入力が粗ければ、AIがrepositoryや既存ルールを調べたうえで、実装可能になるまで不足している意味の決定だけをQuestionsとして切り出します。逆に、すでに十分決まっている部分はそのまま使います。\n\nつまり、入力の粒度を人間側で揃えるのではなく、途中で実装可能な仕様契約（Decision Contract）の粒度へそろえるイメージです。\n\n \n\n \n\n最初に渡した要件はこの程度でした。DB設計やAPI設計、Issue分割までは指定していません。\n\n \n\nこのPromptから、AIは「収入を月次収支に含めるか」「クレジットカードを資産として扱うのか支払手段として扱うのか」「利用月と支払月のどちらを集計基準にするか」「レシート画像を保存するか」といった、実装ではなくプロダクトの意味が変わる論点をQuestionsとして出しました。\n\n \n\n \n\nたとえば『8月に利用して9月に支払うカード明細を、どちらの月の支出として扱うか』は、実装方法ではなく家計簿の集計ルールそのものなので、人間へQuestionとして返します。\n\n \n\nここで面白かったのは、最初のQuestionsに全部答えたら終わりではなかったことです。\n\nたとえば「収入も扱う」と回答すると、今度は「収入には何を必須項目とするか」「支出カテゴリと収入カテゴリは同じ概念なのか」という新しい論点が生まれます。\n\nそのため Human-on-Exception では、\n\nQuestions → Answers → 再調査 → 必要なら追加Questions\n\nを、意味の未決がなくなるまで繰り返します。\n\n「元の質問に全部答えたから仕様確定」という扱いにはしていません。\n\n5つのPromptは、その工程を動かす入口\n\n実際の操作用には5つのPromptを用意しています。\n\n1. Define Questions — 要件から仕様上の未決を探し、人間にしか決められない論点を抽出\n2. Apply Answers / Create Issue — 回答を仕様・受け入れ条件（AC）へ落とし、再調査して未決事項が0ならIssue化\n3. Implement Issue / PR — コード、テスト、docs、PRまでAIが実行\n4. Resolve PR Review Findings — 別AIのレビュー指摘を「修正が必要」「誤検知」「人間判断が必要」に分類し、修正と再検証を行う\n5. Merge — テスト、ドキュメント、survey、レビュー、最新コミットのチェック結果など、マージ条件を確認してmerge\n\n重要なのは、これを「5回人間が承認するワークフロー」にはしていないことです。\n\nすでに許可された工程はAIが継続します。人間へ戻すのは、意味やリスクの判断が新しく必要になったときだけです。\n\n「最後は人間が責任を持つ」をどう解釈したか\n\n自分が一番モヤモヤしていたのは、「責任を持つ = 最後に人間がコードを全部読む」になっていないかということでした。\n\nAI開発における人間の責任を、\n\n何を正しいとするか、どこまで自動で進めてよいか、どのリスクを許容するかを決めること\n\nと捉えるなら、コードレビューそのものを人間の必須ゲートにする必要はありません。\n\nその代わりに、人間の目視に依存しすぎず品質を確認できる仕組みを重ねます。\n\nテストを信仰しない。でもテストは重要\n\nテストだけで100%の正しさは証明できません。仕様が間違っていれば、その間違いを正しくテストすることもできます。\n\nなので、1つの検証方法に全部を背負わせません。\n・Questions / AC — 何が正しいかを定義\n・System Test / FE contract — 外から見える振る舞いを確認\n・Unit test / static analysis — 内部の破壊を拾う\n・Independent AI Review — テストで想定していない穴を探す\n・omitted-file audit / docs — 更新漏れや契約の不整合を確認\n\nテストを減らすのではなく、人間がテストの細部を全部読む必要をなくす方向です。\n\n独立AIレビューは「同じチャットでセルフレビュー」ではない\n\nreviewerは実装AIとは別session / 別contextで動かします。\n\n見るのはPRのdiffだけではありません。今回の変更なら本来どのファイルまで更新されるべきかを先に考え、diffにないtest、API type、fake、flow/UI/validation/DB docsまで確認します。\n\nこれをSoT and omitted-file auditと呼んでいます。CIがgreenでも拾いにくいrace conditionや、frontend/backend間の解釈差、assert漏れなどが見つかることがあります。\n\nAI reviewerも100%ではないので、独立性の違う複数の検証を重ね、未実施・pending・確認不能を成功扱いしないようにしています。\n\nrepository全体を毎回読ませない\n\n長時間AI開発ではcontext量も問題になります。\n\nそのため、基本の入口を\n\ncore feature → Pack / Flow → テスト → 実装 → 必要なルール\n\nに絞っています。Packは、AIに必要な実装コンテキストを狭く渡すための索引です。\n\n情報の役割も分けています。conceptは目的、ADRは設計判断、Policyは反復基準、Questionsは意思決定履歴、Issue ACは今回のtarget contract、code/tests/docsは現在の挙動を持ちます。\n\ncurrent state と「変更後の正解」を分けた\n\n既存repositoryでは、実装 → システムテスト → Flow → coverageの順で「今どうなっているか」を確認します。\n\nただし、それを「今後もそうあるべき」の根拠にはしません。変更後の正解は、受け入れ済みの回答 / Issue AC + 有効な決定事項です。\n\nこれを分けないと、既知bugまで「現在のSoTだから正しい」と保存してしまいます。\n\nこれで人間が不要になる、とは思っていない\n\nHuman-on-Exceptionは「人間はいらない」という話ではありません。\n\nむしろ、人間の注意力を、本当に人間にしか決められない場所へ集中させたいという発想です。\n\nまだ課題もあります。\n・複数AIエージェントを並列実行したときの競合\n・長期運用で増えるADR / Policyの整理\n・property-based testやfuzzingなど、追加できる機械的検証\n・modelやtoolが変わってもrulesが同じように守られるか\n・AIそのものの見落とし\n\n「完全自動開発が完成した」とは思っていません。\n\nただ、少なくとも自分の個人開発では、人間がコードを書き、全diffを読み、全testを確認しないと開発できないという前提はかなり崩れました。\n\nおわりに\n\n Human-on-Exception を作り始めた理由を一言でいうと、たぶんサボりたかったからです。\n\n100行の要件を毎回全部読みたくない。\n\n大量のdiffを全部レビューしたくない。\n\ndocsの同期漏れを目視で探したくない。\n\nunit testのためだけに本番コードを歪めたくない。\n\nでも、雑にAIへ丸投げして壊れるのはもっと嫌でした。\n\nだから、意味のある判断だけ人間がする。意味のない作業はできるだけAIへ渡す。\n\nその方向で半年ほど個人開発を続けた結果、今の形になりました。\n\nAIがどこまでエンジニアの仕事を変えるのかは、自分にもまだ分かりません。\n\nただ、AIが速くなるほど「人間が全部を見る」開発モデルは苦しくなると思っています。\n\nだったら、人間を高速化するだけではなく、人間が見る必要のあるもの自体を減らす開発プロセスを考えてもいい。\n\nそのための自分なりの実験です。\n\n使ってみた感想も、「ここは危ないんじゃないか」というツッコミも歓迎です。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "fbefef35da3aa75e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.06040037243947849,
+      "popularityPercentile": 0.7821229050279329,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 90,
+      "titleJa": null,
+      "oneLiner": "AIが大量に作る変更を人間が全件確認する限界に対し例外だけ人が判断する運用を提案している。",
+      "takeaways": [
+        "AIが大量の変更を作ると人間の確認が詰まる。",
+        "重要な判断だけ人に残す仕組みを試している。",
+        "通常の変更は自動で進め問題時だけ人が介入する。"
+      ],
+      "keywords": [
+        "生成AI",
+        "Human-on-Exception",
+        "コードレビュー",
+        "AIコーディング",
+        "プルリクエスト"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "全件を人が確認するか例外だけ確認するか",
+        "forSide": "AIが1日に1000本の変更を作るなら全件確認は人間をボトルネックにする。",
+        "againstSide": "小さな見落としが本番障害になるなら例外の判定自体を人に任せるのは危険だ。",
+        "oneSided": true,
+        "yourAngle": "AIエージェントが作る変更の件数と手戻りを業務で実測できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "この記事は、AIが大量の実装とPRを生成する前提では、人間が全diffを読むレビュー工程が新たなボトルネックになるという問題提起です。提案する Human-on-Exception は、人間が意図・Scope・意味・リスクの境界を決め、AIが調査、設計、実装、テスト、PR、修正まで実行する開発モデルです。AIに決定権がない論点だけを Questions として人間へ返し、回答を Decision Contract として仕様・受け入れ条件へ反映します。実装後は Independent AI Review、テスト、静的解析、SoT and omitted-file audit、docsなど複数の証拠を組み合わせ、条件が揃えば人間の全件レビューなしでマージします。著者自身も、AIの見落としや並列実行時の競合などが残るため、完全自動化ではなく人間の注意を意味の判断へ集中させる実験だと位置づけています。",
+        "prerequisites": [
+          {
+            "term": "Human-on-Exception",
+            "stumblingPoint": "記事は Human-on-Exception を提示するが、単なるAI自動化やレビュー省略との違いが読み取りにくい。",
+            "explanation": "Human-on-Exception は、通常の工程を消すのではなく、人間へ戻す条件を例外に限定する運用モデルです。人間は意図、Scope、意味、リスクの許容範囲を決めます。AIはその範囲内で設計から検証まで進め、判断が新しく必要になった場合だけ処理を止めます。したがって、レビューを無条件に省く考えではなく、人間の判断点を前段の境界設計へ移す考えです。"
+          },
+          {
+            "term": "Decision Contract",
+            "stumblingPoint": "記事は入力を Decision Contract の粒度へそろえると書くが、要件書やIssue ACと何が違うのか分かりにくい。",
+            "explanation": "Decision Contract は、AIが実装を進めるために未決の意味を人間が確定した仕様契約です。最初から詳細なDB設計やAPI設計を書くものではなく、粗い要件をAIが調査し、プロダクトの意味が分かれる箇所だけを決定可能な形へ変換します。その回答がIssueの受け入れ条件や後続の検証基準になります。"
+          },
+          {
+            "term": "Questions",
+            "stumblingPoint": "記事は Questions を「判断待ち一覧」と呼ぶが、単なるAIの疑問点リストではないことに注意が必要です。",
+            "explanation": "Questions は、AIが知らないことを網羅するメモではなく、AIに決定権を与えていない論点だけを並べる一覧です。repositoryの規約や既存実装から決められるfile placementやlayer分割は、質問として返しません。一方、利用月と支払月のどちらを採用するかのように、ユーザーへの約束が変わる論点は人間に戻します。回答後も新しい意味の分岐が生じれば、追加のQuestionsを作ります。"
+          },
+          {
+            "term": "Independent AI Review",
+            "stumblingPoint": "記事は Independent AI Review を使うが、実装AIによる同じ会話内のセルフレビューとの違いが重要です。",
+            "explanation": "Independent AI Review は、実装AIとは別session・別contextのAIが変更を検証する工程です。diffだけでなく、本来更新されるべきtest、API type、fake、UI、validation、DB docsなどを推定し、抜けたファイルも確認します。同じ文脈のセルフレビューより、実装時の思い込みから距離を置ける点が狙いです。ただし、記事はこのレビュー自体も100%ではないとしています。"
+          },
+          {
+            "term": "SoT and omitted-file audit",
+            "stumblingPoint": "記事に出てくる SoT and omitted-file audit は、変更されたファイルのレビューだけではない。",
+            "explanation": "SoT and omitted-file audit は、今回の変更で正しさの根拠になる情報源と、更新されるべきなのにdiffから漏れたファイルを確認する考え方です。CIがgreenでも、frontend/backend間の解釈差、assert漏れ、docsやAPI typeの更新漏れは残り得ます。そのため、変更行の品質だけでなく、変更範囲の完全性を検証します。"
+          },
+          {
+            "term": "current state",
+            "stumblingPoint": "記事は current state と変更後の正解を分けるが、既存コードをそのまま仕様とみなす危険が前提になっています。",
+            "explanation": "current state は、repositoryが現在どのように動いているかを示す状態です。既知bugや暫定挙動も含み得るため、変更後も維持すべき正しさとは限りません。記事では、変更後の正解を受け入れ済みの回答、Issue AC、有効な決定事項から定義します。この区別がないと、AIが既存の不具合を仕様として保存してしまいます。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "例外返却型開発",
+          "layers": [
+            {
+              "label": "人間の境界",
+              "nodes": [
+                {
+                  "name": "Intent / Scope",
+                  "note": "目的と対象範囲",
+                  "highlight": true
+                },
+                {
+                  "name": "リスク許容",
+                  "note": "意味と危険の判断",
+                  "highlight": true
+                }
+              ],
+              "via": "Decision Contract"
+            },
+            {
+              "label": "判断の返却",
+              "nodes": [
+                {
+                  "name": "Questions",
+                  "note": "未決の意味だけ返す",
+                  "highlight": true
+                }
+              ],
+              "via": "回答・追加質問"
+            },
+            {
+              "label": "AIの実行",
+              "nodes": [
+                {
+                  "name": "設計・実装",
+                  "note": "コードとIssueを作る",
+                  "highlight": false
+                },
+                {
+                  "name": "検証・PR",
+                  "note": "テストと修正を行う",
+                  "highlight": false
+                }
+              ],
+              "via": "diff・checks・docs"
+            },
+            {
+              "label": "マージ判断",
+              "nodes": [
+                {
+                  "name": "証拠の確認",
+                  "note": "条件が揃ったか確認",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "記事本文",
+            "url": "https://qiita.com/kayowa/items/1aa370525d33d9e0f653"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "レビューの担い手",
+            "claim": "AIが速くなるほど、人間の全diffレビューはボトルネックになる。",
+            "counter": "人間の全件確認を外すと、AIが見逃した意味の変更を止めにくい。",
+            "counterInArticle": true
+          },
+          {
+            "point": "テストへの依存",
+            "claim": "複数の検証を重ねれば、人間がテストの細部を読む必要を減らせる。",
+            "counter": "仕様自体が誤っていれば、テストも誤った仕様を正しく検証する。",
+            "counterInArticle": true
+          },
+          {
+            "point": "AIレビューの独立性",
+            "claim": "別contextのAIレビューで、diffにない更新漏れや想定外の穴を探せる。",
+            "counter": "AIレビューも100%ではなく、見落としや確認不能を成功扱いできない。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AI生成PRの量とレビュー時間",
+            "why": "Claude CodeやOpenAI CodexでPRを作る日常があり、生成本数と人間の確認時間を実測できる。"
+          },
+          {
+            "angle": "例外レビューの見逃し率",
+            "why": "React / Next.js / TypeScriptの変更で、全diff確認と自動検証中心の運用を比較できる。"
+          },
+          {
+            "angle": "frontend/backend間の契約漏れ",
+            "why": "フルスタック開発者としてAPI type、validation、UI、テストの更新漏れを横断して追える。"
+          }
+        ],
+        "verify": [
+          "直近のAI生成PRで、diff行数、レビュー時間、指摘数、手戻り数を記録し、人間レビュー負荷を比較する。",
+          "同じ変更を別contextのAIにレビューさせ、diff外の更新漏れと既存テストが未検出だった問題を分類する。"
+        ]
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Every SaaS business will become a harness around a model",
+      "url": "https://blog.sshh.io/p/the-harness-is-the-company",
+      "publishedAt": "2026-10-02T21:06:56.000Z",
+      "author": "iacguy",
+      "authorDetail": {
+        "name": "iacguy",
+        "handle": "iacguy",
+        "url": "https://news.ycombinator.com/user?id=iacguy"
+      },
+      "tags": [],
+      "snippet": "Every SaaS business will become a harness around a model, whether or not they’ve realized it yet.Narrowly, folks will often associate a “harness” with frameworks like LangGraph or coding agents like Codex, Claude Code, or OpenCode, which wrap a stateless model API in enough tooling and state that you can actually get work done.I’m using the term “harness” broadly to mean all the infra, interfaces,…",
+      "metrics": {
+        "points": 85,
+        "comments": 62
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "962b889d801e7ba5",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.209,
+      "popularityPercentile": 0.95,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "SaaSはモデルを囲むハーネスになる",
+      "oneLiner": "SaaSの価値が独自機能の集合からAIモデルを業務で使える形に整える仕組みへ移るという見方を示している。",
+      "takeaways": [
+        "SaaSの中心が独自機能からAI活用へ移る。",
+        "製品はAIを業務に組み込む枠組みになる。",
+        "競争力はモデル以外の使いやすさに集まる。"
+      ],
+      "keywords": [
+        "SaaS",
+        "AIモデル",
+        "ハーネス",
+        "プロダクト戦略",
+        "Hacker News"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "独自機能で差別化するかAIの使い方で差別化するか",
+        "forSide": "モデルを業務へ安全に組み込む運用や体験がSaaSの新しい価値になる。",
+        "againstSide": "モデル提供者が機能を吸収すれば外側の製品は簡単に置き換えられる。",
+        "oneSided": true,
+        "yourAngle": "自社プロダクトでAI本体以外に必要な認証や運用機能を洗い出せる。"
+      },
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "durable",
+      "imageUrl": "https://substackcdn.com/image/fetch/$s_!DMig!,w_1200,h_675,c_fill,f_jpg,q_auto:good,fl_progressive:steep,g_auto/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fd8cf3fdf-c311-47d0-b42d-f75864c4dd68_1620x897.png",
+      "body": "Every SaaS business will become a harness around a model, whether or not they’ve realized it yet.Narrowly, folks will often associate a “harness” with frameworks like LangGraph or coding agents like Codex, Claude Code, or OpenCode, which wrap a stateless model API in enough tooling and state that you can actually get work done.I’m using the term “harness” broadly to mean all the infra, interfaces, context, and state that surround a stateless LLM. A harness can be composed of adapted or task-specific sub-harnesses (with the orchestrator being called a “meta-harness”). A “software factory” is a harness whose parts are smaller harnesses — one that writes specs, one that writes code, one that reviews — plus something on top deciding what runs when.If you accept this broader definition (or replaceAll “harness” with whatever phrase you’d prefer), I suspect for many software service businesses you’ll see this trajectory:They sell software services built the traditional SaaS-y way. No harness.They sell software services, but the engineers pair with agents to get the work done. Increasingly other functions like product and sales pair with agents for productivity. Individuals operate harnesses.They sell software services with many core tasks moving to background agents running in the cloud (a laptop can’t run twenty of them). Engineering, product, and sales all trigger these agents (i.e. write the prompts) and review the outputs. Individuals orchestrate harnesses.They sell software services with many core tasks moving to proactive background agents, with engineering, product, and sales moving to reviewing agent outputs. Consistent reviews move to sampled reviews. Increasingly the agents decide what to do proactively, instead of humans designing the work up front. Harnesses orchestrate individuals.Following this trajectory, you’ve actually turned your company into a harness. The work to produce the software service has moved from people to the harness.Core tasks are done by agents and the “product” is now entirely model output, with the company supplying the context, integrations, and human-facing review interfaces.The relationship between software and org structure has inverted as the org chart becomes a question of where to put people so the harness gets the most taste and judgment out of them. Humans are part of the harness.The company’s domain knowledge, tooling, permissions, review loops, context, etc. all become the business harness.It’ll be tempting to think that products that are primarily crafted and reviewed by AI will be inherently low quality and that building through a harness instead of through people will produce a slop factory at scale. I think that belief assumes a company run this way is lights-out.The core mitigation is actually having the harness pick where human inputs matter most. For example:A product decision could come from an agent fanning out questions to reps in customer meetings and then synthesizing a product demo for the product lead to reviewA feature suggestion pulled from a customer meeting is turned into a major architectural decision presented to an engineering taste-holder by the agent.A UI redesign kicks off after aggregating feedback, and after testing a few variants, the top options are presented to a design taste-holder.A good harness maximizes value to the customer while spending human attention — employees’ and customers’ — only where it’s needed.If you are still skeptical, that’s fair. Even with today’s frontier models and a well-crafted harness, it’s quite difficult to trust agents to handle the outer loop like this (we’ve spent a lot of time trying). I just don’t think it’s worth betting that models won’t be able to eventually do this, especially as more of this planning-and-review work gets broken into tasks with verifiable rewards that labs can train on.To explore more on what an organization of “taste-holders” could look like, see The Transposed Organization. This post builds quite a bit on the ideas laid out in that article.Depending on the service, the differentiation a company has often comes from things like trust, distribution, efficacy, and domain context. In a proactive background agent world, your ability to construct the harness — how it learns, what it watches for, how it interfaces with human taste-holders, what systems it integrates with — will more and more be how you maintain that differentiation.The harness is now what shapes what must be true for work to ship (~trust), how fast and how the products land (~distribution), the speed and context of feedback loops (~efficacy), and how institutional knowledge is ingested and maintained (~domain context).Harnesses go from internal tooling you’d happily buy to something you’d no more outsource than your product-eng org or your GTM team. This is distinctly different from the pre-AI world, where outputs were mostly bounded by the humans using the software to get things done.I think in-house AI developer tools (like the ones we’ve seen from Ramp, Stripe, DoorDash, etc.) are the beginning of this. For AI-pilled companies, waiting for an SDLC tool vendor to add an integration, support a certain interface, or reach a level of cost-efficacy increasingly bottlenecks their ability to build and maintain their product. This is especially true in the short term for third-party tools that can’t yet run an enterprise’s whole software factory for it (often because the tech stack is too bespoke, governance too restrictive, critical feature support too slow, or due to a preferred cost model). I don’t expect everything to be built and maintained in-house. Rather, companies should own the top-level harness — the one that decides what to build and reviews what comes back — and plug vendor products into it for specific workflows. Eventually a third party will get pretty good at an enterprise-level “spec to tested pull request” and at that point a company can swap out that part of the software loop with that product while still maintaining the agent(s) that write the input spec and handle the next steps from pull request output.If somehow the entire outer loop can be done by a third-party harness (i.e. running the entire business via proactive background agents as a service), then I’d argue the business has now been commoditized.If this is the right mental model, you should expect to see:An unusual amount of in-house harness building on both the build side and the sell sideOrg structures and individual roles being reshaped around their place in the business harnessAI-native startups beating incumbents in domains where the “moat” can be easily harness-ifiedAll software a software company uses (on or tied to the core build or sell paths) needing to be headless so the outer harness can run itNo posts",
+      "rank": 2,
+      "deep": {
+        "summary": "記事は、SaaS企業が単なる画面や機能の提供者から、stateless LLMを業務に組み込むharnessそのものへ変わるという見立てを示す。harnessはモデルを囲むインフラ、インターフェース、コンテキスト、状態、権限、レビューの仕組みであり、複数のsub-harnessを束ねるmeta-harnessにもなり得る。業務の中心が人からagentへ移ると、人は実装者ではなくtaste-holderとして、重要な判断や出力レビューに配置される。差別化の源泉も、信頼、流通、効果、ドメイン知識をharnessへどう組み込むかに移る。記事は、企業が最上位のharnessを自社で持ち、個別ワークフローは外部ベンダーの製品に差し替える構成を提案し、ソフトウェアは外部から操作できるheadlessな形になると予測している。",
+        "prerequisites": [
+          {
+            "term": "harness",
+            "stumblingPoint": "記事は「会社をharnessに変える」と書くが、単なるAIツール導入との違いがないと規模の変化を読み取れない。",
+            "explanation": "harnessは、stateless LLMの周囲に業務用の状態、コンテキスト、権限、外部連携、実行制御、レビューを組み合わせた仕組みである。単発のチャット利用ではなく、入力を受け、agentを動かし、出力を人や別のagentが評価し、次の処理へ渡す一連の業務経路を指す。会社全体がharnessになるとは、ソフトウェアを人が操作するのではなく、会社の業務設計そのものがモデル出力を生産・選別する仕組みに変わるという意味である。"
+          },
+          {
+            "term": "stateless LLM",
+            "stumblingPoint": "冒頭で「stateless LLMを囲む」と説明されるが、なぜ周辺の仕組みが必要なのかが分からないとharnessの役割を過小評価する。",
+            "explanation": "stateless LLMは、呼び出しごとに業務の履歴、権限、ツール状態、レビュー結果を自動で保持する主体ではない。harnessが必要なコンテキストを集め、使えるツールを制限し、途中状態を保存し、結果を次の処理や人へ渡す。記事でCodexやClaude Codeが例に挙がるのは、モデルAPIだけでなく、実際に作業を完了させる周辺機能まで含むからである。"
+          },
+          {
+            "term": "meta-harness",
+            "stumblingPoint": "「複数のsub-harnessを束ねるmeta-harness」とあるが、個別agentとの役割分担を知らないとsoftware factoryの構造が見えにくい。",
+            "explanation": "meta-harnessは、仕様作成、実装、レビューなどの小さなharnessを、どの順序でどの条件のもとに動かすか決める上位の制御層である。記事のsoftware factoryでは、コードを書くagentだけでなく、仕様を書くagentやレビューするagentも別々に存在する。従って価値の中心は、個々のモデル性能だけでなく、仕事を分解し、結果を検証し、次の工程へ渡す編成にある。"
+          },
+          {
+            "term": "proactive background agents",
+            "stumblingPoint": "記事は「proactive background agents」へ移行すると述べるが、プロンプトを人が入力するagentとの違いが読み取りにくい。",
+            "explanation": "proactive background agentsは、人が作業を明示的に依頼した時だけ動くのではなく、監視対象や条件をもとに自ら仕事を開始するagentである。記事の段階では、エンジニアや営業がagentを起動して結果をレビューする状態から、agentが何をすべきかを判断し、人は結果のレビューへ移る。ラップトップ上で多数を動かすのではなく、クラウド上で継続的に動かす前提も含まれている。"
+          },
+          {
+            "term": "taste-holder",
+            "stumblingPoint": "記事は人を「taste-holder」と呼ぶが、単なる承認者ではないと理解しないと、人間の役割が減る話に見えてしまう。",
+            "explanation": "taste-holderは、仕様の正しさだけでは判定しにくいプロダクト判断、設計品質、UIの方向性などについて、最終的な好みや判断基準を持つ人である。harnessは顧客の声やagentの分析を集約し、その人が判断すべき選択肢に変換する。人を全工程に張り付けるのではなく、価値の高い判断に人間の注意を集中させる役割として登場する。"
+          },
+          {
+            "term": "headless",
+            "stumblingPoint": "記事の「すべてのソフトウェアがheadlessになる」という予測は、単に管理画面が不要になるという意味ではない。",
+            "explanation": "headlessは、画面上の人間操作を前提にせず、APIや自動実行経路から外部のharnessが呼び出せる状態を指す。外部harnessが仕様作成、実装、テスト、販売活動などを連続して進めるには、各製品を人が画面で操作する工程がボトルネックになる。記事では、コアのbuild pathやsell pathに結び付くソフトウェアほど、上位harnessから制御可能であることが求められる。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "企業がharness化する段階",
+          "steps": [
+            {
+              "label": "従来型SaaS",
+              "detail": "人がソフトウェアサービスを作る"
+            },
+            {
+              "label": "個人が操作",
+              "detail": "人がagentと組み業務を進める"
+            },
+            {
+              "label": "人が編成",
+              "detail": "クラウドagentを起動し結果をレビュー"
+            },
+            {
+              "label": "harnessが編成",
+              "detail": "agentが先回りし人は重要判断を担う"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "差別化の源泉",
+            "claim": "差別化は独自機能より、業務を動かすharnessの構築力へ移る。",
+            "counter": "顧客が得る固有の成果や体験は、harness以外の製品設計にも残る。",
+            "counterInArticle": false
+          },
+          {
+            "point": "自社保有と外部調達",
+            "claim": "企業は最上位harnessを自社で持ち、個別工程だけをベンダー製品に任せるべきだ。",
+            "counter": "最上位まで外部化した方が、保守負担や導入速度で有利な企業もある。",
+            "counterInArticle": false
+          },
+          {
+            "point": "人間レビューの削減",
+            "claim": "harnessが判断箇所を選べば、人のレビューを絞っても品質を保てる。",
+            "counter": "現在のagentは外側の業務ループを任せにくく、サンプリングでは稀な失敗を見逃し得る。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AIコーディングagentのレビュー配分",
+            "why": "Claude CodeやCodexを日常利用しており、生成物と人間レビューの実測を出せる。"
+          },
+          {
+            "angle": "トップレベルharnessの境界",
+            "why": "React・Next.js・TypeScriptの開発工程で、どこまでをagentに任せるか経験を具体化できる。"
+          },
+          {
+            "angle": "headless化できない開発ツール",
+            "why": "実務のCI、レビュー、デザイン、Issue管理を、API経由で連結できるか確認できる。"
+          }
+        ],
+        "verify": [
+          "直近20件のagent作業で、生成時間・レビュー時間・手戻り回数・人間の判断時間を記録する。",
+          "開発工程の各ツールを列挙し、APIやCIから画面操作なしで呼べる工程と呼べない工程を分ける。"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "078d9f1198d71b88",
+      "product": "Claude Code",
+      "what": "ターミナルで使うAIコーディングエージェント",
+      "version": "v2.1.288",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "選択テキスト取得や中断したプロンプトの復元ができるようになる",
+      "change": null,
+      "scope": [
+        "CLI"
+      ],
+      "summary": "mods向けの$.ui.selection()、GitHub CLIがないCloud Session向けの組み込みgh api、Ctrl+C後のプロンプト復元を追加。",
+      "title": "anthropics/claude-code v2.1.288",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.288",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-10-02T20:19:57.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Code v2.1.288 を入れて、「選択テキスト取得や中断したプロンプトの復元ができるようになる」を確かめる\nhttps://github.com/anthropics/claude-code/releases/tag/v2.1.288\n\n# 手順\n1. git clone --depth 1 --branch v2.1.288 https://github.com/anthropics/claude-code\n2. cd claude-code && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v2.1.288 が実際に入って動くか\n- 「選択テキスト取得や中断したプロンプトの復元ができるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v2.1.288 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "51bbba328673e686",
+      "product": "ESLint",
+      "what": "JavaScript・TypeScript向け静的解析ツール",
+      "version": "v10.12.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "SourceCode#getText()にトークンやコメントを渡せるようになる",
+      "change": {
+        "before": "SourceCode#getText()はトークンやコメントを受け取れない",
+        "after": "SourceCode#getText()がトークンやコメントを受け取れる"
+      },
+      "scope": [],
+      "summary": "SourceCode#getText()がトークン・コメントを受け付ける機能や、astral lettersを扱うルール改善を追加。",
+      "title": "eslint/eslint v10.12.0",
+      "url": "https://github.com/eslint/eslint/releases/tag/v10.12.0",
+      "sourceLabel": "GitHub Releases / eslint/eslint",
+      "publishedAt": "2026-10-02T20:07:11.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nESLint v10.12.0 を入れて、「SourceCode#getText()にトークンやコメントを渡せるようになる」を確かめる\nhttps://github.com/eslint/eslint/releases/tag/v10.12.0\n\n# 手順\n1. git clone --depth 1 --branch v10.12.0 https://github.com/eslint/eslint\n2. cd eslint && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v10.12.0 が実際に入って動くか\n- 「SourceCode#getText()にトークンやコメントを渡せるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v10.12.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "9aba8b79566aba73",
+      "product": "GitHub Copilot",
+      "what": "GitHubのAIコーディング支援サービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "REST・GraphQL APIからCopilotのコードレビューを依頼できるようになる",
+      "change": {
+        "before": "CopilotコードレビューはAPIから依頼できない",
+        "after": "REST・GraphQL APIからレビュー依頼が可能"
+      },
+      "scope": [
+        "REST API",
+        "GraphQL API"
+      ],
+      "summary": "CopilotコードレビューのREST・GraphQL APIを一般提供し、リクエストごとのreview effort level指定とBalancedのデフォルト化に対応。",
+      "title": "Copilot code review: API support and new default effort level",
+      "url": "https://github.blog/changelog/2026-10-02-copilot-code-review-api-support-and-new-default-effort-level",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-10-02T19:13:50.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "fa6f36dc622ebc84",
+      "product": "Streamline",
+      "what": "Cloudflare上で動画パイプラインを構築する開発者向けプレイグラウンド",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Cloudflare上で注釈や字幕付き動画の処理例を試せるようになる",
+      "change": {
+        "before": "カスタム動画処理の実装例を試す場がない",
+        "after": "Streamlineで動画パイプラインを試せる"
+      },
+      "scope": [
+        "Web"
+      ],
+      "summary": "Cloudflare StreamとWorkersで動的注釈や焼き込み字幕を処理する、新しい開発者向けプレイグラウンドを公開。",
+      "title": "Streamline: custom video pipelines with Cloudflare Stream and Workers",
+      "url": "https://blog.cloudflare.com/streamline/",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-10-02T16:13:45.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "bee377e0be0ac0a0",
+      "product": "Cloudflare AI Gateway Web Search API",
+      "what": "AI Gateway経由のWeb検索API",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "AIエージェントからWeb検索で最新情報を取得できるようになる",
+      "change": {
+        "before": "エージェントはURLを推測してWebページを取得",
+        "after": "Web Search APIでインターネットを検索可能"
+      },
+      "scope": [
+        "Web",
+        "API"
+      ],
+      "summary": "Cloudflare AI GatewayにWeb Search APIを追加し、エージェントがURL推測ではなく検索でWeb情報を取得可能に。",
+      "title": "Introducing Web Search API via AI Gateway",
+      "url": "https://blog.cloudflare.com/introducing-web-search-api/",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-10-02T13:28:10.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "49bf4b44fbdcc80e",
+      "product": "GitHub SecurityAdvisory GraphQL API",
+      "what": "GitHub Advisory Database向けGraphQL API",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "GraphQL APIからアドバイザリのCVEや公開日時を取得できるようになる",
+      "change": {
+        "before": "GraphQLのSecurityAdvisoryで取得できる情報が限定的",
+        "after": "5つのアドバイザリ情報フィールドを取得可能"
+      },
+      "scope": [
+        "GraphQL API"
+      ],
+      "summary": "SecurityAdvisoryにcveId、sourceCodeLocation、githubReviewedAtなど5フィールドを追加し、GraphQL APIで詳細情報を取得可能に。",
+      "title": "New fields for SecurityAdvisory GraphQL API",
+      "url": "https://github.blog/changelog/2026-10-02-new-fields-for-securityadvisory-graphql-api",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-10-02T13:18:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "2eca0218cadb229b",
+      "product": "GitHub repository security advisories",
+      "what": "リポジトリ脆弱性情報のREST API",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "REST APIで脆弱性アドバイザリのコメントを管理できるようになる",
+      "change": {
+        "before": "アドバイザリのコメント管理はWeb UIのみ",
+        "after": "REST APIで一覧・取得・追加・編集が可能"
+      },
+      "scope": [
+        "REST API"
+      ],
+      "summary": "Repository security advisoryのコメントをREST APIで一覧取得・取得・追加・編集できる公開プレビューを開始。",
+      "title": "Repository security advisory comments API in public preview",
+      "url": "https://github.blog/changelog/2026-10-02-repository-security-advisory-comments-api-in-public-preview",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-10-02T13:15:25.000Z",
+      "alsoReleased": [
+        {
+          "label": "Confidential comments on repository security advisories",
+          "url": "https://github.blog/changelog/2026-10-02-confidential-comments-on-repository-security-advisories"
+        }
+      ],
+      "tryPrompt": null
+    },
+    {
+      "id": "170b6e5870fc325e",
+      "product": "Cloudflare Observability",
+      "what": "Cloudflareサービスのログ・トレース統合基盤",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "ログ・トレース・分析・アラートを一つの基盤で扱えるようになる",
+      "change": {
+        "before": "観測データを複数の機能や料金体系で管理",
+        "after": "統合SQL APIと単一料金モデルで一元管理"
+      },
+      "scope": [
+        "Web",
+        "API"
+      ],
+      "summary": "ログ探索、エンドツーエンドトレーシング、統合SQL API、カスタムアラートなど8つのObservability機能を追加。",
+      "title": "8 major updates to Cloudflare Observability",
+      "url": "https://blog.cloudflare.com/one-observability-platform/",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-10-02T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "91e6a95fda1de41d",
+      "product": "Cloudflare Traces",
+      "what": "Cloudflareリクエスト全体の分散トレーシング機能",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Workers外を含むリクエスト経路全体を1つのtraceで追跡できるようになる",
+      "change": {
+        "before": "自動トレーシングはWorkers中心",
+        "after": "セキュリティルールからoriginまで追跡可能"
+      },
+      "scope": [
+        "Web"
+      ],
+      "summary": "Cloudflare Tracesをオープンベータで提供開始し、セキュリティルール、キャッシュ、Workers、originまで1つのtraceで確認可能に。",
+      "title": "Introducing Cloudflare Traces: follow requests through our entire platform",
+      "url": "https://blog.cloudflare.com/cloudflare-tracing/",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-10-02T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "617ad72bd2f7396f",
+      "product": "Cloudflare OHTTP Gateway",
+      "what": "プライバシー保護型のHTTPゲートウェイ",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "クライアントのIPなどを隠してリクエストを中継できるようになる",
+      "change": null,
+      "scope": [
+        "Web"
+      ],
+      "summary": "Cloudflare OHTTP Gatewayを発表し、クライアント情報の露出を抑えるプライバシー保護型インフラへのアクセスを拡大。",
+      "title": "Announcing Cloudflare OHTTP Gateway – expanding access to Cloudflare’s privacy-preserving infrastructure",
+      "url": "https://blog.cloudflare.com/announcing-cloudflare-ohttp-gateway/",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-10-02T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "2e7c568cfd3fc4b5",
+      "product": "Cloudflare account abuse dashboard",
+      "what": "アカウント不正利用の調査ダッシュボード",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "アカウント不正利用を新しいダッシュボードで調査できるようになる",
+      "change": null,
+      "scope": [
+        "Web"
+      ],
+      "summary": "アカウント不正利用を調査する新しいダッシュボードを導入し、関連する活動を追跡しやすくする。",
+      "title": "Follow the thread: a new dashboard to investigate account abuse",
+      "url": "https://blog.cloudflare.com/account-abuse-protection-dashboard/",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-10-02T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "65fed7267e6479e0",
+      "product": "Cloudflare Protected Quick Tunnels",
+      "what": "ローカル開発環境を共有するトンネル機能",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "アカウントなしの開発用トンネルを認証付きで保護できるようになる",
+      "change": {
+        "before": "Quick Tunnelは公開URLをそのまま共有",
+        "after": "認証で保護したQuick Tunnelを共有"
+      },
+      "scope": [
+        "CLI",
+        "Web"
+      ],
+      "summary": "Protected Quick Tunnelsを追加し、ローカル開発サーバーを共有するQuick Tunnelにアカウント不要の認証保護を適用可能に。",
+      "title": "Protected Quick Tunnels: simple accountless authentication for your next dev project",
+      "url": "https://blog.cloudflare.com/protected-quick-tunnels/",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-10-02T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "c64d8fdbc563acf5",
+      "product": "Wrangler",
+      "what": "Cloudflare Workersの開発・デプロイCLI",
+      "version": "wrangler@4.147.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "Containerアプリで米国の配置リージョンを指定できるようになる",
+      "change": {
+        "before": "Containerのjurisdictionはeuとfedramp",
+        "after": "Containerのjurisdictionにusを指定可能"
+      },
+      "scope": [
+        "CLI"
+      ],
+      "summary": "Container applicationsの配置制約にjurisdiction: \"us\"を追加し、Wranglerのコンテナ一覧で稼働中インスタンス数も表示。",
+      "title": "cloudflare/workers-sdk wrangler@4.147.0",
+      "url": "https://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.147.0",
+      "sourceLabel": "GitHub Releases / cloudflare/workers-sdk",
+      "publishedAt": "2026-10-02T11:37:52.000Z",
+      "alsoReleased": [
+        {
+          "label": "@cloudflare/workers-auth@0.12.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workers-auth%400.12.0"
+        },
+        {
+          "label": "@cloudflare/workers-utils@0.46.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workers-utils%400.46.0"
+        },
+        {
+          "label": "@cloudflare/config@0.23.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/config%400.23.0"
+        },
+        {
+          "label": "create-cloudflare@2.73.2",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/create-cloudflare%402.73.2"
+        },
+        {
+          "label": "@cloudflare/remote-bindings@0.0.43",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/remote-bindings%400.0.43"
+        },
+        {
+          "label": "@cloudflare/deploy-helpers@0.19.2",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/deploy-helpers%400.19.2"
+        },
+        {
+          "label": "@cloudflare/containers-shared@0.21.3",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/containers-shared%400.21.3"
+        },
+        {
+          "label": "@cloudflare/autoconfig@0.7.5",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/autoconfig%400.7.5"
+        },
+        {
+          "label": "@cloudflare/vitest-plugin@1.3.6",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vitest-plugin%401.3.6"
+        },
+        {
+          "label": "@cloudflare/vite-plugin@1.62.5",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vite-plugin%401.62.5"
+        },
+        {
+          "label": "@cloudflare/cli-shared-helpers@0.2.3",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/cli-shared-helpers%400.2.3"
+        },
+        {
+          "label": "@cloudflare/build-output-utils@0.8.5",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/build-output-utils%400.8.5"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nWrangler wrangler@4.147.0 を入れて、「Containerアプリで米国の配置リージョンを指定できるようになる」を確かめる\nhttps://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.147.0\n\n# 手順\n1. git clone --depth 1 --branch wrangler%404.147.0 https://github.com/cloudflare/workers-sdk\n2. cd workers-sdk && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- wrangler@4.147.0 が実際に入って動くか\n- 「Containerアプリで米国の配置リージョンを指定できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- wrangler%404.147.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "8eee72b779811714",
+      "product": "TanStack Query",
+      "what": "Reactなど向けのデータフェッチ・キャッシュライブラリ",
+      "version": null,
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "query-devtoolsのインスタンス間でsignalsを分離し、Preact関連パッケージの命名・ESLint設定を整理。",
+      "title": "TanStack/query Release 2026-10-02 10:05",
+      "url": "https://github.com/TanStack/query/releases/tag/release-2026-10-02-1005",
+      "sourceLabel": "GitHub Releases / TanStack/query",
+      "publishedAt": "2026-10-02T10:05:43.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/query-devtools@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-devtools%405.104.1"
+        },
+        {
+          "label": "@tanstack/preact-query-persist-client@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query-persist-client%405.104.1"
+        },
+        {
+          "label": "@tanstack/solid-query-persist-client@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/solid-query-persist-client%405.104.1"
+        },
+        {
+          "label": "@tanstack/react-query-persist-client@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-persist-client%405.104.1"
+        },
+        {
+          "label": "@tanstack/svelte-query-persist-client@6.3.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query-persist-client%406.3.1"
+        },
+        {
+          "label": "@tanstack/query-sync-storage-persister@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-sync-storage-persister%405.104.1"
+        },
+        {
+          "label": "@tanstack/query-async-storage-persister@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-async-storage-persister%405.104.1"
+        },
+        {
+          "label": "@tanstack/preact-query-devtools@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query-devtools%405.104.1"
+        },
+        {
+          "label": "@tanstack/solid-query-devtools@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/solid-query-devtools%405.104.1"
+        },
+        {
+          "label": "@tanstack/react-query-devtools@5.104.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-devtools%405.104.1"
+        },
+        {
+          "label": "@tanstack/svelte-query-devtools@6.3.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query-devtools%406.3.1"
+        },
+        {
+          "label": "@tanstack/vue-query-devtools@6.3.1",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/vue-query-devtools%406.3.1"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nTanStack Query を入れて、この版の変更を確かめる\nhttps://github.com/TanStack/query/releases/tag/release-2026-10-02-1005\n\n# 手順\n1. git clone --depth 1 --branch release-2026-10-02-1005 https://github.com/TanStack/query\n2. cd query && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 新しい版が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- release-2026-10-02-1005 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "WordPress 4.7〜7.1.1に未認証の不正読込 CVE-2026-87902──7.1.2更新と攻撃痕跡の確認",
+      "url": "https://qiita.com/jiis-sasaki/items/b9e58eb2b47f6d25dff2",
+      "publishedAt": "2026-10-01T22:30:00.000Z",
+      "author": "jiis-sasaki",
+      "authorDetail": {
+        "name": "jiis-sasaki",
+        "handle": "@jiis-sasaki",
+        "url": "https://qiita.com/jiis-sasaki",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4443640/51e197194384b8eba7fa93bc8dae17f08efc3b3e/x_large.png?1780639664",
+        "bio": "兵庫を拠点に、Webセキュリティとインフラ運用を担当。脆弱性診断・GitOps(FluxCD)・IDS運用・コンテナ周りが中心。実務でハマった話と直し方を書きます。所属:日本情報基盤サービス(JIIS)。",
+        "organization": "日本情報基盤サービス(JIIS)",
+        "location": "兵庫・尼崎",
+        "followers": 10,
+        "posts": 53,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/sitedock_jp"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.jiis.co.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "WordPress",
+        "Security",
+        "cve",
+        "vulnerability",
+        "PHP"
+      ],
+      "snippet": "WordPressで企業サイト・ブログを運用しているWeb担当者、制作会社の保守担当者向けの記事です。 2026年9月22日、WordPress本体(コア)の脆弱性 CVE-2026-87902 を修正したセキュリティリリース 7.1.2 が公開されました。ログイン不要で、条件がそろうとリモートからのコード実行(RCE)につながります。修正公開の当日から攻撃が観測されています。 この記事では「自分のサイトは更新済みか」「RCEの前提条件がそろっているか」「すでに踏まれていないか」を、コピペで確認できるコマンド付きでまとめます。 何が起きたのか | 項目 | 内容 | |---|---| | CVE | CVE-2026-87902(GitHub Advisory: GHSA-7hp8-65ch-5whp) | | 種別 | パストラバーサルによるローカルPHPファイルの読み込み(CWE-9…",
+      "body": "WordPressで企業サイト・ブログを運用しているWeb担当者、制作会社の保守担当者向けの記事です。\n2026年9月22日、WordPress本体(コア)の脆弱性 CVE-2026-87902 を修正したセキュリティリリース 7.1.2 が公開されました。ログイン不要で、条件がそろうとリモートからのコード実行(RCE)につながります。修正公開の当日から攻撃が観測されています。\nこの記事では「自分のサイトは更新済みか」「RCEの前提条件がそろっているか」「すでに踏まれていないか」を、コピペで確認できるコマンド付きでまとめます。\n\n何が起きたのか\n\n| 項目 | 内容 |\n|---|---|\n| CVE | CVE-2026-87902(GitHub Advisory: GHSA-7hp8-65ch-5whp) |\n| 種別 | パストラバーサルによるローカルPHPファイルの読み込み(CWE-98:include/require に渡すファイル名の制御不備) |\n| 認証 | 不要(ユーザー操作も不要) |\n| 影響バージョン | 4.7.0 〜 7.1.1(約9年分) |\n| 修正版 | 7.1.2 ほか、4.7 系までの全ブランチにバックポート |\n| 深刻度 | CVSS v4.0 9.2(Critical) |\n| 悪用状況 | 2026-09-25 に米CISAが KEV(悪用が確認された脆弱性カタログ) へ追加 |\n\n公式発表(WordPress 7.1.2 Release)によると、未認証の攻撃者が条件次第で、固定ページのテンプレートを決める処理(getpagetemplate())に、有効化中テーマの外にある読み取り可能なPHPファイルを読み込ませられる、という問題です。URL から組み立てたテンプレート名に ../(上の階層へ戻る指定)のチェックが漏れていたことが原因とされています。\n\nポイントは3つです。\n\n1. 対象がほぼすべての現役サイト。 プラグインではなく本体の脆弱性なので、「プラグインは最小限にしている」サイトも対象です。\n2. RCEまで行くには前提条件がある。 ただし「該当しないはず」と判断するより、更新するほうが早く確実です。条件の確認は後述します。\n3. 修正と同時に技術的な詳細が公開され、攻撃が即座に始まった。 国内でもレンタルサーバー各社が注意喚起や強制アップデートを実施しています。自動更新が効いていない・止めているサイトは、今も未修正のまま残っている可能性があります。\n\n攻撃の成立条件は確認に必要な範囲にとどめ、再現手順は扱いません。以下は「同じ被害を防ぐ」ための確認と対処です。\n\n1. まずバージョンを確認する(1分)\n\nWP-CLI が使える環境ならこれが最速です。\n\n [code] \n\n管理画面なら「ダッシュボード → 更新」で確認できます。WP-CLI が無い環境では、コアに同梱されているバージョン定義ファイルを直接見ます。\n\n [code] \n\n修正版の早見表\n\n自分のブランチの番号以上になっていれば修正済みです(GitHub Advisory 記載の修正版)。\n\n| ブランチ | 修正版 | ブランチ | 修正版 |\n|---|---|---|---|\n| 7.1 | 7.1.2 | 5.9 | 5.9.18 |\n| 7.0 | 7.0.6 | 5.8 | 5.8.17 |\n| 6.9 | 6.9.9 | 5.7 | 5.7.19 |\n| 6.8 | 6.8.10 | 5.6 | 5.6.21 |\n| 6.7 | 6.7.9 | 5.5 | 5.5.22 |\n| 6.6 | 6.6.9 | 5.4 | 5.4.23 |\n| 6.5 | 6.5.12 | 5.3 | 5.3.25 |\n| 6.4 | 6.4.12 | 5.2 | 5.2.28 |\n| 6.3 | 6.3.12 | 5.1 | 5.1.26 |\n| 6.2 | 6.2.13 | 5.0 | 5.0.29 |\n| 6.1 | 6.1.14 | 4.9 | 4.9.33 |\n| 6.0 | 6.0.16 | 4.8 | 4.8.32 |\n| | | 4.7 | 4.7.37 |\n\n古いブランチにも修正は届いていますが、公式に「積極的にサポートしているのは最新版のみ」とされています。今回をきっかけに、最新の 7.1 系へ上げる計画も立てておくのが安全です。\n\n複数サイトをまとめて棚卸しする\n\n保守契約で複数サイトを抱えている場合は、サーバー上の WordPress を一括で洗い出します。\n\n [code] \n\n2. 対処:更新する\n\n更新前にバックアップを取ります。\n\n [code] \n\n同じブランチ内の修正版へ上げるだけなら、互換性への影響は小さいはずです。\n\n [code] \n\n最新の 7.1.2 まで上げる場合は wp core update を使います。メジャー更新はテーマ・プラグインとの互換性に影響するため、ステージング環境で先に確認してから本番に当ててください。\n\n自動更新が止まっていないか確認する\n\n今回のようなセキュリティリリースは、通常はマイナー更新として自動で適用されます。それでも未修正のサイトが残る典型は、自動更新を設定で止めているケースです。\n\n [code] \n\nAUTOMATICUPDATERDISABLED が true、または WPAUTOUPDATECORE が false になっていれば、マイナー更新も止まっています。運用上の理由が無ければ、少なくともマイナー更新(セキュリティ修正)は自動で入る設定に戻します。\n\n [code] \n\n3. RCEの前提条件がそろっているか確認する\n\n更新が済めば脆弱性そのものは塞がります。ここは「更新までの間に、自分のサイトがどれだけ危険だったか」を見積もり、次の節の痕跡調査をどこまで深くやるか決めるための確認です。\n\n公式アドバイザリが示す前提条件は次の2つです。\n\n1. 有効化中のテーマ(親テーマ・子テーマ)の直下に、名前が page- で始まるディレクトリがある(例:page-templates)。Twenty Twelve / Twenty Fourteen や、Neve / Hestia / Sydney などが該当すると報じられています。\n2. サーバー上に、読み込まれると悪用の踏み台になる PHP ファイルがある。 代表例が PHP の付属ツール PEAR の pearcmd.php で、PHP の registerargcargv 設定が On の環境では RCE につながるとされています。\n\nテーマのディレクトリを見る\n\n [code] \n\nPHP の設定と PEAR を見る\n\nregisterargcargv は CLI とWeb(PHP-FPM / modphp)で値が違うことがあるため、Web 側の設定を確認します。\n\n [code] \n\nphp.ini を置かずに PHP の組み込み既定値で動いている環境(公式 Docker イメージをそのまま使っている場合など)では、registerargcargv が On になっていることがあります。\n\n4. すぐに更新できないときの一時的な緩和\n\n検証待ちなどで即時更新できない場合の選択肢です。いずれも制限を強める方向の設定で、更新の代替にはなりません。できるだけ早く 2. の更新を実施してください。\n\nPHP:registerargcargv を Off にする\n\nWeb 経由のリクエストで registerargcargv を使う WordPress サイトは通常ありません。RCE への経路を狭めるため Off にします。\n\n [code] \n\n [code] \n\n使っていない PEAR を導入している場合は、パッケージ管理ツールから削除するのも有効です(他のアプリが PEAR を使っていないことを確認してから)。\n\nWeb サーバー:pagename に上位階層の指定が入ったリクエストを拒否する\n\n国内外の解説では、固定ページを指定するクエリパラメータ pagename に、エンコードされた .. を含むアクセスが攻撃の典型として挙げられています。正規の固定ページ名に .. が入ることは無いため、拒否して困ることはまずありません。\n\nnginx の場合(server ブロック内):\n\n [code] \n\nApache の場合(.htaccess の WordPress のルールより前に置く):\n\n [code] \n\nこれは観測された典型パターンを止めるだけで、すべての経路を塞げる保証はありません。あくまで更新までのつなぎです。Cloudflare などの WAF を使っている場合は、ベンダーが CVE-2026-87902 向けのマネージドルールを出していないかも確認してください。\n\n5. すでに踏まれていないかを確認する\n\nRCE は、更新しても入られた後の痕跡は消えません。2026-09-22 以降に未修正だった期間がある場合は、次を確認します。\n\nアクセスログ\n\n [code] \n\nApache の場合はログのパスを /var/log/apache2/access.log(RHEL 系は /var/log/httpd/accesslog)に読み替えてください。ヒットしてもレスポンスが 403 / 404 なら失敗した試行の可能性が高いですが、200 を返しているものは要精査です。\n\n不審な PHP ファイル\n\n報告では、攻撃者が一時ディレクトリなどに PHP ファイルを書き込む動きが観測されています。\n\n [code] \n\nPHP-FPM でプライベート一時ディレクトリ(systemd の PrivateTmp)を使っている場合は、/tmp/systemd-private- 配下も確認対象です。\n\nコアの改ざん・アカウント・常駐\n\n [code] \n\n痕跡が見つかった場合は、ファイルを消して終わりにせず、侵害前のバックアップからの復元と、管理者パスワード・DB パスワード・wp-config.php の認証用キー(salt)の変更までをセットで行ってください。\n\nまとめ\n・CVE-2026-87902 は WordPress 4.7.0〜7.1.1 のコアにある未認証の脆弱性で、CVSS v4.0 は 9.2。修正当日から攻撃が始まり、CISA の KEV にも追加済み\n・まず wp core version で確認し、自分のブランチの修正版(最新は 7.1.2)以上へ更新する\n・自動更新を止めている設定(AUTOMATICUPDATERDISABLED / WPAUTOUPDATECORE)が無いか点検し、セキュリティ修正は自動で入る状態に戻す\n・更新までのつなぎとして registerargcargv = Off と、pagename の上位階層指定の拒否が使える\n・9/22 以降に未修正の期間があったサイトは、アクセスログ・一時ディレクトリの PHP ファイル・管理者アカウントを確認する\n\n関連記事\n・アクセスログから不正アクセスの兆候を見つける7つの集計\n・WordPress自動更新を全部ONにしない運用──コア/プラグイン/テーマ別の正しい設定\n・WordPressの改ざんを検知する5つのチェック\n\n---\n\n本記事のような更新漏れ・設定の抜けは、Web サイトを 9 つの守りでまるごと守るサイトドックでまとめて対策できます → https://sitedock.jp",
+      "metrics": {
+        "likes": 2,
+        "stocks": 1,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "124ab815e283986b",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.2890223463687151,
+      "popularityPercentile": 0.9273743016759777,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "WordPress 7.1.2は未認証でコード実行につながるCVE-2026-87902を修正し、公開当日から攻撃が観測された。",
+      "takeaways": [
+        "WordPressにログイン不要で悪用できる穴が見つかった。",
+        "影響範囲は4.7.0から7.1.1までの約9年分に及ぶ。",
+        "修正版7.1.2の公開当日から攻撃が確認された。"
+      ],
+      "keywords": [
+        "WordPress 7.1.2",
+        "CVE-2026-87902",
+        "GHSA-7hp8-65ch-5whp",
+        "RCE",
+        "パストラバーサル",
+        "CISA KEV"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "GitHub Changelog",
+      "title": "Selected models in GitHub Copilot deprecated",
+      "url": "https://github.blog/changelog/2026-10-02-selected-models-in-github-copilot-deprecated",
+      "publishedAt": "2026-10-02T18:24:19.000Z",
+      "author": "Allison",
+      "authorDetail": {
+        "name": "Allison"
+      },
+      "tags": [
+        "Retired",
+        "copilot"
+      ],
+      "snippet": "As of today, October 2, 2026, we have deprecated the following models across all GitHub Copilot experiences (including Copilot Chat, inline edits, ask and agent modes, and code completions). Model… The post Selected models in GitHub Copilot deprecated appeared first on The GitHub Blog .",
+      "body": "As of today, October 2, 2026, we have deprecated the following models across all GitHub Copilot experiences (including Copilot Chat, inline edits, ask and agent modes, and code completions).\n\n \n \n \n Model \n Deprecation date \n Suggested alternative \n\n \n \n \n Gemini 3.5 Flash \n 2026-10-02 \n Gemini 3.8 Flash \n\n \n Gemini 3.6 Flash \n 2026-10-02 \n Gemini 3.8 Flash \n\n \n Kimi K2.7 Code \n 2026-10-02 \n Kimi K3 \n\n \n Claude Opus 4.7 \n 2026-10-02 \n Claude Opus 5.5 \n\n \n \n\n Please update your workflows and integrations to use supported models. Copilot Enterprise administrators may need to enable access to alternative models through their model policies in Copilot settings. As an administrator, you can verify availability by checking your individual Copilot settings and confirming that the policy is enabled for the specific model. Once enabled, you&rsquo;ll see the model in the Copilot Chat model selector in VS Code and on github.com. No action is required to remove the deprecated models.\n\n GitHub Enterprise customers with questions or concerns are encouraged to reach out to their account manager for further assistance.\n\n Share your feedback \n\n To learn more about the models available in Copilot, see our documentation on models and get started with Copilot today.\n\n Join the GitHub Community to share your feedback.\n\n \n The post Selected models in GitHub Copilot deprecated appeared first on The GitHub Blog .",
+      "metrics": {},
+      "sourceWeight": 4,
+      "id": "faa477c0bb94f1ff",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.99,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "OpenAI Codex",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 76,
+      "titleJa": "GitHub Copilotの一部モデル廃止",
+      "oneLiner": "GitHub Copilotは2026年10月2日に4つのモデルを廃止し、後継モデルへの切り替えを求めた。",
+      "takeaways": [
+        "GitHub Copilotで4つのモデルが廃止された。",
+        "廃止日は2026年10月2日で全機能が対象になった。",
+        "企業管理者は代替モデルの利用許可を確認する必要がある。"
+      ],
+      "keywords": [
+        "GitHub Copilot",
+        "Gemini 3.5 Flash",
+        "Gemini 3.6 Flash",
+        "Kimi K2.7 Code",
+        "Claude Opus 4.7",
+        "モデル廃止"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "日本企業「ハッキングされないでくれ」ランキング",
+      "url": "https://qiita.com/konaito/items/16a6d2c5da7d144efe95",
+      "publishedAt": "2026-10-02T10:12:24.000Z",
+      "author": "konaito",
+      "authorDetail": {
+        "name": "konaito",
+        "handle": "@konaito",
+        "url": "https://qiita.com/konaito",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/2400245/profile-images/1790936050",
+        "followers": 2,
+        "posts": 8,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/konaito"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/konaito_copilot"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "サイバーセキュリティ",
+        "個人情報",
+        "情報漏洩",
+        "プライバシー",
+        "テクノロジー"
+      ],
+      "snippet": "漏れたら困るのは、お金だけじゃない。 2026年9月の終わりから、生活に近いサービスの不正アクセスの公表が続いている。 タイムズカーは9月25日に不正アクセスを検知した。退会済みの人や、入会手続きを終えなかった人も含めて、約660万アカウントの情報が第三者に取得されている。そのうち約160万件では、運転免許証などの本人確認書類の画像も漏れた。タイムズカー（第2報）、タイムズカー（第3報） 佐川急便は9月30日に「お荷物問い合わせサービス」への不正アクセスを確認した。さかのぼって約100日分の、荷物の送り主と届け先の氏名・住所・電話番号が流出した可能性がある。佐川急便（第2報） ヤマト運輸も9月28日に「クロネコ代金後払いサービス」への不正アクセスを確認し、このサービスを止めた。ITmedia NEWS 全体の数字も増えている。警察庁によると、2026年上半期に報告されたランサムウェア被害は…",
+      "body": "漏れたら困るのは、お金だけじゃない。\n\n2026年9月の終わりから、生活に近いサービスの不正アクセスの公表が続いている。\n\nタイムズカーは9月25日に不正アクセスを検知した。退会済みの人や、入会手続きを終えなかった人も含めて、約660万アカウントの情報が第三者に取得されている。そのうち約160万件では、運転免許証などの本人確認書類の画像も漏れた。タイムズカー（第2報）、タイムズカー（第3報）\n\n佐川急便は9月30日に「お荷物問い合わせサービス」への不正アクセスを確認した。さかのぼって約100日分の、荷物の送り主と届け先の氏名・住所・電話番号が流出した可能性がある。佐川急便（第2報）\n\nヤマト運輸も9月28日に「クロネコ代金後払いサービス」への不正アクセスを確認し、このサービスを止めた。ITmedia NEWS\n\n全体の数字も増えている。警察庁によると、2026年上半期に報告されたランサムウェア被害は123件で、半期として過去最多だった。被害組織へのアンケートでは、侵入経路の約5割がVPN機器だった。警察庁\n\nただし、佐川急便もヤマト運輸も、荷物の集荷や配達は通常どおり続けている。止まったのは、Webでの受付や後払い決済など、一部のサービスだ。\n\n止まったサービスは、復旧すればまた使える。けれど、漏れた情報は元に戻らない。\n\nパスワードは変えられる。でも、免許証に写った顔や生年月日は変えられない。病歴も、誰にも話していなかった過去も、なかったことにはできない。\n\n「日本企業、ハッキングされないでくれ」と思う一方で、気になったことがある。\n\nどこが被害に遭うと、僕たちの生活にいちばん大きな不幸が降りかかるのだろう。\n\n銀行はわかりやすい。お金に関わるからだ。でも、企業が預かっているのは、お金だけではない。健康、家族、交友関係、住んでいる場所、誰にも見せていない自分。\n\nそこで今回は、企業の知名度でも、攻撃されやすさでもなく、「情報が漏れたときに、僕たちが何を失うか」を基準に、業界別のランキングを考えてみた。\n\n---\n\n何をもって「やられたら困る」とするか\n\n対象は、日本企業が提供するサービスと、それを支える国内の共同基盤。自分で契約するサービスだけでなく、勤務先や医療機関などが導入するサービスも含める。\n\n順位で重視したのは、一人あたりの被害の深刻さ、巻き込まれる範囲、取り返しのつかなさ、家族や他サービスへの波及だ。\n\n各分野の大手一社、または共同基盤で大規模な侵害が起きた場合を想定している。業界全社が同時に侵害されるという仮定ではない。また、利用者数や損害額を統一条件で集計した統計的な順位ではなく、公開されている取扱情報を踏まえた僕の評価だ。\n\nそして、最初に明確にしておくと、以下の企業名は、業界をイメージするための例である。各社のセキュリティが弱い、被害に遭いそうだ、という評価ではない。\n\n冒頭で触れたヤマト運輸のように、実際に不正アクセスを公表した企業も表に入っている。ただ、表に挙げたのは業界の例としてであり、個別の事故の大きさで順位を付けたものではない。\n\n表の情報はサービスや契約、設定によって異なる。記載された情報が、各社の一つのデータベースにまとめて保存されているという意味でもない。\n\n個人情報漏洩の「ハッキングされないでくれ」ランキング\n\n以下は、記載した情報が本人と結び付いた形で流出した場合の想定だ。\n\n| 順位 | 業界・機能 | 企業・サービス例 | 保有・取扱情報の例 | 想定される不幸 |\n|---:|---|---|---|---|\n| 1 | 医療・調剤／電子カルテ基盤 | メドレーなど | 病歴、問診、処方、服薬、妊娠・授乳などの健康情報。株式会社メドレー | 誰にも知らせていない健康事情の暴露。差別、嫌がらせ、脅迫につながる恐れ。複数施設で使う基盤なら患者への影響も広がる。 |\n| 2 | 本人確認代行・eKYC | Liquid、TRUSTDOCK | 方式に応じた本人確認書類、顔画像、氏名・住所・生年月日など。Liquid Inc. | 自分の身元を証明する材料が漏れる。元のサービス以外でも、なりすましに悪用される恐れがある。 |\n| 3 | 銀行・証券 | 三菱UFJ銀行、SBI証券など | 本人情報、残高、取引履歴、借入や運用に関する情報。三菱UFJ銀行 | 資産状況やお金の流れが知られる。その人の取引事情に合わせた詐欺や脅迫の材料になり得る。 |\n| 4 | 携帯通信キャリア | NTTドコモ、KDDIなど | 契約者情報、電話番号、利用履歴、取得条件に応じた位置関連情報。NTTドコモ | 実名・電話番号・生活圏が結び付く。なりすましや望まない接触の恐れ。番号変更が必要になれば生活全体に負担が及ぶ。 |\n| 5 | SNS・メール・統合ID | LINEヤフーなど | 登録情報、交流の相手・時刻、利用履歴、サービスが復号できる保存内容。LINEヤフー | 私生活や交友関係、匿名活動の暴露。本人だけでなく、会話相手や連絡先にも被害が及び得る。 |\n| 6 | 信用情報機関 | CICなど | クレジット・ローン契約、残高、返済・入金状況、申込情報。CIC | 複数社にまたがる借入・返済事情がまとまって漏れる。経済的な弱みに合わせた詐欺や勧誘の恐れ。 |\n| 7 | 生命保険・医療保険 | 日本生命など | 健康状態、保険契約、保険金・給付金の請求に関する情報。日本生命 | 健康事情と保険契約が同時に知られる。本人や家族が弱っている時期につけ込まれる恐れがある。 |\n| 8 | 人事・給与・労務クラウド | SmartHRなど | 給与、従業員情報、扶養家族、設定に応じた家族のマイナンバー等。SmartHR | 収入や家庭事情の暴露。従業員だけでなく、配偶者や子どもも巻き込まれる。本人がサービスを選んでいない場合もある。 |\n| 9 | 家庭向けクラウド防犯カメラ | セコムなど | クラウドに保存される、設置先の室内外の映像。セコム | 住所録ではなく、生活そのものが映像で漏れる。私生活の暴露に加え、ストーキングなど身体の安全にも関わり得る。 |\n| 10 | 保育・教育・子どもの記録基盤 | コドモンなど | 子ども・保護者の情報、家族構成、健康情報、写真、連絡帳、成長記録。コドモン | 子どもの生活や家庭事情が本人の意思とは無関係に漏れる。望まない接触や、長く残るプライバシー被害の恐れ。 |\n| 11 | 遺伝子検査 | GeneLifeなど | 遺伝情報、検査結果、登録者情報。GeneLife | 変更できない身体の情報が漏れる。検査結果の誤解や悪用による不利益も考えられる。取り返しのつかなさだけなら最上位級。 |\n| 12 | 成人向けコンテンツ | FANZAなど | アカウントに結び付いた購入履歴。DMMサポート | 性的プライバシーの暴露。購入作品から人物像を決め付けられたり、嫌がらせや脅迫に使われたりする恐れ。 |\n| 13 | 婚活・マッチング | タップルなど | 顔写真、プロフィール、本人確認資料、メッセージなど。タップル | 恋愛上のやり取りや非公開の活動が漏れる。望まない身元特定、ストーキング、会話相手への波及。 |\n| 14 | クレジットカード・決済 | 三井住友カードなど | 会員情報、決済関連情報、利用先や支払いの記録。三井住友カード | 不正利用に使える情報まで漏れれば金銭被害。利用停止などの対応負担に加え、消費行動も知られる。 |\n| 15 | 家計簿・資産の横断集約 | マネーフォワード MEなど | 連携した銀行・証券の残高、取引、カード利用など。マネーフォワード | 複数の金融機関に分けていた資産と支出が、一つの家計として見える。家計の余裕や弱みに合わせた詐欺の恐れ。 |\n| 16 | 賃貸管理・家賃保証 | 日本セーフティーなど | 居住先、本人確認資料、賃貸契約、家賃の支払履歴など。日本セーフティー | 自宅と契約・支払いの事情が結び付く。安全のために引っ越す必要が生じれば、被害回復の負担は大きい。 |\n| 17 | 配車・移動履歴サービス | GOなど | 乗車地、目的地、経由地、取得条件に応じた位置情報など。GO株式会社 | どこへ通い、どこで過ごしていたかが知られる。履歴次第では、自宅・勤務先・通院先などを推測される恐れ。 |\n| 18 | 転職・採用サービス | パーソルキャリア〈doda〉など | 履歴書、職務経歴、応募に関する情報、サービス利用履歴。パーソルキャリア | 今の職場に知らせていない転職活動や経歴が漏れる。職場との関係への影響、経歴に合わせた詐欺やなりすまし。 |\n| 19 | 宅配・配送情報基盤 | ヤマト運輸など | 差出人・受取人情報、配送先、荷物に関する情報。ヤマト運輸 | 住所や送受取関係の暴露、配送を装う詐欺。自分で会員登録していなくても、荷物の受取人として対象になり得る。 |\n| 20 | EC・会員・ポイントサービス | 楽天市場など | 会員情報、購入・利用履歴、配送先など。楽天グループ | 詐欺や迷惑連絡の負担が広がる。購入内容や配送先から、本人や家族の事情を推測される恐れもある。 |\n\n下位だから軽い、という意味ではない。特定の人にとっては、自宅住所の流出が、資産情報の流出より深刻なこともある。\n\nまた、情報が漏れることと、そのサービスを操作する権限まで奪われることは別だ。銀行の顧客情報流出を、そのまま「自由に送金できる」と読み替えてはいけない。\n\n暗号化の違いも重要になる。たとえばLINEのLetter Sealing対象メッセージは、送信者と受信者以外が内容を解読できないようにする仕組みで、サーバー上でも暗号化されている。したがって、サーバーへの侵害と、全トークの平文流出は同じではない。LINEヘルプセンター\n\nなぜ、銀行より上に医療と本人確認を置いたのか\n\n僕が医療を一位にしたのは、漏れたものを取り替えられないからだ。\n\n健康情報には、病名だけでなく、問診への回答、服薬、既往歴、妊娠・授乳といった情報も含まれ得る。株式会社メドレー\n\nここで仮に、その人が家族にも職場にも話していない事情が、実名付きで公開されてしまったらどうなるだろう。\n\n治療が終わっていても、漏れた記録がなかったことにはならない。今は落ち着いて暮らしていても、過去の一時期だけを切り取られ、自分を説明する材料として使われるかもしれない。\n\n病気も、恋愛も、性的な好みも、本人が恥じるべきものではない。\n\n問題は、それを誰に話すかを、自分で決められなくなることだ。\n\n本人確認を二位にしたのも、似た理由による。\n\n本人確認代行は、方式によって身分証や顔画像などを扱う。ここから情報が漏れたときに失われるのは、そのサービスだけの秘密ではなく、別の場所でも身元の確認に使われる材料だ。Liquid Inc.\n\nもちろん、画像が漏れたらあらゆる本人確認を突破できる、という話ではない。ICチップや公的個人認証を使う方式など、確認の仕組みは異なる。Liquid Inc.\n\nそれでも、「このサービスのパスワードだけ変えれば終わり」とは考えにくい。冒頭のタイムズカーの件で漏れた約160万件の本人確認書類の画像も、カーシェアのパスワードを変えるだけでは取り戻せない。\n\n僕は今回、一つのサービスの中で対処が完結しにくい被害を、かなり重く見た。\n\n自分で選んでいない会社にも、自分の情報がある\n\nこのランキングで、銀行と同じくらい気になったのは、人事と保育だった。\n\n人事サービスには、従業員本人だけでなく家族の情報を収集・管理する機能がある。保育サービスでは、子どもの健康、家族構成、写真、成長記録などが扱われる。SmartHRサポート\n\nたとえば、勤務先が選んだ人事クラウドに家族情報を入力する。子どもが通う施設で、指定されたアプリを使う。\n\nこのとき、本人や家族が、保管先の企業を自由に選べるとは限らない。\n\n「自分は怪しいサービスに登録していない」という注意だけでは、守り切れない範囲がある。\n\nだから、コンシューマ向けサービスの問題を考えるときも、利用者から見えるアプリだけを見ていてはいけないと思う。\n\n本人確認の受託先、勤務先の人事システム、医療機関や保育施設が使う基盤もそうだ。\n\n自分の生活に関わる情報が、どの企業に、どんな形で預けられているのか。その全体像は、僕たちが普段意識している「使っているサービス一覧」より広い。\n\nサービス停止まで含めると、順位は変わる\n\nここまでは、主に情報を読まれてしまう被害を考えた。\n\nしかし、ハッキングによる不幸には、必要なときに、サービスを使えなくなるという、もう一つ大きな種類がある。\n\nこちらでは、運用を支えるシステムまで侵害され、広域・長時間の停止が起きた場合を想定する。生命への影響と、他のサービスを巻き込む範囲を重く見ると、僕の順位はこうなる。\n\n| 順位 | 業界・機能 | 企業・組織例 | 広域・長時間の停止が起きた場合の想定被害 |\n|---:|---|---|---|\n| 1 | 送配電 | 東京電力パワーグリッドなど | 家庭だけでなく、医療・通信・交通などにも影響が及ぶ恐れ。在宅医療機器の利用者にとっては生命にも関わる。国家サイバー統括室 |\n| 2 | 基幹通信・携帯通信 | NTTグループ、KDDIなど | 家族との連絡、業務通信、ネット経由の手続きが滞る。緊急通報にも影響する恐れがある。KDDI |\n| 3 | 銀行間送金・共同決済基盤 | 全銀ネット、NTTデータ〈CAFIS〉 | 振込や店舗決済が滞り、家計と企業活動を横断して影響する。「お金はあるのに払えない」状況が広がる恐れ。全国銀行協会 |\n| 4 | 病院・診療を支えるIT | 医療法人、電子カルテ事業者など | 救急診療、外来、予定手術などが制限される恐れ。待てない治療があるため、停止時間の意味が重い。地方独立行政法人大阪府立病院機構 大阪急性期・総合医療センター |\n| 5 | 多社共用クラウド・認証基盤 | さくらインターネット、HENNGEなど | 利用企業の業務や、複数サービスへのログインに影響する恐れ。利用者から見えない依存先の停止が波及する。さくらのナレッジ |\n| 6 | 医薬品などの広域物流 | アルフレッサなど | 受注・在庫・配送管理が機能しなければ、医療機関や薬局へ必要な物が届かなくなる恐れ。アルフレッサ |\n\n診療への影響は、想像上の話だけではない。大阪急性期・総合医療センターでは、2022年10月31日のサイバー攻撃で電子カルテを含むシステムが利用できなくなり、救急診療、外来診療、予定手術などに大きな支障が生じた。地方独立行政法人大阪府立病院機構 大阪急性期・総合医療センター\n\nただし、ここでも混同は避けたい。\n\n「電力会社の顧客情報が漏れた」と「送配電が止まった」は違う。「クラウド会社の一部システムが侵害された」と「全顧客のサービスが止まった」も違う。\n\n怖さを大きく見せるために、それらを無条件につなげてしまうと、何を守る必要があるのかが、かえって見えなくなる。\n\n「もっと強く守る」の前に、考えたいこと\n\nランキングを作ってみて、僕がいちばん考えたくなったのは、「どこが一位か」よりも、企業がどこまで人の情報を預かる必要があるのかということだった。\n\nサービスを作る側としては、情報があれば便利な機能を作れる。けれど、便利な機能を増やす判断と、漏れたときに利用者が引き受ける不幸を増やす判断は、同じ画面では見えにくい。\n\nだから、「厳重に守ります」の前にも問いがある。\n\nその情報は、本当に取得する必要があるのか。取得が必要でも、そのまま長期間保存する必要はあるのか。異なる目的で集めた情報を、一人の生活像として結び付ける必要はあるのか。\n\nタイムズカーの件では、退会済みの人や、入会手続きを終えなかった人の情報も漏えいの対象になった。もう使っていないサービスに残った記録も、漏れるときには一緒に漏れる。\n\n不要になった個人データを適切に消去することについては、個人情報保護委員会も、漏洩等の防止のために重要だと注意喚起している。個人情報保護委員会\n\nもちろん、記録をなくせばいいわけではない。医療にも金融にも、継続して情報を扱う必要がある。\n\n考えたいのは、必要な記録を守ることと、不要な記録まで抱え続けることを、同じ「データ活用」で済ませないことだ。\n\n---\n\n「何万件の個人情報が漏洩しました」という言葉の、一件一件の中身を想像すると、このランキングは、単なる企業一覧ではなくなる。\n\n誰かが治療を受けた記録。子どもが成長していく写真。家族に伝えていない事情。親しい相手にだけ送った言葉。\n\n「顧客データ」と呼ばれるものの中には、誰かが、誰に見せるかを選びながら生きてきた時間が入っている。\n\nシステムが復旧することと、その人のプライバシーが元に戻ることは別だ。\n\nだから、ハッキングされないでくれ。\n\nサービスが使えなくなるのも困る。でも、それ以上に、僕たちが預けていた人生の一部を、取り返しのつかない形で失いたくない。",
+      "metrics": {
+        "likes": 6,
+        "stocks": 3,
+        "hatena": 25
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9011f9064abe65d6",
+      "foundIn": [
+        "qiita",
+        "hatena",
+        "rss"
+      ],
+      "preScore": 0.21877094972067038,
+      "popularityPercentile": 0.994413407821229,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 72,
+      "titleJa": null,
+      "oneLiner": "日本企業で相次ぐ不正アクセスを通じて、漏えい情報が生活や本人確認に長期的な影響を残す実態を整理した。",
+      "takeaways": [
+        "タイムズカーでは約660万件の情報が流出した。",
+        "約160万件には本人確認書類の画像が含まれていた。",
+        "2026年上半期の攻撃被害は過去最多の123件だった。"
+      ],
+      "keywords": [
+        "タイムズカー",
+        "佐川急便",
+        "ヤマト運輸",
+        "ランサムウェア",
+        "VPN",
+        "個人情報漏えい"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Memory executives expect RAM shortage to continue through 2028",
+      "url": "https://arstechnica.com/information-technology/2026/10/memory-supplies-are-only-getting-tighter-micron-ceo-says/",
+      "publishedAt": "2026-10-02T11:58:33.000Z",
+      "author": "el_duderino",
+      "authorDetail": {
+        "name": "el_duderino",
+        "handle": "el_duderino",
+        "url": "https://news.ycombinator.com/user?id=el_duderino"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 41,
+        "comments": 60
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "daf563a54f7995ad",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.03666666666666667,
+      "popularityPercentile": 0.16666666666666666,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 72,
+      "titleJa": "メモリ不足が2028年まで続く見通し",
+      "oneLiner": "メモリ業界の幹部はRAM不足が2028年まで続き、供給改善の時期は見通せないと予測している。",
+      "takeaways": [
+        "メモリ不足は2028年まで続く見通しだ。",
+        "供給が需要に追いつく時期は明らかになっていない。",
+        "AI向け需要が価格上昇を長引かせる可能性がある。"
+      ],
+      "keywords": [
+        "RAM",
+        "メモリ不足",
+        "Memory executives",
+        "HBM",
+        "2028年"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Show HN: Use all Codex Plugins inside Pi",
+      "url": "https://github.com/wileai/pi-codex-connectors",
+      "publishedAt": "2026-10-02T02:49:37.000Z",
+      "author": "alexandroskyr",
+      "authorDetail": {
+        "name": "alexandroskyr",
+        "handle": "alexandroskyr",
+        "url": "https://news.ycombinator.com/user?id=alexandroskyr"
+      },
+      "tags": [],
+      "snippet": "I just realized that codex now exposes local server endpoints for all plugins without extra auth. So you can just use them from any model or harness. Im soooo excited!!! One auth for everything! For Pi: pi install npm:@wileai/pi-codex-connector For any harness: npx -y @wileai/codex-connectors-mcp@latest",
+      "metrics": {
+        "points": 13,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "742ea0d9457aa0fe",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.6023333333333334,
+      "popularityPercentile": 0.03333333333333333,
+      "matchedTopics": [
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "Codexの拡張機能をPiや各種AI環境から使う方法",
+      "oneLiner": "Codexの拡張機能を別のAI環境から認証なしで呼び出せる接続手段が紹介された。",
+      "takeaways": [
+        "Codexの拡張機能を他のAI環境から使える。",
+        "拡張機能ごとの追加認証が不要になる。",
+        "Pi向けと汎用環境向けの導入方法が示されている。"
+      ],
+      "keywords": [
+        "OpenAI Codex",
+        "Codex Plugins",
+        "Pi",
+        "pi-codex-connector",
+        "codex-connectors-mcp",
+        "MCP"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nShow HN: Use all Codex Plugins inside Pi を動かして、README の最初の出力まで到達する\nhttps://github.com/wileai/pi-codex-connectors\n\n# 手順\n1. git clone --depth 1 https://github.com/wileai/pi-codex-connectors\n2. cd pi-codex-connectors && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "複数のAIエージェントを並行して動かすADE「Orca」が快適だった",
+      "url": "https://qiita.com/hiroshi_ito9854/items/4cedc17bcf058a04dba4",
+      "publishedAt": "2026-10-02T09:57:58.000Z",
+      "author": "hiroshi_ito9854",
+      "authorDetail": {
+        "name": "hiroshi_ito9854",
+        "handle": "@hiroshi_ito9854",
+        "url": "https://qiita.com/hiroshi_ito9854",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocLAn3iOQgOz9h2b1uA0qVOGm2AhOdEvnZJkggM9n6llr85DyGY=s96-c",
+        "followers": 4,
+        "posts": 3,
+        "links": []
+      },
+      "tags": [
+        "ADE",
+        "ClaudeCode",
+        "ORCA",
+        "開発環境",
+        "AI駆動開発"
+      ],
+      "snippet": "はじめに こんにちは 最近、Claude Codeを動かす環境をGhosttyからOrcaに乗り換えました。 この記事では、Orcaの概要、worktree作成時にgit管理外のファイルをコピーする方法、スマホからエージェントを操作する方法を紹介します！ Orcaとは https://www.onorca.dev/ Orcaは、Claude CodeやCodexなどのCLI型コーディングエージェントを並行して動かすためのデスクトップアプリです。macOS、Windows、Linuxに対応しています。 Orcaは自身を「ADE（Agent Development Environment）」と呼んでいます。IDEが人がコードを書くための道具なのに対し、ADEは複数のエージェントに作業を任せて、進み具合を見ながらレビューやマージをするための道具です。 タスクを作ると、Orcaはgit workt…",
+      "body": "はじめに\nこんにちは\n最近、Claude Codeを動かす環境をGhosttyからOrcaに乗り換えました。\nこの記事では、Orcaの概要、worktree作成時にgit管理外のファイルをコピーする方法、スマホからエージェントを操作する方法を紹介します！\n\nOrcaとは\n\nhttps://www.onorca.dev/\n\nOrcaは、Claude CodeやCodexなどのCLI型コーディングエージェントを並行して動かすためのデスクトップアプリです。macOS、Windows、Linuxに対応しています。\n\nOrcaは自身を「ADE（Agent Development Environment）」と呼んでいます。IDEが人がコードを書くための道具なのに対し、ADEは複数のエージェントに作業を任せて、進み具合を見ながらレビューやマージをするための道具です。\n\nタスクを作ると、Orcaはgit worktreeを作ってその中でエージェントを起動します。タスクごとにブランチと作業ディレクトリが分かれるので、同じリポジトリで5つのエージェントを同時に動かしてもファイルがぶつかりません。Claude Code、Codex、Gemini CLI、Cursor CLI、OpenCodeなど、ターミナルで動くエージェントなら基本的に使えます。\n\n \n\nインストールはHomebrewでできます！\n\n [code] \n\nこれまでGhosttyでClaude Codeを動かしていました。\nGhosttyはターミナルエミュレータなので、worktreeの作成やエージェントの管理は自分でやる必要があります。Orcaなら、worktreeの作成からエージェントの起動、差分のレビュー、PRとの紐付けまで1つの画面で完結します。\n\nworktree作成時にgit管理外のファイルをコピーする\n\ngit worktreeで作った作業ディレクトリには、.envのような.gitignore対象のファイルが含まれません。毎回手でコピーしないと、開発サーバーもビルドも動きません。\n\nOrcaのリポジトリ設定にある「Setup Script」に書いたコマンドは、worktreeの作成直後に実行されます。実行時には環境変数ORCAROOTPATH（元のリポジトリのパス）とORCAWORKTREEPATH（新しいworktreeのパス）が渡されるので、.envのコピーなら次の1行で済みます。\n\n [code] \n\nスクリプトを組めば、git管理外のファイルをまとめてコピーできる\n\nSetup Scriptには任意のコマンドを書けるので、.env以外のgit管理外のファイルもまとめてコピーできます。\n僕はgit status --ignoredでgit管理外のファイルを取り出して、nodemodulesのような作り直せるもの以外をコピーするスクリプトを使っています。\n\nスマホからターミナルを操作する\n\nOrcaにはスマホ用のコンパニオンアプリがあります（iOSはApp Store、AndroidはGitHub ReleasesでベータのAPK）。デスクトップ版で発行したペアリングコードをアプリに入力すると接続できます。接続方法はOrca Relay経由か同じLAN内での直接接続で、サインインが必要なのはOrca Relayを使う場合だけです。\n\n \n\nスマホからは、各worktreeの状態確認、ターミナル出力の閲覧、エージェントへの返信ができます。確認待ちのエージェントに「yes」を送ったり、音声入力で指示したりできて、作業が終わるとプッシュ通知が届きます。画面はチャット形式とターミナル形式を選べます。\n\nなお、スマホアプリはコード編集用ではなく、デスクトップのOrcaを操作するリモコンです。デスクトップ版を閉じると直接接続のセッションは切れます。\n\n \n\n最後に\n\n普段Claude CodeやCodexを使って開発をしている人には、Orcaはかなりおすすめです！特に、複数のタスクを同時にエージェントに任せたい人や、worktreeを手で作って管理するのが面倒に感じている人には合うと思います！\n\n最後まで読んでいただき、ありがとうございました！\nもし記事が参考になりましたら、いいねや共有をしていただけると嬉しいです🎉\n\n参考\n\nhttps://github.com/stablyai/orca\n\nhttps://www.onorca.dev/docs/model/worktrees\n\nhttps://www.onorca.dev/docs/mobile",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "3621980f6e6073a5",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8864804469273744,
+      "popularityPercentile": 0.9385474860335196,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "Orcaは複数のコーディングエージェントを安全に並行実行できる開発環境だ。",
+      "takeaways": [
+        "Orcaは複数のAIに仕事を同時に任せられる。",
+        "仕事ごとに作業場所が分かれるため変更が衝突しにくい。",
+        "スマートフォンから進み具合を操作できる。"
+      ],
+      "keywords": [
+        "Orca",
+        "ADE",
+        "Claude Code",
+        "OpenAI Codex",
+        "Git worktree",
+        "Gemini CLI"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "openai/mcp-extensions — Build plugins that feel like native, first-class features of ChatGPT.",
+      "url": "https://github.com/openai/mcp-extensions",
+      "publishedAt": "2026-09-29T00:45:42.000Z",
+      "author": "openai",
+      "authorDetail": {
+        "name": "openai",
+        "url": "https://github.com/openai",
+        "avatarUrl": "https://github.com/openai.png?size=120",
+        "bio": "Build plugins that feel like native, first-class features of ChatGPT."
+      },
+      "tags": [
+        "TypeScript"
+      ],
+      "snippet": "Build plugins that feel like native, first-class features of ChatGPT.",
+      "metrics": {
+        "stars": 697
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "e420483fe7997a37",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.866888888888889,
+      "popularityPercentile": 0.6222222222222222,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "mcp-extensions — ChatGPT向け拡張機能の開発基盤",
+      "oneLiner": "openai/mcp-extensionsはChatGPTに組み込まれたような拡張機能を作るためのリポジトリだ。",
+      "takeaways": [
+        "ChatGPTに自然に組み込める拡張機能を作れる。",
+        "拡張機能を標準機能に近い見た目で提供する。",
+        "公開情報だけでは実装方法の詳細は分からない。"
+      ],
+      "keywords": [
+        "openai/mcp-extensions",
+        "OpenAI",
+        "ChatGPT",
+        "MCP",
+        "TypeScript"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nopenai/mcp-extensions — Build plugins that feel like native, first-class features of ChatGPT. を動かして、README の最初の出力まで到達する\nhttps://github.com/openai/mcp-extensions\n\n# 手順\n1. git clone --depth 1 https://github.com/openai/mcp-extensions\n2. cd mcp-extensions && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "OpenAIのdotsで話題の「AIの同僚」を、手元のClaude CodeとCodexで組む方法",
+      "url": "https://qiita.com/iostar/items/85e1a496225208ef2a59",
+      "publishedAt": "2026-10-02T12:59:02.000Z",
+      "author": "iostar",
+      "authorDetail": {
+        "name": "iostar",
+        "handle": "@iostar",
+        "url": "https://qiita.com/iostar",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/1781033/fb1db78d92aea005cb1a98c133d62c4f70aa30ca/x_large.png?1787673581",
+        "bio": "AIコーディングエージェント専用に設計されたSHIKISHA-TERMというWINDOWS用のターミナルソフトを開発してます",
+        "followers": 1,
+        "posts": 5,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://shikisha-term.com/"
+          }
+        ]
+      },
+      "tags": [
+        "dots",
+        "オーケストレーション",
+        "AIエージェント"
+      ],
+      "snippet": "AIに書かせたコードを別のAIにレビューさせると、間に立つ人間が伝言係になります。 Claude Code の出力をコピーして Codex に貼り、Codex の指摘をコピーして Claude Code に戻す。往復が3回あれば、コピーと貼り付けを6回繰り返しています。 この伝言を、AI同士で直接やらせるようにしました。Slack で同僚に頼むのと同じく、@codex と書けば Claude Code が Codex に頼み、返事を受け取って、続きを自分でやります。私の手元に残るのは、決めることだけです。 https://x.com/tonariwa/status/2105607918385320239 この記事は、その仕組みを日々の仕事に乗せるまでの話です。対象は v0.19.0 から v0.23.1、2026年9月25日から10月2日までの1週間です。 すでに契約しているAI同士でも、…",
+      "body": "AIに書かせたコードを別のAIにレビューさせると、間に立つ人間が伝言係になります。 Claude Code の出力をコピーして Codex に貼り、Codex の指摘をコピーして Claude Code に戻す。往復が3回あれば、コピーと貼り付けを6回繰り返しています。\n\nこの伝言を、AI同士で直接やらせるようにしました。Slack で同僚に頼むのと同じく、@codex と書けば Claude Code が Codex に頼み、返事を受け取って、続きを自分でやります。私の手元に残るのは、決めることだけです。\n\nhttps://x.com/tonariwa/status/2105607918385320239\n\nこの記事は、その仕組みを日々の仕事に乗せるまでの話です。対象は v0.19.0 から v0.23.1、2026年9月25日から10月2日までの1週間です。\n\nすでに契約しているAI同士でも、頼み合いは組める\n\n9月29日、OpenAI が DevDay で「dots」を発表しました。公開されている説明によると、dots は常に動いているエージェントで、自分専用のクラウド上のコンピュータを持っています。利用者は ChatGPT や Slack、Teams から仕事を頼みます。いまは1体から始まり、複数の dots をチームで動かすのはこれから、とされています。\n\nAIに仕事を任せ、AI同士で回してもらう働き方が、一気に身近な話題になりました。形は違いますが、AI同士に頼み合わせることは、すでに契約している CLI でも組めます。私が使っているのは、定額で契約している Claude Code と Codex です。新しい契約も、APIキーも足していません。\n\n私は Windows 用のターミナル（SHIKISHA-TERM）を作っていて、AIのコマンドラインツールをタブに並べて走らせています。この1週間で、そのタブ同士が頼み合えるようにしました。\n\n1体に全部やらせるより、書く役と見る役を分ける\n\nなぜわざわざ2つのAIを使うのか。私の考えでは、理由は人の仕事と同じです。書いた本人のレビューは甘くなります。自分が書いたコードを自分で見直すと、書いたときの思い込みをそのままなぞってしまうからです。\n\nそこで、実装は Claude Code、レビューは Codex、と役を分けています。開発元もモデルも違うので、見落とし方の癖も違います。\n\nこれまでは、この「分ける」を私が手でつないでいました。冒頭の伝言係です。\n\n頼み方は、Slackの@と同じ\n\n入力欄で @ を打つと、同じデスク（タブの仕切り）のタブが並びます。選んで、用件を書くだけです。\n\n [code] \n\nhttps://x.com/tonariwa/status/2106004255102648375\n\nこれを Claude Code のタブに送ると、Claude Code が Codex のタブに頼み、Codex が答え、Claude Code がその答えを読んで直します。往復は、AI同士で済みます。\n\n実際に、作り物のリポジトリでこの文を送ってみました。Codex は85秒で4件の指摘を返し、Claude Code はそのうち2件（おかしなクーポン値と、合計がマイナスになること）を直しました。残りの2件（2種類の割引の併用と、四捨五入）は、仕様が決まっていないので扱いを決めてほしい、とこちらに返してきました。送ってから122秒です。\n\n@ を初めて使うときだけ、アプリが「AIに使い方を教えるファイルを書いてよいか」を聞いてきます。断れば、そのファイルは書きません。\n\n一度頼んだら、席を離れていられる\n\n以前は、往復のたびに席に縛られていました。Claude Code が終わるのを待ち、出力をコピーし、Codex のタブに貼り、Codex が終わるのを待ち、また戻る。待っている時間も含めて、往復のあいだは離れられません。\n\nいまは「実装して、指摘がなくなるまでレビューを回して」と一度頼んだら、終わるまで別の仕事をしています。頼まれたAIがその仕事のリーダーになり、タスクに分けて各タブに割り振り、報告を受け取って次を決めます。働く側のAIは、困ったら私ではなくリーダーに聞きます。\n\n私のところに上がってくるのは、main ブランチへのマージのように、取り消しにくい判断だけです。ここはAIに決めさせず、人に聞くよう、リーダーへの手順書で決めてあります。上の例で Claude Code が仕様の判断を返してきたのも、同じ考え方です。\n\n任せる前に決めておく3つのこと\n\n頼む文は、それだけで読めるように書かせる。 頼まれたAIは、頼んだ側の会話を見ていません。リーダー役のAIに渡している手順書では、各タスクに次の4点を書かせています。どこの話か（フォルダ・ブランチ・ファイル）、何ができあがればよいか、何を変えてはいけないか、どうなったら終わりか。人に仕事を頼むときと同じです。\n\n別のフォルダにいる相手には、コミットしてから頼む。 レビューする側が別の作業フォルダ（ワークツリー）にいると、コミットしていない変更は見えません。手順書でも、先にコミットするか、頼む文に差分を貼るよう指示しています。\n\n回数の上限と、止める手段を持っておく。 「指摘がなくなるまで」は、放っておくと終わらないことがあります。何往復までにするか（最大ターン数）と、頼まれたAIがさらに別のAIに頼んでよいか（入れ子の深さ）は、設定の「頼みごとの上限」で決められます。「依頼」のカードの「止める」を押せば、確認のあとでその仕事全体が止まります。\n\nAI同士が何を話したか、あとから追える\n\n任せる範囲が広がると、「どのAIが誰に何を頼んで、何と答えたのか」が見えなくなります。10月1日の v0.23.0 で、これをチャットとして眺められるようにしました。画面では「AIコラボ」と呼んでいます。\n\n \n\nAIが別のAIに頼むたびに、頼んだ側と答えた側がそれぞれ一言ずつ言い、Slack のチャンネルのように並びます。一言の下には、頼んだ全文と答えの全文が畳んであります。気になる行には 👍 や ❓ の印を付けられます。AIが作ったコミットやプルリクエストは、押すと開くカードとして流れてきます。\n\n私は、席に戻ったらまずここを上から読んでいます。チームの Slack を朝に読むのと同じ感覚です。\n\n費用は増えていない\n\n月々の支払いは変わっていません。動かしているのは、すでに契約している Claude Code と Codex の CLI そのもので、このアプリは間をつないでいるだけです。アプリ自体は MIT ライセンスのオープンソースです。\n\nただし、2つのAIを同時に動かすぶん、それぞれのプランの利用枠は早く減ります。どれだけ使ったかは画面のいちばん下の段に出ます（Claude と Codex のほか、v0.23.0 から Gemini なども出ます）。\n\n長い仕事を任せて席を離れるときのために、AIが働いている間だけPCをスリープさせない設定も足しました（設定 > 基本 > 「スリープ防止」）。\n\n正直なところ\n\nPCを閉じたら止まります。サーバーに置ける窓のないヘッドレス版（Linux）もありますが、画面を持つ版は Windows 専用です。macOS 版はありません。\n\n返事をきれいに受け取れるのは、Claude Code・Codex・Gemini の3つです。この3つはディスクに会話の記録を残すので、そこから返事を読んでいます。ほかのAIは画面から読むので、折り返しなどが混じることがあります。\n\n任せきりにもしていません。取り消しにくい判断は人に聞くよう決めてありますし、私も AIコラボは毎回読みます。\n\nおわりに\n\n私の一日を変えたのは、新しいAIを足すことより、すでに持っているAIに役を分けて、伝言係を降りたことでした。このアプリを使わなくても、書く役と見る役を分け、頼む文に4点を書くだけで、往復はかなり減らせます。\n\nAI同士の往復まで任せたい方は、手元の Claude Code と Codex でどうぞ。Microsoft Store から入れられます。\n・SHIKISHA-TERM（Microsoft Store）\n・GitHub",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "670e38b56f3503b0",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7199441340782123,
+      "popularityPercentile": 0.18156424581005587,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "Claude CodeとCodexを直接連携させてAI同士に実装とレビューを任せる方法を紹介している。",
+      "takeaways": [
+        "Claude Codeが別のAIに仕事を直接頼める。",
+        "人が結果をコピーして渡す作業がなくなる。",
+        "実装とレビューの往復をAI同士で進められる。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "OpenAI Codex",
+        "dots",
+        "AIエージェント",
+        "オーケストレーション",
+        "v0.23.1"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "FDEを「コンサル＋AI」と呼びFDE Washingさせるな！本質は本番環境（Production）への Build & Deploy にある",
+      "url": "https://qiita.com/masamis/items/39f2b943c5bc09498bc6",
+      "publishedAt": "2026-10-02T09:42:04.000Z",
+      "author": "Masami Suzuki",
+      "authorDetail": {
+        "name": "Masami Suzuki",
+        "handle": "@masamis",
+        "url": "https://qiita.com/masamis",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/3816/profile-images/1473756055",
+        "followers": 16,
+        "posts": 19,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/masamis"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "エンジニアリング",
+        "FDE",
+        "devops",
+        "ガートナー"
+      ],
+      "snippet": "本記事の前提 本稿で扱う「FDE（Forward Deployment Engineer）」の定義および課題認識は、米調査会社 Gartner が発表したレポート『The Forward Deployed Engineer Handbook』およびニュースリリース（Gartner Predicts 70% of Enterprises Will Abandon Agentic AI Built by Vendor Forward-Deployed Engineering by 2028）を参考にしています。 生成AIブームやデータ活用の文脈で「FDE（Forward Deployment Engineer / 現場配備型エンジニア）」という用語の露出が増えている。しかし、一部では「FDEとは、AIに詳しいコンサルタントのことだろう」「コンサルにAIツールを持たせた新しい職種だ」といった浅い…",
+      "body": "本記事の前提 \n本稿で扱う「FDE（Forward Deployment Engineer）」の定義および課題認識は、米調査会社 Gartner が発表したレポート『The Forward Deployed Engineer Handbook』およびニュースリリース（Gartner Predicts 70% of Enterprises Will Abandon Agentic AI Built by Vendor Forward-Deployed Engineering by 2028）を参考にしています。\n\n生成AIブームやデータ活用の文脈で「FDE（Forward Deployment Engineer / 現場配備型エンジニア）」という用語の露出が増えている。しかし、一部では「FDEとは、AIに詳しいコンサルタントのことだろう」「コンサルにAIツールを持たせた新しい職種だ」といった浅い誤解が広まりつつある。\n\nこれは明確な誤認。FDEの本質は、戦略の提言やPoC（概念実証）の作成ではなく、「現場の泥臭い制約下で、本番運用に耐えるシステムを Build & Deploy（構築・デプロイ）し切ること」にある。\n\nここでは、Gartnerの示唆を参照しながら、なぜ「FDE ≒ コンサル＋AI」という解釈が間違いなのか、そしてFDEが真に果たすべき役割に記してみる。\n\n決定的な違いは「本番環境（Production）へのデプロイ責任」\n\n従来のITコンサルティング（あるいはAIコンサルティング）とFDEの決定的な境目は、「納品物がコードや提言書か」、それとも「稼働する本番システムか」という点。\n\n [code] \n\nコンサルタントの責務は、課題を整理し、ロードマップを描き、プロトタイプ（PoC）で筋の良さを証明するまでに留まることが多い。しかし、エンタープライズ領域におけるAI・データ活用の最大の難所は、PoCが終わった後の「本番環境への実装（Day-2 Operations）」。\n\nFDEは、この「PoCの墓場」を越え、顧客の既存インフラ、セキュリティポリシー、既存ワークフローの真っ只中にプロダクトを叩き込むために存在するはず。\n\nFDEに求められるハードな技術スタック\n\nFDEを「AIを使えるコンサル」と捉えてしまうと、必要なスキルセットを見誤る。FDEは、現場の業務コンテキストを解釈するビジネスセンスと同時に、以下のような堅牢なエンジニアリングスキルを要求される。\n・データパイプライン構築とパフォーマンスチューニング\n\n 単にモデルを呼び出すだけでなく、異種多様なレガシーシステムからデータを抽出し、ETL/ELTパイプラインをスケーラブルに組み上げる力。\n・エンタープライズアーキテクチャ・セキュリティ理解\n\n IAM（Identity and Access Management）や条件付きアクセス、ゼロトラストネットワーク、VPC設計など、エンタープライズの厳しいセキュリティ基準を満たしながらシステムを配置する知識。\n・CI/CDとDevOps / MLOpsの実装\n\n コードの継続的デプロイメントだけでなく、モデルのドリフト検知やデータ品質のモニタリング環境を本番に組み込む力。\n\n「提案はするがコードは書かない」「インフラやCI/CDの泥臭いトラブルシューティングは扱えない」のであれば、どれだけAIに精通していてもFDEとは呼べない。\n\nなぜ今、FDEという役割が必要とされるのか\n\n生成AIの登場により、コードの自動生成やプロトタイプの作成自体は極めて容易になった。これにより「コンサルタントがAIを使って提案資料や簡易アプリを作る」ことのハードルは劇的に下がった。\n\nしかし、「簡単なプロトタイプを作ること」と「エンタープライズの本番環境で安全かつ高可用に動かすこと」の間には、依然として巨大な溝が存在する。\n・権限管理（どのユーザーがどのデータソースにアクセスできるか）\n・既存の基幹システム（ERP、CRM）との統合\n・リアルタイム性とレイテンシの担保\n・障害発生時のフォールバック設計\n\nFDEは、まさにこの「溝」を埋めるために現場（Forward）に配備（Deployment）されるエンジニアである。AIでプロトタイピングが容易になった時代だからこそ、「本番までデプロイし切る」エンジニアリングの価値がこれまで以上に跳ね上がっている。\n\nGartnerが警戒する「FDE Washing（FDE洗浄）」の罠\n\nGartnerは、実態を伴わないコンサルティングサービスをFDEと偽って高額販売する動きを 「FDE Washing（FDE洗浄）」 と呼び、警鐘を鳴らしている。\n\n単に従来のコンサルタントに「FDE」という名刺を持たせ、表面的なAI活用法を提案するだけでは、顧客側に持続的なインフラや運用能力（Capability）は残らない。Gartnerが提言するように、FDEとは単なる流行語やコンサルの上位互換ではなく、 「現場の課題を製品・インフラの構築（Build）と配置（Deploy）によって直接解決するデリバリーモデル」 である。\n\nFDEの本質は「泥臭いエンジニアリングによる完遂」\n\nFDEは「コンサル＋AI」という生ぬるい掛け合わせではない。「コンサルティングの課題解像度を持ちながら、SRE/DevOps/データエンジニアリングの腕力で本番デプロイまで完遂するプロフェッショナル」であるはず。\n\nGartnerの指摘通り、「AIコンサル」のようなバズワード的ブランディング（FDE Washing）に誤魔化されず、FDEの本質が「Build & Deploy」という強力なエンジニアリング実践にあることを、再認識すべきと思う。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "63bcf90b1e161f3c",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6795437616387338,
+      "popularityPercentile": 0.8994413407821229,
+      "matchedTopics": [
+        "FDE / プロダクトエンジニアリング"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "FDEの本質を助言やPoCではなく現場の制約下で本番システムを構築して配備する責任だと論じている。",
+      "takeaways": [
+        "FDEは助言だけをする役割ではない。",
+        "現場で動く仕組みを作り本番まで届ける。",
+        "成果物は提案書ではなく稼働するシステムになる。"
+      ],
+      "keywords": [
+        "FDE",
+        "Forward Deployed Engineer",
+        "Gartner",
+        "Build & Deploy",
+        "本番環境"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "FDEを助言役と見るか実装責任者と見るか",
+        "forSide": "本番で動くシステムまで届けて初めて現場の課題を解決したと言える。",
+        "againstSide": "顧客課題の整理と合意形成を担う役割まで実装担当に寄せると責任範囲が過大になる。",
+        "oneSided": true,
+        "yourAngle": "顧客環境への導入から運用まで担当した実績が役割定義の一次情報になる。"
+      },
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ユニットテストは不要なのか?",
+      "url": "https://qiita.com/aganesy/items/fac4efe52b9f5b34fb33",
+      "publishedAt": "2026-10-02T04:17:34.000Z",
+      "author": "aganesy",
+      "authorDetail": {
+        "name": "aganesy",
+        "handle": "@aganesy",
+        "url": "https://qiita.com/aganesy",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/137701/profile-images/1789884490",
+        "followers": 0,
+        "posts": 14,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/aganesy"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/aganesy"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "ユニットテスト",
+        "テスト",
+        "リファクタリング",
+        "コードレビュー"
+      ],
+      "snippet": "「ユニットテスト不要論」は、AI時代にはユニットテストの価値が低くなる、という意見です。 英語圏のXでの投稿が日本語圏にも広まり、XやZennで議論されています。 テスト全体をなくすというより、AIが作る意味のないテストを減らし、E2Eで利用者から見た動作を確かめようという主張です。 私は、AIを使う開発でもユニットテストは絶対に必要だと考えています。 https://zenn.dev/revo1290/articles/slicetest-between-unit-and-e2e AIへの期待が高すぎる AIがバグのあるコードや質の低いテストを書くと、失敗が目につきます。でも、ミスの割合と件数は分けて考える必要があります。 ミス率が低くても、書く量が多ければミスの数は増えます。人間とAIのミス率は仕事の内容によって変わるので、一律には比較できません。短時間に大量のコードを書くAIを、失敗…",
+      "body": "「ユニットテスト不要論」は、AI時代にはユニットテストの価値が低くなる、という意見です。 \n英語圏のXでの投稿が日本語圏にも広まり、XやZennで議論されています。 \nテスト全体をなくすというより、AIが作る意味のないテストを減らし、E2Eで利用者から見た動作を確かめようという主張です。\n\n私は、AIを使う開発でもユニットテストは絶対に必要だと考えています。\n\nhttps://zenn.dev/revo1290/articles/slicetest-between-unit-and-e2e\n\nAIへの期待が高すぎる\n\nAIがバグのあるコードや質の低いテストを書くと、失敗が目につきます。でも、ミスの割合と件数は分けて考える必要があります。\n\nミス率が低くても、書く量が多ければミスの数は増えます。人間とAIのミス率は仕事の内容によって変わるので、一律には比較できません。短時間に大量のコードを書くAIを、失敗の件数だけで評価するべきではないと思います。\n\n人間のための仕組みをAIにも適用するべき\n\nAIは人間のように振る舞います。私は、人間の開発で使ってきた仕組みやノウハウ、品質管理の方法は、AIにもすべて適用できるはずだと考えています。\n\nユニットテストも、その一つです。人間がソフトウェアを開発するうえで重要な仕組みなのだから、AIが開発する現場でも使うのは自然です。\n\n人間の同僚を信頼して仕事を任せるように、AIにもコーディング、テスト、レビューを任せたいです。 人間のための仕組みを活かしながら、AIに全部任せられる世界にしたいと思っています。\n\nテストは資産\n\nテストを残せば、コードを変更した後も既存の機能を確認できます。リグレッションを防ぎ、大胆なリファクタリングを進める助けになります。この価値は、コードを書くのが人間でもAIでも変わりません。\n\nTDDやBDDでも、期待する動作を明確にし、確認しながら開発することが大切にされています。\n\n私も、AIにロジックを実装させた後でテストを書かせ、AI自身がバグを見つけたケースを何度も経験しています。\n\nただし、実装とテストの期待値が同じように間違っていることもあります。テストでは、仕様どおりの結果になることを確認する必要があります。\n\nおかしなテストは修正してもらう\n\nAIが、バグのある処理を通らないテストや、結果を確認せずに通るだけのテストを書くこともあります。それでも、テストを書くのをやめる必要はありません。\n\n足りないケースの追加や不備の修正、過剰なテストの削除はAIに任せます。素早く修正してもらい、テストが意図した結果を検証していることも確認します。\n\nMetaのACHでも、AIが生成したテストで対象の不具合を検出できることを確認しています。\n\nhttps://engineering.fb.com/2025/02/05/security/revolutionizing-software-testing-llm-powered-bug-catchers-meta-ach/\n\nテストはレイヤーごとに分ける\n\nE2Eで全体の動作を確かめることには賛成です。そのうえで、個々のロジックや連携も、それぞれに合ったテストで確認します。\n\n| 対象 | テスト |\n| --- | --- |\n| バックエンド | ユニットテスト、APIテスト |\n| フロントエンド | コンポーネントテスト、インテグレーションテスト |\n| システム全体 | E2Eテスト |\n\nたとえば、料金計算の境界値はユニットテスト、購入から注文完了までの流れはE2Eで確かめます。細かな条件をすべてE2Eで確認すると負担が大きいので、役割を分けます。\n\nこうしたテストの役割分担は、The Practical Test Pyramidでも紹介されています。\n\nhttps://martinfowler.com/articles/practical-test-pyramid.html\n\nテストだけで解決しようとしない\n\nlint、型チェック、静的解析で、ロジックとテストの両方をチェックします。人間は、ケースの抜けや期待値の間違いを確認します。\n\nテストを書くルールを決めておく\n\nrules、skills、CLAUDE.mdなどに、テストを書くルールを残します。\n・各レイヤーで確認する動作\n・正常系、異常系、境界値の扱い\n・実装の内部構造に依存しすぎない書き方\n・テストを通すためだけに期待値を変えないこと\n・過剰なモックや重複を増やさないこと\n\n書けば必ず守られるわけではなく、私の感覚では努力義務くらいです。それでも、何も伝えないよりはよいと思います。\n\nコードレビューではテストを読む\n\n最近、AIが作ったPRのレビューでは、私はロジックを見ていません。既存のテストを変えずにロジックを修正したPRは、テストが通ればノールックでapproveしています。\n\nテストが変更・追加されるPRでは、テストを読みます。細部までは追わず、ケースの過不足や期待する結果を中心に見ています。ケースがよさそうならOKとし、不足や不備、過剰なテストが見つかればAIに修正を依頼します。\n\n既存のテストで確認していない動作や、テスト自体の誤りを見落とす可能性はあります。それを踏まえても、必要なテストを揃えながら、実装を任せる範囲を広げたいと思っています。\n\nAIに任せるためにテストを積み上げたい\n\n守りたい動作をテストに残し、次の変更でも使います。こうしてテストを積み上げ、人間が毎回コードを全部読む負担を減らしたいです。",
+      "metrics": {
+        "likes": 2,
+        "stocks": 4
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "341c30d00f8a5881",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.7799068901303539,
+      "popularityPercentile": 0.9692737430167597,
+      "matchedTopics": [
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "AI時代でもユニットテストは品質管理と変更後の安全確認に必要だと主張している。",
+      "takeaways": [
+        "AIが書くコードにも品質確認の仕組みが要る。",
+        "短時間で大量に作るほど失敗の数は増える。",
+        "テストは変更後も残る品質の記録になる。"
+      ],
+      "keywords": [
+        "ユニットテスト",
+        "AI",
+        "E2Eテスト",
+        "コードレビュー",
+        "リファクタリング"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "細かなテストを残すか利用者目線の確認に絞るか",
+        "forSide": "変更を重ねても過去の動作を守れるのでテストはAI開発でも資産になる。",
+        "againstSide": "意味の薄い確認を大量に残すと修正の足かせになり利用者の動作確認を妨げる。",
+        "oneSided": true,
+        "yourAngle": "AIが生成したテストの失敗率と修正後の検出実績を記録できる。"
+      },
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「AIにコードを書かせるな、仕様書を書かせろ」──Vibe Codingの二日酔いから始まる仕様駆動開発（SDD）",
+      "url": "https://qiita.com/shioccii/items/479b7635883501d7a47b",
+      "publishedAt": "2026-10-01T23:23:37.000Z",
+      "author": "shioccii",
+      "authorDetail": {
+        "name": "shioccii",
+        "handle": "@shioccii",
+        "url": "https://qiita.com/shioccii",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3620986/profile-images/1711272714",
+        "bio": "前職ではオンプレ環境の構築・運用(VMware、Nutanixなど)に携わっていたが、現在はCloud Integraterの会社でMSP運用サービスを担当。最近はAI関連サービスに興味がある。本ブログに掲載されている内容については著者に所属するものであり、所属組織の公式見解ではありません。",
+        "location": "神戸",
+        "followers": 21,
+        "posts": 77,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/shioccii"
+          }
+        ]
+      },
+      "tags": [
+        "AIエージェント",
+        "開発プロセス",
+        "アーキテクチャ",
+        "ClaudeCode",
+        "cursor"
+      ],
+      "snippet": "「AIにコードを書かせるな、仕様書を書かせろ」──Vibe Codingの二日酔いから始まる仕様駆動開発（SDD） はじめに 「思いついたアイデアをプロンプトに投げたら、一瞬でアプリが動いた」 元OpenAIのAndrej Karpathy氏が提唱した「Vibe Coding」という言葉は、世界中のエンジニアを熱狂させました。エディタを開き、自然言語でやりたいことを呟くだけで、AIが数百行のコードを一気に書き上げる光景は、まさに新しい時代の到来を予感させるものでした。 しかし、その熱狂の裏で、多くの現場が深刻な「二日酔い」に直面しています。 数千行から数万行に及ぶ既存プロダクトのコードベースにAIコーディングツールを投入した途端、不整合な抽象化、重複したロジック、型定義の破壊といった問題が噴出し始めました。生成されたコードのPR（プルリクエスト）は数千行の巨大な差分となり、人間が到底レビュ…",
+      "body": "「AIにコードを書かせるな、仕様書を書かせろ」──Vibe Codingの二日酔いから始まる仕様駆動開発（SDD）\n\nはじめに\n\n「思いついたアイデアをプロンプトに投げたら、一瞬でアプリが動いた」\n\n元OpenAIのAndrej Karpathy氏が提唱した「Vibe Coding」という言葉は、世界中のエンジニアを熱狂させました。エディタを開き、自然言語でやりたいことを呟くだけで、AIが数百行のコードを一気に書き上げる光景は、まさに新しい時代の到来を予感させるものでした。\n\nしかし、その熱狂の裏で、多くの現場が深刻な「二日酔い」に直面しています。\n\n数千行から数万行に及ぶ既存プロダクトのコードベースにAIコーディングツールを投入した途端、不整合な抽象化、重複したロジック、型定義の破壊といった問題が噴出し始めました。生成されたコードのPR（プルリクエスト）は数千行の巨大な差分となり、人間が到底レビューしきれないまま放置され、マージ率が低下するという現象が海外のテックコミュニティでも大きな議論を呼んでいます。\n\nいま英語圏のエンジニアたちが辿り着きつつある答えは、非常に逆説的です。\n\n「AIにいきなりコードを書かせてはならない。まずAIに仕様書を書かせよ。」\n\n本記事では、Vibe Codingの限界を乗り越える新しい開発パラダイムである「仕様駆動開発（Specification-Driven Development: SDD）」の考え方と、明日から使える具体的な実践プロセスを解説します。\n\n---\n\nVibe Codingの限界と「AI技術的負債」の正体\n\nVibe Codingが新規のプロトタイプ作成において圧倒的な威力を発揮するのは事実です。ゼロから使い捨てのスクリプトを作ったり、小規模なデモ画面を組んだりする場面では、厳密な設計を省いて動くものを最速で手に入れる価値があります。\n\n一方で、持続的な保守やチーム開発が求められる本番システムにVibe Codingを持ち込むと、次の3つの壁に激突します。\n\n1. レビュー不可能な巨大PR（プルリクエスト）\nAIに「〜の機能を実装して」と大雑把に頼むと、AIは複数のファイルを跨いで一気にコードを生成します。\n\nその結果として上がってくるPRは、数百行から数千行におよびます。レビューする人間は、AIが意図通りに実装したのか、エッジケースを考慮しているのか、既存の共通モジュールを無視して勝手な車輪の再発明をしていないかを一行ずつ確認しなければなりません。コードを書く時間はゼロになっても、レビューと手戻りのコストが倍増し、チーム全体のベロシティはむしろ落ちてしまいます。\n\n2. コンテキストドリフトによるアーキテクチャの侵食\nLLMは「局所的な整合性」を取るのが得意な反面、「リポジトリ全体の長期的な設計意図」を記憶し続けるのが苦手です。\n\nプロンプトの対話を重ねるうちに、モデルは過去に決めた設計方針を少しずつ忘れていきます（コンテキストドリフト）。その結果、同じようなユーティリティ関数が別のディレクトリに再定義されたり、レイヤードアーキテクチャの依存関係が平気で逆転したりします。\n\n3. 仕様の不在によるリグレッションの温床\nVibe Codingで作られたコードには、「なぜこのコードがこう書かれているのか」という意図（仕様）がドキュメントとして残りません。\n\n後から別のエンジニアやAIが機能修正を試みた際、どの振る舞いが意図された仕様で、どの振る舞いが単なるバグなのかを判別できなくなります。結果として、少しの機能追加で既存機能が壊れる脆いシステムが完成してしまいます。\n\n---\n\nパラダイムシフト：仕様駆動開発（SDD）とは何か\n\nこうした課題への反動として注目を集めているのが、仕様駆動開発（Specification-Driven Development: SDD）です。\n\nSDDの核心は、人間のエンジニアの役割を「コードの執筆者」から「仕様とアーキテクチャの意思決定者・監査役」へ意図的にシフトさせる点にあります。人間が自然言語でAIに命令して直接コードを書かせるのではなく、人間とAIが協調して「仕様書（Markdown）」という明確な契約を先に策定します。\n\n [code] \n\n人間がレビューすべき対象は、AIが吐き出した何千行ものプログラミング言語のコードではなく、日本語やMarkdownで書かれた「仕様書（PRD / ADR）」と「テストケース」です。\n\n仕様とインターフェースが固まった段階で初めて、実装フェーズをAIに委託します。AIは明確な境界条件とテストがある環境下では、驚異的な精度とスピードで高品質なコードを出力します。\n\n---\n\nSDDを実践する3つのステップ\n\n実際に既存のリポジトリや新機能開発において、SDDを回すための具体的なワークフローを3つのステップで紹介します。\n\nステップ1：AIと壁打ちして要件仕様書（PRD）を起こす\nいきなり「コードを書いて」と命じるのではなく、まずは解決したい課題や目的をAIに伝え、要件仕様書をMarkdownファイルとしてまとめさせます。\n\nAIに対して、次のように問いかけます。\n\n [code] \n\nこの段階で人間が仕様をレビューします。「この受入基準は業務仕様と合っているか」「想定外のエッジケースが抜けていないか」を確認し、ドキュメントの差分だけを修正します。自然言語の仕様書であれば、コードレビューよりも何倍も高速かつ的確にレビューが完了します。\n\nステップ2：設計決定（ADR）とテスト仕様を固める\n要件が定まったら、次に技術的なアプローチと契約（インターフェース・テスト仕様）をAIに整理させます。\n\nこのステップで重要なのは、アーキテクチャの選択理由（ADR: Architecture Decision Record）と、入出力の型定義、およびテストケースを先に確定させることです。\n\n [code] \n\nここで人間は、既存のアーキテクチャ方針と整合しているか、命名規則やセキュリティ要件が満たされているかを確認します。テストケースが網羅されていれば、このあとの実装における品質の命綱が確保されたことになります。\n\nステップ3：テスト駆動開発（TDD）のループをAIに回させる\n仕様書とテスト仕様が承認されたら、Claude Code、Cursor、Aiderといったコーディングエージェントに実装を委託します。ここで重要なのは、AIにいきなり実装コードを書かせるのではなく、テスト駆動開発（TDD: Red-Green-Refactor）の原則を適用することです。\n\nエージェントには作成した仕様書へのパスと、テスト実行コマンドを与えます。\n\n [code] \n\n自然言語の仕様書にはどうしても微小な解釈の余地が残りますが、テストコードという「決定論的な制約」に変換することで、仕様のブレ（Specification Drift）を完全に排除できます。エージェントはテストの失敗ログを自己検証のフィードバックとして活用し、テストが通るまで自律的に試行錯誤します。\n\n完成したコードは、作成した仕様書（docs/specs/）と一緒に同一のPRとして提出させます。Gitの履歴に「仕様と実装」が常にセットで記録されるため、後から参入したメンバーや別のAIにとっても最高のコンテキスト資料になります。\n\n---\n\n現場で破綻させないための2つの運用プラクティス\n\nSDDを実際のチーム開発で継続運用するためには、さらに次の2つの工夫が不可欠です。\n\nプラクティス1：リポジトリのルール設定で「仕様先行」を強制する\nエージェントに対して毎回手動で「仕様書を先に書け」と指示するのは手間がかかり、抜け漏れも生じます。\n\nそこで、Cursorの .cursorrules やClaude Codeの CLAUDE.md、Copilotの .github/copilot-instructions.md といった常時読み込みファイルに、次のようなガードレールを明記します。\n\n [code] \n\nこの一行を入れておくだけで、エージェントが勝手にコードの書き換えを暴走させる事故を防ぎ、開発プロセス全体を仕様駆動へと自動的に誘導できます。\n\nプラクティス2：1機能1ファイルの「マイクロスペック（Micro-Specs）」に分割する\n仕様書を作成する際、1つの巨大なファイルにすべての要件を詰め込んではなりません。仕様書自体が肥大化すると、エージェントのコンテキストウィンドウを過剰に消費し、かえって推論精度が落ちる原因になります。\n\n推奨されるのは、1つの機能追加や修正ごとに100〜200行程度の小さなMarkdownファイル（docs/specs/2026-10-coupon-validation.md など）を作成する「マイクロスペック」の運用です。役目を終えた仕様書はアーカイブするか、PRマージ時にシステム全体の仕様集へ集約することで、常に軽量なコンテキストを保ち続けられます。\n\n---\n\nSDDを導入して得られる3つのメリット\n\nこのワークフローを導入することで、開発現場には次のような劇的な変化が訪れます。\n\n1. PRレビューの劇的な軽量化\nこれまでのレビューは、「このコードは何をしているのか」「バグはないか」を暗中模索で探す作業でした。\n\nSDDでは、事前に人間が合意した仕様書とテストケースが存在するため、レビュアーは「コードが事前に合意した仕様通りに書かれているか」「テストが網羅されているか」を確認するだけで済みます。レビューの心理的負担と時間が激減し、マージまでのリードタイムが短縮されます。\n\n2. 「仕様と実装の乖離」の自然な解消\n従来の開発では、「ドキュメントを書くのが面倒でコードだけ先行し、仕様書が形骸化する」という問題が常にありました。\n\nSDDでは、コードを生成するための入力として仕様書が必要になるため、ドキュメントが最新の動く仕様として生き続けます。ドキュメントを書く主体もAIであり、人間はその編集と承認を行うだけなので、ドキュメント作成の心理的ハードルも大幅に下がります。\n\n3. AIエージェントの自律稼働と精度の向上\nAIコーディングエージェントが迷走したり、余計なコードを改ざんしたりする最大の原因は、「曖昧なプロンプトによる解釈のブレ」です。\n\n仕様書によって明確なガードレールとゴールが定義されているため、エージェントは迷うことなく正確な実装に集中できます。結果として、プロンプトの往復回数や無駄なトークン消費も最小限に抑えられます。\n\n---\n\nまとめ\n\nVibe Codingは、個人開発やアイデア検証のスピードを劇的に変えました。その直感的な体験は素晴らしいものです。\n\nしかし、ソフトウェア開発の本質は「コードを生成すること」ではなく、「システムの長期的な整合性を保ち、価値を届けること」にあります。コードを量産することが容易になった時代だからこそ、そのコードが何を目的としており、どんな制約のもとで動くべきかという「仕様」の価値がかつてないほど高まっています。\n\nAIコーディングエージェントの真の力は、適当なプロンプトでコードを乱造させることではなく、人間の思考を整理し、堅牢な仕様を構築するための相棒として使うことで発揮されます。\n\n「AIにコードを書かせる前に、まず仕様書を書かせる」\n\nこのシンプルな習慣を取り入れるだけで、あなたのAI開発体験は、不安定なガチャから再現性の高いエンジニアリングへと進化するはずです。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "7cb55a01cc93bfab",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8649720670391062,
+      "popularityPercentile": 0.840782122905028,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "AIにいきなりコードを書かせず先に仕様を整理させる仕様駆動開発の手順を解説している。",
+      "takeaways": [
+        "AIにすぐ実装させるとコードの乱れが増える。",
+        "先に作るものと守る条件を文章で固める。",
+        "仕様を確認してから小さく実装を進める。"
+      ],
+      "keywords": [
+        "仕様駆動開発",
+        "SDD",
+        "Vibe Coding",
+        "Claude Code",
+        "Cursor",
+        "AIエージェント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "先に仕様を固めるかまず動くものを作るか",
+        "forSide": "仕様を先に確認すれば巨大な差分や重複した実装を減らせる。",
+        "againstSide": "初期段階で文章を固めすぎると試作から得られる発見と変更の速さを失う。",
+        "oneSided": true,
+        "yourAngle": "AIに仕様作成を任せたときの差分量と手戻りを既存開発と比較できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "MCPサーバーでコンテキスト消費が爆発する問題と、CLI/REST APIとの賢い使い分け",
+      "url": "https://qiita.com/shioccii/items/e2496c98c2671c48804b",
+      "publishedAt": "2026-10-01T23:24:00.000Z",
+      "author": "shioccii",
+      "authorDetail": {
+        "name": "shioccii",
+        "handle": "@shioccii",
+        "url": "https://qiita.com/shioccii",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3620986/profile-images/1711272714",
+        "bio": "前職ではオンプレ環境の構築・運用(VMware、Nutanixなど)に携わっていたが、現在はCloud Integraterの会社でMSP運用サービスを担当。最近はAI関連サービスに興味がある。本ブログに掲載されている内容については著者に所属するものであり、所属組織の公式見解ではありません。",
+        "location": "神戸",
+        "followers": 21,
+        "posts": 77,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/shioccii"
+          }
+        ]
+      },
+      "tags": [
+        "LLM",
+        "MCP",
+        "Claude",
+        "AIエージェント",
+        "アーキテクチャ"
+      ],
+      "snippet": "MCPサーバーでコンテキスト消費が爆発する問題と、CLI/REST APIとの賢い使い分け はじめに Anthropicが発表したModel Context Protocol（MCP）は、AIモデルと外部のツールやデータソースを標準化された規格で接続するプロトコルとして、爆発的な注目を集めています。GitHub、Slack、PostgreSQL、ブラウザ自動化など、あらゆるサービスがMCPサーバーとして公開され、「エージェントにあらゆるツールを繋ぎ込む」ことが急速に容易になりました。 しかし、個人開発のPoC（概念実証）を終えて実務で本格的にMCPを運用し始めたエンジニアたちの間で、いま深刻な悲鳴が上がっています。 「MCPサーバーを5つ繋いだだけで、何も質問していないのに毎ターン数万トークンが消える」 「ブラウザツールやAPIの生レスポンスがコンテキストを一瞬で埋め尽くし、モデルが迷走す…",
+      "body": "MCPサーバーでコンテキスト消費が爆発する問題と、CLI/REST APIとの賢い使い分け\n\nはじめに\n\nAnthropicが発表したModel Context Protocol（MCP）は、AIモデルと外部のツールやデータソースを標準化された規格で接続するプロトコルとして、爆発的な注目を集めています。GitHub、Slack、PostgreSQL、ブラウザ自動化など、あらゆるサービスがMCPサーバーとして公開され、「エージェントにあらゆるツールを繋ぎ込む」ことが急速に容易になりました。\n\nしかし、個人開発のPoC（概念実証）を終えて実務で本格的にMCPを運用し始めたエンジニアたちの間で、いま深刻な悲鳴が上がっています。\n\n「MCPサーバーを5つ繋いだだけで、何も質問していないのに毎ターン数万トークンが消える」\n「ブラウザツールやAPIの生レスポンスがコンテキストを一瞬で埋め尽くし、モデルが迷走する」\n\n海外のHacker Newsでも「MCPは本当に必要なのか」「単なる過剰設計（fad）ではないか」という議論が巻き起こっています。その根本にあるのは、MCPの利便性と引き換えに発生する「コンテキスト消費の爆発」というアーキテクチャ上の課題です。\n\nこの記事では、なぜMCPサーバーを使うとコンテキストが急速に枯渇するのか、その構造的な原因を解き明かします。そのうえで、従来のUnix CLIやREST APIとの賢い使い分け、およびトークン消費を最大98%削減する最新の設計プラクティスを解説します。\n\n---\n\nMCPでコンテキストが爆発する2大要因\n\nMCPサーバーを導入したシステムでトークン消費が跳ね上がる背景には、明確な2つの要因が存在します。\n\n1. ツール定義（JSON Schema）自体の常時オーバーヘッド\nMCPクライアント（Claude DesktopやCursor、Claude Code等）は、接続されているMCPサーバーから tools/list を呼び出して利用可能なツール一覧を取得します。\n\n問題は、取得された全ツールの詳細な定義が、ユーザーとの対話の「毎ターン」にプロンプトのコンテキスト（Tool定義領域やシステムプロンプト）へ自動的に注入される点にあります。各ツールの名前だけでなく、説明文や全引数の型定義、バリデーションルールを含む長大なJSON Schemaが常時展開されます。\n\n [code] \n\n便利なツールを次々と追加してツールの総数が20〜30個に達すると、ユーザーが一行質問しただけで、入力トークンは数万トークンに達します。\n\n典型的な例が公式のGitHub MCPサーバーです。リポジトリ操作、Issue、プルリクエスト、コミット検索など多機能なツールが20個以上定義されており、このサーバーを1つ有効化するだけで、毎回約8,000〜12,000トークンがツール定義だけで消費されます。SlackやPostgreSQLなど複数のサーバーを併用すれば、質問する前からコンテキストの数割が埋まることになります。\n\n「Prompt Caching（プロンプトキャッシュ）があるから費用は抑えられるのでは？」と考える方もいるかもしれません。しかし、キャッシュでAPI単価が割引されたとしても、「注意の散漫（Attention Dilution）」と「コンテキスト上限の圧迫」は一切解決しません。ツール定義が肥大化するほど、モデルが適切なツールを選び損ねたり、肝心の指示内容を見落としたりする確率は確実に上昇します。\n\n2. 生データ（Raw Output）の無加工流し込み\nもうひとつの致命的な原因が、ツール実行結果の肥大化です。\n\nたとえばWebブラウザを操作するPlaywright系のMCPサーバーでページを取得した場合、未加工のDOMツリーやHTML全体（300KB以上）がそのままLLMのコンテキストに返却されるケースが多々あります。あるいは、APIの全JSONレスポンスや巨大なログファイルをそのまま返してしまう実装です。\n\n一度のツール呼び出しで数十万トークンが消費され、コンテキスト長の上限に衝突したり、過去の重要な会話履歴が圧縮・忘却されたりする事故が頻発します。\n\n---\n\nなぜ従来の「CLI」が再評価されているのか\n\nこのコンテキスト爆発問題に対する反動として、英語圏の開発者コミュニティで急速に再評価されているのが、昔ながらの「Unix CLI（コマンドライン）」です。\n\nエージェントに「Bash実行権限（ターミナル操作ツール）」をひとつだけ与え、CLI経由で外部サービスを叩かせるアプローチには、トークン効率の面で圧倒的な優位性があります。\n\n [code] \n\nCLIがもたらす「3つのトークン削減効果」\n\n1. 常時スキーマの極小化: エージェントが保持するツール定義は「シェルコマンドを実行して結果を返す」という1つのツールスキーマ（数十トークン）だけで済みます。\n2. パイプライン処理による入力前圧縮: エージェントは gh issue list --limit 5 --json number,title や grep、jq、head を使って、必要なデータだけを抽出した数行のテキストのみをコンテキストに返却できます。\n3. オンデマンドな知識取得: コマンドの使い方がわからない場合のみ --help を叩いて参照するため、使わないコマンドの仕様でコンテキストを汚染しません。\n\n---\n\n忘れてはならない「セキュリティと認可」のトレードオフ\n\nただし、トークン効率が良いからといって、すべてをCLIに置き換えるのは極めて危険です。ここには重大なトレードオフが存在します。\n\nエージェントにBash実行権限を渡すことは、潜在的なリモートコード実行（RCE）のリスクを抱えることを意味します。悪意あるWebページや外部データにPrompt Injectionが仕込まれていた場合、意図しないファイル削除や機密情報の外部送信（exfiltration）を実行されてしまう危険性があります。\n\nこれに対して、MCPの真の価値は「最小権限の原則（Least Privilege）に基づく認可境界の強制」にあります。MCPサーバーは、あらかじめ許可された特定のAPI操作（例: 「指定Issueの閲覧のみ」「特定Slackチャンネルへの投稿のみ」）だけをホワイトリストとして提供し、任意のシェルコマンド実行を遮断できます。\n\nまた、ローカルで常駐するstdio接続のMCPサーバーはプロセスが起動し続けるリソースオーバーヘッドがありますが、OAuth連携などをセキュアに仲介できる利便性があります。\n\n---\n\nMCPとCLI/REST APIの使い分け判断基準\n\n実務においては、セキュリティとトークン効率のトレードオフを踏まえ、以下の基準で使い分けることが求められます。\n\n| 観点 | MCPを採用すべきケース | CLI / REST APIを採用すべきケース |\n|---|---|---|\n| セキュリティ・認可 | 厳密な権限分離を行い、任意のコード実行を防ぎたい場合 | 隔離されたサンドボックスや開発者の安全なローカル端末 |\n| 認証方式 | OAuth連携や安全なトークン保管を委託したい場合 | 端末側で既に gh や aws のCLI認証が完了している場合 |\n| データの性質 | リアルタイム通知や双方向通信、厳密な型検証が必要な場合 | ログ解析やファイル操作など、パイプラインでの前処理が有効な場合 |\n| 実行環境 | ターミナル操作が許可されていないWeb/デスクトップUI | 開発環境で動作するコーディングエージェント（Claude Code等） |\n\n---\n\nコンテキスト消費を抑える4つの設計プラクティス\n\nMCPを採用する場合でも、コンテキストの爆発を防ぐための最新のアーキテクチャパターンが確立されつつあります。\n\nプラクティス1：事前要約とエラーサニタイズ\nツールが取得した生データ（300KB以上のHTMLやJSON）を直接メインのLLMへ返してはなりません。\n\nMCPサーバー内部、あるいは軽量なローカルモデル（Ollama等）のサンドボックスを中間に挟み、必要な情報だけを抽出・要約してメインLLMへ返却します。Hacker Newsで話題となった実装例では、Webブラウザの生出力をアクセシビリティツリーや構造化テキストへ事前圧縮することで、コンテキスト消費を98%削減（315KBから5.4KBへ縮小）することに成功しています。\n\n [code] \n\nまた、見落とされがちなのが「エラー出力」のハンドリングです。API呼び出しの失敗時に長大なスタックトレースやHTMLエラー画面をそのまま返すと、エージェントがパニックを起こしトークンを連鎖的に浪費します。MCPサーバー側でエラーメッセージをサニタイズし、最大文字数を制限して簡潔なエラー要約を返す設計が必須です。\n\nプラクティス2：MCPプリミティブの適正化（ToolsからResourcesへのオフロード）\nMCPには「Tools（関数実行）」「Resources（データ参照）」「Prompts（テンプレート）」という3つの基本仕様が存在します。\n\n最もコンテキストを食うのは、スキーマが常駐する「Tools」です。これに対し、「Resources」はURI（例: file:///path や postgres://table）として定義され、エージェントが必要とした瞬間にのみ読み込まれます。すべてのデータ取得をTool化するのではなく、静的なドキュメントや参照データはResourcesとして公開することで、毎ターンのツール定義オーバーヘッドを劇的に削減できます。\n\nプラクティス3：動的ツール露出とサブエージェント化\nすべてのMCPツールを常時クライアントに登録するのではなく、タスクの進行状況に応じて動的にツールをロードするか、専門のサブエージェントに隔離します。\n\n例えば「データベース調査」が必要になった段階でのみDB用MCPツールをコンテキストにロードし、調査が完了したらアンロードします。または、DB操作専用のサブエージェントを起動して閉じられた空間で作業させ、メインエージェントには最終結果の要約のみを報告させる階層型エージェント構成をとります。\n\nプラクティス4：検索によるJIT（Just-In-Time）参照\n大量のドキュメントやAPIリファレンスをMCPのリソースとして常駐させるのではなく、SQLite FTS5やBM25等の古典的全文検索を組み合わせたハイブリッドRAGをMCPサーバーの背後に配置します。\n\nエージェントが検索クエリを投げた際に関連する最小限のスニペットのみを返す設計にすることで、コンテキストの圧迫を最小限に食い止められます。\n\n---\n\nまとめ\n\nMCPは、AIエージェントと外部世界を接続するための極めて強力な共通言語です。しかし、「何でもMCPサーバーにして繋げば良い」という無邪気なアプローチは、コンテキストの急激な枯渇とコストの跳ね上がりという手痛いしっぺ返しを招きます。\n・複雑なデータ加工やファイル操作は、トークン効率に優れた Unix CLI に委譲する\n・認証の分離や安全なGUI連携が必要なコア領域に MCP を絞り込む\n・MCPツールの返却データは、メインLLMに届く前に 事前要約・フィルタリング を徹底する\n\n「コンテキストウィンドウは有限の希少資源である」という原則に立ち戻り、ツールの接続形態を適切に設計することが、実用に耐えうる堅牢なAIエージェントを構築するための必須条件です。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "dde498ac6ddc13f5",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8416201117318436,
+      "popularityPercentile": 0.7346368715083799,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "MCPの接続数が増えるほど文脈が圧迫される構造を説明しCLIやREST APIとの使い分けを提案している。",
+      "takeaways": [
+        "AIと外部サービスをつなぐほど入力情報が増える。",
+        "生の返答を渡すと会話の余白が急速に減る。",
+        "用途に応じて接続方法を選ぶと情報量を抑えられる。"
+      ],
+      "keywords": [
+        "MCP",
+        "Model Context Protocol",
+        "CLI",
+        "REST API",
+        "Claude",
+        "コンテキスト"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "接続を一つに統一するか用途ごとに使い分けるか",
+        "forSide": "接続方法を選び分ければ情報量を最大98%削減できる。",
+        "againstSide": "仕組みを使い分けるほど運用が複雑になり接続の統一という利点を失う。",
+        "oneSided": true,
+        "yourAngle": "日常利用するAIエージェントで接続ごとの入力量と応答品質を計測できる。"
+      },
+      "readingMinutes": 9,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 734,
+    "afterDedupe": 678,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 359,
+      "zenn": 109,
+      "hatena": 33,
+      "hackernews": 61,
+      "devto": 11,
+      "github_release": 40,
+      "github_repo": 78,
+      "rss": 42,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 41
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2535,
+        "outputTokens": 422,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4325,
+        "estimatedCostUsd": 0.0010134
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2956,
+        "outputTokens": 1660,
+        "cacheReadTokens": 0,
+        "elapsedMs": 18939,
+        "estimatedCostUsd": 0.0025832
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 6631,
+        "outputTokens": 3924,
+        "cacheReadTokens": 0,
+        "elapsedMs": 48226,
+        "estimatedCostUsd": 0.006035
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 12899,
+        "outputTokens": 1537,
+        "cacheReadTokens": 3558,
+        "elapsedMs": 18493,
+        "estimatedCostUsd": 0.00449536
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 15838,
+        "outputTokens": 1741,
+        "cacheReadTokens": 3260,
+        "elapsedMs": 18460,
+        "estimatedCostUsd": 0.0053219999999999995
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 18906,
+        "outputTokens": 1847,
+        "cacheReadTokens": 3404,
+        "elapsedMs": 22326,
+        "estimatedCostUsd": 0.006065680000000001
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 12887,
+        "outputTokens": 3654,
+        "cacheReadTokens": 7979,
+        "elapsedMs": 32842,
+        "estimatedCostUsd": 0.00712178
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 12024,
+        "outputTokens": 2428,
+        "cacheReadTokens": 0,
+        "elapsedMs": 20199,
+        "estimatedCostUsd": 0.0053184
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 16267,
+        "outputTokens": 3945,
+        "cacheReadTokens": 0,
+        "elapsedMs": 21759,
+        "estimatedCostUsd": 0.0079874
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 16739,
+        "outputTokens": 5000,
+        "cacheReadTokens": 11807,
+        "elapsedMs": 62415,
+        "estimatedCostUsd": 0.009583939999999999
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 19463,
+        "outputTokens": 6622,
+        "cacheReadTokens": 15625,
+        "elapsedMs": 82475,
+        "estimatedCostUsd": 0.0121515
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18651,
+        "outputTokens": 5225,
+        "cacheReadTokens": 12965,
+        "elapsedMs": 52768,
+        "estimatedCostUsd": 0.010259500000000001
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4146,
+        "outputTokens": 437,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4548,
+        "estimatedCostUsd": 0.0013536
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4985,
+        "outputTokens": 293,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2623,
+        "estimatedCostUsd": 0.0013486
+      }
+    },
+    "totalCostUsd": 0.0806
+  },
+  "notes": []
+}
