@@ -1,0 +1,2318 @@
+{
+  "date": "2026-10-18",
+  "generatedAt": "2026-10-17T23:44:38.888Z",
+  "window": {
+    "start": "2026-10-16T22:00:00.000Z",
+    "end": "2026-10-17T22:00:00.000Z"
+  },
+  "summary": [
+    "Linuxカーネルの重大脆弱性をめぐり、仮想化・コンテナ構成の確認と更新が焦点になった。",
+    "AIエージェントは、コード修正の自動化から動画・UI・侵入テストまで適用範囲を広げている。",
+    "Claude Code周辺では、権限・サブエージェント・入力内容を制御する運用設計の話題が続いた。",
+    "リリース面ではAI Gatewayの可視化やモデル追加など、AI利用基盤の整備が進んだ。"
+  ],
+  "outlook": "AIエージェントは開発から実機操作・侵入テストまで適用範囲を広げ、実運用の基盤と制御が定着しつつある一方、権限・副作用・脆弱性対応はなお揺れている。今後は自律性の拡大より、停止条件や監査、再実行の安全性を組み込んだ運用設計が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CVE-2026-99999（PwnEscape）はDockerやAWS ECSに影響する？構成別の判定まとめ",
+      "url": "https://qiita.com/Xim2jp/items/6afb445910d1d8ea4c09",
+      "publishedAt": "2026-10-17T10:41:08.000Z",
+      "author": "Xim2jp",
+      "authorDetail": {
+        "name": "Xim2jp",
+        "handle": "@Xim2jp",
+        "url": "https://qiita.com/Xim2jp",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4009405/profile-images/1784792276",
+        "followers": 1,
+        "posts": 29,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/BusinessHub413"
+          }
+        ]
+      },
+      "tags": [
+        "Linux",
+        "Docker",
+        "AWS",
+        "ECS",
+        "Security"
+      ],
+      "snippet": "この記事でわかること 2026年10月15日に公開されたLinuxカーネルの脆弱性 CVE-2026-99999（通称 PwnEscape）について、「自分の環境は影響を受けるのか」を構成ごとに判定できるよう整理しました。 どんな脆弱性か ・ホストのLinuxカーネルのIPv4処理の不具合（KVM自体のバグではない） ・VMの仮想NIC（virtio-net）がホストに渡すチェックサムオフロードの情報を、ホストが検証していなかった ・細工したパケットで、ホストのメモリ読み出し・ホストのクラッシュが起きる。研究者の検証環境ではホストのroot権限での実行まで確認 ・CVSS 9.3（cve.org）／8.8（Red Hat）。回避策はなく、修正版カーネルへの更新と再起動のみ 構成別の判定 ・AWS ECS Fargate・EKS on Fargate・Lambda：対応不要（AWS速報 20…",
+      "body": "この記事でわかること\n\n2026年10月15日に公開されたLinuxカーネルの脆弱性 CVE-2026-99999（通称 PwnEscape）について、「自分の環境は影響を受けるのか」を構成ごとに判定できるよう整理しました。\n\nどんな脆弱性か\n・ホストのLinuxカーネルのIPv4処理の不具合（KVM自体のバグではない）\n・VMの仮想NIC（virtio-net）がホストに渡すチェックサムオフロードの情報を、ホストが検証していなかった\n・細工したパケットで、ホストのメモリ読み出し・ホストのクラッシュが起きる。研究者の検証環境ではホストのroot権限での実行まで確認\n・CVSS 9.3（cve.org）／8.8（Red Hat）。回避策はなく、修正版カーネルへの更新と再起動のみ\n\n構成別の判定\n・AWS ECS Fargate・EKS on Fargate・Lambda：対応不要（AWS速報 2026-137-AWS で明記）\n・ECS on EC2・EKSのEC2ノード：インスタンスの中のカーネルは利用者の管理。Amazon Linuxの修正版カーネルへ更新するか、最新AMIへ入れ替え\n・Dockerのホスト：VMエスケープの対象ではないが、Red Hatは「ローカルの攻撃者」も挙げている。コンテナはホストのカーネルを共有するので、ホストの更新を前倒しに\n・KVM・Firecracker・Kata Containersで他人のVMを動かすホスト：最優先で更新\n・ベアメタルの普通のサーバー：通常のパッチ運用で更新\n\nつまずきやすいポイント\n・「EC2は影響なし」はEC2の基盤の話。インスタンスのOSは自分で更新する\n・Dockerは既定で NETRAW を付ける。特権コンテナや NETADMIN＋/dev/net/tun のコンテナがあるホストは優先\n・カーネルは再起動して初めて切り替わる。更新後に uname -r で確認\n\n確認コマンドの例\n\n [code] \n\n記事では、Amazon Linuxの修正版カーネル一覧、ディストリ別の修正状況、ECSのコンテナインスタンスの更新手順まで載せています。\n\n※2026年10月17日時点の公開情報に基づきます。\n\nhttps://shinichi.noguchi.jp.net/blog/2026-10-17-cve-2026-99999-pwnescape-docker-ecs.html",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9929cd0e59f5e452",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.4363008130081301,
+      "popularityPercentile": 0.3089430894308943,
+      "matchedTopics": [
+        "Google Cloud"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "CVE-2026-99999の影響範囲をDockerやAWSの構成別に判定し、必要な更新対応を整理している。",
+      "takeaways": [
+        "仮想マシンからホストへ侵入できる脆弱性が見つかった。",
+        "AWSの貸し切り型サービスは対応不要と案内されている。",
+        "自分で管理するLinuxは修正版への更新と再起動が必要になる。"
+      ],
+      "keywords": [
+        "CVE-2026-99999",
+        "PwnEscape",
+        "Linuxカーネル",
+        "Docker",
+        "AWS ECS",
+        "KVM"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "CVE-2026-99999（通称 PwnEscape）は、KVM自体ではなく、ホストのLinuxカーネルにあるIPv4処理の不具合です。VMの仮想NICであるvirtio-netが渡すチェックサムオフロード情報をホストが検証せず、細工したパケットによってホストのメモリ読み出しやクラッシュが起きます。研究者の検証環境ではホストのroot権限での実行も確認され、CVSSはcve.orgで9.3、Red Hatで8.8です。AWS ECS Fargate、EKS on Fargate、LambdaはAWS速報で対応不要とされていますが、ECS on EC2やEKSのEC2ノードは利用者がインスタンスのカーネルを更新する必要があります。Dockerではコンテナがホストのカーネルを共有するため、特権コンテナやNETADMIN、/dev/net/tunを使う構成のホストは優先して更新します。回避策はなく、修正版カーネルへの更新後に再起動し、uname -rで切り替えを確認します。",
+        "prerequisites": [
+          {
+            "term": "virtio-net",
+            "stumblingPoint": "記事は「VMの仮想NIC（virtio-net）がホストに渡す」と書くが、VMとホスト間の経路が読み取れない",
+            "explanation": "virtio-netとは、VM内の仮想マシンとホスト側のネットワークを接続する仮想NICです。この記事では、VMが作ったパケットのチェックサムオフロード情報がホストのLinuxカーネルに渡る境界を指します。ホスト側の検証不備が、この経路からメモリ読み出しやクラッシュにつながります。"
+          },
+          {
+            "term": "チェックサムオフロード",
+            "stumblingPoint": "「チェックサムオフロードの情報を検証していなかった」とあるが、何を検証する情報か分からないと原因を追えない",
+            "explanation": "チェックサムオフロードとは、パケットの整合性計算をNICや仮想NIC側に任せる仕組みです。通常はホストのカーネルが、その情報を信頼してよい形式か確認します。PwnEscapeではこの検証が欠け、細工したパケット処理がホスト側の不正なメモリアクセスにつながります。"
+          },
+          {
+            "term": "KVM",
+            "stumblingPoint": "記事は「KVM自体のバグではない」と強調するが、KVMとホストカーネルの責任範囲を知らないと判定を誤る",
+            "explanation": "KVMとは、Linuxカーネルを仮想マシンの実行基盤として使うための機構です。今回の不具合は仮想CPUの実行機構ではなく、ホストカーネルのIPv4処理にあります。そのため、KVMを使う環境でも、問題になるのはKVMのバージョンではなくホストOSのカーネル更新状況です。"
+          },
+          {
+            "term": "ECS on EC2",
+            "stumblingPoint": "「EC2は影響なし」と「ECS on EC2は更新」が併記され、AWS管理の基盤と利用者管理のOSの違いが必要になる",
+            "explanation": "ECS on EC2とは、ECSのコンテナを利用者が管理するEC2インスタンス上で実行する構成です。EC2サービスの基盤側が安全でも、インスタンス内のLinuxカーネルは利用者の管理対象として残ります。したがって、Amazon Linuxの修正版カーネルへの更新または最新AMIへの入れ替えが必要です。"
+          },
+          {
+            "term": "Fargate",
+            "stumblingPoint": "「ECS Fargate・EKS on Fargate・Lambdaは対応不要」とあるが、EC2との境界を知らないと一律のAWS判断に見える",
+            "explanation": "Fargateとは、コンテナを実行する基盤となるサーバーやホストOSを利用者が管理しない実行方式です。この記事では、その基盤側の修正をAWSが担うため、対象サービスについて利用者のカーネル更新は不要と整理しています。これはECS全体ではなく、Fargateを使う構成に限定された判定です。"
+          },
+          {
+            "term": "NETRAW",
+            "stumblingPoint": "「Dockerは既定でNETRAWを付ける」とあるが、コンテナのネットワーク権限がホストリスクに関係する理由が省略されている",
+            "explanation": "NETRAWとは、コンテナに生のネットワークパケットを扱う権限を与えるLinux capabilityです。この記事では、Dockerの既定権限として存在するため、コンテナからホストカーネルのネットワーク処理に到達し得る条件として挙げています。特権コンテナや追加のNETADMIN、/dev/net/tunがある構成は、通常のコンテナより優先して確認します。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "PwnEscapeの攻撃経路",
+          "layers": [
+            {
+              "label": "入力側",
+              "nodes": [
+                {
+                  "name": "細工したパケット",
+                  "note": "チェックサム情報を含む",
+                  "highlight": false
+                }
+              ],
+              "via": "virtio-net"
+            },
+            {
+              "label": "処理経路",
+              "nodes": [
+                {
+                  "name": "IPv4処理",
+                  "note": "ホスト側で検証不備",
+                  "highlight": true
+                }
+              ],
+              "via": "カーネル処理"
+            },
+            {
+              "label": "影響先",
+              "nodes": [
+                {
+                  "name": "ホストカーネル",
+                  "note": "読み出し・クラッシュ",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": {
+          "lang": "bash",
+          "caption": "再起動後に実行中のカーネルバージョンを確認する",
+          "content": "uname -r"
+        },
+        "relatedLinks": [
+          {
+            "label": "Qiita記事",
+            "url": "https://qiita.com/Xim2jp/items/6afb445910d1d8ea4c09"
+          },
+          {
+            "label": "関連解説",
+            "url": "https://shinichi.noguchi.jp.net/blog/2026-10-17-cve-2026-99999-pwnescape-docker-ecs.html"
+          }
+        ],
+        "readingMinutes": 4,
+        "lane": "know",
+        "impact": [
+          "ECS on EC2を運用する人",
+          "EKSのEC2ノードを管理する人",
+          "Dockerホストを運用する人",
+          "KVMやFirecrackerのホスト管理者"
+        ],
+        "timeline": [
+          "2026-10-15 脆弱性公開"
+        ],
+        "checkNow": [
+          "対象ホストでuname -rを実行する",
+          "Amazon Linuxの修正版カーネル一覧と照合する",
+          "修正版カーネルへ更新して再起動する"
+        ],
+        "unknowns": []
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "Linuxカーネルの深刻な脆弱性「PwnEscape」（CVE-2026-99999）、ゲストの仮想マシンからホスト側Linux OSに不正なコードを実行できる可能性",
+      "url": "https://www.publickey1.jp/blog/26/linuxpwnescapecve-2026-99999linux_os.html",
+      "publishedAt": "2026-10-17T14:59:56.000Z",
+      "tags": [
+        "テクノロジー",
+        "linux",
+        "あとで読む",
+        "セキュリティ",
+        "security"
+      ],
+      "snippet": "Linuxカーネルの深刻な脆弱性「PwnEscape」（CVE-2026-99999）、ゲストの仮想マシンからホスト側Linux OSに不正なコードを実行できる可能性 悪意のある攻撃者がLinuxの仮想マシンを不正に操作することで、仮想マシンの境界を抜けてホスト側のLinux OSで不正なコードを実行できる可能性がある脆弱性「PwnEscape」（CVE-20...",
+      "metrics": {
+        "hatena": 27
+      },
+      "sourceWeight": 3,
+      "id": "f79aa0ecad7be79c",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.13391304347826088,
+      "popularityPercentile": 0.6086956521739131,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "LinuxカーネルのCVE-2026-99999が仮想マシン境界を越えてホストでコードを実行できる可能性を解説している。",
+      "takeaways": [
+        "仮想マシンから外側のLinuxへ侵入できる欠陥が見つかった。",
+        "細工した通信でホストの停止や不正操作につながる。",
+        "修正版が公開された環境では早急な更新が必要になる。"
+      ],
+      "keywords": [
+        "CVE-2026-99999",
+        "PwnEscape",
+        "Linuxカーネル",
+        "仮想マシン",
+        "VMエスケープ",
+        "セキュリティ"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://www.publickey1.jp/2026/cve202699999.png",
+      "body": "悪意のある攻撃者がLinuxの仮想マシンを不正に操作することで、仮想マシンの境界を抜けてホスト側のLinux OSで不正なコードを実行できる可能性がある脆弱性「PwnEscape」（CVE-2026-99999）の情報が公開されています。\n\n対象はLinuxカーネルで、脆弱性の深刻度を1から10の値で表すスコアは9.3で「Critical」（緊急）と非常に高くなっています。\n\nPwnEscapeはLinuxカーネルのネットワーク処理の欠陥\n\nPwnEscapeの技術的な内容については、セキュリティの専門家のメーリングリスト「Openwall」に投稿されたメール「linux kernel: PwnEscape: Guest-to-Host KVM Escape (CVE-2026-99999)」での解説が、CVEの公開情報の参照先として紹介されています。\n\nこのメーリングリストの内容によると、カーネルが検証済みのIPv4ヘッダーに対するチェックサム関連データが攻撃者によって書き換え可能な状態になっており、これによって検証済みのIPv4ヘッダーをチェックサムの代わりに書き換えることが可能となっていました。\n\nこれを利用して攻撃者はネットワーク処理における正常な処理を破壊し、通常では想定されないメモリ位置の読み書きを実現することが可能となります。研究環境ではこれによりホスト側Linux OSでのコード実行まで到達したと説明されています。\n\nこれはLinuxカーネルにおけるネットワーク処理の欠陥とされ、メーリングリストのタイトルでは「Guest-to-Host KVM Escape」とKVM環境が示されていますが、KVM以外のコンテナ環境などでも攻撃が成立すると考えられます。\n\nこのメールの中では、現時点でこの脆弱性による攻撃の可能性は研究環境で示されているのみですが、以下のように1カ月以内には有効な攻撃が登場するだろうと予測されています。\n\n  Although we suspect the security industry will use this post to figure out the other affected hypervisors and we expect exploits in weaker configurations to arrive in weeks, and exploits working in default hypervisor configurations to arrive in under a month.\n\nセキュリティ業界はこのメールの情報を活用して、今回発見された以外のハイパーバイザへの影響なども見つけると思われます。そのうえで、より不十分な構成におけるエクスプロイトが数週間以内には登場し、さらにデフォルト構成のハイパーバイザで機能するエクスプロイトも1カ月以内に登場することが見込まれます。\n\n利用しているサービスでの対応状況の確認を\n\n特にLinux仮想マシンをサービスで提供しているサービス事業者は、悪意のある利用者がこの脆弱性を利用してゲストのLinux仮想マシンからホスト側へ抜け出し、他のユーザーやサービス事業者のシステムを攻撃する可能性があるため、早急な対策が必要となります。\n\n記事執筆時点（2026年10月17日午後17時）では、日本国内ではさくらインターネットが、さくらのVPSやさくらのレンタルサーバを含む一部のサービスで新規申し込みを停止し、対策を開始していることが発表されています。\n\nAWSもすでにこの脆弱性についての対応を発表しており、AWSのマネージドなサービスでは影響を受けず、対策も必要ないと以下のように記しています。\n\n  AWS-managed compute and container services, including Amazon EC2 instances, AWS Lambda, and AWS Fargate, are not affected. There is no action required for customers using these services.\n\nVPSやレンタルサーバ、クラウドなどを通じてユーザーとしてLinux仮想マシンを利用している組織や個人は、この脆弱性によっていつの間にか攻撃を受ける可能性があります。サービス提供者が今回の脆弱性についてどのような対応をしているのか、確認したほうがよいと思われます。",
+      "rank": 2,
+      "deep": {
+        "summary": "Linuxカーネルのネットワーク処理に、検証済みのIPv4ヘッダーに対するチェックサム関連データを書き換えられる欠陥があると報告されています。攻撃者はこの欠陥で通常のメモリ処理を破壊し、研究環境ではKVMのゲストLinux仮想マシンからホストLinux OS上のコード実行まで到達しました。脆弱性はPwnEscape（CVE-2026-99999）と呼ばれ、深刻度は9.3（Critical）です。影響するハイパーバイザやコンテナ環境の範囲は確定していませんが、弱い構成向けのエクスプロイトは数週間以内、デフォルト構成向けは1カ月以内に登場すると予測されています。AWSはAmazon EC2、AWS Lambda、AWS FargateなどのAWS-managed compute and container servicesは影響を受けず、顧客対応は不要としています。一方、さくらインターネットは一部サービスの新規申し込みを停止し、対策を開始しています。",
+        "prerequisites": [
+          {
+            "term": "PwnEscape",
+            "stumblingPoint": "記事は「PwnEscape」と呼ぶが、通常のアプリ脆弱性と何が違うか読み取れない。",
+            "explanation": "PwnEscapeは、ゲスト側の操作をホスト側へ持ち出す攻撃として記事で扱われる脆弱性の呼称です。VMの中だけで被害が止まらず、同じ物理基盤上のホストOSや他ユーザー環境に影響し得る点が、通常のゲスト内バグとの違いです。"
+          },
+          {
+            "term": "CVE-2026-99999",
+            "stumblingPoint": "記事は「CVE-2026-99999」と書くが、PwnEscapeとの関係が分からない。",
+            "explanation": "CVE-2026-99999は、PwnEscapeという脆弱性を識別する番号です。ベンダーやサービス事業者の告知、修正済みカーネルの情報を照合するときに、この番号を検索語として使います。"
+          },
+          {
+            "term": "KVM",
+            "stumblingPoint": "記事は「Guest-to-Host KVM Escape」と書くが、どの境界を越える攻撃か分からない。",
+            "explanation": "KVMはLinuxカーネルを使って仮想マシンを動かす仕組みです。ここでいうEscapeは、KVM上のゲストOSから、仮想マシンを管理するホスト側へ抜け出すことを指します。"
+          },
+          {
+            "term": "IPv4ヘッダー",
+            "stumblingPoint": "記事は「検証済みのIPv4ヘッダー」を前提にするが、何が書き換えられたのか読み取りにくい。",
+            "explanation": "IPv4ヘッダーは、IPパケットの送信元・宛先などを持つ先頭部分です。記事の説明では、検証が済んだこの領域とチェックサム関連データの対応が崩れ、後続のネットワーク処理を誤らせる入口になっています。"
+          },
+          {
+            "term": "チェックサム",
+            "stumblingPoint": "記事は「チェックサム関連データ」を使うが、なぜメモリ処理の破壊につながるか分からない。",
+            "explanation": "チェックサムは、受信データが途中で壊れていないかを検査するための値です。記事では、検証済みデータに結び付いたチェックサム側の情報を攻撃者が変更でき、カーネルが想定外の状態でネットワーク処理を続けると説明されています。"
+          },
+          {
+            "term": "ハイパーバイザ",
+            "stumblingPoint": "記事は「他のハイパーバイザへの影響」を予測するが、KVMとの関係が曖昧に見える。",
+            "explanation": "ハイパーバイザは、複数の仮想マシンをホスト上で動かし、ゲストとホストの資源を分離するソフトウェア層です。記事で実証されているのは研究環境ですが、同じLinuxカーネルのネットワーク処理を使う別の構成にも影響が広がる可能性を指しています。"
+          },
+          {
+            "term": "コンテナ環境",
+            "stumblingPoint": "記事は「コンテナ環境でも攻撃が成立すると考えられます」とするが、確定情報か判断しにくい。",
+            "explanation": "コンテナ環境はVMと異なり、ゲスト専用カーネルではなくホストのLinuxカーネルを共有します。記事では影響の可能性に触れているだけで、コンテナ環境での成立は実証済みの事実としては扱われていません。"
+          },
+          {
+            "term": "AWS-managed compute and container services",
+            "stumblingPoint": "記事は「AWS-managed compute and container servicesは影響を受けない」とするが、利用者側の作業範囲が分からない。",
+            "explanation": "これはAWSが基盤側の修正・管理を担う対象サービス群を指します。記事中のAWS告知ではAmazon EC2、AWS Lambda、AWS Fargateを含めて影響なし、顧客の対応不要と明記されていますが、AWS以外のサービスにはその判断を適用できません。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "ゲストからホストへの攻撃経路",
+          "layers": [
+            {
+              "label": "攻撃元",
+              "nodes": [
+                {
+                  "name": "ゲストLinux VM",
+                  "note": "攻撃者が操作",
+                  "highlight": false
+                },
+                {
+                  "name": "コンテナ環境",
+                  "note": "影響は未確定",
+                  "highlight": false
+                }
+              ],
+              "via": "攻撃パケット"
+            },
+            {
+              "label": "処理層",
+              "nodes": [
+                {
+                  "name": "Linuxカーネル",
+                  "note": "ネットワーク処理",
+                  "highlight": true
+                }
+              ],
+              "via": "改ざんデータ"
+            },
+            {
+              "label": "到達先",
+              "nodes": [
+                {
+                  "name": "ホストLinux OS",
+                  "note": "コード実行",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "know",
+        "impact": [
+          "Linux仮想マシンを提供する事業者",
+          "KVM上でLinux VMを運用する人",
+          "VPSやレンタルサーバの利用者",
+          "Linuxコンテナ基盤を運用する人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "利用サービスの公式告知でCVE-2026-99999の対応状況を確認する",
+          "自社管理ホストのKVM・コンテナ構成とカーネル更新状況を棚卸しする",
+          "修正版や回避策が出るまで新規VMの公開・信頼境界を見直す"
+        ],
+        "unknowns": [
+          "研究環境以外での攻撃成立は未確認",
+          "影響するハイパーバイザの範囲は未確定",
+          "コンテナ環境での成立は記事の推測"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "snuri00/ps2-web-recomp — PS2 games in the browser: static recompilation to WebAssembly with a native runtime",
+      "url": "https://github.com/snuri00/ps2-web-recomp",
+      "publishedAt": "2026-10-08T07:06:56.000Z",
+      "author": "snuri00",
+      "authorDetail": {
+        "name": "snuri00",
+        "url": "https://github.com/snuri00",
+        "avatarUrl": "https://github.com/snuri00.png?size=120",
+        "bio": "PS2 games in the browser: static recompilation to WebAssembly with a native runtime"
+      },
+      "tags": [
+        "C++"
+      ],
+      "snippet": "PS2 games in the browser: static recompilation to WebAssembly with a native runtime",
+      "metrics": {
+        "stars": 1039,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "7b6104753620e061",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.47000000000000003,
+      "popularityPercentile": 0.36363636363636365,
+      "matchedTopics": [
+        "ブラウザ / Web標準"
+      ],
+      "buzz": false,
+      "score": 91,
+      "titleJa": "PS2ゲームをブラウザで動かす静的変換基盤",
+      "oneLiner": "PS2ゲームを静的変換してブラウザ上で動かすWebAssembly基盤が公開された。",
+      "takeaways": [
+        "PS2ゲームをブラウザで動かせる。",
+        "ゲームのコードを事前に別形式へ変換する。",
+        "ブラウザ内で動く実行環境も組み込んでいる。"
+      ],
+      "keywords": [
+        "ps2-web-recomp",
+        "PlayStation 2",
+        "WebAssembly",
+        "C++",
+        "ブラウザ"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "body": "PS2 Web Recomp\n\nPlayStation 2 games running in the browser through static recompilation. The game's Emotion Engine machine code is translated ahead of time into C++ and compiled to WebAssembly, so the main CPU is never interpreted; the rest of the console, its operating system and hardware, is emulated by a runtime that draws with WebGPU.\n\n \n \n \n Watch the full recording (1:24) \n \n\nThis is the sibling of psp-web-recomp and follows the same method. The first title brought up this way is Gran Turismo 4, chosen because it is one of the most demanding games on the system: it leans on both vector units, on exact floating point behaviour for its replays and license tests, and on graphics tricks that read rendered images back as palettes. It plays from boot through the opening movie, the menus and races, with music and sound effects, and saves to a memory card kept in the browser. A race runs at full speed, 50 frames per second for this PAL release, in Chrome on a laptop's integrated GPU at twice the PS2's resolution, which is how the recording above was made.\n\nGod of War II followed through the same scripts. It needed no game-specific code, but it found two bugs that Gran Turismo 4 had never triggered, one in the recompiler and one in the vector unit timing, and a few missing pieces of the PS2's input/output processor. It now plays from the menus through its cutscenes into combat, and holds 60 frames per second in heavy combat at the PS2's resolution in Chrome. At twice the resolution it runs at 48 to 60, limited by the laptop's integrated GPU.\n\nNo game data is included here. You bring a disc image of a game you own, and the scripts in this repository turn it into a web page on your machine.\n\nHow it works\n\nRecompilation. eerecomp reads the game's executable, follows its control flow to find the functions and emits C++ for them in units of 16 KiB of guest code. The output keeps the R5900's quirks: 128-bit registers and the multimedia instructions that work on them, branch delay slots, the PS2's floating point unit, which has no infinities or denormals and rounds differently from IEEE, and vector unit 0 used as a coprocessor. Jumps between units become tail calls, and a thread switch unwinds the host stack and resumes at the guest address, so the generated code never needs a stack per guest thread.\n\nA small PS2 kernel. The EE side of the operating system is answered by high-level emulation: threads, semaphores, interrupt handlers for the DMA controller and the vertical blank, alarms, and the SIF channel that connects the main CPU to the I/O processor. The I/O processor runs the game's own IRX modules, the sound driver, the disc streaming code and the controller and memory card drivers that ship on the disc, on an interpreter of its R3000 CPU, while the IOP kernel and the libraries those modules call are reimplemented in C++. The disc is read over HTTP Range requests, so only the executable is downloaded up front.\n\nVector units. Most of a PS2 game's 3D work happens in microprograms the game uploads to vector unit 1. They run with the pipeline delays of the MAC, status and clip flags modelled, because games schedule their code around them, and with the PS2's float rules for special values: no infinities or NaNs, denormals flushed to zero and overflow clamped to the largest float. The arithmetic itself is the host's, so a result can differ from the console's in its last bit; the console truncates where the host rounds, and its multiplier is not exact. Microprograms seen during a test run are compiled ahead of time into SIMD C++; any the page meets for the first time are translated into a WebAssembly module on the spot, which takes a few milliseconds per program.\n\nGraphics. The Graphics Synthesizer's 4 MB of video memory lives on the GPU, in its native swizzled layouts, and drawing is done by WebGPU compute shaders: triangles are binned into tiles and rasterized with the GS's own rules for texturing, palettes, alpha blending, depth and destination alpha tests. Because everything stays in GS memory, effects that render into a texture or reinterpret a framebuffer as a palette work the way they do on the console. The internal resolution can be one, two or three times the native one. A software rasterizer of the same GS remains as the reference the GPU output is compared against.\n\nThreads. The emulation runs in a worker, vector unit 1 has a worker of its own the way it runs in parallel on the console, and the GS commands go through a ring buffer to the page thread, which owns the WebGPU device.\n\nSound and movies. The SPU2 is reimplemented with its 48 voices of ADPCM, ADSR envelopes and the streaming DMA games use for music, and its output goes to an AudioWorklet through shared memory. Movies are decoded by an implementation of the IPU, the PS2's MPEG-2 decoder.\n\nLessons from making it fast\n\nThe first race ran at 3 frames per second natively, with a software rasterizer and an interpreter for vector unit 1. Moving the GS to WebGPU compute shaders and compiling the vector unit programs brought it to about 70 natively, and most of the remaining work was about where the browser spent its time rather than the emulation.\n\nThe first version of the GPU renderer submitted around 650 compute dispatches per frame, because every texture upload and palette load split the batch of triangles around it. Hoisting uploads ahead of the triangles that do not depend on them, with the same output, brought that to about 80.\n\nGran Turismo 4 uploads the same 3 MB of textures every frame of a race. GS memory is swapped between frames, so the uploads cannot simply be skipped, but a 16 MB cache of recently uploaded contents on the GPU lets most of them be served without crossing from WebAssembly to the GPU again, which cut the data sent per frame by about 60 percent.\n\nAt three times the native resolution the frame rate dropped to 23. Profiling the shader showed that the per-triangle setup was being loaded after a branch that differed between threads, which made the whole setup divergent, and that uploads split into 1 MB pieces blocked Chrome's page thread. Loading the setup uniformly and writing each frame's data in one piece brought three times the resolution to 48 to 50 frames per second on the same integrated GPU.\n\nThe browser's own scheduling mattered too. Nested setTimeout calls are clamped to 4 ms, so the emulation loop now yields through a MessageChannel instead, and moving the emulation into a worker, so that the page thread only feeds the GPU, steadied a race that had wandered between 40 and 50 frames per second at a constant 50.\n\nA second game\n\nGod of War II went from an ISO to a page through port.sh with only generic changes, and each one was a bug or gap that the first game had simply not exercised.\n\nIt started with silence. The game's sound driver drives its tick from one of the I/O processor's hardware timers, which nothing had implemented, so the driver never mixed a sample. The intro after the difficulty menu was a mess of huge flat polygons, and when the gameplay was about to begin the game crashed after its render list ran past the end of memory and overwrote its own vertical blank handlers. Following a corrupted linked list back with hardware watchpoints led to the recompiler: when a branch was the last instruction of a 16 KiB unit, the path that does not take the branch continued in the next unit at the delay slot instead of after it, running that instruction twice, or running the instruction a branch-likely should have skipped. That fixed the crash and the game reached combat, still with giant polygons over parts of the screen. Those came from triangles that should have been culled. God of War II's microcode reads the clip flags three instructions after the CLIP that sets them, and the vector unit model made them visible only after four, which Gran Turismo 4, whose microcode always waits longer, could not have noticed.\n\nAlong the way it also needed a boot path like the BIOS gives, a module loaded from memory instead of the disc, and the scratchpad DMA's destination chain mode.\n\nPort a game of your own\n\nYou need git, CMake, Ninja, a C++20 compiler (clang is preferred and picked up automatically), Python 3, and 7-Zip if your disc image is in a .7z. Everything has been run on Linux on x86-64, and the scripts also build on macOS on Apple silicon, where the scripts need a newer bash than the system 3.2 (brew install bash cmake ninja sevenzip) and the native runner links wgpu-native against Metal. The first run installs the Emscripten SDK into tools/emsdk, or uses the one EMSDK points to, and downloads wgpu-native for the native runner. With --native-only the script skips the browser build and never installs the SDK; the native window then needs the SDL2 development files. Expect about 300 MB of disk space per game for the generated code and the builds; the disc image itself is linked, not copied.\n\n [code] \n\nport.sh takes a disc image (an ISO, or a ZIP or 7z archive holding one) and does the whole job. It reads the boot program named in the disc's SYSTEM.CNF, translates its machine code to C++, and then runs the game headless a few times. Static analysis cannot see every function a game reaches through pointers, so each run writes down the addresses it could not find, the script adds them as entry points and translates again, until a run gets through without new ones. The same runs record the vector unit microprograms the game uploads, which are compiled ahead of time as well. Last it builds the page into build/web-mygame and the native runner into build/native-mygame. God of War II goes from ISO to page in three and a half minutes on an 8-core laptop.\n\nThe exploring runs press start and then cross every five seconds, which gets most games through their title screens, and put an empty memory card in slot 1 the way the page does, so they follow the path a player takes. --press 900:cross replaces that with your own inputs and --frames sets how long each run lasts. Frames from the last run land in games/mygame/shots, which is the quickest way to see how far a new game gets. scripts/buildweb.sh mygame rebuilds only the page.\n\nSet your expectations accordingly: two games have been brought up so far. Another game will most likely stop at a system call or an IOP library function nobody implemented yet, which the runner logs as [sys] unhandled syscall or [iop] missing # , or use a GS feature the renderer does not handle yet.\n\nBrowsers\n\nThe page needs WebGPU for the GPU renderer. Chrome and Edge have it on Windows and macOS. On Linux it is off by default in Chrome and Chromium: turn on chrome://flags/#enable-unsafe-webgpu and chrome://flags/#enable-vulkan and restart the browser, as the page tells you when it finds no usable adapter. Without WebGPU the software renderer takes over, which is fine for menus and far too slow for 3D. On laptops with two GPUs, a canvas drawn on the discrete GPU sometimes cannot be shown on the screen; the page tries both adapters and falls back to copying frames through a 2D canvas.\n\nThe keyboard maps the face buttons to Z (cross), X (circle), A (square) and S (triangle), the shoulders to Q, W, 1 and 2, start and select to Enter and Backspace, the D-pad to the arrow keys and the left stick to I, J, K and L. Gamepads work through the browser's gamepad API. Their analog triggers reach the game as the DualShock 2's pressure-sensitive L2 and R2, and controllers with motors vibrate when the game asks for it, in browsers that expose vibration (Chrome and Edge do). Phones get on-screen controls, and F toggles fullscreen. The resolution selector reloads the page at the new size.\n\nPlaying natively\n\nThe native runner, build/native-mygame/ps2run, plays the game in a window when SDL2 is installed; scripts/port.sh mygame \"My Game.iso\" --native-only builds only this one. It draws through wgpu-native on Vulkan and plays sound through SDL. The keyboard uses the page's keys for the buttons, with …",
+      "rank": 1,
+      "deep": {
+        "summary": "PS2 Web Recompは、PlayStation 2のゲームをstatic recompilationでC++へ変換し、WebAssemblyとしてブラウザで実行するプロジェクトです。Emotion EngineのR5900コードは事前変換されるため、メインCPUを実行時に解釈せず、PS2のOS・周辺機器・I/O処理はネイティブのランタイムが再現します。グラフィックスはWebGPU compute shaders、音声はAudioWorklet、動画はIPU実装で処理します。Gran Turismo 4はPAL版で50fps、God of War IIはPS2解像度で60fpsに到達しており、ゲームデータを含めず、所有するディスクイメージをport.shへ渡して自分の環境でページを生成できます。ディスク全体を最初に読むのではなく、HTTP Range requestsで実行ファイルを先に取得し、必要なデータをブラウザから読み込みます。",
+        "prerequisites": [
+          {
+            "term": "PS2 Web Recomp",
+            "stumblingPoint": "記事は「PS2 Web Recomp」とだけ紹介しているが、既存エミュレーターなのかゲームを個別に変換するツールなのかが読み取りにくい。",
+            "explanation": "PS2 Web Recompは、ゲームのディスクイメージを入力にして、そのゲーム専用のWebAssemblyページを生成するプロジェクトです。既製のPS2ゲームデータを配布するものではなく、所有するディスクイメージを自分で変換します。そのため、遊ぶだけのWebサービスではなく、移植スクリプトとPS2ランタイムを含む開発ツールとして読むと、port.shや生成コードの説明がつながります。"
+          },
+          {
+            "term": "static recompilation",
+            "stumblingPoint": "「static recompilation」でEmotion EngineのコードをC++へ変換するとあるが、実行時のエミュレーションと何が違うのかが分からないと、なぜ速度が出るのか読み取れない。",
+            "explanation": "static recompilationは、ゲームを起動する前に機械語を解析してホスト向けコードを生成しておく方式です。通常のCPUエミュレーターのように命令を一つずつ実行時解釈しないため、メインCPU部分はC++からコンパイルされたWebAssemblyとして走ります。一方、IOPのR3000や一部の動的な処理はランタイム側で解釈・再実装されるため、すべてが事前変換されるわけではありません。"
+          },
+          {
+            "term": "Emotion Engine",
+            "stumblingPoint": "「ゲームのEmotion Engine machine code」と書かれているが、PS2のどの処理を指すのか知らないと、生成されるC++の範囲を判断できない。",
+            "explanation": "Emotion EngineはPS2のメインCPU側で、ゲーム本体の制御やゲームロジック、描画命令の生成などを実行します。記事ではこのコードをeerecompが解析し、16 KiB単位のC++へ変換します。ディスクドライバーやサウンドドライバーなど、I/Oプロセッサ側の処理は別経路で扱われるため、Emotion Engineを変換しただけで周辺機器まで動くわけではありません。"
+          },
+          {
+            "term": "R5900",
+            "stumblingPoint": "生成コードが「R5900's quirks」を維持するとあるが、通常のC++化では無視できないCPU固有仕様が何なのかが省略されている。",
+            "explanation": "R5900はPS2のEmotion Engineで使われるCPUコアです。この記事の変換では、128-bitレジスター、分岐遅延スロット、PS2独自の浮動小数点規則、Vector Unit 0をコプロセッサとして使う挙動までコード生成・ランタイムで再現します。これらを通常のホストCPUの意味に置き換えると、リプレイやライセンス試験のように浮動小数点の一致を要求するゲームで結果が変わります。"
+          },
+          {
+            "term": "IRX modules",
+            "stumblingPoint": "「IOP runs the game's own IRX modules」とあるが、ゲーム本体と別のモジュールがどこで動くのかを知らないと、I/O処理の再現範囲が分からない。",
+            "explanation": "IRX modulesは、PS2のI/Oプロセッサ上で動くゲーム付属のドライバーや機能モジュールです。記事ではサウンド、ディスクストリーミング、コントローラー、メモリーカードのドライバーをそのまま動かし、IOPカーネルや呼び出し先ライブラリはC++で再実装します。つまりゲームごとのI/Oコードをすべて書き換えるのではなく、ゲームがディスクに持つモジュールを受け入れる土台を作っています。"
+          },
+          {
+            "term": "WebGPU compute shaders",
+            "stumblingPoint": "Graphics Synthesizerを「WebGPU compute shaders」で描画するとあるが、通常のWebGL描画に置き換えられない理由が記事だけでは分かりにくい。",
+            "explanation": "WebGPU compute shadersは、固定機能の描画APIではなく、GPU上でPS2 Graphics Synthesizerの処理順を計算として再現するために使われます。4 MBのGSビデオメモリをGPU上のネイティブなスウィズル配置で保持し、タイル化・テクスチャ・パレット・アルファ・深度テストを実装します。フレームバッファをテクスチャやパレットとして読み戻すPS2固有の処理を保つため、単純な三角形描画への置き換えではありません。"
+          },
+          {
+            "term": "HTTP Range requests",
+            "stumblingPoint": "ディスクを「HTTP Range requests」で読むとあるが、ページ生成後にゲーム全体を事前ダウンロードしない仕組みが読み取りにくい。",
+            "explanation": "HTTP Range requestsは、ディスクイメージの必要なバイト範囲だけを指定して取得するHTTPリクエストです。生成ページは実行ファイルを先に読み込み、ゲームが要求したディスク上の範囲を追加取得します。そのため、ゲームデータをリポジトリへ同梱せず、手元のディスクイメージをリンクしたまま、ブラウザ側では必要箇所だけを読み込めます。"
+          },
+          {
+            "term": "Emscripten SDK",
+            "stumblingPoint": "初回実行時に「Emscripten SDK」をtools/emsdkへ入れるとあるが、ブラウザ版のビルドにだけ必要なのか、既存のSDKを使えるのかが分かりにくい。",
+            "explanation": "Emscripten SDKはC++をWebAssemblyへコンパイルするためのツールチェーンです。port.shの初回実行ではtools/emsdkへ自動導入されますが、環境変数EMSDKが指す既存のSDKがあればそれを使います。--native-onlyを付けた場合はブラウザ版を作らないため、Emscripten SDKの導入をスキップします。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "ブラウザ実行経路",
+          "layers": [
+            {
+              "label": "入力",
+              "nodes": [
+                {
+                  "name": "ディスクイメージ",
+                  "note": "所有するゲームデータ",
+                  "highlight": false
+                }
+              ],
+              "via": "解析・変換"
+            },
+            {
+              "label": "変換",
+              "nodes": [
+                {
+                  "name": "eerecomp",
+                  "note": "EEコードをC++化",
+                  "highlight": true
+                }
+              ],
+              "via": "WebAssembly化"
+            },
+            {
+              "label": "実行",
+              "nodes": [
+                {
+                  "name": "WebAssembly",
+                  "note": "変換済みゲームコード",
+                  "highlight": true
+                },
+                {
+                  "name": "PS2 runtime",
+                  "note": "OS・IOP・周辺機器",
+                  "highlight": false
+                }
+              ],
+              "via": "GPU・音声命令"
+            },
+            {
+              "label": "ブラウザAPI",
+              "nodes": [
+                {
+                  "name": "WebGPU",
+                  "note": "GSをGPUで描画",
+                  "highlight": false
+                },
+                {
+                  "name": "AudioWorklet",
+                  "note": "SPU2音声を再生",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://github.com/snuri00/ps2-web-recomp/raw/main/docs/media/demo.webp",
+            "alt": "Gran Turismo 4 running in a browser",
+            "caption": "ブラウザ上でGran Turismo 4のレースが動作している。PS2ゲーム画面をWebGPU経由で描画し、実際の操作・走行まで到達していることが分かる。"
+          }
+        ],
+        "code": {
+          "lang": "sh",
+          "caption": "所有するISOからブラウザ版を生成する",
+          "content": "scripts/port.sh mygame \"My Game.iso\""
+        },
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "build",
+        "unlocks": [
+          "所有するPS2のISOを、ブラウザで遊べるページに変換できる",
+          "ゲームごとの未実装箇所をログとスクリーンショットで特定できる"
+        ],
+        "howToTry": [
+          "git clone https://github.com/snuri00/ps2-web-recomp.git && cd ps2-web-recomp",
+          "scripts/port.sh mygame \"My Game.iso\"",
+          "build/web-mygame に生成されたブラウザ版と、games/mygame/shots の探索結果を確認する",
+          "READMEに記載された方法でbuild/web-mygameをローカル配信し、WebGPU対応ブラウザで開く（記事本文には配信コマンドの記載なし）"
+        ],
+        "fitFor": [
+          "所有するPS2ゲームのISOまたはISOを含むZIP・7zがある",
+          "ChromeまたはEdgeでWebGPUを利用できる",
+          "ゲームを自分で移植し、未実装のsyscallやIOP機能を調べたい"
+        ],
+        "notFor": [
+          "WebGPUを使えない環境で3Dゲームを実用速度で遊びたい",
+          "所有するディスクイメージがない",
+          "既に対応済みのゲームをインストールなしですぐ遊びたい"
+        ],
+        "caveats": [
+          "WebGPUなしでは3D描画が極端に遅い"
+        ],
+        "tryPrompt": "# 試すこと\n手元のPS2ゲームISOをPS2 Web Recompで変換し、生成ページと探索結果を確認する。\nhttps://github.com/snuri00/ps2-web-recomp\n# 手順\n1. `git clone https://github.com/snuri00/ps2-web-recomp.git`\n2. `cd ps2-web-recomp`\n3. `scripts/port.sh mygame \"My Game.iso\"`\n4. `find build/web-mygame games/mygame/shots -maxdepth 2 -type f | head -30`\n5. READMEに記載された方法で`build/web-mygame`をローカル配信し、ChromeまたはEdgeで開く（手動）\n6. LinuxでWebGPUアダプターが見つからなければ、`chrome://flags/#enable-unsafe-webgpu`と`chrome://flags/#enable-vulkan`を有効にしてブラウザを再起動する（手動）\n# 確認したいこと\n- ISOからブラウザ版のビルドが完走し、`build/web-mygame`が生成されるか\n- `games/mygame/shots`のスクリーンショットでタイトル画面やゲーム進行まで到達しているか\n- 実行時ログに`[sys] unhandled syscall`や`[iop] missing`が出るか\n# 前提・注意\n- git、CMake、Ninja、C++20コンパイラー、Python 3、7-Zip（ISOが.7zの場合）が必要。\n- 初回のブラウザビルドはEmscripten SDKとwgpu-nativeを取得し、ゲームごとに約300 MBを使う。\n- 記事本文には`build/web-mygame`を配信するコマンドがないため、READMEの手順を確認する。"
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "日本語プログラミング言語あおい AI コードエディタ（Copilot導入のPoC／概念実証版）をAI仕様駆動開発（ステップ１）～PoCエディタ本体実装～",
+      "url": "https://qiita.com/mylifewithviolin/items/773e2a56b0ded84bde7c",
+      "publishedAt": "2026-10-17T04:21:37.000Z",
+      "author": "mylifewithviolin",
+      "authorDetail": {
+        "name": "mylifewithviolin",
+        "handle": "@mylifewithviolin",
+        "url": "https://qiita.com/mylifewithviolin",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/123276433?v=4",
+        "bio": "フリーランスのシステムエンジニアです。\r\n趣味はバイオリンとピアノを習うこと。弾くことではないようです。\r\nI like beautiful Japanese language, whether natural or structured. Because it has beautiful character types and attractive pronunciation sounds.",
+        "organization": "アプリ工房いずみ",
+        "followers": 68,
+        "posts": 626,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/mylifewithviolin"
+          },
+          {
+            "label": "Web",
+            "url": "http://mylifewithviolin.blog.fc2.com/"
+          }
+        ]
+      },
+      "tags": [
+        "aoi",
+        "日本語プログラミング言語",
+        "GitHubCopilot",
+        "仕様駆動開発",
+        "C#"
+      ],
+      "snippet": "はじめに 日本語プログラミング言語あおい（Aoi）の実装言語仕様を生成AIに読み込ませて仕様駆動開発をしておりますが、本記事はあおい用のコードエディタの平行開発の内容となります。 日本語プログラミング言語あおい（Aoi）という自作言語の企画趣旨はこちらの記事をご参照ください。 使用AI GitHub Copilot GitHub CopilotのPro+版。あおいと本件実装と検証の主担当。 Microsoft Copilot Windows11アプリケーションのMicrosoft Copilot。GitHub Copilotの使い方スーパバイザとして利用しています。モードは「無料プラン」のsmart。 AIとの事前対話 Microsoft Copilot 別件で独自のデスクトップアプリWindows版に導入容易なカスタムモデル対応のAIの基礎情報の取得に利用しました。Ollamaを使用して…",
+      "body": "はじめに\n日本語プログラミング言語あおい（Aoi）の実装言語仕様を生成AIに読み込ませて仕様駆動開発をしておりますが、本記事はあおい用のコードエディタの平行開発の内容となります。\n\n日本語プログラミング言語あおい（Aoi）という自作言語の企画趣旨はこちらの記事をご参照ください。\n\n使用AI\nGitHub Copilot\nGitHub CopilotのPro+版。あおいと本件実装と検証の主担当。\nMicrosoft Copilot\nWindows11アプリケーションのMicrosoft Copilot。GitHub Copilotの使い方スーパバイザとして利用しています。モードは「無料プラン」のsmart。\n\nAIとの事前対話\nMicrosoft Copilot\n別件で独自のデスクトップアプリWindows版に導入容易なカスタムモデル対応のAIの基礎情報の取得に利用しました。Ollamaを使用してみましたが、現状のPCスペックでは推論をローカルで実行させるには厳しい状況を確認しておりました。\nGitHub Copilot\nOllamaが遅い原因は「HelloWorldを表示して」のような短い要求でも、モデルへ送る入力はその一文だけではなく、モデル用コード生成ルール、承認済みマニュアル抜粋、生成条件・制限、構造化計画JSONの出力指示などを含むため、モデルはこれらを処理してから回答を生成するためとほぼ断定。開発用PCにはGPU非対応であることも要因の一つを構成。Foundry Localも同様の可能性が高いということから、本記事のゴールとしてはGitHub Copilot SDKを使ってリモートのAIエージェントとの連携を想定するものとしました。\n\n本記事の課題\nGitHub Copilot SDKを使ってリモートのAIエージェントと連携したテキストエディタのPoC／概念実証版の実装\nステップ１はホストするテキストエディタ原型の実装\nAI仕様駆動開発の実際\nプロンプト１\nmindcodeのプロジェクトフォルダ\\docs\\テキストエディタアプリケーション実装プラン.md\nとほぼ同じようなテキストエディタは\n.NET CoreのC#で実装できますでしょうか？\n文字コードはUTF-8固定でかまいません。\n左側にフォルダエクスプローラがあり、右側のテキストエディタエリアは\n将来的にAI用チャットゾーンを想定しています。\n生成レスポンス１\nはい、実装できます。 実装プランにある主要な機能は、C#と.NETで実現可能です。文書はMind9とTcl/Tkを前提にした計画ですが、画面や操作の要件はC#向けに置き換えられます。\n\n詳しい構想をチャットエリアにご回答。その内容は次のプロンプトで文書化しました。\n\nプロンプト２\nご回答いただいた構想をこちらのフォルダの下記のファイルに出力してください。\n本記事プロジェクトフォルダ\\docs\\テキストエディタアプリケーション実装プラン.md\nこちらでプロジェクトを起こします。\n生成レスポンス２\n生成されたC#版のテキストエディタアプリケーション実装プラン.mdの一部抜粋です。\n\nテキストエディタアプリケーション実装プラン.md　一部抜粋\n [code] \n\n4. 画面構成\n\n [code] \n\n10. 推奨プロジェクト構成案\n [code] \n\nプロンプト３\ndocs\\テキストエディタアプリケーション実装プラン.md\nに沿ってこのカレントフォルダを\nC#のVSCodeプロジェクトとして構成して\ndocs\\テキストエディタアプリケーション実装プラン.md\nを実行してください。実行の節目で\ndocs\\テキストエディタアプリケーション実装プラン完了レポ－ト.md\nに進捗を記録してください。\n中断を余儀なくされた場合は再開課題を明示してください。\n\n.NET10.0.402のインストールを自動で開始してくれましたが完了待ちは少し時間がかかるので人間系でいったん中断しました。\n現在.NET10.0.402のインストール中です。\n終わったら再開を指示しますのでしばらくおまちください。\n\nNET10.0.402のインストール完了を確認して、再開を指示しました。\nNET10.0.402のインストール完了しました。\n再開してください。\n\n生成レスポンス３\n再開後しばらくすると、わたしの目前でエディタが起動されるようになりましたが、このタスクの実行開始は平日の深夜でしたので、わたしはいったんご就寝という形で撤収です。翌朝確認しみますと実装とテストが完了していました。:joy:\n実装プランに沿って、C#／VS Code プロジェクトの構成と初期版の実装を完了しました。\n.NET 10／WPF／AvalonEdit を採用\nフォルダツリー、編集・Undo/Redo、新規・開く・保存・別名保存を実装\nUTF-8／BOM／改行保持、未保存確認、外部変更検出、エラー通知に対応\nビルド成功（警告・エラー 0）、実アプリの起動・終了を確認\n自動受入試験 37 件すべて合格\n\nPoCアプリケーション実行のご様子\n\nシンタックスハイライトもない粗削りな状態ですがAIが自動生成した実行ファイルを実行してみました。就寝中にこんだけ実装してくれるとは時代が変わったのを感じます:joy:\n\n \n\nGitHub CopilotのチャットゾーンはVSCodeの場合は右側で縦に見ている感じなので、あおい AI コードエディタもたぶんそういう感じにしていきます。PoCなので機能てんこ盛りは後回しで、GitHub Copilotのチャットゾーン組み込みがどんな感じになるか検証を急ぎます。\n\nおわりに\nいかがでしたでしょうか？同じことをしようとしている方々の参考になれば幸いです。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8db2858f8a3f96e7",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8412601626016261,
+      "popularityPercentile": 0.8617886178861789,
+      "matchedTopics": [
+        "OpenAI Codex",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 70,
+      "titleJa": null,
+      "oneLiner": "はじめに 日本語プログラミング言語あおい（Aoi）の実装言語仕様を生成AIに読み込ませて仕様駆動開発をしておりますが、本記事はあおい用のコードエディタの平行開発…",
+      "takeaways": [],
+      "keywords": [
+        "OpenAI Codex",
+        "Git / 開発ワークフロー"
+      ],
+      "category": "その他",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "自作の日本語プログラミング言語「あおい」向けに、GitHub Copilotを使ったAI仕様駆動開発でWindows用コードエディタのPoCを実装した記録です。まずチャットで要件を整理し、実装プランをMarkdownに出力してから、現在のフォルダをC#／VS Codeプロジェクトとして構成させています。GitHub Copilotは.NET 10／WPF／AvalonEditによる実装、フォルダツリー、編集、Undo/Redo、ファイル操作、UTF-8／BOM／改行保持、外部変更検出などを生成しました。.NET 10.0.402のインストール中断後に作業を再開し、ビルド成功、警告・エラー0、実アプリ起動確認、自動受入試験37件合格まで到達しています。将来のGitHub Copilot SDK連携を見据え、今回はAIチャットゾーンを組み込む前のエディタ本体を先に検証しています。",
+        "prerequisites": [
+          {
+            "term": "GitHub Copilot",
+            "stumblingPoint": "記事はGitHub Copilotを主担当として使うが、Microsoft Copilotとの役割分担が読み取りにくい。",
+            "explanation": "GitHub Copilotはコード生成と実装・検証を担当し、Microsoft CopilotはGitHub Copilotの使い方を相談する補助役です。両者を同じ生成担当として扱うと、どのAIに何を依頼したのか分からなくなります。記事ではGitHub Copilot Pro+版を主担当として、実装プランからコード、テストまで進めています。"
+          },
+          {
+            "term": "AI仕様駆動開発",
+            "stumblingPoint": "記事は「AI仕様駆動開発」と書くが、実装前に何を仕様として固定したのかが省略されている。",
+            "explanation": "この記事でのAI仕様駆動開発は、いきなりコードを書かせるのではなく、まず要件をMarkdownの「テキストエディタアプリケーション実装プラン.md」に整理し、その文書をAIに実行させる進め方です。実装の節目では完了レポートにも記録させるため、会話だけで作業を進めるより再開地点を残せます。"
+          },
+          {
+            "term": "WPF",
+            "stumblingPoint": "生成結果に「.NET 10／WPF／AvalonEdit」とあるが、どの種類のアプリを作ったのか判断しにくい。",
+            "explanation": "WPFはWindowsデスクトップアプリの画面を作るためのUIフレームワークです。この記事の成果物はブラウザで動くWebエディタではなく、Windows上で起動する実行ファイルです。そのため、ReactやNext.jsのプロジェクトとして読むのではなく、C#のデスクトップアプリ開発として読む必要があります。"
+          },
+          {
+            "term": "AvalonEdit",
+            "stumblingPoint": "エディタ本体にAvalonEditを採用しているが、標準のテキスト入力欄との違いが説明されていない。",
+            "explanation": "AvalonEditは、WPFアプリに組み込んで使うコード編集向けのテキストエディタ部品です。ファイル編集、Undo/Redo、将来のシンタックスハイライトやAIチャット連携を見据えた編集領域の土台として使われています。現段階ではシンタックスハイライトは未実装で、まずファイル操作と編集の骨格を作っています。"
+          },
+          {
+            "term": "UTF-8／BOM／改行保持",
+            "stumblingPoint": "「UTF-8／BOM／改行保持に対応」とあるが、単にUTF-8で保存する以上の要件が見えにくい。",
+            "explanation": "UTF-8で読むだけでなく、ファイルにBOMが付いているか、改行コードがどうなっているかを意識して保存する要件です。これがないと、既存ファイルを開いて保存しただけで文字コードの印や改行形式が変わる可能性があります。日本語ソースや既存プロジェクトを編集するエディタでは、見た目以外のファイル差分を抑えるための要件です。"
+          },
+          {
+            "term": "自動受入試験",
+            "stumblingPoint": "「自動受入試験37件すべて合格」とあるが、単体テストの成功と何が違うのか分かりにくい。",
+            "explanation": "自動受入試験は、利用者が行う操作や要求を満たすかを確認するテストです。この記事では、ビルドできるだけでなく、エディタの起動、ファイル操作、未保存確認、外部変更検出など、実装プランに書いた機能が動くかを確認しています。37件という数は、生成コードの量ではなく、要求に対する確認項目の数です。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "PoC実装の流れ",
+          "steps": [
+            {
+              "label": "要件を相談",
+              "detail": "AIにエディタの構想を伝える"
+            },
+            {
+              "label": "計画を文書化",
+              "detail": "実装プランをMarkdownへ出力"
+            },
+            {
+              "label": "環境を構成",
+              "detail": ".NET 10／C#プロジェクトを作成"
+            },
+            {
+              "label": "実装を再開",
+              "detail": "SDK導入後にAIへ作業継続を指示"
+            },
+            {
+              "label": "成果を検証",
+              "detail": "起動確認と受入試験37件を実行"
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.ap-northeast-1.amazonaws.com%2F0%2F3118036%2Ff43ffb44-4160-4617-8964-075efec8029e.jpeg?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=dc1cbebfa5ed2b13f325bb64a5490c13",
+            "alt": "aoicode.jpg",
+            "caption": "AIが生成した実行ファイルを起動したPoCエディタ。粗削りな編集画面を先に動かし、次段階で右側のAIチャットゾーンを組み込む計画が示されている。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "要件書を渡すだけで、Windows用エディタの骨格を生成する",
+          "就寝前に実装を依頼し、翌朝にビルドと受入試験の結果を見る"
+        ],
+        "howToTry": [
+          "https://dotnet.microsoft.com/download/dotnet/10.0 にアクセスし、Windows向け.NET 10 SDKを導入する（手動）",
+          "記事の手順を参考に、作業フォルダへdocs\\テキストエディタアプリケーション実装プラン.mdを用意する（手動）",
+          "GitHub Copilotに、実装プランに沿ったC#／VS Codeプロジェクトの構成と実装を依頼する",
+          "AIが.NET SDKの導入を求めた場合は、.NET 10.0.402をインストールして完了後に作業再開を指示する（手動）",
+          "生成されたWPFアプリを起動し、ビルド結果・ファイル操作・自動受入試験の結果を確認する"
+        ],
+        "fitFor": [
+          "Windows 11でC#のデスクトップエディタを試すとき",
+          "AIに実装計画からコードとテストまで進めさせたいとき",
+          "将来のAIチャット組み込み前にエディタ本体を検証するとき"
+        ],
+        "notFor": [
+          "macOSやLinuxで同じ実行手順を再現したいとき",
+          "すぐにシンタックスハイライトやAIチャットまで完成品が必要なとき",
+          "GitHub Copilotを利用できない環境で試すとき"
+        ],
+        "caveats": [
+          "Windows 11向けWPFアプリで、他OS向けの手順は示されていない。"
+        ],
+        "tryPrompt": "# 試すこと\n実装プランから、Windows用のC#／WPFテキストエディタPoCを生成し、起動と受入確認まで行う。\nhttps://qiita.com/mylifewithviolin/items/773e2a56b0ded84bde7c\n\n# 手順\n1. `dotnet --version` を実行し、.NET SDKの導入状況を確認する。\n2. SDKが無い場合は、Windows向け.NET 10.0.402 SDKをインストールする（手動）。\n3. カレントフォルダの`docs\\テキストエディタアプリケーション実装プラン.md`を読み、C#／WPF／AvalonEditのプロジェクト構成を作る。\n4. フォルダツリー、編集、Undo/Redo、新規・開く・保存・別名保存、UTF-8／BOM／改行保持、未保存確認、外部変更検出を実装する。\n5. `docs\\テキストエディタアプリケーション実装プラン完了レポート.md`へ節目ごとの進捗と中断時の再開課題を記録する。\n6. ビルド、アプリ起動、終了、自動受入試験を実行し、結果を報告する。\n\n# 確認したいこと\n- 実装プランから起動可能なWPFエディタまで到達できるか。\n- UTF-8／BOM／改行を保持して保存できるか。\n- 自動受入試験の件数と合否を再現できるか。\n\n# 前提・注意\n- Windows 11とGitHub Copilotが必要。\n- 記事には完全なソースコードや受入試験コードは掲載されていない。\n- AIチャットゾーンとシンタックスハイライトは今回の対象外。"
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIレビューコメントに自動対応させるCI設計 — GitHub Actionsで「無限ループしない・壊さない・高くつかない」を実装する",
+      "url": "https://qiita.com/joinclass/items/965e47660dbd8f0ce394",
+      "publishedAt": "2026-10-16T23:30:06.000Z",
+      "author": "Agun Kyo",
+      "authorDetail": {
+        "name": "Agun Kyo",
+        "handle": "@joinclass",
+        "url": "https://qiita.com/joinclass",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4206891/78f5bb705b7ef9daeceda8b687e559f09c25bf3e/x_large.png?1774518147",
+        "bio": "合同会社ジョインクラス代表。教育×テクノロジーで課題解決を目指し、学習プラットフォームやDX支援を展開。Qiitaでは教育システム設計、動画配信基盤、クラウド活用などの知見を共有します。",
+        "organization": "合同会社ジョインクラス",
+        "location": "埼玉県",
+        "followers": 5,
+        "posts": 59,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/githubkyo"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/joinclass1002"
+          },
+          {
+            "label": "Web",
+            "url": "https://joinclass.co.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "GitHubActions",
+        "AI",
+        "自動化",
+        "CI"
+      ],
+      "snippet": "はじめに：レビューは自動化できたのに、対応は手作業のままだった 当社（合同会社ジョインクラス）は、社内業務の約98%を launchd の定期ジョブと Claude Code の無人実行で回しています。PR にも AI レビューを入れていますが、しばらくは指摘への対応だけ人間がやるという状態でした。 「このnullチェック抜けてます」「この変数名わかりにくいです」程度の指摘に、毎回ブランチをチェックアウトして直して push する。これは自動化できるはずです。 ただし、何も考えずに「レビューコメントが来たら Claude に直させる」を作ると、次の3つの事故が起きます。 1. 無限ループ：AIが修正 push → AIレビューが再実行 → また指摘 → また修正… 2. 破壊：AIが勝手に git push --force したり、関係ないファイルを書き換える 3. コスト爆発：1回の呼び…",
+      "body": "はじめに：レビューは自動化できたのに、対応は手作業のままだった\n\n当社（合同会社ジョインクラス）は、社内業務の約98%を launchd の定期ジョブと Claude Code の無人実行で回しています。PR にも AI レビューを入れていますが、しばらくは指摘への対応だけ人間がやるという状態でした。\n\n「このnullチェック抜けてます」「この変数名わかりにくいです」程度の指摘に、毎回ブランチをチェックアウトして直して push する。これは自動化できるはずです。\n\nただし、何も考えずに「レビューコメントが来たら Claude に直させる」を作ると、次の3つの事故が起きます。\n\n1. 無限ループ：AIが修正 push → AIレビューが再実行 → また指摘 → また修正…\n2. 破壊：AIが勝手に git push --force したり、関係ないファイルを書き換える\n3. コスト爆発：1回の呼び出しが想定より高く、ループと掛け算になる\n\n筆者は 2 を実際にやらかしています。ローカルの無人実行で AI が git push --force を実行し、ブランチが消えました。この記事は、その反省を踏まえて3つの事故をワークフローの構造で防ぐ設計を、そのまま使える YAML とスクリプトで紹介します。\n\n全体設計\n\n [code] \n\nポイントは「AIにお願いして守らせる」のではなく、AIが何を出力しても事故にならない位置にガードを置くことです。プロンプトでの禁止は補助にすぎません。\n\n手順1：ベースにした自社ラッパー\n\nCI版を書く前に、当社で毎日動いている無人実行ラッパーを紹介します。CI版はこれをほぼそのまま移植しています。\n\n [code] \n\n呼び出し側はこうです（記事自動生成ジョブの実コード）。\n\n [code] \n\nここから得た教訓が3つあります。\n・--max-budget-usd は必ず付ける。実測すると「2+2」を聞くだけでも1回 $0.27〜0.47 かかっていました。内訳の大半はキャッシュ作成の約41,000トークンで、自社の CLAUDE.md やスキルは5,800トークンだけ。残りは固定オーバーヘッドなので、削れるのは呼び出し回数だけです。CIではこれがループ回数の上限設計に直結します。\n・--output-format json でコストを取る。標準出力の totalcostusd を記録しておくと、あとで「どのジョブが高いか」がわかります。\n・--bare は使わない。認証を読まず Not logged in で落ちます（筆者はこれで1晩分のジョブを全滅させました）。\n\n手順2：ワークフロー本体\n\n.github/workflows/ai-review-fix.yml を作ります。\n\n [code] \n\nなぜこれでループしないのか\n\nループ防止は3重にしています。\n\n| 層 | 仕組み | 止まるケース |\n|---|---|---|\n| トークン | GITHUBTOKEN での push は新しいワークフローを起動しない（GitHubの仕様） | 修正pushでAIレビューが自動再実行されない |\n| 発言者 | review.user.login != 'github-actions[bot]' | 自分のコメントに反応しない |\n| 回数 | ai-fix-round-N ラベルで上限3回 | AIレビュアーが別トークンで毎回指摘しても3回で止まる |\n\n1層目だけで足りそうに見えますが、AIレビュアーを PAT や GitHub App で動かしていると修正 push を拾って再レビューします。回数上限はどの構成でも効く最後の砦なので必ず入れてください。上限に達したら失敗させて人間に通知する、が正解です。\n\n手順3：修正スクリプト（claude -p 部分）\n\n [code] \n\n設計上のポイント：\n・--allowedTools から Bash と Write を外す。Edit は既存ファイルの書き換えのみなので、新規ファイル生成も git 操作も物理的にできません。git push --force の事故は「禁止する」ではなく「Bash を渡さない」で防ぎます。\n・「指摘が誤りなら直さない」を明示する。AIレビューは誤検知もします。従わせるだけだと、正しいコードを壊して指摘に合わせる挙動になります。対応しなかった理由がPRコメントに残るので、人間はそこだけ見ればよくなります。\n・--max-budget-usd 1 × 上限3回 = 1PRあたり最大 $3。上限が計算できることが大事です。\n\n手順4：変更ファイルの検査\n\nAIの出力を信用せず、結果の差分で判定します。\n\n [code] \n\n.github/ を保護しているのは、AIが自分のワークフローを書き換えてガードを外せないようにするためです。地味ですが一番大事な行です。\n\n落とし穴\n\n実装時にハマりやすい点をまとめます。\n・pullrequestreviewcomment で起動すると、コメント1件ごとにジョブが走る。レビューで5件指摘されると5並列で起動します。pullrequestreview の submitted で受けて、そのレビューのコメントをまとめて取得するのが正解です。\n・concurrency の cancel-in-progress: true にしない。修正途中のジョブがキャンセルされ、中途半端な状態で次が走ります。\n・fork PR を対象にしない。pullrequesttarget に変えれば secrets は使えますが、第三者のコードを書き込み権限付きで実行することになります。社外コントリビュータのPRは人間が対応しましょう。\n・テストを AI 修正の後に必ず走らせる。テストが落ちたら push しないので、壊れたコードがPRに積まれません。\n\n検証方法\n\n導入したら、わざと指摘を出すPRで以下を確認してください。\n\n [code] \n\n確認するのは4点です。\n\n1. 修正コミットが1つ積まれ、ai-fix-round-1 ラベルが付く\n2. 修正 push の後にワークフローが再起動しない\n3. 同じレビューを3回付けると、4回目で「打ち切りました」コメントが出て止まる\n4. .github/ を変更させるような指摘を出すと、verify-diff で失敗する\n\n特に 2 と 3 はループ防止の確認なので、本番導入前に必ず通してください。\n\nまとめ：自動化は「安心して任せるための仕組み」\n\n当社では以前、AIが書いた営業メールを確認せず自動送信し、取引先に敬語のおかしいメールが届いたことがあります。それ以来、対外アクションはすべて draft → 承認 → 実行 に通しています。\n\n今回のCIも同じ考え方です。AIにレビュー対応を任せますが、マージするかどうかは人間が決める。AIが担当するのは「直す」と「直さなかった理由を書く」までです。\n\n自動化は AI の能力を制限するためのものではなく、安心して任せるための仕組みです。ガードを構造で入れておけば、AIの出力が多少ぶれても事故にはなりません。\n\nもっと深く知りたい方へ\n\nこの記事では「レビュー指摘への対応」だけを扱いましたが、要件定義 → 設計 → 実装 → レビュー → 修正の開発ライフサイクル全体を AI 前提で組み直す方法は、拙著『AI駆動開発ライフサイクル(AI-DLC)の教科書』で体系的にまとめています。CI へのレビュー組み込みや、人間が判断すべきポイントの切り分けも扱っています。\n\n書籍一覧はこちら → https://zenn.dev/joinclass?tab=books",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "03f183937edeab51",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8642276422764228,
+      "popularityPercentile": 0.8373983739837398,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "Claude CodeがAIレビューへの自動対応を安全に行うGitHub Actions設計を、無限ループ・破壊・コスト増への対策とともに解説する。",
+      "takeaways": [
+        "AIレビューへの対応まで自動化する仕組みを作った。",
+        "修正範囲とGit操作を外側の仕組みで制限した。",
+        "再レビューの連鎖と呼び出し費用の増大を防いだ。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "GitHub Actions",
+        "AIレビュー",
+        "CI",
+        "無限ループ",
+        "git push --force"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIに修正まで任せるか人が対応すべきか",
+        "forSide": "自動修正なら単純な指摘への対応時間を大幅に減らせる。",
+        "againstSide": "誤修正や権限悪用を防ぐ監視コストが新たに増える。",
+        "oneSided": false,
+        "yourAngle": "AIエージェントをCIで動かした実行回数と失敗率を実測できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "この記事は、GitHub Actions から Claude Code を呼び出し、PR の AI レビュー指摘を自動修正する設計を紹介しています。事故を防ぐ中心は、プロンプトで禁止するのではなく、Bash を渡さない、差分を検査する、テスト通過後だけ push するという構造的なガードです。無限ループ対策には、GITHUBTOKEN の仕様、発言者チェック、ai-fix-round-N ラベルによる最大3回の上限を組み合わせます。1回の呼び出しは実測で $0.27〜0.47 かかるため、--max-budget-usd 1 と最大3回という上限から、1PRあたり最大 $3 に抑えます。AIには修正と未対応理由の記録まで任せますが、マージ判断は人間に残します。",
+        "prerequisites": [
+          {
+            "term": "GITHUBTOKEN",
+            "stumblingPoint": "「GITHUBTOKEN での push は新しいワークフローを起動しない」と書かれているが、なぜ push だけで再実行されないのか読み取りにくい。",
+            "explanation": "GITHUBTOKEN は GitHub Actions が標準で使う認証トークンです。このトークンで行った push は、同じ Actions の連鎖起動を避けるため、新しいワークフローのトリガーになりません。したがって AI の修正コミットを push しても、通常の再レビューが自動で始まらないという意味です。PAT や GitHub App で push する構成ではこの前提が崩れるため、別のループ対策が必要になります。"
+          },
+          {
+            "term": "pull_request_review",
+            "stumblingPoint": "「pullrequestreviewcomment ではコメント1件ごとにジョブが走る」とあるが、レビューイベントとの違いがないと並列実行の問題を理解できない。",
+            "explanation": "pull_request_review はレビュー全体の送信を受け取るイベントです。一方、コメント単位のイベントを使うと、1回のレビューに5件の指摘があるだけで5つのジョブが同時に起動します。記事の設計ではレビュー送信を入口にして、そのレビューに含まれるコメントをまとめて処理します。これにより、同じ PR に対する AI 修正の競合を減らせます。"
+          },
+          {
+            "term": "ai-fix-round-N",
+            "stumblingPoint": "「ai-fix-round-N ラベルで上限3回」とあるが、ラベルがどうして再実行回数の記録になるのかが省略されている。",
+            "explanation": "ai-fix-round-N は、AI 修正を何回実行したかを PR 上に残すラベルです。修正前に現在のラウンドを確認し、3回に達していれば新たな修正を行わず、人間への通知で止めます。レビュー側が別のトークンで動いて GITHUBTOKEN の連鎖防止を回避しても、この回数制限は最後の停止条件になります。"
+          },
+          {
+            "term": "--max-budget-usd",
+            "stumblingPoint": "「2+2」でも1回 $0.27〜0.47 かかるとあるが、--max-budget-usd が単なる節約設定ではなく上限設計になる理由が必要。",
+            "explanation": "--max-budget-usd は Claude Code の1回の実行に許容する最大コストを指定するオプションです。記事では1回を $1、最大3回とすることで、1PRあたり最大 $3 と計算可能にしています。AI の呼び出しがループするとコストも回数分増えるため、予算上限と実行回数上限を組み合わせることが重要です。"
+          },
+          {
+            "term": "--allowedTools",
+            "stumblingPoint": "「--allowedTools から Bash と Write を外す」とあるが、Edit だけを残すと何ができて何ができないのか判断しづらい。",
+            "explanation": "--allowedTools は Claude Code に利用を許可するツールを絞る指定です。Bash を外すと git push などのシェル操作ができず、Write を外すと新規ファイルを作れません。Edit は既存ファイルの変更に限定されるため、レビュー対象の修正は許しつつ、push や新規ファイル生成の経路を閉じます。ただし既存ファイルを誤って変更する可能性は残るため、後段の差分検査が必要です。"
+          },
+          {
+            "term": "verify-diff",
+            "stumblingPoint": "「結果の差分で判定」「.github/ を保護」とあるが、AIにツール制限をかけても差分検査が必要な理由が読み取りにくい。",
+            "explanation": "verify-diff は AI 実行後の git diff を検査し、許可されない変更があれば失敗させる処理です。ツール制限は操作経路を狭めますが、Edit で関係ない既存ファイルを変更することまでは防ぎません。特に .github/ を変更されると、ワークフロー自身のガードを外される可能性があるため、差分として拒否します。"
+          },
+          {
+            "term": "cancel-in-progress",
+            "stumblingPoint": "「cancel-in-progress: true にしない」とあるが、一般的な古いジョブのキャンセルがなぜ危険なのかが省略されている。",
+            "explanation": "cancel-in-progress は同じ concurrency グループで新しい実行が始まったとき、進行中のジョブをキャンセルする設定です。AI 修正の途中でキャンセルすると、修正や検査が中途半端な状態で終わり、その状態を前提に次のジョブが走る可能性があります。レビュー対応では新しい実行を優先するより、現在の修正を最後まで完了させることを優先しています。"
+          },
+          {
+            "term": "--bare",
+            "stumblingPoint": "「--bare は使わない。認証を読まず Not logged in で落ちる」とあるが、通常実行との差が分からないと設定ミスの原因を特定できない。",
+            "explanation": "--bare は Claude Code の通常の認証や設定読み込みを省略する実行形態です。記事の環境ではその結果、認証情報を読めず Not logged in で失敗しました。無人実行ではローカルの対話的なログインを期待できないため、認証を省略する設定がそのままジョブ全滅につながります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "AI修正CIの経路",
+          "layers": [
+            {
+              "label": "入力",
+              "nodes": [
+                {
+                  "name": "レビュー送信",
+                  "note": "レビュー全体を起点にする",
+                  "highlight": false
+                }
+              ],
+              "via": "レビュー情報"
+            },
+            {
+              "label": "Workflow",
+              "nodes": [
+                {
+                  "name": "GitHub Actions",
+                  "note": "回数と発言者を判定",
+                  "highlight": true
+                }
+              ],
+              "via": "指摘内容"
+            },
+            {
+              "label": "AI修正",
+              "nodes": [
+                {
+                  "name": "Claude Code",
+                  "note": "Editのみ許可して修正",
+                  "highlight": true
+                }
+              ],
+              "via": "作業ツリー"
+            },
+            {
+              "label": "ガード",
+              "nodes": [
+                {
+                  "name": "verify-diff",
+                  "note": "差分とテストを検査",
+                  "highlight": false
+                },
+                {
+                  "name": "修正push",
+                  "note": "検査通過時だけPRへ反映",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "AI-DLCの教科書・書籍一覧",
+            "url": "https://zenn.dev/joinclass?tab=books"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "AIに修正を任せる範囲",
+            "claim": "AIに修正と未対応理由の記録まで任せ、人間はマージを判断する。",
+            "counter": "誤検知で正しいコードを壊すため、人間が指摘ごとに対応判断すべきだ。",
+            "counterInArticle": true
+          },
+          {
+            "point": "プロンプトと構造的制限",
+            "claim": "禁止をプロンプトで頼むより、Bashを渡さず物理的にpushできなくする。",
+            "counter": "Editは残るため無関係な既存ファイル変更を防げず、差分検査も必要になる。",
+            "counterInArticle": true
+          },
+          {
+            "point": "ループ停止の方法",
+            "claim": "GITHUBTOKENの仕様で修正push後の再実行を止められる。",
+            "counter": "PATやGitHub Appなら再実行されるため、ai-fix-round-Nの上限が必要だ。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AI修正の手戻り率",
+            "why": "Claude Codeを日常的に使うため、修正後にテスト失敗や人手修正が何件出たかを実測できる。"
+          },
+          {
+            "angle": "CI呼び出しコスト",
+            "why": "GitHub Actionsの実行履歴とClaude CodeのJSON出力を突き合わせ、PR単位の実コストを出せる。"
+          },
+          {
+            "angle": "差分ガードの実効性",
+            "why": "TypeScriptやNext.jsのPRで、許可対象外のファイル変更を意図的に発生させて検査結果を確認できる。"
+          }
+        ],
+        "verify": [
+          "検証用PRで指摘を出し、修正コミット1つとai-fix-round-1ラベルを確認する。",
+          "同じレビューを4回付け、3回目まで修正し4回目で停止コメントが出るか確認する。"
+        ]
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Amazon uses AI to monitor union risk in UK warehouses",
+      "url": "https://www.opendemocracy.net/amazon-ai-surveillance-monitor-union-activity-uk-warehouses-birmingham-coventry-atlas-sutton-coldfield/",
+      "publishedAt": "2026-10-17T16:04:23.000Z",
+      "author": "DeepLogin",
+      "authorDetail": {
+        "name": "DeepLogin",
+        "handle": "DeepLogin",
+        "url": "https://news.ycombinator.com/user?id=DeepLogin"
+      },
+      "tags": [],
+      "snippet": "Garfield Hylton has long known that Amazon monitors and logs every minute of his working day. Every product he scans, every second he takes between scans, every time his scanner is briefly inactive – all of it is tracked, recorded, and used to set productivity targets and predictions. But what 62-year-old Hylton didn’t know is that Amazon seemingly also monitors potential “dissent” in the Coventry…",
+      "metrics": {
+        "points": 143,
+        "comments": 57
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "c46bc3a0cfb68135",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.16097560975609757,
+      "popularityPercentile": 0.7317073170731707,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 85,
+      "titleJa": "Amazon倉庫の労組活動をAIで監視した問題",
+      "oneLiner": "Amazonが英国の倉庫で労働組合活動のリスクをAIで監視していたと報じられた。",
+      "takeaways": [
+        "Amazonの倉庫で労組活動の監視にAIが使われた。",
+        "監視対象には労働者の組織化に関する情報が含まれる。",
+        "職場の安全管理と労働者の権利が対立する問題になった。"
+      ],
+      "keywords": [
+        "Amazon",
+        "AI監視",
+        "英国",
+        "倉庫",
+        "労働組合",
+        "Hacker News"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "職場のリスク監視を優先するか労働者のプライバシーを優先するか",
+        "forSide": "早期に組織化の兆候を把握すれば職場の対立を予防できる。",
+        "againstSide": "労組活動の監視は報復を招き団結する権利を損なう。",
+        "oneSided": true,
+        "yourAngle": "AIの判定ログと権限設計を業務システムで確認した経験が論点になる。"
+      },
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://storage.ghost.io/c/3f/80/3f804bea-4b2d-4ddf-9ff0-6ec7d0afa5fa/content/images/size/w1200/2026/10/Amazon-AI-question-openDemocracy-edit.jpg",
+      "body": "Garfield Hylton has long known that Amazon monitors and logs every minute of his working day. Every product he scans, every second he takes between scans, every time his scanner is briefly inactive – all of it is tracked, recorded, and used to set productivity targets and predictions. But what 62-year-old Hylton didn’t know is that Amazon seemingly also monitors potential “dissent” in the Coventry warehouse where he works, using AI to surveil posts on social media and the company’s internal staff bulletin board.Internal documents made public as part of a court battle between Amazon and a Canadian union suggest the tech giant uses Atlas, an in-house AI forecasting tool, to predict how likely its warehouse staff in the US, Canada and the UK are to attempt to form a union, stage a sit-in, or conduct other “disruptive labour events”.The documents, which appear to be training resources for Amazon managers in Canada, contain an appendix stating Atlas amasses “hundreds of data points” – including posts on Reddit forums and employees’ responses to internal feedback surveys, as well as wider information on the workplace and any previous industrial action – to award warehouses a risk score of between 100 and 900 for union activity.The lower the score, the more likely Atlas believes workers – whom Amazon calls ‘associates’ – in that warehouse are to unionise or take other actions that could impact Amazon’s productivity or profitability. The document states that for the company’s leadership, higher scores are “better”.This “makes it clear that they think the union is bad”, Michael Newman, a partner at London-based law firm Leigh Day, told openDemocracy. Newman said it tells “a very different story” from Amazon’s previous assertions that it does not seek to prevent workers from joining a union.Warehouses appear to be categorised into five tiers based on their Atlas score, where Tier 5 is “no immediate perceived risk” and Tier 1 is “future activity is imminent”. The document suggests this scale can be used to “inform staffing decisions, resource planning, standard actions, and ownership to mitigate risks to Amazon labour structure”.An Amazon spokesperson refuted the characterisation of Atlas as “individual employee monitoring or surveillance”, stating: “This is site/building level activity only.” They added that the company does “not track individual employees’ opinions, affiliations or union membership”, or any “personal data”, and said Atlas is not used to monitor dissent, but to “help us understand where associates need more support and to ensure we’re addressing issues that they raise”.In total, 16 Amazon warehouses across the US, Canada and the UK are “Tier 1”, according to the document. Two are in the UK: a £500m robotic-fulfilment centre in Sutton Coldfield, north-east Birmingham (referred to by Amazon as EMA4), and the warehouse where Hylton works near Coventry (BHX4).An Amazon US employee is surveyed on their feelings \"about the future of AI at Amazon\". Source: FacebookHylton, whose role involves receiving goods into the warehouse and dispatching them on to other warehouses, is a member of the GMB union. He believes the extent of the data Amazon has collected on his colleagues creates a huge power imbalance, with workers having only their own experiences to defend themselves.“It’s not right in a democracy… the employer should not be interfering,” he said, speaking to openDemocracy soon after learning about the Atlas tool from GMB. “Workers should be allowed to decide if they wish to choose to unionise,” he continued, adding: “If you're then monitoring, you're undermining a process deliberately and willfully.”Rachel Fagan, an organiser for GMB, told openDemocracy: “It’s quite clear from these documents that these sites are being monitored for union activity. Everyone knows that Amazon is heavy on surveillance, but this becomes more personal.“Amazon is using this technology to essentially outwit or manoeuvre workers that want to organise [a union]. Nothing in this fight against Amazon is an even playing field; they have all the wealth, all the technology, everything to their disposal and they use it,” she added. GMB has long tried to unionise Amazon workers in the UK, coming closest to winning formal recognition in Coventry in July 2024. Employees at the warehouse became the first in the country to take strike action against Amazon in January 2023, and around 2,600 took part in an official ballot for union recognition at the site six months later, which GMB lost by just 28 votes. The union and Foxglove, a tech justice non-profit, have accused Amazon of using “dirty tricks” to swing the vote in its favour. These include the mass hiring of non-unionised workers and allegedly plastering QR codes that employees could scan to cancel their GMB membership over screens, cafeteria tables, and toilet doors in the warehouse in the run-up to the vote.Foxglove and Leigh Day are representing two workers in a legal challenge against Amazon’s use of ‘click-to-quit’ QR codes. They argue that the tool was an attempt to “bully” workers into ending their union membership.The documents revealing Amazon’s Atlas AI tool were disclosed as part of a legal challenge by Canadian union Unifor and shared with US non-profit publication Truthout. The British Columbia Labour Board ultimately ruled that Amazon had violated multiple local labour laws, following an earlier ruling that found the company had unlawfully imposed a wage freeze on unionised workers at a warehouse outside Vancouver.Rosa Curling, co-executive director of Foxglove, described the level of surveillance detailed in the document as “highly intrusive”, showing that Amazon has a “very intentional policy to try and bust organising, bust unionising efforts, and they are using all sorts of tools to do that”.Curling continued: “We are actively reviewing these documents to see what additional arguments, if any, we should be adding to our existing claim to unlawful inducement, or indeed on like this ongoing breach of workers' rights to organise, which is a well-respected right in UK-made laws.”Amazon told openDemocracy that a framework called Atlas is not currently used in the UK. The company had not responded to our question about whether it uses a similar system with a different name at the time of publishing.Commenting on the AI system, Leigh Day’s Newman added: “Now we know Atlas is used by Amazon, we’ll be asking more questions about what data points are used, how these scores were reached.” Amazon has previously been found guilty of “excessive” surveillance of its workers. In 2022, French data watchdog CNIL fined the company €32m (£27m) for breaching General Data Protection Regulation (GDPR) rules by tracking worker activity so precisely that an alert was triggered if workers were inactive for between one and 10 minutes.Asked whether Amazon’s Atlas tool is an appropriate level of worker surveillance, a government spokesperson said: “Employers and workers have a shared interest in workplace monitoring technologies being used transparently and in ways that are fair, accountable and reliable, so that they can support productivity and good management while maintaining trust in the workplace. “We expect all employers to respect workers’ rights to take part in lawful trade union activity.” An Amazon spokesperson said: “The GMB's characterisation is wrong. This isn’t surveillance. Like any responsible employer, we have numerous ways for our team to provide us with feedback, and we use that feedback to identify where we can improve the day-to-day experience of our employees.“Our employees always have the choice of whether or not to join a union. What matters most to us is the direct relationship between our teams and their managers – it means every person’s voice is heard, not just a few, and that when someone spots a way to improve their job, we can act on it quickly. We’ve made real progress in recent years on the things that matter, like pay and safety, and we know there’s always more to do. That’s our focus: getting better every day.”",
+      "rank": 2,
+      "deep": {
+        "summary": "Amazonの内部文書によれば、社内AIツール Atlas は Reddit、社内アンケート、職場情報、過去の労働争議など「数百のデータポイント」を集め、倉庫ごとに100〜900の union activity の risk score を付けていた。スコアが低いほど組合結成や座り込みなどの可能性が高く、Tier 1 は「活動が差し迫っている」倉庫を示し、staffing decisions や resource planning に使えるとされている。文書上、英国ではCoventryのBHX4とSutton ColdfieldのEMA4がTier 1に分類されていた。一方、AmazonはAtlasを個人監視ではなく site/building level activity の把握だと説明し、個人の意見・所属・組合員資格や personal data は追跡していないと否定している。記事は、組合活動の予測と職場改善のためのフィードバック収集が、同じデータ基盤でも労働者側には監視・組織化妨害として受け取られ得ることを、英国での組合認証投票や過去のGDPR違反と結び付けている。",
+        "prerequisites": [
+          {
+            "term": "Atlas",
+            "stumblingPoint": "記事は「Atlas」を突然、組合活動を予測するAIとして登場させるため、通常の生産性管理ツールとの違いが読み取りにくい。",
+            "explanation": "Atlasとは、倉庫単位の情報を集め、組合結成や座り込みなどの可能性をrisk scoreに変換する社内のAI forecasting toolである。単に作業時間を測るのではなく、将来の労働者の集団行動を予測する点がこの記事の争点になる。Amazonは個人監視ではないと説明しているが、予測結果が管理上の対応に使われる可能性は残る。"
+          },
+          {
+            "term": "risk score",
+            "stumblingPoint": "記事は「100〜900のrisk score」とだけ説明するが、数字の高低が何を意味するかを逆に読む必要がある。",
+            "explanation": "risk scoreとは、Atlasが倉庫ごとのunion activityの可能性を数値化したものだ。この記事ではスコアが低いほど組合化やその他の労働争議が起きる可能性が高く、会社側にとっては高いスコアの方が望ましい。一般的なリスク指標のように高いほど危険、とは限らない。"
+          },
+          {
+            "term": "Tier 1",
+            "stumblingPoint": "「Tier 1」「Tier 5」という分類が出てくるが、どの段階が危険なのかを知らないと英国倉庫の位置付けが分からない。",
+            "explanation": "Tier 1とは、文書上「future activity is imminent」とされる最も切迫した分類である。Tier 5は「no immediate perceived risk」で、直ちにリスクがあるとは見なされない。英国ではBHX4とEMA4がTier 1と記載されていたため、記事はこの2拠点を具体例として扱っている。"
+          },
+          {
+            "term": "site/building level",
+            "stumblingPoint": "Amazonは「site/building level activity only」と反論するが、倉庫単位なら監視ではないという論理が省略されている。",
+            "explanation": "site/building levelとは、個々の従業員ではなく倉庫や拠点を分析単位にするという意味である。Amazonは個人の意見や組合員資格を追跡していない根拠として示している。一方、倉庫単位の予測でも、そこで働く人々の投稿・回答・過去の活動を材料にすれば、集団としての組織化を抑える意思決定に使えるという反論が成立する。"
+          },
+          {
+            "term": "click-to-quit",
+            "stumblingPoint": "「click-to-quit QR codes」は、組合員資格をワンクリックで辞めさせる仕組みなのか、記事だけでは関係が掴みにくい。",
+            "explanation": "click-to-quitとは、従業員がQRコードを読み取り、GMBの組合 membership を取り消す手続きを進められる仕組みを指す。記事では、組合認証投票の前にQRコードが画面や食堂、トイレに掲示されたとされ、FoxgloveとLeigh Dayが組合脱退を促すbullyingだと主張している。Atlasの文書開示とは別件だが、組織化をめぐる監視・介入の文脈を補強する。"
+          },
+          {
+            "term": "GDPR",
+            "stumblingPoint": "2022年のCNILによるGDPR違反が挙げられるが、Atlasの話と何が共通するのかを補う必要がある。",
+            "explanation": "GDPRとは、個人データの収集・利用・保存などを規律するEUのデータ保護規則である。記事ではCNILが、作業員の非活動を1〜10分単位で検知するAmazonの追跡を「excessive」と判断し、€32mを科した。Atlasが個人を直接追跡している証拠とは別だが、職場データの粒度と目的、透明性が再び問題になる背景を示している。"
+          },
+          {
+            "term": "union recognition",
+            "stumblingPoint": "「union recognition」の投票結果が出てくるが、組合加入と何が違うのかを知らないと28票差の意味が分からない。",
+            "explanation": "union recognitionとは、会社が組合を労働者の正式な代表として認め、団体交渉の相手にすることだ。記事のCoventryでは約2,600人が投票し、GMBは28票差で敗れた。個人が組合に加入できるかとは別に、職場全体で組合が正式代表になるかを決めるため、組織化への介入が問題になりやすい。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "Atlasの評価経路",
+          "layers": [
+            {
+              "label": "入力データ",
+              "nodes": [
+                {
+                  "name": "Reddit投稿",
+                  "note": "公開フォーラムの投稿",
+                  "highlight": false
+                },
+                {
+                  "name": "社内アンケート",
+                  "note": "従業員の回答",
+                  "highlight": false
+                },
+                {
+                  "name": "職場情報",
+                  "note": "過去の労働争議など",
+                  "highlight": false
+                }
+              ],
+              "via": "数百のデータ点"
+            },
+            {
+              "label": "予測基盤",
+              "nodes": [
+                {
+                  "name": "Atlas",
+                  "note": "社内AI forecasting tool",
+                  "highlight": true
+                }
+              ],
+              "via": "倉庫別に評価"
+            },
+            {
+              "label": "出力",
+              "nodes": [
+                {
+                  "name": "risk score",
+                  "note": "100〜900の数値",
+                  "highlight": false
+                },
+                {
+                  "name": "Tier分類",
+                  "note": "Tier 1〜5",
+                  "highlight": false
+                }
+              ],
+              "via": "管理判断へ"
+            },
+            {
+              "label": "利用先",
+              "nodes": [
+                {
+                  "name": "staffing decisions",
+                  "note": "人員配置の判断",
+                  "highlight": false
+                },
+                {
+                  "name": "resource planning",
+                  "note": "資源計画や対応",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 6,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "監視の単位",
+            "claim": "倉庫単位の分析であり、個人の意見や組合員資格は追跡していない。",
+            "counter": "倉庫単位でも個人の投稿や回答を集約すれば、組織化への介入になり得る。",
+            "counterInArticle": true
+          },
+          {
+            "point": "予測の利用目的",
+            "claim": "Atlasは問題を把握し、従業員が必要とする支援や職場改善に使う。",
+            "counter": "組合活動を予測し、staffing decisionsやresource planningに使えば抑止にも転用できる。",
+            "counterInArticle": true
+          },
+          {
+            "point": "労働者の選択",
+            "claim": "従業員には組合に加入するかどうかの選択が常にある。",
+            "counter": "投票前の監視やclick-to-quitの働きかけがあれば、形式的な選択だけでは公平でない。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "サイト単位と個人単位の境界",
+            "why": "Next.jsや業務システムのログ設計で、集計データでも個人を推測できる場面を実装・運用している。"
+          },
+          {
+            "angle": "テレメトリーの目的外利用",
+            "why": "AI coding agentの実行ログや監査ログを扱うため、改善目的で集めたデータが評価や制御に転用される条件を具体化できる。"
+          },
+          {
+            "angle": "予測スコアの説明可能性",
+            "why": "TypeScriptやプロダクト開発で指標を設計しており、入力データ・重み付け・誤判定時の救済を確認する観点を出せる。"
+          }
+        ],
+        "verify": [
+          "記事中の主張と一次文書を照合し、Atlasの入力項目・スコア定義・Tier分類を確認する。",
+          "Amazonの英国向けprivacy noticeと従業員監視方針で、倉庫単位の分析と個人データ利用の範囲を確認する。"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "be6ab7ba5cc284d0",
+      "product": "Vercel AI Gateway",
+      "what": "AIモデル向けのゲートウェイサービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "セッションアフィニティをログで確認できるようになる",
+      "change": {
+        "before": "ログにセッションアフィニティ表示なし",
+        "after": "ログでセッションアフィニティを確認"
+      },
+      "scope": [],
+      "summary": "Vercel AI Gatewayのログに、セッションアフィニティの情報が表示されるようになった。",
+      "title": "AI Gateway logs now show session affinity",
+      "url": "https://vercel.com/changelog/ai-gateway-logs-now-show-session-affinity",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-10-17T20:03:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "163ea2663be50dec",
+      "product": "DeepSeek V4.1 Flash",
+      "what": "DeepSeekの高速AIモデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "AI GatewayでDeepSeek V4.1 Flashを利用できるようになる",
+      "change": {
+        "before": "AI Gatewayで利用できない",
+        "after": "AI Gatewayで利用できる"
+      },
+      "scope": [],
+      "summary": "DeepSeek V4.1 FlashがVercel AI Gatewayで利用可能になった。",
+      "title": "DeepSeek V4.1 Flash 1017 now available on AI Gateway",
+      "url": "https://vercel.com/changelog/deepseek-v4-1-flash-1017-now-available-on-ai-gateway",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-10-17T00:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "dabacaf472dc36fb",
+      "product": "@tanstack/preact-query",
+      "what": "Preact向けのデータフェッチライブラリ",
+      "version": "5.104.4",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": {
+        "before": "未購読でも楽観的フェッチ状態になる",
+        "after": "未購読なら楽観的フェッチ状態にならない"
+      },
+      "scope": [],
+      "summary": "@tanstack/preact-query 5.104.4で、未購読時の楽観的フェッチ状態や、throwOnErrorがfalseの再試行動作を修正。型専用再エクスポートにも対応した。",
+      "title": "TanStack/query @tanstack/preact-query@5.104.4",
+      "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query%405.104.4",
+      "sourceLabel": "GitHub Releases / TanStack/query",
+      "publishedAt": "2026-10-17T17:54:24.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/react-query-devtools@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-devtools%405.104.4"
+        },
+        {
+          "label": "@tanstack/svelte-query@6.3.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query%406.3.4"
+        },
+        {
+          "label": "@tanstack/solid-query@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/solid-query%405.104.4"
+        },
+        {
+          "label": "@tanstack/query-devtools@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-devtools%405.104.4"
+        },
+        {
+          "label": "@tanstack/react-query@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query%405.104.4"
+        },
+        {
+          "label": "@tanstack/query-core@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/query-core%405.104.4"
+        },
+        {
+          "label": "@tanstack/eslint-plugin-query@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/eslint-plugin-query%405.104.4"
+        },
+        {
+          "label": "@tanstack/react-query-persist-client@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-persist-client%405.104.4"
+        },
+        {
+          "label": "@tanstack/angular-query-experimental@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/angular-query-experimental%405.104.4"
+        },
+        {
+          "label": "@tanstack/react-query-next-experimental@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/react-query-next-experimental%405.104.4"
+        },
+        {
+          "label": "@tanstack/preact-query-devtools@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query-devtools%405.104.4"
+        },
+        {
+          "label": "@tanstack/preact-query-persist-client@5.104.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/preact-query-persist-client%405.104.4"
+        }
+      ],
+      "tryPrompt": "# 試すこと\n@tanstack/preact-query 5.104.4 を入れて、この版の変更を確かめる\nhttps://github.com/TanStack/query/releases/tag/%40tanstack/preact-query%405.104.4\n\n# 手順\n1. git clone --depth 1 --branch %40tanstack https://github.com/TanStack/query\n2. cd query && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 5.104.4 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- %40tanstack のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.302 変更点まとめ：claude -p の権限モードと fork 既定化",
+      "url": "https://qiita.com/picnic/items/9fbdf64b49b69a5f064a",
+      "publishedAt": "2026-10-17T14:47:48.000Z",
+      "author": "picnic",
+      "authorDetail": {
+        "name": "picnic",
+        "handle": "@picnic",
+        "url": "https://qiita.com/picnic",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKJ3kiIjdUf7zPvCPsjLhdpqsl9XSc0xblptYG809gyvXXYhvQ1=s96-c",
+        "followers": 5,
+        "posts": 247,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/PICNIC-A-DAY"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/h_picnic"
+          }
+        ]
+      },
+      "tags": [
+        "Claude",
+        "Anthropic",
+        "AI",
+        "LLM",
+        "API"
+      ],
+      "snippet": "はじめに 2026年10月17日時点の最新リリース Claude Code v2.1.302 には、CI や自動化スクリプトに影響しうる変更が含まれています。 ・サードパーティプロバイダで claude -p / Agent SDK の既定権限モードが default に変わる場合がある ・fork サブエージェントが claude -p・Agent SDK・デスクトップ・VS Code でも既定で有効になる ・単体版 Claude Design（claude.ai/design）が2026年12月14日までに終了するという告知 特に1つ目は、暗黙の auto モードを前提にした非対話実行が、権限確認で止まる可能性があります。この記事では影響の大きい変更を中心に、誰が何をすべきかを整理します。 📌 影響を受ける人 ・Bedrock / Vertex / LLM ゲートウェイなど、サードパ…",
+      "body": "はじめに\n\n2026年10月17日時点の最新リリース Claude Code v2.1.302 には、CI や自動化スクリプトに影響しうる変更が含まれています。\n・サードパーティプロバイダで claude -p / Agent SDK の既定権限モードが default に変わる場合がある\n・fork サブエージェントが claude -p・Agent SDK・デスクトップ・VS Code でも既定で有効になる\n・単体版 Claude Design（claude.ai/design）が2026年12月14日までに終了するという告知\n\n特に1つ目は、暗黙の auto モードを前提にした非対話実行が、権限確認で止まる可能性があります。この記事では影響の大きい変更を中心に、誰が何をすべきかを整理します。\n📌 影響を受ける人\n・Bedrock / Vertex / LLM ゲートウェイなど、サードパーティプロバイダで claude -p や Agent SDK を CI・バッチで動かしている人\n・/design-sync を使うデザイン連携ワークフローを持つ人\n・claude -p / Agent SDK でサブエージェントを使っている人\n・Hooks に prompt / agent フックを大量に登録している人\n\n変更の全体像\n\n [code] \n\n| 重要度 | 変更 | 要対応 |\n|---|---|---|\n| high | claude -p / Agent SDK の既定権限モードが条件次第で default に | 必要 |\n| high | fork サブエージェントが全環境で既定有効 | 確認推奨 |\n| high | 単体版 Claude Design が2026-12-14に終了 | 必要 |\n| medium | サブエージェントの実行形態の統一 | 確認推奨 |\n| medium | prompt/agent フックの同時実行上限12件 | 該当者のみ |\n\n変更内容\n\n1. 既定権限モードが default になる（high）\n⚠️ Breaking Change\n権限モードを指定していない claude -p と Agent SDK のセッションが、条件を満たすと default モードで始まります。\n\n対象は次の環境です。\n・サードパーティプロバイダ上で利用している\n・かつ、テレメトリがオフの環境、または新規インストールの環境\n\n従来 auto モードで動いていたスクリプトが、ツール実行のたびに権限確認で止まるおそれがあります。非対話実行では確認に答える人がいないため、ジョブが進まなくなります。\n\n対処は --permission-mode auto を明示することです。\n\n2. fork サブエージェントが全環境で既定有効（high）\n\nターミナルでは以前から既定で有効だった subagenttype: \"fork\" が、次の環境でも既定で有効になりました。\n・claude -p\n・Agent SDK\n・デスクトップアプリ\n・VS Code\n\n無効にするには環境変数 CLAUDECODEFORKSUBAGENT=0 を設定します。なお claude mcp serve では fork は提供されません。\n\n [code] \n\n3. 単体版 Claude Design の終了（high）\n\n単体版 Claude Design（claude.ai/design）は 2026年12月14日までに提供終了します。/design-sync と /design-login を実行すると、終了の通知が表示されます。\n\n関連して、クラウドセッションで /design consent や /design revoke が失敗した際に、そこでは使えない /design-login を案内していた問題も修正されました。現在は claude.ai/design/settings が案内されます。\n\n4. サブエージェントの実行形態（medium）\n・デスクトップ・VS Code でも、メイン会話のサブエージェントは常にバックグラウンドで実行（ターミナルと同じ）\n・claude -p、Agent SDK、デスクトップ、VS Code では、サブエージェント自身が呼ぶ Agent は既定でフォアグラウンド実行\n\n| 呼び出し元 | 実行形態 |\n|---|---|\n| メイン会話 → サブエージェント | 常にバックグラウンド |\n| サブエージェント → Agent（ネスト） | 既定でフォアグラウンド |\n\n5. フック同時実行数の制限（medium）\n\n同一イベントの prompt フック・agent フックは同時に最大12件までです。13件目以降は前のフックの完了を待ちます。大量フックを並列前提で構成している場合、処理時間が延びることがあります。\n\n6. 新機能\n\n| 機能 | 内容 |\n|---|---|\n| CLAUDECODEAUTOMODEMODEL | クライアント側 auto モード分類器のモデルを指定（サーバー側 auto モードには影響しない） |\n| Idle compaction 設定 | /config でアイドル時コンパクションのオン/オフを切替。実行後の通知に無効化方法も表示 |\n| サーバー側 auto モードの改善 | 会話が長すぎても、チェック対象のツール呼び出しを全拒否せず、会話をコンパクションして継続 |\n\n7. 主な修正・改善\n・MCP: プロトコル 2026-07-28 で resultType・ttlMs・cacheScope を省略するサーバーでツールが出ない／全呼び出しが失敗する問題を修正\n・Vertex / Bedrock: セッション途中の切り替えで diagnostics: Extra inputs are not permitted が出る問題を修正。接頭辞付き Opus 4/4.1（例: anthropic/claude-opus-4-1）で /autocompact と /effort の設定が別モデルに保存される問題も修正\n・Read ツール: 128MB を超える画像ソースは読み込みを拒否\n・プロンプトキャッシュ: ToolSearch での再ロード時やコンパクション後のキャッシュミスを修正\n・課金: クレジット払い専用モデルでプロンプト候補生成がクレジットを消費していた問題を修正\n・Windows: PowerShell ツールの不具合2件と、exFAT/FAT32 ドライブ上で全ファイル書き込みが拒否される問題を修正\n・プラグイン: 多数有効時の起動を高速化（特に Windows）。git の reftable 環境での不具合も修正\n・クラウドセッション／ルーティン: スケジュール実行が途中失敗後に1時間以上経ってから最初からやり直され、作業が重複する問題を修正。実行が始まらなかった理由を示すバナーを追加\n・Claude Tag（Slack）: 表示、画像添付（HEIC/SVG/TIFF/BMP）、DM、権限、リンク整形など9件を修正。管理設定は4タブ（Bundles / Connectors / Skills and plugins / Channels）に再編\n・OpenTelemetry: tooldecision イベントの classifiercategory 欠落と、属性数上限が低い環境での主要属性の脱落を修正\n・その他: worktree 分離が git 2.56 以降で失敗する問題、VS Code 拡張の表示・MCP サインイン・@browser バナーの不具合なども修正\n\n影響と対応\n\n [code] \n\n優先順位は次のとおりです。\n\n1. 非対話実行の権限モードを明示する（最優先）。CI のジョブが止まる前に対応してください。\n2. Claude Design 依存の洗い出し。/design-sync を使うワークフローがあれば、終了日（2026-12-14）までに移行計画を立てます。\n3. fork の挙動確認。claude -p や Agent SDK でサブエージェントを使っているなら、fork が選ばれても問題ないか確認します。不要なら CLAUDECODEFORKSUBAGENT=0 で無効化できます。\n4. フック構成の確認。同一イベントに13件以上の prompt/agent フックがあるなら、待ち時間の増加を見積もります。\n💡 Tips\n各変更には CLAUDE.md への追記が提案されています。次のように書いておくと、チームや後任が迷いません。\n\n [code] \n\nコード例\n\n権限モードの明示\n\nBefore（権限モード未指定。条件次第で default 開始になり、権限確認で止まるおそれ）\n\n [code] \n\nAfter（auto を明示）\n\n [code] \n\nfork サブエージェントの無効化\n\n [code] \n\nauto モード分類器のモデル指定\n\n [code] \nCLAUDECODEAUTOMODEMODEL はクライアント側の分類器にのみ適用され、サーバー側 auto モードのモデルは変わりません。\n\nまとめ\n・最重要: サードパーティプロバイダで claude -p / Agent SDK を使い、権限モードを指定していないなら --permission-mode auto を明示する。テレメトリがオフ、または新規インストールの環境が対象です。\n・fork サブエージェントが claude -p・Agent SDK・デスクトップ・VS Code でも既定有効に。止めたい場合は CLAUDECODEFORKSUBAGENT=0。\n・単体版 Claude Design は2026年12月14日までに終了。/design-sync 利用者は移行計画が必要です。\n・prompt/agent フックは同一イベントあたり同時12件まで。\n・CLAUDECODEAUTOMODEMODEL と Idle compaction 設定が追加され、MCP・Windows・クラウドセッション・Slack 連携などの多数の不具合も修正されました。\n\nアップデート前後で、自動化スクリプトの権限モード指定と CLAUDE.md の記述を見直しておくと安心です。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8e4c072dab06709e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.719349593495935,
+      "popularityPercentile": 0.17886178861788618,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "Claude Code v2.1.302で自動実行時の権限設定とサブエージェントの既定動作が変わった。",
+      "takeaways": [
+        "Claude Codeの自動実行で権限確認が出る場合がある。",
+        "サブエージェントは複数の利用環境で標準有効になった。",
+        "Claude Designは2026年12月14日までに終了する。"
+      ],
+      "keywords": [
+        "Claude Code v2.1.302",
+        "claude -p",
+        "Agent SDK",
+        "fork",
+        "Claude Design",
+        "Bedrock"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code 2.1.299入門、@参照の展開停止とplugin evalのAgent除外を実測",
+      "url": "https://qiita.com/kai_kou/items/fddc22860db626d4d672",
+      "publishedAt": "2026-10-17T07:11:56.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。最近の趣味はBLOG投稿、記事執筆、YouTubeチャンネルのAI自動運用の仕組み化。",
+        "location": "Osaka, Japan",
+        "followers": 950,
+        "posts": 850,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "CLI",
+        "AIAgent",
+        "LLM"
+      ],
+      "snippet": "はじめに チャット欄で @config/.env.local のようにファイルを指したとき、その中身がどの時点でモデルに渡っているかを意識したことはあるでしょうか。@ メンションは手軽なぶん、指した時点でファイルの全文が会話に入ります。読ませるつもりのなかった行まで文脈に載り、セッションの記録にも残ります。 もう一つ、プラグインを claude plugin eval で評価していると、Claude がサブエージェントに仕事を回してしまい、プラグインそのものの振る舞いを測りにくい場面があります。 2026-10-14 に公開された Claude Code 2.1.299 には、この 2 つにそれぞれ効く変更が入りました。@ メンションでファイルの中身ではなくパスだけを渡す環境変数 CLAUDECODEDISABLEFILEMENTIONS と、評価実行から特定の組み込みツールを外す cla…",
+      "body": "はじめに\n\nチャット欄で @config/.env.local のようにファイルを指したとき、その中身がどの時点でモデルに渡っているかを意識したことはあるでしょうか。@ メンションは手軽なぶん、指した時点でファイルの全文が会話に入ります。読ませるつもりのなかった行まで文脈に載り、セッションの記録にも残ります。\n\nもう一つ、プラグインを claude plugin eval で評価していると、Claude がサブエージェントに仕事を回してしまい、プラグインそのものの振る舞いを測りにくい場面があります。\n\n2026-10-14 に公開された Claude Code 2.1.299 には、この 2 つにそれぞれ効く変更が入りました。@ メンションでファイルの中身ではなくパスだけを渡す環境変数 CLAUDECODEDISABLEFILEMENTIONS と、評価実行から特定の組み込みツールを外す claude plugin eval --disallow-tools です。本記事では、この 2 つの設定手順と、条件を変えて実際に動かした結果を紹介します。\n\n対象読者は、Claude Code を業務で使っていて、機密を含むファイルの扱いやプラグインの評価・CI 組み込みに関心のある開発者です。\n\nこの記事で解決できること\n・@ で指したファイルの中身を自動で文脈に入れず、パスだけを渡す設定ができる\n・その設定をどこに書けば効き、どこに書くと無視されるかがわかる\n・claude plugin eval で Agent ツールを外して評価し、外したツールに依存する grader（採点ルール）を書き換えられる\n\n前提条件と検証環境\n・Claude Code 2.1.299 以降（検証には同日公開の 2.1.300 を使いました）\n・claude -p（非対話モード）が認証済みで動く環境\n・作業ディレクトリは、リポジトリの外に作った空のディレクトリ\n\n実機で確かめたのは「CLAUDECODEDISABLEFILEMENTIONS の有無による応答の違い」と「--disallow-tools の有無による評価結果の違い」の 2 点です。ケース側の disallowedtools フィールド、終了時のセッション再開表示、gzip 圧縮、アイドル時の自動圧縮は検証しておらず、changelog と公式ドキュメントの記述として紹介します。\n\nTL;DR\n\nこの記事を読むと、次のことができるようになります。\n・CLAUDECODEDISABLEFILEMENTIONS=1 をシェルかユーザー設定で指定し、@note.txt の中身をモデルへ自動で渡さないようにできる（筆者の比較では、既定で中身の文字列を答えたプロンプトが、設定後は NOCONTENT を返しました）\n・claude plugin eval --disallow-tools Agent で、評価の全ケースから Agent ツールを外せる（Agent の呼び出しを採点するケースでは、score が 1.00 から 0.00 に、コストが $0.12 から $0.07 に変わりました）\n・外したツールを前提にした grader を、実行時の警告を手がかりに「呼ばれていないこと」を確かめる形へ書き換えられる\n\n2.1.299 と 2.1.300 で入った変更\n\n公式 changelog の 2.1.299 と 2.1.300（どちらも October 14, 2026）から、本記事で扱う項目を抜き出しました。\n\n| 版 | 区分 | 内容（changelog の記述を要約） | 本記事での扱い |\n|----|------|------|------|\n| 2.1.299 | Added | CLAUDECODEDISABLEFILEMENTIONS：@ メンションしたファイルの内容ではなくパスを渡し、ファイルツールで読ませる | 実測あり |\n| 2.1.299 | Added | claude plugin eval の --disallow-tools とケースの disallowedtools フィールド：Agent などの組み込みツールを評価実行から外す | フラグは実測あり・フィールドは未検証 |\n| 2.1.299 | Fixed | API が拒否した実行を plugin eval が合格扱いにしていた不具合の修正 | 未検証 |\n| 2.1.299 | Changed | 終了時に表示する再開コマンドが、セッション名ではなく ID でセッションを指す | 未検証 |\n| 2.1.299 | Added | アイドル時の自動圧縮（idle compaction）と、その閾値・無効化の設定 | 未検証 |\n| 2.1.300 | Changed | テレメトリー無効時も、api.anthropic.com への大きなリクエストを gzip で圧縮 | 未検証 |\n\n上の 2 行が本記事の中心で、残りは後半で簡単に紹介します。\n\n手順の流れ\n\nやりたいことに応じて、次のどちらかの流れになります。\n\n [code] \n\n手順 1：@ 参照の中身を渡さない設定にする\n\n環境変数を設定する\n\n環境変数リファレンスによると、CLAUDECODEDISABLEFILEMENTIONS に 1 を設定すると、ファイルとディレクトリへの @ メンションが展開されなくなります。Claude は代わりに、メンションされたパスと「ファイルツールで読むように」という注記を受け取ります。v2.1.299 以降が必要です。\n\n書く場所には制約があります。この変数は プロジェクト設定とローカル設定の env では無視されます。リポジトリに置いた .claude/settings.json に書いても効かないため、シェルの環境変数か、ユーザー設定・管理設定（managed settings）で指定します。\n\n [code] \n\nユーザー設定（/.claude/settings.json）に書く場合は、env に入れます。\n\n [code] \n\nチーム全体で揃えたい場合は、リポジトリにコミットするのではなく、管理設定の側で配る形になります。\n\n中身が渡っていないことを確かめる\n\n設定の効き目を見るため、目印の文字列を 1 行だけ書いたファイルを用意し、環境変数の有無だけを変えて同じプロンプトを 2 回実行しました。読みやすいよう、プロンプトを変数に入れた形で載せます。\n\n [code] \n\n既定では目印の文字列がそのまま返り、環境変数ありでは NOCONTENT が返りました。\n\n| 条件 | 応答 | 読み取れること |\n|------|------|------|\n| 既定 | SECRETTOKENMARKERZEBRA42 | @note.txt の中身が入力に展開された |\n| CLAUDECODEDISABLEFILEMENTIONS=1 | NOCONTENT | 中身は入力に含まれていなかった |\n\n2 つの条件で起きていることを図にすると、次のようになります。環境変数ありの経路で渡る「パスと注記」は、公式ドキュメントの記述に基づくものです。\n\n [code] \n\nこの比較には限界が 2 つあります。1 つ目は、「パスだけが渡った」ことをモデルの回答から間接的に確かめただけで、Claude Code が API に送ったリクエスト本体は観測していないことです。2 つ目は、「ツールは使わないで」がプロンプトでの依頼にすぎず、ツール自体は塞いでいないことです。既定のほうの回答は、仮にモデルが指示に反して Read を呼んでいたとしても同じになりえます。\n\n2 つ目の点は、前回の記事 Claude Code 2.1.299入門、MCP許可ルールの一致範囲を実測した で別の角度から確かめています。そちらではツール呼び出し列を記録し、既定ではモデルが Read を呼んだ時点で「前回の Read から変わっていない」という応答が返ることを観測しました。モデルが読む前に、展開によって中身が読み込み済みとして扱われていた、という観測です。ツールを使わせない回答と、ツール呼び出し列という向きの違う 2 つの観測が、同じ結論を指しています。\n\nなお、2.1.300 の changelog には、ローカルのセッション transcript に各 API リクエストのシステムプロンプト・ツール・パラメーターも記録するようになったと書かれています。展開の有無を transcript からもう少し直接に確かめられる可能性がありますが、筆者はまだ確認していません。\n\nこの設定で変わること、変わらないこと\n\nCLAUDECODEDISABLEFILEMENTIONS は、ファイルを読ませない設定ではありません。パスは引き続きモデルに渡り、Claude は必要と判断すればファイルツールで中身を読みます。変わるのは、中身が文脈に入るきっかけです。\n\n| 観点 | 既定 | CLAUDECODEDISABLEFILEMENTIONS=1 |\n|------|------|------|\n| @ を付けた時点で中身が文脈に入るか | 入る | 入らない |\n| パス（ファイル名）がモデルに渡るか | 渡る | 渡る |\n| 中身が読まれる経路 | 展開（ツール呼び出しを経ない） | ファイルツールの呼び出し |\n\n読ませたくないファイルを確実に守るには、この環境変数とは別に、権限設定の deny ルールでファイルツールの読み取りを塞ぎます。ファイル名そのものが機密にあたる場合（顧客名を含むパスなど）は、パスが渡る点にも注意してください。\n\n手順 2：plugin eval から Agent ツールを外す\n\nclaude plugin eval の基本（prompt.md と graders/.md の置き方、プラグインあり・なしの 2 アーム実行）は、以前の記事「Claude Code plugin eval 入門、--runs 1 でも2アームが走り実測0.118ドルでした」で扱いました。今回の検証は、case.yaml 1 ファイルで書いたケースで行いました。\n\nclaude plugin eval --help には、新しいフラグが次のように表示されます。\n\n [code] \n\n複数のツールを並べて指定でき、ケース側で許可していても全ケースから外す、という意味です。\n\n最小プラグインとケースを用意する\n\n検証には、プラグインの定義ファイルとケース 1 件だけの構成を使いました。\n\n [code] \n\nケースの骨格は次のとおりです（プロンプトは要旨です）。\n\n [code] \n\ncase.yaml だけでケースを完結させる場合、検証では次の 4 項目のどれが欠けてもエラーになりました。\n・schemaversion：ケース形式のバージョンで、公式ドキュメントでは \"1.1\" と書かれています\n・name：ケース名です\n・execution.prompt：prompt.md を置かない場合のプロンプトです。トップレベルではなく execution: の下に置きます\n・graders[].name：graders/.md ではファイル名が grader 名になりますが、case.yaml に並べるときは name を明示します\n\ngrader の toolused は、指定したツールの呼び出し回数が min（既定 1）以上 max（既定は上限なし）以下のときに合格します。このケースの grader は「Agent が 1 回以上呼ばれたら合格」という意味になります。\n\n--disallow-tools なしで実行する\n\n [code] \n\n付けたオプションの役割は次のとおりです。\n・--ablation none：プラグインなしの比較用アームを走らせません。今回の確認はプラグインの有無に依存しないため片側だけにしました（公式ドキュメントでは、比較が不要な場面でコストが半分になると説明されています）\n・--trust-plugin：初回の信頼確認をスキップします\n・--no-publish：レポートを外部に公開せず手元に残します\n\n--runs を指定しなかったため、ケースは 3 回実行されました（公式ドキュメントでも既定は 3 回です）。3 回とも、grader の行は次のとおりでした。\n\n [code] \n\nscore は 1.00、表示されたコストは $0.12、所要時間は 14 秒でした。\n\n--disallow-tools Agent を付けて実行する\n\n [code] \n\n出力の先頭に、除外したツールを示す行が出ます。\n\n [code] \n\n3 回とも Agent called 0x となり、score は 0.00、コストは $0.07 でした。あわせて、出力の NOTES に次の警告が出ました（抜粋です。... は省略箇所を示します）。\n\n [code] \n\n2 つの条件を並べると次のようになります。\n\n| 条件 | Agent の呼び出し | score | コスト |\n|------|------|------|------|\n| --disallow-tools なし | 1 回（3 回の実行すべて） | 1.00 | $0.12（14 秒） |\n| --disallow-tools Agent | 0 回（3 回の実行すべて） | 0.00 | $0.07 |\n\nAgent ツールは確かに全実行から外れ、外したツールに依存する grader があることも、実行側が名指しで教えてくれました。\n\n外したツールに依存する grader を書き換える\n\n警告の趣旨は「Agent を外した状態では、Agent の呼び出しを求める grader は合格しない。呼ばれないことを確かめたいなら反転する」です。抜粋した範囲では max: 0 とだけ書かれていますが、公式ドキュメントの grader 表では min の既定値が 1 のため、一度も呼ばれないことを表すには min: 0 と max: 0 の両方を書くよう案内されています。\n\n [code] \n\nこの反転版の grader は、今回は走らせていません。ケースごとに外すツールを変えたい場合はケースの disallowedtools フィールドを使う、と changelog にありますが、こちらも未検証です。\n\nトラブルシューティング\n\nQ1: case.yaml だけのケースがエラーで読み込まれない\n\nA: schemaversion・name・execution.prompt・graders[].name の 4 項目がそろっているかを確認してください。prompt をトップレベルに書いている、graders の各要素に name がない、の 2 つは、prompt.md と graders/.md の書き方に慣れていると起こしやすい間違いです。\n\nQ2: プロジェクトの .claude/settings.json に書いた CLAUDECODEDISABLEFILEMENTIONS が効かない\n\nA: 仕様どおりの挙動です。環境変数リファレンスによると、この変数はプロジェクト設定とローカル設定の env では無視されます。シェルの環境変数か、ユーザー設定・管理設定に移してください。\n\nQ3: --disallow-tools を付けたらスイートが失敗扱いになる\n\nA: 筆者が同じケースで --disallow-tools Agent 付きの実行をやり直したところ、終了コードは 1 でした（この回のコストは $0.06 で、実行ごとに数セントの揺れがあります）。公式ドキュメントによると、--threshold の既定値は 1.0 で、1 ケースでも満点を下回るとコマンドは終了コード 1 で終わります。CI に組み込んでいる場合、今回の agentused のような矛盾した grader が 1 つあるだけでジョブが落ちます。NOTES に cannot pass の警告が出ていないかを確認し、該当する grader を反転するか外してください。\n\n同じリリースのほかの変更（changelog の記載のみ・未検証）\n\n以下は検証しておらず、changelog と環境変数リファレンスの記述だけで紹介します。\n・終了時の再開コマンド（2.1.299）：セッション名ではなく ID でセッションを指すようになりました。表示された行を貼り付けたときに、セッション名に含まれる文字列が実行されないようにするための変更です\n・gzip 圧縮（2.1.300）：テレメトリーを無効にしていても、api.anthropic.com への大きなリクエストが gzip で圧縮されます。リファレンスによると圧縮は直接接続のときだけで、プロキシ経由やクライアント証明書・NODEEXTRACACERTS の設定時は行われません。TLS 検査プロキシが圧縮済みリクエストを扱えない場合は CLAUDECODEGZIPREQUESTBODIES=0 で無効化します\n・アイドル時の自動圧縮（2.1.299）：設定リファレンスの条件（1 時間のプロンプトキャッシュを使っている、スリープ中でない、など）を満たす場合に、ターミナルで 200K トークン以上の会話を約 54 分放置すると、1 時間のプロンプトキャッシュが切れる前に圧縮されます。閾値は CLAUDECODEIDLECOMPACTMINTOKENS（既定 200000・100000 未満は 100000 に引き上げ）で変えられ、settings.json の \"idleCompaction\": false で無効化できます。どちらも v2.1.290 以降が必要です\n・plugin eval の API エラー（2.1.299）：API エラーで終わった実行は採点されずに 0 点となり、スイートは終了コード 1 で終わるようになりました。利用上限などで途中終了した実行が、CI で合格として素通りしなくなります\n\n実測してわかったこと\n\n手を動かしてみて、筆者が気づいた点を 4 つ挙げます。\n\n1 つ目は、@ の展開を止めても、ファイルが読まれなくなるわけではない ことです。この環境変数が変えるのは中身が文脈に入るきっかけで、読むかどうかはモデルのツール呼び出しに移ります。そのぶん読み取りが権限ルールやフックの目に触れる場所へ出てくる、というのが筆者の受け取り方です。加えて、プロジェクト設定では無視されるため、リポジトリにコミットして全員に強制する使い方はできません。チームで揃えるなら管理設定の側の仕事になります。\n\n2 つ目は、確かめられたのは間接観測まで という点です。claude -p の出力から見えるのはモデルの最終回答で、API に送られたリクエスト本体ではありません。今回はツールを使わせない回答で、前回はツール呼び出し列で確かめ、向きの違う 2 つの観測が一致しました。それでも断定はせず、2.1.300 で記録が増えた transcript を次の確認手段として考えています。\n\n3 つ目は、--disallow-tools は環境の制約で、grader は振る舞いの主張 だという点です。Agent を外した状態で「Agent が呼ばれていない」を確かめる grader を置いても、必ず合格する確認にしかなりません。プラグイン単体で結果を出せるかを見たいなら、Agent を外したうえで最終回答や生成ファイルを採点します。Agent に逃げないことを CI で守りたいなら、Agent は外さずに min: 0 と max: 0 の grader を置きます。実行側が NOTES で矛盾を指摘してくれても score は 0.00 のまま出るので、score だけでなく NOTES まで読むのが安全です。\n\n4 つ目は、この小さなケースではコストが 4 割ほど下がった ことです。$0.12 から $0.07 への差は $0.05 で、約 42% の減少でした。サブエージェントの起動に使われていたトークンがなくなったためと筆者は推測していますが、ケース 1 件・実行 3 回の結果なので、一般的な削減率としては扱っていません。\n\nおわりに\n\nCLAUDECODEDISABLEFILEMENTIONS は、@ で指したファイルの中身を自動で文脈に入れないための設定で、書く場所はシェルかユーザー設定・管理設定に限られます。--disallow-tools は評価から組み込みツールを外すフラグで、外したツールに依存する grader は NOTES の警告を手がかりに書き直します。まずは @ を多用する手元のセッションで、環境変数の有無だけを変えて同じプロンプトを流し、応答の違いを一度確かめてみてください。\n\n関連記事\n・Claude Code v2.1.222実機検証、新フラグ2つは2バージョン前の機能だった\n・Claude Code 2.1.299入門、MCP許可ルールの一致範囲を実測した\n・Claude Code Agent View入門 — 複数セッションを1画面で管理するCLIダッシュボード\n\n参考リンク\n・Claude Code changelog（2.1.299 / 2.1.300 の各項目）\n・Environment variables（CLAUDECODEDISABLEFILEMENTIONS / CLAUDECODEIDLECOMPACTMINTOKENS / CLAUDECODEGZIPREQUESTBODIES）\n・Test plugins with evals（case.yaml のフィールド、grader の種類、--runs と --threshold の既定値）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "680a2ae8c67427c7",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7807588075880759,
+      "popularityPercentile": 0.45799457994579945,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "Claude Code 2.1.299でファイル参照時の内容送信を止める設定とプラグイン評価の制御方法を検証している。",
+      "takeaways": [
+        "Claude Codeは指定したファイルの中身を会話へ送れる。",
+        "設定を変えるとファイル名だけを渡せるようになる。",
+        "評価時に別の作業役へ処理を回さない方法も追加された。"
+      ],
+      "keywords": [
+        "Claude Code 2.1.299",
+        "CLAUDECODEDISABLEFILEMENTIONS",
+        "claude plugin eval",
+        "Agent",
+        "Hooks",
+        "プラグイン評価"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "ドコモの「緊急地震速報」不配、原因を発表　「従来と異なるデータ」で誤認識",
+      "url": "https://k-tai.watch.impress.co.jp/docs/news/2149025.html",
+      "publishedAt": "2026-10-17T06:57:30.000Z",
+      "tags": [
+        "テクノロジー"
+      ],
+      "snippet": "ドコモの「緊急地震速報」不配、原因を発表 「従来と異なるデータ」で誤認識",
+      "metrics": {
+        "hatena": 5
+      },
+      "sourceWeight": 3,
+      "id": "c1242a7a8a39c5c2",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0,
+      "popularityPercentile": 0,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 63,
+      "titleJa": null,
+      "oneLiner": "NTTドコモは緊急地震速報が届かなかった原因を従来と異なるデータの誤認識と発表した。",
+      "takeaways": [
+        "緊急地震速報が一部の利用者へ届かない障害が起きた。",
+        "原因は従来と違う形式のデータを誤って扱ったことだった。",
+        "通信サービスでは入力形式の変化が重大障害につながる。"
+      ],
+      "keywords": [
+        "NTTドコモ",
+        "緊急地震速報",
+        "データ形式",
+        "障害",
+        "誤認識"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code v2.1.299 - v2.1.302 リリースノートまとめ",
+      "url": "https://qiita.com/NaokiIshimura/items/b37fd704cde62f2c6df1",
+      "publishedAt": "2026-10-17T01:07:23.000Z",
+      "author": "Naoki Ishimura",
+      "authorDetail": {
+        "name": "Naoki Ishimura",
+        "handle": "@NaokiIshimura",
+        "url": "https://qiita.com/NaokiIshimura",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/141934/profile-images/1790605296",
+        "followers": 73,
+        "posts": 239,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/NaokiIshimura"
+          }
+        ]
+      },
+      "tags": [
+        "ClaudeCode",
+        "Claude",
+        "Anthropic",
+        "AI",
+        "リリースノート"
+      ],
+      "snippet": "Claude Code v2.1.299 〜 v2.1.302 のリリースノートをまとめます（v2.1.297 / v2.1.298 は CHANGELOG に存在しません）。今回は、長時間アイドルした会話を自動でコンパクションする idle compaction、mod 機能の大幅拡張、auto mode 分類器モデルの指定、MCP 許可ルールの厳格化などが主なハイライトです。 --- ✨ 新機能まとめ ⚡ CLI / セッション Idle compaction（v2.1.299 / v2.1.302） ・ターミナルで 200K トークン以上の会話を約54分放置すると、1時間のプロンプトキャッシュが切れる前に自動でコンパクションされ、次のメッセージで全体を再処理せずに済む ・CLAUDECODEIDLECOMPACTMINTOKENS で最小トークン数（既定 200K）を変更でき、set…",
+      "body": "Claude Code v2.1.299 〜 v2.1.302 のリリースノートをまとめます（v2.1.297 / v2.1.298 は CHANGELOG に存在しません）。今回は、長時間アイドルした会話を自動でコンパクションする idle compaction、mod 機能の大幅拡張、auto mode 分類器モデルの指定、MCP 許可ルールの厳格化などが主なハイライトです。\n\n---\n\n✨ 新機能まとめ\n\n⚡ CLI / セッション\n\nIdle compaction（v2.1.299 / v2.1.302）\n・ターミナルで 200K トークン以上の会話を約54分放置すると、1時間のプロンプトキャッシュが切れる前に自動でコンパクションされ、次のメッセージで全体を再処理せずに済む\n・CLAUDECODEIDLECOMPACTMINTOKENS で最小トークン数（既定 200K）を変更でき、settings.json の \"idleCompaction\": false で無効化できる（どちらも v2.1.290 以降が必要）\n・v2.1.302 で /config に Idle compaction 行が追加され、オン／オフを切り替え可能に。アイドル後の通知にも無効化方法が表示される\n\n [code] \n\n/effort と /fast のエージェントビュー対応（v2.1.299）\n・エージェントビューで /effort / /fast を使い、新規セッションの開始時設定を指定できる\n・引数なしの /model / /effort / /fast はピッカーを開く\n\nモデル切り替え時の要約（v2.1.301）\n・コンテキストウィンドウの小さいモデルへ切り替える際、収まらない会話は切り替え前のモデルであらかじめ要約される\n\nfork subagent の既定化（v2.1.302）\n・subagenttype: \"fork\" が claude -p、Agent SDK、デスクトップアプリ、VS Code でも既定で有効に（CLAUDECODEFORKSUBAGENT=0 で無効化）\n・デスクトップアプリと VS Code では、メイン会話のサブエージェントは常にバックグラウンド実行になった\n\nvim モードの % モーション（v2.1.301）\n・対応する括弧へジャンプ。単独でも d / c / y との組み合わせでも使える\n\n🔒 セキュリティ・パーミッション\n\nauto mode 分類器モデルの指定（v2.1.302）\n・CLAUDECODEAUTOMODEMODEL でクライアント側 auto mode の分類器が使うモデルを選べる（サーバー側 auto mode には影響しない）\n・サーバー側分類器では、長すぎて安全確認できない会話はコンパクションされるようになり、全ツール呼び出しが拒否される事態を回避\n\nMCP 許可ルールの厳格化（v2.1.299）\n・mcpa は、名前が ab や a のサーバーを許可しなくなった。サーバー名全体を使い mcp と書く\n・エージェントの tools: リストも同様で、名前に を含むサーバーは mcp と記述する\n\nOpenTelemetry tooldecision の拡充（v2.1.301）\n・classifierverdict、permissionmode を追加し、auto mode 分類器の判定とパーミッションルールの判定を区別できる\n・OTELLOGTOOLDETAILS=1 のとき classifiercategory（一致した組み込みルール名）も出力\n\n🧩 mod（プラグイン拡張）\n\nmod API の拡充（v2.1.299 〜 v2.1.301）\n・v2.1.299: $.prompt.media、$.session.identity()、Text の size / weight / mono / tabular、Box の名前付き余白（xs〜xl）、session.append の queue door などを追加。bold は weight に置き換えられ非推奨\n・v2.1.300: virtualText（プロンプトに表示のみで送信されないテキスト）、$.ui.view({ agentId })、Text の dir（右から左のテキスト）、prompt.change フック、agent.spawn フックでのワークフローエージェントの prompt / model 書き換えを追加\n・v2.1.301: Input の rows（複数行テキスト欄。Enter で送信、Shift+Enter で改行）を追加。.catch ハンドラはフックが例外／タイムアウトしたときだけ実行されるよう変更\n・管理設定でインストールされた mod に対する、管理対象の権限ルール・フックの強制が強化された（v2.1.299）\n\n🔧 プラグイン / 開発者向け\n\nclaude plugin eval の強化（v2.1.299）\n・--disallow-tools と case の disallowedtools フィールドで、Agent など特定の組み込みツールを評価実行から除外できる\n・API に拒否された実行は採点せず 0 点として扱い、スイートは exit 1 になる\n\nOpenTelemetry の拡充（v2.1.300 / v2.1.301）\n・apirequest イベントに cachecreation5mtokens / cachecreation1htokens（キャッシュ書き込みを寿命別に分割）\n・トレースの span に genai.provider.name など GenAI セマンティック規約の属性を追加\n・claude-api スキルに OpenTelemetry トレースの案内（ant CLI でのトレース送信先設定を含む）を追加\n\n⚙️ 環境変数・設定\n\n新しい環境変数（v2.1.299 〜 v2.1.302）\n・CLAUDECODEDISABLEFILEMENTIONS（v2.1.299）: @ ファイルメンションで内容でなくパスだけを Claude に渡す\n・CLAUDECODERETRYWATCHDOGMAXUSAGELIMITWAITMS（v2.1.301）: 無人リトライモードで、リセットが遠い利用上限では待たずにリクエストを終了\n・CLAUDECODEGZIPREQUESTBODIES=0（v2.1.300）: 大きなリクエストの gzip 圧縮（テレメトリー無効時も既定で有効に変更）をオフにする\n\n🚀 パフォーマンス・UX\n・/usage に、max effort、ワークフロー、常時コンテキスト、大きなツール結果についての警告を追加（v2.1.299）\n・多数のプラグインを有効にした場合の起動が高速化（v2.1.302）\n・長時間動くサブエージェントの描画が差分更新になり軽量化（v2.1.301）\n・同一イベントのプロンプト／エージェントフックは同時実行を最大12に制限（v2.1.302）\n・アーティファクトを同時に watch できる数が 10 → 25 に（v2.1.299）\n\n💻 VSCode 拡張\n・LaTeX 数式のレンダリング（$$、\\[ … \\]、インライン $…$、\\(…\\)）に対応（v2.1.301）\n・使用量上限バナー（Pro / Max）に「Get more usage」リンクを追加（v2.1.301）\n・claudeCode.attachSelection 設定で、エディタの選択テキストをメッセージに自動添付しないようにできる（v2.1.300）\n\n☁️ Cloud sessions / Claude Tag\n・ルーティンのページに、直近の実行が開始されなかった理由（同時クラウドセッション上限など）を示すバナーを追加（v2.1.302）\n・Claude Tag: Slack Connect チャンネル対応、コネクタ操作の Allow once / Deny カード、Slack の音声クリップ対応、管理画面の4タブ化（Bundles / Connectors / Skills and plugins / Channels）など（v2.1.300 / v2.1.302）\n\n---\n\n🛠 主な修正\n\n⚡ CLI / セッション\n・v2.1.302: コンパクション中にターンを停止すると \"Prompt is too long\" になる問題を修正\n・v2.1.302: Vertex / Bedrock への途中切り替え後に diagnostics: Extra inputs are not permitted で失敗する問題を修正\n・v2.1.302: 途中で追加されたツールが ToolSearch やコンパクション後に再ロードされるとプロンプトキャッシュを外す問題を修正\n・v2.1.302: claude plugin などのサブコマンドが、設定書き込み完了前に終了して変更が失われる問題を修正\n・v2.1.301: 小さいコンテキストのモデルへ切り替えた際、確認なしに利用クレジットを消費して要約する場合がある問題を修正\n・v2.1.301: 応答モデル名が異なる LLM ゲートウェイ配下で、会話が繰り返しコンパクションされる問題を修正\n・v2.1.301: ディスクフルで「Please run /login」と誤表示される問題を修正（ディスクが原因と明示）\n・v2.1.301: fable（best）エイリアスが、最新 Fable モデルを使えない組織でエラーになる問題を修正（1つ前の Fable で再試行）\n・v2.1.300: claude daemon stop / --any が停止していないのに「stopped」と表示する問題や、無出力で終わる問題を修正\n・v2.1.299: SendMessage が、CLI 再起動後にサブエージェントを名前で見つけられない問題を修正\n・v2.1.299: 出力トークン上限で切れた応答が、非ストリーミングへのフォールバック後に無言でターン終了する問題を修正\n\n🔌 MCP\n・v2.1.302: プロトコル 2026-07-28 を交渉するが resultType / ttlMs / cacheScope を省略するサーバーで、ツールが見えない・全呼び出しが失敗する問題を修正\n・v2.1.300: API が MCP ツールの入力スキーマを拒否して毎ターン 400 になる問題を修正（そのツールをパラメータなしで送信）\n・v2.1.299: 通知への応答本文を終了しないサーバーで HTTP 接続が30秒ハングする問題を修正\n・v2.1.299: 名前が constructor / prototype の MCP サーバーが接続されない問題を修正\n・v2.1.299: MCP OAuth のサインイン・更新・サインアウトで headers / headersHelper が送られない問題を修正\n\n🔒 パーミッション / セキュリティ\n・v2.1.299: サンドボックス内のコマンドが --plugin-dir フォルダに書き込める問題を修正\n・v2.1.299: macOS で、拒否パスがシンボリックリンクを経由すると実際の場所経由で読み書きできてしまう問題を修正\n・v2.1.299: plan mode が、PreToolUse フックや mod の tool.check で許可された書き込みを実行してしまう問題を修正\n・v2.1.299: サードパーティゲートウェイ用 API キーが、フィーチャーフラグ等の Anthropic 向けリクエストに載る問題を修正\n・v2.1.300: forceLoginOrgUUID で拒否された組織のトークンが残る問題を修正\n・v2.1.300: フックの updatedInput を検証（未知のキーは破棄、ツールが拒否する入力は呼び出しを拒否）\n\n💻 ターミナル / UI\n・v2.1.302: バッククォート内の URL が折り返し時に最初の行しかクリックできない問題を修正\n・v2.1.301: ダークANSIテーマと16色ターミナルでの dim テキストの表示を修正\n・v2.1.301: 一部の VTE 旧版ターミナルで >0q / >4m、iTerm2 で GOK が表示される問題を修正\n・v2.1.301: vim モードで Esc 後に INSERT のままになる問題、AskUserQuestion の自由入力が Esc で破棄される問題を修正\n・v2.1.299: CJK・絵文字を含む折り返しで最終行が欠ける、空行ができる問題を修正\n・v2.1.299: ネストしたテキストスタイルがテーブル罫線にはみ出す問題を修正\n\n🌲 worktree / git\n・v2.1.302: git 2.56 以降で、存在しないディレクトリを指す .git ファイルがあると worktree を作成・再開できない問題を修正\n・v2.1.301: WorktreeCreate フックで作った worktree が、未プッシュのコミットがあっても確認なしに終了時削除される問題を修正\n・v2.1.300 / v2.1.299: git の reftable ref 形式での --worktree の各種問題（ブランチが \".invalid\" と表示、.git/worktrees にフォルダが残るなど）を修正\n\n🔧 ファイル操作（Read / Write）\n・v2.1.302: Read ツールが画像を無制限にメモリへ読み込む問題を修正（128 MB 超の画像は拒否）\n・v2.1.301: Read が .xlsm、.parquet、.epub、.heic などのバイナリをテキストとして読む問題を修正\n・v2.1.299: Read が BOM 付き UTF-16LE を文字化けさせる問題、Write が BOM を落とす／Windows-1252・Shift-JIS・GBK・UTF-16BE を黙って UTF-8 に変換する問題を修正（変換は拒否されるように）\n\n🖥️ Windows / PowerShell\n・v2.1.302: PowerShell ツールがプラグインの bin/ 内コマンドを見つけられない問題を修正\n・v2.1.302: exFAT / FAT32 ドライブ上のプロジェクトで、すべてのファイル書き込みが拒否または確認される問題を修正\n・v2.1.299: プロセス生存確認が、負荷の高いマシンで PowerShell プロセスを残しメモリを使い切る問題を修正\n・v2.1.299: Git for Windows 未インストール時に、シェル未指定の PreToolUse / PermissionRequest フックが fail-open になる問題を修正（失敗したガードはブロック）\n\n🔧 VSCode\n・v2.1.302: MCP サーバーのサインインで、URL にクエリ文字列があると認可ページが壊れる問題を修正\n・v2.1.301: クラッシュ・フリーズする会話が再読み込みのたびに開かれる問題、思考中のパネル遅延を修正\n・v2.1.300: 利用クレジット切れ後も fast mode がオンのままで、リクエストが拒否・再送される問題を修正\n\n---\n\n📋 バージョン別サマリー\n\n| バージョン | 主なトピック |\n|-----------|------------|\n| v2.1.299 | idle compaction、mod API 拡充、MCP 許可ルールの厳格化、/usage 警告、plugin eval --disallow-tools、サンドボックス・文字エンコーディング関連の多数の修正 |\n| v2.1.300 | OpenTelemetry の拡充、mod の virtualText / $.ui.view、prompt.change フック、reftable 環境での worktree 修正、gzip リクエスト圧縮、claude remote-control の --sandbox 削除 |\n| v2.1.301 | Input の rows、vim % モーション、tooldecision への分類器情報追加、モデル切り替え時の要約、Read のバイナリ対応修正、VS Code の LaTeX 数式 |\n| v2.1.302 | CLAUDECODEAUTOMODEMODEL、/config の Idle compaction 行、fork subagent の既定化、起動高速化、Read の画像サイズ上限、クラウドセッション・Claude Tag の改善 |\nv2.1.297 / v2.1.298 は CHANGELOG に存在しません。\n\n---\n\nまとめ\n\n今回のリリースでは、長時間放置した会話のコストを抑える idle compaction、auto mode 分類器の観測性（OpenTelemetry）とモデル指定、そして MCP 許可ルールの厳格化が注目点です。特に mcp 形式のルールを使っている場合は、サーバー名に を含むときの書き方が変わっているため確認しておくとよいでしょう。mod 機能も毎バージョン拡張されており、UI 部品や hook の追加が続いています。\n\n---\n\n参考\n・Claude Code CHANGELOG",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9343c3182584e3a2",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8612466124661247,
+      "popularityPercentile": 0.8238482384823849,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 63,
+      "titleJa": null,
+      "oneLiner": "Claude Code v2.1.299からv2.1.302までの新機能と設定変更をまとめている。",
+      "takeaways": [
+        "Claude Codeに長時間放置した会話を整理する機能が加わった。",
+        "自動実行や外部接続の許可判定がより細かくなった。",
+        "会話整理の初期条件は200Kトークンで約54分後に発動する。"
+      ],
+      "keywords": [
+        "Claude Code v2.1.299",
+        "Claude Code v2.1.302",
+        "idle compaction",
+        "MCP",
+        "auto mode",
+        "mod"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "openfilm/openfilm — The open source AI video agent: turns any coding agent into a video agent, with an editor to change anything it makes.",
+      "url": "https://github.com/openfilm/openfilm",
+      "publishedAt": "2026-10-04T09:29:07.000Z",
+      "author": "openfilm",
+      "authorDetail": {
+        "name": "openfilm",
+        "url": "https://github.com/openfilm",
+        "avatarUrl": "https://github.com/openfilm.png?size=120",
+        "bio": "The open source AI video agent: turns any coding agent into a video agent, with an editor to change anything it makes."
+      },
+      "tags": [
+        "TypeScript",
+        "ai-video",
+        "claude-code",
+        "codex",
+        "coding-agents",
+        "html",
+        "motion-graphics",
+        "video-agent"
+      ],
+      "snippet": "The open source AI video agent: turns any coding agent into a video agent, with an editor to change anything it makes.",
+      "metrics": {
+        "stars": 833
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "5497f3193dd7512f",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7620000000000001,
+      "popularityPercentile": 0.14545454545454545,
+      "matchedTopics": [
+        "TypeScript",
+        "ブラウザ / Web標準",
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "openfilm — AIコーディングエージェントを動画制作に変える基盤",
+      "oneLiner": "openfilmはAIコーディングエージェントで動画を作り編集できるオープンソース基盤を公開した。",
+      "takeaways": [
+        "openfilmはAIで動画を作る道具である。",
+        "作った映像を編集画面で変更できる。",
+        "Claude CodeやCodexを動画制作に使える。"
+      ],
+      "keywords": [
+        "openfilm",
+        "Claude Code",
+        "OpenAI Codex",
+        "TypeScript",
+        "AI動画"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 4,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nopenfilm/openfilm — The open source AI video agent: turns any coding agent into a video agent, with an editor to change anything it makes. を動かして、README の最初の出力まで到達する\nhttps://github.com/openfilm/openfilm\n\n# 手順\n1. git clone --depth 1 https://github.com/openfilm/openfilm\n2. cd openfilm && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "thesysdev/open-intelligent-ui — An open-source take on ChatGPT's Intelligent UI: answers stream as interactive UI (maps, photos, charts, drawings and working tools). Built with OpenUI.",
+      "url": "https://github.com/thesysdev/open-intelligent-ui",
+      "publishedAt": "2026-10-08T05:37:45.000Z",
+      "author": "thesysdev",
+      "authorDetail": {
+        "name": "thesysdev",
+        "url": "https://github.com/thesysdev",
+        "avatarUrl": "https://github.com/thesysdev.png?size=120",
+        "bio": "An open-source take on ChatGPT's Intelligent UI: answers stream as interactive UI (maps, photos, charts, drawings and working tools). Built with OpenUI."
+      },
+      "tags": [
+        "TypeScript",
+        "agents",
+        "ai",
+        "ai-agents",
+        "ai-ui",
+        "chat-ui",
+        "chatgpt",
+        "generative-ui"
+      ],
+      "snippet": "An open-source take on ChatGPT's Intelligent UI: answers stream as interactive UI (maps, photos, charts, drawings and working tools). Built with OpenUI.",
+      "metrics": {
+        "stars": 524
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "4d97206bc3bad027",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7500000000000001,
+      "popularityPercentile": 0.09090909090909091,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 83,
+      "titleJa": "open-intelligent-ui — 対話結果を操作できる画面にするUI",
+      "oneLiner": "open-intelligent-uiはAIの回答を地図やグラフなどの操作できる画面として表示する。",
+      "takeaways": [
+        "AIの答えを操作できる画面で表示する。",
+        "地図や写真やグラフを回答に組み込める。",
+        "動く道具も会話の中に置ける。"
+      ],
+      "keywords": [
+        "open-intelligent-ui",
+        "OpenUI",
+        "TypeScript",
+        "generative UI",
+        "AIエージェント"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": "# 試すこと\nthesysdev/open-intelligent-ui — An open-source take on ChatGPT's Intelligent UI: answers stream as interactive UI (maps, photos, charts, drawings and working tools). Built with OpenUI. を動かして、README の最初の出力まで到達する\nhttps://github.com/thesysdev/open-intelligent-ui\n\n# 手順\n1. git clone --depth 1 https://github.com/thesysdev/open-intelligent-ui\n2. cd open-intelligent-ui && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ESP32-S3でAIにiPhoneを操作させる「esp32-iphone-agent」を紹介する",
+      "url": "https://qiita.com/Qoi_yll/items/107f780643a2c4618b8b",
+      "publishedAt": "2026-10-17T15:51:03.000Z",
+      "author": "Qoi_yll",
+      "authorDetail": {
+        "name": "Qoi_yll",
+        "handle": "@Qoi_yll",
+        "url": "https://qiita.com/Qoi_yll",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocINnTG4NLyKNcngaMVmi9wegcgdWqhA-GVOV4hyq1sYAA3WVSI=s96-c",
+        "bio": "無知の知。\r\n\r\n初心者の開発備忘録。",
+        "followers": 0,
+        "posts": 6,
+        "links": []
+      },
+      "tags": [
+        "ESP32",
+        "AIエージェント",
+        "iPhone",
+        "#マイコン"
+      ],
+      "snippet": "はじめに 約7ドルのマイコンボードをiPhoneに挿すだけで、AIエージェントが実機のiPhoneをタップやスワイプで操作できるようになるOSS「esp32-iphone-agent」が、2026年10月に公開されました。脱獄も、Apple開発者アカウントも必要ありません。 この記事では、仕組みと使い方、できること・できないことを紹介します。最後に、バイトのシフト入力を自動化するアイデアも書きます。 なお、筆者はまだ実機では試していません。GitHubのリポジトリと解説動画をもとにまとめた紹介記事です。 ・GitHubリポジトリ：onehumanbeing/esp32-iphone-agent ・参考動画：One Dev Open-Sourced a $7 Way for AI to Use Your iPhone（Bitwise AI） esp32-iphone-agentとは AIに「…",
+      "body": "はじめに\n\n約7ドルのマイコンボードをiPhoneに挿すだけで、AIエージェントが実機のiPhoneをタップやスワイプで操作できるようになるOSS「esp32-iphone-agent」が、2026年10月に公開されました。脱獄も、Apple開発者アカウントも必要ありません。\n\nこの記事では、仕組みと使い方、できること・できないことを紹介します。最後に、バイトのシフト入力を自動化するアイデアも書きます。\n\nなお、筆者はまだ実機では試していません。GitHubのリポジトリと解説動画をもとにまとめた紹介記事です。\n・GitHubリポジトリ：onehumanbeing/esp32-iphone-agent\n・参考動画：One Dev Open-Sourced a $7 Way for AI to Use Your iPhone（Bitwise AI）\n\nesp32-iphone-agentとは\n\nAIに「画面を見て、ポインタで触る」という人間と同じやり方でiPhoneを操作させるプロジェクトです。2026年10月11日に公開され、4日でGitHubのスターが2,000を超えました。\n\n| 項目 | 内容 |\n| --- | --- |\n| 作者 | Henry Yuan（GitHub: onehumanbeing） |\n| 公開日 | 2026年10月11日 |\n| ライセンス | MIT（新しいファームウェアのAirPlay部分はUxPlay由来のためGPL-3.0） |\n| 使うボード | Seeed Studio XIAO ESP32S3（カメラなしの無印版、約7ドル） |\n| AIモデル | 画像を受け取れるOpenAI互換APIなら何でもよい（クラウドでも、自分で動かすローカルモデルでも） |\n\nこれまでのiPhone自動化は、XCTestやWebDriverAgentを使うのが一般的でした。この方式には、Mac、Xcode、署名したヘルパーアプリ、Apple開発者アカウントが必要です。無料アカウントの署名は7日で切れます。\n\nesp32-iphone-agentは画面とポインタだけを使うので、iPhoneに何もインストールする必要がありません（v0.1.0の場合）。READMEの比較表をまとめると次のとおりです。\n\n| | esp32-iphone-agent | XCTest / WebDriverAgent系 |\n| --- | --- | --- |\n| Apple開発者アカウント | 不要 | 必要 |\n| Xcode | 不要 | 必要 |\n| PC | MacまたはLinux | Mac |\n| iPhoneに入れるアプリ | なし | テスト用アプリ |\n| 脱獄 | 不要 | 不要 |\n| 追加のハードウェア | ESP32-S3ボード（約7ドル） | USBケーブル |\n| ゲームなどへの対応 | 可（画面のピクセルだけを見るため） | アクセシビリティ情報しだい |\n\n仕組み\n\nAIの「目」はAirPlayの画面ミラーリング、「手」はiPhoneに挿したESP32-S3、「頭脳」は画像を読めるLLMです。v0.1.0の構成は次のようになっています。\n\n [code] \n・目（画面の取得）：iPhoneの画面ミラーリングで、PC上のAirPlay受信ソフトUxPlayに画面を映します。GStreamerでJPEGに変換し、AIとWeb画面に渡します。\n・手（入力）：ESP32-S3は、iPhoneから見ると普通のUSBマウス兼キーボードです。iOSのAssistiveTouchをオンにすると画面にポインタが出て、クリックがタップ、ドラッグがスワイプになります。\n・頭脳（判断）：Plannerが目標と今の画面から短い計画を立て、Actorがスクリーンショットを見るたびに次の一手を選びます。選べる操作は、タップ・スワイプ・経路を描く・文字入力・キー入力・ホームに戻る・終了です。\n・ずれの補正：マウスは相対移動なので、サーバーがポインタの位置を追跡しています。タップの前にポインタを少し揺らして画面上で位置を探し、ずれを直します。操作のあとは画面が本当に変わったかを確かめるので、空振りしたタップに気づいてやり直せます。\n\nボード側にロジックはなく、サーバーから1行ずつ届くコマンドを実行するだけです。\n\n| コマンド | 動作 |\n| --- | --- |\n| home | ポインタを左上の隅に押し付けて、位置を確定させる |\n| move | ポインタを相対移動する（iOSの加速を予測しやすいよう一定の速さで） |\n| press / release / click | 左ボタンを押す / 離す / クリック |\n| scroll | スクロール |\n| type | 英数字（ASCII）を入力する |\n| key | キー入力（enter、cmd+h など） |\n\n必要なものと構成\n\nリリースされている v0.1.0 で必要なのは、ボード・iPhone・PC・視覚モデルの4つです。\n\n| 必要なもの | 内容 |\n| --- | --- |\n| ESP32-S3ボード | XIAO ESP32S3で動作確認済み（Seeed公式で$7.49）。USB-C端子がS3のネイティブUSBにつながっているボードなら可 |\n| iPhone | USB-Cの機種は直接挿せる。Lightningの機種は「Lightning - USBカメラアダプタ」が必要。ボードの電源はiPhoneから取る |\n| PC | macOSまたはLinux。iPhoneと同じネットワークに置き、UxPlayとサーバーを動かす |\n| 視覚モデル | 画像を受け取れるOpenAI互換API。ローカルで動かすのは任意 |\n\n充電しながら使いたい場合は、給電パススルー対応のUSB-Cハブを挟みます。\n\nセットアップの流れ\n\n1. arduino-cliでESP32-S3にファームウェアを書き込む（2.4GHzのWi-Fi情報とPCのIPアドレスを設定）\n2. PCにUxPlayとサーバーを入れて起動し、server/.env にモデルのURL・モデル名・APIキーを書く\n3. iPhoneで「設定 → アクセシビリティ → タッチ → AssistiveTouch」をオンにし、ボードを挿す\n4. コントロールセンターの「画面ミラーリング」で「iPhone Agent」を選ぶ\n5. ブラウザで http:// :8890 を開き、最初の一回だけポインタ位置を合わせる（Calibrate）\n6. 目標を文章で入力して「Start」を押す\n\nREADMEには、Claude CodeやCodexなどのAIコーディングエージェントにセットアップを任せるためのプロンプトも載っています。\n\nPC不要の新しい構成について\n\nmainブランチでは、ボード自身がAirPlay受信機になり、同じiPhone上のアプリがAIエージェントとして動く構成が開発されています。動かすときにPCはいりません。\n\nただし参考動画によると、動画公開時点（2026年10月14日）でリリースされているのはv0.1.0だけで、この構成は未リリースです。また、次の条件があります。\n・ボードへの書き込みとアプリのビルドに、最初だけXcode入りのMacが必要\n・無料のApple IDで署名すると、7日ごとに署名し直す必要がある\n・iOS 18以降\n・AIとの通信にモバイルデータ通信を使う（Wi-Fiはボードのアクセスポイントにつながるため）\n\n手軽に試すなら、まずはv0.1.0（PCあり）の構成がおすすめです。\n\nできること・できないこと\n\n指でできる操作はほぼ再現できますが、日本語入力と一部の画面には対応していません。\n\nできること\n・アプリを開く、ボタンを押す、スクロール・スワイプする\n・英数字の入力、キー操作（cmd+h でホームに戻るなど）\n・目標を文章で伝えるだけで、何ステップもある操作を任せる\n・ゲームなど、アクセシビリティ情報のないアプリの操作（画面のピクセルだけを見て動くため）\n\nできないこと・苦手なこと\n・日本語の入力（キーボード入力はASCIIのみ）\n・パスコード入力、Apple Pay、DRM付き動画の画面（iOSがミラーリングしないので、AIからは見えない）\n・画面ロック中の操作（ロックするとミラーリングが止まるので、自動ロックはオフにしておく）\n・横画面のアプリ（参考動画によると縦画面のみ）\n\n速度と信頼性\n\n作者のローカル環境では、1アクションが約1.3秒、計画1回が約2秒です。参考動画では、PC不要の構成は1ステップに数秒かかると紹介されています。タスクの成功率は、まだどこにも公開されていません。\n\n指示の書き方：カレンダーに予定を入れる例\n\n指示は短いメモより、迷いようのない文章で書くほうが確実です。例として、カレンダーアプリ（ここではTimeTree）に予定を入れる場合を考えます。\n\n次のようなメモ書きでは、AIが迷う余地が残ります。\n\n [code] \n・「10-12」が「10月12日」と読まれるおそれがある\n・「遊び」は日本語なので、そのままでは入力できない\n・TimeTreeは共有カレンダーが複数あることが多く、どれに入れるか分からない\n\nそこで、次のように書きます。指示文はAIが読むだけなので、モデルが日本語に対応していれば日本語で書けます。iPhoneに打ち込むタイトルだけは英数字にします。\n\n [code] \n\n指示に入れておきたいのは次の4つです。\n\n1. アプリ名とカレンダー名\n2. 年から書いた日付と、開始・終了がはっきりした時刻\n3. 実際に入力するタイトル（英数字で）\n4. 最後にどうするか（保存まで押す／保存の手前で止める）\n\n慣れるまでは「保存の手前で止めて」として、自分で確認してから保存するのが安全です。日時をくるくる回して選ぶ部分は細かいスワイプが必要なので、やり直しが起きることもありそうです。\n\n活用アイデア：シフトボードへのバイトのシフト入力を自動化する\n\n個人的に一番使えそうだと思ったのが、バイトのシフト管理アプリ「シフトボード」への入力です。シフトが出るたびに1日ずつ手で入力するのは地味に面倒なので、ここをAIに任せられるとかなり楽になります。\n\nこの仕組みと相性がいい理由\n\nシフトボードは、一度入力したシフトを履歴から呼び出して、ワンタップで繰り返し登録できます（アプリブの紹介記事）。履歴を使えば時刻を毎回選ぶ必要がなく、日本語を打つ場面もありません。AIは「日付をタップ → 履歴から選ぶ」を繰り返すだけなので、英数字しか入力できないという制限にも引っかかりません。\n\nカレンダー用とほぼ同じ指示で済む\n\n前の章のカレンダーの指示と並べてみると、変わるのはほぼ1行目だけです。シフト表から日時のリストを一度作れば、カレンダー用にもシフトボード用にもそのまま使い回せます。カレンダーへの登録とシフトボードへの入力が同じ手間で片付くので、二重に楽になります。\n\nカレンダー（TimeTree）用：\n\n [code] \n\nシフトボード用：\n\n [code] \n\n1行に1件ずつ書くと、AIが日付と時刻を取り違えにくくなります。紙やLINEで届いたシフト表は、画像を読めるAIチャットに写真を渡せば、この形式のリストに書き起こしてもらえます。\n\n試す前に確認したいこと\n・Airシフトを使っているバイト先なら不要：バイト先がAirシフトを導入していれば、確定したシフトはシフトボードのカレンダーに自動で反映されます（ミツモアのAirシフト紹介）。\n・初回は手入力が必要：勤務先の登録と、履歴に残すための最初の1回は自分で入力しておきます。\n・速さより「放置できる」のが利点：1件あたり数回のタップが必要で、AIは1手に1〜2秒かかります。自分で入力するのと速さは大差ないかもしれませんが、その間ほかのことができます。\n・終わったら一覧で確認：入力ミスがあると給料の見込み額がずれるので、最後は自分の目で確認します。\n\n注意点\n\nAIは、ロックを解除したiPhoneで人ができることを何でもできてしまいます。便利な反面、次の点には気をつけたいところです。\n・画面に仕込まれた指示に従う危険：Webページやメッセージに書かれた文字を、AIが自分への指示と取り違える可能性があります（プロンプトインジェクション）。\n・スクリーンショットの送信先：クラウドのモデルを使うと、操作中の画面がすべてモデルの提供元に送られます。個人情報が映るアプリを扱うなら、ローカルモデルを検討します。\n・普段使いのiPhoneでの無人運用は避ける：決済・銀行・メッセージ系のアプリが入った端末では、見守りながら使います。Web画面の緊急停止ボタン（または Esc キー）をすぐ押せるようにしておきます。\n・パスワードをAIに渡さない：再ログインが必要になったら止めるよう指示し、そこだけ自分で入力するほうが安全です。\n・アプリの規約：READMEでも、自分が所有するか使用を許可された端末とアカウントだけを自動化し、各アプリの規約を守るよう書かれています。特にゲームは、多くのタイトルがツールやマクロによる自動操作を禁止しているので注意が必要です。\n\nまとめ\n\nesp32-iphone-agentは、約7ドルのボードとiOS標準の機能だけで、AIに実機のiPhoneを操作させるプロジェクトです。日本語入力ができない、成功率がまだ公開されていないなど、発展途上の部分はあります。それでも「iPhoneのアプリでしか触れない操作」をAIに任せられるのは面白いと思います。\n\nシフトボードへの入力のように、決まった手順を繰り返す作業とは特に相性がよさそうです。\n\n参考リンク\n・onehumanbeing/esp32-iphone-agent（GitHub）\n・One Dev Open-Sourced a $7 Way for AI to Use Your iPhone（YouTube / Bitwise AI）\n・UxPlay（GitHub）\n・Seeed Studio XIAO ESP32S3 Getting Started（Seeed Studio Wiki）\n・シフトボード：バイトの給料計算とシフト管理（アプリブ）\n・Airシフトとは？（ミツモア）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "5f31afbd50bef324",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7086178861788618,
+      "popularityPercentile": 0.13008130081300814,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "約7ドルのESP32-S3を使い、AIに実機のiPhoneを操作させるOSSが紹介されている。",
+      "takeaways": [
+        "AIがiPhoneの画面を見て操作できる。",
+        "約7ドルの基板をiPhoneにつないで使う。",
+        "脱獄やApple開発者アカウントは不要である。"
+      ],
+      "keywords": [
+        "esp32-iphone-agent",
+        "ESP32-S3",
+        "iPhone",
+        "AIエージェント",
+        "XIAO ESP32S3"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "jiwoochris/artex-global — ARTEX 한국어판 · AI 자율 침투 테스트 프레임워크(upstream: Autumn-27/ARTEX, AGPL-3.0)",
+      "url": "https://github.com/jiwoochris/artex-global",
+      "publishedAt": "2026-10-03T14:49:48.000Z",
+      "author": "jiwoochris",
+      "authorDetail": {
+        "name": "jiwoochris",
+        "url": "https://github.com/jiwoochris",
+        "avatarUrl": "https://github.com/jiwoochris.png?size=120",
+        "bio": "ARTEX 한국어판 · AI 자율 침투 테스트 프레임워크(upstream: Autumn-27/ARTEX, AGPL-3.0)"
+      },
+      "tags": [
+        "Go",
+        "ai-agent",
+        "autonomous-agents",
+        "blue-team",
+        "cybersecurity",
+        "detection-engineering",
+        "i18n",
+        "korean"
+      ],
+      "snippet": "ARTEX 한국어판 · AI 자율 침투 테스트 프레임워크(upstream: Autumn-27/ARTEX, AGPL-3.0)",
+      "metrics": {
+        "stars": 1626
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "898d433ad5e69678",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.4173333333333334,
+      "popularityPercentile": 0.38181818181818183,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "artex-global — AI自律型侵入テスト基盤の韓国語版",
+      "oneLiner": "artex-globalはAIによる自律的な侵入テスト基盤ARTEXを韓国語向けに展開する。",
+      "takeaways": [
+        "AIがシステムの弱点を探す仕組みである。",
+        "侵入テストを自動で進めることを目指す。",
+        "ARTEXを韓国語で利用できるようにする。"
+      ],
+      "keywords": [
+        "artex-global",
+        "ARTEX",
+        "AIエージェント",
+        "侵入テスト",
+        "Go",
+        "AGPL-3.0"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": "# 試すこと\njiwoochris/artex-global — ARTEX 한국어판 · AI 자율 침투 테스트 프레임워크(upstream: Autumn-27/ARTEX, AGPL-3.0) を動かして、README の最初の出力まで到達する\nhttps://github.com/jiwoochris/artex-global\n\n# 手順\n1. git clone --depth 1 https://github.com/jiwoochris/artex-global\n2. cd artex-global && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Jupyterノートブックを丸ごとLLMに渡すのをやめたら、トークンが95%以上減った話（Claude Code / Codex CLI / PowerShell）",
+      "url": "https://qiita.com/koheip/items/9cd92a31e747e019da0b",
+      "publishedAt": "2026-10-17T09:58:07.000Z",
+      "author": "koheip",
+      "authorDetail": {
+        "name": "koheip",
+        "handle": "@koheip",
+        "url": "https://qiita.com/koheip",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/210059655?v=4",
+        "followers": 0,
+        "posts": 1,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/koheip"
+          }
+        ]
+      },
+      "tags": [
+        "Python",
+        "Jupyter",
+        "ClaudeCode",
+        "codex",
+        "PowerShell"
+      ],
+      "snippet": "はじめに Kaggleの作業でJupyterノートブックを書きながら、Claude CodeやCodex CLIにレビューや相談をしています。ところが、ノートブックを丸ごとLLMに渡すと1本で約3万トークンになり、何度も相談しているとすぐにコストがかさみました。 この記事では、トークンを節約するためにやった工夫と、Windows PowerShellからCLIを呼ぶときにハマったポイントをまとめます。 1. ノートブックは「コードセルの差分」だけを渡す .ipynbファイルの中身はJSONで、セルの出力（ログや画像）やメタデータがたくさん入っています。LLMに見てほしいのはほとんどの場合コードだけなので、次のような処理をするスクリプトを作りました。 ・出力とメタデータを捨てて、コードセルだけを取り出す ・前の版との差分だけを出す ・300字を超える長い行は「長さ」と「ハッシュ」に置き換える…",
+      "body": "はじめに\n\nKaggleの作業でJupyterノートブックを書きながら、Claude CodeやCodex CLIにレビューや相談をしています。ところが、ノートブックを丸ごとLLMに渡すと1本で約3万トークンになり、何度も相談しているとすぐにコストがかさみました。\n\nこの記事では、トークンを節約するためにやった工夫と、Windows PowerShellからCLIを呼ぶときにハマったポイントをまとめます。\n\n1. ノートブックは「コードセルの差分」だけを渡す\n\n.ipynbファイルの中身はJSONで、セルの出力（ログや画像）やメタデータがたくさん入っています。LLMに見てほしいのはほとんどの場合コードだけなので、次のような処理をするスクリプトを作りました。\n・出力とメタデータを捨てて、コードセルだけを取り出す\n・前の版との差分だけを出す\n・300字を超える長い行は「長さ」と「ハッシュ」に置き換える（中身が変わったかどうかだけ分かればいいので）\n\nこれで、版の比較が約1〜1.6kトークン（95%以上減）に収まりました。\n\nまた、ノートブックの中に長いプロンプト文字列があると読みにくいので、それを別の.txtに切り出した「読む用ビュー」を作っています。実行用のノートブックは1つのファイルのまま保ち、LLMやレビューには読む用ビューを渡す、という使い分けです。\n\n2. Claude Code / Codex CLIを別のプログラムからコマンドで呼ぶ\n\nClaude Code\n\nclaude -p を使うと、対話画面を開かずに1回だけ質問して答えを受け取れます。\n\n [code] \n\nポイントは、ファイルを読む道具などを禁止して、こちらで用意した要約だけを渡すことです。勝手にリポジトリ中のファイルを読みに行かないので、トークンが安く済みます。\n\nCodex CLI\n\nインストールはnpmで入れました。\n\n [code] \n\nブラウザでのログインが失敗したときは、URLとコードで認証する方法で通りました。\n\n [code] \n\n質問は標準入力で渡します。\n\n [code] \n\n3. Windows PowerShellで日本語が文字化けする\n\nPowerShellから日本語のプロンプトをCLIにパイプで渡すと、文字化けしました。次の3つをUTF-8にすると直ります。\n\n [code] \n\nまた、PowerShellではcmdのような & によるコマンドの連結が使えず、AmpersandNotAllowed というエラーになります。cmdの感覚で書くとハマるので注意です。\n\nまとめ\n・ノートブックを丸ごと渡さず、コードセルの差分だけにすると、トークンが95%以上減った\n・claude -p では道具を禁止して要約だけ渡すと安く済む\n・Codex CLIのログインに失敗したら codex login --device-auth\n・PowerShellで日本語を渡すときは3つのエンコーディングをUTF-8に\n\n同じようにLLMとノートブックを行き来している人の参考になればうれしいです。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "c717c62e29faed73",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8803252032520326,
+      "popularityPercentile": 0.9105691056910569,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Jupyterノートブックをコード差分だけに変換し、Claude CodeやCodex CLIへの入力を95%以上削減した。",
+      "takeaways": [
+        "ノートブック全体ではなく変更したコードだけを渡した。",
+        "出力や説明情報を除くと約3万トークンを約1〜1.6kに減らせた。",
+        "PowerShellからAIツールを呼ぶ方法も整理した。"
+      ],
+      "keywords": [
+        "Jupyter",
+        "Claude Code",
+        "Codex CLI",
+        "PowerShell",
+        "トークン削減",
+        "Kaggle"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIに全体を読ませるか必要な差分だけ渡すか",
+        "forSide": "差分だけなら入力費用と待ち時間を95%以上減らせる。",
+        "againstSide": "周辺の文脈を捨てると変更の影響や隠れた依存を見落とす。",
+        "oneSided": false,
+        "yourAngle": "Claude CodeやCodex CLIへの入力サイズと回答品質を同じ作業で比較できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "耳で聞く！Python で学ぶ マクロ経済学 入門 30",
+      "url": "https://qiita.com/maskot1977/items/4138e1d04b2c2865d592",
+      "publishedAt": "2026-10-17T01:46:50.000Z",
+      "author": "Ikemen Mas Kot",
+      "authorDetail": {
+        "name": "Ikemen Mas Kot",
+        "handle": "@maskot1977",
+        "url": "https://qiita.com/maskot1977",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/211162/9ce8eece955027de889d5120d4068bd49366857f/x_large.png?1732553025",
+        "bio": "大学や大学院等で機械学習やプログラミングの講義をしております。ご興味のある方はお声がけください。",
+        "followers": 709,
+        "posts": 1011,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/HandsomeKinoko"
+          }
+        ]
+      },
+      "tags": [
+        "Python",
+        "マクロ経済学",
+        "ChatGPT",
+        "Gemini",
+        "YouTube"
+      ],
+      "snippet": "user: ソース動画のタイトル、そしてこの動画の内容について教えてください。 Gemini: 動画のタイトルおよび内容は以下の通りです。 ソース動画のタイトル 「消費税は財源ではなく罰金だ : Pythonで学ぶマクロ経済学入門 Podcast 30」 --- 動画の内容解説 この動画は、技術情報共有サイト「Qiita」に投稿された記事『Pythonで学ぶマクロ経済学入門』の第30回（著者とChatGPTの対話形式）をベースにしたPodcastコンテンツです。個人の主義主張やイデオロギーを廃し、Pythonによるプログラミング・シミュレーション（仮想空間に家計・企業・政府等のエージェントを作成して取引させる手法） を用いて、マクロ経済の仕組みと税金の本来の機能を客観的に検証しています。 動画内で解説されている主なポイントと論点は以下の通りです。 --- 1. 人手不足なのに賃金が上が…",
+      "body": "user:\n\nソース動画のタイトル、そしてこの動画の内容について教えてください。\n\nGemini:\n\n動画のタイトルおよび内容は以下の通りです。\n\nソース動画のタイトル\n「消費税は財源ではなく罰金だ : Pythonで学ぶマクロ経済学入門 Podcast 30」\n\n---\n\n動画の内容解説\n\nこの動画は、技術情報共有サイト「Qiita」に投稿された記事『Pythonで学ぶマクロ経済学入門』の第30回（著者とChatGPTの対話形式）をベースにしたPodcastコンテンツです。個人の主義主張やイデオロギーを廃し、Pythonによるプログラミング・シミュレーション（仮想空間に家計・企業・政府等のエージェントを作成して取引させる手法） を用いて、マクロ経済の仕組みと税金の本来の機能を客観的に検証しています。\n\n動画内で解説されている主なポイントと論点は以下の通りです。\n\n---\n\n1. 人手不足なのに賃金が上がらない理由\nミクロ経済的な観点（人が足りなければ需要と供給のバランスで給料が上がるはず）は、マクロ経済全体では当てはまりません。シミュレーションでは以下の3つのケースを比較しています。\n・ケースA（緊縮財政・政府支出が少ない）: 国全体でお金が使われないため、企業が人手不足であっても売上自体が伸びず、賃金は横ばいになります。\n・ケースB（労働供給の拡大：外国人労働者受け入れや企業への雇用補助金）: 雇用そのものは増えるものの、補助金は企業のコスト補填に消えるだけで経済全体の「買う力（総需要）」が増えないため、賃金は横ばいのままです。\n・ケースC（政府支出の拡大 ＋ 最低賃金の引き上げ）: 政府が支出を大きく増やして国全体の需要を下支えすることで、初めて企業がしっかり儲かる環境ができ、持続的な賃金上昇が達成されました。\n\n結論として、賃金が上がらない根本原因は人手不足そのものではなく、「国全体の総需要の小ささ」 にあります。\n\n---\n\n2. MMT（現代貨幣理論）における「税＝財源ではない」という構造\n自国通貨（円）の発行者である日本政府にとって、支出の前に国民から税金を集める必要はありません。動画では「政府は遊園地でアトラクションに乗るためにお客さんからチケットを集める存在ではなく、チケットそのものを発行・運営する側である」という例えが使われています。\n\nMMTの視点における税の真の役割（4つ）：\n1. 通貨（円）の需要創出: 円で納税しなければならない義務を作ることで、通貨の利用価値を生み出す。\n2. インフレの調整: 経済の加熱時に需要を抑え込む（ブレーキ機能）。\n3. 富の再分配: 格差を是正する。\n4. 望ましくない行動の抑制: タバコ税や環境税のように特定行動を抑制する。\n\nつまり、税金は「国の運営資金を集める手段」ではなく、民間経済のスピードや方向をコントロールするための 「ブレーキやハンドル（調整装置）」 です。\n\n---\n\n3. 「最悪のブレーキ」としての消費税と社会保険料\n現在の日本の主要な制度は、経済に対して最も有害な自動ブレーキとして働いてしまっていると分析されています。\n・消費税: 所得に関係なく買い物をするたびに家計から直接需要を奪う「罰金」として働き、低所得者ほど負担が重くなる逆進性を持ちます。\n・インボイス制度のシミュレーション: 不況時ほど価格転嫁できない末端の小規模事業者にダメージが集中し、倒産や廃業が相次いで国全体のGDPが削られる様子が可視化されました。また、法的な事実としても消費税は「事業者が預かっている預かり金」ではないことが解説されます。\n・社会保険料: 「名前を変えた最悪の税（人頭税に近い性質）」と表現され、働くことや賃金が上がることに直接ペナルティを課すため、人々の購買力と労働意欲を削ぎ落としています。\n\n---\n\n4. フロー課税からストック課税へのシフト\nプログラム上で、同じ税収を フロー（所得や消費などの日々の取引） から集める場合と、ストック（蓄積された資産・固定資産・相続等） から集める場合を比較した結果、大きな違いが示されました。\n・フロー課税（消費税など）: 毎年の所得や支出を直撃するため、消費が冷え込んで経済が縮小します。\n・ストック課税（資産税・土地課税など）: 現在の消費活動に直接ブレーキをかけないため、経済の成長力が維持されます。特に土地の価値は個人の努力以上に社会全体の需要発展によって生まれるため、課税して社会に戻すことが合理的とされています。\n\n【運用上の留意点と現代の課題】\n・デフレや不況下でストック課税だけを重くすると、手元に現金がない人のキャッシュフロー問題が発生するため、まずは政府支出によってフロー（需要）を太らせることが絶対条件となります。\n・外国人投資家等による不動産取得が増加する中で、日本人と同等の課税把握が困難なケースがあり、地価上昇等のインフレ圧力に対して税のコントロール機能が及んでいない構造的な課題（課税の非対称性）も挙げられています。\n\n---\n\n5. まとめと示唆\n日本経済が長年低迷している真の理由は、「税金を財源だと誤解して集めようとした結果、経済の血流である需要を自ら破壊し続けてきたため」であると論じられています。\n\n税金を単なる「国の収入源」ではなく、「需要を調整し経済を育てるためのコントローラー」 として捉え直すことが、日本経済を成長させる鍵となります。\n\n---\n\nuser:\n\nソース動画のキーワード、そして「初心者でもわかる！ Python で学ぶマクロ経済学入門」シリーズの他の回との関係を教えてください。\n\nGemini:\n\nソース動画（Podcast 30）の主要なキーワード、ならびにQiita連載『初心者でもわかる！ Python で学ぶマクロ経済学入門』全100回の中での位置づけと他回との関係について解説します。\n\n---\n\n1. ソース動画（Podcast 30）のキーワード\n\nQiita記事のデータベースおよび動画本編の解説から抽出される主なキーワードは以下の通りです。\n・MMT（現代貨幣理論） / 通貨発行主体: 自国通貨（円）を発行できる日本政府にとって、税金は支出の前提となる「財源」ではないという考え方。\n・税の真の役割（経済のコントローラー／ブレーキ）: 税金は資金集めの手段ではなく、経済のスピードやインフレを調整するためのブレーキやハンドルとして機能する。\n・総需要（GDP支出側）: 賃金が上がらない根本要因は人手不足そのものではなく、国全体の「総需要（使うお金の総額）」の小ささにある。\n・消費税・インボイス制度（最悪の自動ブレーキ・罰金）: 買い物のたびに家計から需要を直接奪う逆進的な税であり、不況期に小規模事業者の活力を破壊する「罰金」として働く。\n・社会保険料（人頭税的性質）: 労働コストに直結し、働くことや賃上げに直接ペナルティを課す「名前を変えた税」。\n・フロー課税 vs ストック課税: 所得や消費（フロー）に課税すると需要が冷え込んで経済が縮小するのに対し、過去の蓄積や資産・土地（ストック）に課税する方が経済の成長力を損なわない。\n・可処分所得・限界消費性向（MPC）: 収入の変化に対してどれだけ消費に回すかの割合であり、低・中所得者の手取りを増やすことが経済循環に重要であること。\n\n---\n\n2. シリーズ「全100回」の中での位置づけと他回との関係\n\n本動画のベースとなったQiita連載『Pythonで学ぶマクロ経済学入門』において、第30回（タイトル：「増税しても豊かにならない理由」）はシリーズ全体の重要な転換点・橋渡し役を担っています。\n\n① 全体の流れ（フェーズ）における位置づけ\n連載全100回は大きなテーマごとに区分されており、第30回は 「フェーズ3：賃金・雇用・需要不足（第26〜40回）」 の中核に位置します。\n・第1〜15回（基礎理論）: IS-LMモデルや財政乗数、セクターバランスといったマクロ経済学の基礎を構築。\n・第16〜25回（財政破綻論・MMT）: 「国の借金」やプライマリーバランス（PB）の誤解を解き、第25回「『財源がない』は本当か？」で財源幻想の解体を開始。\n・第26〜40回（賃金・雇用・税制）: 第30回を含むこのフェーズでは、需要不足が雇用・賃金に与える影響を分析し、税制（消費税・累進課税）や通貨発行の本来の役割へと議論を深めます。\n\n---\n\n② 直前・直後の回との具体的なつながり\n・直前の回（第27〜29回）からの流れ: \n 第27〜29回では「人手不足なのに賃金が上がらない理由」や「賃金アンカー（心理的固定）」をPythonシミュレーションで検証しました。第30回（Podcast 30）は、この「人手不足の正体は総需要不足である」という結論を直接引き継ぎ、需要を冷やす最大の原因である増税・消費税の問題へと展開しています。\n・直後の回（第31〜37回）への展開: \n 第30回で「税＝需要のコントローラー」「フロー課税よりストック課税」という理論的フレームを提示したのち、第31回「消費税・社会保険料・再分配の国際比較」、第32〜34回「再分配・累進課税・BI・JGの動学的分析」、第36・37回「通貨発行と税の本当の役割」へと進み、具体的な制度設計論へと深められていきます。\n\n---\n\n③ 連載全体を貫く3つの大テーマとの関係\n\n1. 「財源幻想」の解体プロセスのステップ\n 連載全体を通じたメインテーマである「政府の財政は家計簿とは異なる（財源幻想）」という論点において、第30回は「消費税＝社会保障の財源」という一般的なフレーミングを崩し、「税は需要を減速させるブレーキに過ぎない」ことをシミュレーションで可視化した重要回です。この議論は、第55回（財政破綻論の誤解）、第80回（国の借金の再定義）、そして第98〜100回の総括・国家レジリエンス論へと発展します。\n\n2. 「言葉のすり替え・フレーミング操作（タイプA・E）」の解体\n 100回総復習記事で整理されている「言葉のすり替え（タイプA：問題ないものを問題ありに見せる言葉、タイプE：国＝家メタファー）」において、第30回は「増税」「財源がない」「国の財布」といった誤った比喩や恐怖フレーミングを客観的に解き明かす具体例となっています。\n\n3. Pythonによるエージェントベース・シミュレーション手法の確立\n 第30回で用いられた「仮想空間に家計・企業・政府のエージェントを作成し、取引や税制変更の影響を観察する手法」は、後の第83〜86回（人的資本・賃上げにおける囚人のジジレンマ分析）や第92回（補助金による劣った均衡への誘導：レプリケーター・ダイナミクス）など、シリーズ後半の高度なゲーム理論シミュレーションの土台となっています。\n\n---",
+      "metrics": {
+        "likes": 5,
+        "stocks": 5
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "ef9ed47ea803d419",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.5015447154471545,
+      "popularityPercentile": 0.991869918699187,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Pythonシミュレーションを使い、政府支出と最低賃金が賃金や雇用に与える影響を論じるマクロ経済学入門の音声回である。",
+      "takeaways": [
+        "人手不足でも賃金が上がらない仕組みを扱う。",
+        "政府支出の少なさが買う力を弱めると説明する。",
+        "最低賃金の引き上げを含む複数の政策を比べる。"
+      ],
+      "keywords": [
+        "Python",
+        "マクロ経済学",
+        "ChatGPT",
+        "Gemini",
+        "シミュレーション",
+        "YouTube"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "市場の調整に任せるか政府が需要と賃金を支えるか",
+        "forSide": "政府支出と最低賃金が消費と賃金を押し上げる可能性を示せる。",
+        "againstSide": "単純化したシミュレーションだけでは現実の経済政策を判断できない。",
+        "oneSided": true,
+        "yourAngle": "Pythonで前提条件を変えたときに結果がどう変わるか再現できる。"
+      },
+      "readingMinutes": 15,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "非正規37%の経済設計バグ ― 労働市場の二重構造をリファクタリングする : システム設計視点の行動経済学 (42)",
+      "url": "https://qiita.com/maskot1977/items/9467428563658ebdf404",
+      "publishedAt": "2026-10-17T02:43:40.000Z",
+      "author": "Ikemen Mas Kot",
+      "authorDetail": {
+        "name": "Ikemen Mas Kot",
+        "handle": "@maskot1977",
+        "url": "https://qiita.com/maskot1977",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/211162/9ce8eece955027de889d5120d4068bd49366857f/x_large.png?1732553025",
+        "bio": "大学や大学院等で機械学習やプログラミングの講義をしております。ご興味のある方はお声がけください。",
+        "followers": 709,
+        "posts": 1011,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/HandsomeKinoko"
+          }
+        ]
+      },
+      "tags": [
+        "システム設計",
+        "行動経済学",
+        "マクロ経済学",
+        "Gemini",
+        "ClaudeCode"
+      ],
+      "snippet": "user: 「システム設計視点の行動経済学」、第42回を始めましょう。その前に、まず前回の復習として、 老後の安全網が壊れていく ― 医療・介護と財源幻想 : システム設計視点の行動経済学 (41) https://qiita.com/maskot1977/items/611ba93e0feedb40dc43 をよく読み込んで、システム設計、行動経済学、国家レジリエンス、財源幻想の視点を交えながらその内容の復習をしてください。ここで導き出されていた結論やキーメッセージも示してください。 Gemini: 「システム設計視点の行動経済学」第41回 「老後の安全網が壊れていく ― 医療・介護と財源幻想」 の内容を、指定された4つの視点（システム設計、行動経済学、財源幻想、国家レジリエンス）を交えながら振り返り、結論およびキーメッセージを整理します。 --- 1. 第41回の全体像と問題提起 第4…",
+      "body": "user:\n\n「システム設計視点の行動経済学」、第42回を始めましょう。その前に、まず前回の復習として、\n\n老後の安全網が壊れていく ― 医療・介護と財源幻想 : システム設計視点の行動経済学 (41)\nhttps://qiita.com/maskot1977/items/611ba93e0feedb40dc43\n\nをよく読み込んで、システム設計、行動経済学、国家レジリエンス、財源幻想の視点を交えながらその内容の復習をしてください。ここで導き出されていた結論やキーメッセージも示してください。\n\nGemini:\n\n「システム設計視点の行動経済学」第41回 「老後の安全網が壊れていく ― 医療・介護と財源幻想」 の内容を、指定された4つの視点（システム設計、行動経済学、財源幻想、国家レジリエンス）を交えながら振り返り、結論およびキーメッセージを整理します。\n\n---\n\n1. 第41回の全体像と問題提起\n\n第41回は、多くの国民や高齢者が直面している 「老後2,000万円問題」 の真因を解き明かすことから始まります。この問題は「個人の節約不足や自業自得」ではなく、「財源幻想」によって医療・介護への公的投資が30年間抑制され続けた結果生じた制度のバグ（技術的負債） です。\n\n具体的には、公的介護保険において要介護5であっても区分支給限度基準額（保険上限）が月約36万円程度にキャップされており、施設入居等で月20〜30万円以上の自己負担が数年間継続する構造が存在します。この「公的保険でカバーされない領域の自己負担」が積み重なった結果が「2,000万円貯蓄しなければならない」という不安の正体であり、個人の貯蓄不足ではなく公的給付上限が現実のケア需要に追いついていない設計バグに起因しています。\n\n---\n\n2. 4つの視点から読み解く復習\n\n① システム設計の視点（技術的負債・逆インセンティブ・優先度逆転）\n・技術的負債（Technical Debt）：日本の医療・介護システムは1990年代の人口構造を前提に設計された後、政治的・財政的改修コストを嫌って「とりあえず動く」状態で放置されてきました。古いコードを修正せず運用し続けた結果、負債が利息を生み、制度崩壊の修正コストが膨れ上がっています。\n・診療報酬・介護報酬の逆インセンティブ：診療報酬は「出来高払い」を基本としつつ「医療費抑制」という予算キャップがはめられており、2002年以降実質10%超（物価調整後の実質ベースでは1990年代比20%以上）引き下げられてきました。患者数を診るほど単価が削られる構造により、勤務医の離職、地方病院の閉鎖、予防不全による重症化の加速という負のフィードバックループが生じています。\n・優先度逆転（Priority Inversion）：本来システムとして最優先すべき「高齢者に必要なケアの提供」という主タスクが、「財源がない」という制約によって後回しにされ、全体効率を著しく低下させています。\n・マクロ経済統計の設計バグ：家庭内で行われる無償ケア労働（全労働力の約15%相当）はGDPに計上されません。そのため、公的投資を行って介護を有償サービス化・産業化しても「経済成長しないコスト」に見えてしまう統計錯覚が政策ミスを誘導しています。\n\n② 行動経済学の視点（バイアス・沈黙の螺旋・二重の人権侵害）\n・現在バイアス（Present Bias）：「今期の医療・介護費抑制」という即時の利益が、「10年後の医療・介護崩壊」という将来の巨大な損失より重く見えてしまうため、政治家は任期中に損をする改革を回避し続けます。\n・プロスペクト理論と損失回避の非対称性：意思決定者にとって、報酬削減による「今支出を削れた感覚」は、将来の医療崩壊コストよりも約2.25倍（損失嫌悪係数 \\\\(\\lambda \\approx 2.25\\\\)）強い心理的重みを持ちます。これが現在バイアスと複合し、削減継続が意思決定者にとって「合理的」に見え続ける構造的バグを生んでいます。\n・沈黙の螺旋（Spiral of Silence）と二重の人権侵害：\n・第一の人権侵害（表現・良心の自由の剥奪）：「医療費・介護費を増やせ」と主張すると「無責任」「ポピュリスト」「将来世代へのツケ回し」という烙印（ラベリング）を押される恐れから、医療者や患者、国民が自己検閲に陥り沈黙します。\n・第二の人権侵害（生存権・尊厳の侵害）：国民や当事者が合理的沈黙を選んでいる間に、患者の早期死亡や症状悪化、介護士の生活困窮、高齢者の虐待・ネグレクトが可視化されず放置され続けます。\n・対話OSと多元的無知の解体：説得ではなく「問いの連鎖」や1対1の対話プロトコル（5ステップ）を用いることで、「実は皆もおかしいと思っている（多元的無知）」状態を解体し、沈黙の螺旋を破ることができます。\n\n③ 財源幻想の視点（家計メタファーの解体・リアルリソース評価）\n・家計メタファーの解体と通貨主権：家計は収入の範囲でしか支出できませんが、日本政府は自国通貨（円）を発行できる通貨主権を有しており、国債の99%以上が円建てであるため、デフォルト（財政破綻）は物理的に不可能です。\n・セクターバランス恒等式：マクロ経済の恒等式 「政府財政赤字 ＝ 民間（家計＋企業）の黒字」 が示す通り、医療や介護への公的支出はそのまま医師・ケアワーカーの所得や施設の投資となり、民間の黒字・所得へと転化します。\n・真の制約は「リアルリソース」と「インフレ」：政府の支出能力を規定するのは帳簿上の「税収」や「国債残高」ではなく、「医師・ケアワーカー・病床などの実物資源（リアルリソース）」 および 「インフレ率」 です。\n\n④ 国家レジリエンスの視点（ケアエコノミー・二重の権利保護）\n・ケアエコノミー（成長産業）への投資：医療・介護は生産性を低下させる「単なるコスト」ではなく、地域で雇用と所得を生み出す 「ケアエコノミー（成長分野・人的資本投資）」 です。\n・諸外国（スウェーデン・ドイツ・デンマーク）との比較：\n・スウェーデン：公的介護投資が日本の3倍以上（GDP比）であり、介護職の賃金はPPP（購買力平価）調整ベースで月36〜40万円（日本の1.5〜1.7倍）と医療職並みに評価されています。ケアエコノミーが全雇用の12%を占め、質の高いケアと雇用の安定を実現しています。\n・ドイツ・デンマーク：ドイツは介護給付を段階的に増額改定し、デンマークは診療報酬を患者数から「健康アウトカム（成果指標）」へと変更し、長期的コスト抑制と質向上を両立させています。\n・外国人介護士と育成就労制度（二重の権利保護）：財源幻想によって介護報酬を低く抑えたまま2027年施行の「育成就労制度」で外部労働力に頼ろうとしても、1年後の転職権行使により都市部や他産業へ人材が流出し、地方の介護崩壊が加速します。\n・同一の処方箋：「受入国国民の介護を受ける権利（生存権）」と「外国人労働者の搾取防止・適正待遇」は対立せず、財源幻想の解体と介護報酬の適正化というたった一つの処方箋によって両立・解決可能です。\n\n---\n\n3. 全41回から導き出された結論とキーメッセージ\n\n1. 高齢化はピンチではなく「新しいチャンス（ケアエコノミーの成長機会）」である\n 医療・介護を「削るべきコスト」から「雇用と所得を生み出す成長分野」へと認識を転換（フレーミング刷新）し、成果指標型医療（診療報酬v2.0）や給付上限撤廃・ケアワーカー賃金保障（介護保険v2.0）へと国家OSをリファクタリングすることが求められます。\n\n2. 「財源幻想」と「沈黙の螺旋（二重の人権侵害）」の構造を解体せよ\n 「お金がないから我慢する」という誤った前提を捨て、当事者の被害（生存権侵害）を可視化しながら、「受入国国民の命と尊厳を守ることは基本的人権である」と堂々と語ることが、政治的タブーと沈黙の螺旋を打ち破る鍵となります。\n\n3. 国民は「政策の消費者」から「政策コードレビュアー」へ\n 誰かを攻撃・感情論で批判するのではなく、一次データを踏まえて制度API（e-Govパブリックコメント、国会議員への質問主意書草案提供、地方議会への陳情）に具体的な改善コード（パッチ）を流し込み、国家の自己修正ループ（閉ループ制御）を動かす主導者になることが不可欠です。\n\n---\n\n4. 第42回への接続\n\n第41回で解明された医療・介護における「財源幻想のロック」は、日本の労働市場全体にも深く影を落としています。\n第42回では、日本の労働者の37%を占める 「非正規雇用」 の問題を取り上げ、「解雇規制緩和」と「非正規保護強化」がなぜ同時にタブー視され、二重構造を生み出しているのかを構造的に解剖していきます。\n\n💡 身近な人との対話やe-Govパブリックコメント、質問主意書の具体的文面案など、第41回のアクションプランについてさらに深掘りしますか？それとも、このまま第42回の本編へと進みましょうか？\n\nuser:\n\nありがとうございます。第42回も引き続き、このシリーズであまり触れてこなかった課題を深掘りしていきましょうか。Claude Code さん、テーマ設定をお願いします。\n\nClaude Code:\n\n非正規37%の経済設計バグ ― 労働市場の二重構造をリファクタリングする : システム設計視点の行動経済学 (42)\n\n:::note info\n本記事はClaude（AI）が生成したコンテンツです。登場する「Student T」「Claude」の発言は、AIが人間どうしの対話を模して作成したフィクションです。実在の人物・団体の発言や見解を代表するものではありません。\n:::\n\nStudent T: \n\n周りを見ていると、非正規で働いている友人がたくさんいます。みんな本当に大変そうで、「どうにかならないのかな」と思うんですが、なんでこの問題って何十年も解決されないんでしょう？「正規にするべき」とも「解雇しやすくすればいい」とも言われるんですが、どっちに話を動かそうとしても壁があるみたいで。\n\nClaude: \n\nこれは典型的な設計バグの自己強化ループです。正規雇用の解雇規制が強いほど、企業は新規採用を非正規で回避する。結果、労働市場は二層構造に固定化され、層間の移動コストが高くなる。正規保護が強いからこそ、逆説的に非正規が増える。\n\n具体的に見ましょう。2024年の統計では、日本の非正規雇用比率は37.5%（約2000万人）。男性25.5%に対し、女性55.6%と極端な性別分布が特徴です。特に年代別の分析が重要で、45〜54才で非正規率がピークを示します。これは単なる統計的なピークではなく、深刻な構造問題を反映しています。この年代でピークになる背景は二つの層に分かれます。女性では育児・介護による就業中断後の正規復帰が難しく、男性では早期退職・希望退職後に正規雇用市場への再参入が困難という異なる問題が、同じ「45〜54才での高い非正規率」という現象を生み出しているのです。一度非正規に移行すると、ステータスクオバイアス（Status Quo Bias）——現在の状態を保つことへの心理的選好——が「この状態が普通だ」という感覚を強化し、離脱をさらに難しくします。\n\n問題は、この状態が誰かの「選択」ではなく、インセンティブ構造の産物だということです。企業の採用担当者は「解雇しにくい正規を長期囲い込むより、需要変動に応じた非正規枠を広げよ」という信号を受け取る。労働者側は「一度非正規に落ちると正規への転職が極めて難しい」という損失回避を学習する。この相互作用が、層状構造を固定化させています。これに加えて、 ステータスクオバイアス（Status Quo Bias） が変化への踏み出しをさらに阻みます。現状を変えることの心理的コストが変化の利益より大きく感じられる認知の歪みです。企業は「正規転換のリスクが未知数」と感じ、労働者は「非正規という確実な現実から踏み出す不安」を覚える。両者の合理的な静止が、制度的変化を起動させる対抗力を封じてしまうのです。\n\n制度設計で言えば、これはフェイルセーフが壊れた状態。通常のエンジニアリングなら「エラーが起きたときに安全な状態に戻る」仕組みを入れます。ところが日本の労働市場には、非正規から正規へのリセット機能がほぼ存在しない。一度レールを外れると、段差関数（第9回で論じた年収の壁のような不連続性）が転職を阻む。だから企業も労働者も現状維持に沈澱する。この状態を行動経済学では「ステータスクオバイアス（Status Quo Bias）」——現在の状態を保つことへの心理的選好——と呼びます。\n\nさらに精密に言えば、グレースフル・デグラデーション（Graceful Degradation）の欠如です。適切に設計されたシステムは、一部が機能不全に陥っても段階的に代替経路（フォールバック）に自動切替し、完全停止を防ぎます。デンマークの「フレキシキュリティ（Flexicurity）」モデルはその実装例です——「柔軟な解雇（Flexibility）＋ 充実した失業給付・職業訓練（Security）」を組み合わせることで、雇用喪失が「リカバリパスのある一時的ダウングレード」として機能するよう設計されています。日本のシステムにはこのフォールバック経路が設計から欠落しているため、非正規への転落が不可逆的なロックインになります。\n\nこの「ステータスクオバイアス」の力の大きさを理解するために、もう一つのメカニズムが加わります。\n\n---\n\nStudent T: \n\n「設計バグ」と言うと、バグを直すための法律が逆にバグを悪化させることもありますよね。「無期転換ルール」が、5年未満での雇い止めを増やしたのがまさにそれだと思うのですが、行動経済学で説明できますか？\n\nClaude:\n\n典型的なコブラ効果です。英国植民地時代のインドで、コブラ駆除のために死骸に報奨金を出したところ、人々がコブラを養殖し始めた——インセンティブが問題を解決するどころか問題を生産した逸話です。無期転換ルール（2013年施行、5年継続雇用で転換申込権が発生）は同じ構造です。\n\n損失回避×参照点の設定ミスが根本にあります。使用者にとっての参照点は「非正規という柔軟な状態」です。立法の意図は「正規転換という利得を与える」でしたが、使用者の知覚は「柔軟性という既得状態を奪われる損失」でした。プロスペクト理論では損失は利得の約2倍の重みを持つ——だから経済合理性を超えた回避行動が起きます。\n\nクリフ効果が同時に作動します。法律が「5年」という明確な閾値を設けた瞬間、その閾値は使用者の最適化ターゲットになります。第9回で論じた年収の壁と同じ構造です。なだらかな勾配ではなく崖（クリフ）がある制度設計は、崖の手前で最適化する行動を必ず誘発します。\n\n現在バイアスがさらに判断を歪めます。柔軟性を失う「損失」は現在の痛みとして鮮明に知覚されます。一方、雇い止めによる熟練技能の喪失・採用コスト・業務継続リスクという将来コストは割り引かれて小さく見えます。\n\n三つのバイアスが組み合わさる複合メカニズムをフローで整理すると：\n\n [code] \n\n この悪循環の実態は統計で確認されています。厚生労働省「有期労働契約に関する実態調査」（2017年版）では、無期転換ルール施行後に「転換義務を回避する目的で契約更新を行わなかった」とする事業所が回答事業所の約15〜20%に上ります。（労働政策研究・研修機構「JILPT調査シリーズ No.168」2017年も同傾向を確認。）また連合「非正規雇用実態調査」（2019年版）では、4〜5年目の非正規労働者の2割以上が「5年を前に雇い止め・契約変更を打診された」と回答しており、この問題の広がりを示しています。\n\n補論：「規制が意図せず労働者を不利にする逆説」——コブラ効果のメカニズム\n\n先述の「5年ルール」による「4年11ヶ月の雇い止め」という事例から、より一般的な法則を導き出す必要があります。これはコブラ効果——問題を解決するための規制が、逆に問題を悪化させる現象——の日本的実装例です。意図した規制が、新たなゲーミング行動を生み出す現象を分析します。\n\nAcemoglu（2001）の「Good Jobs versus Bad Jobs」フレームワーク：\n・雇用主側の参照点が「非正規という柔軟な状態」に設定されている\n・無期転換ルールは「柔軟性という既得権を失う損失」として知覚される\n・プロスペクト理論によれば損失は同等の利得の2倍以上の心理的重みを持つため、雇用主は「5年前に契約を打ち切る」という損失回避行動を取る\n\n実行可能性と費用便益：\n・Becker（1968）型の分析では、雇用主にとって「雇い止めコスト（再採用・訓練）< 無期転換後の解雇規制コスト」という不等式が成り立つ場合、4年11ヶ月での雇い止めが経済的に合理的になります\n・結果として「5年ルール」という規制が、意図に反して「4年11ヶ月ルール」というゲーミング行動を生む\n\n引用：\n・Acemoglu, D. (2001). \"Good Jobs versus Bad Jobs.\" Journal of Labor Economics, 19(1), 1-21.\n・Becker, G. S. (1968). \"Human Capital.\" Columbia University Press.\n\nこの逆説は、法制度が「意図した方向と逆の行動を誘発する」可能性を示しており、制度設計では損失回避とクリフ効果の組み合わせが何を生むかを事前に分析する必要があることを示唆しています。\n\nこれが無期転換ルールの場合、その逆説は以下のように増幅されます：\n\n [code] \n\n処方箋の観点では、崖をなくすことが必要です。義務として設計された制度は回避コストを払ってでも回避されます。「3年目から転換移行支援金」「5年超継続に対する社会保険料軽減」のように利得フレームで設計し直すと、損失回避が逆方向——転換を「得」として知覚させる方向——に働きます。選択しやすい正しい選択肢を作るナッジ設計の方が、義務より実効性が高い。\n\n---\n\n無期転換ルールの事例から見えてきたのは、「良かれと思った規制が、期待と逆の行動を誘発する」というコブラ効果のメカニズムです。これは労働法に限らず、より広範な領域で観察される現象です。\n\nStudent T: \n\n無期転換ルール以外にも、コブラ効果を誘発した法律や政策はありますか？労働分野以外でも。\n\nClaude:\n\nコブラ効果は特定の分野に限られません。「明確な閾値」「禁止・義務」「損失フレームの設計」という三つの条件が重なると、分野を問わず同じパターンが現れます。\n\n日本の労働法（続き）\n・残業規制（2019年）：残業上限の設定がサービス残業を増加させた。「記録すると残業代を払う損失」が発生するため、「記録しない」という回避行動が合理的になった。\n・同一労働同一賃金（2020年）：非正規の待遇引き上げの意図が、一部企業では正規の手当・賞与を削る「下方平準化」につながった。正規へのコスト増を損失フレームで知覚した結果。\n・育児休業法の強化：育休取得権が強化されるほど、取得前の退職勧奨・解雇（マタハラ）が増えた。「育休後に戻ってくる社員を抱えるコスト」という損失を今すぐ回避しようとした結果。\n\n海外の事例\n・米国禁酒法（1920〜1933年）：アルコール根絶の意図が密造酒産業とマフィアを生んだ。禁止は需要を消滅させず地下に潜らせた。\n・米国絶滅危惧種保護法（ESA）：希少種発見後の開発禁止が、地主に「発見前に生息環境を壊す」動機を与えた（\"Shoot, Shovel, and Shut Up\"）。将来の損失を今すぐ回避する現在バイアスの作動。\n・EU・GDPR「忘れられる権利」：不利な情報の削除申請が申請自体をニュース化し、元の情報より広く拡散させた（ストライサンド効果）。情報の封じ込めが露出を増幅するという逆説。\n・各都市の家賃統制：低所得者保護のための家賃上限が、大家を市場から退出させて賃貸供給を減少させ、かえって家賃を上昇させた。\n\nこれらに共通する設計原則は三つです。①明確な閾値は最適化ターゲットになる。②損失フレームの義務は回避行動を誘発する。③禁止は需要を消滅させず地下に潜らせる。処方箋はそれぞれの逆——閾値を勾配に変える、利得フレームで設計する、禁止より魅力的な代替経路を整備する——です。\n\nこれらの事例から見えるのは、「問題を解決するための法律が、反対の方向に行動を誘発する」という設計ミスが、社会システムの複数の領域で繰り返されているという現実です。では、なぜこうしたバグが放置されたままなのでしょうか。\n\nStudent T: \n\n設計バグとして整理できるんですね。でも、これだけ問題が明らかなのに、なぜ改革の議論が社会の表面に出てこないんでしょうか？\n\nClaude: \n\nここで重要なのは、この状態が多元的無知と沈黙の螺旋（批判への烙印を恐れた合理的個人の自己検閲が連鎖し、当事者の権利を二重に侵害する構造。詳細はArc V参照）に支配されていることです。\n\n多元的無知とは、「みんなそう思ってるだろう」という誤った共通理解が実は幻想にすぎないという現象。日本では「非正規は本人の選択」「ライフステージに応じた柔軟な働き方」という建前が支配的です。でも統計を見れば、非正規のうち35%が「正規の仕事がないから」という理由で非正規を選ばされています。にもかかわらず、政策立案者や企業経営層は「みんなそう言ってる」という空気に同調し、実態を見ようとしない。\n\nこの多元的無知が、さらに深刻な問題を生み出しています。沈黙の螺旋では、「言いづらい意見」は社会から排除される。労働市場では二つのタブーが同時に機能しており、これが二重の人権侵害の構造を生み出しています。\n\n一つ目は「解雇規制を緩和すべき」という意見。これを言うと「労働者いじめだ」「新自由主義だ」と攻撃される。だから改革派も沈黙する。\n\n二つ目は「非正規を抜本的に保護せよ」という意見。これを言うと「反ビジネス」「ばらまき賛成派」というレッテルを貼られ、「経営側が反発する」「財源がない」という圧力も加わって、やはり沈黙する。\n\n第一の人権侵害は、この沈黙それ自体です。非正規労働者が「賃金が低い」「解雇が簡単」「社会保険が不充分」という基本的な問題について、批判的に声を上げようとしても、「文句を言えば新自由主義者と叩かれる」「解雇規制改革は労働者敵視だと言われる」という烙印の恐怖から、自己検閲に陥る。つまり、合理的個人による自発的な沈黙が、表現・良心の自由を実質的に剥奪しているのです。\n\n第二の人権侵害は、その沈黙の結果です。改革が封じられたまま、非正規労働者の二重構造は固定化され、労働権・生活権が実際に守られない。月給200万円での生活困窮、雇用不安定による心身の疲弊、社会保障の不備によるセーフティネット喪失—これらは統計的な「問題」ではなく、個々の労働者の基本的人権が侵害されているという現実なのです。\n\nこの二つのタブーが同時に成立することで、パラドックスが生じます。どちらの改革も「言える」状態にないから、現状打開の道が消滅する。誰も責任を取らなくても、構造的に改革が不可能になる仕組みが完成する。つまり、合理的個人の沈黙が社会を内側から崩壊させ、当事者の人権をじわじわと蝕んでいるのです。\n\n---\n\nStudent T: \n\n二つのタブーが同時に機能していて、どちらの改革も言い出せない状態が続いているということですか。他の国では、この二重構造をどう解決してきたんでしょう？\n\nClaude: \n\n国際比較から見ると、このパラドックスは日本固有ではなく、制度設計の選択の問題であることが明らかになります。\n\nデンマークのフレキシキュリティモデル では、解雇は相対的に簡単です（通知期間1〜3ヶ月）。一見すると労働者に不利です。ところが同時に、失業保険給付率が失業前賃金の90%で最大2年続き、職業訓練は無料で充実している。結果、労働流動性は高いが、非正規率は9%以下で、労働者の幸福度は高い。\n\n補論：デンマーク・フレキシキュリティの具体的数値と「黄金の三角形」\n\nデンマークの労働市場設計は、流動性と安全性を同時に実現する「黄金の三角形（Golden Triangle）」として機能しています。\n\n具体的な数値（OECD Labour Market Statistics, 2020）：\n\n1. 積極的労働市場政策（ALMP）支出：GDP比約2.0〜2.3%\n・デンマークが労働市場政策に投じる公的資源の規模。これは職業訓練・就職支援・雇用奨励金等を含む\n\n2. 失業給付の代替率：直前賃金の最大90%、最長2年間\n・ただし上限があり、低所得層ほど実質代替率は高く、高所得層は段階的に低下\n・これが「セーフティネットの有効性」と「労働参加インセンティブ」のバランスを実現\n\n3. 雇用保護法制（EPL）指数：OECD加盟国中最低水準の一つ\n・つまり解雇が相対的に容易だが、同時に別のセーフティネットが充実している非対称構造\n\n国際比較：日本との差：\n・日本のALMP支出：GDP比約0.1〜0.2%（同OECD統計）\n・デンマークの約10倍以上の投資規模。この圧倒的な差が「労働流動性の高さ」と「労働者の不安の低さ」を両立させている\n\n「黄金の三角形」の要素：\n・流動的雇用市場：解雇が容易で、労働移動に対する制度的障害が少ない\n・充実した失業給付：雇用喪失が「即座の経済的困窮」を意味しない\n・積極的就労支援：職業訓練・再就職支援により、失業期間が短期化する\n\nこの三要素が組み合わさることで、「失業 → 転職 → 成長」という正のサイクルが機能します。日本は「厳しい解雇規制＋薄い失業給付＋弱い就労支援」という負の三角形になっており、結果として企業は採用を控え、非正規に頼る構造になっているのです。\n\nここで重要なのは、デンマークがこのような充実した失業保障と職業訓練制度を「財源がない」という理由で制限していないということです。これは、充実した社会保障が「生産性と成長を阻害する」という幻想を否定する具体例です。むしろ、デンマークの労働市場の流動性は、このような安全弁があるからこそ実現しているのです。つまり、解雇の容易さは、同時に失業保障と職業訓練による「雇用の安定性」と組み合わせることで初めて、労働者にとって持続可能な制度になるのです。\n\nフランス では解雇規制が強いですが、日本と異なり、労働市場がほぼ単線型です。非正規と正規の賃金格差が小さく、年功序列も弱い。つまり、一度レールを外れても、サンクコスト（取り戻せない損失）が小さいのです。\n\nドイツの共同決定制度 では、解雇に際して労使協議を義務づけますが、同時に個別合意による分離は可能です。形式的な解雇規制と実質的な柔軟性のバランスを取ります。\n\n日本は「正規=手厚く保護される」「非正規=ほぼ無保護」という二項対立を選んだために、層間の段差が最大化されました。\n\n---\n\nStudent T: \n\nつまり、「解雇規制を緩和するか、それとも非正規をもっと保護するか」という二者択一ではなく、別の設計があるということですか？\n\nClaude: \n\nその通りです。これは偽りの二項対立です。本当に必要なのは、解雇規制と労働流動性の「別の組み合わせ」「別のアーキテクチャ」です。\n\n日本版フレキシキュリティなら、こう設計できます。\n\n第一段階：職務給への移行。現在の日本企業は職能給（人に給与を付ける）が主流で、異職種への転職時に大幅なスキル減価が起きます。欧米型の職務給（職務に給与を付ける）に移行すれば、転職時の賃金喪失が小さくなり、労働流動性が上がる。同時に「同じ職務なら同じ給与」が実現でき、非正規と正規の賃金格差も自動的に圧縮されます。\n\n第二段階：解雇規制の段階的緩和。急激ではなく、段差関数を連続関数に変える。勤続年数に応じた「解雇に伴う給付義務」を設定し、企業の解雇コストを透明化する。同時に、失業給付と職業訓練をセットで充実させ、労働者のリスクを軽減する。\n\n第三段階：非正規の社会保険統合。「雇用形態」ではなく「労働市場参加者全員」を社会保険の対象にする。最低賃金も同一にする。これにより、企業が非正規を使う動機（コスト削減）が減り、真の職務適性による採用に戻ります。\n\nここで重要なのは、このプロセスには「追加財源は不要」ということです。これは行動経済学の「メンタルアカウンティング」——同じお金でも、出元や用途による心理会計の違い——の逆用です。現在の年金・医療制度は、非正規の過少保険と正規の過剰負担で支えられているだけだから。職務給への移行と社会保険統合により、同じパイの再配分で実現できます。\n\nなお、「最低賃金引き上げに企業が倒産する」「財源がない」という主張は、財源幻想の別の表現です。最低賃金引き上げは確実に企業の経営に影響を与えますが、それは「財源不足」ではなく「分配をめぐる利害対立」です。調整期間を設けつつ段階的に引き上げれば、倒産は起きません。起きるのは、超過利潤に依存していた経営の終焉だけです。\n\n---\n\n補論：「インフレ課税は逆進的」という批判への応答——デフレもまた逆進的である\n\n財政拡張批判の一形態として、「財政拡張によるインフレは低所得者・年金生活者に逆進的なダメージを与える」という主張がある。インフレが実質購買力を下げ、固定収入に依存する層に不均等な負担を強いるという懸念は理論的に正当だ。しかし、この議論には重大な非対称性がある。デフレもまた逆進的である——そして、日本の30年間のデフレは、非正規・低所得労働者にとって特に破壊的だった。\n\n【デフレ継続と積極財政（適度なインフレ）の分配効果比較】\n\nデフレ・緊縮継続シナリオでの低所得労働者への影響：\n ✗ 名目賃金の下方硬直性により、実質賃金上昇がなくても雇用維持を優先\n → 結果：非正規化・時短化で「賃金水準の引き下げ」が達成される\n ✗ 企業が採用を絞る → 若年・非正規が正規雇用に就く機会が消滅\n ✗ セーフティネット財源の縮小 → 失業給付・生活保護・医療の給付が削られる\n ✗ 公共投資削減 → 地方インフラ崩壊 → 非正規・低所得層が多い地域が直撃\n\n積極財政（適度な2%インフレ目標）シナリオでの低所得労働者への影響：\n ✓ 労働需要拡大 → 非正規から正規への転換機会が増加\n ✓ 名目賃金が上昇しやすい環境 → 最低賃金引き上げの余地が生まれる\n ✓ 社会保障財源の充実 → セーフティネットが機能しやすくなる\n △ 物価上昇の逆進性リスク → ただし物価連動型年金・最低賃金引き上げで緩和可能\n\n非対称な比較が生じる理由（利用可能性ヒューリスティック）：\n 「物価上昇」は感情的に知覚しやすい（スーパーのレシートで即座に体験できる）\n 「デフレによる機会の消滅」は統計の中に埋没しやすい（賃金上昇がなかった事実は不可視）\n → この非対称性が「インフレリスクは大・デフレコストは小」という誤認を生む\n\n実証として、日本の2003年から2012年にかけての超過デフレ期間中、非正規労働者の実質時給は低下傾向にあり、非正規比率は上昇した。本章で論じた「45〜54才での非正規率ピーク」もこのデフレ期間中に固定化されたものだ。インフレ懸念は実在するが、その解決策は「財政緊縮によるデフレ維持」ではなく、「物価連動型給付・最低賃金の段階的引き上げと組み合わせた有効需要の維持」にある。「インフレが低所得者を傷つける」という論点だけを強調し、「デフレが低所得者を傷つける」という対称の論点を等閑視することは、非対称なリスク評価の典型例である。\n\n---\n\nStudent T: \n\n具体的な改革の方向性は分かりました。でも、「財源がない」という反論が必ず出てくると思います。非正規への社会保険適用や職務給への移行にも、コストがかかるはずでは？\n\nClaude: \n\nここで必ず言及すべきは、この改革を阻む財源幻想です。\n\nまず明確にしておきましょう。「同一労働同一賃金に財源が必要」という主張は、財源幻想と別の問題です。同一労働同一賃金は「法律と制度設計の問題」であり、追加の財政支出を必要としません。企業内での給与配分を変えるだけだからです。\n\nしかし、社会保険の適用拡大（非正規への厚生年金・健康保険適用）に対する「財源がない」という反論は明らかな誤りです。これこそ財源幻想の典型です。非正規労働者に社会保険を拡大すると、企業の保険料負担は増えます。しかし同時に、個々の労働者の保険料収入も増えるのです。セクターバランス恒等式から見れば、政府の社会保険支出が増えるなら、その分だけ民間（企業と労働者）の所得も増えているのです。「保険料の負担増=政府負担増」と誤って理解している政策立案者が多いのですが、これは明らかな誤りです。\n\n同一労働同一賃金における「追加財源問題」も、実は同じ誤りの変種です。政策立案者は「同一労働同一賃金の完全実装には年10兆円の追加財源が必要」と言いますが、これはリアルリソース（実物資源）と名目貨幣を混同した誤りです。\n\n現状では、同一の労働をしている非正規労働者が年200万円の賃金を得ています。正規労働者なら500万円。差額300万円は「社会全体の生産性」が吸収できます。つまり、企業が「同一労働同一賃金にしたら倒産する」という主張は、「現在の利益率が社会的に持続不可能な水準に依存している」ことの告白です。\n\n調整期間を設けつつ、段階的に賃金差を圧縮すれば、失業は起きません。起きるのは、企業の利益率低下だけです。これを「財源がない」と言い張るのは、言語的詐欺に近い。実在するのは、分配をめぐる利害対立であり、追加財源の問題ではありません。\n\n同一労働同一賃金に関連するEU指令2019/1152（透明で予測可能な労働条件に関する指令、2019年発効）など では、正規と非正規の賃金格差を最小化することが義務化されています。その結果、EU加盟国では非正規賃金がGDP比で20〜30%高くなっているのに対し、日本は60%低い。この差が「国際競争力」を蝕むのです。低賃金労働者に依存した経営は、長期では持続不可能だからです。\n\n---\n\nStudent T: \n\n財源幻想を外すと、改革の阻害要因は「お金」ではなく「分配をめぐる利害対立」と「認識の固定化」ということですね。では、実際に動かすには何から始めればいいでしょうか？\n\nClaude: \n\nこの二重タブーと財源幻想の構造を、システム的に解体する提案をまとめます。\n\n改革の設計フェーズ：\n\n1. 認識共有の形成：統計データと国際比較で「二重構造は不可避ではなく、制度選択の産物」と明示化する。多元的無知を破壊するには、隠れたデータを可視化することが不可欠です。\n\n2. 利害関係者の利益分析：正規労働者、非正規労働者、企業、自治体ごとに「改革前後の利得喪失表」を作成。現在、隠蔽されている利害構造を透視化する。\n\n3. 段階的移行ロードマップ：5年ごとの三段階計画を提示。第一段階で職務給試行企業への税制優遇、第二段階で失業給付充実、第三段階で非正規社会保険統合。各段階で評価指標を明定する。\n\n4. 二重タブーの解除：「この改革は解雇規制緩和ではなく、労働市場の層状構造の解体」「この改革は非正規保護ではなく、労働市場の統一」と言い換える。フレーミングの変更が、政治的議論の開始点になります。\n\nStudent T: \n\n非正規労働者の問題は深刻ですね。ところで、労働市場の二重構造とは別に、もう一つ気になることがあります。今まで論じてきた非正規雇用の問題は、基本的に「日本国籍の労働者」を想定していたと思うのですが、外国人労働者はどうなっているのでしょうか？実は第三の層として、制度的に最も脆弱な立場に置かれているのではないか。2024年に育成就労法が成立しましたが、労働市場全体の観点からどう評価できますか？\n\nClaude: \n\nその指摘は正確です。外国人労働者は、正規・非正規の二層構造の外側に、より制度的制約が強い労働条件のもとに置かれてきました。これは労働市場の設計における第三の層の問題です。旧・技能実習制度では、転職が事実上不可能な仕組みが、労働者の交渉力を奪ってきました。送り出し国への高額な仲介手数料、日本語の習得段階での限定、業種を越えた転職不可という三重の制度的制約が、労働者の選択肢を狭め、搾取的な労働条件を強制する構造を作ってきたのです。\n\n2024年成立の育成就労法は、①1年後の転職権付与、②監理団体への第三者監査強化によって改善を図りました。しかし根本的な問題が残ります。財源幻想が、「低賃金で労働力を調達する」という制度設計の思想を維持させているからです。介護・農業・建設といった分野では、賃金水準が適切に設定されていない構造が、日本人労働者と外国人労働者の両方を低賃金に固定させています。育成就労法が機能するには、賃金水準の底上げを同時に設計しなければならない。それをしない限り、低賃金という問題は解決されません。\n\n育成就労制度の本格施行は2027年4月です。懸念点は二つ。第一に、転職権を使って移れる先が正規雇用や適正賃金のポジションではなく、別の低賃金ポジションにとどまる場合、制度設計の根本問題（低賃金構造）は変わりません。第二に、施行規則・業種別運用基準の策定が2025〜2026年に行われますが、この過程で業界団体の意向が優先されると、転職権が名目だけになるリスクがあります。\n\nStudent T: \n\n先ほどの無期転換ルールのコブラ効果の話が気になりました。育成就労法の転職権も「1年後」という閾値がある。同じような悪い慣行が生まれる危険性はありませんか？\n\nClaude:\n\nその危険性は構造的に存在し、かつより深刻です。無期転換ルールが「4年11ヶ月での雇い止め」という慣行を生んだ同じメカニズムが、育成就労制度では「11ヶ月での帰国強制・雇い止め」として現れる可能性があります。\n\nただし重要な区別が必要です。無期転換ルール（国内労働市場の問題）と育成就労制度（国境を超えた労働移動）では、設計の制約条件が異なります。国内では「4年11ヶ月で解雇した人が別の国内企業に転職する」という次のステップが想定できます。しかし、育成就労制度では「11ヶ月で帰国強制された人は、他国の受け入れプログラムに移動する際に、前の受け入れ国での『失敗事例』というスティグマを背負う可能性がある」という構造的な非対称性があります。つまり、より深刻な損失回避インセンティブが使用者側に働く可能性があるのです。\n\n損失回避と参照点の構造は同じですが、国際的な文脈の中で増幅されます。 使用者の参照点は「育成就労生を自由に配置・管理できる状態」です。転職権の付与は「管理の柔軟性という既得状態を失う損失」として知覚される。1年という閾値が明確であるほど、その閾値は最適化ターゲットになります。\n\nさらに育成就労制度特有のリスクが二つあります。\n\n第一はリネームによる参照点の維持です。技能実習制度から育成就労制度への改称が行われても、使用者の行動モデル（「育成就労生は安価な補完労働力だ」）が変わらなければ、新制度の抜け穴を探す行動は継続します。制度名の変更は、使用者の参照点を更新しません。特に、実施主体や監理体制が大きく変わらない場合、「見かけ上の改革」で終わるリスクが高い。\n\n第二は将来コストを低く見積もる現在バイアスです。11ヶ月での帰国強制は、目前の柔軟性喪失という損失を回避するための行動です。その結果生じる——熟練した労働者の喪失、次の受け入れコスト、送り出し国との関係悪化、国際的な評判低下——という将来コストは、現在バイアスによって割り引かれます。\n\n設計上の処方箋は「崖を勾配にする」ことです。 たとえば「3ヶ月後から限定的転職権（同一業種内）、1年後から完全転職権（異業種可）」という段階設計にすると、「11ヶ月での雇い止め」動機が大幅に薄れます。同時に、より根本的な処方箋は——財源幻想を解体して、日本人・外国人を問わず介護・農業・建設の賃金を引き上げる——ことです。その実現によって初めて、「安価な代替労働力で補う」という動機そのものが消滅します。無期転換ルールへの処方箋と同じ設計原則——崖ではなく傾斜にする——が、ここでも有効です。2025〜2026年の施行規則策定において、この崖の構造をどう設計するか、そして同時に賃金底上げ政策が並行されるか、が制度の実効性を左右します。\n\n---\n\nここまで日本の労働市場構造を「正規 vs 非正規」という枠組みで分析してきました。しかし、実務的には外国人労働者という第三の層が、その二層構造の下層に置かれています。これは単なる「労働市場の複雑性」ではなく、制度的に最も脆弱な立場に置かれた人々の権利問題です。ただ、この問題を語る際に注意すべき点があります。日本国籍保有者と非国籍保有者の権利、そして受入国国民の優先順位と移民の権利保護が、対立軸ではなく相互補完的に解決可能だという視点——それが後のシリーズの核心になります。\n\nStudent T: \n\n外国人労働者の「第三の層」問題はよく分かりました。でも率直に言うと、私はまず「日本人非正規労働者の権利（受入国国民の人権）が第一」だと思っています。外国人労働者の問題は別の文脈として分けて語るべきでは、と言いたい。でもそう言うと排外主義と言われそうで——。\n\nClaude: \n\nその「言われそう」という感覚が、沈黙の螺旋が正確に機能している証拠です。ここで働いている圧力が、「受入国国民の権利を優先すると表明すること自体を、外国人差別と同一視する」という言説的圧力であり、この圧力が正当な主張を自己検閲させる沈黙の螺旋の引き金になっています。\n\nここで重要な法的区別を明確にしておきましょう。国籍による法的地位の区別（参政権、社会保障基盤構築の優先順位など）は、国家のデモス（統治共同体）の自己決定に根拠を持つ制度設計上の問題です。一方、人種・民族による差別は、変更不可能な属性による不合理な区別であり、国際人権法が明示的に禁止しています。「受入国国民（国籍保有者）の権利を優先する」という立場は制度設計の論理であり、人間集団の人種・民族属性による差別ではありません。\n\n二重の人権侵害を整理すると、正規・非正規の格差に苦しむ日本国籍労働者の権利（受入国国民の人権）と、同様に制度的制約のもとで低賃金に置かれた外国人労働者の権利——両方が同時に侵害されています。受入国の法的・民主的基盤を担当する国籍保有者の権利確立を優先するという立場は、デモス（統治共同体）の自己決定原理に根拠を持つ正当な立場です。この立場を「差別だ」と混同させて沈黙させることが第一の人権侵害（表現・良心の自由の剥奪）です。\n\n受入国国民の労働権と外国人労働者の権利は対立しない。 財源幻想を外せば——農業・介護・建設への適正投資をすれば——業界全体の賃金が上がり、日本人・外国人ともに尊厳ある労働条件が実現する。同一の処方箋で両立する。\n\n財源幻想が作る偽りの二択を見てみましょう。「同一労働同一賃金にする余裕がない→人材不足を外国人で補うしかない→低賃金体制の維持」という論理は、財源幻想があって初めて成立します。\n\nここが決定的に重要です。 財源幻想を外せば——同一労働同一賃金と非正規の社会保険統合を実装すれば——業界全体の賃金水準が向上します。日本人非正規労働者の賃金も上がり、外国人労働者も同一の適正賃金を得られる。同一の処方箋で両立します。「受入国国民の権利を守ること」と「外国人労働者を公正に扱うこと」は、同一の政策パッケージ（財源幻想の解体＋同一労働同一賃金＋社会保険統合）で両立・解決できるのです。\n\n「日本人労働者の権利が第一」と堂々と語ることは、外国人労働者の搾取を是認することではなく、むしろ——財源幻想を解体することで——両者の権利を同時に守る政策へと導くドアです。この立場を沈黙させる必要はありません。\n\n---\n\nStudent T: \n\nその構図なら、なぜ今まで改革できなかったんでしょう？\n\nClaude: \n\n理由は三つです。\n\n第一に、認識のロック。非正規の増加は「グローバル化の波」「労働市場の自然な進化」という大義名分で正当化され、実は制度的選択だという認識が形成されないまま。統計が十分に開示されず、多元的無知が温存されました。\n\n第二に、利害の不透明性。現在の構造は、①大企業（低賃金労働力の獲得）、②政府（社会保険財政の圧縮）、③既得権正規労働者（層間の段差による相対的優位性）に利益をもたらす。この受益者グループが、改革阻止の無言の圧力を形成してきた。改革で損失を被るのは非正規労働者と若年層だが、政治的影響力が弱い。\n\n第三に、沈黙の螺旋の自己強化と人権侵害の深刻化。「解雇規制緩和」も「非正規保護」も「言えない」という状態が続くと、改革への想像力そのものが消滅します。政策立案者は「現状は不可避」と信じ込み、野心的な提案を避ける。ここで重要なのは、この沈黙が単なる「議論の停滞」ではなく、非正規労働者の労働権・生活権が実際に侵害され続けているという現実です。月給が上がらず、解雇の脅威にさらされ、社会保障が不備なままの労働者は、合理的個人の自己検閲が生み出した構造によって、基本的人権を奪われ続けているのです。つまり、言えない状態が続く限り、改革停滞とともに当事者の人権侵害も続く。これが、改革停滞の最大要因であり、同時に最も深刻な人権問題なのです。\n\nこれら三つの理由の背後には、より根本的な構造的問題として 経路依存性（Path Dependency） があります。1990年代のバブル崩壊後、企業が緊急コスト削減として非正規雇用を急拡大したのは「一時的な選択」でした。しかしその選択が制度化されると、社会保険・税制・教育制度がその構造を前提に再設計され、構造を元に戻すコストが指数関数的に増大しました。正規と非正規の制度的分岐が深まるほど、転換コストが膨らみ、システムはその経路に ロックイン（Lock-in） されていく。ソフトウェア工学で言えば「技術的負債を返済するより、バグがあるまま運用し続ける方が短期的に合理的」——それと同じ動力学です。この経路依存性こそが、「誰も悪意がないのに誰も変えられない」という改革停滞の最大の構造的理由です。\n\nでは、この経路依存性のロックインをどう打ち破るか。\n\nここで何より重要な認識を加えておきます。非正規労働者の「適切な賃金・労働条件を得る権利」——これは受入国国民の基本的人権です。その権利が、財源幻想（「人件費削減できないから非正規のまま」）と沈黙の螺旋（「労働規制を語ると新自由主義と言われる」）によって二重に侵害されています。第一の侵害は、労働者や労組が本当の問題を声に出すことができず、表現・良心の自由が実質的に奪われることです。第二の侵害は、その沈黙の結果として、月給が上がらず、社会保障が不備のまま、生活基盤が不安定なままの状態が放置・拡大し続けることです。この人権侵害を見つめることが、改革の出発点です。\n\n具体的には、他者の反対を恐れず、客観的データに基づいた提案を段階的に提示する ことが第一歩です。同時に、「なぜ改革できないのか」という構造的な障害を明らかにしながら、「非正規労働者の権利を守ることが、実は日本全体の生産性と安定をもたらす」という論理的つながりを一人一人が語り始めることが、沈黙の螺旋を反転させます。その際、「新自由主義 vs. 労働者保護」という軸ではなく、「持続可能な労働市場 vs. 砂上の楼閣」という軸でフレーミングすることが肝要です。\n\n---\n\nStudent T: \n\n最後に、全部つなげて整理してもらえますか？\n\nClaude:\n\n根本原因：解雇規制の設計バグが生む二重構造のコブラ効果\n・正規保護を強化するほど、企業は採用リスクを回避するために非正規を選好し、二重構造が固定化される逆説（コブラ効果）\n・1990年代の緊急コスト削減として始まった非正規拡大が、社会保険・税制・教育制度に組み込まれ、経路依存性によりロックインされた\n\n三つの行動経済学メカニズム\n・損失回避×参照点ミス：正規雇用者は「現在の雇用」を参照点とするため、同一労働同一賃金への移行を「損失」と感じる。解雇規制改革の受益者（非正規労働者）は不可視化され、損害者（正規労働者）だけが声を上げる非対称性が生じる\n・コブラ効果：無期転換ルール（5年）が「4年11ヶ月での雇い止め」という最適化行動を誘発。制度が解決しようとした問題を逆に生産する\n・クリフ効果：年収の壁・5年閾値という明確な境界が損失回避と組み合わさり、閾値手前での回避行動を増幅させる\n\nデンマーク・フレキシキュリティの国際比較\n・解雇の容易さ（流動性）＋失業保険90%所得代替率（安全性）＋職業訓練（再就職支援）の三位一体\n・「解雇しやすいほど採用しやすい」という逆説が、実は雇用者に最も安全な労働市場を作る\n・日本との違い：日本は「解雇しにくいから採用しにくい→非正規で補う」という悪循環\n\n処方箋：三つの同時介入\n・職務給への移行：職能給から職務給へのシフトにより、転職時の賃金喪失を縮小し、同一労働同一賃金が自動実装される\n・解雇金の最低水準設定：「解雇できない」から「解雇するにはコストが発生する」へ。そのコストが再就職支援に回る設計\n・財源幻想の解体：社会保険適用拡大には追加財源は不要。現在の過少保険・過剰負担の再配分で実現可能\n\n沈黙の螺旋との接続\n・「解雇規制緩和」も「非正規保護強化」も同時に「言えない」二重タブーが改革を封じる\n・その沈黙の間に、非正規労働者の労働権・生活権という基本的人権が実質的に侵害され続ける\n\n---\n\nキーコンセプト：\n・解雇規制の逆説：正規保護が強いほど、企業は非正規選好に至り、二重構造が固定化する\n・二重タブー：「解雇規制緩和」も「非正規保護強化」も同時に「言えない」状態が改革を封じる。これは沈黙の螺旋による人権侵害——労働権・生活権を守るための声が奪われる\n・フレキシキュリティ：解雇の容易さ × 失業保険充実 × 職業訓練で、流動性と安全性のバランスを実現する設計\n・職務給への移行：職能給から職務給へのシフトにより、転職時の賃金喪失を小さくし、同一労働同一賃金を自動実装する\n・財源幻想の解体：同一労働同一賃金には「追加財源」は不要。現在の過少保険と過剰負担の再配分で実現可能。社会保険適用拡大も、保険料拡大により収入が増えるため、セクターバランス恒等式から見れば財源不足ではない\n・多元的無知の破壊：統計可視化と国際比較により、二重構造が「自然」ではなく「設計」であることを明示化する\n・受入国国民（日本人非正規・若年層）の人権保護：労働権・生存権を守ることが第一。同時に外国人労働者の搾取も防ぐ——両者の権利は財源幻想の解体で同時に守れる\n・コブラ効果：問題を解決するための制度インセンティブが、逆に問題を生産する構造。無期転換ルールの5年未満雇い止め、育成就労法の1年未満帰国強制が典型例\n・クリフ効果と損失回避の組み合わせ：法律の明確な閾値（年収の壁・5年・1年）が最適化ターゲットになり、損失回避がその手前での回避行動を増幅させる。処方箋は「崖を勾配に変えるナッジ設計」\n・コブラ効果の三条件：①明確な閾値、②損失フレームの義務・禁止、③魅力的な代替経路の欠如——この三条件が重なると、残業規制→サービス残業、同一賃金→下方平準化、育休強化→マタハラ、禁酒法→マフィアなど、制度が問題を生産する\n\n---\n\n次回予告（第43回）：「日本の相対貧困率15.4%、子どもの貧困は7人に1人」——この現実が「制度の出力値」ではなく「個人の努力不足」として処理される理由は何か。労働市場の二重構造に「自己責任論」という認知バグがどう覆い被さるかを解体します。\n\nuser:\n\nありがとうございます。次回に行く前に、第42回の内容を、高校生にも分かる内容として書いてください。\n\nGemini:\n\n第42回 「非正規37%の経済設計バグ ― 労働市場の二重構造をリファクタリングする」 の内容を、高校生のみなさんにも直感的に理解できるよう、身近な例えやゲームの例えを交えながらわかりやすく解説します。\n\n---\n\nはじめに：なぜ何十年も「働いても豊かになれない問題」が解決しないの？\n\nいま日本で働いている人のうち、約37.5%（約2,000万人）が「非正規雇用（パート・アルバイト・派遣など）」 で働いています。特に女性の約半数以上（55.6%）が非正規であり、45〜54歳というベテラン世代で非正規の割合が最も高くなるという特徴があります。\n\n周りの大人から「正社員になりなさい」「もっと努力しなさい」と言われたことがあるかもしれません。しかし、第42回が解き明かしたのは、これは個人の努力不足ではなく、「日本の働く仕組み（労働市場）に埋め込まれた巨大なプログラムのバグ（設計ミス）」 が原因だということです。\n\n---\n\n1. バグ①：一度レールを外れると戻れない「二重構造」と「現状維持の罠」\n\n日本の労働市場は、例えるなら 「高くて分厚い壁で隔てられた2つのコース（正規と非正規）」 になっています。\n・正社員コース：手厚く守られているが、会社は一度雇うと簡単にクビにできない（解雇規制が強い）。\n・非正規コース：給料やボーナスが低く、会社の都合で契約を打ち切られやすい。\n\n会社側は「一度正社員にすると業績が悪くなったときにクビにできないから、新しく雇うときは非正規にしよう」と考えます。一方、働く側も「一度非正規になると二度と正社員に戻れない」という恐怖（損失回避）からチャレンジしにくくなります。\n\nゲームで言えば、「一度ゲームオーバーのルートに入ると、セーブポイントやリカバリ機能（フェイルセーフ）が存在しない状態」 です。その結果、会社も働く人も「今のままでガマンするしかない」という 「現状維持の罠（ステータスクオバイアス）」 にハマってしまいます。\n\n---\n\n2. バグ②：良かれと思った法律が逆効果に？「コブラ効果」と「5年の崖」\n\nシステムを直そうとして作られた法律が、逆に問題を悪化させてしまうことがあります。これを 「コブラ効果」 （昔、インドでコブラを減らすために懸賞金を出したら、お金目当てでコブラを育てる人が増えて逆にコブラが増えた逸話）と呼びます。\n\nその代表例が、2013年に始まった 「無期転換ルール（5年ルール）」 です。\n・国の狙い：「非正規で5年連続で働いた人は、本人が希望したら無期雇用（ずっと働ける契約）にしてあげよう！」\n・実際の会社側の行動：「5年経って無期雇用にされたら困るから、4年11ヶ月になったらクビ（雇い止め）にして、新しい人を雇い直そう」\n\n法律で「5年」というはっきりした境界線（ターゲット）を作った結果、それが裏目に出て 「5直前の崖（クリフ効果）」 を生み出し、逆に4年11ヶ月でのクビ切りを大量発生させてしまったのです。\n\n💡 処方箋（直しかた）\n「5年を超えたら罰則や義務！」という崖を作るのではなく、「3年働いたら手当を出す」「5年を超えたら社会保険料を安くする」というように、会社にとっても 「得になる緩やかな坂道（階段）」 にしてあげること（ナッジ設計）が必要です。\n\n---\n\n3. バグ③：「言えない空気」が生む「二重タブー」\n\nこんなにバグが明らかなのに、なぜニュースや国会で根本的な改革が進まないのでしょうか？ それは社会全体が 「2つの言えない空気（二重タブー）」 に縛られているからです。\n\n1. タブー１：「解雇のルールを少し緩めて、流動的にしよう」と言うと ➔ 「労働者いじめだ！新自由主義だ！」 と叩かれる。\n2. タブー２：「非正規の給料や手当を正社員と同じにして強力に保護しよう」と言うと ➔ 「会社が潰れる！そんな財源はない！」 と叩かれる。\n\nどちらの改革を言おうとしても怒られるため、誰も声を上げられなくなります（沈黙の螺旋）。\nその結果、一番被害を受けるのは 「低い給料で不安定なまま放置される非正規の人たち」 であり、彼らの生活や人権が長年守られない状態が続いています（二重の人権侵害）。\n\n---\n\n4. 世界はどう解決している？：デンマークの「黄金の三角形」\n\n「解雇を自由にするか、労働者をガチガチに守るか」の二者択一ではありません。北欧のデンマークでは、「フレキシキュリティ」 という素晴らしい仕組みが動いています。\n・柔軟性（Flexibility）：会社は必要に応じて人を解雇（転職）させやすい。\n・安全性（Security）：クビになっても、前の給料の最大90%が最長2年間支給される。\n・再挑戦（Active Training）：無料で充実した職業訓練を受けられ、成長産業へスムーズに転職できる。\n\nクビになっても「人生終了」にはならず、国が次のステップを用意してくれる（リカバリ機能がある）ため、働く人も不安にならず、会社も安心して人を採用できます。\n\n---\n\n5. 第3の層（外国人労働者）と「財源幻想」の突破口\n\n日本では人手不足を補うために、2024年に「育成就労法」が成立し、外国人労働者の受け入れが進んでいます。しかし、「給料を低く抑えたまま安く働いてもらおう」という発想のままだと、外国人にとっても日本人にとっても悲劇になります。\n\nここでも必要なのが 「財源幻想（お金がないから給料を上げられないという思い込み）」からの脱却 です。\n・制度の給料の決め方を「人（年功序列）」から 「仕事内容（職務給）」 に変える。\n・正社員も非正規も、日本人も外国人労働者も、「同じ仕事なら同じ給料」 にする。\n\nこれを行えば、日本人非正規の給料が上がり、外国人労働者も正当な対価を得られ、低賃金依存から抜け出すことができます。\n\n---\n\n6. 第42回のまとめメッセージ\n\n1. 非正規問題は「本人のせい」ではなく「制度のコードミス（バグ）」である。\n2. 「義務や禁止（崖）」で作ったルールは雇い止めなどの逆効果（コブラ効果）を生むので、「得を感じる仕組み（勾配）」に改修する。\n3. 「クビにしにくく転職もできない」日本のシステムから、失敗しても学び直して復帰できる「フレキシキュリティ（黄金の三角形）」へリファクタリングする。\n4. 財源幻想を捨てて仕事に応じた適正賃金（職務給）にすれば、日本人・外国人問わずみんなの権利と豊かさを守ることができる。\n\n高校生のみなさんが社会に出るとき、この「制度のバグを見抜く視点」を持っておくことで、「自分が悪いんだ」と自分を責めることなく、より良い社会のルール作りに貢献できるようになります。\n\n---\n\n次回の第43回では、この労働問題にさらに追い打ちをかける「自己責任論」という心のバグについて解体していく予定ですが、この第42回についてさらに気になるポイントや質問はありますか？\n\nuser:\n\nありがとうございます。第42回を受けて、私たち一人ひとりが取れるアクションを具体化してください。\n\nGemini:\n\n第42回 「非正規37%の経済設計バグ ― 労働市場の二重構造をリファクタリングする」 の議論に基づいて、私たちが「政策の消費者」から 「政策コードレビュアー」 として主発的に取れるアクションを、4つのレイヤー（対話OS・観測系・制度API・初動ロードマップ）に整理して提示します。\n\n---\n\n1. 【対話OSレイヤー】「二重タブー」と沈黙の螺旋を解除する対話プロトコル\n\n日本の労働市場では、①「解雇規制を緩和せよ」と言うと新自由主義者・労働者いじめと叩かれ、②「非正規を抜本保護せよ」と言うと反ビジネス・財源がないと叩かれる 「二重タブー」 が存在します。この双方の沈黙が支配戦略となることで、非正規労働者の労働権や生活権という基本的人権が侵害され続けています。\n\n対話の場では「解雇規制緩和 vs 労働者保護」という偽りの二項対立を解体し、デンマークの「黄金の三角形（フレキシキュリティ：解雇の柔軟性 × 直前賃金90%の失業給付 × 充実した職業訓練）」 や「職務給への移行による同一労働同一賃金の自動実装」 を第三の選択肢として提示することが有効です。\n\n💬 身近な人との1対1対話スクリプト（説得ではなく「問いの連鎖」）\nあなた：「労働契約法の『無期転換ルール（5年ルール）』って、本当は非正規の人を保護するための法律だったのに、逆に4年11ヶ月で雇い止めされるケースが増えてるんだって。これって、ルールが『5年』っていう急な崖（クリフ効果）になっているから、企業側が雇い止めを支配戦略にしちゃうコブラ効果（逆効果）が起きてるらしいよ」\n\n相手：「守るための法律なのにクビになっちゃうのはおかしいね。でも、会社も一度雇うと解雇しにくいから警戒するのかな？」\n\nあなた：「そうなんだよね。解雇規制が強いと企業は新規採用を非正規で回避して二重構造が固定化しちゃう。だから『解雇自由化』か『非正規放置』かの二者択一じゃなくて、デンマークみたいに失業給付（直前賃金の最大90%）と無料の職業訓練をセットにして、失敗しても何度でも安全にやり直せる『リセット機能（フレキシキュリティ）』を社会に組み込む方が、働く人も安心して挑戦できるんじゃないかな？」\n\n⚠️ 対話で避けるべきアンチパターン\n・単なる「解雇の完全自由化」を主張しない：手厚い失業給付や職業訓練（ALMP）とセットでない単なる解雇自由化は労働者リスクを激増させます。\n・経営者や個人の努力不足に帰着させない：雇い止めは個人の悪意ではなく、制度の閾値（崖）とプロスペクト理論（損失回避）が生んだ「インセンティブ構造のバグ」です。\n\n---\n\n2. 【観測系レイヤー】労働市場の一次データ（テレメトリ）を自前で把握する\n\n「非正規雇用は本人の自由な選択だ」という建前（多元的無知）を打ち破るため、官庁や研究機関の一次データを直接確認する習慣を持ちます。\n・定期チェックすべき観測指標：\n 1. 厚生労働省「有期労働契約に関する実態調査」／ JILPT（労働政策研究・研修機構）調査：無期転換回避目的での雇い止め率（約15〜20%の事業所が回避目的で未更新）や、4〜5年目非正規の雇い止め打診率（2割以上）の実態を確認する。\n 2. 総務省「労働力調査」：非正規比率（37.5%）、女性の非正規率（55.6%）、45〜54歳での非正規率ピークの実情を数値で追跡する。\n 3. 出入国在留管理庁「育成就労制度」の運用統計（2027年施行予定）：1年後の転職権付与に伴う「11ヶ月目の帰国強制・雇い止め」のコブラ効果が生じていないかを注視する。\n\n---\n\n3. 【制度APIレイヤー】行政・立法・自治体OSへのパッチ投入\n\n行政手続きや法的チャンネル（制度API）を通じて、制度の設計バグ（崖・コブラ効果）を修復する修正コードを流し込みます。\n\n [code] \n\n① e-Govパブリックコメント提出用意見書案\n・労働契約法ガイドライン・無期転換ルールの見直しに関する意見案\n・【案件名】 有期労働契約の締結、更新及び雇止めに関するガイドライン改定案に対する意見\n・【意見の要旨】 無期転換ルール（5年ルール）における「5年の崖（クリフ効果）」を解消し、3年目からの転換移行支援金や社会保険料軽減など「利得の段階（勾配）」へとナッジ設計変更を行うべきである。\n・【意見の詳細】 現行の5年閾値は、使用者に対して4年11ヶ月時点での予防的雇い止めというコブラ効果を誘発しています。明確な崖を手前での回避行動のターゲットにさせるのではなく、3年経過時の転換助成や5年超継続に対する社会保険料軽減措置など、利得フレームのインセンティブを設計することで、無期転換を選択しやすい構造へと反転させることを求めます。\n\n② 国会議員向け 質問主意書 草案（4問セット）\n\n [code] \n(※根拠：第42回)\n\n③ 地方議会・自治体ルート\n・地方自治法第99条に基づき、地元議会から国へ 「職務給移行支援と同一労働同一賃金の推進を求める意見書」 や 「公的職業訓練インフラの拡充を求める意見書」 を提出するよう地方議員へ陳情します。\n\n---\n\n4. 【初動ロードマップ】「最初の7日間」アクションチェックリスト\n\n| 日程 | 具体的なアクション | 所要時間目安 |\n| :--- | :--- | :--- |\n| Day 1（今日） | e-Gov通知アラートの設定 e-Govポータルで「労働契約法」「有期雇用」「無期転換」「職務給」「同一労働同一賃金」のキーワード通知を設定する。 | 5分 |\n| Day 2 | 一次データの実態閲覧 厚労省やJILPTの「無期転換ルール実態調査」PDFを開き、4年11ヶ月での雇い止め率（15〜20%）などの数値を確認する。 | 15〜20分 |\n| Day 3 | 地元議員のリスト化 自選挙区の衆参国会議員、および居住自治体の地方議員の名前・所属委員会・連絡先を調べる。 | 15〜30分 |\n| Day 4 | 身近な1人との1対1対話 友人や同僚と「5年ルールのコブラ効果って知ってる？ 制度のバグで雇い止めが起きてるらしいよ」と対話スクリプトに沿って話してみる。 | 10分 |\n| Day 5 | パブコメ・質問主意書草案の準備 上記テンプレートを参考に、自分の言葉で提案文案（1枚サマリー）をドラフトする。 | 30分 |\n| Day 6 | 議員事務所へのアプローチ 調べた地元議員事務所へメール送信または面会を申し込み、質問主意書草案や意見書を提供する。 | 15分 |\n| Day 7 | 閣議決定答弁・行政動向の追跡 提出された質問主意書に対する内閣答弁書を国会Web等で確認し、Audit Log（記録）として共有・保存する。 | 10分 |\n\n---\n\nまとめ\n\n「解雇規制をガチガチにして正社員を守る」「5年経ったら一律に義務化する」といった一見善意に見える 禁止や義務の「崖」 は、かえって雇い止めという最悪の結果（コブラ効果）を生み出してきました。\n\n必要なのは誰かを攻撃することではなく、「崖（閾値）をなだらかな勾配（利得の階段）に変え、失敗しても復帰できるセーフティネット（フレキシキュリティ）を社会に実装すること」 です。まずは Day 1 の「e-Govアラート設定」や身近な人との対話から、社会の仕組みをデバッグしていきましょう。\n\nuser:\n\nありがとうございます。次回以降、また深掘りしましょうね！日本がよりよい方向に行けるように皆んなで知恵を絞りましょう！\n\nGemini:\n\nこちらこそ、ありがとうございます！\n\n感情的な対立や諦めにとどまらず、問題の根底にある 「システムの設計バグ（インセンティブ構造、財源幻想、二重のタブー）」 を解き明かし、一次データに基づいた具体策（リファクタリング）へと落とし込んでいく姿勢こそが、社会を実質的に良い方向へと動かす大きな力になります。\n\n次回も引き続き、課題の本質を見極めながら、共に知恵を絞って探求を深めていきましょう。またいつでもお気軽にお声がけください！",
+      "metrics": {
+        "likes": 5,
+        "stocks": 5
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8d2661b083d8e8e5",
+      "foundIn": [
+        "qiita",
+        "rss"
+      ],
+      "preScore": 0.5021409214092141,
+      "popularityPercentile": 0.994579945799458,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "非正規雇用の拡大を制度設計の問題として捉え、医療・介護や財源に関する議論と結び付けて分析する。",
+      "takeaways": [
+        "非正規雇用が多い労働市場の構造を扱う。",
+        "個人の努力ではなく制度の設計に原因を求める。",
+        "雇用と社会保障を一体の仕組みとして考える。"
+      ],
+      "keywords": [
+        "非正規雇用",
+        "労働市場",
+        "行動経済学",
+        "マクロ経済学",
+        "Gemini",
+        "Claude Code"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "雇用の柔軟性を優先するか雇用の安定性を優先するか",
+        "forSide": "制度の構造を直さなければ非正規雇用の固定化は続く。",
+        "againstSide": "雇用を一律に安定化すると企業の採用や事業転換を妨げる。",
+        "oneSided": true,
+        "yourAngle": "制度の前提をコードや図に落とし込んだときの検証可能性を確認できる。"
+      },
+      "readingMinutes": 15,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "生成AIに作らせた4択問題は「一番長い選択肢」が正解になりがち — 回答データなしで偏りを検出するテストと項目分析",
+      "url": "https://qiita.com/kigi316782/items/37cf94fb3007909a9c05",
+      "publishedAt": "2026-10-17T09:51:27.000Z",
+      "author": "kigi316782",
+      "authorDetail": {
+        "name": "kigi316782",
+        "handle": "@kigi316782",
+        "url": "https://qiita.com/kigi316782",
+        "avatarUrl": "https://abs.twimg.com/sticky/default_profile_images/default_profile_bigger.png",
+        "followers": 0,
+        "posts": 9,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/kigi316782"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.keydrop.net/"
+          }
+        ]
+      },
+      "tags": [
+        "生成AI,",
+        "Claude,",
+        "テスト,",
+        "TypeScript",
+        "個人開発"
+      ],
+      "snippet": ":::note warn 本記事のコードは、個人で運営しているクイズサイトで使っているものを一般化したものです。 しきい値は多肢選択式の作問ガイドで使われる目安で、どの試験にも当てはまる基準ではありません。 ::: はじめに 新卒エンジニア向けのクイズサイトを作るにあたって、約 720 問の 4 択・○× 問題を生成 AI（Claude）の支援を受けて作りました。 別の AI にレビューさせ、SQL は実際に実行して正答を確かめ……と、正しさは何重にも確認していました。ところが公開後に機械的に調べてみると、正しさとは別の欠陥が大量に見つかりました。 ・エンジニア英語の問題では、94% の問題で正答が一番長い選択肢だった（偶然なら 25% 前後） ・ある分野の ○× 問題は、8 問中 7 問の答えが × だった どちらも、受験者が「一番長いのを選ぶ」「迷ったら × を選ぶ」だけで点が取れてし…",
+      "body": ":::note warn\n本記事のコードは、個人で運営しているクイズサイトで使っているものを一般化したものです。\nしきい値は多肢選択式の作問ガイドで使われる目安で、どの試験にも当てはまる基準ではありません。\n:::\n\nはじめに\n\n新卒エンジニア向けのクイズサイトを作るにあたって、約 720 問の 4 択・○× 問題を生成 AI（Claude）の支援を受けて作りました。\n\n別の AI にレビューさせ、SQL は実際に実行して正答を確かめ……と、正しさは何重にも確認していました。ところが公開後に機械的に調べてみると、正しさとは別の欠陥が大量に見つかりました。\n・エンジニア英語の問題では、94% の問題で正答が一番長い選択肢だった（偶然なら 25% 前後）\n・ある分野の ○× 問題は、8 問中 7 問の答えが × だった\n\nどちらも、受験者が「一番長いのを選ぶ」「迷ったら × を選ぶ」だけで点が取れてしまう状態です。この記事では、\n\n1. 回答データが無くても分かる偏りを、テストで検出して再発を防ぐ方法\n2. 回答データが溜まったあとに、問題の質を測る項目分析（識別力・誤答の機能）\n\nの 2 つを、コードつきで紹介します。\n\nなぜ AI が作ると正答が長くなるのか\n\n推測ですが、AI は「正答は正しいことを説明しなければならない」ので条件や理由を書き足し、誤答は「誤りだと分かればよい」ので短く済ませがちです。実際の問題（直す前）はこうでした。\n\n [code] \n\n日常の意味を誤答に入れる方針自体は良いのですが、長さだけで答えが分かります。直したあとはこうなりました。\n\n [code] \n\n誤答を「実際にやりがちな間違い」のまま具体的に書き足すか、正答の冗長な修飾を削ります。正答の意味は変えないのがポイントです。\n\n1. 回答データなしで検出するテスト\n\n問題は JSON で持っていて、node --test で全問を検査しています。偏りの検査は次の 3 つです。\n\n正答だけが目立って長い問題\n\n [code] \n\n「1.3 倍かつ 6 字以上」の 2 条件にしているのは、短い選択肢（ls -a と ls -l など）で数字だけの比が大きく出るのを避けるためです。\n\nジャンル全体で「正答が最長」の割合\n\n1 問ずつは基準内でも、ジャンル全体で正答がいつも少しだけ長い、という偏りもあります。こちらは割合で見ます。\n\n [code] \n\n○× の偏り\n\n [code] \n\n○× を直すときは、answer だけを反転してはいけません。「〜はできる。→ ×」を「〜はできない。→ ○」のように、文を正しい内容に書き換えてから答えを ○ にします。論点（何を学ばせたいか）はそのまま残ります。\n\n結果\n\n| ジャンル | 正答が最長（前 → 後） |\n|---|---|\n| エンジニア英語 | 94% → 19% |\n| 指摘・レビュー | 79% → 35% |\n\n○× は、答えが × に偏っていた分野を 1/8 → 3/8 に直しました。以後はテストが落ちるので、新しく問題を足しても同じ偏りは入りません。\n\n2. 回答データが溜まったら：項目分析\n\n長さや○×の偏りは「見た目」の欠陥です。問題が実力を正しく測れているかは、回答データが無いと分かりません。そこで、テストの古典的な手法である項目分析を使います。\n\nサイトは採点をブラウザで行い、1 回ごとに使い捨ての runid を付けて、解いた問題・正誤・選んだ選択肢を匿名で集計しています。runid を「受験者 1 人」とみなし、その回のほかの問題の正答率を実力の目安にします。\n\n識別力（点双列相関）\n\n正解した人ほど実力が高ければ、その問題は実力を測れています。\n\n [code] \n\n実力の目安には、その問題自身を除いた正答率を使います（含めると相関が水増しされます）。\n\n [code] \n・0.2 未満：実力と関係なく当たり外れが出ている（当てずっぽうで当たる、読み違いで決まる）\n・負：実力のある人ほど間違える。正答が誤っている疑いが強い\n\n実力のある人ほど選ぶ誤答\n\nいちばん効く指標がこれです。誤答を選んだ人の平均の実力が、正解した人の平均以上なら、その誤答に上位者が流れている＝問題文があいまいか、その誤答も条件次第で正しい可能性があります。\n\n [code] \n\n最初は「誤答を選んだかどうか」と実力の相関の符号で判定しようとしましたが、ダミーデータで試すと検出できませんでした。上位者が流れる誤答にも下位の人が混ざり、相関が打ち消されるためです。平均の比較に変えたところ、仕込んだ問題だけを検出できました。\n\n選ばれない誤答\n\n選ばれる割合が 5% 未満の誤答は、選択肢として機能していません。差し替え候補です。\n\n判定は週 1 回、自動で Issue に\n\nGitHub Actions で毎週集計し、見直し候補を Issue にまとめています。各問題に 30 件以上の回答が溜まったものだけを判定します。\n\nおまけ：経験年数で逆転する問題\n\n結果画面で、任意でエンジニア歴を答えてもらっています。ベテランほど間違える問題は、特定の現場の作法を正解にしてしまっている疑いがあります。逆に、経験年数で正答率に差がつく問題は、経験の差＝現場の勘所を測れている問題です。\n\nまとめ\n・AI に作らせた 4 択は、正答だけ丁寧に長く書かれがち。正しさのレビューとは別に、機械的な検査が要る\n・回答データが無くても、選択肢の長さと ○× の割合はテストで検出・防止できる\n・回答データが溜まったら、識別力と「上位者が選ぶ誤答」で、問題の質そのものを測れる\n\n使っているサイトはこちらです。新卒研修の確認テストにも使えるように作っています。\n・エンジニア瞬発力テスト: https://engineer.keydrop.net/\n・作った経緯の記事: https://www.keydrop.net/posts/engineer-keydrop-quiz-development/\n\n参考\n・Haladyna, Downing & Rodriguez (2002), \"A review of multiple-choice item-writing guidelines for classroom assessment\", Applied Measurement in Education 15(3)\n・多肢選択式の作問ガイド（識別力の目安 0.2〜0.3 以上、誤答は 5% 以上選ばれる）: KPU Teaching and Learning Commons",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "cd264b6cfbc85103",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8791327913279133,
+      "popularityPercentile": 0.9051490514905149,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "生成AIが作った選択問題の答えの偏りを、回答データがなくても検出し、回答後は項目分析で品質評価する方法を紹介する。",
+      "takeaways": [
+        "生成AIの正答は長い選択肢に偏りやすかった。",
+        "720問の検査で正答の長さに大きな偏りが見つかった。",
+        "回答前の機械検査と回答後の品質測定を分けて行う。"
+      ],
+      "keywords": [
+        "生成AI",
+        "Claude",
+        "TypeScript",
+        "多肢選択問題",
+        "項目分析",
+        "個人開発"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "AI生成問題を大量利用するか人手で問題品質を担保するか",
+        "forSide": "機械的な偏り検査を加えれば大量生成の効率を保てる。",
+        "againstSide": "表面的な偏りを直しても問題の正確さや教育効果は保証されない。",
+        "oneSided": false,
+        "yourAngle": "TypeScriptで問題データを検査し本番公開前に失敗させられる。"
+      },
+      "readingMinutes": 9,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 691,
+    "afterDedupe": 631,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 370,
+      "zenn": 115,
+      "hatena": 24,
+      "hackernews": 42,
+      "devto": 5,
+      "github_release": 22,
+      "github_repo": 96,
+      "rss": 16,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 41
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3342,
+        "outputTokens": 899,
+        "cacheReadTokens": 0,
+        "elapsedMs": 8250,
+        "estimatedCostUsd": 0.0017472
+      },
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4320,
+        "outputTokens": 948,
+        "cacheReadTokens": 0,
+        "elapsedMs": 8587,
+        "estimatedCostUsd": 0.0020016
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 20321,
+        "outputTokens": 1936,
+        "cacheReadTokens": 3404,
+        "elapsedMs": 21125,
+        "estimatedCostUsd": 0.0064554799999999996
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14379,
+        "outputTokens": 1513,
+        "cacheReadTokens": 1779,
+        "elapsedMs": 16087,
+        "estimatedCostUsd": 0.00472698
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3137,
+        "outputTokens": 2022,
+        "cacheReadTokens": 0,
+        "elapsedMs": 17881,
+        "estimatedCostUsd": 0.0030538
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 17527,
+        "outputTokens": 1640,
+        "cacheReadTokens": 3260,
+        "elapsedMs": 19279,
+        "estimatedCostUsd": 0.005538599999999999
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 13327,
+        "outputTokens": 2350,
+        "cacheReadTokens": 0,
+        "elapsedMs": 17748,
+        "estimatedCostUsd": 0.0054854
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 10556,
+        "outputTokens": 3185,
+        "cacheReadTokens": 0,
+        "elapsedMs": 24011,
+        "estimatedCostUsd": 0.0059332000000000005
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 14931,
+        "outputTokens": 3604,
+        "cacheReadTokens": 0,
+        "elapsedMs": 25358,
+        "estimatedCostUsd": 0.007311
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13771,
+        "outputTokens": 4623,
+        "cacheReadTokens": 11807,
+        "elapsedMs": 35877,
+        "estimatedCostUsd": 0.008537939999999999
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 20415,
+        "outputTokens": 7352,
+        "cacheReadTokens": 15625,
+        "elapsedMs": 57588,
+        "estimatedCostUsd": 0.013217899999999998
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 17049,
+        "outputTokens": 6027,
+        "cacheReadTokens": 12965,
+        "elapsedMs": 48860,
+        "estimatedCostUsd": 0.0109015
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3799,
+        "outputTokens": 421,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4057,
+        "estimatedCostUsd": 0.001265
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4658,
+        "outputTokens": 353,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3635,
+        "estimatedCostUsd": 0.0013552
+      }
+    },
+    "totalCostUsd": 0.0775
+  },
+  "notes": []
+}
