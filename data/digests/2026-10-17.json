@@ -1,0 +1,2389 @@
+{
+  "date": "2026-10-17",
+  "generatedAt": "2026-10-17T00:08:48.411Z",
+  "window": {
+    "start": "2026-10-15T22:00:00.000Z",
+    "end": "2026-10-16T22:00:00.000Z"
+  },
+  "summary": [
+    "AIエージェント向けの開発基盤と運用制御の動きが目立った。",
+    "並列実行や停止条件、再実行時の副作用対策など安全性が焦点になった。",
+    "AIによる検出力の向上が、PostgreSQLのリリース判断にも影響を及ぼした。",
+    "重大な仮想化脆弱性と大規模な個人情報漏えいも重なった一日だった。"
+  ],
+  "outlook": "AIエージェントの開発・並列実行・モデル選択は実運用へ定着しつつある一方、権限、停止条件、再実行時の副作用と供給網の安全性はなお揺れている。今後は、検査と監査を組み込んだ実行基盤や、AIで高まる品質基準に合わせたリリース判断が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "PwnEscape: Guest-to-Host KVM Escape (CVE-2026-99999)",
+      "url": "https://pwn.ai/blog/pwnescape",
+      "publishedAt": "2026-10-16T05:33:07.000Z",
+      "tags": [
+        "テクノロジー",
+        "network",
+        "linux",
+        "セキュリティ",
+        "開発",
+        "security",
+        "あとで読む"
+      ],
+      "snippet": "PWNAI Research, Paulos Yibelo··18m18 min read·20,57920,579 views How a $1 million sandbox challenge led us to a vulnerability in Linux networking, repeatable host-memory disclosure, and ultimately a full guest-to-host escape. Part 00: Intro On August 18, 2026, Vercel announced a $1 million challe...",
+      "metrics": {
+        "hatena": 26
+      },
+      "sourceWeight": 3,
+      "id": "b5568fd4dea8bee0",
+      "lang": "en",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.3466666666666667,
+      "popularityPercentile": 0.5454545454545454,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 88,
+      "titleJa": "PwnEscape — Linux KVMからホストへ脱出する攻撃",
+      "oneLiner": "PwnEscapeはLinuxネットワークの脆弱性を利用し仮想マシンからホストへ脱出する手順を示した。",
+      "takeaways": [
+        "Linuxのネットワーク処理に深刻な欠陥が見つかった。",
+        "仮想マシンからホストのメモリを読み取れた。",
+        "最終的にゲストからホストへの脱出が可能になった。"
+      ],
+      "keywords": [
+        "PwnEscape",
+        "CVE-2026-99999",
+        "Linux",
+        "KVM",
+        "ゲスト脱出",
+        "ホストメモリ"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 18,
+      "payoff": "decide",
+      "durability": "durable",
+      "body": "How a $1 million sandbox challenge led us to a vulnerability in Linux networking, repeatable host-memory disclosure, and ultimately a full guest-to-host escape.\nPart 00: Intro\nOn August 18, 2026, Vercel announced a $1 million challenge inviting researchers to break the isolation boundary of its Sandbox product (total prize pool). The announcement came just weeks after OpenAI had disclosed a remarkable security incident: AI agents running inside restricted evaluation environments had found ways around their network isolation, compromised internal infrastructure, and eventually breached systems at Hugging Face. The agents weren't supposed to have internet access in the first place.\nBut there was an important distinction. Escaping a sandbox's network restrictions is one thing. Escaping the virtual machine itself and reaching the host is another. Vercel's challenge explicitly invited researchers to attempt both. We were interested in the latter. (Although we ended up finding vulnerabilities that also allow the former - more on those findings in a later post)\nThe question was simple: how much could an untrusted guest influence the host kernel without ever exploiting KVM itself? We took the challenge, put our research infrastructure to work, and within three days discovered a primitive buried in Linux networking that allowed guest-controlled checksum metadata to rewrite an IPv4 header after the kernel had already validated it.\nWhat initially looked like a 32-byte host-memory disclosure would eventually become a full guest-to-host escape in our own KVM and many many other Hypervisor environments. And the beautiful part about it was that the vulnerability wasn't even in the hypervisor, it was in the Linux networking stack.\nVercel later described it as the program's most important report, and its final tally recorded just one Critical finding. That Critical was what is now pwnescape. Together with a separate network-escape report, we had accomplished both network and host escape goals. Its important to emphasize Vercel's sandbox was already hardened beyond normal industry standards and had no misconfigurations we could spot. Although the vulnerability originated in the Linux kernel and wasn't a Vercel-specific flaw or misconfiguration, Vercel deserves tremendous credit for how they handled it. They moved quickly to protect their customers, launched their own independent research, identified and notified other affected hypervisor and sandbox providers, and worked closely with us to coordinate disclosure and fixes across the industry. Their efforts helped protect not just Vercel's customers, but the wider ecosystem.\nThis is the story of CVE-2026-99999, a Critical rated Linux kernel vulnerability leading to KVM escape.\nResearch\nWe used Omega-Pwn, pwn.ai's experimental research harness combining our custom security architecture and automation with elements of OmegaClaw, developed by researchers at SingularityNET and BGI Labs for this ambitious project. Compared to traditional LLM harnesses, it enabled longer research horizons, persistent campaign state, parallel collaborative investigations, and the accumulation of hypotheses, failed experiments, and evidence across complex research sessions.\nHumans led the research, framing the hard questions, engineering workflows, and directing investigations. GPT-5.6 Sol served as the primary reasoning engine for source-level analysis, exploring attack paths, and challenging assumptions. Omega-Pwn bridged human intuition and contextual insight with the analytical capabilities of advanced LLMs.\nAs far as we know, PwnEscape exposes an entirely new class of attacks in Linux networking: untrusted checksum metadata can rewrite security-sensitive packet fields after the kernel has already validated and acted on them, undermining assumptions across the networking stack far beyond the original VM escape.\nPart 01: A deferred checksum and a mutable IPv4 header\nThe accepted Linux fix is upstream as 6785011f8b16, ipv4: validate checksum_start before completing checksum.\nThis is the first installment of PwnEscape. We are going to spend most of it inside sk_buff, checksum metadata, and IPv4 fragmentation, because that is where the actual failure happened.\nFigure 1. Diagram showing guest-origin packet bytes and checksum metadata crossing through virtual networking into the host Linux networking stack.\nFigure 1. The vulnerable component is the host networking stack. “KVM escape” describes the guest/host security boundary crossed in our isolated proof, not the source file that contained the bug.\n01A / We went looking beyond the hypervisor\nOur previous kvmCTF research was about KVM's shadow-MMU behavior: an intricate interaction among mappings, reverse maps, and memory lifetime. This campaign began with a broader hypothesis. The security of a sandbox depends on much more than its hypervisor. A guest interacts with an entire host operating system, including device emulation, virtual networking, packet filters, memory allocators, and the APIs that glue those pieces together.\nFor pwn, that suggested an efficient research strategy: map the reachable boundary, search for places where untrusted state gets promoted to trusted state, and challenge the assumptions at every later consumer, not just at the initial parser. We used GPT5-6-Sol-assisted source inspection with human set the scope and decide what actually constitutes evidence. The particularly interesting question at this time was:\n\nCan an asynchronous or deferred operation modify packet bytes after the kernel has already made security-relevant decisions about those same bytes?\n\nLinux checksum offload offered exactly that possibility.\n02 / CHECKSUM_PARTIAL is a promise to write later\nLinux does not always compute transport checksums immediately. Instead, it can carry a packet in a state where the checksum still needs to be completed. The relevant sk_buff bookkeeping includes:\n\nThis is normal, documented functionality. On the transmit side, a network device or the software helper skb_checksum_help() can calculate the checksum and store the result at the designated field. In well-formed TCP/UDP traffic, that field belongs to the transport checksum. In the ordinary kernel path, the metadata is supposed to describe the packet that actually exists. See the kernel checksum-offload documentation.\nThe critical point is that these values are not just descriptive metadata. They authorize a subsequent write into packet memory. If less-trusted software can influence them, their validity must survive every operation between admission and completion.\nAn sk_buff also has multiple notions of where packet data begins:\n\nThe distinction between the frame-relative view and the network-header-relative view is important. A packet can arrive with Ethernet and additional link-layer headers still in its linear data. Later, those headers are removed or skipped for L3 processing. Merely checking that a checksum start falls far enough into the original frame is not the same as proving that it follows the IPv4 header after normalization.\nFigure 2. Diagram comparing frame-relative and network-header-relative packet coordinates before and after link-layer decapsulation.\nFigure 2. The accepted packet's link-layer context is not the final IPv4 context. The issue is a mismatch of stored metadata and the current network-header boundary, not that the physical allocation magically moves. Our original reports cover the exact packet geometry; this figure focuses on the broken invariant.\nThe input-side comparison was not enough\nThe first public patch series makes the entry-path defect especially clear. In __virtio_net_hdr_to_skb(), the historical minimum-header check used skb_transport_offset(skb), an offset relative to the current skb->data view. That protects against a checksum start that is trivially too early in that view. It does not by itself establish how far the start is from the network header when the packet contains additional link-layer structure.\nThe original reported hardening therefore proposed an additional network-relative comparison:\n\nThose two inequalities are not interchangeable. The distinction is the essence of the L2/L3 coordinate mismatch. The patch review grew beyond this first formulation because nested headers, IP options, IPv6, and differing ingress callers require more careful validation than a single optimistic fixed offset. Our original input-side patch and Willem de Bruijn's later proposed broader input validation provide the source-level history.\nFor the eventual IPv4 consumer, the accepted guard expresses a particularly useful invariant. With N = skb->network_header, H = ip_hdrlen(skb), C = skb->csum_start, and nonnegative checksum offset O, the eventual output location is W = C + O. Requiring C >= N + H before completion implies W >= N + H. The guard therefore prevents this completion from writing into the IPv4 header. It does not prove that W is the correct field within TCP or UDP; that is a separate protocol-validity question.\nThis is the first trust failure: checksum metadata from a less-trusted origin crossed into host packet processing without being constrained against the header that later code would actually use.\n03 / The header was checked. Then the header changed.\nThe most interesting part is the order of operations.\nHost ingress sees and parses an IPv4 packet with an ordinary header. Fragment processing and routing can operate on that state. Later, output fragmentation reaches the pending checksum. In the historical code, ip_do_fragment() completed the checksum before obtaining the IPv4 header pointer and using the header length. The pre-fix ordering in net/ipv4/ip_output.c was effectively:\n\nskb_checksum_help() is not inherently unsafe. It becomes unsafe here because malformed metadata allows its write to overlap bytes that were already parsed as an IPv4 header.\nThe header field that gives the leak its shape is IPv4 ihl, a 4-bit count of 32-bit words. The first byte of a normal IPv4 packet contains version and IHL. In our controlled research geometry, it could change from 0x45 (IPv4, five words = 20 bytes) to 0x4f (IPv4, fifteen words = 60 bytes), without changing the version nibble.\nFigure 3. Bit-level diagram of the first IPv4 byte changing from 0x45, IHL 5 and 20 bytes, to 0x4f, IHL 15 and 60 bytes.\nFigure 3. A two-byte header mutation can leave the packet looking like IPv4 while dramatically changing the header-length interpretation. 0x4500 and 0x4f00 are the before/after first words observed in the research case.\nStatic IHL readout\nPacket viewFirst byteIHLInterpreted IPv4 header lengthParsed state0x455 words20 bytesAfter deferred write0x4f15 words60 bytes\nThe IPv4 version nibble remains 4; only the four-bit header-length interpretation changes.\nThe earlier stages had not endorsed a 60-byte header. They had made decisions on a 20-byte header. But the later consumer read an updated field as though it were authoritative.\nThis is a time-of-check/time-of-use problem in the semantic sense, but not the usual race between threads. The execution can be fully deterministic. The “time” separating validation and use is the sequence of legitimate networking operations, with an attacker-influenced deferred write in between.\nA simplified control-flow trace\n\nThis is an example of vulnerability-oriented path diagram, not a claim that every network configuration takes precisely these exact hooks, although we have found numerous other methods to invoke these vulnerable paths.\n04 / Where the 32 bytes actually came from\nThis part is easy to explain poorly. Linux packet buffers need not contain all packet bytes as one contiguous linear object. An sk_buff has a linear head plus possible non-linear fragment data. After the relevant reassembly, the research case's logical linear data length was just:\n\nThe late checksum operation made the fragmenter believe that the IPv4 header was 60 bytes long. That means it treated the next 4…",
+      "rank": 1,
+      "deep": {
+        "summary": "CVE-2026-99999（PwnEscape）は、KVM自体ではなくホストのLinux networking stackに存在したCritical脆弱性である。ゲストが制御できるchecksum metadataが、カーネルの検証後に遅延書き込みを行い、IPv4 headerを変更できた。具体的には、IPv4のIHLが0x45の20バイトから0x4fの60バイトとして解釈され、論理パケット外のホストメモリ32バイトが開示された。さらに、このprimitiveを足がかりにguest-to-host escapeへ発展させた。修正はupstream commit 6785011f8b16（ipv4: validate checksum_start before completing checksum）として取り込まれている。",
+        "prerequisites": [
+          {
+            "term": "KVM escape",
+            "stumblingPoint": "記事は「KVM escape」と書くが、KVMのどの層を突破した話か読み取りにくい。",
+            "explanation": "KVM escapeは、仮想マシン内のゲストから、その外側にあるホスト環境へ到達する攻撃を指す。この記事ではKVMの実装バグを直接突いたのではなく、ホストLinuxのnetworking stackを経由して境界を越えたことがポイントになる。そのため、脆弱なソースファイルがKVM内部にあるという意味ではない。"
+          },
+          {
+            "term": "sk_buff",
+            "stumblingPoint": "記事は「sk_buff bookkeeping」と進むが、何が保持され、なぜ書き込み権限に関係するか不明瞭。",
+            "explanation": "sk_buffは、Linux networking stackがパケット本体と処理位置などの管理情報を保持する構造体である。この記事では、パケットの実データだけでなくchecksum_startなどのchecksum metadataも同時に運ぶ。後続処理がそのmetadataを信頼してパケットメモリへ書き込むため、位置情報の不整合が単なる解析ミスではなくメモリ操作になる。"
+          },
+          {
+            "term": "CHECKSUM_PARTIAL",
+            "stumblingPoint": "「CHECKSUM_PARTIAL is a promise to write later」が、どの処理を遅延させるのか説明不足。",
+            "explanation": "CHECKSUM_PARTIALは、transport checksumをその場で完成させず、後続の送信処理で指定位置へ書き込む状態を表す。通常はchecksum_startなどが実際のTCP/UDP checksum欄を指す前提で動く。この記事の問題は、信頼性の低い入力がその位置情報を歪め、後のskb_checksum_help()にIPv4 headerへの書き込みを許した点にある。"
+          },
+          {
+            "term": "IPv4 fragmentation",
+            "stumblingPoint": "「output fragmentation reaches the pending checksum」とあるが、なぜ受信後の値が後段で再利用されるか詰まる。",
+            "explanation": "IPv4 fragmentationは、送出するパケットを複数の断片へ分ける処理である。記事の経路では、先に通常のIPv4 headerとして検証・ルーティングされた後、ip_do_fragment()が遅延checksumを完成させる。この順序の間にheaderが変更され、後段が変更後のIHLを正しい値として読み直す。"
+          },
+          {
+            "term": "IHL",
+            "stumblingPoint": "「IHL 5から15」とあるが、4ビット値の変更が何を変えるのか読み取りにくい。",
+            "explanation": "IHLはIPv4 headerの長さを32-bit word単位で示す4ビット値である。IHL 5は5×4で20バイト、IHL 15は15×4で60バイトを意味する。version nibbleは4のままなのでIPv4として扱われ続ける一方、後続処理が参照するheader範囲だけが大きく変わる。"
+          },
+          {
+            "term": "time-of-check/time-of-use",
+            "stumblingPoint": "記事は「通常のスレッド競合ではない」とするが、なぜこの分類に入るか不明瞭。",
+            "explanation": "time-of-check/time-of-useは、検証時の値と利用時の値が異なる問題である。この記事では別スレッドの競合ではなく、正規のnetworking operationsの順序の中で、検証後にchecksumの遅延書き込みが入る。結果として、20バイトheaderとして判断したデータを、後段が60バイトheaderとして利用する。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "ゲストからホストへの攻撃経路",
+          "layers": [
+            {
+              "label": "入力元",
+              "nodes": [
+                {
+                  "name": "ゲストパケット",
+                  "note": "checksum metadataを制御",
+                  "highlight": false
+                }
+              ],
+              "via": "仮想ネットワーク"
+            },
+            {
+              "label": "ホスト処理",
+              "nodes": [
+                {
+                  "name": "Linux networking",
+                  "note": "sk_buffで状態を保持",
+                  "highlight": true
+                }
+              ],
+              "via": "遅延checksum"
+            },
+            {
+              "label": "後段処理",
+              "nodes": [
+                {
+                  "name": "ip_do_fragment()",
+                  "note": "headerを再解釈",
+                  "highlight": true
+                },
+                {
+                  "name": "skb_checksum_help()",
+                  "note": "指定位置へ書き込み",
+                  "highlight": false
+                }
+              ],
+              "via": "変更済みIPv4 header"
+            },
+            {
+              "label": "影響",
+              "nodes": [
+                {
+                  "name": "ホストメモリ開示",
+                  "note": "32バイトを開示",
+                  "highlight": false
+                },
+                {
+                  "name": "KVM escape",
+                  "note": "ゲストからホストへ到達",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://api.pwn.ai/api/blog/images/03-ihl-reinterpretation-606902c562d9.png",
+            "alt": "Figure 3. Bit-level diagram of the first IPv4 byte changing from 0x45, IHL 5 and 20 bytes, to 0x4f, IHL 15 and 60 bytes.",
+            "caption": "0x45から0x4fへの変更で、IPv4のversionは4のまま、IHLだけが20バイトから60バイトへ変わる点を確認できる。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "know",
+        "impact": [
+          "KVMベースのサンドボックスを運用する人",
+          "Linuxカーネルを更新管理する人",
+          "ホストで仮想ネットワークを処理する人",
+          "ゲスト分離を前提にAI実行環境を構築する人"
+        ],
+        "timeline": [
+          "2026-08-18 Vercelが賞金付き課題を開始"
+        ],
+        "checkNow": [
+          "uname -rでホストLinuxカーネルのバージョンを確認する",
+          "修正コミット6785011f8b16のディストリビューション反映状況を確認する",
+          "未修正ホストではゲスト実行を停止し、更新済みカーネルへ移行する"
+        ],
+        "unknowns": [
+          "影響を受けるカーネル版の範囲は本文未提示",
+          "影響するハイパーバイザー製品の全範囲は未確定",
+          "完全なguest-to-host手順は本文の続編に残る"
+        ]
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "GitHub Changelog",
+      "title": "Open source license compliance generally available",
+      "url": "https://github.blog/changelog/2026-10-16-open-source-license-compliance-generally-available",
+      "publishedAt": "2026-10-16T14:00:32.000Z",
+      "author": "Allison",
+      "authorDetail": {
+        "name": "Allison"
+      },
+      "tags": [
+        "Release",
+        "supply chain security"
+      ],
+      "snippet": "Enterprises can now manage their dependencies’ licenses at scale with sophisticated, ruleset-based checks that enforce a centralized policy. Open source license compliance is now generally available for GitHub Enterprise Cloud… The post Open source license compliance generally available appeared first on The GitHub Blog .",
+      "body": "Enterprises can now manage their dependencies&rsquo; licenses at scale with sophisticated, ruleset-based checks that enforce a centralized policy. Open source license compliance is now generally available for GitHub Enterprise Cloud customers, including data-resident GHEC, for repositories with GitHub Code Security enabled.\n\n How it works \n\n Open source license compliance expands on the capabilities of the dependency review action by introducing an enterprise-wide license policy. The policy is activated by targeting repositories with a ruleset that uses a new Require license compliance results before merging condition, similar to the existing code scanning conditions. When developers open pull requests that add or modify dependencies, license checks automatically ensure each new or changed dependency has an acceptable license. The feature annotates the pull request with a message about each noncompliant dependencies. These annotations must be addressed by removing or replacing the dependency, amending the license policy, or creating package exceptions.\n\n Open source license compliance introduces a new predefined enterprise role, Enterprise Open-Source License Manager . Assign this role to individuals or teams who should review and approve closure requests. Policy managers receive email notifications about pending requests and can review them from the enterprise console.\n\n What&rsquo;s new and improved \n\n Since the public preview release in June, we&rsquo;ve made several improvements:\n\n \n License information is now available for GitHub Enterprise Cloud data residency customers. This not only enables the license compliance feature, but also populates the dependency graph and Software Bill of Materials (SBOM) exports with license data.\n\n License policy changes now emit audit log events, for integration with external systems of record.\n\n There are new API endpoints for downloading, updating, and replacing the enterprise license policy.\n\n There is also a new API endpoint for checking whether packages comply with policy. This enables coding agents to avoid recommending or incorporating packages which violate an organization&rsquo;s license usage policy.\n\n \n How to try it \n\n For detailed setup instructions, see About open source license compliance .\n\n For information about API endpoints see REST API endpoints for dependency-graph \n\n Join the discussion within GitHub Community .\n\n \n The post Open source license compliance generally available appeared first on The GitHub Blog .",
+      "metrics": {},
+      "sourceWeight": 4,
+      "id": "1c49ed89dd7b7b6a",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.65,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 48,
+      "titleJa": "GitHub Enterprise Cloudの依存ライセンス管理",
+      "oneLiner": "GitHub Enterprise Cloudで依存ライセンスを組織横断で管理する機能が正式提供された。",
+      "takeaways": [
+        "GitHub Enterprise Cloudで依存ライセンス管理が正式提供された。",
+        "複数のリポジトリに同じライセンス方針を適用できる。",
+        "対象はコード安全機能を有効にしたリポジトリ。"
+      ],
+      "keywords": [
+        "GitHub Enterprise Cloud",
+        "open source license compliance",
+        "GitHub Code Security",
+        "dependency review",
+        "ruleset"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://github.blog/wp-content/uploads/2026/10/672774247-38f85078-b344-4428-9fad-4b886c1f369d.jpg",
+      "rank": 2,
+      "deep": {
+        "summary": "GitHub Enterprise Cloud向けのOpen source license complianceが一般提供になり、GitHub Code Securityを有効化したリポジトリで利用できます。dependency review actionを拡張し、rulesetのRequire license compliance results before merging条件で、企業全体のライセンス方針をプルリクエストに適用します。依存関係の追加・変更時に非準拠パッケージが注釈で示され、依存関係の削除・置換、方針変更、package exceptionsの作成で解消します。Enterprise Open-Source License Managerロールにより、例外や閉鎖リクエストのレビュー担当を分離できます。data residency環境のライセンス情報、監査ログ、方針管理API、coding agents向けの準拠確認APIも追加されました。",
+        "prerequisites": [
+          {
+            "term": "Open source license compliance",
+            "stumblingPoint": "記事は機能名としてOpen source license complianceを使うが、依存関係の脆弱性検査と何が違うか読み取りにくい。",
+            "explanation": "Open source license complianceは、依存パッケージのライセンスが企業方針に適合するかを判定する仕組みです。脆弱性の有無ではなく、許可・不許可のライセンスという利用条件をプルリクエストのマージ前に検査します。この記事では、依存関係の追加や変更が方針違反を持ち込まないようにする機能を指します。"
+          },
+          {
+            "term": "ruleset",
+            "stumblingPoint": "記事はrulesetでリポジトリを対象化すると書くが、どの単位でポリシーを適用する仕組みか知らないと流れが掴みにくい。",
+            "explanation": "rulesetは、対象となるリポジトリやブランチに対して、マージ前の条件などをまとめて適用する設定です。ここでは新しいRequire license compliance results before merging条件を組み込み、個別リポジトリの設定ではなく企業のルールとしてライセンス検査を強制します。"
+          },
+          {
+            "term": "dependency review action",
+            "stumblingPoint": "記事はdependency review actionの機能拡張と説明するが、既存の何を土台にしているかが分からないと新機能の位置付けを誤る。",
+            "explanation": "dependency review actionは、プルリクエストで依存関係の変更を検査するGitHub Actionsです。今回の機能はその検査能力を土台に、依存パッケージのライセンス判定と企業全体のマージ制御まで加えたものです。"
+          },
+          {
+            "term": "package exceptions",
+            "stumblingPoint": "非準拠依存関係の解決策としてpackage exceptionsが出てくるが、方針違反を無条件に無視する機能か判断しにくい。",
+            "explanation": "package exceptionsは、企業のライセンス方針に対して特定パッケージを例外扱いにする申請・承認の経路です。記事では、非準拠の依存関係を削除・置換する代わりに、方針変更または例外作成で対応できるとされています。"
+          },
+          {
+            "term": "Enterprise Open-Source License Manager",
+            "stumblingPoint": "記事は新しいEnterprise Open-Source License Managerロールを紹介するが、通常のリポジトリ権限との違いが読み取りにくい。",
+            "explanation": "Enterprise Open-Source License Managerは、企業のオープンソースライセンス関連の閉鎖リクエストをレビュー・承認するための事前定義ロールです。個々の開発者に広い管理者権限を与えず、ポリシー例外の承認担当を個人またはチームとして割り当てる用途です。"
+          },
+          {
+            "term": "data residency",
+            "stumblingPoint": "記事はdata residencyのGHECでもライセンス情報が利用可能になったと書くが、何のデータに波及するかが分かりにくい。",
+            "explanation": "data residencyは、GitHub Enterprise Cloudのデータを特定の地域に保管する構成です。今回、その構成でもライセンス情報を取得できるようになり、ライセンスコンプライアンスだけでなくdependency graphとSBOM exportsにもライセンス情報が反映されます。"
+          },
+          {
+            "term": "SBOM exports",
+            "stumblingPoint": "記事はSBOM exportsにライセンスデータが追加されると書くが、検査結果との関係が読み取りにくい。",
+            "explanation": "SBOM exportsは、ソフトウェアを構成する依存コンポーネントの一覧を外部へ出力する機能です。今回の変更では、構成部品の名前やバージョンだけでなくライセンス情報も出力対象になり、社内記録や外部システムでの確認に使えるデータが増えます。"
+          },
+          {
+            "term": "coding agents",
+            "stumblingPoint": "記事はcoding agentsが違反パッケージを推薦・組み込みしないようにできると書くが、どの判定を利用するのかが省略されている。",
+            "explanation": "coding agentsは、コード生成や依存関係追加を支援する開発エージェントです。追加された準拠確認APIを呼び出せば、エージェントが依存パッケージを提案・導入する前に企業のlicense policyとの適合を確認できます。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "依存追加の判定フロー",
+          "steps": [
+            {
+              "label": "依存変更",
+              "detail": "プルリクエストで依存関係を追加・変更"
+            },
+            {
+              "label": "自動検査",
+              "detail": "ライセンス方針との適合性をチェック"
+            },
+            {
+              "label": "注釈表示",
+              "detail": "非準拠依存関係をプルリクエストに注記"
+            },
+            {
+              "label": "対応",
+              "detail": "削除・置換、方針変更、例外作成"
+            },
+            {
+              "label": "マージ判定",
+              "detail": "条件を満たすまでマージを制御"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "GitHub Changelog原文",
+            "url": "https://github.blog/changelog/2026-10-16-open-source-license-compliance-generally-available"
+          }
+        ],
+        "readingMinutes": 4,
+        "lane": "know",
+        "impact": [
+          "GitHub Enterprise Cloudを使う企業の管理者",
+          "GitHub Code Securityを有効化するリポジトリ管理者",
+          "企業ライセンス方針を管理する人",
+          "coding agentsで依存関係を扱う人"
+        ],
+        "timeline": [
+          "2026-10-16 一般提供開始"
+        ],
+        "checkNow": [
+          "Enterprise設定でrulesetにRequire license compliance results before mergingを追加する",
+          "GitHub Code Securityと対象リポジトリの依存関係検査を有効化する",
+          "依存追加を行うcoding agentsから準拠確認APIを呼べるか確認する"
+        ],
+        "unknowns": []
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【無料で使えるうちに！】OpenCode 2.0でGLM・DeepSeek・Nemotronを使ってみよう！",
+      "url": "https://qiita.com/ISISI007/items/2368a15f676be6071596",
+      "publishedAt": "2026-10-16T21:12:53.000Z",
+      "author": "山口 俊",
+      "authorDetail": {
+        "name": "山口 俊",
+        "handle": "@ISISI007",
+        "url": "https://qiita.com/ISISI007",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4515546/4e1998600d9394bf1655fe60091e3a31999af750/large.png?1791792609",
+        "bio": "AI・自然言語処理の研究と個人開発に取り組んでいます。研究ではLLMのファインチューニングや推薦システム、意味表現の活用を経験しました。\r\n現在はアプリ開発や、AIを活用した開発自動化に挑戦中です。実装で直面した課題と解決方法、技術検証の結果を中心に、実践的な知見を発信していきます。",
+        "followers": 1,
+        "posts": 5,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/isisi007"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.wantedly.com/id/shun_yamaguchi_ab"
+          }
+        ]
+      },
+      "tags": [
+        "opencode",
+        "生成AI",
+        "AIエージェント",
+        "LLM",
+        "個人開発"
+      ],
+      "snippet": "1. はじめに 最近、CodexやClaude CodeなどのAIコーディングエージェントを使って、プログラムを開発する機会が増えていませんか？ 私も普段からCodexなどを利用してアプリ開発を進めています。 AIにコードの実装や修正を任せられるのは非常に便利ですが、気になるのが利用料金やトークンの制限です。 特に長時間の開発や複数のエージェントを使った開発では、AIモデルの利用可能回数や料金を気にする必要があります。 そんな中、Xで次の投稿を見かけました。 ・OpenCode 2.0が登場 ・GLM-5.3-Flashが無料で利用可能に ・DeepSeek V4.1 Flashが無料で利用可能に ・NVIDIA Nemotron 3.5 Super VLも無料で利用可能に これはなかなか面白そうです。 OpenCodeは、さまざまなAIモデルを切り替えて利用できるオープンソースのコーディ…",
+      "body": "1. はじめに\n\n最近、CodexやClaude CodeなどのAIコーディングエージェントを使って、プログラムを開発する機会が増えていませんか？\n\n私も普段からCodexなどを利用してアプリ開発を進めています。\n\nAIにコードの実装や修正を任せられるのは非常に便利ですが、気になるのが利用料金やトークンの制限です。\n\n特に長時間の開発や複数のエージェントを使った開発では、AIモデルの利用可能回数や料金を気にする必要があります。\n\nそんな中、Xで次の投稿を見かけました。\n・OpenCode 2.0が登場\n・GLM-5.3-Flashが無料で利用可能に\n・DeepSeek V4.1 Flashが無料で利用可能に\n・NVIDIA Nemotron 3.5 Super VLも無料で利用可能に\n\n \n\nこれはなかなか面白そうです。\n\nOpenCodeは、さまざまなAIモデルを切り替えて利用できるオープンソースのコーディングエージェントです。\n\n今回は、OpenCode 2.0の概要と新しい機能を確認し、Windowsでの導入方法と無料モデルの特徴をまとめます。\n\n2. OpenCodeとは？\n\n2.1. AIコーディングエージェントとは？\n\nOpenCodeは、オープンソースのAIコーディングエージェントです。\n\nAIコーディングエージェントとは、自然言語で指示を与えることで、AIがプログラムの調査・作成・修正などを支援してくれるツールです。\n\n例えば、次のような作業を依頼できます。\n・既存コードの構造を調べる\n・バグの原因を特定する\n・指定した機能を実装する\n・プログラムの改善点を提案する\n・テストコードを作成する\n\n通常のチャット型AIとの大きな違いは、AIが開発環境のファイルやコマンドを扱えることです。\n\n例えば、ChatGPTにコードについて質問するだけでなく、AIが実際のプロジェクトを調べ、必要に応じてファイルを編集するところまで進められます。\n\nもちろん、実際にどの操作を許可するかは、ツールの設定や権限によって異なります。\n\n2.2. CodexやClaude Codeとの違い\n\n代表的なAIコーディングエージェントを整理すると、次のようになります。\n\n| ツール | 主な特徴 |\n| --- | --- |\n| OpenAI Codex | OpenAIが提供するコーディングエージェント |\n| Claude Code | Anthropicが提供するコーディングエージェント |\n| OpenCode | オープンソースで、複数のAIプロバイダーを利用できる |\n\nOpenCodeの魅力は、ツールとAIモデルを分けて考えられることです。\n\n例えば、OpenCodeからGLMを利用したり、DeepSeekに切り替えたりできます。\n\n特定のモデルに固定されず、自分の目的に応じてモデルを選択できます。\n\nまた、ターミナルだけでなく、デスクトップアプリやWebインターフェースも提供されています。\n\n参考：OpenCode公式ドキュメント\n\n3. OpenCode 2.0で何が変わった？\n\nOpenCode 2.0では、内部構造や設定方法が見直されています。\n\n特に注目したい変更点を紹介します。\n\n3.1. 新しいCLIと内部構造\n\nOpenCode 2.0では、CLIのインストールパッケージが変更されました。\n\nCLIとは「Command Line Interface」の略で、コマンドを入力してソフトウェアを操作する仕組みです。\n\n従来のOpenCode 1.xでは、次のパッケージが利用されていました。\n\n [code] \n\n一方、OpenCode 2.0では次のパッケージを使用します。\n\n [code] \n\nどちらも起動コマンドはopencodeですが、インストールするパッケージが異なります。\n\nまた、2.0ではプラグインAPIやサーバーAPIが変更され、設定ファイルの構造も整理されています。\n\n既存の設定の多くは互換性が維持されていますが、独自プラグインを利用している場合は移行対応が必要になることがあります。\n\n参考：OpenCode V1からV2への移行ガイド\n\n3.2. 複数のエージェントを使い分けられる\n\n個人的に注目しているのが、サブエージェント機能です。\n\nサブエージェントとは、メインのAIエージェントから特定の作業を委任される別のAIエージェントのことです。\n\n例えば、次のような役割分担が考えられます。\n\n| エージェント | 担当する作業 |\n| --- | --- |\n| メインエージェント | タスクの整理・全体管理 |\n| 調査エージェント | 既存コードや仕様の調査 |\n| レビューエージェント | バグや設計上の問題点の確認 |\n\nOpenCodeでは、エージェントごとに使用するモデルや操作権限を設定できます。\n\n例えば、コードを修正するエージェントには編集権限を与え、レビュー担当には読み取り専用の権限を設定できます。\n\nOpenCode 2.0には、次のような組み込みエージェントがあります。\n・Build：コードの作成や編集を行うメインエージェント\n・Plan：コードを調査し、作業方針を検討するエージェント\n・Explore：主にコードや資料の検索・調査を行うサブエージェント\n・General：幅広い作業を担当するサブエージェント\n\nこれらに加えて、独自のエージェントも定義できます。\n\nなお、サブエージェントの仕組み自体が2.0で初めて登場したわけではありません。\n\n2.0では設定形式や実行基盤が見直されています。\n\n参考：OpenCode Agents\n\n3.3. 開発作業を支援する機能も充実\n\nOpenCode 2.0系列では、開発中の変更を確認しやすくする機能も追加されています。\n\n例えば、公式の変更履歴では次の機能が紹介されています。\n\nGit Worktreeの操作\n\nWorktreeとは、1つのGitリポジトリに対して、複数の作業ディレクトリを用意できる仕組みです。\n\n異なる機能を別々の作業場所で扱えるため、並行開発で役立ちます。\n\nOpenCode 2.0ではWorktreeを作成・一覧表示・削除するためのツールが用意されています。\n\n変更差分の表示\n\n/diffコマンドを使うと、コードの変更内容を確認できます。\n\nAIにコードを編集させる場合、何が変更されたのか把握できることは重要です。\n\nこうした機能は、AIを単なるコード生成ツールではなく、継続的な開発環境として活用するうえで役立ちます。\n\n参考：OpenCode Changelog\n\n4. OpenCode 2.0をWindowsに導入する\n\nここからは、Windows環境を想定してOpenCode 2.0の導入方法を紹介します。\n\n4.1. Node.jsを準備する\n\n今回はnpmを使用してOpenCodeをインストールします。\n\nnpmとは、JavaScriptの実行環境であるNode.jsと一緒に利用されるパッケージ管理ツールです。\n\nまず、PowerShellを開いて次のコマンドを実行します。\n\n [code] \n\n続いてnpmも確認します。\n\n [code] \n\n両方のコマンドでバージョンが表示されれば、Node.jsとnpmを利用できます。\n\nコマンドが認識されない場合は、公式サイトからNode.jsをインストールしてください。\n\nNode.js公式サイト\n\n4.2. OpenCode 2.0をインストールする\n\nPowerShellで次のコマンドを実行します。\n\n [code] \n\n-gはグローバルインストールを意味します。\n\n特定のプロジェクトだけでなく、通常のコマンドとしてOpenCodeを起動できるようにするための指定です。\n\nインストール後、バージョンを確認します。\n\n [code] \n\nバージョンが2.x.xと表示されれば、OpenCode 2系が起動できています。\n\nもし1.x系が表示される場合は、従来版の実行ファイルが優先されている可能性があります。\n\nその場合は、古いOpenCodeのインストール状況とPATHの設定を確認してください。\n\n4.3. OpenCodeを起動する\n\nまず、作業用のフォルダーを作成します。\n\n [code] \n\n次に、OpenCodeを起動します。\n\n [code] \n\nこれでターミナル上にOpenCodeのインターフェースが表示されます。\n\n \n\n4.4. AIモデルの接続設定\n\nOpenCodeを起動できたら、使用するAIモデルの接続設定を行います。\n\nOpenCodeの画面で、次のコマンドを入力します。\n\n [code] \n\nプロバイダーの選択画面が表示されます。\n\nプロバイダーとは、AIモデルを利用するためのサービスの提供元です。\n\n今回の無料モデルは、OpenCode Consoleで提供されています。\n\n公式ドキュメントに従ってOpenCodeの従量課金プロバイダーを選択し、Consoleで発行したAPIキーを登録します。\n\nAPIキーとは、アプリケーションからサービスを利用する際に使う認証情報です。\n\nConsoleではアカウント登録や請求情報の設定が案内されるため、実際の登録画面を確認してください。\n\nOpenCode Console\n\n接続が完了したら、次のコマンドを入力します。\n\n [code] \n\n利用可能なモデルが表示されます。\n\n \n\n一覧から使用したいモデルを選択すれば準備完了です。\n\n4.5. 無料モデルを選択する\n\n2026年10月17日時点で、公式のモデル一覧には次の無料モデルが掲載されています。\n\n| モデル | OpenCodeでのモデルID |\n| --- | --- |\n| GLM-5.3-Flash Free | opencode/glm-5.3-flash-free |\n| DeepSeek V4.1 Flash Free | opencode/deepseek-v4.1-flash-free |\n| Nemotron 3.5 Super VL Free | opencode/nemotron-3.5-super-vl-free |\n\n重要なのは、モデル名の末尾にFreeが付いているものを選択することです。\n\n例えば、GLM 5.3 FlashとGLM-5.3-Flash Freeは、OpenCode Console上では別のモデルIDです。\n\n通常版には料金が設定されています。\n\n無料版を利用する場合は、モデル一覧でFreeが付いていることを確認してください。\n\n参考：OpenCode Console Models\n\n4.6. 簡単な指示を送ってみる\n\nまずは、コードを編集せずに質問するところから始めると分かりやすいと思います。\n\n例えば、次のような指示を入力します。\n\n [code] \n\nモデルをコマンドから直接指定することもできます。\n\n例えば、GLM-5.3-Flash Freeを使う場合は次のように実行します。\n\n [code] \n\n--modelは、実行するAIモデルを指定するオプションです。\n\nこれを使えば、同じ質問を別のモデルに与えることもできます。\n\n5. 無料AIモデル3種類を比較する\n\n今回特に気になった3つのモデルについて、公式に公開されている情報から特徴を整理します。\n\n5.1. GLM-5.3-Flash\n\nGLM-5.3-Flashは、Z.ai（智譜AI）のGLMシリーズに属するAIモデルです。\n\nコーディングやエージェント処理を想定したモデルで、長い文脈を効率的に処理するための構造が採用されています。\n\n特徴的なのが、MoE（Mixture of Experts）と呼ばれる仕組みです。\n\nMoEとは、モデル全体のパラメータを毎回すべて使用するのではなく、処理に応じて必要な部分を選んで利用する構造です。\n\nGLM-5.3-Flashは、約320Bの総パラメータを持つ一方、1回の処理で使用するのは約18Bとされています。\n\nここでBはBillion、つまり10億を意味します。\n\nまた、公式モデル資料では最大約100万トークンのコンテキスト長が示されています。\n\nコンテキスト長とは、AIが1回の処理で参照できる入力や会話履歴などの情報量の上限です。\n\nただし、モデル本体の上限とOpenCodeの無料エンドポイントで実際に利用できる上限は、必ずしも一致しません。\n\n注目したい用途\n・プログラムの実装支援\n・長いコードの調査\n・複数ファイルにまたがる処理の理解\n・AIエージェントによる継続的な作業\n\n参考：GLM公式リポジトリ\n\n5.2. DeepSeek V4.1 Flash\n\nDeepSeek V4.1 Flashは、2026年9月に発表されたDeepSeekのAIモデルです。\n\nこちらもMoE構造を採用していますが、特徴的なのは入力と出力で使用する計算構造が異なる点です。\n\n公式情報では、総パラメータ数は552Bで、入力処理では約8B、出力処理では約16Bのパラメータが有効になると説明されています。\n\nこれにより、大規模なモデルでありながら、計算効率の向上を目指しています。\n\nまた、テキストだけでなく画像の理解にも対応しています。\n\nDeepSeekはエージェント処理やコーディングに関するベンチマーク結果も公開しています。\n\nベンチマークとは、共通の課題を使ってAIモデルの能力を測定する評価方法です。\n\nただし、公開されたスコアがそのまま自分の開発環境での性能を保証するわけではありません。\n\n注目したい用途\n・コーディング\n・複雑な問題の分析\n・コードレビュー\n・ツールを使うAIエージェント\n\n参考：DeepSeek V4.1 Flash公式発表\n\n5.3. Nemotron 3.5 Super VL\n\nNemotron 3.5 Super VLは、NVIDIAが2026年10月15日に発表したAIモデルです。\n\n最大の特徴は、テキストだけでなく画像や動画なども理解できることです。\n\nこうした複数種類の情報を扱えるモデルを、マルチモーダルモデルと呼びます。\n\n例えば、スクリーンショットや図表を読み取り、その内容について回答する用途が想定されています。\n\nこのモデルもMoE構造を使用しており、総パラメータ数は120B、処理時に有効になるパラメータ数は12Bです。\n\nまた、MambaとTransformerを組み合わせたハイブリッド構造が採用されています。\n\nTransformerは、多くの大規模言語モデルで利用されているニューラルネットワークの構造です。\n\n一方、Mambaは長い系列データを効率的に処理するために設計された構造です。\n\n両者を組み合わせることで、長い情報の処理能力と計算効率の両立を目指しています。\n\nモデル本体は最大約100万トークンのコンテキスト長をサポートします。\n\n注目したい用途\n・UIのスクリーンショットの分析\n・図表やドキュメントの理解\n・画像を含む技術資料の調査\n・マルチモーダルAIエージェント\n\n参考：NVIDIA公式技術ブログ\n\n5.4. 3モデルの比較表\n\nここまでの特徴を整理します。\n\n| 項目 | GLM-5.3-Flash | DeepSeek V4.1 Flash | Nemotron 3.5 Super VL |\n| --- | --- | --- | --- |\n| 開発元 | Z.ai | DeepSeek | NVIDIA |\n| 総パラメータ数 | 約320B | 552B | 120B |\n| 主な構造 | ハイブリッドAttention＋MoE | 非対称Encoder-Decoder＋MoE | Mamba-Transformer＋MoE |\n| コーディング | 対応 | 対応 | 対応 |\n| 画像理解 | 対応 | 対応 | 対応 |\n| 特に注目する用途 | 長文脈のコード処理 | 推論・エージェント処理 | 視覚情報を含む処理 |\n| OpenCode無料版 | あり | あり | あり |\n\nこの表は機能やモデル構造を整理したもので、性能の優劣を示すものではありません。\n\n私が最初に試すとしたら、まずGLM-5.3-Flashで基本的なコーディング作業を確認し、同じ課題をDeepSeek V4.1 Flashに与えて違いを見てみたいと思います。\n\nNemotron 3.5 Super VLについては、UIのスクリーンショットや図表を含むタスクで試してみると面白そうです。\n\n6. まとめ\n\n今回は、OpenCode 2.0の概要と無料AIモデルについて紹介しました。\n\n特に注目したいのは、次の3点です。\n\n1. OpenCodeはオープンソースのAIコーディングエージェントで、複数のAIモデルを切り替えて使える\n2. OpenCode 2.0では内部構造や設定方法が見直され、エージェントや開発環境を柔軟に構成できる\n3. 2026年10月17日時点で、GLM・DeepSeek・Nemotronの無料版がOpenCode Consoleに用意されている\n\n個人的には、複数のAIモデルを同じ開発ツールから利用できる点が魅力的だと感じました。\n\nこれまでは、AIモデルを本格的なコーディング作業に利用しようとすると、料金や利用制限が気になる場面がありました。\n\n今回のように無料で利用できるモデルが増えることで、AIエージェントを試すハードルは下がりそうです。\n\nもちろん、無料で使えることと、実際の開発で十分な性能を発揮できることは別の話です。\n\n最終的には、自分が使う環境で実際に動かし、生成されたコードの品質や応答速度を確認する必要があります。\n\n今後もAIコーディングエージェントの進化に注目していきたいと思います。\n\n参考資料\n・OpenCode 2.0 公式ドキュメント\n・OpenCode Changelog\n・OpenCode Console モデル一覧・料金\n・OpenCode エージェント設定\n・OpenCode V1からV2への移行\n・GLM 公式リポジトリ\n・DeepSeek V4.1 Flash 公式発表\n・NVIDIA Nemotron 3.5 Super VL 公式発表",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "af2718c1796e6a29",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8973365617433414,
+      "popularityPercentile": 0.9878934624697336,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "OpenCode 2.0で複数のAIモデルを切り替えながら無料でコード開発を試す手順を紹介している。",
+      "takeaways": [
+        "OpenCode 2.0は複数のAIを切り替えて使える。",
+        "GLMやDeepSeekなどを無料で試せる。",
+        "Windowsへの導入から開発での使い分けまで説明する。"
+      ],
+      "keywords": [
+        "OpenCode 2.0",
+        "GLM-5.3-Flash",
+        "DeepSeek V4.1 Flash",
+        "NVIDIA Nemotron 3.5 Super VL",
+        "AIコーディングエージェント"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "OpenCode 2.0は、1つのCLIからGLM・DeepSeek・Nemotronなど複数のAIモデルを切り替えて使えるオープンソースのAIコーディングエージェントです。2.0ではCLIのパッケージ、プラグインAPI、サーバーAPI、設定形式が見直され、Build・Plan・Explore・Generalなどのエージェントを使い分けられます。Git Worktreeの操作や`/diff`による変更差分の確認にも対応します。OpenCode Consoleには、2026年10月17日時点で3種類のFreeモデルが掲載されています。WindowsではNode.jsとnpmを準備し、OpenCodeを導入してAPIキーを登録した後、モデルID末尾が`Free`のモデルを選択します。",
+        "prerequisites": [
+          {
+            "term": "OpenCode",
+            "stumblingPoint": "記事は「複数のAIモデルを利用できる」と書いているが、OpenCode自体とAIモデルの提供元の関係が読み取りにくい。",
+            "explanation": "OpenCodeは、AIモデルそのものではなく、モデルへ接続して開発作業を依頼するクライアントです。OpenCode ConsoleなどのプロバイダーにAPIキーで接続し、同じ操作画面からGLM・DeepSeek・Nemotronを切り替えます。そのため、OpenCodeを入れただけではモデルを使えず、接続設定も必要になります。"
+          },
+          {
+            "term": "OpenCode 2.0",
+            "stumblingPoint": "記事は「CLIのインストールパッケージが変更」と説明するが、既存の1.x利用者が何を確認すべきかが分かりにくい。",
+            "explanation": "OpenCode 2.0では、起動コマンドは`opencode`のままでも、インストール対象のパッケージが1.xと異なります。古い実行ファイルがPATH上で優先されると、インストール後も1.xが起動する可能性があります。バージョン確認で2.x.xが表示されるかを必ず確認します。"
+          },
+          {
+            "term": "サブエージェント",
+            "stumblingPoint": "記事は「メインのAIエージェントから作業を委任」と書いているが、通常のチャットとの違いが読み取りにくい。",
+            "explanation": "サブエージェントは、メインエージェントが調査やレビューなどの一部作業を別のエージェントへ渡す仕組みです。例えばExploreに読み取り専用の調査をさせ、Buildだけに編集権限を与える構成にできます。モデルや操作権限を役割ごとに分けられる点が、単一の会話へすべてを任せる場合との違いです。"
+          },
+          {
+            "term": "Git Worktree",
+            "stumblingPoint": "記事は「複数の作業ディレクトリを用意」と書いているが、AIエージェントで使う利点が分かりにくい。",
+            "explanation": "Git Worktreeは、1つのリポジトリから複数の作業ディレクトリを作るGitの機能です。別機能の実装やレビューを別ディレクトリに分離できるため、エージェントに並行作業をさせるときに変更の混線を避けやすくなります。OpenCode 2.0では作成・一覧表示・削除を操作できます。"
+          },
+          {
+            "term": "/diff",
+            "stumblingPoint": "記事は「/diffコマンドで変更内容を確認」と書いているが、いつ使う操作なのかが読み取りにくい。",
+            "explanation": "`/diff`は、AIに編集させた後、現在の作業ツリーにどの変更が入ったかを確認するためのコマンドです。実装を受け入れる前に差分を確認できるため、意図しないファイル変更や過剰な修正を見つけるチェックポイントになります。"
+          },
+          {
+            "term": "OpenCode Console",
+            "stumblingPoint": "記事は「従量課金プロバイダーを選択し、ConsoleでAPIキーを登録」と書いているが、無料モデルなのに請求情報が出る理由が分かりにくい。",
+            "explanation": "OpenCode Consoleは、OpenCodeから利用するモデルを提供するサービス側の入口です。無料モデルが掲載されていても、アカウント登録や請求情報の設定が案内される場合があります。利用時はモデル名だけでなく、Console上のモデルIDと料金表示を確認します。"
+          },
+          {
+            "term": "Free",
+            "stumblingPoint": "記事は通常版とFree版が別モデルIDだと説明するが、選択時にどこを見ればよいか迷いやすい。",
+            "explanation": "`Free`は単なる表示上のラベルではなく、OpenCode Consoleで別のモデルIDとして扱われます。例えば無料版は`opencode/glm-5.3-flash-free`で、通常版のGLM 5.3 Flashとは別物です。モデル一覧で末尾に`Free`が付くことを確認してから選びます。"
+          },
+          {
+            "term": "MoE",
+            "stumblingPoint": "記事は総パラメータ数と有効パラメータ数を並べるが、両者が違う意味を持つ理由が分かりにくい。",
+            "explanation": "MoEは、モデル全体のパラメータを毎回すべて使わず、入力に応じた一部の専門部分だけを使う構造です。記事ではGLM-5.3-Flashが総約320Bに対して有効約18B、Nemotron 3.5 Super VLが総120Bに対して有効12Bと説明されています。総量が大きくても、1回の処理で使う量は別に考えます。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "OpenCodeの接続構成",
+          "layers": [
+            {
+              "label": "呼び出す側",
+              "nodes": [
+                {
+                  "name": "OpenCode",
+                  "note": "CLIからモデルを選択",
+                  "highlight": true
+                }
+              ],
+              "via": "APIキー"
+            },
+            {
+              "label": "接続先",
+              "nodes": [
+                {
+                  "name": "OpenCode Console",
+                  "note": "モデルと料金を提供",
+                  "highlight": true
+                }
+              ],
+              "via": "モデルID"
+            },
+            {
+              "label": "利用モデル",
+              "nodes": [
+                {
+                  "name": "GLM-5.3-Flash Free",
+                  "note": "長文脈コード処理",
+                  "highlight": false
+                },
+                {
+                  "name": "DeepSeek V4.1 Flash Free",
+                  "note": "推論・エージェント処理",
+                  "highlight": false
+                },
+                {
+                  "name": "Nemotron 3.5 Super VL Free",
+                  "note": "画像・動画理解",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "build",
+        "unlocks": [
+          "同じ質問をGLM・DeepSeek・Nemotronで比較できる",
+          "画像付きUI資料をAIエージェントに読ませられる"
+        ],
+        "howToTry": [
+          "https://qiita.com/ISISI007/items/2368a15f676be6071596",
+          "WindowsのPowerShellでNode.jsとnpmをインストールし、`node`と`npm`のバージョンを確認する（記事内のコードブロックが欠落）。",
+          "記事に記載されたOpenCode 2.0用のnpmパッケージをグローバルインストールする。",
+          "`opencode`を起動し、`/connect`でOpenCode Consoleを選び、APIキーを登録する（手動）。",
+          "`/models`でモデル一覧を開き、末尾が`Free`のモデルを選択する（手動）。",
+          "編集対象のないフォルダーで「このプロジェクトの構成を説明して」と入力し、最初の回答を確認する。"
+        ],
+        "fitFor": [
+          "複数のAIモデルを同じCLIから試したいとき",
+          "WindowsでPowerShellとnpmを使えるとき",
+          "コード・画像・長文資料をモデルごとに比較したいとき"
+        ],
+        "notFor": [
+          "OpenCode 1.xの独自プラグインを移行せず使い続けるとき",
+          "無料モデル以外を選び、料金を発生させたくないとき",
+          "Node.jsやnpmを導入できない環境"
+        ],
+        "caveats": [
+          "モデル名にFreeがない通常版を選ぶと料金が発生します。"
+        ],
+        "tryPrompt": "# 試すこと\nOpenCode 2.0から3種類のFreeモデルへ接続し、同じ質問の回答を比較する。\nhttps://qiita.com/ISISI007/items/2368a15f676be6071596\n# 手順\n1. 上記URLを開き、記事内で欠落しているOpenCode 2.0用のインストールコマンドを公式ドキュメントで確認する。\n2. WindowsのPowerShellでNode.jsとnpmを導入する（手動）。\n3. `node`と`npm`のバージョンを確認する。\n4. 記事と公式ドキュメントの手順に従ってOpenCode 2.0をグローバルインストールする。\n5. `opencode`を起動する。\n6. `/connect`でOpenCode Consoleを選び、APIキーを登録する（手動）。\n7. `/models`を実行し、`opencode/glm-5.3-flash-free`を選択する（手動）。\n8. 「このプロジェクトの構成を説明して」と入力する。\n9. 同じ質問を`opencode/deepseek-v4.1-flash-free`と`opencode/nemotron-3.5-super-vl-free`でも実行する。\n# 確認したいこと\n- 3モデルを同じOpenCodeの操作で切り替えられるか\n- Freeモデルを選んだ状態で回答まで到達できるか\n- 画像入力を含む質問にNemotronが応答できるか\n# 前提・注意\n- Windows、PowerShell、Node.js、npmが必要。\n- 記事本文のコードブロックが欠落しているため、インストールコマンドは公式ドキュメントで補完する。\n- OpenCode Consoleのアカウント登録とAPIキー発行が必要（手動）。"
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "feder-cr/git-ai — Git designed for AI agents.",
+      "url": "https://github.com/feder-cr/git-ai",
+      "publishedAt": "2026-10-15T13:12:02.000Z",
+      "author": "feder-cr",
+      "authorDetail": {
+        "name": "feder-cr",
+        "url": "https://github.com/feder-cr",
+        "avatarUrl": "https://github.com/feder-cr.png?size=120",
+        "bio": "Git designed for AI agents."
+      },
+      "tags": [
+        "Go",
+        "ai-agents",
+        "coding-agents",
+        "git",
+        "golang",
+        "scion",
+        "version-control"
+      ],
+      "snippet": "Git designed for AI agents.",
+      "metrics": {
+        "stars": 1057
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "04e508cb872b937c",
+      "foundIn": [
+        "github_repo"
+      ],
+      "body": "<img alt=\"gitai, Git designed for AI agents. An animation: a board of 50 agents racing on one branch, where git lands 100 changes and gitai lands 200; the server puts every change in order; every change has the name of the agent that made it; and servers can be added as you grow.\" src=\"doc/images/banner-light.gif\" width=\"100%\">\n \n Git designed for AI agents. \n \n\nAnthropic built Scion, a faster version control system for coding agents,\nand described it in\nRedesigning source control:\na server-centric system built for hundreds of agents that read, write and land\ncode at the same time. Scion is internal to Anthropic and is not available to\nthe public.\n\nSo I built gitai: an open-source version of that design that anyone can\nrun, and that the community can improve and maintain together.\n\nMIT licensed. Vendor neutral: the server never calls a language model, and every\nAI feature works with any provider, or none.\n\n gitai is an independent implementation of the publicly described design. It is not affiliated with or endorsed by Anthropic. \n\n---\n\nWhy\n\nClassic Git hosting was built for humans who clone a repository, work for hours\nand push once. Coding agents work differently: thousands of short-lived tasks,\neach touching a few files, each wanting to land in seconds, all on the same\nbranches. Full clones, merge queues and client-side history walks become the\nbottleneck.\n\nScion's answer is to move the work to the server: clients stay online and fetch\nonly what they need, history questions are answered (and cached) by the server,\nchanges land through a compare-and-swap instead of a queue, every update is an\nentry in a changeset log, and the repository state lives in a consistent\ndatabase plus object storage so servers scale out. gitai implements these\nideas, with normal Git repositories underneath.\n\nThe Scion ideas, implemented\n\n| Scion idea | In gitai |\n|---|---|\n| Always-online clients that fetch exactly what they need | ObjectService serves single objects and sparse trees; graft clone and graft sparse materialize only the paths you ask for. |\n| Source control as an API: history runs on the server | Blame, path history, ancestry and code search run server-side and are memoized as derived data, computed once per commit. |\n| Landing without a merge queue | UserLand rebases a change onto the current tip and lands it with a compare-and-swap; concurrent lands on one branch are batched into a single reference update. |\n| Automatic conflict resolution | A conflicting land is resolved by a resolver you choose (any LLM provider, a deterministic tool, or none) through a versioned, vendor-neutral protocol. |\n| Changeset log | Every accepted reference update is recorded with its operation and actor in a dense, ordered log that clients list or watch live. |\n| Storage core: a database and object storage, stateless servers | Each change is a changeset in a write-ahead log in SQLite or PostgreSQL, with a compare-and-swap per reference; packs live in object storage (file, S3, GCS, Azure). Server nodes are caches that any node can rebuild, so you add nodes to scale. |\n| Test after landing, revert the culprit | graft-verify tests the tip, bisects a failure and reverts the change that broke it. |\n| Monitoring agents (\"superfans\") | Agents follow the changeset stream and report what matters to each component, also through Slack. |\n| Agent-friendly review | Reviews with semantic approval rules: a comment-only change can need fewer approvals than a logic change. |\n| Agents as first-class users | Per-agent tokens, an RPC allowlist and branch policies decide what each agent may do. |\n| Strict cache tiers | graft-cache caches immutable objects in daemon and regional tiers, verifying every object. |\n\nArchitecture\n\n [code] \n\nDetails: ARCHITECTURE.md and STORAGE.md.\n\nQuick start\n\nRequirements: Linux or macOS, Go 1.26, a C toolchain, Meson and Ninja (the\nbuild compiles a bundled Git).\n\n [code] \n\nTo run your own server, adapt examples/graft/config.toml\nand start it with build/bin/gitaly serve config.toml. To put the repository\nstate in a database and object storage, add a [graft.storage] section: start in\nshadow mode, import your repositories, then switch to authoritative\n(STORAGE.md).\n\nInside the code the extensions are called Graft: the [graft]\nconfiguration section, the graft CLI, internal/graft and doc/graft.\n\nDocumentation\n・Quickstart and configuration reference\n・Architecture and the storage core\n・Landing and batching, conflict resolution, derived data\n・Review, search, verification, superfans and Slack chat\n・Agent security, benchmarks, fuzzing\n・Limitations and roadmap\n・Design documents of each phase: PLAN.md to PLAN6.md\n\nStatus\n\nVersion 0.1.0, the first public release. Everything above is implemented and\ncovered by unit, end-to-end, multi-node, crash and fuzz tests. Interfaces may\nstill change before 1.0. Known gaps (for example garbage collection of packs in\nthe storage core) are listed in LIMITATIONS.md.\n\nCommunity\n\ngitai is meant to be maintained by its community. Open an issue to report a\nbug or propose an idea, start a discussion before a large design change, and send\npull requests: tests and a short description of the reasoning make them easy to\nreview. The design documents in doc/graft/PLAN.md explain why things are the\nway they are.\n\nCredits and license\n\ngitai is MIT licensed, see LICENSE.\n\nIt started as a fork of Gitaly, GitLab's\nGit RPC server (MIT, Copyright GitLab Inc.), which provides the Git plumbing\nunderneath; every upstream Gitaly RPC keeps working. The non-MIT ee/ directory\nof upstream Gitaly is not part of this repository. Gitaly's own README is kept in\ndoc/UPSTREAM-GITALY.md, and third-party notices are in\nNOTICE.",
+      "preScore": 0.9458490566037737,
+      "popularityPercentile": 0.9811320754716981,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "git-ai — AIエージェント向けのGit",
+      "oneLiner": "git-aiはAIエージェントによる開発を前提に設計されたGit互換のバージョン管理ツールである。",
+      "takeaways": [
+        "git-aiはAIが扱いやすいコード管理を目指す。",
+        "AIによる変更を追跡しやすくする。",
+        "従来のGitとは異なる開発の土台を提案する。"
+      ],
+      "keywords": [
+        "git-ai",
+        "Git",
+        "AIエージェント",
+        "Go",
+        "バージョン管理"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://repository-images.githubusercontent.com/1420751050/cba1c927-c4af-483f-8eb5-4c847aea6f02",
+      "rank": 2,
+      "deep": {
+        "summary": "gitaiは、短命なAIコーディングエージェントが同じブランチへ数秒単位で変更を投入するための、Git互換のサーバー中心型バージョン管理システムです。AnthropicのScionで公開された設計を独立実装し、通常のGitリポジトリを下層に使いながら、履歴検索・オブジェクト取得・変更のlandをサーバー側へ移します。変更はchangeset logに記録され、UserLandが現在のtipへrebaseしてcompare-and-swapで反映するため、従来のmerge queueを使わずに並行投入を処理します。競合時は任意のLLMプロバイダー、決定的ツール、または何も使わないresolverを選べます。Version 0.1.0ではサーバー、ストレージ、レビュー、検証、監視エージェント、エージェント単位の権限管理まで実装されていますが、1.0前はインターフェース変更があり得ます。",
+        "prerequisites": [
+          {
+            "term": "gitai",
+            "stumblingPoint": "記事は「gitai is an open-source version」と書くが、通常のGitクライアントと何が置き換わるのか読み取りにくい。",
+            "explanation": "gitaiは、AIエージェント向けのGit互換サーバー実装です。通常のGitリポジトリを下層に残しつつ、クライアントが毎回フルcloneして履歴を走査する処理をサーバー側へ移します。この記事では、Gitそのものを捨てるのではなく、複数エージェントが同じブランチへ短時間で変更を投入するための実行基盤として位置付けられています。"
+          },
+          {
+            "term": "Scion",
+            "stumblingPoint": "記事は「Scion's answer is to move the work to the server」と進むが、Scionが利用できる製品なのか設計名なのかが分かりにくい。",
+            "explanation": "ScionはAnthropicが社内で作った、コーディングエージェント向けの高速なバージョン管理システムです。公開されているのは設計の説明で、Scion自体は一般公開されていません。gitaiはその公開設計をもとにした独立実装なので、記事の機能表はScionそのものの導入手順ではなく、gitaiで試せる対応関係を示しています。"
+          },
+          {
+            "term": "Graft",
+            "stumblingPoint": "記事は「Inside the code the extensions are called Graft」と書くが、gitaiと別製品なのか判断しづらい。",
+            "explanation": "Graftはgitai内部でサーバー中心型の拡張部分を指すコード上の名称です。設定では[graft]、CLIではgraft、実装ディレクトリではinternal/graftとして現れます。したがって、Graftを別途インストールするのではなく、gitaiの設定とコマンドとして扱います。"
+          },
+          {
+            "term": "changeset log",
+            "stumblingPoint": "「Every accepted reference update is recorded」とあるが、通常のGit履歴との差が分からないと監視や復旧への効果を読み取れない。",
+            "explanation": "changeset logは、受理された参照更新を操作内容とactor付きで順序どおりに記録するログです。コミット履歴だけを見るのではなく、どのエージェントがいつブランチ参照を更新したかをlistまたはwatchできます。監視エージェントやSlack連携はこの更新ストリームを購読します。"
+          },
+          {
+            "term": "UserLand",
+            "stumblingPoint": "「UserLand rebases a change onto the current tip」とあるが、通常のpushやmerge queueとどう違うかが省略されている。",
+            "explanation": "UserLandは、変更をその時点のブランチ先端へrebaseし、compare-and-swapで参照を更新するland処理です。更新前に先端が変わっていればその条件が成立せず、古い状態を上書きしません。複数のlandは単一の参照更新へbatch化されるため、エージェントごとに順番待ちするmerge queueとは異なる並行処理になります。"
+          },
+          {
+            "term": "compare-and-swap",
+            "stumblingPoint": "「compare-and-swap per reference」とあるが、何を比較してから何を更新する操作なのか知らないと安全性が分からない。",
+            "explanation": "compare-and-swapは、参照が期待した値のままかを比較し、一致した場合だけ新しい値へ更新する原子的な操作です。gitaiではブランチの現在のtipを条件にするため、別エージェントが先に更新した場合に古いtipを基準とした変更を黙って反映しません。"
+          },
+          {
+            "term": "graft-verify",
+            "stumblingPoint": "「tests the tip, bisects a failure and reverts the change」とあるが、単なるCI実行ではなく変更者特定まで行う機能だと分かりにくい。",
+            "explanation": "graft-verifyはland後のブランチ先端をテストし、失敗した場合に変更履歴をbisectして原因となった変更を特定し、その変更をrevertする検証機能です。AIエージェントが高頻度に変更を投入する構成で、壊れたtipを人が手作業で追跡する代わりに使います。"
+          },
+          {
+            "term": "superfans",
+            "stumblingPoint": "「Monitoring agents (\"superfans\")」という呼称だけでは、通常の監視ツールと何を購読するのかが読み取りにくい。",
+            "explanation": "superfansは、changeset streamを追跡し、担当コンポーネントに関係する更新だけを報告する監視エージェントです。単にサーバーの死活状態を見るのではなく、変更の流れを読み取ってSlackにも通知します。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "gitaiの処理経路",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "AI agents",
+                  "note": "短命タスクから変更を投入",
+                  "highlight": false
+                }
+              ],
+              "via": "RPC/CLI"
+            },
+            {
+              "label": "Graft API",
+              "nodes": [
+                {
+                  "name": "UserLand",
+                  "note": "rebaseとlandを処理",
+                  "highlight": true
+                },
+                {
+                  "name": "graft-verify",
+                  "note": "tipをテストし原因をrevert",
+                  "highlight": false
+                }
+              ],
+              "via": "参照更新"
+            },
+            {
+              "label": "サーバー処理",
+              "nodes": [
+                {
+                  "name": "changeset log",
+                  "note": "更新とactorを順序記録",
+                  "highlight": true
+                },
+                {
+                  "name": "履歴・検索",
+                  "note": "サーバー側で計算・キャッシュ",
+                  "highlight": false
+                }
+              ],
+              "via": "DB/WAL"
+            },
+            {
+              "label": "永続化",
+              "nodes": [
+                {
+                  "name": "SQLite/PostgreSQL",
+                  "note": "変更状態を保持",
+                  "highlight": false
+                },
+                {
+                  "name": "Object storage",
+                  "note": "Git packを保存",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "gitaiリポジトリ",
+            "url": "https://github.com/feder-cr/git-ai"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "同じブランチへ複数エージェントが同時にlandできる",
+          "変更者付きの更新ログを監視エージェントで追える"
+        ],
+        "howToTry": [
+          "https://github.com/feder-cr/git-ai",
+          "`git clone https://github.com/feder-cr/git-ai.git && cd git-ai`",
+          "LinuxまたはmacOSで、Go 1.26・C toolchain・Meson・Ninjaを用意する。",
+          "`sed -n '1,240p' README.md`でQuick startのビルド手順と設定例を確認する。",
+          "`examples/graft/config.toml`を複製・編集し、READMEに記載されたビルド後の`build/bin/gitaly serve config.toml`を実行する。記事本文ではビルド用コードブロックが欠落しているため、実際のコマンドはREADMEで補完する。"
+        ],
+        "fitFor": [
+          "AIエージェントが同じブランチへ短時間に変更を投入する場合",
+          "変更履歴をサーバーAPIやchangeset logで監視したい場合",
+          "LinuxまたはmacOSでGo 1.26を使える場合"
+        ],
+        "notFor": [
+          "Windows環境でそのまま試したい場合",
+          "Go 1.26・C toolchain・Meson・Ninjaを用意できない場合",
+          "1.0前のインターフェース変更を避けたい場合"
+        ],
+        "caveats": [
+          "Go 1.26とC toolchain、Meson、Ninjaが必要"
+        ],
+        "tryPrompt": "# 試すこと\ngitaiをローカルでビルドし、設定ファイルを使ってサーバーを起動する。\nhttps://github.com/feder-cr/git-ai\n\n# 手順\n1. `git clone https://github.com/feder-cr/git-ai.git && cd git-ai`\n2. `sed -n '1,260p' README.md`\n3. READMEに記載されたQuick startのビルドコマンドを実行する。\n4. `cp examples/graft/config.toml /tmp/gitai-config.toml`\n5. `/tmp/gitai-config.toml`のリポジトリパスやポートを、READMEとexamplesの内容に合わせて編集する。（手動）\n6. READMEの起動例に従い、`build/bin/gitaly serve /tmp/gitai-config.toml`を実行する。\n\n# 確認したいこと\n- LinuxまたはmacOSで、READMEの手順だけでビルドが完了するか。\n- `build/bin/gitaly serve`が設定ファイルを読み込み、待ち受け状態になるか。\n- GraftのCLIまたはRPCから最初のリポジトリ操作まで到達できるか。\n\n# 前提・注意\n- Go 1.26、C toolchain、Meson、Ninjaが必要。\n- 記事本文ではビルド用コードブロックが欠落しているため、コマンドはREADMEから取得する。\n- サーバー起動前に設定ファイルのパスやリポジトリ設定を確認する。"
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Postgres 19 delayed after AI reviewers find more bugs than humans can fix",
+      "url": "https://www.theregister.com/databases/2026/10/16/postgres-19-delayed-after-ai-reviewers-find-more-bugs-than-humans-can-fix/5303471",
+      "publishedAt": "2026-10-16T15:55:40.000Z",
+      "author": "magoghm",
+      "authorDetail": {
+        "name": "magoghm",
+        "handle": "magoghm",
+        "url": "https://news.ycombinator.com/user?id=magoghm"
+      },
+      "tags": [],
+      "snippet": "REG AD databases Core devs revert up to 10 features, push release to November, and blame better tooling rather than vibe coding The PostgreSQL Global Development Group has delayed the release of PostgreSQL 19, the latest iteration of the popular open source database, and held back an unusual number of features. Once slated for release in late September or early October, PostgreSQL 19 is now expect…",
+      "metrics": {
+        "points": 173,
+        "comments": 65
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "bf4bdebc8f887ae4",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.16133333333333333,
+      "popularityPercentile": 0.7333333333333333,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "AIレビューで遅れるPostgres 19のリリース",
+      "oneLiner": "AIレビューが人間の修正能力を超える不具合を見つけ、Postgres 19の公開が遅れている。",
+      "takeaways": [
+        "Postgres 19の公開が予定より遅れている。",
+        "AIによる検査で人間が直しきれない不具合が見つかった。",
+        "自動検査の強化が開発速度を下げる場面も生まれている。"
+      ],
+      "keywords": [
+        "Postgres 19",
+        "AIレビュー",
+        "バグ修正",
+        "リリース遅延"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "自動検査の厳密さを優先するか公開の速さを優先するか",
+        "forSide": "不具合を残したまま公開するよりAIで問題を洗い出す方が長期的な信頼を守れる。",
+        "againstSide": "修正能力を超える検査を続けると公開が遅れ利用者の利益を損なう。",
+        "oneSided": true,
+        "yourAngle": "AI支援の検査が実装速度とレビュー負荷に与えた実測値を出せる。"
+      },
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://image.theregister.com/228745.jpg?imageId=228745&x=0&y=0&cropw=100&croph=100&panox=0&panoy=0&panow=100&panoh=100&width=1200&height=683",
+      "body": "REG AD\n        \n\n            \n                \n\n                    \n\n                            \n\n                        \n\n    \n\n                    \n                \n                    databases\n                \n                    \n\n    \n\n        \n\n            \n        Core devs revert up to 10 features, push release to November, and blame better tooling rather than vibe coding\n    \n\n        \n\n                        \n\n                        \n                        \n\n                        \n\n                        \n    \n    \n\n    \n\nThe PostgreSQL Global Development Group has delayed the release of PostgreSQL 19, the latest iteration of the popular open source database, and held back an unusual number of features. Once slated for release in late September or early October, PostgreSQL 19 is now expected to be generally available around November 19. Developers have also dropped between eight and 10 significant features.Explaining the number of reverts — features whose rollouts have now been postponed to next year's release, PostgreSQL 20 — Peter Eisentraut, veep at EDB, a PostgreSQL support and consultancy, said the reason could be at least in part attributed to the LLM code reviews used by developers. \n\n        REG AD\n        \n\nIn a blog post, Eisentraut, who is a leading PostgreSQL committer, said some of the reverted features had significant architectural defects that would have been hard to fix \"quickly and during beta.\"\n\n        REG AD\n        \n\nHowever, the introduction of LLM-assisted code review also uncovered a long tail of “relatively harmless issues involving various edge cases” which, in past times, developers might not have noticed until much later, most likely issuing bug fixes in the five years following launch. “With LLM-assisted code review, these kinds of things can get found much faster, and then you’re staring at a list of forty defect reports. Even if each of them requires only a three-line fix on average, there is a fixed overhead to dealing with each of these, and then you run out of time.”When the big updates for PostgreSQL 19 were written, LLM-assisted code review was not as useful as it is now, we're told, but in the months leading up to the launch, the AI-supported reviews became better understood and more effective. “The effective quality bar has been raised after the time the feature was written and committed. Unless the capabilities of LLM-assisted code review keep improving at the current rate, this situation should sort itself out for future development cycles,” Eisentraut said. He was also at pains to point out that the reverts were not down to “vibe coding” in development, as the technique was not available when most of the new features were written. Postgres was first proposed by Michael Stonebraker in 1986. In 1994, Andrew Yu and Jolly Chen replaced the query language POSTQUEL with SQL, and in 1995 made the database freely available and modifiable under a more permissive license, renaming it PostgreSQL. It has since become the most popular database among professional developers owing to the services the big three hyperscalers built on it as well as the range of wire-compatible distributed systems available. Among the features pulled from the PostgreSQL 19 iteration is support for SQL Property Graph Queries (SQL/PGQ), which became part of the SQL standard in 2023. The feature provides syntax for exploring relationships between nodes connected by edges. PostgreSQL's implementation was removed over unresolved issues.At the time, PostgreSQL contributor Tom Lane warned: \"At this point I'd be willing to bet dinner that if we ship it in v19 there will be post-release bug discoveries that are unfixable until v20.\"Despite the delay, Eisentraut promises PostgreSQL 19 will still be “a great release,” that includes REPACK CONCURRENTLY, which avoids the table-lock VACUUM FULL operation used to reclaim disk space. \n\n        REG AD\n        \n\n“And it will be very robust, after all the additional scrutiny,” he said. The features reverted from PostgreSQL 19 will likely make it into PostgreSQL 20. Just a few months ago, developers expected PostgreSQL 20 to have no new features, just bug fixes. Now, it is likely to have the new features left over from the earlier release, Eisentraut said.®",
+      "rank": 1,
+      "deep": {
+        "summary": "PostgreSQL Global Development Groupは、Postgres 19の一般提供時期を2026年11月19日ごろへ延期し、8〜10個の主要機能をPostgreSQL 20へ先送りした。延期の背景には、LLM-assisted code reviewが従来なら見逃され、リリース後数年かけて修正していたエッジケースまで短期間で大量に発見したことがある。個々の修正が平均3行でも、40件規模になると調査・修正・検証の固定コストで開発期間を使い切る。SQL Property Graph Queries（SQL/PGQ）は未解決の問題から撤回され、REPACK CONCURRENTLYなど追加の精査を経た機能はPostgres 19に残る。記事の争点は、LLM-assisted code reviewで上がった品質基準に合わせて公開を遅らせるか、一定の問題を将来のバグ修正に回して予定どおり出すかにある。",
+        "prerequisites": [
+          {
+            "term": "LLM-assisted code review",
+            "stumblingPoint": "記事はLLM-assisted code reviewで40件の欠陥が見つかったと書くが、レビューの発見と修正完了が別工程だと読み取れない。",
+            "explanation": "LLM-assisted code reviewは、コードを解析してバグ候補やエッジケースを列挙する仕組みです。候補を見つけることと、それが本当に欠陥か確認し、修正してテストを通すことは別の作業になります。記事の「3行の修正」には、各報告の再現・優先度付け・レビュー・回帰テストの固定コストが含まれるため、短いパッチでも大量に処理するとリリースを圧迫します。"
+          },
+          {
+            "term": "Postgres 19",
+            "stumblingPoint": "記事はPostgres 19の延期と機能撤回を説明するが、通常の新機能リリースがどの時点で品質判断を受けるかが省略されている。",
+            "explanation": "Postgres 19は、PostgreSQLの次期メジャーリリースです。記事では、機能が書かれてコミットされた時点より、リリース前のベータ期間にLLM-assisted code reviewが有効になり、実質的な品質基準が上がったことが問題になっています。そのため、単に新機能の実装が遅れたのではなく、既に入れる予定だった機能を公開前に取り下げる判断が発生しています。"
+          },
+          {
+            "term": "PostgreSQL 20",
+            "stumblingPoint": "記事は撤回機能がPostgreSQL 20に入る可能性を述べるが、機能撤回が永久中止ではないことを知らないと影響を誤解する。",
+            "explanation": "PostgreSQL 20は、Postgres 19から先送りされた機能を再び扱う次のメジャーリリースです。SQL Property Graph Queries（SQL/PGQ）などは、今回のリリースから外れただけで、記事上は将来の採用候補として残っています。ただし、次のリリースで必ず復活するという確約ではなく、追加の設計・実装・レビューを経る余地を確保したという意味です。"
+          },
+          {
+            "term": "SQL Property Graph Queries",
+            "stumblingPoint": "記事はSQL Property Graph QueriesがSQL標準の一部で、ノードとエッジの関係を探索すると書くが、撤回理由とのつながりが見えにくい。",
+            "explanation": "SQL Property Graph Queriesは、ノードとエッジで表された関係をSQLから探索するための構文です。記事ではSQL標準に入った新機能でも、PostgreSQL実装に未解決の問題が残ればPostgres 19から外す判断が示されています。標準化済みという事実は、実装の設計上の欠陥やリリース後の修正可能性を保証しません。"
+          },
+          {
+            "term": "REPACK CONCURRENTLY",
+            "stumblingPoint": "記事はREPACK CONCURRENTLYがVACUUM FULLのテーブルロックを避けると書くが、何の運用上の差なのかが省略されている。",
+            "explanation": "REPACK CONCURRENTLYは、ディスク領域回収のための再編成を、テーブル全体をロックするVACUUM FULLとは異なる形で実行する機能です。テーブルロックが避けられると、メンテナンス中に通常の読み書きを止める必要が減ります。記事では、複数機能を撤回してもPostgres 19に残る具体的な価値として挙げられています。"
+          },
+          {
+            "term": "vibe coding",
+            "stumblingPoint": "記事は撤回の原因がvibe codingではないと強調するが、AIによるコード生成とAIによる既存コードの検査を区別しないと論点を取り違える。",
+            "explanation": "vibe codingは、AIに大部分の実装を任せる開発手法を指す記事中の表現です。今回の説明では、Postgres 19の機能の大半はその手法が使える前に書かれており、問題になったのは実装生成ではなくLLM-assisted code reviewの性能向上です。つまり「AIが粗いコードを書いたから延期」ではなく、「後から検査能力が上がり、許容していた欠陥まで問題化した」という構図です。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "品質基準上昇の波及",
+          "steps": [
+            {
+              "label": "機能を実装",
+              "detail": "Postgres 19向け機能をコミット"
+            },
+            {
+              "label": "AIレビュー導入",
+              "detail": "エッジケースを高速に発見"
+            },
+            {
+              "label": "欠陥が累積",
+              "detail": "40件規模の報告を処理"
+            },
+            {
+              "label": "固定費が発生",
+              "detail": "確認・修正・検証で時間消費"
+            },
+            {
+              "label": "機能を撤回",
+              "detail": "8〜10機能をPostgreSQL 20へ"
+            },
+            {
+              "label": "リリース延期",
+              "detail": "一般提供を11月19日ごろへ"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "記事本文",
+            "url": "https://www.theregister.com/databases/2026/10/16/postgres-19-delayed-after-ai-reviewers-find-more-bugs-than-humans-can-fix/5303471"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "品質基準と公開時期",
+            "claim": "AIレビューで見つかった欠陥を潰し切るまで延期し、堅牢性を優先する。",
+            "counter": "40件を一件ずつ処理する固定費で公開が遅れるなら、軽微な問題は後続修正に回せる。",
+            "counterInArticle": true
+          },
+          {
+            "point": "機能の維持と撤回",
+            "claim": "ベータ中に設計上の欠陥が見つかった機能は、PostgreSQL 20へ戻すべきだ。",
+            "counter": "公開後に修正できる問題まで撤回すると、標準対応や利用価値を届ける時期を失う。",
+            "counterInArticle": false
+          },
+          {
+            "point": "AI検査の導入時期",
+            "claim": "リリース前に強力なLLM-assisted code reviewを使い、出荷前の品質基準を引き上げるべきだ。",
+            "counter": "実装後に検査基準だけ上がると、既存計画の修正時間を奪うため導入時期の管理が必要だ。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AIレビュー報告数と修正完了数",
+            "why": "Claude CodeやOpenAI Codexを日常利用しており、検出件数と実際に直せた件数を同じ変更で記録できる。"
+          },
+          {
+            "angle": "3行修正に付随する固定コスト",
+            "why": "React / Next.js / TypeScriptの変更で、再現・影響範囲確認・テスト・レビューにかかる時間を実測できる。"
+          },
+          {
+            "angle": "リリース延期と利用者影響",
+            "why": "プロダクト開発のリリース運用を経験しているため、品質改善による延期が利用者や依存チームに与えた具体的な影響を出せる。"
+          }
+        ],
+        "verify": [
+          "同じPRをAIレビューにかけ、報告数・真陽性数・修正完了数・確認時間を記録する。",
+          "過去のPRで軽微な指摘を全件修正した場合と後回しにした場合のリリース時間を比較する。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "LLMのツール再実行で注文を二重登録しないPython設計",
+      "url": "https://qiita.com/TechStudioLab/items/a9b0b46a34f322c22742",
+      "publishedAt": "2026-10-15T23:02:52.000Z",
+      "author": "TechStudio Lab",
+      "authorDetail": {
+        "name": "TechStudio Lab",
+        "handle": "@TechStudioLab",
+        "url": "https://qiita.com/TechStudioLab",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4244828/fb5db7cfcac19c9cbde572fc37ece0a8332c42a5/large.png?1762090542",
+        "bio": "AI・Webエンジニアとして、業務システム、EC、Webアプリ、AI連携を開発しています。OpenAI API、Claude API、Python、FastAPI、TypeScript、Laravel、AWS、Shopify、Swift等を活用し、要件整理から設計・実装・運用まで一貫対応。技術そのものより「業務で使えるか」を大切にし、AI自動化、RAG、API連携、業務改善の知見も発信しています。",
+        "organization": "Freelancer",
+        "location": "長崎市",
+        "followers": 64,
+        "posts": 51,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/TechStudioLab"
+          },
+          {
+            "label": "Web",
+            "url": "https://techstudiolab.jp/"
+          }
+        ]
+      },
+      "tags": [
+        "Python",
+        "LLM",
+        "Functioncalling",
+        "SQLite"
+      ],
+      "snippet": "LLMが正しいツールを選び、引数も正しく生成できても、createorder() を安全に実行できるとは限りません。結果を返す直前に通信が切れ、同じ操作が再送されれば、注文だけが2件作られる可能性があります。 副作用のあるツールでは、モデルの精度より外側にもう一つ境界が必要です。同じ業務操作が複数回届くことを前提に、実行層を冪等にします。 以下は Python 3.12 以上と標準ライブラリの sqlite3 だけで再現できます。追加パッケージはありません。 正しいfunction callでも二重登録できる まずLLMを外して、問題だけを小さくします。ツール呼び出しを固定JSONとして扱えば、事故の原因がモデルなのか実行層なのかを分離できます。 [code] 出力はこうなります。 [code] 同じ引数を2回処理したので、当然2件できます。 ここで「同じ引数なら2回目を無視すればよい」と…",
+      "body": "LLMが正しいツールを選び、引数も正しく生成できても、createorder() を安全に実行できるとは限りません。結果を返す直前に通信が切れ、同じ操作が再送されれば、注文だけが2件作られる可能性があります。\n\n副作用のあるツールでは、モデルの精度より外側にもう一つ境界が必要です。同じ業務操作が複数回届くことを前提に、実行層を冪等にします。\n\n以下は Python 3.12 以上と標準ライブラリの sqlite3 だけで再現できます。追加パッケージはありません。\n\n正しいfunction callでも二重登録できる\n\nまずLLMを外して、問題だけを小さくします。ツール呼び出しを固定JSONとして扱えば、事故の原因がモデルなのか実行層なのかを分離できます。\n\n [code] \n\n出力はこうなります。\n\n [code] \n\n同じ引数を2回処理したので、当然2件できます。\n\nここで「同じ引数なら2回目を無視すればよい」と考えるのも危険です。同じ商品を同じ数量で、本当に2回注文したいケースと区別できません。\n\n必要なのは引数の同一性ではなく、「これは同じ業務操作の再送である」と判断できる識別子です。\n\nHTTPやLLMの呼び出し境界をまたぐ処理では、こちらがレスポンスを受け取れなかったことと、相手側で処理されなかったことは同じではありません。\n\nたとえば注文INSERTが成功した直後、結果をLLM側へ返す前に接続が失われたとします。\n\n [code] \n\n呼び出し側から見ると最初の処理結果が分からないため、retry自体は自然です。問題はretryではなく、受け手が「初回」と「再送」を区別できないことです。\n\ncallidと業務上の操作IDは役割が違う\n\n \n\nOpenAIのFunction Callingでは、functioncall に callid が含まれ、その結果を functioncalloutput として返す際にも同じ callid を指定します。\n\nFunction calling\n\nProgrammatic Tool Callingでも、プログラム自身のcallidと、そこから発生するfunctioncallのcallidは別の項目として扱われます。\n\nProgrammatic Tool Calling\n\nここでAPI上のcallidを、そのまま注文の冪等性キーにしたくなります。しかし私は、APIプロトコル上の識別子と業務操作の識別子を分けて考えるほうが安全だと考えています。\n\ncallidは「このfunction callの結果をどこへ返すか」を対応付ける識別子です。一方、こちらが欲しいoperationidは「この注文作成は以前受け付けた注文作成と同一か」を判断するための識別子です。\n\n境界を分けると、構造はこうなります。\n\n [code] \n\n会話を作り直した、ジョブを再投入した、あるいは別の実行経路から同じ業務操作を再開した、といった場合まで同一操作として扱いたいなら、その同一性はアプリケーション側で定義しなければなりません。\n\n引数のハッシュも保存しておくと、さらに一つ事故を防げます。同じoperationidなのに引数だけ変わった場合、それを再送として成功扱いするのではなく、衝突として検出できます。\n\nexecutionテーブルを副作用の手前に置く\n\n最小構成として、実行記録を次の状態で持たせます。\n\n [code] \n\n今回はSQLiteで、operationidにUNIQUE制約を持たせます。ポイントは注文テーブルではなく、その手前のexecutionテーブルで操作を識別することです。\n\n [code] \n\n同じ操作を2回渡してみます。\n\n [code] \n\n結果は次の形になります。\n\n [code] \n\n2回目は注文処理を繰り返さず、保存済みの結果を返します。\n\nさらに、同じ操作IDで内容だけ変更してみます。\n\n [code] \n\nこれはValueErrorになります。単にoperationidの存在だけを見る実装だと、間違った引数を「処理済み」と誤認するため、argshashにも意味があります。\n\nここではexecutionsへのINSERT、注文作成、completedへの更新が一つのSQLiteトランザクションに入っています。途中で例外が発生すればまとめてロールバックされるため、この小さな例ではpendingが残りません。\n\nでは、なぜpendingを設計に入れたのか。\n\n実システムでは副作用が同じDB内で完結するとは限らないからです。メール送信、決済API、外部SaaSへの登録などをSQLiteのトランザクションに参加させることはできません。\n\nDBトランザクションだけでは外部副作用を守れない\n\nたとえば次の順序には、避けられない隙間があります。\n\n [code] \n\n再起動後にDBを見るとpendingですが、外部サービスでは処理済みかもしれません。この状態で無条件に再実行すると二重処理になります。\n\nつまりexecutionテーブルを置けば何でもexactly-onceになるわけではありません。\n\n外部サービス自身がidempotency keyを受け付けるなら、同じoperationidをその境界まで伝播させる設計が扱いやすくなります。受け付けない場合は、処理結果を問い合わせられるか、pendingを人または別のreconciliation処理で確認するかなど、対象サービスに合わせた回復方法が必要です。\n\nfailedも同様です。「失敗したから安全に再実行できる」とは限りません。外部への要求が到達する前に失敗したのか、相手では成功した後にタイムアウトしたのかで意味が変わります。\n\nそのため、実運用では単純なfailedだけでなく、エラー種別や外部参照ID、試行回数、更新時刻などを保存したくなるはずです。ただし、それらは対象の副作用が決まってから足せばよく、最初に守る境界は変わりません。\n\nLLMに副作用のあるツールを渡すとき、私はモデル側に「二度呼ばないで」と期待するより、ツール実行層を通常の分散システムと同じように扱うほうがよいと考えています。モデルが正しいJSONを一度生成することと、その業務操作が一度だけ成立することは別問題だからです。\n\n今回のSQLite実装は、同一DBトランザクション内で完結する副作用を理解するための最小例です。複数ワーカーが同時実行する構成では、SELECTしてからINSERTする競合も考える必要があるため、UNIQUE制約による競合を実際に発生させ、DBごとのトランザクション分離レベルと合わせて確認するのが次の境界になります。\n\n参考\n\nProgrammatic Tool Calling | OpenAI API\n\nFunction calling | OpenAI API",
+      "metrics": {
+        "likes": 0,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "10c4bbb2db4fad7c",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5965254237288136,
+      "popularityPercentile": 0.7796610169491526,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "LLMのツール再実行で注文が二重登録されないよう、識別子を使った冪等なPython設計を解説する。",
+      "takeaways": [
+        "通信が切れると同じ注文が再び届くことがある。",
+        "同じ注文かどうかを専用の識別子で見分ける。",
+        "処理結果を返せなくても注文が増えない仕組みにする。"
+      ],
+      "keywords": [
+        "LLM",
+        "Function calling",
+        "Python 3.12",
+        "SQLite",
+        "冪等性",
+        "注文処理"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "talk",
+      "debate": {
+        "axis": "再実行を受け入れる設計にするか重複を送信側で防ぐか",
+        "forSide": "通信失敗は避けられないため受け手が同じ業務操作を安全に処理すべきだ。",
+        "againstSide": "受け手だけに重複防止を任せると識別子の設計漏れが重大な二重処理につながる。",
+        "oneSided": false,
+        "yourAngle": "AIエージェントの外部操作で再送が起きた回数と重複防止の実装結果を測定できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "LLMが正しいfunction callを生成しても、応答返却前の通信断でretryが起きると、注文のような副作用が二重に実行される。対策はモデルに「二度呼ばないで」と期待することではなく、実行層で同じ業務操作を再実行しても一度だけ成立する境界を作ることだ。API上のcallidと、業務操作の同一性を表すoperationidは役割が異なるため分離し、argshashも保存して同じoperationidへの引数変更を衝突として検出する。SQLite内で完結する副作用ならexecutionテーブル、UNIQUE制約、トランザクションで結果を再利用できるが、外部サービスの副作用はpendingやreconciliationまで含めて扱う必要がある。単純なfailedも「外部に届く前の失敗」と「外部では成功したが応答を失った失敗」を区別できない。",
+        "prerequisites": [
+          {
+            "term": "function call",
+            "stumblingPoint": "「正しいfunction callでも二重登録できる」とあるが、モデルの出力が正しくても実行結果が失われる状況を知らないと原因を切り分けにくい。",
+            "explanation": "function callは、モデルが呼び出すツール名と引数を構造化して返す仕組みです。ここで正しいとは、商品や数量の引数が妥当であるという意味で、注文が一度だけ成立したことまでは保証しません。ツール実行後、結果をモデル側へ返す前に通信が切れると、呼び出し側は未実行と区別できず同じfunction callを再送します。記事はモデルの生成精度ではなく、その外側の実行層を問題にしています。"
+          },
+          {
+            "term": "冪等",
+            "stumblingPoint": "「実行層を冪等にします」と書かれているが、注文作成のような副作用で何を同じ結果にするのかが読み取れない。",
+            "explanation": "冪等とは、同じ業務操作を複数回受けても、最初の一回だけ副作用を発生させ、後続には保存済みの結果を返す性質です。単に同じ商品・数量を比較するのではなく、同一操作を示す識別子で判定します。したがって、同じ商品を意図的に二度注文する処理は別の識別子を持たせれば妨げません。"
+          },
+          {
+            "term": "callid",
+            "stumblingPoint": "「callidは結果をどこへ返すかを対応付ける」とあるが、なぜ注文の重複判定にそのまま使えないのかで手が止まる。",
+            "explanation": "callidは、特定のfunction callと、その結果を返すfunctioncalloutputを対応付けるAPIプロトコル上の識別子です。会話の作り直しやジョブの再投入で新しいcallidが発行されると、同じ注文作成でも別操作に見える可能性があります。注文の同一性を保ちたい範囲はアプリケーション側で決めるため、callidとは別にoperationidを設計します。"
+          },
+          {
+            "term": "operationid",
+            "stumblingPoint": "「業務操作の識別子」と説明されるが、どの範囲の再実行を同一操作とみなすかを決める値だと理解しないと設計意図を誤る。",
+            "explanation": "operationidは、注文作成という業務操作が以前受け付けた操作と同じかを判定するためのアプリケーション側の識別子です。LLMとの会話を再構築した場合や、別の実行経路から同じ注文処理を再開した場合も同一視するなら、その規則に従ってアプリケーションが同じ値を再利用します。APIの呼び出し単位ではなく、業務上の一回分の操作単位を表す点がcallidとの違いです。"
+          },
+          {
+            "term": "argshash",
+            "stumblingPoint": "「同じoperationidで引数だけ変わった場合」を衝突とするが、引数の一致確認がないと何を誤認するのかが分かりにくい。",
+            "explanation": "argshashは、operationidに紐づく注文引数のハッシュです。同じoperationidで別の商品や数量が届いたとき、既存処理の再送ではなく識別子の衝突または呼び出しミスとして検出できます。operationidの存在だけを見て保存済み結果を返す実装では、異なる注文内容を処理済みと誤認します。"
+          },
+          {
+            "term": "executionテーブル",
+            "stumblingPoint": "「注文テーブルではなく、その手前のexecutionテーブルで操作を識別する」とあるが、注文データと実行記録を分ける理由が必要になる。",
+            "explanation": "executionテーブルは、注文そのものではなく、業務操作を受け付けたか、処理中か、完了したかを記録する境界です。operationidのUNIQUE制約をここに置くことで、注文INSERTの前に同じ操作の存在を検出できます。完了済みなら保存済みの結果を返し、未完了なら副作用を進める判断材料になります。"
+          },
+          {
+            "term": "pending",
+            "stumblingPoint": "SQLiteトランザクション内では例外時にpendingが残らないのに、外部副作用ではpendingを設計すると書かれており、状態の意味が変わる。",
+            "explanation": "pendingは、実行記録は開始済みだが、副作用の完了を確定できていない状態です。注文INSERTまで同じSQLiteトランザクションに含められる場合は、失敗時にロールバックできます。しかし決済APIやメール送信はSQLiteのトランザクションに参加しないため、DB上はpendingでも外部では成功済みという不確実性が残ります。この状態を無条件に再実行すると、外部副作用を二重に発生させる可能性があります。"
+          },
+          {
+            "term": "exactly-once",
+            "stumblingPoint": "「executionテーブルを置けば何でもexactly-onceになるわけではありません」とあるが、DB上の一回性と外部サービスの一回性を分けないと意味を取り違える。",
+            "explanation": "exactly-onceは、処理が論理的に一度だけ成立することを指します。executionテーブルとSQLiteトランザクションで保証できるのは、同じデータベース内に閉じた副作用の範囲です。外部サービスでは、要求が届いたか、成功したか、応答だけ失われたかをDBトランザクションから確定できません。そのため外部サービスのidempotency key、結果照会、またはreconciliationが別途必要になります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "操作識別の境界",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "LLM / ジョブ",
+                  "note": "ツール呼び出しを再送",
+                  "highlight": false
+                }
+              ],
+              "via": "function call"
+            },
+            {
+              "label": "実行層",
+              "nodes": [
+                {
+                  "name": "operationid",
+                  "note": "業務操作を識別",
+                  "highlight": true
+                },
+                {
+                  "name": "callid",
+                  "note": "API結果を対応付け",
+                  "highlight": false
+                }
+              ],
+              "via": "識別情報"
+            },
+            {
+              "label": "記録層",
+              "nodes": [
+                {
+                  "name": "executionテーブル",
+                  "note": "状態と結果を保存",
+                  "highlight": true
+                }
+              ],
+              "via": "DBトランザクション"
+            },
+            {
+              "label": "副作用",
+              "nodes": [
+                {
+                  "name": "注文INSERT",
+                  "note": "同一DB内で実行",
+                  "highlight": false
+                },
+                {
+                  "name": "外部サービス",
+                  "note": "決済やメールなど",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "再送への責任範囲",
+            "claim": "再送は受け手がoperationidで冪等に処理する",
+            "counter": "送信側で重複送信を止めれば実行層は簡単になる",
+            "counterInArticle": false
+          },
+          {
+            "point": "識別子の役割",
+            "claim": "callidとoperationidは業務上の理由で分ける",
+            "counter": "同じ呼び出しを指すcallidを冪等性キーにすれば実装が簡単になる",
+            "counterInArticle": false
+          },
+          {
+            "point": "外部副作用の一回性",
+            "claim": "DBトランザクションだけでは外部副作用を守れない",
+            "counter": "外部APIまで同じトランザクションに含めれば一度だけにできる",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AIコーディングエージェントの再試行経路",
+            "why": "Claude CodeやCodexがツール実行を再開した際の重複リクエストを、ログとoperationidで追跡できる"
+          },
+          {
+            "angle": "function callから業務操作へのID設計",
+            "why": "TypeScriptやNext.jsのAPI境界を実装しており、リクエストIDと業務IDの分離を設計経験として出せる"
+          },
+          {
+            "angle": "外部APIを含む注文フローの状態遷移",
+            "why": "決済やメールなど外部サービスを呼ぶ実装で、pending後の確認や再実行の実例を整理できる"
+          }
+        ],
+        "verify": [
+          "同じoperationidと引数で2回実行し、注文件数が1件で保存済み結果が返るか確認する",
+          "同じoperationidで引数だけ変えて実行し、ValueErrorとして衝突検出されるか確認する"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "842d4a554a3c7846",
+      "product": "Claude Code",
+      "what": "ターミナルで使うAIコーディングエージェント",
+      "version": "v2.1.302",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "自動モードのモデルとidle compactionを設定できるようになる",
+      "change": {
+        "before": "自動モードのモデルを変更できない",
+        "after": "CLAUDECODEAUTOMODEMODELでモデルを選択可能"
+      },
+      "scope": [],
+      "summary": "自動モードのモデルを選ぶCLAUDECODEAUTOMODEMODELと、idle compactionのオン・オフ設定を追加しました。停止時のPrompt is too longエラーも修正しています。",
+      "title": "anthropics/claude-code v2.1.302",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.302",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-10-16T20:53:06.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Code v2.1.302 を入れて、「自動モードのモデルとidle compactionを設定できるようになる」を確かめる\nhttps://github.com/anthropics/claude-code/releases/tag/v2.1.302\n\n# 手順\n1. git clone --depth 1 --branch v2.1.302 https://github.com/anthropics/claude-code\n2. cd claude-code && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v2.1.302 が実際に入って動くか\n- 「自動モードのモデルとidle compactionを設定できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v2.1.302 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "acc50a00cb44ca06",
+      "product": "ESLint",
+      "what": "JavaScript・TypeScript向け静的解析ツール",
+      "version": "v10.13.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "IIFE内の参照などを追加で検出できるようになる",
+      "change": {
+        "before": "IIFE内の参照や一部式を検査対象外",
+        "after": "IIFE内の参照やyield式もルールで検査"
+      },
+      "scope": [],
+      "summary": "no-use-before-defineでIIFE内の参照、no-obj-callsでglobalThis、no-unsafe-optional-chainingでyield式を検査できるようにしました。",
+      "title": "eslint/eslint v10.13.0",
+      "url": "https://github.com/eslint/eslint/releases/tag/v10.13.0",
+      "sourceLabel": "GitHub Releases / eslint/eslint",
+      "publishedAt": "2026-10-16T14:23:23.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nESLint v10.13.0 を入れて、「IIFE内の参照などを追加で検出できるようになる」を確かめる\nhttps://github.com/eslint/eslint/releases/tag/v10.13.0\n\n# 手順\n1. git clone --depth 1 --branch v10.13.0 https://github.com/eslint/eslint\n2. cd eslint && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v10.13.0 が実際に入って動くか\n- 「IIFE内の参照などを追加で検出できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v10.13.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "1c49ed89dd7b7b6a",
+      "product": "GitHub Enterprise Cloud",
+      "what": "企業向けGitHub開発・管理サービス",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "組織横断のオープンソースライセンス監査ができるようになる",
+      "change": {
+        "before": "依存関係レビュー単位のライセンス確認",
+        "after": "ルールセットで企業全体のライセンスを強制管理"
+      },
+      "scope": [],
+      "summary": "GitHub Enterprise CloudでオープンソースライセンスコンプライアンスがGAになり、ルールセットによる組織横断の依存関係監査に対応しました。",
+      "title": "Open source license compliance generally available",
+      "url": "https://github.blog/changelog/2026-10-16-open-source-license-compliance-generally-available",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-10-16T14:00:32.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "2e5f43267f77730b",
+      "product": "shadcn/ui",
+      "what": "React向けUIコンポーネント配布基盤",
+      "version": "4.22.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "Zod 4のスキーマを利用できるようになる",
+      "change": {
+        "before": "shadcnのスキーマがZod 3前提",
+        "after": "shadcnのスキーマがZod 4対応"
+      },
+      "scope": [],
+      "summary": "shadcn/schemaと@shadcn/registry/schemaをZod 4へ移行しました。Zod 3では推論方法やエラー参照方法が変わります。",
+      "title": "shadcn-ui/ui shadcn@4.22.0",
+      "url": "https://github.com/shadcn-ui/ui/releases/tag/shadcn%404.22.0",
+      "sourceLabel": "GitHub Releases / shadcn-ui/ui",
+      "publishedAt": "2026-10-16T13:24:25.000Z",
+      "alsoReleased": [
+        {
+          "label": "@shadcn/registry@0.2.0",
+          "url": "https://github.com/shadcn-ui/ui/releases/tag/%40shadcn/registry%400.2.0"
+        },
+        {
+          "label": "@shadcn/helpers@0.3.0",
+          "url": "https://github.com/shadcn-ui/ui/releases/tag/%40shadcn/helpers%400.3.0"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nshadcn/ui 4.22.0 を入れて、「Zod 4のスキーマを利用できるようになる」を確かめる\nhttps://github.com/shadcn-ui/ui/releases/tag/shadcn%404.22.0\n\n# 手順\n1. git clone --depth 1 --branch shadcn%404.22.0 https://github.com/shadcn-ui/ui\n2. cd ui && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 4.22.0 が実際に入って動くか\n- 「Zod 4のスキーマを利用できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- shadcn%404.22.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "da5b0f0fb8d1a31b",
+      "product": "GitHub Actions",
+      "what": "GitHubのCI/CD自動化サービス",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "macOS 27とXcode 27でAppleアプリをビルドできるようになる",
+      "change": {
+        "before": "Xcode 27ランナーはパブリックプレビュー",
+        "after": "Xcode 27ランナーをGA環境として利用"
+      },
+      "scope": [
+        "macOS 27"
+      ],
+      "summary": "GitHub ActionsのXcode 27 runner imageがGAになりました。macOS 27上のXcode 27とApple SDKでビルド・テストできます。",
+      "title": "Xcode 27 runner image generally available",
+      "url": "https://github.blog/changelog/2026-10-15-xcode-27-runner-image-generally-available",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-10-16T04:36:30.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "5ad7cd310d26d42d",
+      "product": "GitHub in Slack and Teams",
+      "what": "Slack・TeamsからGitHubを操作する連携機能",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "1つの会話から複数リポジトリを操作できるようになる",
+      "change": {
+        "before": "会話ごとに単一リポジトリを操作",
+        "after": "1つの会話で複数リポジトリを横断操作"
+      },
+      "scope": [],
+      "summary": "SlackとTeamsのGitHub連携が複数リポジトリに対応し、会話からIssue作成や変更依頼を横断して実行できます。",
+      "title": "Multi-repository support and other improvements for GitHub in Slack and Teams",
+      "url": "https://github.blog/changelog/2026-10-15-copilot-in-slack-and-teams-adds-model-and-repository-updates",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-10-16T02:16:35.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "4932ebb9c9a7822b",
+      "product": "Vercel AI Gateway",
+      "what": "複数のAIモデルへ接続するゲートウェイサービス",
+      "version": "V1.2",
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "PerplexityのDecider V1.2モデルを利用できるようになる",
+      "change": {
+        "before": "AI GatewayからDecider V1.2を利用できない",
+        "after": "AI GatewayからDecider V1.2を利用可能"
+      },
+      "scope": [],
+      "summary": "Vercel AI GatewayでPerplexityのDecider V1.2モデルを利用できるようになりました。",
+      "title": "Perplexity's Decider V1.2 models now available on AI Gateway",
+      "url": "https://vercel.com/changelog/perplexity-decider-v1-2-models-now-available-on-ai-gateway",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-10-16T00:00:00.000Z",
+      "alsoReleased": [
+        {
+          "label": "Reflection AI's Beam now available on AI Gateway for free",
+          "url": "https://vercel.com/changelog/reflection-ai-beam-now-available-on-ai-gateway-for-free"
+        }
+      ],
+      "tryPrompt": null
+    },
+    {
+      "id": "4bd302d28e224fbf",
+      "product": "TanStack Router",
+      "what": "Reactなど向けのフルスタックルーティングライブラリ",
+      "version": null,
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "一時的なネットワーク処理を従来どおり実行",
+        "after": "マニフェストのpreload優先度を下げて実行"
+      },
+      "scope": [],
+      "summary": "マニフェストスクリプトのpreload優先度を下げ、Vitest 5への移行とベンチマーク更新を行いました。",
+      "title": "TanStack/router Release 2026-10-16 21:11",
+      "url": "https://github.com/TanStack/router/releases/tag/release-2026-10-16-2111",
+      "sourceLabel": "GitHub Releases / TanStack/router",
+      "publishedAt": "2026-10-16T21:11:12.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/start-server-core@1.169.44",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-server-core%401.169.44"
+        },
+        {
+          "label": "@tanstack/react-start@1.169.3",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start%401.169.3"
+        },
+        {
+          "label": "@tanstack/solid-start@1.169.3",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start%401.169.3"
+        },
+        {
+          "label": "@tanstack/vue-start@1.169.3",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/vue-start%401.169.3"
+        },
+        {
+          "label": "@tanstack/router-core@1.171.38",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-core%401.171.38"
+        },
+        {
+          "label": "@tanstack/react-start-rsc@0.1.64",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-rsc%400.1.64"
+        },
+        {
+          "label": "@tanstack/start-plugin-core@1.171.54",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/start-plugin-core%401.171.54"
+        },
+        {
+          "label": "@tanstack/solid-start-server@1.167.49",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start-server%401.167.49"
+        },
+        {
+          "label": "@tanstack/solid-start-client@1.168.41",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/solid-start-client%401.168.41"
+        },
+        {
+          "label": "@tanstack/react-start-server@1.167.51",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-server%401.167.51"
+        },
+        {
+          "label": "@tanstack/react-start-client@1.168.43",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/react-start-client%401.168.43"
+        },
+        {
+          "label": "@tanstack/router-plugin@1.168.47",
+          "url": "https://github.com/TanStack/router/releases/tag/%40tanstack/router-plugin%401.168.47"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nTanStack Router を入れて、この版の変更を確かめる\nhttps://github.com/TanStack/router/releases/tag/release-2026-10-16-2111\n\n# 手順\n1. git clone --depth 1 --branch release-2026-10-16-2111 https://github.com/TanStack/router\n2. cd router && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 新しい版が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- release-2026-10-16-2111 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "55eedc4095e34a8b",
+      "product": "Wrangler",
+      "what": "Cloudflare Workersの開発・デプロイCLI",
+      "version": "4.151.1",
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "トークン更新の一時的な失敗でセッションが停止",
+        "after": "失敗後も毎分リトライしてセッションを維持"
+      },
+      "scope": [],
+      "summary": "wrangler dev --remoteとgetPlatformProxy()が、プレビュー・トークン更新に失敗しても毎分リトライし、リモート開発セッションを維持します。",
+      "title": "cloudflare/workers-sdk wrangler@4.151.1",
+      "url": "https://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.151.1",
+      "sourceLabel": "GitHub Releases / cloudflare/workers-sdk",
+      "publishedAt": "2026-10-16T10:08:13.000Z",
+      "alsoReleased": [
+        {
+          "label": "@cloudflare/deploy-helpers@0.21.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/deploy-helpers%400.21.0"
+        },
+        {
+          "label": "@cloudflare/config@0.27.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/config%400.27.0"
+        },
+        {
+          "label": "@cloudflare/vitest-plugin@1.4.4",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vitest-plugin%401.4.4"
+        },
+        {
+          "label": "@cloudflare/remote-bindings@0.0.49",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/remote-bindings%400.0.49"
+        },
+        {
+          "label": "@cloudflare/containers-shared@0.22.1",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/containers-shared%400.22.1"
+        },
+        {
+          "label": "@cloudflare/runtime-types@0.1.12",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/runtime-types%400.1.12"
+        },
+        {
+          "label": "@cloudflare/pages-shared@0.13.198",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/pages-shared%400.13.198"
+        },
+        {
+          "label": "@cloudflare/build-output-utils@0.9.3",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/build-output-utils%400.9.3"
+        },
+        {
+          "label": "@cloudflare/autoconfig@0.7.10",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/autoconfig%400.7.10"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nWrangler 4.151.1 を入れて、この版の変更を確かめる\nhttps://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.151.1\n\n# 手順\n1. git clone --depth 1 --branch wrangler%404.151.1 https://github.com/cloudflare/workers-sdk\n2. cd workers-sdk && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 4.151.1 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- wrangler%404.151.1 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "ECサイトシステム運営会社の情報漏えい 2335万件を確認 | NHKニュース",
+      "url": "https://news.web.nhk/newsweb/na/nd-20261016de60742",
+      "publishedAt": "2026-10-16T11:45:38.000Z",
+      "tags": [
+        "テクノロジー",
+        "セキュリティ",
+        "あとで読む",
+        "security",
+        "news"
+      ],
+      "snippet": "インターネットショッピングのシステムを運営している「Eストアー」は、2026年8月に発覚した不正アクセスの影響について調査結果を公表し、サイトを利用した顧客2335万人の個人情報が漏えいしたと明らかに…",
+      "metrics": {
+        "hatena": 29
+      },
+      "sourceWeight": 3,
+      "id": "edd43810c9e17c75",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.23833333333333334,
+      "popularityPercentile": 0.696969696969697,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "Eストアーは不正アクセスにより顧客2335万人分の個人情報が漏えいしたと発表した。",
+      "takeaways": [
+        "Eストアーで不正アクセスの調査結果が公表された。",
+        "漏えいした個人情報は2335万人分に達した。",
+        "被害範囲は2026年8月に発覚した事案が対象になった。"
+      ],
+      "keywords": [
+        "Eストアー",
+        "情報漏えい",
+        "不正アクセス",
+        "2335万人",
+        "個人情報"
+      ],
+      "category": "その他",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "ヤマト運輸、氏名や住所など計530万件超が漏えい　「クロネコ代金後払い」不正アクセスで",
+      "url": "https://www.itmedia.co.jp/news/article/2610/16/2000002339/",
+      "publishedAt": "2026-10-16T08:32:25.000Z",
+      "tags": [
+        "テクノロジー",
+        "あとで読む"
+      ],
+      "snippet": "ヤマト運輸は10月16日、「クロネコ代金後払いサービス」への不正アクセスについて、利用者情報など計約531万件が不正に持ち出されたことが判明したと発表した。クレジットカード情報やパスワードは含まれていないという。 漏えいしたのは、2018年10月1日から26年9月28日までにサービスを利用した一部利用者の氏名、住所...",
+      "metrics": {
+        "hatena": 9
+      },
+      "sourceWeight": 3,
+      "id": "b3987cb579e7d015",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.04,
+      "popularityPercentile": 0.18181818181818182,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "ヤマト運輸はクロネコ代金後払いサービスから約531万件の利用者情報が持ち出されたと発表した。",
+      "takeaways": [
+        "ヤマト運輸で不正アクセスによる情報流出が確認された。",
+        "氏名や住所など約531万件の情報が対象になった。",
+        "クレジットカード情報とパスワードは含まれていない。"
+      ],
+      "keywords": [
+        "ヤマト運輸",
+        "クロネコ代金後払い",
+        "不正アクセス",
+        "531万件",
+        "個人情報"
+      ],
+      "category": "その他",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "【重要】Linuxカーネルの脆弱性（CVE-2026-99999）に関する当社サービスへの影響について | さくらインターネット",
+      "url": "https://www.sakura.ad.jp/corporate/information/announcements/2026/10/16/1968226051/",
+      "publishedAt": "2026-10-16T09:57:11.000Z",
+      "tags": [
+        "テクノロジー",
+        "linux",
+        "セキュリティ",
+        "あとで読む",
+        "security",
+        "開発",
+        "IT"
+      ],
+      "snippet": "お客さま各位 平素よりさくらインターネットをご利用いただき、誠にありがとうございます。 Linuxカーネルのネットワーク処理に関する脆弱性（CVE-2026-99999）が公開されました。 本脆弱性については、仮想化環境においてホストシステムへの影響につながる可能性があると報告されています。当社では本脆弱性を認知し、...",
+      "metrics": {
+        "hatena": 160
+      },
+      "sourceWeight": 3,
+      "id": "ff337a7243842982",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.21333333333333335,
+      "popularityPercentile": 0.9696969696969697,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "さくらインターネットはCVE-2026-99999が仮想化環境のホストに影響し得るとして対応状況を案内した。",
+      "takeaways": [
+        "Linuxのネットワーク処理に脆弱性が公開された。",
+        "仮想環境ではホストへの影響につながる可能性がある。",
+        "さくらインターネットがサービスへの影響を確認している。"
+      ],
+      "keywords": [
+        "さくらインターネット",
+        "CVE-2026-99999",
+        "Linuxカーネル",
+        "仮想化",
+        "セキュリティ"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "2026/10/17主にITとかセキュリティの記事",
+      "url": "https://qiita.com/pitopito/items/cdb9e6d5512edfeea0e6",
+      "publishedAt": "2026-10-16T19:24:13.000Z",
+      "author": "浩 釜本",
+      "authorDetail": {
+        "name": "浩 釜本",
+        "handle": "@pitopito",
+        "url": "https://qiita.com/pitopito",
+        "avatarUrl": "https://secure.gravatar.com/avatar/d301ec427285245483cff6d1c8f4fb3c",
+        "followers": 106,
+        "posts": 1728,
+        "links": []
+      },
+      "tags": [
+        "Security",
+        "ニュース"
+      ],
+      "snippet": "Ivanti Connect Secureのゼロデイ 脆弱性「CVE-2026-104935」がサイバー攻撃に悪用(10/15) https://rocket-boys.co.jp/security-measures-lab/ivanti-connect-secure-cve-2026-104935-zero-day-exploited/ 米当局、悪用が確認された脆弱性2件について注意喚起(10/14) https://www.security-next.com/191426 Palo Alto Networks「PAN-OS」にroot権限でコード実行される脆弱性、サイバー攻撃で悪用確認―CVE-2026-0322(10/15) https://rocket-boys.co.jp/security-measures-lab/palo-alto-pan-os-cve-2026-0322-r…",
+      "body": "Ivanti Connect Secureのゼロデイ 脆弱性「CVE-2026-104935」がサイバー攻撃に悪用(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/ivanti-connect-secure-cve-2026-104935-zero-day-exploited/\n\n米当局、悪用が確認された脆弱性2件について注意喚起(10/14)\nhttps://www.security-next.com/191426\n\nPalo Alto Networks「PAN-OS」にroot権限でコード実行される脆弱性、サイバー攻撃で悪用確認―CVE-2026-0322(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/palo-alto-pan-os-cve-2026-0322-rce-exploited/\n\nCisco Secure Email Gatewayにゼロデイ 脆弱性「CVE-2026-76519」、サイバー攻撃で悪用(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/cisco-secure-email-gateway-cve-2026-76519/\n\nKiro と Amazon Q でセキュリティポスチャを強化する 5 つの方法(10/15)\nhttps://aws.amazon.com/jp/blogs/news/five-ways-to-use-kiro-and-amazon-q-to-strengthen-your-security-posture/\n\nSAP、NetWeaver・S/4HANAにCVSS 9.9の重大脆弱性―2026年10月パッチデーで計4件のCriticalを修正(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/ap-october-2026-security-patch-day-netweaver-s4hana/\n\n本日気になった注意喚起情報（10/15）\nhttps://foxsecurity.hatenablog.com/entry/2026/10/15/062659\n\nPAN-OSのRCE脆弱性、ゼロデイ攻撃で悪用される：CVE-2026-0322(10/15)\nhttps://codebook.machinarecord.com/threatreport/silobreaker-cyber-alert/48098/\n\nroot権限取得を許すシスコ製品の深刻な脆弱性、ゼロデイ攻撃で悪用される：CVE-2026-76519(10/15)\nhttps://codebook.machinarecord.com/threatreport/silobreaker-cyber-alert/48102/\n\n「流れ」を追う: ロシアが関心を寄せる個人を標的とした複数のクラスタ(10/14)\nhttps://cloud.google.com/blog/ja/topics/threat-intelligence/distinct-clusters-target-individuals-of-interest-to-russia/?hl=ja\n\nSAP Cloud SDK for PythonにCVSS 10.0のSSRF脆弱性、OAuth2認証情報が窃取される恐れ―CVE-2026-89111を修正(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/ap-cloud-sdk-python-cve-2026-89111-oauth2-ssrf/\n\nKiro CLI でセキュリティ調査を迅速化(10/15)\nhttps://aws.amazon.com/jp/blogs/news/accelerate-security-investigations-with-kiro-cli/\n\nチェック・ポイント・リサーチ、LLMゲートウェイ「LiteLLM」に2件の高リスクな脆弱性を発見(10/15)\nhttps://prtimes.jp/main/html/rd/p/000000560.000021207.html\n\nGhostscriptにCVSS 9.8の脆弱性（CVE-2026-39919）、PDFアップロード経由でサーバー侵害の恐れ―WordPressにも影響(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/ghostscript-cve-2026-39919-pdf-upload-rce/\n\nSAP月例更新で新規アドバイザリ16件 - 4件が「クリティカル」(10/15)\nhttps://www.security-next.com/191436\n\nDocker Hubに重大な脆弱性、他人の権限でコンテナイメージを改ざん可能に―CVE-2026-105445(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/docker-hub-cve-2026-105445-pat-impersonation-image-tampering/\n\nJVNが楽天モバイル オリジナルスマホ4機種の脆弱性情報を公開(10/15)\nhttps://phablet.jp/?p=159569\n\nMFA(多要素認証)を導入してもVPNから侵入される理由―Akiraのサイバー攻撃で露呈した「認証の死角」、RDP・Windowsログオンも確認を(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/mfa-coverage-gaps-vpn-rdp-windows-akira/\n\nWebアプリを狙う攻撃急増、優先順位どう付ける？　Microsoftが「11戦術・35テクニック」で対策を体系化(10/15)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2610/15/news022.html\n\n米マイクロソフト、警察庁と連携し「YAM Store」など3つのフィッシング基盤を解体へ(10/15)\nhttps://news.yahoo.co.jp/articles/fa7cb6b88f2f3bb90af66ac600a2bc65986470c8\n\nFortiSandboxに認証回避の重大脆弱性、未認証でコマンド実行のおそれ（CVE-2026-107656）(10/15)\nhttps://rocket-boys.co.jp/security-measures-lab/fortisandbox-authentication-bypass-cve-2026-107656/\n\nGo 1.26.6へのバージョンアップでnet/httpのバグを踏んで稀に502エラーを発生させた原因をちゃんと理解する(10/15)\nhttps://buildersbox.corp-sansan.com/entry/2026/10/15/101500\n\nAI 時代の脆弱性の発見と悪用の傾向(10/15)\nhttps://cloud.google.com/blog/ja/topics/threat-intelligence/vulnerability-discovery-and-exploitation-trends-in-the-ai-era/?hl=ja\n\n「Zoom Workplace」などに脆弱性4件 - 最新版へ更新を(10/15)\nhttps://www.security-next.com/191430\n\nAzureの障害対応に4層の制御　定型処理への移行でAIエージェント費用を削減(10/15)\nhttps://www.zaikei.co.jp/article/20261015/873610.html\n\nAWS CloudTrail を使ったインシデント調査・対応ガイド – パート 2(10/15)\nhttps://aws.amazon.com/jp/blogs/news/incident-response-guide-for-aws-cloudtrail-investigations-part-2/\n\nデータ転送ライブラリ「curl」に特定の条件でリモートからコードを実行される脆弱性\n深刻度Highを含む24件の脆弱性を修正したv8.23.0が公開(10/15)\nhttps://forest.watch.impress.co.jp/docs/news/2148495.html\n\nIntel、Diamond Rapidsを最後にSGX搭載を終了へ　機密コンピューティングはTDX中心に(10/15)\nhttps://www.zaikei.co.jp/article/20261015/873581.html",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "b7bee1de6af2230f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.49018966908797423,
+      "popularityPercentile": 0.0387409200968523,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "2026年10月17日の記事は悪用中の脆弱性とAIを使った防御策をまとめた。",
+      "takeaways": [
+        "複数の機器で攻撃に使われる欠陥が確認された。",
+        "IvantiやPalo Alto Networksなどが対象になった。",
+        "KiroとAmazon Qを使う防御策も紹介されている。"
+      ],
+      "keywords": [
+        "Ivanti Connect Secure",
+        "CVE-2026-104935",
+        "PAN-OS",
+        "CVE-2026-0322",
+        "Kiro",
+        "Amazon Q"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 10,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "tangency-labs/solidcraft — SolidCraft: an open-source parametric 3D CAD application built in pure Rust. Desktop, web, and automation through MCP.",
+      "url": "https://github.com/tangency-labs/solidcraft",
+      "publishedAt": "2026-10-07T18:57:48.000Z",
+      "author": "tangency-labs",
+      "authorDetail": {
+        "name": "tangency-labs",
+        "url": "https://github.com/tangency-labs",
+        "avatarUrl": "https://github.com/tangency-labs.png?size=120",
+        "bio": "SolidCraft: an open-source parametric 3D CAD application built in pure Rust. Desktop, web, and automation through MCP."
+      },
+      "tags": [
+        "Rust",
+        "3d-modeling",
+        "brep",
+        "cad",
+        "egui",
+        "mcp",
+        "parametric-cad",
+        "rust"
+      ],
+      "snippet": "SolidCraft: an open-source parametric 3D CAD application built in pure Rust. Desktop, web, and automation through MCP.",
+      "metrics": {
+        "stars": 3096,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "8f4c825aad00286a",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.6451886792452831,
+      "popularityPercentile": 0.7735849056603774,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": true,
+      "score": 82,
+      "titleJa": "SolidCraft — Rust製のパラメトリック3D CAD",
+      "oneLiner": "SolidCraftはRustだけで作られたデスクトップとWeb対応の3D CADアプリケーションである。",
+      "takeaways": [
+        "SolidCraftは形状を数値で編集する3D設計ソフトである。",
+        "パソコンとブラウザーの両方で動かせる。",
+        "AIツールから操作できる仕組みも備える。"
+      ],
+      "keywords": [
+        "SolidCraft",
+        "Rust",
+        "3D CAD",
+        "MCP",
+        "parametric CAD"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\ntangency-labs/solidcraft — SolidCraft: an open-source parametric 3D CAD application built in pure Rust. Desktop, web, and automation through MCP. を動かして、README の最初の出力まで到達する\nhttps://github.com/tangency-labs/solidcraft\n\n# 手順\n1. git clone --depth 1 https://github.com/tangency-labs/solidcraft\n2. cd solidcraft && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "jhaizhou-ops/d2r-mobile — Open-source iOS / macOS compatibility layer for Diablo II: Resurrected with the Reign of the Warlock expansion. Runs your own Switch copy natively on iPhone, iPad and Mac — full touch controls, 60 fps, new endgame modes. Bring your own game files. 开源的《暗黑破坏神 II：狱火重生》术士君临 iOS / macOS 兼容层",
+      "url": "https://github.com/jhaizhou-ops/d2r-mobile",
+      "publishedAt": "2026-10-12T08:41:19.000Z",
+      "author": "jhaizhou-ops",
+      "authorDetail": {
+        "name": "jhaizhou-ops",
+        "url": "https://github.com/jhaizhou-ops",
+        "avatarUrl": "https://github.com/jhaizhou-ops.png?size=120",
+        "bio": "Open-source iOS / macOS compatibility layer for Diablo II: Resurrected with the Reign of the Warlock expansion. Runs your own Switch copy natively on iPhone, iPad and Mac — full touch controls, 60 fps, new endgame modes. Bring your own game files. 开源的《暗黑破坏神 II：狱火重生》术士君临 iOS / macOS 兼容层"
+      },
+      "tags": [
+        "C",
+        "compatibility-layer",
+        "diablo-2-resurrected",
+        "diablo2",
+        "game-port",
+        "ios",
+        "ipad",
+        "iphone"
+      ],
+      "snippet": "Open-source iOS / macOS compatibility layer for Diablo II: Resurrected with the Reign of the Warlock expansion. Runs your own Switch copy natively on iPhone, iPad and Mac — full touch controls, 60 fps, new endgame modes. Bring your own game files. 开源的《暗黑破坏神 II：狱火重生》术士君临 iOS / macOS 兼容层",
+      "metrics": {
+        "stars": 3528,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "7c6685d976abecb4",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.27,
+      "popularityPercentile": 1,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 82,
+      "titleJa": "d2r-mobile — Diablo IIをiPhoneとMacで動かす互換層",
+      "oneLiner": "d2r-mobileは自分で用意したゲームデータを使いDiablo II: ResurrectedをiPhoneやMacで動かす互換層である。",
+      "takeaways": [
+        "Diablo IIをiPhoneやMacで遊べるようにする。",
+        "画面を触る操作と毎秒60枚の表示に対応する。",
+        "ゲーム本体のデータは利用者が用意する必要がある。"
+      ],
+      "keywords": [
+        "d2r-mobile",
+        "Diablo II: Resurrected",
+        "iOS",
+        "macOS",
+        "Switch",
+        "C"
+      ],
+      "category": "その他",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\njhaizhou-ops/d2r-mobile — Open-source iOS / macOS compatibility layer for Diablo II: Resurrected with the Reign of the Warlock expansion. Runs your own Switch copy natively on iPhone, iPad and Mac — full touch controls, 60 fps, new endgame modes. Bring your own game files. 开源的《暗黑破坏神 II：狱火重生》术士君临 iOS / macOS 兼容层 を動かして、README の最初の出力まで到達する\nhttps://github.com/jhaizhou-ops/d2r-mobile\n\n# 手順\n1. git clone --depth 1 https://github.com/jhaizhou-ops/d2r-mobile\n2. cd d2r-mobile && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【GitHub日報】スマホ遠隔操作phone-harness、無料トレーディング端末OpenTerminal初登場 — 2026-10-16",
+      "url": "https://qiita.com/Git_Dayori/items/0bc95437fb1848b10f30",
+      "publishedAt": "2026-10-16T01:01:34.000Z",
+      "author": "Git_Dayori",
+      "authorDetail": {
+        "name": "Git_Dayori",
+        "handle": "@Git_Dayori",
+        "url": "https://qiita.com/Git_Dayori",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4414140/ecafcbf323908d789f792d5156fd6e55dca36341/x_large.png?1776923172",
+        "bio": "GitHub Trending から、日本の開発者に役立ちそうなリポジトリを毎日ピックアップしてお届けします。",
+        "followers": 6,
+        "posts": 100,
+        "links": []
+      },
+      "tags": [
+        "GitHub",
+        "トレンド",
+        "OSS",
+        "AI",
+        "開発ツール"
+      ],
+      "snippet": "GitHub Trending から、日本の開発者に役立ちそうなリポジトリを毎日ピックアップしてお届けします。 --- 🆕 初登場（First Timers） 今日初めてトレンド入りしたリポジトリ。 ShawnPana/phone-harness — ⭐ 3,669（+161） Python AIエージェントにスマートフォンを操作させるためのツール。 Claude CodeやCodexから実機のiPhone/Androidを直接操作できる。脱獄不要、iPhone Mirroringとadbをトランスポートに使う。 --- ErTasselli/OpenTerminal — ⭐ 1,745（+66） TypeScript 無料の公開マーケットデータだけで構築されたターミナル風トレーディングダッシュボード。APIキーもサブスクリプションも不要。 Nasdaq・Yahoo Finance・Tr…",
+      "body": "GitHub Trending から、日本の開発者に役立ちそうなリポジトリを毎日ピックアップしてお届けします。\n\n---\n\n🆕 初登場（First Timers）\n\n今日初めてトレンド入りしたリポジトリ。\n\nShawnPana/phone-harness — ⭐ 3,669（+161） Python\nAIエージェントにスマートフォンを操作させるためのツール。\n\nClaude CodeやCodexから実機のiPhone/Androidを直接操作できる。脱獄不要、iPhone Mirroringとadbをトランスポートに使う。\n\n---\n\nErTasselli/OpenTerminal — ⭐ 1,745（+66） TypeScript\n無料の公開マーケットデータだけで構築されたターミナル風トレーディングダッシュボード。APIキーもサブスクリプションも不要。\n\nNasdaq・Yahoo Finance・TradingViewなど複数ソースにフォールバックし、単一障害点がない。clone後npm installだけで動く。\n\n---\n\n🔁 常連（Repeat Performers）\n\n過去にもトレンド入りしたリポジトリ。\n\n| リポジトリ | ⭐ スター | 📈 増加 | 言語 | 概要 |\n|:--|--:|--:|:--|:--|\n| morluto/rea | 270,322 | +32,314 | TypeScript | アプリ挙動からネイティブバイナリまでエージェントでリバースエンジニアリング |\n| debpalash/VoiceStudio | 69,100 | +3,024 | Python | 音声クローン・吹替・文字起こしなどをローカルで行うOSS音声スタジオ |\n| ifixai-ai/iFixAi | 28,354 | +1,587 | Python | AIエージェントが意図どおり動いているかを120秒以内に独立監査 |\n| vxcontrol/pentagi | 30,480 | +1,388 | Go | 複雑なペネトレーションテストを自律実行するAIエージェント基盤 |\n| NationalSecurityAgency/ghidra | 88,760 | +1,369 | Java | NSA開発のソフトウェアリバースエンジニアリングフレームワーク |\n| affaan-m/ECC | 280,400 | +1,013 | JavaScript | Claude CodeやCodex等のエージェント向けスキル・メモリ最適化システム |\n| stablyai/orca | 93,501 | +949 | TypeScript | 複数の並列コーディングエージェントを管理するエージェント開発環境 |\n| mksglu/context-mode | 29,797 | +904 | TypeScript | AIコーディングエージェントのコンテキストウィンドウを最適化するツール |\n| heygen-com/hyperframes | 64,563 | +858 | TypeScript | HTMLを書くと動画をレンダリングできるエージェント向け映像生成基盤 |\n| HKUDS/CLI-Anything | 53,087 | +716 | Python | あらゆるソフトウェアをCLI経由でエージェントから操作可能にする仕組み |\n| harry0703/MoneyPrinterTurbo | 131,643 | +604 | Python | AIでトピックやキーワードから高画質ショート動画を自動生成 |\n| hmjz100/LinkSwift | 22,913 | +592 | JavaScript | 百度・阿里雲など8つの中国系クラウドストレージの直リンク取得ツール |\n| obra/superpowers | 299,900 | +582 | Shell | エージェント向けスキルフレームワークとソフトウェア開発方法論 |\n| paperclipai/paperclip | 102,730 | +577 | TypeScript | 業務で使うAIエージェントを管理するオープンソースアプリ |\n| bilawalsidhu/gods-eye-view | 56,931 | +531 | JavaScript | リアルデータを使った3Dグローブ上のオープンソース空間情報シミュレータ |\n\n---\n\nひとこと\n\nreaは+32,314で10日連続スター増加数トップ、累計は約27万に到達した。\n\n---\n\n📩 この日報をメールで毎日受け取りませんか？\n👉 この号を gitdayori.com で読む・無料登録（過去の号もここで読めます）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d8320b92a763d719",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8227602905569008,
+      "popularityPercentile": 0.648910411622276,
+      "matchedTopics": [
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "GitHubの急上昇リポジトリからphone-harnessやOpenTerminalなどを紹介している。",
+      "takeaways": [
+        "phone-harnessはAIからスマートフォンを操作できる。",
+        "OpenTerminalは無料データで相場を表示する。",
+        "ほかにも開発や調査に使えるOSSを幅広く紹介する。"
+      ],
+      "keywords": [
+        "phone-harness",
+        "OpenTerminal",
+        "GitHub Trending",
+        "Claude Code",
+        "Codex",
+        "TypeScript"
+      ],
+      "category": "その他",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "MCP Toolbox for Databases入門 — SQLiteをMCPサーバー化する",
+      "url": "https://qiita.com/kai_kou/items/12c70df5d395570183e1",
+      "publishedAt": "2026-10-16T03:08:11.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。最近の趣味はBLOG投稿、記事執筆、YouTubeチャンネルのAI自動運用の仕組み化。",
+        "location": "Osaka, Japan",
+        "followers": 950,
+        "posts": 848,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "MCP",
+        "CLI",
+        "OpenSource",
+        "SQLite"
+      ],
+      "snippet": "はじめに AIエージェントにデータベースを触らせたいとき、毎回専用のツール関数を書くのは手間がかかります。Google製のOSS「MCP Toolbox for Databases」は、YAML1本でSQL文をMCPツール化できるサーバーです。この記事では実際にバイナリを取得し、SQLiteデータベースに対してツールを定義・起動・MCP標準エンドポイントでの呼び出しまでを検証した記録をまとめます。 この記事で学べること ・MCP Toolbox for Databasesのインストールから起動までの最短手順 ・tools.yaml でSQL文をMCPツール定義に変換する書き方 ・MCP標準のJSON-RPCエンドポイントでツールを直接呼び出して動作を確認する方法 対象読者 ・Claude Code / Codex などのコーディングエージェントにDBアクセスを持たせたい方 ・MCPサーバー…",
+      "body": "はじめに\n\nAIエージェントにデータベースを触らせたいとき、毎回専用のツール関数を書くのは手間がかかります。Google製のOSS「MCP Toolbox for Databases」は、YAML1本でSQL文をMCPツール化できるサーバーです。この記事では実際にバイナリを取得し、SQLiteデータベースに対してツールを定義・起動・MCP標準エンドポイントでの呼び出しまでを検証した記録をまとめます。\n\nこの記事で学べること\n・MCP Toolbox for Databasesのインストールから起動までの最短手順\n・tools.yaml でSQL文をMCPツール定義に変換する書き方\n・MCP標準のJSON-RPCエンドポイントでツールを直接呼び出して動作を確認する方法\n\n対象読者\n・Claude Code / Codex などのコーディングエージェントにDBアクセスを持たせたい方\n・MCPサーバーを自作する前に、既存のOSSで要件を満たせるか確認したい方\n\n前提環境\n・Linux（クラウドの検証環境。amd64）\n・Python 3.11系（sqlite3 標準ライブラリのみ使用）\n・ネットワーク（公式バイナリ配布元へのアクセス）\n\nTL;DR\n・MCP Toolbox for DatabasesはGoogle製・Apache 2.0ライセンスのOSSで、SQLite・PostgreSQL・BigQuery・Spannerなど15種類以上のデータベースに対応する\n・tools.yaml に sources（接続先）と tools（SQL文）を書くだけでMCPツールが定義できる。コード実装は不要\n・実際にv1.6.0のバイナリでSQLiteデータベースへ接続し、MCP標準のJSON-RPCエンドポイント（/mcp/{toolset}）経由で tools/list と tools/call を呼び出したところ、いずれも期待通りの結果が返った\n・ドキュメントの一部コマンド例（--tools-file フラグ、/api/ エンドポイント）は検証時点で非推奨・無効化されており、実機で動かして初めて気づけた差分だった\n\nMCP Toolbox for Databasesとは\n\nMCP Toolbox for Databasesは、AIエージェントやIDEをデータベースに接続するためのMCPサーバーです。もともと「Gen AI Toolbox for Databases」としてMCP登場以前から開発が始まり、その後MCP互換に合わせて googleapis/mcp-toolbox へ改名されました[^1]。\n\n最新の安定版は v1.6.0（2026年7月1日リリース）で、Apache 2.0ライセンスの下、AlloyDB・BigQuery・Cloud SQL・Spanner・Firestoreといった Google Cloud 系データベースに加え、PostgreSQL・MySQL・MariaDB・SQL Server・Oracle・MongoDB・Redis・Elasticsearch・CockroachDB・ClickHouse・Neo4j・Snowflakeなど15種類以上のデータベースに対応しています[^2]。\n\n一般的なMCPサーバー自作では「SQL文の実行」「パラメータのバリデーション」「接続プーリング」をコードで書く必要がありますが、MCP Toolboxは tools.yaml という設定ファイルにSQL文とパラメータ定義を書くだけでMCPツールが生成される点が特徴です。\n\n実装：SQLiteをMCPツール化する\n\nステップ1: バイナリの取得\n\n公式ドキュメントに従い、Linux amd64向けのv1.6.0バイナリをダウンロードします[^3]。\n\n [code] \n\n検証環境で実行したところ、以下のバージョン文字列が返りました。\n\n [code] \n\nGoのシングルバイナリなので、依存関係のインストールなしにそのまま実行できます。\n\nステップ2: 検証用SQLiteデータベースの作成\n\nPythonの sqlite3 標準ライブラリで、検証用のテーブルとレコードを用意します。\n\n [code] \n\nステップ3: tools.yaml でツールを定義する\n\nsources（接続先データベース）と tools（公開するSQL文）を1つのYAMLに書きます。パラメータ付きのSQL文も parameters で定義できます。\n\n [code] \n\nkind: sqlite-sql がSQLite用のツール種別で、statement にプレースホルダ（?）を書き、対応する parameters を定義するとMCPツールの引数として公開されます。\n\nステップ4: サーバー起動\n\n設定ファイルは --config フラグで渡します（--tools-file は検証時点で非推奨フラグになっていました）。\n\n [code] \n\n起動ログは以下の通りです。バージョン文字列・埋め込みモデル数・プロンプトセットまで表示され、旧バージョンより情報量が増えていました。\n\n [code] \n\n起動時に --allowed-origins / --allowed-hosts を指定しないとオリジン・ホストがワイルドカード許可になる旨のセキュリティ警告が出ます。ローカル検証では無視できますが、本番運用では指定必須と読み取れます。\n\nステップ5: MCP標準エンドポイントでツールを呼び出す\n\nドキュメントの一部ページには /api/tool/{name}/invoke というREST風のエンドポイント例が残っていますが、実際にv1.6.0で叩くと以下が返り、無効化されていることが分かりました。\n\n [code] \n\n [code] \n\nエラーメッセージの指示通り、MCP標準のJSON-RPC 2.0エンドポイント /mcp/{toolset名} を使います。まず tools/list でツール一覧を取得します。\n\n [code] \n\n [code] \n\n続いて tools/call で search-by-tag に {\"tag\":\"CLI\"} を渡すと、WHERE tag = ? の絞り込みが正しく効いて該当する1件だけが返りました。\n\n [code] \n\n [code] \n\nSQLインジェクション対策として、statement のプレースホルダにパラメータをバインドする方式のため、tag に任意のSQL文字列を渡してもエスケープされる設計です。\n\n著者視点の発見ポイント\n\ntools.yaml の statement はSQL文をほぼそのまま書けるため、既存のレポート用クエリや運用スクリプトのSELECT文を移植するだけでMCPツール化できる手軽さが、実際に触って確認できた最大の利点でした。一方で、公開されているドキュメントページの中には --tools-file フラグや /api/tool/{name}/invoke エンドポイントを紹介したままのものがあり、実際にv1.6.0で叩くと --tools-file は非推奨警告、/api/ は Gone エラーで弾かれました。ドキュメントのバージョンとバイナリのバージョンにずれがあり得る点は、実機検証をせずに記事や設定を書くと踏みやすい落とし穴だと感じました。MCP標準の /mcp/{toolset} エンドポイントさえ押さえておけば、REST風のショートカットが変わってもツール呼び出し自体は安定して動く、という設計思想が見えたのも収穫です。\n\nまとめ\n・MCP Toolbox for DatabasesはSQL文とパラメータ定義をYAMLに書くだけでMCPツール化できるGoogle製OSS（Apache 2.0）\n・Goのシングルバイナリで依存関係インストール不要。SQLiteのようなファイルベースDBでも同じ手順で動く\n・v1.6.0では --tools-file が非推奨、--config を使う。REST風の /api/ はデフォルト無効で、MCP標準の /mcp/{toolset} JSON-RPCエンドポイントが正規の呼び出し方法\n・パラメータはプレースホルダにバインドされるため、素朴なSQLインジェクション対策も設計に組み込まれている\n\n参考リンク\n・MCP Toolbox for Databases（GitHub）\n・公式ドキュメント\n・Local Quickstart（公式・バイナリインストール手順）\n\n[^1]: MCP Toolbox for Databases（GitHub） — リポジトリ説明・改名の経緯\n[^2]: Introduction | MCP Toolbox for Databases — バージョン・対応データベース一覧・ライセンス（2026年7月時点）\n[^3]: Local Quickstart | MCP Toolbox for Databases — バイナリインストール手順・ダウンロードURL",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "8e4f79dffe9b9c9a",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8035835351089589,
+      "popularityPercentile": 0.5617433414043583,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "MCP Toolbox for DatabasesでSQLiteのSQLをAIエージェント用の道具として公開する手順を解説している。",
+      "takeaways": [
+        "データベース操作をAIから呼び出せる。",
+        "SQLの内容を設定ファイルに書くだけで道具になる。",
+        "SQLite以外に15種類以上のデータベースへ対応する。"
+      ],
+      "keywords": [
+        "MCP Toolbox for Databases",
+        "SQLite",
+        "MCP",
+        "tools.yaml",
+        "JSON-RPC",
+        "Google"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "JPEG XL vs. AVIF for web use-cases",
+      "url": "https://jakearchibald.com/2026/jpeg-xl-vs-avif/",
+      "publishedAt": "2026-10-16T16:12:02.000Z",
+      "author": "farlight",
+      "authorDetail": {
+        "name": "farlight",
+        "handle": "farlight",
+        "url": "https://news.ycombinator.com/user?id=farlight"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 184,
+        "comments": 142,
+        "hatena": 2
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "6e25ee9b5c73df6f",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.17600000000000002,
+      "popularityPercentile": 0.8,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 85,
+      "titleJa": "Web画像形式JPEG XLとAVIFの比較",
+      "oneLiner": "Web用途でJPEG XLとAVIFを比較し、画質や圧縮率などの違いを検討している。",
+      "takeaways": [
+        "JPEG XLとAVIFという画像形式を比べている。",
+        "画像の見た目とデータ量の違いを調べている。",
+        "Webで使える範囲も選択の分かれ目になる。"
+      ],
+      "keywords": [
+        "JPEG XL",
+        "AVIF",
+        "Web画像",
+        "画像圧縮",
+        "ブラウザ"
+      ],
+      "category": "パフォーマンス",
+      "lane": "talk",
+      "debate": {
+        "axis": "Web画像の互換性を優先するか圧縮性能を優先するか",
+        "forSide": "対応範囲が広い形式を選べば配信時の分岐を減らし運用を単純にできる。",
+        "againstSide": "画像配信量が大きいサービスでは圧縮性能の差が通信費と表示速度に直結する。",
+        "oneSided": false,
+        "yourAngle": "ReactやNext.jsの画像配信で形式別の表示速度と転送量を測定できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "foundational",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIエージェントに小さなPRを任せるなら、まず「どこで止まるか」を書く",
+      "url": "https://qiita.com/heftykoo/items/7ed60a567c240e2ff96a",
+      "publishedAt": "2026-10-16T08:46:09.000Z",
+      "author": "heftykoo",
+      "authorDetail": {
+        "name": "heftykoo",
+        "handle": "@heftykoo",
+        "url": "https://qiita.com/heftykoo",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocIJpA19AbNp1kOKApMHJj5hxxGihBzrPImaGK37Q4dgiKVjRg=s96-c",
+        "followers": 3,
+        "posts": 51,
+        "links": []
+      },
+      "tags": [
+        "AIエージェント",
+        "GitHub",
+        "フロントエンド",
+        "TypeScript",
+        "コードレビュー"
+      ],
+      "snippet": "「送信後のエラーメッセージがフォームの下で見切れる」。Reactのコンポーネントを少し直せば済みそうな依頼です。でもエージェントに「直してPRを作って」とだけ渡すと、実装に加えてテストの書き換えや設定変更まで進んだとき、どこからが余計な作業か判定しづらい。 以下は架空のReact/TypeScriptリポジトリを使った手順例です。Copilotの新機能を手元で動かしたレポートではありません。焦点は、エージェントから返ってきたPRをどう引き取るかにあります。 まず変更できる範囲を決める 対象はフォームの表示部品と、それに対応するテストだけ。認証処理、.env、ロックファイル、デプロイ設定は対象外とします。実際にはファイル名を推測して決めず、最初にリポジトリを調べてからパスを記入してください。 [code] この段階では実装を頼まず、「該当箇所とテストを探し、変更計画だけ返す」と依頼します。エ…",
+      "body": "「送信後のエラーメッセージがフォームの下で見切れる」。Reactのコンポーネントを少し直せば済みそうな依頼です。でもエージェントに「直してPRを作って」とだけ渡すと、実装に加えてテストの書き換えや設定変更まで進んだとき、どこからが余計な作業か判定しづらい。\n\n以下は架空のReact/TypeScriptリポジトリを使った手順例です。Copilotの新機能を手元で動かしたレポートではありません。焦点は、エージェントから返ってきたPRをどう引き取るかにあります。\n\nまず変更できる範囲を決める\n\n対象はフォームの表示部品と、それに対応するテストだけ。認証処理、.env、ロックファイル、デプロイ設定は対象外とします。実際にはファイル名を推測して決めず、最初にリポジトリを調べてからパスを記入してください。\n\n [code] \n\nこの段階では実装を頼まず、「該当箇所とテストを探し、変更計画だけ返す」と依頼します。エラー表示の原因が認証API側にあると分かったら、フォーム修正の延長で勝手に触らせない。いったん止めて、依頼の範囲を人が決め直します。\n\nGitHubが公開プレビューとして案内しているCopilotのdynamic workflowsには、工程をコードで定義し、構造化した結果を次の工程や人のチェックポイントへ渡す考え方があります。この記事の手順はその特定APIの実装例ではなく、どのエージェントでもPRの作業単位として切り出せる最小形です。\n\nsandboxを設定しても、PRの合否は決まらない\n\nCopilotのlocal sandboxingは、エージェントが起動するツールやコマンドに対してファイル、ネットワーク、認証情報へのアクセスを制限する仕組みとして一般提供が案内されています。利用できる環境なら、前述の対象外パスや外部通信を実行権限でも制限したい。ただし設定項目と実際の効き方は利用先で確認が必要です。ここに未確認のポリシー構文は載せません。\n\n権限を狭めることと、直した画面が正しいことは別です。たとえば許可したコンポーネント内だけでも、エラー文を丸ごと消せば「見切れ」はなくなります。PRでは少なくとも次を別々に確認します。\n\n1. 差分は承認した範囲に収まっているか。\n2. リポジトリに実在するlint・型チェック・テストは通ったか。\n3. エラーメッセージは狭い画面で読めるか。失敗後に再送信できるか。\n\n3番目はブラウザでの操作確認です。1番目と2番目が通っても代わりにはなりません。\n\n検査コマンドはリポジトリから選ぶ\n\n既存のnpm scriptsを見ずにnpm run typecheckを手順へ書くと、存在しないコマンドを「検査したこと」にしてしまいます。実際のリポジトリで、作業前後に次を確認します。\n\n [code] \n\nBASEには実際のPRのベースコミットIDを設定してから実行します。未設定なら最後のコマンドは実行しません。上のgit diff --name-onlyは未コミットの差分だけを見るので、コミット済み変更の確認も省かないでください。出てきたscriptsから該当する検査を選び、失敗したらエラーを残して停止。テストを直す必要がある場合も、期待仕様の変更かどうかを人に返します。\n\n画面は幅の違う表示で実際に操作し、送信失敗時の文言と再送信の導線を見る。スクリーンショットだけでなく、どの条件で確認したかもPRに残しておくと、レビュアーが追試できます。\n\n止まったときの引き継ぎを、成功時と同じ書式にする\n\nエージェントの最終メッセージが「完了しました」だけだと、レビューは最初からやり直しです。PR本文かコメントに、未記入のまま使える欄を先に用意します。\n\n| 変更したファイル | 実行した検査と結果 | 画面の確認状況 | 未実施・停止理由 | 次に確認する人 |\n| --- | --- | --- | --- | --- |\n| 記入待ち | 記入待ち | 未確認 | 記入待ち | 記入待ち |\n\n検査が失敗したら「失敗」と書く。画面を開けなかったら「未確認」のままにする。権限を追加しないと進めないなら、その理由と要求された操作を残して待つ。人が見るべき場所を小さく保つための欄です。\n\n組織の設定でCopilot appのOpenTelemetryトレースを取得できる場合、セッション内のツール利用を調べる補助にはなります。ただ、トレースがあるだけで表示が正しいとか、全てのアクセスを防げたとは言えません。使えない環境でも、この引き継ぎ表と差分・検査結果は残せます。\n\n小さなPRほど、エージェントを止める条件を省きがちです。先に範囲と受け渡しの書式を決めておけば、修正が一行で済んでも、途中で思わぬ依存が見つかっても、レビュアーが次の判断をできます。\n\n参考\n・GitHub Changelog: Dynamic workflows in Copilot CLI and the Copilot app — 公開プレビュー。工程とチェックポイントの設計に関する案内。\n・GitHub Changelog: Local sandboxing for GitHub Copilot now generally available — ツール実行のアクセス境界に関する案内。\n・GitHub Changelog: OpenTelemetry in the GitHub Copilot app — 組織でのトレース利用に関する案内。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d954fa16c15112f6",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8765617433414044,
+      "popularityPercentile": 0.8934624697336562,
+      "matchedTopics": [
+        "TypeScript",
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "AIエージェントに小さなPRを任せる際の変更範囲と停止条件の決め方を示す。",
+      "takeaways": [
+        "AIに作業を頼む前に触ってよい範囲を決める。",
+        "原因が別の場所にあれば作業を止めて人が判断する。",
+        "動くコードだけでなく変更の広がりも確認する。"
+      ],
+      "keywords": [
+        "AIエージェント",
+        "GitHub",
+        "Copilot",
+        "React",
+        "TypeScript",
+        "コードレビュー"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIエージェントに自由に調査させるか変更範囲を厳しく制限するか",
+        "forSide": "停止条件と対象ファイルを先に決めれば余計な変更を防ぎレビューしやすくなる。",
+        "againstSide": "範囲を狭めすぎると根本原因の調査を妨げAIエージェントの価値を失わせる。",
+        "oneSided": false,
+        "yourAngle": "ReactとTypeScriptのPRでAIが変更したファイル数と手戻りを実測できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Claude Code に「緊急停止」と「危険コマンドのブロック」を足すプラグインを作った（標準ライブラリのみ）",
+      "url": "https://qiita.com/NeuralAlphaAI/items/2e6df5409e252d66d40e",
+      "publishedAt": "2026-10-16T04:43:52.000Z",
+      "author": "NeuralAlphaAI",
+      "authorDetail": {
+        "name": "NeuralAlphaAI",
+        "handle": "@NeuralAlphaAI",
+        "url": "https://qiita.com/NeuralAlphaAI",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocJfZy-bDRzCOUmZF01cQstdZgf6O0QkWTa5_FXxwD_dOl9Lv94=s96-c",
+        "followers": 0,
+        "posts": 3,
+        "links": []
+      },
+      "tags": [
+        "ClaudeCode",
+        "AIエージェント",
+        "Python",
+        "Security",
+        "個人開発"
+      ],
+      "snippet": "Claude Code に作業を任せていると、「今の、止めたかった」という瞬間があります。私の場合は、予約投稿や商品の公開など外部に書き込む作業を任せているので、止めたいときに確実に止まる仕組みが欲しくなりました。 そこで、Claude Code の フック（PreToolUse / PostToolUse） を使って、書き込み系のツール呼び出しにガードを掛けるプラグインを作りました。Python 標準ライブラリだけ、スクリプト1本です。 https://github.com/neuralalpha-ai/agent-guardrails できること 対象は Bash・Write・Edit・MultiEdit・NotebookEdit（何かを変える呼び出し）です。 1. 緊急停止：プロジェクトに .claude/STOP というファイルを置くと、すべての書き込みが止まります（/.claud…",
+      "body": "Claude Code に作業を任せていると、「今の、止めたかった」という瞬間があります。私の場合は、予約投稿や商品の公開など外部に書き込む作業を任せているので、止めたいときに確実に止まる仕組みが欲しくなりました。\n\nそこで、Claude Code の フック（PreToolUse / PostToolUse） を使って、書き込み系のツール呼び出しにガードを掛けるプラグインを作りました。Python 標準ライブラリだけ、スクリプト1本です。\n\nhttps://github.com/neuralalpha-ai/agent-guardrails\n\nできること\n\n対象は Bash・Write・Edit・MultiEdit・NotebookEdit（何かを変える呼び出し）です。\n\n1. 緊急停止：プロジェクトに .claude/STOP というファイルを置くと、すべての書き込みが止まります（/.claude/STOP なら全プロジェクト、環境変数 AGENTSTOP=1 でも可）。\n2. 危険なコマンドのブロック：main への force-push、rm -rf 、curl ... | sh、DROP DATABASE、git reset --hard origin/main、chmod -R 777 を止めます。\n3. 1日の回数上限：たとえば「投稿スクリプトは1日2回まで」をプロジェクトごとに設定できます。\n4. 記録：実行の前に attempt、後に done を .claude/guardrails/ledger.jsonl に書きます。done のない attempt は「完了したか分からない呼び出し」なので、再実行の前に確認できます。\n\n止めた理由は Claude 側にも表示され、「意図した操作ならユーザーに設定の変更を頼むように」というメッセージも一緒に渡します。\n\nインストール\n\nClaude Code で次の2行です。\n\n [code] \n\npython3 が PATH にある必要があります（Windows で python しかない場合は、フックが失敗して「止めない」側に倒れます）。\n\n設定（任意）\n\nプロジェクトの .claude/guardrails.json に書きます。\n\n [code] \n\n設計で気をつけたこと\n・設定ファイルが壊れていたら止める：JSON の書き間違いで、ルールが黙って無効になるのが一番怖いので、読めない設定は「ブロック」にしました。\n・ガード自体の想定外エラーは止めない：逆に、スクリプトのバグでセッション全体が動かなくなるのも困るので、それ以外の内部エラーは通して、記録にだけ残します。\n・止めるのは人が外す：/agent-guardrails:stop-agent off を頼まれても、Claude は STOP ファイルを消せません（書き込みがブロックされているので）。外すのは人の操作にしています。\n\n限界\n\nこれは「Claude Code のツール呼び出し」へのガードです。cron や CI、自分のボットのように Claude Code の外で動くスクリプトは見ていません。そちらは、スクリプト側に同じ仕組み（記録帳・緊急停止・上限）を入れる必要があります。その考え方は前の記事に書きました。\n・AIエージェントに勝手に書き込ませる前に確認している7つのこと\n・手で動かすと動くのに、夜中の自動実行だけ落ちるPython（Windows・cp932）の確認リスト\n\n無人で書き込みをさせる前のチェック項目（25項目・日本語・PDF）は無料で配布しています。\nhttps://neuralalpha.gumroad.com/l/agent-ops-preflight-ja?utmsource=qiita&utmmedium=article\n\nスクリプト側の記録帳（1ファイル）はこちら。\nhttps://github.com/neuralalpha-ai/agent-write-ledger\n\nこの記事の内容を、記録帳・緊急停止・上限・死活監視・納品ZIPの検査まで、動くコード付きで1冊にまとめました（Zenn・1〜2章は無料）。\nhttps://zenn.dev/neuralalpha/books/agent-ops-guide",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "e72ecfbb5528b57f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8691041162227604,
+      "popularityPercentile": 0.8595641646489104,
+      "matchedTopics": [
+        "AI / LLM",
+        "Claude Code"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Claude Codeの書き込みを緊急停止し、危険なコマンドや実行回数を制御するプラグインを紹介する。",
+      "takeaways": [
+        "Claude Codeの書き込みをファイル一つで止められる。",
+        "危険な操作を実行前に遮断できる。",
+        "実行履歴を残して途中停止や失敗を確認できる。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "agent-guardrails",
+        "PreToolUse",
+        "PostToolUse",
+        "Python",
+        "セキュリティ"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIエージェントを強く自動化するか人の停止権限を優先するか",
+        "forSide": "外部への書き込みを任せるなら緊急停止と危険操作の遮断は最低限必要だ。",
+        "againstSide": "禁止規則を増やすほど正当な操作まで止まり自動化の速度を失う。",
+        "oneSided": true,
+        "yourAngle": "Claude Codeの業務利用で停止が必要になった操作と誤検知の件数を記録できる。"
+      },
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIエージェントを並列で走らせても品質を落とさない指示の書き方（29本→100本の実例）",
+      "url": "https://qiita.com/kusarikakemron/items/c0276ecbc20281bd71c6",
+      "publishedAt": "2026-10-16T00:49:02.000Z",
+      "author": "metana",
+      "authorDetail": {
+        "name": "metana",
+        "handle": "@kusarikakemron",
+        "url": "https://qiita.com/kusarikakemron",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/AATXAJxzxgakG72qy2hsHtL6PRiNwFgreKMqnNpzhtb1=s50-mo",
+        "bio": "初心者でもWebflowを使えるか知りたいですか？本記事ではWeb初心者の方でもスグにプロのようなWebサイトを作れる方法を解説しています｡記事を読みながら手を動かしてWebサイト作ってみましょう｡",
+        "followers": 1,
+        "posts": 4,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://www.non-haru.com"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "AIエージェント",
+        "並列処理",
+        "テスト",
+        "自動化"
+      ],
+      "snippet": "AIエージェントを2セッション×各6〜8体で並列に走らせ、自社のWebツール棚を1日で29本から100本に増やしました。 並列化で品質が落ちる原因は、エージェントの能力よりも「指示の書き方」と「成果の受け取り方」の設計にありました。 本記事では、その日にバグを4件見つけた過程から、効いた条件と踏んだ落とし穴を手順の形でまとめます。 前提 ・作業内容: ブラウザで動く小さなWebツール（消費税計算・勤務時間計算・角印作成・PDF処理など）を1本ずつ追加する ・体制: 親セッション1つからサブエージェントを起動し、1体に1ツールを割り当てる ・規模: 2セッション×各6〜8体を並列実行 ・構成: 各ツールは /app.js に本体があり、台帳（JSON）・一覧ページ（HTML）・共通CSSを全ツールで共有している ・検査: 公開一覧と、ツールごとの合格条件をまとめた検査表を突き合わせて出力を確…",
+      "body": "AIエージェントを2セッション×各6〜8体で並列に走らせ、自社のWebツール棚を1日で29本から100本に増やしました。\n並列化で品質が落ちる原因は、エージェントの能力よりも「指示の書き方」と「成果の受け取り方」の設計にありました。\n本記事では、その日にバグを4件見つけた過程から、効いた条件と踏んだ落とし穴を手順の形でまとめます。\n\n前提\n・作業内容: ブラウザで動く小さなWebツール（消費税計算・勤務時間計算・角印作成・PDF処理など）を1本ずつ追加する\n・体制: 親セッション1つからサブエージェントを起動し、1体に1ツールを割り当てる\n・規模: 2セッション×各6〜8体を並列実行\n・構成: 各ツールは /app.js に本体があり、台帳（JSON）・一覧ページ（HTML）・共通CSSを全ツールで共有している\n・検査: 公開一覧と、ツールごとの合格条件をまとめた検査表を突き合わせて出力を確かめる\n\n結果は29本→100本。見つかったバグは4件、エージェントが指摘した「指示そのものの誤り」が2件でした。\n\n手順：並列で回すときの指示と受け取りの設計\n\n1. 検査の中身をプロンプトに書き込む\n\n最も効いたのが手順1です。「実装して」だけを渡すと、エージェントは「動いた」の時点で止まります。検査の中身を具体的に書いて初めて、欠陥が表に出てきます。\n\n [code] \n\n良い例の指示で、実際にバグが出ました（後述の「起きたこと」1）。\n\n2. 実装の判断根拠を報告に書かせる\n\n「なぜその実装にしたか」を報告に書かせると、根拠を書けない判断が本人に見えるようになります。実際に返ってきた根拠は次の3つです。\n・角印の2文字を上下に積んだ理由: 「2列だと『山田』が左から読まれて『田山』に見え、誤解を生む」\n・字形を枠に合わせる際、縦横比の歪みに上限を入れた理由: 「上限が無いと『一』が枠いっぱいの棒に化ける」（実際に『一』で検品したうえでの報告）\n・拡大した画像が少しぼやけることを、指示されないままFAQへ書いていた\n\n3. 指示を疑ってよい、と明示する\n\n最も質の高かった報告は「指示された仕様に無理があるので、実装せずに報告します」でした。以後、プロンプトに次の一文を入れています。\n\n [code] \n\n4. 共有ファイルを触らせない\n\n並列化の必須条件です。複数エージェントに同じファイルを触らせると壊れます。分担は以下の表のとおりにしました。\n\n| 担当 | 触ってよい範囲 |\n|---|---|\n| サブエージェント | /app.js だけ |\n| 親 | 台帳・一覧ページ・共通CSSなど共有ファイル全部を直列で |\n\n台帳に入れるJSON・一覧ページのHTML・1行の説明といった登録情報は、サブエージェントに戻り値として返させ、親が貼り付けます。\n\n5. 検査条件は実装した本人に書かせる\n\nプロンプトに「検査条件」欄を用意し、実装したエージェント自身に埋めさせます。DOMの構造も、どの前操作をしないと保存できないかも、書いた本人が最もよく知っているためです。\n\n手順1〜5をまとめたプロンプトの骨組みは以下のとおりです。\n\n [code] \n\n起きたこと／落とし穴\n\n1. 四捨五入では見えない1円ずれ\n\n親は四捨五入だけで検算して通していました。切り捨てを指定されたエージェントが、次の値を踏んで報告してきました。\n\n [code] \n\n四捨五入では誤差が吸収されるため、表に出ないバグでした。\n\n2. 指示した仕様が日勤で壊れていた\n\n勤務時間ツールで「深夜帯との重なりから休憩を丸ごと引く」と指示したところ、エージェントから以下の反論が返ってきました。\nその規則は日勤で壊れます。9:00〜23:00・休憩60分だと深夜の重なりが1時間しかないため、休憩60分を丸ごと引くと深夜0分になる（昼に取った休憩で深夜手当が消える）。\n\n反論のとおりだったため、按分方式に変えました。指示の誤りとして返ってきたもう1件は、base64の増加率でした。どちらも数字を根拠に返ってきています。\n\n3. 親が書いた検査条件が5回外れた\n\n親がDOMを見て書いた検査条件は、5回外れました。\n\n| 外し方 | 中身 |\n|---|---|\n| 前操作の書き忘れ | 「並べ替えてから保存」の仕様を知らず、押しても保存されない |\n| ボタンIDの決めうち | #dl だと思ったら #xlsx / #cpng / #dlreport |\n| ready条件の取り違え | タブの奥にある完了サインを待ち、前操作に到達しない |\n| textarea を textContent で読む | は .value に入れても .textContent は空のまま。判定が永久に false |\n| 合格線が甘い | 「10,000回で±5%以内」。乱数の揺らぎの幅を考えていなかった |\n\n5件とも「実装は正常なのに検査が落ちる」形で、実装のバグは1件もありませんでした。\n\n4. 検査のNGに本物が混ざる\n\n出力検査が3本で「保存したファイルが落ちてこない」と出しました。報告前に実機で再現を取ると、3本とも正しく動いており、画面には次の案内が出ていました。\n\n [code] \n\n検査側が前操作（選択・並べ替え）を書いていなかっただけでした。一方、同じ入口で調べた別のツールでは本物のバグ（比率固定が画像の端で壊れる）が出ています。誤検出が5回続いた後に、本物が来た形です。\n\n5. 「動くけれど役に立たない」は検査を通る\n\nPDFの修復ツールは、指示どおりに作ると「修復できません」しか返さないツールになることが実測で分かりました。エラーは出ず、画面も正常に動くため、検査は全部通ります。実装したエージェントが実物のPDFで試して初めて判明しました。\n\n6. 戻り値を回収できないことがある\n\n完了通知に報告本文が乗らない場合がありました。transcript には全文が残っていますが、素朴に「最後の発言」を取ると失敗します。追加で質問したエージェントは、最後の発言が「消す箇所なし」のような短い返答になっているためです。\n\n7. 検査表への登録漏れが「判定なし」で素通りする\n\nツールを足す側と検査表を持つ側が分かれていると、登録し忘れたツールが「判定なし」で素通りします。エラーも警告も出ず、検査を通ったように見えます。\n\n実際に69本中20本が未検査のまま公開されていました。「44本ぶんの記録に対して公開61本」という別の警告もありましたが、本数のズレしか見ていないため、登録漏れはそちらも通り抜けていました。\n\n8. 書いた本人が「書いたつもり」になる\n\n親が登録時に止めたものは2件です。\n・参照実装からカテゴリを写し間違えていた（TXTツールなのに excel）\n・「PDF内の文字を選択できない」がFAQから抜けていた。app.js の冒頭コメントには「FAQに明記」とあるのに、本体には入っていなかった\n\n対処\n\n検査のNGは検査側を先に疑い、毎回実機で確かめる\n\n「落ちとし穴」3・4への対処として、運用ルールを次の2行にしました。\n\n [code] \n\n疑うことと、確かめないことは別です。検査結果をそのまま「バグ発見」として人に投げると、相手の時間を奪ううえ、次から検査結果を信用してもらえなくなります。\n\n戻り値の回収ルールを変える\n\ntranscript から報告を拾う規則を以下に変えました。\n\n [code] \n\n回収率は 7/9 から 9/9 になりました。\n\n検査表との差分を機械で取る\n\n「気をつける」では登録漏れを防げません。公開一覧と検査表を突き合わせて、判定条件が無いツールを名指しで出す仕組みを入れました。入れた当日に、自分が追加した4本をその仕組みで捕まえています。\n\n検出器は、検出できることを確かめて初めて検出器になります。わざと1本外して警告が出ること、戻すと警告が消えることまで確認しました。\n\nできないことの書き落としは親が必ず見る\n\nできないことの書き落としは、利用者が使ってから気づく形になり、最も悪い結果になります。FAQの抜けとカテゴリの写し間違いは、登録時に親が成果物をそのまま入れずに読むことで止めました。\n\n副次効果として数える\n\nその日見つかったバグのうち2件はサブエージェント発で、どちらも指示していない発見でした。\n・KPI計測の二重計上（共通関数が内部でイベントを出しているのに、呼び出し側でもイベントを出していた）\n・消費税の1円ずれ\n\n作業者が増えると、「前からそう書いてあるから正しいだろう」が効かない目が増えます。既存コードを新しい目で読み直す機会として、並列化の効果に数えてよいと考えています。\n\nまとめ\n・「検証してから終わること」ではなく、具体的な入力と報告すべき出力値をプロンプトに書く\n・判断根拠と「仕様に無理があれば止めて報告」をプロンプトに入れると、指示の誤りまで返ってくる\n・サブエージェントは自分の app.js だけを触り、共有ファイルは親が直列で更新する\n・検査条件は実装した本人に書かせ、検査のNGは検査側を先に疑いつつ毎回実機で確かめる\n・検査表の登録漏れは差分を機械で取り、検出器そのものもわざと1本外して動作を確かめる",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "d85056f1e465629f",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.862179176755448,
+      "popularityPercentile": 0.8280871670702179,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "AIエージェントを並列実行してWebツールを29本から100本へ増やした指示と検査の設計を紹介する。",
+      "takeaways": [
+        "複数のAIを同時に動かして作業量を増やした。",
+        "成果物の合格条件を指示に書くと不具合が見つかった。",
+        "29本のツールを100本に増やし4件のバグを発見した。"
+      ],
+      "keywords": [
+        "AIエージェント",
+        "並列処理",
+        "サブエージェント",
+        "テスト",
+        "Webツール"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIエージェントを並列化して速さを取るか個別管理で品質を取るか",
+        "forSide": "作業を分割し検査条件を揃えれば29本から100本への拡張を短時間で進められる。",
+        "againstSide": "共有部分の変更や検査漏れが並列作業で増えるため速度より統合管理を優先すべきだ。",
+        "oneSided": false,
+        "yourAngle": "Claude CodeやCodexの並列実行で処理時間とバグ件数を比較できる。"
+      },
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 801,
+    "afterDedupe": 741,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 414,
+      "zenn": 119,
+      "hatena": 34,
+      "hackernews": 61,
+      "devto": 8,
+      "github_release": 39,
+      "github_repo": 96,
+      "rss": 29,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 43
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4320,
+        "outputTokens": 747,
+        "cacheReadTokens": 0,
+        "elapsedMs": 7634,
+        "estimatedCostUsd": 0.0017604
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2784,
+        "outputTokens": 1017,
+        "cacheReadTokens": 0,
+        "elapsedMs": 8307,
+        "estimatedCostUsd": 0.0017771999999999998
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5314,
+        "outputTokens": 2630,
+        "cacheReadTokens": 0,
+        "elapsedMs": 21064,
+        "estimatedCostUsd": 0.0042188
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 18050,
+        "outputTokens": 1459,
+        "cacheReadTokens": 3404,
+        "elapsedMs": 13764,
+        "estimatedCostUsd": 0.0054288800000000005
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14758,
+        "outputTokens": 1603,
+        "cacheReadTokens": 1779,
+        "elapsedMs": 16130,
+        "estimatedCostUsd": 0.00491078
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14708,
+        "outputTokens": 1758,
+        "cacheReadTokens": 3260,
+        "elapsedMs": 18397,
+        "estimatedCostUsd": 0.0051164
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 11396,
+        "outputTokens": 2995,
+        "cacheReadTokens": 7979,
+        "elapsedMs": 23212,
+        "estimatedCostUsd": 0.00603278
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 12121,
+        "outputTokens": 2617,
+        "cacheReadTokens": 0,
+        "elapsedMs": 19105,
+        "estimatedCostUsd": 0.0055646
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 15011,
+        "outputTokens": 3825,
+        "cacheReadTokens": 0,
+        "elapsedMs": 27394,
+        "estimatedCostUsd": 0.0075922
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 15270,
+        "outputTokens": 4621,
+        "cacheReadTokens": 11807,
+        "elapsedMs": 42559,
+        "estimatedCostUsd": 0.00883534
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 21873,
+        "outputTokens": 6502,
+        "cacheReadTokens": 15625,
+        "elapsedMs": 52478,
+        "estimatedCostUsd": 0.0124895
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 16074,
+        "outputTokens": 5614,
+        "cacheReadTokens": 12965,
+        "elapsedMs": 41234,
+        "estimatedCostUsd": 0.0102109
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3641,
+        "outputTokens": 325,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3555,
+        "estimatedCostUsd": 0.0011182
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4500,
+        "outputTokens": 293,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2919,
+        "estimatedCostUsd": 0.0012515999999999998
+      }
+    },
+    "totalCostUsd": 0.0763
+  },
+  "notes": []
+}
