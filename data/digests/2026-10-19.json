@@ -1,0 +1,1970 @@
+{
+  "date": "2026-10-19",
+  "generatedAt": "2026-10-18T23:54:09.483Z",
+  "window": {
+    "start": "2026-10-17T22:00:00.000Z",
+    "end": "2026-10-18T22:00:00.000Z"
+  },
+  "summary": [
+    "AI／エージェント関連が8件と目立ち、開発現場への浸透が続いた。",
+    "完了報告や失敗の再現テストなど、エージェント運用の検証に焦点が集まった。",
+    "大規模障害やセキュリティ侵害も重なり、外部AIサービスの信頼性が浮き彫りになった。",
+    "フロントエンド周辺は、shadcn/uiとTanStack Queryの堅実な修正が中心だった。"
+  ],
+  "outlook": "AIエージェントの開発現場への定着と適用範囲の拡大が進み、完了報告・再現テスト・権限管理など運用の型は整いつつある一方、外部サービスの障害や侵害への信頼性はなお揺れている。今後は自律性の拡大より、失敗を検証可能にし、停止・復旧まで含めて責任を持てる運用設計が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "OpenAI障害まとめ:ChatGPT・Codex・API全体で起きた大規模エラーと対応",
+      "url": "https://qiita.com/picnic/items/8eccced1489d39aec547",
+      "publishedAt": "2026-10-18T14:49:24.000Z",
+      "author": "picnic",
+      "authorDetail": {
+        "name": "picnic",
+        "handle": "@picnic",
+        "url": "https://qiita.com/picnic",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKJ3kiIjdUf7zPvCPsjLhdpqsl9XSc0xblptYG809gyvXXYhvQ1=s96-c",
+        "followers": 5,
+        "posts": 248,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/PICNIC-A-DAY"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/h_picnic"
+          }
+        ]
+      },
+      "tags": [
+        "OpenAI",
+        "ChatGPT",
+        "API",
+        "LLM",
+        "codex"
+      ],
+      "snippet": "はじめに OpenAI ステータスページに掲載された新着インシデント20件を整理しました。すべて解決済み(Resolved)で、影響を受けたサービスは完全に復旧しています。 中心になるのは、ChatGPT・Codex・API(Agents API を含む)のほぼ全体でエラー率が上がった大規模障害(change-018、severity: high)です。そのほかに、Codex・ChatGPT Work・Dot まわりの障害が目立ちました。 ユーザー側で対応が必要なものは1件だけで、ChatGPT Work で新しいスレッドを作れない不具合を直したデスクトップアプリへの更新です。 📌 影響を受ける人 ・API(Responses / Chat Completions / Realtime / Batch など)を本番利用している開発者 ・Codex(Web・CLI・VS Code 拡張・A…",
+      "body": "はじめに\n\nOpenAI ステータスページに掲載された新着インシデント20件を整理しました。すべて解決済み(Resolved)で、影響を受けたサービスは完全に復旧しています。\n\n中心になるのは、ChatGPT・Codex・API(Agents API を含む)のほぼ全体でエラー率が上がった大規模障害(change-018、severity: high)です。そのほかに、Codex・ChatGPT Work・Dot まわりの障害が目立ちました。\n\nユーザー側で対応が必要なものは1件だけで、ChatGPT Work で新しいスレッドを作れない不具合を直したデスクトップアプリへの更新です。\n📌 影響を受ける人\n・API(Responses / Chat Completions / Realtime / Batch など)を本番利用している開発者\n・Codex(Web・CLI・VS Code 拡張・API)を日常的に使う人\n・ChatGPT Work や Dot を業務で使っているチーム\n・FedRAMP ワークスペース、ChatGPT Go、APAC(日本を含む)のユーザー\n\n変更の全体像\n\n20件の障害を領域別に分類すると、次のようになります。\n\n [code] \n\n障害の重大度は次のとおりです。\n\n| severity | 件数 | 代表例 |\n|---|---|---|\n| high | 1 | ChatGPT・Codex・API 全体のエラー増加 |\n| medium | 4 | Login の機能低下、GPT-6.1 Sol の性能低下、デスクトップアプリで Work スレッド作成不可、複数製品のエラー |\n| low | 15 | Compliance API Costs 遅延、Android 表示不具合など |\n\n変更内容\n\n1. 【high】ChatGPT・Codex・API 全体でエラー増加(change-018)\n\n今回の期間で最も影響範囲が広いインシデントです。影響コンポーネントは約30で、API・ChatGPT・Codex を横断していました。\n\n| 分類 | 影響コンポーネント |\n|---|---|\n| API | Responses、Chat Completions、Realtime、Batch、Fine-tuning、Embeddings、Moderations、Files、File uploads、Audio、Images、Image Generation、Search、Compliance API、Agents |\n| Codex | Codex API、Codex Web、CLI、VS Code extension、Codex in ChatGPT Desktop |\n| ChatGPT | Conversations、Voice mode、Deep Research、GPTs、Connectors/Apps、Sites、ChatGPT Work、Agent、Login |\n\n影響を受けた API は、Agents API、Responses API、Chat Completions API、Realtime API、Batch API、Fine-tuning API、Embeddings API、Moderations API、Files API、Audio API、Images API、Codex API、Compliance API です。\n\n現在はすべて正常稼働しています。\n\n2. 【medium】モデル・アプリ関連\n\n| ID | 内容 | 影響 |\n|---|---|---|\n| change-005 | GPT-6.1 Sol のパフォーマンス低下 | Codex の Web・CLI・VS Code extension・Codex API と ChatGPT Work の全経路 |\n| change-013 | 最新版デスクトップアプリで ChatGPT Work の新規スレッドを作れない | Linux・macOS・Windows。修正版が配布済み |\n| change-019 | ChatGPT 会話、画像生成、Spaces、Dots などでエラー増加 | ChatGPT Work、Space、dots、Conversations、Image Generation |\n| change-002 | 「Widespread feature degradation」 | 記載された影響コンポーネントは Login のみ |\n\nchange-002 は、タイトルは「広範な機能低下」ですが、影響コンポーネントとして記載されているのは Login だけです。change-019 も、タイトルにある「API rehydration」と「Pages」は影響コンポーネントの一覧に含まれていません。タイトルだけで影響範囲を判断せず、コンポーネント一覧と合わせて読むのが安全です。\n\n3. 【low】Codex / Work / Dot 系\n・change-004:Codex と ChatGPT Work のパフォーマンス低下\n・change-011:Dot のターン失敗、応答遅延、プロアクティブ性の低下\n・change-012:Codex の Dot で新規スレッドを作れない可能性\n・change-020:Work モードのエラー増加\n\n4. 【low】API・その他\n\n| ID | 内容 | 影響コンポーネント |\n|---|---|---|\n| change-001 / 006 | Compliance API の Costs データ遅延(別々のインシデントで2件) | Compliance API |\n| change-016 | 大きな PDF を処理すると Responses API でエラー | Responses |\n| change-003 | gpt-image-2.5-flare / gpt-image-2.5-sunburst の可用性低下 | Images |\n| change-014 | Workspace Agents の機能低下と応答への影響 | Agent |\n| change-015 | Computer Use の不具合 | Agents |\n| change-008 | ワークスペース管理者がプラグインを管理できない可能性 | Connectors/Apps |\n| change-007 | Android 版 ChatGPT で一部コンテンツを表示できない可能性 | Conversations |\n| change-009 | APAC の一部ユーザーで ChatGPT Work・会話・GPTs にエラー | Conversations、GPTs、ChatGPT Work |\n| change-010 | FedRAMP ワークスペースで GPT-5.6 Instant のエラー増加 | FedRAMP |\n| change-017 | ChatGPT Go の会話でエラー率が上昇 | Conversations |\n\n影響と対応\n\n [code] \n\n必須:デスクトップアプリの更新(change-013)\n⚠️ 要対応\n最新版デスクトップアプリで ChatGPT Work の新規スレッドを作れない不具合がありました。Linux・macOS・Windows 向けに修正版がリリースされています。影響を受けたユーザーは最新版へ更新してください。\n\n推奨:運用側の確認\n\n1. API 利用者:change-018 の時間帯に Responses / Chat Completions / Batch などで失敗した処理が、リトライされたか確認し、未処理分は再実行します。\n2. Compliance API 利用者:Costs データの遅延が2回ありました(change-001 と change-006)。月次のコスト集計など、このデータに依存する処理は、遅延期間の値が反映されているか見直してください。\n3. PDF を扱う開発者:大きな PDF で Responses API がエラーになる問題がありました(change-016)。障害期間中に失敗した PDF 処理があれば再実行します。\n4. 画像生成の利用者:gpt-image-2.5-flare と gpt-image-2.5-sunburst は可用性が低下していましたが、復旧済みです。\n5. APAC・日本のユーザー:ChatGPT Work・会話・GPTs で一部エラーがありました(change-009)。再発時は再試行してください。\n💡 Tips\n障害に備えて、API 呼び出しには指数バックオフ付きのリトライを入れておくと、短時間の一時的なエラー増加を吸収しやすくなります。ステータスページ(status.openai.com)の購読も有効です。\n\nコード例\n\nchange-018 のような一時的なエラー増加に備えたリトライ実装の例です。障害の修正内容そのものではなく、運用側の対策としての参考例です。\n\nBefore(リトライなし)\n\n [code] \n\nAfter(指数バックオフ付きリトライ)\n\n [code] \nモデル名は入力データに記載のものを使った例です。実際に使うモデルはご自身の環境に合わせて置き換えてください。\n\nまとめ\n・20件すべて解決済みで、影響サービスは完全に復旧しています。\n・最大のものは change-018(severity: high)。ChatGPT・Codex・API(Agents API を含む)の約30コンポーネントでエラー率が上がりました。\n・Codex・ChatGPT Work・Dot 関連の障害が多く、Codex では Web・CLI・VS Code 拡張・API の全経路に影響が出た事例もありました(change-005)。\n・Compliance API の Costs データ遅延は2件起きています。コスト集計に使っている場合は確認が必要です。\n・ユーザー側の対応が必要なのは、デスクトップアプリの更新だけ(change-013)です。\n・本番利用では、リトライとステータス監視を入れておくと、同種の障害の影響を小さくできます。\n\n障害の詳細は、各インシデントのステータスページ(status.openai.com)で確認できます。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "3294d8182dad5ab9",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7122253521126761,
+      "popularityPercentile": 0.14647887323943662,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "OpenAIのChatGPT・Codex・APIなどで発生した20件の障害と対応を整理している。",
+      "takeaways": [
+        "OpenAIの複数サービスで20件の障害が発生した。",
+        "最大規模の障害ではChatGPTとCodexとAPI全体に影響した。",
+        "すべて復旧済みで更新が必要な事例は1件だった。"
+      ],
+      "keywords": [
+        "OpenAI",
+        "ChatGPT",
+        "Codex",
+        "Agents API",
+        "障害",
+        "インシデント"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "OpenAI ステータスページに掲載された20件のインシデントは、すべて Resolved でサービスは復旧済みです。最大の change-018（severity: high）では、Responses API、Chat Completions API、Codex Web・CLI・VS Code extension、ChatGPT Work など約30コンポーネントでエラー率が上昇しました。ほかにも GPT-6.1 Sol の性能低下、Compliance API の Costs データ遅延、大きな PDF による Responses API の失敗、APAC・FedRAMP・ChatGPT Go 固有の障害が発生しています。ユーザー側で明確に必要な対応は、ChatGPT Work の新規スレッド作成不具合を修正したデスクトップアプリへの更新です。本番システムでは、該当期間の失敗処理・コスト集計・PDF処理を再確認し、指数バックオフ付きリトライと status.openai.com の監視を整備します。",
+        "prerequisites": [
+          {
+            "term": "change-018",
+            "stumblingPoint": "記事は「change-018」で約30コンポーネントに影響したと書くが、単一APIの障害ではないことが読み取りにくい。",
+            "explanation": "change-018 は、APIだけでなく ChatGPT と Codex の複数経路を同時に含むインシデント識別子です。Responses API や Codex CLI だけを個別に確認すると、同じ障害の影響を見落とします。本番の失敗ログを調べる際は、この識別子の影響範囲に含まれる処理を横断して確認する文脈で使われています。"
+          },
+          {
+            "term": "severity",
+            "stumblingPoint": "記事は severity の high・medium・low を並べるが、数値が障害の影響範囲を直接表すとは限らない。",
+            "explanation": "severity はステータスページ上の重大度分類です。high の change-018 は広範囲のエラー増加を示しますが、low でも Costs データ遅延や PDF 処理失敗のように、特定の業務処理へ実害が出る場合があります。自分の利用経路に該当するかを、重大度だけでなく影響コンポーネントで確認します。"
+          },
+          {
+            "term": "Compliance API",
+            "stumblingPoint": "記事は Compliance API の Costs データ遅延を挙げるが、通常のAPIエラーと違う影響が分かりにくい。",
+            "explanation": "Compliance API は、記事では Costs データを取得するAPIとして登場します。遅延はリクエストが失敗するのではなく、月次集計などに使うデータの反映が遅れる問題です。そのため、障害期間中のレスポンスを再取得し、請求・コスト集計の値が後から補正されているかを見る必要があります。"
+          },
+          {
+            "term": "GPT-6.1 Sol",
+            "stumblingPoint": "記事は GPT-6.1 Sol の「パフォーマンス低下」と書くが、どの利用経路に波及するかを別表から拾う必要がある。",
+            "explanation": "GPT-6.1 Sol は、change-005 で性能低下の対象になったモデル名です。記事上では Codex Web・CLI・VS Code extension・Codex API と ChatGPT Work の全経路に影響します。モデルを直接呼ぶAPI利用者だけでなく、CodexやWork経由の処理も同じ事象として確認する必要があります。"
+          },
+          {
+            "term": "FedRAMP",
+            "stumblingPoint": "記事は FedRAMP ワークスペースで GPT-5.6 Instant にエラーが増えたとするが、通常のワークスペースとの差が省略されている。",
+            "explanation": "FedRAMP は記事中で、専用のワークスペース環境を識別する語として使われています。change-010 の影響は FedRAMP ワークスペースに限定され、GPT-5.6 Instant のエラー増加として記録されています。該当環境を運用している場合だけ、通常環境とは別の障害履歴として確認します。"
+          },
+          {
+            "term": "APAC",
+            "stumblingPoint": "記事は APAC の一部ユーザーにエラーがあったと書くが、日本の全ユーザーが対象なのか判断しにくい。",
+            "explanation": "APAC はアジア太平洋地域を指し、記事では日本を含む地域区分として使われています。change-009 は APAC の一部ユーザーに限定された事象で、ChatGPT Work・会話・GPTs が影響対象です。日本にいることだけで全員が該当すると断定せず、再発時の実際のエラー有無を確認します。"
+          },
+          {
+            "term": "指数バックオフ",
+            "stumblingPoint": "記事は指数バックオフ付きリトライを推奨するが、どの失敗を自動再試行する設計かが本文では詳しくない。",
+            "explanation": "指数バックオフは、再試行間隔を段階的に延ばして一時的な障害から回復する方式です。change-018 のような短時間のエラー増加では、即時に連続リクエストを送るより、API側の復旧を待ちながら未処理ジョブを再試行できます。リトライ対象や最大回数などの具体値は記事では指定されていません。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "記事本文",
+            "url": "https://qiita.com/picnic/items/8eccced1489d39aec547"
+          },
+          {
+            "label": "OpenAI Status",
+            "url": "https://status.openai.com"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "know",
+        "impact": [
+          "Responses APIを本番利用する人",
+          "CodexをWeb・CLIで使う人",
+          "ChatGPT Workを業務利用する人",
+          "Compliance APIのCostsを集計する人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "デスクトップアプリの設定から最新版へ更新する",
+          "API失敗ログで該当期間の未処理ジョブを抽出する",
+          "status.openai.comを開き購読設定を確認する"
+        ],
+        "unknowns": [
+          "各インシデントの発生時間帯は本文に記載なし",
+          "障害の根本原因は本文に記載なし"
+        ]
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "OpenCode has a security breach last that impacted 1.4% of console users",
+      "url": "https://twitter.com/opencode/status/2111519637049319818",
+      "publishedAt": "2026-10-18T08:22:11.000Z",
+      "author": "notmine1337",
+      "authorDetail": {
+        "name": "notmine1337",
+        "handle": "notmine1337",
+        "url": "https://news.ycombinator.com/user?id=notmine1337"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 42,
+        "comments": 23
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "28333a3a518752c8",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.031428571428571424,
+      "popularityPercentile": 0.14285714285714285,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 72,
+      "titleJa": "OpenCodeで発生した利用者情報の侵害",
+      "oneLiner": "OpenCodeでコンソール利用者の1.4%に影響するセキュリティ侵害が発生した。",
+      "takeaways": [
+        "OpenCodeでセキュリティ侵害が発生した。",
+        "コンソール利用者の1.4%が影響を受けた。",
+        "侵害の詳細や対応内容は本文の確認が必要になる。"
+      ],
+      "keywords": [
+        "OpenCode",
+        "security breach",
+        "コンソール",
+        "セキュリティ侵害"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "imageUrl": "https://pbs.twimg.com/profile_images/1973794620233433088/nBn75BTm_400x400.png",
+      "rank": 2,
+      "deep": {
+        "summary": "OpenCodeでsecurity breachが発生し、console usersの1.4%に影響したとタイトルで報告されています。本文は提供されていないため、侵害の内容、発生時期、対象データ、修正方法は確認できません。1.4%がどの母数・期間を指すかも不明です。現時点では、OpenCode公式投稿を開いて追加の説明と利用者向け指示を確認する必要があります。",
+        "prerequisites": [
+          {
+            "term": "security breach",
+            "stumblingPoint": "タイトルは「security breach」と書くが、何が侵害されたかは読み取れない。",
+            "explanation": "security breachは、システムやデータへの不正アクセスなど、セキュリティ上の侵害を指します。ただし、このタイトルだけでは認証情報・ソースコード・利用履歴など、何が対象だったかは分かりません。影響を判断するには公式投稿の詳細が必要です。"
+          },
+          {
+            "term": "console users",
+            "stumblingPoint": "「console usersの1.4%」とあるが、console usersの範囲が説明されていない。",
+            "explanation": "console usersは、OpenCodeをコンソール経由で利用するユーザーを指すと読めます。ただし、CLI利用者だけを指すのか、別のコンソール利用形態を含むのかは本文がないため確定できません。自分が対象かは公式投稿の定義を確認する必要があります。"
+          },
+          {
+            "term": "1.4%",
+            "stumblingPoint": "「1.4%に影響」とあるが、対象の母数と影響の意味が示されていない。",
+            "explanation": "1.4%は影響を受けたconsole usersの割合ですが、全ユーザー・特定期間の利用者など母数は不明です。また、影響がデータ閲覧、アカウント侵害、機能停止のどれを意味するかも判断できません。割合だけで被害内容や個別ユーザーの安全性は決められません。"
+          },
+          {
+            "term": "OpenCode",
+            "stumblingPoint": "タイトルだけでは、OpenCodeのどの構成要素で breach が起きたか分からない。",
+            "explanation": "OpenCodeは今回のsecurity breachの対象として挙げられている製品名です。ただし、クライアント、認証基盤、サーバー、連携サービスのどこが関係したかは提供情報にありません。対応の要否は、公式投稿に記載された対象範囲と対策に依存します。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "OpenCode公式投稿",
+            "url": "https://twitter.com/opencode/status/2111519637049319818"
+          }
+        ],
+        "readingMinutes": 1,
+        "lane": "know",
+        "impact": [
+          "OpenCodeを使う人",
+          "OpenCodeのconsole usersに該当する人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "OpenCode公式投稿を開き、影響範囲と対応指示を確認する",
+          "OpenCodeの認証情報・接続先設定に関する公式告知を確認する"
+        ],
+        "unknowns": [
+          "侵害されたデータと原因は本文から不明",
+          "1.4%の母数と影響内容は不明",
+          "利用者向けの修正手順と期限は不明"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "LiCinCan/blender-ai-mcp-addon — AI assistant and MCP server for Blender: visual chat, scene tools, multi-agent workflows. Works with OpenAI, ChatGPT, Claude, Gemini, Ollama, OpenCode. Blender AI addon and plugin, copilot for 3D, bpy Python scripting, MCP integration.",
+      "url": "https://github.com/LiCinCan/blender-ai-mcp-addon",
+      "publishedAt": "2026-10-15T22:30:47.000Z",
+      "author": "LiCinCan",
+      "authorDetail": {
+        "name": "LiCinCan",
+        "url": "https://github.com/LiCinCan",
+        "avatarUrl": "https://github.com/LiCinCan.png?size=120",
+        "bio": "AI assistant and MCP server for Blender: visual chat, scene tools, multi-agent workflows. Works with OpenAI, ChatGPT, Claude, Gemini, Ollama, OpenCode. Blender AI addon and plugin, copilot for 3D, bpy Python scripting, MCP integration."
+      },
+      "tags": [
+        "Python",
+        "ai-assistant",
+        "blender",
+        "blender-addon",
+        "blender-ai",
+        "blender-automation",
+        "blender-extension",
+        "blender-mcp"
+      ],
+      "snippet": "AI assistant and MCP server for Blender: visual chat, scene tools, multi-agent workflows. Works with OpenAI, ChatGPT, Claude, Gemini, Ollama, OpenCode. Blender AI addon and plugin, copilot for 3D, bpy Python scripting, MCP integration.",
+      "metrics": {
+        "stars": 785
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "47633c3f4db9395d",
+      "foundIn": [
+        "github_repo"
+      ],
+      "body": "mcp-for-blender-pro\n\nYour Blender scene. Your AI models. One creative workspace.\n\nAn AI assistant for Blender that can inspect your scene, build objects, edit materials, find assets and carry out multi-step workflows—with a visual chat workspace and a built-in Model Context Protocol (MCP) server.\n\n \n \n \n \n\nDownload · Getting started · Connections and agents\n\n \n\nTurn a creative brief into scene operations\n\nStart with an idea. Ask the assistant to inspect your scene, create a product-display layout, arrange objects, assign materials or prepare an export. Follow its actions in the conversation and inspect the result in the viewport preview. Keep working in Blender throughout the process.\n\nmcp-for-blender-pro brings conversation, scene tools, model choice and agent workflows together. It is designed for artists who want faster iteration, technical artists who automate repetitive work, and developers connecting AI tools to Blender.\n\nWhy choose mcp-for-blender-pro?\n\n| Capability | What it gives you |\n|---|---|\n| Blender-aware assistance | Scene and object inspection gives the assistant context before it acts. |\n| A visual Studio workspace | Chat, scene objects, viewport snapshots, approvals and a task board in a companion window. |\n| Your choice of AI | Connect supported cloud providers, local Ollama models or compatible custom endpoints. |\n| Saved connections | Keep work and personal connections separate, including multiple keys for the same provider. |\n| One assistant or a team | Use a single model for quick changes, or managers, workers and reviewers for structured tasks. |\n| Built-in MCP server | Connect OpenCode and other clients supporting authenticated Streamable HTTP MCP. |\n| 21 scene tools | Create, inspect, edit, capture, search assets, consult Blender APIs and export scenes. |\n| Multilingual menus | Choose English, German, French, Spanish or Chinese for the main interface. |\n\nFrom a quick edit to an agent team\n\nUse Single assistant for direct, conversational work. For larger tasks, configure a Team chain with individual responsibilities, instructions and models.\n・Manager: breaks the request into assignments and acceptance criteria.\n・Workers: perform the assigned scene operations.\n・Reviewers: inspect results and approve work or return specific findings.\n\nTasks run sequentially so scene edits stay ordered. A blocked task gets one correction attempt; a second failed review stops the workflow. The task board exposes assignments, attempts and review findings as work progresses.\n\n \n\nConnect the models that fit your work\n\nSupported connections include OpenAI, Anthropic Claude, Google Gemini, OpenRouter, OpenCode Zen, Ollama and custom APIs. Load the available model catalog and select a model directly in Blender or Studio.\n\nCustom endpoints support OpenAI Chat Completions, Anthropic Messages and Ollama protocols. Choose models with tool-calling support; image-capable models can also interpret viewport screenshots. OpenCode-only free models are available through the OpenCode client.\n\n \n\nInstall and create\n\n1. Download mcp-for-blender-pro.zip from Releases.\n2. In Blender, open Edit → Preferences → Get Extensions → menu → Install from Disk.\n3. Select the ZIP, enable mcp-for-blender-pro, then open 3D Viewport → N → MCP Pro.\n4. Choose a provider, add your connection details and select a model.\n5. Send a message in Blender or click Open Studio Window.\n\nThe release bundle targets Windows x64 with Blender 4.2 or later. Keep Blender open while using Studio or an external client.\n\nTry these prompts\nInspect this scene and explain its object structure before making any changes.\nCreate a simple product-display scene with a pedestal, a camera and three lights. Give the pedestal a matte blue material.\nDuplicate the selected object into a neatly spaced row of five and show the viewport.\nFind an appropriate Poly Haven asset for this scene and ask before importing it.\n\nBlender automation through MCP\n\nLaunch OpenCode Portable from the sidebar to work through OpenCode with the Blender connection configured for you. OpenCode manages its own provider sign-in and model selection. Other compatible MCP clients can connect to the authenticated local endpoint described in the connection guide.\n\n| Tool group | Included tools |\n|---|---|\n| Scene inspection | getsceneinfo, listobjects, getobjectinfo |\n| Object creation | addcube, addsphere, addcylinder, addplane, addlight, addcamera |\n| Editing | moveobject, duplicateobject, deleteobject, parentobjects, setmaterial |\n| Visual feedback and scripting | viewportscreenshot, executecode |\n| Blender API and export | bpyapilookup, describenodetype, exportscene |\n| Asset workflows | searchassets, importasset |\n\nAsset integrations include Poly Haven, Sketchfab and Poly Pizza. Configure service keys where required and follow the licenses of the assets you use.\n\nStay in control of your scene\n\nBuilt-in chat supports operation approvals, cancellation after the current step and named undo steps for mutations. Python tool validation helps catch disallowed operations; it is not a security sandbox. External MCP clients manage their own approval policies.\n\nConnection credentials are stored in your user settings. Chat history lasts for the current session. Studio runs locally and authenticates requests to Blender.\n\nKeywords\n\nmcp-for-blender · blender mcp server · blender mcp · blender ai · ai for blender · blender ai assistant · blender chatgpt · blender claude · blender openai · blender gemini · blender llm · blender ollama · blender agents · blender multi-agent · blender copilot · ai blender addon · blender extension · blender addon · blender plugin · blender automation · blender scripting · blender python · bpy api · blender api · geometry nodes · 3d modeling · 3d automation · 3d workflow · scene generation · ai modeling · ai materials · ai textures · viewport screenshot · model context protocol · mcp integration · opencode blender · ai tools for blender · blender workflow · chat in blender · ai chat blender\n\nLicense\n\nReleased under the MIT license. OpenCode's license is included with the distribution. Independent project; not affiliated with or endorsed by the Blender Foundation or the listed AI providers.",
+      "preScore": 0.8980000000000001,
+      "popularityPercentile": 0.7636363636363637,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": "blender-ai-mcp-addon — BlenderをAIで操作する拡張機能",
+      "oneLiner": "blender-ai-mcp-addonはAIとの対話でBlenderのシーン操作やPython実行を可能にする。",
+      "takeaways": [
+        "Blenderの作業をAIとの会話で進められる。",
+        "画像を見せてシーンの状態を確認できる。",
+        "複数のAIを使った作業の分担にも対応する。"
+      ],
+      "keywords": [
+        "blender-ai-mcp-addon",
+        "Blender",
+        "MCP",
+        "bpy",
+        "Claude",
+        "Gemini"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "mcp-for-blender-pro は、Blender のシーンを読み取りながらオブジェクト作成・配置・マテリアル設定・アセット検索・書き出しまで行う AI アシスタントです。Blender 内のチャットと viewport preview を備えた visual Studio workspace から、OpenAI、Claude、Gemini、Ollama などのモデルを選んで操作できます。単一モデルでの編集に加え、Manager・Workers・Reviewers が順番に作業する Team chain も構成できます。組み込みの MCP server により、OpenCode などの外部 MCP クライアントから認証済みのローカル接続で Blender を操作できます。リリースバンドルは Windows x64、Blender 4.2 以降を対象としています。",
+        "prerequisites": [
+          {
+            "term": "mcp-for-blender-pro",
+            "stumblingPoint": "記事は「mcp-for-blender-pro brings conversation, scene tools...」と書いているが、Blender本体の機能か追加アドオンか読み取れない。",
+            "explanation": "mcp-for-blender-pro は Blender に後から追加するアドオンです。ZIP を Blender の Preferences → Get Extensions → Install from Disk で読み込み、有効化すると 3D Viewport の N パネルに MCP Pro が現れます。Blender を置き換える別アプリではありません。"
+          },
+          {
+            "term": "visual Studio workspace",
+            "stumblingPoint": "「A visual Studio workspace」とあるが、Blender内のチャット画面なのか、別ウィンドウなのかが分からない。",
+            "explanation": "visual Studio workspace は、チャット、シーンオブジェクト、viewport のスナップショット、承認操作、タスクボードをまとめた companion window です。Blender の 3D Viewport だけでなく、Open Studio Window から別ウィンドウとして開いて作業します。"
+          },
+          {
+            "term": "MCP server",
+            "stumblingPoint": "「built-in MCP server」とあるが、AIモデルそのものなのか、OpenCodeからBlenderを呼ぶ接続口なのかが読み取りにくい。",
+            "explanation": "MCP server はモデルではなく、Blenderのシーン操作を外部クライアントへ公開する接続口です。OpenCodeなどのMCPクライアントが認証済みのローカルエンドポイントへ接続し、listobjects や setmaterial などのツールを呼び出します。"
+          },
+          {
+            "term": "Team chain",
+            "stumblingPoint": "「Manager、Workers、Reviewers」で作業するとあるが、通常の単一アシスタントと何が変わるか分からない。",
+            "explanation": "Team chain では、Manager が依頼を分解し、Workers がシーン操作を実行し、Reviewers が結果を検査します。タスクは順番に実行され、レビュー失敗時は1回だけ修正を試み、2回目の失敗でワークフローが停止します。"
+          },
+          {
+            "term": "tool-calling",
+            "stumblingPoint": "カスタムエンドポイントでは「tool-calling support」が必要とあるが、通常のチャットAPIでは足りない理由が分からない。",
+            "explanation": "tool-calling は、モデルが文章を返すだけでなく、getsceneinfo や addcube のような外部ツール呼び出しを要求する機能です。これがないモデルは指示文を返せても、Blenderのオブジェクト作成や編集を自動実行できません。"
+          },
+          {
+            "term": "viewport screenshots",
+            "stumblingPoint": "「image-capable models can also interpret viewport screenshots」とあるが、どの場面で画像が使われるのかが曖昧。",
+            "explanation": "viewport screenshots は、現在のBlender画面をモデルへ渡すための視覚的なコンテキストです。画像対応モデルを選ぶと、シーン情報だけでなく、配置や見た目を確認してから編集・レビューできます。"
+          },
+          {
+            "term": "Streamable HTTP MCP",
+            "stumblingPoint": "「authenticated Streamable HTTP MCP」が必要とあるが、OpenCodeを起動すれば自動的に使えるのか判断できない。",
+            "explanation": "Streamable HTTP MCP は、HTTP経由でMCPクライアントとサーバーが通信する方式です。このアドオンでは認証付きのローカルエンドポイントを使うため、OpenCode以外のクライアントでは connection guide の接続情報と認証設定が必要です。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "Blender操作の接続経路",
+          "layers": [
+            {
+              "label": "呼ぶ側",
+              "nodes": [
+                {
+                  "name": "Blender chat",
+                  "note": "Blender内の会話操作",
+                  "highlight": false
+                },
+                {
+                  "name": "OpenCode",
+                  "note": "外部MCPクライアント",
+                  "highlight": false
+                }
+              ],
+              "via": "操作要求"
+            },
+            {
+              "label": "経由",
+              "nodes": [
+                {
+                  "name": "MCP Pro addon",
+                  "note": "チャットとシーンツール",
+                  "highlight": true
+                },
+                {
+                  "name": "MCP server",
+                  "note": "認証付き接続口",
+                  "highlight": true
+                }
+              ],
+              "via": "ツール呼び出し"
+            },
+            {
+              "label": "接続先",
+              "nodes": [
+                {
+                  "name": "AI providers",
+                  "note": "クラウド・ローカルモデル",
+                  "highlight": false
+                },
+                {
+                  "name": "Blender scene",
+                  "note": "オブジェクトと素材",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "GitHubリポジトリ",
+            "url": "https://github.com/LiCinCan/blender-ai-mcp-addon"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "build",
+        "unlocks": [
+          "自然言語でBlenderのシーンを作り、viewportで結果を確認できる",
+          "OpenCodeからBlenderのオブジェクトや素材を操作できる"
+        ],
+        "howToTry": [
+          "https://github.com/LiCinCan/blender-ai-mcp-addon",
+          "GitHubのReleasesから mcp-for-blender-pro.zip をダウンロードする。",
+          "Blenderで Edit → Preferences → Get Extensions → メニュー → Install from Disk を開く。（手動）",
+          "ダウンロードしたZIPを選択し、mcp-for-blender-proを有効化して3D Viewport → N → MCP Proを開く。（手動）",
+          "プロバイダー、接続情報、モデルを設定し、Blender内で「Create a simple product-display scene with a pedestal, a camera and three lights. Give the pedestal a matte blue material.」を送る。（手動）",
+          "シーン生成後、viewportとチャット履歴で作成された台座・カメラ・ライト・マテリアルを確認する。"
+        ],
+        "fitFor": [
+          "Windows x64でBlender 4.2以降を使っている",
+          "Blenderのシーン編集を自然言語で反復したい",
+          "OpenAI、Claude、Gemini、Ollamaなどの接続先を用意できる"
+        ],
+        "notFor": [
+          "Windows x64以外の環境で使う",
+          "Blender 4.2未満で動かす",
+          "tool-calling非対応モデルだけを使う"
+        ],
+        "caveats": [
+          "executecodeの検証はセキュリティサンドボックスではありません。"
+        ],
+        "tryPrompt": "# 試すこと\nmcp-for-blender-proをBlenderに導入し、自然言語で簡単な商品展示シーンを生成する。\nhttps://github.com/LiCinCan/blender-ai-mcp-addon\n# 手順\n1. 上のURLを開き、Releasesからmcp-for-blender-pro.zipをダウンロードする。（手動）\n2. Blender 4.2以降を起動する。（手動）\n3. Edit → Preferences → Get Extensions → メニュー → Install from Diskを開く。（手動）\n4. mcp-for-blender-pro.zipを選択してインストールし、アドオンを有効化する。（手動）\n5. 3D ViewportでNキーを押し、MCP Proを開く。（手動）\n6. OpenAI、Claude、Gemini、Ollamaのいずれかを選び、接続情報とモデルを設定する。（手動）\n7. チャットに「Create a simple product-display scene with a pedestal, a camera and three lights. Give the pedestal a matte blue material.」と送る。（手動）\n8. viewportで台座・カメラ・3つのライトが作られ、台座がmatte blueになっていることを確認する。\n# 確認したいこと\n- ZIPのインストール後にMCP Proパネルが表示されるか\n- モデルがscene toolsを呼び出して実際にシーンを変更するか\n- 変更結果をviewportで確認できるか\n# 前提・注意\n- Windows x64、Blender 4.2以降が必要。\n- プロバイダーの接続情報またはOllama環境が必要。\n- executecodeはセキュリティサンドボックスではない。"
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "普段のChromeをMCPに接続する：BeatBrowserの構成と設定",
+      "url": "https://qiita.com/beatapi/items/fc899fb0a452159fc0f1",
+      "publishedAt": "2026-10-18T12:30:29.000Z",
+      "author": "BeatAPI",
+      "authorDetail": {
+        "name": "BeatAPI",
+        "handle": "@beatapi",
+        "url": "https://qiita.com/beatapi",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/188554662?v=4",
+        "bio": "BeatAPIは、AIモデルAPI・ソーシャルデータ・MCPツールを1つの入口から提供する「OpenRouter for Agents」です。エージェント基盤、API運用、オープンソース開発について発信します。",
+        "organization": "BeatAPI",
+        "location": "Shanghai, China",
+        "followers": 1,
+        "posts": 30,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/erickkkyt"
+          },
+          {
+            "label": "Web",
+            "url": "https://beatapi.io/"
+          }
+        ]
+      },
+      "tags": [
+        "MCP",
+        "Chrome",
+        "chrome拡張機能",
+        "codex",
+        "OSS"
+      ],
+      "snippet": "エージェントからブラウザーを操作する方法は、すでに多数あります。それでもBeatBrowserを作っているのは、対応するエージェントを選びつつ、普段のChromeとタスクの確認画面を使い続けたいからです。 この記事では、開発しているOSSの1.4.1を例に、Chrome拡張機能とローカルブリッジの構成、導入手順、確認項目を説明します。新しい性能測定や、特定クライアントでの今回の実測レポートではありません。 この構成で選んだこと 公式のブラウザー機能は、それぞれのエージェント製品に統合されています。BeatBrowserは接続ツールを独立させ、stdio MCPに対応するクライアントから利用します。Codex、Claude Code、WorkBuddy、OpenCodeなどが例です。 専用ブラウザーを別途導入せず、明示的に接続したChromeプロファイルを使います。Cookieを書き出す必要…",
+      "body": "エージェントからブラウザーを操作する方法は、すでに多数あります。それでもBeatBrowserを作っているのは、対応するエージェントを選びつつ、普段のChromeとタスクの確認画面を使い続けたいからです。\n\nこの記事では、開発しているOSSの1.4.1を例に、Chrome拡張機能とローカルブリッジの構成、導入手順、確認項目を説明します。新しい性能測定や、特定クライアントでの今回の実測レポートではありません。\n\nこの構成で選んだこと\n\n公式のブラウザー機能は、それぞれのエージェント製品に統合されています。BeatBrowserは接続ツールを独立させ、stdio MCPに対応するクライアントから利用します。Codex、Claude Code、WorkBuddy、OpenCodeなどが例です。\n\n専用ブラウザーを別途導入せず、明示的に接続したChromeプロファイルを使います。Cookieを書き出す必要はありません。同じプロファイル内ではCookieやストレージを共有するため、タスクごとのアカウント分離にはなりません。\n\nPlaywright MCPにも既存Chromeへの拡張接続があり、ログイン状態の再利用はこのツールだけの機能ではありません。BeatBrowserでは、タスクウィンドウ、進捗、引き継ぎ、復元、クリーンアップを拡張機能のWorkspaceにまとめています。\n\n接続経路\n\n [code] \n\nローカル利用に公開ドメインやトンネルは不要です。必要なのはNode.js 20以上、Chrome 116以上、ローカルstdio MCPを起動できるクライアントです。\n\n1. ツールとクライアント設定\n\n [code] \n\ndry-runで変更予定を確認してから適用します。最後のコマンドは拡張機能のフォルダーを表示します。Chromeに自動で読み込むコマンドではありません。\n\n2. 拡張機能の読み込み\n\n使いたいChromeプロファイルでchrome://extensionsを開き、デベロッパーモードを有効にして、表示されたフォルダーを読み込みます。そのフォルダーは利用中も保持し、CLIと拡張機能を同じバージョンにそろえます。\n\nChromeウェブストアに登録済みではないため、手動の作業が必要です。自動設定できないクライアント向けの設定例は、インストール文書にあります。\n\n \n\n3. 接続確認\n\n [code] \n\n確認する項目はok: trueとextensionOnline: trueです。これは接続確認であり、任意のサイトのログイン状態やフォーム送信の成功を証明するものではありません。MCPクライアントも再起動します。\n\n最初は次のような読み取り専用タスクが適しています。\n\n [code] \n\nこれは依頼例であり、実行結果ではありません。接続、ページへのアクセス、タスク状態をそれぞれ確認してから、ログイン済みサイトでの作業に進みます。\n\n4. タスクの状態を確認する\n\n \n\n使い捨ての開発用環境で撮影した実際の拡張機能UIです。2ページのタスクと引き継ぎ操作を示しており、顧客サイトでの業務成功や現在の全クライアントでの検証を示す画像ではありません。\n\nタスクのウィンドウをアクティブにすると後続操作が一時停止します。再開は明示的に行います。送出済みの操作は取り消せず、サイトのポップアップやOSのダイアログが前面に出る場合もあります。\n\n未完了のタスク記録は、拡張機能の再読み込み後に一時停止して復元されます。ブラウザー再起動後にはページの関連付けを人が行います。URLが一致するだけで操作権限を付与しません。\n\nクラウド上のエージェントから使う場合\n\n \n\nクラウドAgentモードは、1.4.1に含まれる任意設定のプレビューです。自分で管理する認証付きトンネルを本機のremote adapterへ接続し、そこから同じブリッジと拡張機能を使います。通常のローカルブリッジをそのまま公開しません。\n\nエージェントごとに認証情報を分けます。PCとChromeをオンラインに保ち、クライアント側の外部ツール対応も確認します。MuseとGrok Botは接続先の例で、全バージョンの動作保証ではありません。遠隔で提供するのは21ツールで、ローカルより範囲を絞っています。\n\nブラウザーの状態は本機にありますが、取得した内容は選んだエージェントやモデル提供者へ渡ります。設定と制約はREMOTEに記載しています。\n\n参照\n\n開発元として関わっているOSSです。翻訳と構成整理にAIを使用し、記載内容を公開実装・文書と照合しています。広い拡張権限、同一プロファイルの状態共有、最小化した有頭ウィンドウの撮影などの制約も、導入前に確認してください。\n・BeatBrowserのソースとMITライセンス\n・導入手順\n・タスクの制御・復元・検証範囲",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "acadd4d927e3ee52",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7351549295774649,
+      "popularityPercentile": 0.2507042253521127,
+      "matchedTopics": [
+        "ブラウザ / Web標準",
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "BeatBrowserは普段のChromeをAIエージェントから操作するための拡張機能とローカル接続基盤である。",
+      "takeaways": [
+        "普段のChromeをAIエージェントから操作できる。",
+        "ログイン状態を保ったまま作業を続けられる。",
+        "タスクの進捗や復元を画面上で管理できる。"
+      ],
+      "keywords": [
+        "BeatBrowser",
+        "Chrome",
+        "Chrome拡張機能",
+        "Codex",
+        "Claude Code",
+        "Node.js 20"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "BeatBrowser 1.4.1は、Chrome拡張機能とローカルブリッジを組み合わせ、stdio MCPに対応するCodex、Claude Code、WorkBuddy、OpenCodeなどから普段のChromeを操作するOSSです。専用ブラウザーやCookieの書き出しは不要ですが、明示的に接続したChromeプロファイルのCookieとストレージを共有するため、タスク単位のアカウント分離には使えません。拡張機能のWorkspaceにタスクウィンドウ、進捗、引き継ぎ、復元、クリーンアップをまとめ、接続確認には`beat-browser doctor --json`を使います。クラウドAgentモードは、認証付きトンネルとremote adapterを介して同じ構成を遠隔利用する1.4.1の任意設定プレビューですが、取得したブラウザー内容は選択したエージェントやモデル提供者へ渡ります。記事では新しい性能測定や特定クライアントの実測結果ではなく、導入時の構成、手動での拡張機能読み込み、接続確認、制約を扱っています。",
+        "prerequisites": [
+          {
+            "term": "BeatBrowser",
+            "stumblingPoint": "記事は「BeatBrowserを作っている」と書くが、単なるブラウザー自動化ライブラリではないと読み取らないと、拡張機能とブリッジの役割が分からない。",
+            "explanation": "BeatBrowserは、Chrome拡張機能とローカルブリッジを接続ツールとしてまとめたOSSです。エージェント製品そのものにブラウザー機能を組み込むのではなく、stdio MCPを話せるクライアントから呼び出します。したがって、ブラウザー操作の実体は普段使うChrome側にあり、BeatBrowserはエージェントとの接続とタスク管理を担います。"
+          },
+          {
+            "term": "stdio MCP",
+            "stumblingPoint": "「stdio MCPに対応するクライアントから利用します」とあるが、stdio MCPを起動できないクライアントでは接続経路自体が成立しない。",
+            "explanation": "stdio MCPは、MCPサーバーをローカルプロセスとして起動し、標準入出力でクライアントと通信する形態です。この記事では公開ドメインやトンネルを使わず、エージェントがローカルブリッジを起動してChrome拡張機能へつなぎます。クライアントにローカルstdio MCPの設定機能がなければ、拡張機能を入れてもエージェントから利用できません。"
+          },
+          {
+            "term": "Chromeプロファイル",
+            "stumblingPoint": "「明示的に接続したChromeプロファイルを使います」とあるが、どのプロファイルを選ぶかでログイン状態と共有データの範囲が変わる。",
+            "explanation": "Chromeプロファイルは、Cookieやストレージ、ログイン状態を保持するブラウザー環境です。BeatBrowserはCookieを別途書き出さず、そのプロファイルを拡張機能経由で使います。同じプロファイル内の複数アカウントやサイト状態をタスクごとに分離する仕組みではないため、接続前に開発用プロファイルを選ぶ判断が必要です。"
+          },
+          {
+            "term": "Workspace",
+            "stumblingPoint": "「タスクウィンドウ、進捗、引き継ぎ、復元、クリーンアップを拡張機能のWorkspaceにまとめています」とあるが、通常のChromeタブ管理との違いが分かりにくい。",
+            "explanation": "Workspaceは、エージェントのタスクに属するページや状態を拡張機能側で管理する領域です。タスクのウィンドウを人がアクティブにすると後続操作が一時停止し、再開には明示操作が必要になります。拡張機能の再読み込み後は未完了タスクを一時停止状態で復元できますが、ブラウザー再起動後のページ関連付けは人が行います。"
+          },
+          {
+            "term": "extensionOnline",
+            "stumblingPoint": "接続確認で「ok: trueとextensionOnline: true」を見るが、これだけではログイン済みサイトの操作成功まで確認できない。",
+            "explanation": "`extensionOnline: true`は、ブリッジからChrome拡張機能へ到達できていることを示す接続状態です。`ok: true`と合わせても、任意サイトを開けたこと、ログイン状態を取得できたこと、フォーム送信が成功したことまでは保証しません。そのため記事は、まず読み取り専用タスクで接続、ページアクセス、タスク状態を個別に確認する流れを示しています。"
+          },
+          {
+            "term": "remote adapter",
+            "stumblingPoint": "クラウドAgentモードでは「remote adapterへ接続」とあるが、通常のローカルブリッジを公開する構成ではない。",
+            "explanation": "remote adapterは、自分で管理する認証付きトンネルを介して、クラウド上のエージェントから本機のBeatBrowser構成へ接続するための経路です。ローカルブリッジをそのままインターネットへ公開する前提ではありません。1.4.1では任意設定のプレビューで、遠隔提供するツール数もローカルより絞られています。"
+          },
+          {
+            "term": "認証付きトンネル",
+            "stumblingPoint": "「自分で管理する認証付きトンネル」とあるが、クラウドAgentモードはトンネルを用意しないと試せない。",
+            "explanation": "認証付きトンネルは、クラウド側のエージェントから本機へ到達させるための外部接続経路です。記事は具体的なトンネル製品や構築コマンドを示していないため、ローカル利用のように追加設定なしで遠隔利用できるわけではありません。まずローカル構成を確認し、必要な認証とトンネルを別途用意する位置づけです。"
+          }
+        ],
+        "visual": null,
+        "figures": [
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.ap-northeast-1.amazonaws.com%2F0%2F4495895%2F21bbd8c0-704d-42c5-a0ca-e00d18745a9d.png?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=721cfce3496c1f843b0f407f278ad6e4",
+            "alt": "人の確認待ちで停止した開発用タスク。UIは英語",
+            "caption": "拡張機能UIでは2ページのタスクと引き継ぎ操作が表示され、人がタスクウィンドウをアクティブにすると後続操作を一時停止できる。"
+          },
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.ap-northeast-1.amazonaws.com%2F0%2F4495895%2F0695fed2-b786-4e7d-82e7-e5ccaec01b5d.png?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=f9acfe5dda8defe04f83301b63a8d0f3",
+            "alt": "ローカルとクラウドの接続経路",
+            "caption": "ローカルではエージェントからブリッジ、拡張機能、Chromeへ接続し、クラウドでは認証付きトンネルとremote adapterを追加する経路を示している。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "普段のChromeのログイン状態を保ったまま、エージェントにページを読ませられる",
+          "タスクを人の確認で止め、引き継ぎ・再開・復元できる"
+        ],
+        "howToTry": [
+          "https://qiita.com/beatapi/items/fc899fb0a452159fc0f1",
+          "Node.js 20以上とChrome 116以上を用意する。",
+          "記事の導入手順に従ってBeatBrowser 1.4.1とMCPクライアントを設定する（本文では設定コマンドが省略されています）。",
+          "使いたいChromeプロファイルで`chrome://extensions`を開き、デベロッパーモードを有効にして、導入手順で表示された拡張機能フォルダーを読み込む。",
+          "`beat-browser doctor --json`を実行し、`ok: true`と`extensionOnline: true`を確認する。",
+          "MCPクライアントを再起動し、読み取り専用で`https://example.com`を開いてタイトルを読み、結果を報告して一時停止するタスクを依頼する。"
+        ],
+        "fitFor": [
+          "Node.js 20以上、Chrome 116以上を使っている",
+          "stdio MCPを起動できるクライアントを使っている",
+          "普段のChromeプロファイルのログイン状態を再利用したい"
+        ],
+        "notFor": [
+          "タスクごとにChromeのCookieやストレージを分離したい",
+          "Chromeウェブストアからの自動インストールだけで導入したい",
+          "クラウドAgentモードを認証付きトンネルなしで使いたい"
+        ],
+        "caveats": [
+          "同一ChromeプロファイルのCookieとストレージをタスク間で共有する。"
+        ],
+        "tryPrompt": "# 試すこと\nBeatBrowser 1.4.1をローカルChromeプロファイルへ接続し、読み取り専用タスクでページタイトルを取得する。\nhttps://qiita.com/beatapi/items/fc899fb0a452159fc0f1\n# 手順\n1. Node.js 20以上とChrome 116以上が使えることを確認する。\n2. 記事の導入手順に従ってBeatBrowser 1.4.1とstdio MCPクライアントを設定する（本文では設定コマンドが省略されているため、必要なら記事内の導入文書を参照する）。\n3. 使うChromeプロファイルで`chrome://extensions`を開く。（手動）\n4. デベロッパーモードを有効にする。（手動）\n5. 導入手順で表示された拡張機能フォルダーを「パッケージ化されていない拡張機能」として読み込む。（手動）\n6. `beat-browser doctor --json`\n7. MCPクライアントを再起動する。（手動）\n8. `https://example.com`を開き、タイトルを読み、結果を報告して一時停止するタスクを依頼する。\n# 確認したいこと\n- `ok: true`と`extensionOnline: true`が返るか\n- エージェントが実際にページへアクセスし、タイトルを取得できるか\n- タスクが一時停止し、拡張機能UIから明示的に再開できるか\n# 前提・注意\n- 本文ではBeatBrowserのインストール・クライアント設定コマンドが省略されています。\n- Chromeウェブストア経由ではなく、拡張機能の手動読み込みが必要です。\n- ログイン済みサイトやフォーム送信では試さず、開発用プロファイルと読み取り専用タスクを使ってください。"
+      }
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Will it be a golden age or a dark age for mathematics (and science)?",
+      "url": "https://terrytao.wordpress.com/2026/10/18/will-it-be-a-golden-age-or-a-dark-age-for-mathematics-and-science/",
+      "publishedAt": "2026-10-18T15:00:40.000Z",
+      "author": "smilelamp",
+      "authorDetail": {
+        "name": "smilelamp",
+        "handle": "smilelamp",
+        "url": "https://news.ycombinator.com/user?id=smilelamp"
+      },
+      "tags": [],
+      "snippet": "[This is a guest post by Francesco Maggi. This blog post was initially written in a different file format and converted using AI. — T.] Large language models (LLMs) and the research systems built around them (and commonly known as “artificial intelligence”) have demonstrated remarkable abilities in generating mathematical proofs. While the quality and limits of these tools remain incompletely unde…",
+      "metrics": {
+        "points": 121,
+        "comments": 159
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "8b687b4d3b60c887",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.1436734693877551,
+      "popularityPercentile": 0.6530612244897959,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "数学と科学は黄金時代か暗黒時代か",
+      "oneLiner": "AIの発展が数学と科学の未来を黄金時代にも暗黒時代にも変えうるという論点を扱う。",
+      "takeaways": [
+        "AIは数学と科学の進歩を変えうる。",
+        "進歩が人間の理解を深めるとは限らない。",
+        "未来を決めるのは使い方と制度である。"
+      ],
+      "keywords": [
+        "AI",
+        "数学",
+        "科学",
+        "研究自動化",
+        "技術の未来"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIによる研究の加速を優先するか人間の理解を優先するか",
+        "forSide": "AIが発見と検証を加速すれば科学の進歩は大きく広がる。",
+        "againstSide": "答えだけを得る研究は理解と再現性を失う危険がある。",
+        "oneSided": false,
+        "yourAngle": "AIエージェントがコードや検証を担う範囲は実務で観測できる。"
+      },
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "body": "[This is a guest post by Francesco Maggi. This blog post was initially written in a different file format and converted using AI. — T.]\n\nLarge language models (LLMs) and the research systems built around them (and commonly known as “artificial intelligence”) have demonstrated remarkable abilities in generating mathematical proofs. While the quality and limits of these tools remain incompletely understood, their potential for accelerating discovery and enabling extraordinary advances in mathematics and, more broadly, across science and technology seems clear.\n\nSeizing on that potential will require the careful integration of LLMs into the various STEM ecosystems, with the priorities of empowering a new generation of scientists, developing new STEM expertise, and preserving an open, collaborative, and intellectually independent scientific enterprise: that is the “golden age” scenario in the title. In the “dark age” scenario, scientific and technological output would still increase spectacularly in the short term, but, at the same time, independent human scientific activity would progressively weaken, the production of new knowledge becoming increasingly concentrated in a small number of hands, who become increasingly incapable of understanding the knowledge produced. The real darkness here would be knowledge becoming alien to human understanding.\n\nReality will likely combine these scenarios. In eight points, I will examine the choices shaping that outcome, moving from mathematics to science more broadly, and closing with actionable proposals.\n\n(1) The technological breakthrough is real! But…\n\nTo state the obvious, LLMs have become powerful research tools. Recent LLM-generated proofs, like the construction of a finite-time blow-up solution to the Navier–Stokes equations with a forcing term, or the proposed proof of the quasi-Riemann Hypothesis, deserve the utmost attention from mathematicians. Assessing their significance will require continuous independent scrutiny, interpretation, and assimilation by the mathematical community.\n\nLLMs seem most at home when writing proofs in Lean. (Lean is a proof assistant that allows computers to check whether a formal argument establishes a stated claim under specified definitions and axioms.) For those hard theorems where we really want LLMs to help us, these Lean proofs are extremely long, like hundreds of thousands of lines of code long. A seemingly emergent trend is that the longer the Lean version of a proof, the messier and less faithful its machine-generated “natural language” translation seems to be. We don’t understand why LLMs seem so bad at doing this kind of translation, but, as of today, they seem to really struggle with that task. So, for the really important problems, LLMs can give us correct Lean proofs that we cannot directly read, and messy natural language translations that are so complex as to require intensive study by mathematicians before they can lead to human understanding. Although this specific problem translation problem may change in the future, it leads us directly to the fundamental question:\n\nWithout human understanding, why do we care about studying mathematics, or even obtaining proofs, beyond benchmarking LLMs?\n\nMathematics is a very peculiar human artifact. It seems to have deep biological roots in how humans cognize. We identify (people, animals, objects); therefore, we count, we have numbers. We seem to have innate concepts of space and time, and we quantify and measure them with numbers. Some basic forms of arithmetic and geometry seem to almost be innate to humans. Different civilizations have built different kinds of mathematics, and even during the most recent history of mathematics, the very notion of the domain of mathematical inquiry has expanded drastically, sometimes even accidentally.\n\n(We may even be in a situation where there is a mathematics of humans and a mathematics of LLMs. This is maybe true not only at a linguistic level, but also in a deeper sense, although it is just too early to say.)\n\nI therefore disagree with claims that mathematics is over because machines can prove theorems. Without humans who understand mathematics, there is, quite literally, no human mathematics—a fundamental part of human culture. If we agree that we should not abandon mathematics because poorly understood machines bruise our anthropocentric vision of it, then society will need more mathematicians, not fewer. Like… a lot more.\n\n(2) Healthy scientific skepticism and the limits of LLMs’ creativity.\n\nGiven the extraordinary results obtained by LLMs in mathematics, there is now considerable excitement concerning future capabilities and, at times, I think a lack of cool-headedness that does not do justice to the scientific method. Extraordinary performance should be received as a phenomenon to study, not as evidence for speculative conclusions about intelligence, creativity, or even consciousness. The latter are among the hardest legitimate subjects of scientific inquiry. They should be approached with explicit definitions, testable hypotheses, and empirical evidence. The same goes for the sweeping predictions about inevitable social transformations that inevitably follow the amazement generated by observed capabilities. We seem to forget too easily that the social consequences of these technologies will not be solely determined by their capabilities, but, most importantly, by the choices we will make on how these capabilities are developed and integrated into existing institutions. There are no inevitable outcomes, but there is a sore need for scientific and political leadership.\n\nWhat do we know today about the mathematical abilities of LLMs? Theoretical and empirical insights both support the conclusion that LLMs are extraordinary at recombining existing intellectual structures and discovering unobserved connections among distant parts of the scientific literature. What is more, LLMs do this at a scale that is inaccessible to individual researchers. Whether their uncanny effectiveness at proving theorems can be entirely explained as hyper-sophisticated linguistic recombination, or whether it involves other forms of synthetic reasoning that are yet to be described and understood, is today an open scientific question.\n\nOne point that seems particularly hard to decide, given that commercial developers are not (cannot be) transparent on the working of their models is the relation between LLMs’ performance on a problem and the richness of the related mathematical literature. For example, both the Navier-Stokes equations and the Riemann Hypothesis are the subject of a vast literature created by hundreds of the most brilliant mathematicians. There may be something here. After all, when OpenAI published their “Tuesday October 6, 2026, Drop”, they mentioned having tried 4000 problems, reporting success for some hundreds of them (as counted after “aggregation” and “selection”). The language used there is a bit vague, but it still seems to imply the existence of a potentially large group of problems on which the frontier LLM failed to find solutions: from a scientific viewpoint, it would be very interesting to know what these problems were. Maybe those problems are more interesting than NS and RH? Or is the ground around them less fertile for LLMs to come help? These are important questions for humans who want to advance mathematical progress: how do we put LLMs in the best position to help?\n\n(3) Mathematization.\n\nMathematicians seem substantially agreed that some human mathematical functions are not reducible to theorem proving. A particularly important one is mathematization:\n\nThe act of inventing the very mathematical language through which reality (including mathematical structures themselves) becomes quantitatively and rationally intelligible.\n\nNewton, Fourier, Riemann, Einstein, Shannon, Grothendieck: their greatest mathematical contributions could be described as the highest examples of mathematization, as they included the invention of mathematical languages and conceptual frameworks that transformed entire areas of knowledge.\n\nWe do not know if LLMs can perform mathematization — my guess would be that they should be (or eventually become) capable of mathematization of mathematical structures, so, of a very specific part of reality, but it is much less clear if they can go beyond that, at least in ways that they can then translate efficiently into natural language — I am going back to human understanding here.\n\nIn my opinion, the most exciting opportunity created by making proofs a more accessible commodity is that, in the near future, we may be able to do much more mathematization than ever. There are vast swaths of the natural and social sciences where our ability to mathematize has been largely dampened by the difficulty of obtaining proofs — indeed, without proofs, it can be difficult to establish a theory’s consequences and compare them with observed phenomena. But, as often observed in science, we may have just climbed the peak of the mountain only to find more land to explore.\n\nI think there should be considerable excitement around this idea. Indeed, whenever a system of phenomena, experiments, and data is successfully mathematized, we vastly increase the sophistication and depth of the accessible insights into that system.\n\nThe most spectacular example of this assertion is probably the success of quantum mechanics, where the mathematical formalization of an original set of experimental data has famously produced many physically counterintuitive but testable predictions confirmed by experiments that would have otherwise been unthinkable — who would have proposed entanglement as a property of nature if not forced to do so by theoretical prediction?\n\n(4) Mathematical progress cannot be measured by checking off boxes on a problem list.\n\nMathematics is not a finite system of questions. Hilbert proposed his famous list of problems at the dawn of the previous century (which inspired the list of Millennium Prize Problems) with the intent of guiding and channeling a “Cambrian explosion” of mathematical activity. But many fundamental mathematical contributions of the past century happened without any connection to any list of problems.\n\nFor example, the mathematical foundations of general relativity emerged from geometric ideas developed over multiple generations of mathematicians, starting with Gauss and Riemann, and continuing with Ricci-Curbastro and Levi-Civita. The synthesis of physical insight, special relativity, and Riemannian geometry into general relativity has no connection with any list of difficult problems or their intricately complex proofs (and is a textbook example of mathematization in action!)\n\nA second example is provided by a broad historical trajectory connecting the study of Fourier series, the development of measure theory, modern probability, and information theory. Shannon’s insight that the statistical structure of a source determines fundamental limits on the transmission and compression of information is an extraordinary example of how mathematization can open an entirely new field. Similarly, some of the mathematical foundations of modern computing and machine learning are arguably rooted in a series of mathematical advancements that were not immediately inspired by attempts at proving big conjectures or by increasingly complex proofs.\n\nIt is undeniable that working on problems from Hilbert’s and other lists has proven extremely fruitful for the development of mathematics. What is interesting in that regard is that the usefulness of these efforts has often gone well beyond the solution of the specific problems: these problems have served as lighthouses in the navigation of unknown mathematical waters, as already noted in other comments. But reducing mathematics to solving hard problems from a list provides a simplistic and incomplete understanding of the field and of what constitu…",
+      "rank": 1,
+      "deep": {
+        "summary": "LLMは数学の証明、とくにLeanで検証可能な形式証明を生成でき、研究を大きく加速する可能性がある。一方で、難しい定理のLean証明は数十万行に及ぶことがあり、LLMが生成する自然言語の説明は人間には読みにくくなりやすい。記事は、短期的な研究成果の増加だけでなく、人間が知識を理解し、批判し、共有できる科学体制を維持できるかを「golden age」と「dark age」の分岐点として扱う。LLMの能力を知性や創造性の証拠と短絡せず、どの問題で成功・失敗するのかを独立に調べる必要がある。さらに、数学の進歩は既存の問題リストを解くことだけではなく、現象を新しい数学的言語で捉えるmathematizationによっても生じると論じている。",
+        "prerequisites": [
+          {
+            "term": "Lean",
+            "stumblingPoint": "記事は「LLMs seem most at home when writing proofs in Lean」と書いているが、Leanが何を検証する道具かを知らないと、生成結果の確実性が読み取れない。",
+            "explanation": "Leanは、定義と公理を前提に、形式化された証明が主張を導くかをコンピュータで検査するproof assistantである。通常の文章による証明のように「もっともらしい説明」を評価するのではなく、構文と推論規則に適合するかを機械的に確認する。この記事では、LLMの自然言語説明が不十分でも、Lean側の証明は正しい可能性があるという対比に使われている。"
+          },
+          {
+            "term": "proof assistant",
+            "stumblingPoint": "「Lean is a proof assistant that allows computers to check whether a formal argument establishes a stated claim」という説明だけでは、通常のテストや文章レビューとの違いが分かりにくい。",
+            "explanation": "proof assistantは、プログラムを実行して例を確認するのではなく、形式化された推論全体が定理の条件を満たすかを検査する道具である。したがって、テストが通ったコードよりも強い意味で、対象の証明の妥当性を機械的に確認できる。ただし、何を定義し、どの公理を採用したかが適切かどうかまで自動的に保証するものではない。"
+          },
+          {
+            "term": "自然言語訳",
+            "stumblingPoint": "記事は「the longer the Lean version of a proof, the messier ... its machine-generated natural language translation」と述べるが、形式証明が正しくても説明が壊れる理由の位置づけが必要になる。",
+            "explanation": "Leanの証明は、補題の適用や型の整合性を細かく列挙したコードであり、人間が読む数学的な説明とは表現の粒度が違う。行数が増えるほど、機械が各操作を自然な概念のまとまりへ再構成する負荷も増す。この記事の問題は証明の検証可否ではなく、検証済みの推論を人間が理解できる知識へ変換できるかにある。"
+          },
+          {
+            "term": "mathematization",
+            "stumblingPoint": "記事はmathematizationを「現実が数量的・合理的に理解可能になる数学言語の発明」と呼ぶが、単に既存の問題を解くこととの違いが読み取りにくい。",
+            "explanation": "mathematizationは、既にある数式を操作することではなく、現象を記述する変数・構造・関係そのものを設計する行為である。記事では、Newton、Fourier、Riemann、Einstein、Shannon、Grothendieckの仕事をこの例として挙げている。証明生成が安くなれば、証明を得る難しさに阻まれていた自然科学や社会科学の現象も、より深く形式化できる可能性がある。"
+          },
+          {
+            "term": "Navier–Stokes equations",
+            "stumblingPoint": "記事は「finite-time blow-up solution to the Navier–Stokes equations」をLLM生成証明の例にするが、なぜ注目に値する問題なのかは本文だけでは補いにくい。",
+            "explanation": "Navier–Stokes equationsは、流体の運動を記述する偏微分方程式である。ここでの記事の焦点は流体力学の内容そのものではなく、LLMが長年研究されてきた難しい数学的対象について、形式的に検証可能な証明を提案した点にある。なお、提示本文ではその証明の正しさや数学的意義が確定したとは書かれておらず、独立した精査が必要とされている。"
+          },
+          {
+            "term": "quasi-Riemann Hypothesis",
+            "stumblingPoint": "「proposed proof of the quasi-Riemann Hypothesis」が突然登場するため、LLMの出力を発見として扱うのか検証対象として扱うのかが曖昧になりやすい。",
+            "explanation": "本文では、この証明を確定した成果ではなく、数学者が注意深く評価すべきLLM生成物として挙げている。つまり、LLMが証明らしい文章を出したことと、共同体がその主張を理解・検証・受容したことは別である。記事全体の「能力の観測」と「知識としての確立」を分ける議論に位置づく。"
+          },
+          {
+            "term": "Hilbert’s list",
+            "stumblingPoint": "記事はHilbert’s listやMillennium Prize Problemsを、数学の進歩を問題解決だけに還元できない例として使っている。",
+            "explanation": "Hilbert’s listは、20世紀初頭にHilbertが数学研究を方向づけるために提示した問題群である。記事は、こうした問題を解くことが多くの成果を生んだ点は認めつつ、一般相対論の幾何学的基礎や情報理論の成立のように、特定の難問リストの解決から直接始まらない重要な進歩もあると指摘する。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "研究速度と人間の理解",
+            "claim": "LLMの証明生成で、難問の発見と検証を大幅に加速できる。",
+            "counter": "読めないLean証明が増えるだけなら、知識は人間から遠ざかる。",
+            "counterInArticle": true
+          },
+          {
+            "point": "能力評価の基準",
+            "claim": "驚異的な定理証明は、知性や創造性の証拠と見なせる。",
+            "counter": "観測された性能は、まず検証可能な科学現象として調べるべきだ。",
+            "counterInArticle": true
+          },
+          {
+            "point": "数学の進歩の測り方",
+            "claim": "重要な進歩は、難しい問題リストを解いた数で測ればよい。",
+            "counter": "新しい数学言語を発明するmathematizationは、問題解決数に表れない。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AI生成コードの検証可能性",
+            "why": "Claude CodeやOpenAI Codexの出力を実装・レビューしており、動作確認と理解可能性の差を具体的に記録できる。"
+          },
+          {
+            "angle": "形式的正しさと可読性の差",
+            "why": "TypeScriptの型検査やテストが通っても保守しにくいコードを扱うため、Leanの検証結果と人間の理解を分けて観察できる。"
+          },
+          {
+            "angle": "生成量とレビュー負荷",
+            "why": "AIエージェント導入前後のPRサイズ、レビュー時間、手戻りを比較し、加速が実際の知識共有につながったかを測定できる。"
+          }
+        ],
+        "verify": [
+          "同じ定理をAIにLean証明と自然言語説明の両方で出させ、Leanの検証時間と人間のレビュー時間を別々に記録する。",
+          "AIエージェント導入前後で、生成量・レビュー時間・手戻り・担当者以外の理解度を計測する。"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AI開発の工程選択と完了報告を揃える：既存ルールに2行追加して同期を検証した",
+      "url": "https://qiita.com/YushiYamamoto/items/5004c1bfbbba9934e953",
+      "publishedAt": "2026-10-18T04:43:44.000Z",
+      "author": "山本  勇志",
+      "authorDetail": {
+        "name": "山本  勇志",
+        "handle": "@YushiYamamoto",
+        "url": "https://qiita.com/YushiYamamoto",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3637864/profile-images/1739853052",
+        "bio": "Web開発10年以上の経験を土台に、AI・業務自動化の導入検討、要件整理、技術選定・設計を支援します。Next.js／TypeScript／n8n／LLM。業務・制約・優先順位を整理し、判断と実装・運用をつなぐことを大切にしています。自社検証・公開資料・設計案を区別し、選択肢、判断理由、品質・運用の論点を発信。導入調査、設計レビュー、PM補佐・開発推進支援のご相談はITProDX.comへ。",
+        "organization": "AI導入・業務自動化｜要件整理・設計・開発推進支援｜ITProDX.com",
+        "location": "フルリモート（打ち合わせ・進捗共有に対応）",
+        "followers": 299,
+        "posts": 615,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/YushiYamamoto"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/UshiAiPro"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.itprodx.com"
+          }
+        ]
+      },
+      "tags": [
+        "生成AI",
+        "AIエージェント",
+        "codex",
+        "ClaudeCode",
+        "AI駆動開発"
+      ],
+      "snippet": "2026-10-18時点の、自分のローカル環境におけるAI支援の設定変更・検証記録です。複数のコーディングエージェントを使うエンジニアに向け、開発フローをどこまで共通化し、何を証拠に確認するかを整理します。 結論：追加したのは、既存の品質基準を使い分けるための2項目 外部プラグインを新しく導入せず、共通ルールの正本へMarkdownの2行を追加しました。定義したのは、次の2点です。 ・着手前に、規模・不確実性・影響度から必要な工程を選ぶ。 ・完了時に、変更・検証・未確認・独立レビューを報告する。 今回検証したのは、ルールの追記と4つの指示ファイルへの同期です。各AIの実行時の遵守や、開発時間・トークン消費への効果は今後の評価対象です。 2行の追記で済んだ前提として、共通ルールには次の基準がありました。 ・YAGNI：既存実装・標準機能を優先し、不要な抽象化を足さない。 ・バグの再現：修正前…",
+      "body": "2026-10-18時点の、自分のローカル環境におけるAI支援の設定変更・検証記録です。複数のコーディングエージェントを使うエンジニアに向け、開発フローをどこまで共通化し、何を証拠に確認するかを整理します。\n\n結論：追加したのは、既存の品質基準を使い分けるための2項目\n\n外部プラグインを新しく導入せず、共通ルールの正本へMarkdownの2行を追加しました。定義したのは、次の2点です。\n・着手前に、規模・不確実性・影響度から必要な工程を選ぶ。\n・完了時に、変更・検証・未確認・独立レビューを報告する。\n\n今回検証したのは、ルールの追記と4つの指示ファイルへの同期です。各AIの実行時の遵守や、開発時間・トークン消費への効果は今後の評価対象です。\n\n2行の追記で済んだ前提として、共通ルールには次の基準がありました。\n・YAGNI：既存実装・標準機能を優先し、不要な抽象化を足さない。\n・バグの再現：修正前に再現テストを用意し、失敗から成功への変化を確認する。自動再現が困難なら手順と代替検証を残す。\n・変更に応じた検証：業務ルールは単体、API・DBや副作用の順序は結合、重要な利用者操作はE2Eなど、対象に必要な確認を選ぶ。\n・統合前の独立レビュー：実装者とは別のセッション・エージェントが差分を確認する。\n\n今回は、この基準群に「どの工程を選ぶか」と「何を完了報告に残すか」を補いました。自分の環境へ取り入れる際も、先に同じ前提が揃っているかを確認できます。\n\nなぜ今回はプラグイン追加を選ばなかったか\n\nきっかけは、Superpowersのような開発手順のスキル集を追加すべきかという検討でした。Superpowersのbrainstormingにも、明確な小タスクを直接実施する考え方があります。工程を選ぶ仕組みを自分の環境へどう組み込むかが、今回の問いでした。\n\nそのうえで、自分の環境では次のように比較しました。\n\n| 選択肢 | 適する条件 | 今回の判断 |\n|---|---|---|\n| スキル集を導入する | 要件整理・計画・レビューの共通手順がまだ少ない | 有力な候補だが、今回は導入せず |\n| 既存ルールへ不足部分を追加する | 品質基準はあり、工程選択や報告の形式が曖昧 | 今回採用。既存基準を再利用できる |\n| 毎回の会話で指示する | 単発の実験で、まだ共通化する内容が固まっていない | 継続利用時の指示漏れは別に考える必要がある |\n\n判断基準にしたのは、既存ルールを再利用して不足部分を補えるかです。採用後は、自前のルールについても矛盾の点検や更新を続ける必要があります。\n\n実際に追加した2行\n\n次が追記した本文です。各項目を1行で保存しているため、差分は+2 / -0でした。\n\n [code] \n\n1項目目は工程の選択、2項目目は証拠の報告を扱います。工程を簡略化する場合も、独立レビュー・人間承認・情報保護の境界は維持します。\n\n変更量だけで判断しない\n\n次の表は、追加したルールを4つのケースに当てはめた想定例です。\n\n| 例 | 工程の選び方 | 省略しないこと |\n|---|---|---|\n| 明確な文言修正 | 長い壁打ちや細かな計画を省き、直接修正する | 変更に適した表示確認と、既存の統合前レビュー基準 |\n| 認可の1行修正 | 影響度から、原因確認・再現テスト・境界条件・回帰確認を選ぶ | 権限確認、独立レビュー。自動再現が困難なら代替検証を記録 |\n| 仕様が曖昧な新機能 | 要件を確認し、計画・委譲・検証の必要性を判断する | 未確定の仕様を合意済みと扱わない |\n| コード変更を伴わない質問 | AI実装作業の工程を一律には課さない | 通常の情報保護・外部送信の境界 |\n\n「規模・不確実性・影響度」の3つを判断の観点として使い、選んだ工程と理由を短く説明する運用を定義しました。\n\n完了報告を、変更した版と結び付ける\n\n完了報告では、実行コマンドと結果を検証した版に対応させます。コミット済みならコミットID、未コミットなら対象ファイルのハッシュなどを使い、後から同じ版の結果として確かめられるようにします。\n\n特に、次の状態を混同しないようにしました。\n・検証していない。\n・修正前から失敗していることを確認できた。\n・今回の差分で失敗するようになったことを確認できた。\n・前後比較がなく、失敗の原因をまだ判定できない。\n\n失敗の原因は前後比較が揃うまで「未判定」とし、独立レビューでは実装者とは別の担当が実ファイル・差分を確認します。Superpowersのタスクレビュー用プロンプトも、実装者の報告をそのまま信じず、差分から仕様準拠とコード品質を確認する構成です。\n\n正本1つから、今回の4つの反映先へ同期した\n\n今回の環境では、/.ai-shared/AGENTRULES.mdを正本とし、既存のsync-agent-rules.shで次の4ファイルへ反映しました。\n\nこのシェルスクリプトはawkを使い、正本の最初の行頭## 見出しから末尾までを共有本文として抽出します。反映先では、 と が正しく1組ある状態で、その内側だけを置き換え、ファイル固有のヘッダ・フッタを残す仕組みです。\n\nマーカーが未設置なら管理ブロックを末尾へ追加します。既存マーカーの欠損は同期スクリプトでは検出しないため、後述の照合コードでは開始・終了が1組ずつあることも検査しました。\n\n| 役割 | 今回の反映先 |\n|---|---|\n| Claude向け指示 | /.claude/CLAUDE.md |\n| Codex向け指示 | /.codex/AGENTS.md |\n| Gemini / Antigravity向け指示 | /.gemini/GEMINI.md |\n| ホーム共通の指示 | /AGENTS.md |\n\n正本を含めると変更対象は5ファイルです。同期スクリプトは既存のものを再利用しました。\n\n表に示したのは、今回設定している反映先です。各製品の読込み先は利用環境・設定に依存するため、Cursorを含む各ツールの新規セッションで、どの指示が読み込まれるかを別途確認します。\n\n「同期成功」という表示だけでは完了にしない\n\nCodexが編集を担当し、別のエージェント環境であるAntigravity側には、計画と最終差分の確認を依頼しました。目的は、編集担当だけで承認を完結させず、別コンテキストから判断を点検することです。さらに別のCodexインスタンスが、事前バックアップと実ファイルから内容を再計算して照合しました。\n\n主に確認したのは次の項目です。\n\n| 確認項目 | 今回の結果 | この確認では分からないこと |\n|---|---|---|\n| 正本の差分 | 2行追加、既存行の削除・変更なし | ルールが常に守られるか |\n| 同期先の管理ブロック | 4/4ファイルで正本の共有本文とバイト一致 | 各ツールの自動読込み |\n| 管理ブロック外 | 同期前の内容と一致 | 無関係な全設定の正しさ |\n| 権限・所有者 | 対象ファイルで保持 | 他の端末への反映 |\n| 再同期 | 正本・スクリプト・4同期先の内容ハッシュが不変 | 実行時の挙動や処理効率 |\n| 差分レビュー | Antigravityと別Codexで指摘0件 | 不具合が存在しないことの保証 |\n\n同期スクリプトは再実行時にバックアップを上書きするため、初回のバックアップを別に保持してから2回目を実行しました。「内容が同じ」という冪等性と、更新時刻まで変わらないことも区別しています。\n\n現在の本文一致だけを確認するコード\n\n次のコードは、上記のパス・管理マーカー・共有本文の切出し規約を使う今回の環境向けの照合コードです。処理はファイルの読出しと比較だけです。他の環境で使う際は、対象パスとマーカーを合わせます。\n\n [code] \n\nこれをchecksyncedrules.pyとして実行し、今回の環境では次の出力を確認しました。\n\n [code] \n\nこのコードで確認できるのは、現在の管理マーカーと共有本文の一致です。ブロック外の保持や再同期時の内容不変は、事前バックアップ・初回同期後ハッシュとの比較で別に確認しました。\n\n確認コード自身にも取り違えがあった\n\n最初の照合では、説明文に含まれる## を最初の見出しと誤認し、期待する共有本文の切出し位置を間違えました。原因は、確認コード側の抽出条件でした。\n\n上のコードでは(?m)^## で行頭の見出しを指定しています。検査が失敗したら、同期処理と検査側の前提のどちらが違うのかを切り分ける必要があります。今回は本文の照合を維持し、同期処理が使う抽出規約と検査側の条件を揃えて再確認しました。\n\nルールの配置と、効果の実証を分ける\n\n今回済んだのは、ルールを定義し、反映先のファイル内容を揃え、その差分をレビューするところまでです。\n\n今後の確認は、次の順序で考えます。\n\n1. 各ツールの新規セッションが、そのルールを実際に読み込むか。\n2. 明確な軽微修正と高影響の変更で、必要な工程を選べるか。\n3. 完了報告が検証した版・実行結果・未確認事項と結び付いているか。\n4. 導入前後で、同等の作業にかかった時間、修正回数、トークン消費がどう変わるか。\n\n比較するときは、要件整理やレビューに使ったコストも含めます。短い作業だけで判断せず、重要な検証を省いて速くなったケースを改善として数えないようにします。\n\n既存の品質基準が十分にあり、工程の選択や報告形式だけが不足しているなら、小さな追記から始める選択肢があります。共通手順自体が不足している環境なら、スキル集を導入して運用する負担と、自前で維持する負担を比較するところから始めるのがよいと考えます。\n\n:::note\nこの記事を書いた人✏️@YushiYamamoto\nITPRODX.com代表。AI × Web × 業務自動化の開発・検証に取り組んでいます。\n技術選定・品質・運用の判断材料を、検証範囲と制約を示して発信しています。\nAI導入や業務自動化の技術選定・設計整理については、対応できる範囲を確認のうえご相談を承ります。\n:::\n\nhttps://itprodx.com\n\nhttps://note.com/noteknowledge",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "66b1287a76c47a5b",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8070422535211268,
+      "popularityPercentile": 0.5774647887323944,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 81,
+      "titleJa": null,
+      "oneLiner": "AI開発の開始前に工程を選び完了時に検証結果を報告する2行を4つの指示ファイルへ同期した。",
+      "takeaways": [
+        "AI開発の開始前に必要な工程を選ぶ。",
+        "完了時に変更と確認結果を残す。",
+        "4つの指示ファイルへの同期を検証した。"
+      ],
+      "keywords": [
+        "Claude Code",
+        "OpenAI Codex",
+        "AIエージェント",
+        "AI駆動開発",
+        "Markdown",
+        "独立レビュー"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "共通ルールを増やすか各エージェントの自由に任せるか",
+        "forSide": "2行の共通ルールで工程選択と完了報告を揃えられる。",
+        "againstSide": "規則を増やすほど判断の速さとエージェントの柔軟性が落ちる。",
+        "oneSided": false,
+        "yourAngle": "Claude CodeとCodexで同じ指示を使い報告の差を実測できる。"
+      },
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 2,
+      "deep": {
+        "summary": "複数のAIコーディングエージェントで品質基準を揃えるため、外部プラグインを追加せず、既存の共通ルールに「規模・不確実性・影響度から工程を選ぶ」「変更・検証・未確認・独立レビューを完了時に報告する」の2行を追加した。/.ai-shared/AGENTRULES.mdを正本として、Claude、Codex、Gemini / Antigravity、ホーム共通の4ファイルへ同期し、管理ブロック内の共有本文をバイト一致とハッシュで確認した。同期スクリプトの成功表示だけでなく、管理ブロック外の保持、権限・所有者、再同期時の冪等性、別エージェントによる独立レビューも確認対象にしている。一方、今回実証できたのはルールの配置とファイル内容の一致までで、各ツールが新規セッションで実際に読み込むか、工程選択や完了報告が実行時に守られるかは未検証である。効果測定では、作業時間だけでなくレビューや要件整理のコスト、修正回数、トークン消費も含め、検証を省いた短縮を改善と数えない方針を示している。",
+        "prerequisites": [
+          {
+            "term": "Superpowers",
+            "stumblingPoint": "記事は「Superpowersのような開発手順のスキル集」と書くが、それが既存ルールへの追記と競合する選択肢だと読み取れない。",
+            "explanation": "Superpowersは、要件整理・計画・実装・レビューなどの開発手順をスキルとしてまとめた仕組みである。この記事では、その手順を外部から導入する代わりに、すでに品質基準を持つ環境へ不足していた判断ルールだけを足せるかを比較している。したがって論点はSuperpowersの機能評価そのものではなく、共通手順を外部のスキル集で管理するか、自前のルールとして維持するかである。"
+          },
+          {
+            "term": "YAGNI",
+            "stumblingPoint": "記事は既存基準として「YAGNI」を挙げるが、なぜプラグインを増やさず2行だけ追加する判断につながるのかが省略されている。",
+            "explanation": "YAGNIは、今必要でない抽象化や仕組みを先回りして追加しない考え方である。この記事では、既存実装・標準機能を優先する基準として使われ、品質基準がすでにあるなら新しいスキル集全体を導入せず、不足している工程選択と完了報告だけを補う判断につながる。"
+          },
+          {
+            "term": "正本",
+            "stumblingPoint": "「/.ai-shared/AGENTRULES.mdを正本とし」とあるが、4つの指示ファイルとの関係を知らないと同期の意味が分からない。",
+            "explanation": "正本は、共有ルールを編集する唯一の基準ファイルである。4つの反映先を個別に編集するのではなく、正本から共有本文を生成・同期するため、エージェントごとの内容ずれを減らせる。逆に正本だけを直して同期しなければ、設定変更は実行環境へ届かない。"
+          },
+          {
+            "term": "管理ブロック",
+            "stumblingPoint": "記事は「管理ブロック内だけを置き換え、ファイル固有のヘッダ・フッタを残す」と説明するが、どこまでが同期対象かが読み取りにくい。",
+            "explanation": "管理ブロックは、共有ルールを反映する開始・終了マーカーで囲まれた領域である。同期スクリプトはその内側だけを正本の内容に置き換え、各ツール固有のヘッダやフッタは変更しない。この記事では、同期先全体の一致ではなく、共有部分の一致と周辺部分の保持を別々に検査している。"
+          },
+          {
+            "term": "冪等性",
+            "stumblingPoint": "「再同期時の内容不変」と「更新時刻まで変わらないことを区別」とあるが、冪等性が何を保証するのかが曖昧である。",
+            "explanation": "冪等性は、同じ入力に対して同期処理を繰り返しても、結果がさらに変化しない性質である。この記事では、正本と同期先がすでに揃った状態で再実行し、内容ハッシュが変わらないことを確認している。ただしファイルの更新時刻が変わるかどうかは別の挙動なので、内容の冪等性だけで処理全体の無変更までは保証しない。"
+          },
+          {
+            "term": "バイト一致",
+            "stumblingPoint": "同期先について「正本の共有本文とバイト一致」とあるが、意味の一致や見た目の一致との違いが分からない。",
+            "explanation": "バイト一致は、文字列を解釈して比較するのではなく、ファイルから読み出したバイト列が完全に同じである状態である。改行コード、文字コード、末尾改行、不可視文字の違いも差として検出できるため、AI指示ファイルの同期検証では「内容が同じように見える」より厳密な確認になる。"
+          },
+          {
+            "term": "独立レビュー",
+            "stumblingPoint": "「実装者とは別のセッション・エージェントが差分を確認する」とあるが、通常のレビューと何が違うのかが省略されている。",
+            "explanation": "独立レビューは、変更を作ったエージェントの報告を前提にせず、別の担当や別コンテキストが実ファイルと差分から確認する工程である。この記事では、Codexが編集し、Antigravityと別のCodexが差分や仕様準拠を確認した。同期成功という処理結果だけでは、誤った正本や無関係なファイル変更を検出できないため、この分離を置いている。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "ルール反映と検証",
+          "steps": [
+            {
+              "label": "工程を選ぶ",
+              "detail": "規模・不確実性・影響度で判断"
+            },
+            {
+              "label": "正本を更新",
+              "detail": "共通ルールに2行を追加"
+            },
+            {
+              "label": "4先へ同期",
+              "detail": "管理ブロックだけ置換"
+            },
+            {
+              "label": "内容を照合",
+              "detail": "一致・保持・冪等性を検査"
+            },
+            {
+              "label": "実効性を評価",
+              "detail": "読込・遵守・効果を後日測定"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "ITPRODX.com",
+            "url": "https://itprodx.com"
+          },
+          {
+            "label": "note",
+            "url": "https://note.com/noteknowledge"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "talk",
+        "clashes": [
+          {
+            "point": "共通ルールの増やし方",
+            "claim": "品質基準が揃っているなら、不足する2行だけを既存ルールへ足せばよい。",
+            "counter": "共通手順が不足している環境では、2行追加だけでは運用の抜けが残る。",
+            "counterInArticle": true
+          },
+          {
+            "point": "同期成功の判定",
+            "claim": "正本と4ファイルの共有本文が一致すれば、ルール変更は完了とみなせる。",
+            "counter": "内容一致は配置の確認であり、各ツールの読込みや実行時遵守までは保証しない。",
+            "counterInArticle": true
+          },
+          {
+            "point": "工程短縮の評価",
+            "claim": "軽微な変更は計画や壁打ちを省き、直接修正するほうが効率的である。",
+            "counter": "要件が曖昧または影響度が高い変更では、短縮より再現・回帰・レビューを優先する。",
+            "counterInArticle": true
+          }
+        ],
+        "firsthand": [
+          {
+            "angle": "AIエージェント間のルールずれ",
+            "why": "Claude Code、Codexなど複数エージェントを業務で使うため、指示ファイルの差分と同期漏れを実測できる。"
+          },
+          {
+            "angle": "管理ブロックの同期検証",
+            "why": "Next.jsやTypeScriptの設定・生成物を扱う経験から、共有部分と固有部分を分けた差分検証を具体化できる。"
+          },
+          {
+            "angle": "工程選択と実績比較",
+            "why": "軽微なUI修正と高影響のAPI変更を扱う立場なので、工程・レビュー・修正回数・トークン消費を案件別に比較できる。"
+          }
+        ],
+        "verify": [
+          "正本と4つの同期先から管理ブロックを抽出し、バイト列またはSHA-256ハッシュを比較する。",
+          "同じ同期処理を2回実行し、内容ハッシュ・管理ブロック外・初回バックアップとの差分を確認する。"
+        ]
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "ea498f84c67ea3b1",
+      "product": "shadcn/ui",
+      "what": "UIコンポーネントを追加するCLI・ライブラリ",
+      "version": "4.22.1",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "shadcn add --allとコンポーネントピッカーが、プロジェクトのstyleで利用可能なコンポーネントだけを選ぶよう修正。",
+      "title": "shadcn-ui/ui shadcn@4.22.1",
+      "url": "https://github.com/shadcn-ui/ui/releases/tag/shadcn%404.22.1",
+      "sourceLabel": "GitHub Releases / shadcn-ui/ui",
+      "publishedAt": "2026-10-18T18:11:04.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nshadcn/ui 4.22.1 を入れて、この版の変更を確かめる\nhttps://github.com/shadcn-ui/ui/releases/tag/shadcn%404.22.1\n\n# 手順\n1. git clone --depth 1 --branch shadcn%404.22.1 https://github.com/shadcn-ui/ui\n2. cd ui && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 4.22.1 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- shadcn%404.22.1 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "411c1e7574af98e0",
+      "product": "TanStack Query",
+      "what": "Reactなど向けのデータフェッチ・状態管理ライブラリ",
+      "version": null,
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "query-coreの通知前にミューテーションをクリアし、エラーがfalsyな場合のマウント時リトライなどを修正。",
+      "title": "TanStack/query Release 2026-10-17 17:53",
+      "url": "https://github.com/TanStack/query/releases/tag/release-2026-10-17-1753",
+      "sourceLabel": "GitHub Releases / TanStack/query",
+      "publishedAt": "2026-10-18T03:13:18.000Z",
+      "alsoReleased": [
+        {
+          "label": "@tanstack/svelte-query-persist-client@6.3.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/svelte-query-persist-client%406.3.4"
+        },
+        {
+          "label": "@tanstack/vue-query-devtools@6.3.4",
+          "url": "https://github.com/TanStack/query/releases/tag/%40tanstack/vue-query-devtools%406.3.4"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nTanStack Query を入れて、この版の変更を確かめる\nhttps://github.com/TanStack/query/releases/tag/release-2026-10-17-1753\n\n# 手順\n1. git clone --depth 1 --branch release-2026-10-17-1753 https://github.com/TanStack/query\n2. cd query && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 新しい版が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- release-2026-10-17-1753 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "GitHub Copilot コードレビュー入門、Balanced 既定化と API 依頼",
+      "url": "https://qiita.com/kai_kou/items/66f66022ed9d9aff0276",
+      "publishedAt": "2026-10-18T03:11:54.000Z",
+      "author": "甲斐 甲",
+      "authorDetail": {
+        "name": "甲斐 甲",
+        "handle": "@kai_kou",
+        "url": "https://qiita.com/kai_kou",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/48549/profile-images/1524132209",
+        "bio": "2000年からWeb系のシステムエンジニアとして開発、運用、マネジメントを経験。最近の趣味はBLOG投稿、記事執筆、YouTubeチャンネルのAI自動運用の仕組み化。",
+        "location": "Osaka, Japan",
+        "followers": 950,
+        "posts": 852,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/kai-kou"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/k_aik_ou"
+          },
+          {
+            "label": "Web",
+            "url": "https://twitter.com/k_aik_ou"
+          }
+        ]
+      },
+      "tags": [
+        "GitHub",
+        "copilot",
+        "codereview",
+        "CLI"
+      ],
+      "snippet": "はじめに GitHub の Pull Request（PR）で Copilot にコードレビューを頼んでいるリポジトリは、設定を何も触っていなくても、2026年9月28日からレビューの水準が切り替わっています。レビューの深さを決める effort（レビュー水準） の「Default」が、Balanced として動くようになったためです。さらに10月2日のチェンジログでは、REST と GraphQL の API から Copilot にレビューを依頼できるようになったことが発表されました。 ここで迷うのが、Default のまま放置してよいのか、Lite に切り替えるべきなのか、そして CI やスクリプトから依頼するときに水準をどう指定するのか、という点です。チェンジログは「リクエストごとに水準を指定できる」と書いていますが、肝心のパラメータ名は本文に出てきません。 対象読者は、GitHu…",
+      "body": "はじめに\n\nGitHub の Pull Request（PR）で Copilot にコードレビューを頼んでいるリポジトリは、設定を何も触っていなくても、2026年9月28日からレビューの水準が切り替わっています。レビューの深さを決める effort（レビュー水準） の「Default」が、Balanced として動くようになったためです。さらに10月2日のチェンジログでは、REST と GraphQL の API から Copilot にレビューを依頼できるようになったことが発表されました。\n\nここで迷うのが、Default のまま放置してよいのか、Lite に切り替えるべきなのか、そして CI やスクリプトから依頼するときに水準をどう指定するのか、という点です。チェンジログは「リクエストごとに水準を指定できる」と書いていますが、肝心のパラメータ名は本文に出てきません。\n\n対象読者は、GitHub Copilot のコードレビューをチームで使っている方と、CI やスクリプトからレビュー依頼を自動化したい方です。\n\nこの記事は GitHub の公式ドキュメントとチェンジログ（2026年10月9日時点）の記述に基づく解説で、実環境での挙動は検証していません。ドキュメントで確認できなかった点はその旨を明記し、読者が自分で確かめる手順を載せています。\n\nTL;DR\n・Lite と Balanced の違いを押さえ、リポジトリの既定をどちらにするか決められます\n・PR 画面・gh CLI・REST API の3経路で Copilot にレビューを依頼できます\n・既定水準を変える場所（Enterprise / Organization / Repository / 個人）が分かります\n・API で水準を指定するパラメータ名は、執筆時点のドキュメントで確認できませんでした（確かめ方は後半に載せています）\n\n9月28日と10月2日に何が変わったか\n\nGitHub のチェンジログ「Copilot code review: API support and new default effort level」（2026年10月2日）は、2つの変更をまとめて伝えています。\n\n| 日付 | 出来事 |\n|---|---|\n| 2026-08-28 | 既定のレビュー水準を Balanced に変えることを告知 |\n| 2026-09-28 | Default が Balanced として動作するように有効化 |\n| 2026-10-02 | REST / GraphQL API からのレビュー依頼に対応（チェンジログ公開） |\n\n1つ目は API 対応です。チェンジログには次の一文があります。\nYou can now request a review from Copilot using the supported REST and GraphQL APIs.\n\nあわせて、リクエストごとに任意でレビュー水準を指定できるとも書かれています。ただし、どのエンドポイントのどのパラメータで指定するのかは、チェンジログ本文には書かれていません。\n\n2つ目は既定水準の変更です。\nBalanced is also now the default review effort level.\n\nチェンジログによると、水準の設定が「Default」になっている場合は、新規・既存を問わず、リポジトリでも Organization でも Balanced で動きます。明示的に Lite を選んでいた設定はそのまま維持されます。つまり影響を受けるのは「何も選ばずに Default のまま使っていた」リポジトリです。\n\n提供対象は Copilot Pro / Pro+ / Max / Business / Enterprise の5プランで、一般提供（GA）とされています。\n\nLite と Balanced の違い\n\n公式ドキュメント「Using GitHub Copilot code review」は、2つの水準を次のように説明しています。\n\n| 水準 | 公式ドキュメントの説明（要約） |\n|---|---|\n| Lite | バグ、セキュリティ脆弱性、スタイルの不統一といった明らかな問題に絞ってフィードバックする、コスト効率重視のレビュー |\n| Balanced | 複雑なロジック、セキュリティに敏感なコード、サービス横断の変更をより深く分析し、推論力の高いモデルを使う |\n| Default | 9月28日以降は Balanced として動作（明示的に Lite を選んだ設定は対象外） |\n\nLite の原文は次のとおりです。\nCost-efficient review that provides targeted feedback on glaring issues such as bugs, security vulnerabilities, and style inconsistencies.\n\nざっくり言うと、Lite は「誰が見ても分かる問題を手早く拾う」レビューで、Balanced は「設計や影響範囲まで踏み込んで読む」レビューです。水準ごとのコスト（課金上の消費量）は、ドキュメント間で記述を突き合わせきれなかったため、この記事では扱いません。導入前に公式の課金関連ドキュメントで確認してください。\n\n選び方の目安\n\n以下は公式の説明から組み立てた目安で、GitHub が示した基準ではありません。分岐の軸は、ドキュメントが Balanced の得意分野として挙げている3点（セキュリティに敏感なコード、複雑なロジック、サービス横断の変更）です。\n\n [code] \n\n具体例に落とすと、次のような分け方になります。\n・Balanced に向く変更: 認証・認可、トークンや秘密情報の扱い、複数サービスの API 契約に触れる変更、状態遷移や並行処理を含むロジック\n・Lite で足りる変更: 文言やドキュメントの修正、フォーマットだけの差分、影響範囲の小さい設定変更\n\n依存パッケージの更新のように、差分は小さくても中身次第でリスクが変わるものは、PR ごとに水準を選ぶのが無難です。\n\nもう1つの判断材料は「Default を明示的な値として扱わない」ことです。9月28日の変更で分かるとおり、Default が何を指すかは GitHub 側の告知で変わります。チームとして Lite か Balanced かを決めたなら、Default のままにせず、その値を明示的に選んでおくと、将来の既定変更に左右されません。\n\n手順1: 既定のレビュー水準を設定する\n\nチェンジログによると、既定水準は4つの階層で設定でき、各レベルは上位レベルの設定を上書きできます。\n\n| 階層 | 設定画面の場所 |\n|---|---|\n| Enterprise | AI controls → Agents → Copilot code review |\n| Organization | Copilot → Code review |\n| Repository | Copilot → Code review |\n| 個人 | プロフィール画像 → Copilot settings → Copilot → Code review |\n\nたとえば Organization 全体は Balanced にしておき、文言修正が中心のドキュメント用リポジトリだけ Lite に下げる、といった分け方ができます。Default から Lite へ切り替えたい場合も、この4か所のいずれかで変更します。設定手順の詳細は、チェンジログからリンクされているコードレビューの設定ドキュメントにまとまっています。\n\n階層の設定とは別に、PR 単位でも水準を選べます。公式ドキュメントによると、PR の Reviewers 欄でレビューを依頼する前に水準を選択でき、個人設定では自分が依頼するときの既定を持てます。自動レビューを使っている場合、その既定水準は Organization owner とリポジトリ管理者が設定できます。\n\n手順2: レビューを依頼する\n\n依頼の経路は3つあります。公式ドキュメントによると、依頼したレビューは既定では「Comment」として PR に付きます。\n\n [code] \n\n経路1: PR 画面の Reviewers 欄\n\n最も手軽な経路です。Reviewers 欄で Copilot を選び、依頼する前に水準（Lite / Balanced）を選べます。PR ごとに水準を変えたい場合に、ドキュメントで操作を確認できるのはこの経路です。\n\n経路2: gh CLI\n\n公式ドキュメントには、gh CLI で Copilot をレビュアーに指定するコマンドが2つ載っています。\n\n [code] \n\n@copilot という指定で Copilot をレビュアーとして扱えるので、PR を作るスクリプトに1行足すだけで依頼まで自動化できます。なお、このドキュメントには gh から水準を指定するオプションの記載はありませんでした。gh 経由で依頼したときにどの水準が使われるかも、ドキュメント上では明記を確認できていません。\n\n経路3: REST API\n\nREST API では、Copilot のボットアカウント copilot-pull-request-reviewer[bot] をレビュアーとして依頼します。使うのは「Request reviewers for a pull request」のエンドポイントで、リクエストボディには reviewers（ユーザーログインの配列）と teamreviewers（チームスラッグの配列）を渡します。\n\nドキュメントの2つの記述（レビュアーとして copilot-pull-request-reviewer[bot] を依頼する／reviewers はログインの配列）を組み合わせると、リクエストボディは次の形になります。この形での送信結果は、この記事では検証していません。\n\n [code] \n\nREST リファレンスに書かれている注意点は2つです。\n・細粒度トークン（fine-grained token）を使う場合、必要なリポジトリ権限（調査時点の資料では「Pull requests」の write とされていました）を、利用前に REST リファレンスで確認してください\n・短時間にコンテンツを大量に作成すると、セカンダリレート制限（GitHub が定める補助的な利用制限）の対象になる可能性があると、このエンドポイントのリファレンスに警告があります\n\nCI から多数の PR へ一斉に依頼するような設計は、この制限に当たりやすくなります。依頼は PR の作成時に1回だけにするなど、回数を絞る設計が安全です。\n\nREST リファレンスのパラメータ一覧には、執筆時点で水準を指定する項目がなく、Copilot 固有の注記もありません。GraphQL については、チェンジログが対応を明言している一方で、利用ガイドのページには記載がありません。\n\n手順3: ドキュメントで確認できなかった点を確かめる\n\nAPI 対応は発表されたばかりで、ドキュメントの記述がまだ揃っていません。執筆時点で確認できなかった点と、その確かめ方を整理します。\n\n| 確認できなかったこと | 現状 | 確かめ方 |\n|---|---|---|\n| API で水準を指定するパラメータ名 | チェンジログは「リクエストごとに指定できる」と書くが、REST リファレンスに該当項目がない | REST リファレンスの review-requests ページのパラメータ一覧が更新されていないかを確認する |\n| GraphQL で使う入力フィールド名 | 利用ガイドに GraphQL の記載がない | GraphQL スキーマの入力型を調べ、レビュー依頼に使う入力に水準を表すフィールドがあるかを見る |\n| Max プランの詳細 | 提供対象として名前が挙がっているのみ | GitHub の Copilot 料金ページでプランの内容を確認する |\n\nパラメータ名が分からない段階でも、依頼そのものと水準の違いは確かめられます。テスト用のリポジトリで、次の順に確認するのがおすすめです。\n\n1. 小さな変更で PR を作り、gh pr create --reviewer @copilot でレビューを依頼する\n2. 付いたレビューが「Comment」であり、Approve や Request changes ではないことを確認する\n3. 同じ差分の PR を2本用意し、Reviewers 欄で片方を Lite、もう片方を Balanced にして依頼し、指摘の数と踏み込み方を比べる\n4. REST で依頼する予定なら、使うトークンに「Pull requests」の write 権限があるかを先に確認する\n\n3番目の比較を自分のコードベースで1回やっておくと、Lite で足りるか Balanced が要るかを、ドキュメントの説明ではなく自分のリポジトリの差分で判断できます。\n\n運用で押さえておく3つの特性\n\n公式ドキュメントには、運用設計に直結する仕様が3つ書かれています。\n\n1つ目は、Copilot のレビューは既定では「Comment」のみ で、Approve や Request changes にはならないことです。そのため、ブランチ保護の「必須承認」にはカウントされません。Copilot のレビューだけでマージ条件を満たす設計はできません。\n\n2つ目は、承認機能（public preview）を有効にすると Copilot が Approve を出せる ことです。ただし、新しいコミットを push すると、その承認は取り消されます。レビュー後に修正コミットを積む運用では、push のたびに承認が外れる前提で考える必要があります。\n\n3つ目は、Copilot はレビューコメントへの返信には応答しない ことです。指摘に反論や質問を返しても、Copilot との対話にはなりません。指摘への対応方針（直した、直さない理由）は、人間のレビュアーやあとから読む人に向けた記録として残す位置づけになります。\n\n自前のセルフレビューと併用するときの設計判断\n\nここからは事実と考察を分けて書きます。\n\n事実（このブログの運用）: このブログは Claude Code のスケジュール実行で記事の執筆から公開までを回しており、運用基盤そのものを改修する PR では、PR を作ったセッション自身が観点別のセルフレビューを実行し、機械チェックとセルフレビューを通過したら自動でマージしています。Copilot へのレビュー依頼は、運用ルールとして廃止しています。理由は、外部レビュアーの応答を約25分待つ待機をなくすことと、外部の従量課金に依存せずコストを定額の枠内に収めることでした。現時点の運用ルールは「依頼しない」のままです。\n\n考察（再導入を考える場合の設計）: 今回の API 対応で、無人のパイプラインからも Copilot にレビューを依頼しやすくなりました。仮に再導入するなら、上の3つの特性から次のように設計します。\n・マージ条件にしない: Comment のみで必須承認に数えられない仕様は、裏を返せば「待たずに並走させる」使い方と噛み合います。PR 作成時に依頼だけ出し、自前のセルフレビューの通過でマージを進め、Copilot の指摘はあとから拾って別の改善タスクにする形なら、応答待ちは再発しません\n・承認機能はゲートに使わない: セルフレビューの指摘を修正コミットで直す流れでは、push のたびに Copilot の承認が取り消されます。承認をゲートにすると、修正のたびに再承認を待つことになり、廃止した待機が別の形で戻ってきます\n・水準の出し分けは、パラメータ名が確認できるまでコードに書かない: 理想は、Markdown だけの記事 PR は依頼対象から外し、フックや権限設定に触れる改修 PR にだけ Balanced で依頼する出し分けです。ただし API で水準を指定する方法がドキュメントで確認できない以上、推測のパラメータをスクリプトに埋め込むのは避け、当面はリポジトリの既定水準を明示的に固定する形にとどめます\n・依頼は PR ごとに1回: セカンダリレート制限の注記があるため、レビューのやり直しを自動で何度も依頼するループは組みません\n\nCopilot がレビューコメントへの返信に応答しない点は、このブログのように「指摘への対応結果をスレッドに書いて閉じる」運用とはむしろ相性がよいと考えています。対話を前提にしない分、記録の置き場所を人間側で決めておけば足りるからです。\n\nまとめ\n・2026年9月28日から、水準が Default のリポジトリでは Copilot のコードレビューが Balanced で動きます。明示的に Lite を選んだ設定は維持されます\n・Lite は明らかな問題に絞ったコスト効率重視のレビュー、Balanced は複雑なロジック・セキュリティ・サービス横断の変更まで踏み込むレビューです\n・依頼は PR 画面、gh pr create --reviewer @copilot / gh pr edit PR-NUMBER --add-reviewer @copilot、REST API（copilot-pull-request-reviewer[bot] を reviewers に指定）の3経路です\n・API で水準を指定するパラメータ名と GraphQL の入力フィールド名は、執筆時点のドキュメントで確認できませんでした\n・レビューは Comment のみでマージ条件にならず、返信にも応答しないため、既存のレビュー体制を置き換えるより、並走させる追加の観点として設計するのが扱いやすい形です\n\nまずはテスト用リポジトリで Lite と Balanced を同じ差分に当て、自分のコードベースでどれだけ差が出るかを確かめるところから始めてください。\n\n関連記事\n・Claude Code /code-review完全ガイド — GitHub PRへインライン自動レビューを実現する\n・Claude Code /ultrareview入門 — PRマージ前にクラウドエージェントがバグを自動検証\n・Claude Code Agent View入門 — 複数セッションを1画面で管理するCLIダッシュボード\n\n参考リンク\n・Copilot code review: API support and new default effort level（GitHub Changelog・2026-10-02。API 対応と既定水準の変更）\n・Using GitHub Copilot code review（GitHub Docs。水準の説明・依頼方法・Comment のみの仕様）\n・Copilot code review の設定ドキュメント（GitHub Docs。既定水準の設定）\n・Request reviewers for a pull request（GitHub REST API Docs。レビュー依頼のパラメータ・権限・レート制限）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f122f4730b825bf3",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8225352112676056,
+      "popularityPercentile": 0.647887323943662,
+      "matchedTopics": [
+        "OpenAI Codex",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 74,
+      "titleJa": null,
+      "oneLiner": "GitHub CopilotのPRレビュー既定値変更とAPI経由の依頼方法を解説している。",
+      "takeaways": [
+        "GitHub Copilotの標準レビュー水準が9月28日に変わった。",
+        "レビューの深さは軽量版と標準版から選べる。",
+        "PR画面とCLIとAPIからレビューを依頼できる。"
+      ],
+      "keywords": [
+        "GitHub Copilot",
+        "Code Review",
+        "Balanced",
+        "Lite",
+        "GitHub CLI",
+        "REST API"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "2026/10/19主にITとかセキュリティの記事",
+      "url": "https://qiita.com/pitopito/items/8f23af0ec6b60f63c5d6",
+      "publishedAt": "2026-10-18T19:26:03.000Z",
+      "author": "浩 釜本",
+      "authorDetail": {
+        "name": "浩 釜本",
+        "handle": "@pitopito",
+        "url": "https://qiita.com/pitopito",
+        "avatarUrl": "https://secure.gravatar.com/avatar/d301ec427285245483cff6d1c8f4fb3c",
+        "followers": 106,
+        "posts": 1730,
+        "links": []
+      },
+      "tags": [
+        "Security",
+        "ニュース"
+      ],
+      "snippet": "【最大2335万人の情報漏えい】Eストアー、「ショップサーブ」不正アクセスの最終報告で明らかに(10/17) https://netkeizai.com/articles/detail/20234 日経、個人情報漏えい 不正アクセスで１８３万件(10/16) https://www.jiji.com/jc/article?k=2026101600952&g=soc 偽の購買注文メールを利用したマルウェアフィッシング攻撃(10/16) https://socprime.com/ja/active-threats/fake-purchase-order-emails-used-in-malware-phishing-attacks/ 【解説】Ivanti・BeyondTrust・Citrixでゼロデイ攻撃が相次ぐ VPNとリモートサポート機器が修正前から標的に(10/17) https://i…",
+      "body": "【最大2335万人の情報漏えい】Eストアー、「ショップサーブ」不正アクセスの最終報告で明らかに(10/17)\nhttps://netkeizai.com/articles/detail/20234\n\n日経、個人情報漏えい　不正アクセスで１８３万件(10/16)\nhttps://www.jiji.com/jc/article?k=2026101600952&g=soc\n\n偽の購買注文メールを利用したマルウェアフィッシング攻撃(10/16)\nhttps://socprime.com/ja/active-threats/fake-purchase-order-emails-used-in-malware-phishing-attacks/\n\n【解説】Ivanti・BeyondTrust・Citrixでゼロデイ攻撃が相次ぐ　VPNとリモートサポート機器が修正前から標的に(10/17)\nhttps://innovatopia.jp/cyber-security/cyber-security-news/118951/\n\n広告料金の過大請求に続く不祥事　日本経済新聞社で個人情報183万件が漏洩(10/16)\nhttps://www.seventietwo.com/ja/business/NikkeiUnauthorizedAccess20261016\n\nソースネクストで2251万件超の情報流出　ユーザーパスワードも漏えい(10/17)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2610/17/news010.html\n\nWeb制作ツールのStudioに不正アクセス　顧客情報流出か(10/16)\nhttps://www.nikkei.com/article/DGXZQOUC166PV0W6A011C2000000/\n\nBASE子会社、2335万人の個人情報漏洩　209万人の一部クレカ情報も(10/16)\nhttps://www.nikkei.com/article/DGXZQOUC16B0O0W6A011C2000000/\n\nプレス発表「不正アクセス特別相談窓口」の開設について(10/17)\nhttps://www.newscafe.ne.jp/release/prtimes2/20261017/1630252.html\n\nAIセキュリティ、外部モデル依存かオープンウェイト活用か　企業に迫る運用の線引き(10/16)\nhttps://www.digitaltoday.co.kr/jp/view/115717/external-models-vs-open-weights-companies-must-define-the-line-between-ai-capabilities-and-control\n\n私の個人情報も漏れた──タイムズカー660万件で考えた「預けすぎる社会」【編集長コラム】(10/18)\nhttps://www.nadanews.com/372836/\n\n企業の顧客データ流出、ブロックチェーンの「情報の持ち方」を考える【記者コラム】(10/17)\nhttps://www.nadanews.com/372807/\n\nみずほ、勘定系システム「MINORI」の大規模更新終了　1年がかりで(10/18)\nhttps://www.nikkei.com/article/DGXZQOUB153LF0V11C26A0000000/\n\n【企業一覧】個人情報の漏洩・恐れを公表した企業など　随時更新(10/17)\nhttps://www.nikkei.com/article/DGXZQODL160R40W6A011C2000000/\n\n浜松市で個人情報流出の疑い　消防関連、アルカディアのサービス利用(10/16)\nhttps://www.nikkei.com/article/DGXZQOCC1680V0W6A011C2000000/\n\nヤマト運輸、個人情報約531万件が流出　不正アクセス受け(10/16)\nhttps://www.nikkei.com/article/DGXZQOUC1657F0W6A011C2000000/\n\nエンジニアが勤務先の管理者アカウントをロックして約1億円相当の身代金を要求したとして有罪判決を受ける(10/17)\nhttps://gigazine.net/news/20261017-cyberattack-engineer-sentenced/\n\nネット広告を表示するだけでスパイウェアに感染するゼロクリック攻撃「AdFection」が確認される、イスラエルの広告企業が仕掛けていた攻撃の手口とは？(10/16)\nhttps://gigazine.net/news/20261016-adfection/\n\nAIによる相次ぐハッキング事件は「AIの暴走」ではなく「AI企業がセキュリティの基本を無視しているため」という指摘(10/15)\nhttps://gigazine.net/news/20261015-ai-agents-not-going-rogue/\n\n「荷物をお届けできません」「料金が未払いです」などの日本人を狙った詐欺メッセージの送信を支える電子市場をMicrosoftと警察庁が解体(10/15)\nhttps://gigazine.net/news/20261015-microsoft-japan-took-down-cybercrime-network/\n\n3メガバンクら、円建てステーブルコイン共同発行の実証完了。国際送金への活用も検証(10/16)\nhttps://www.neweconomy.jp/posts/617525\n\nアンソロピック、シンガポールにオフィス開設。政府とAI安全性・導入促進で覚書締結(10/16)\nhttps://www.neweconomy.jp/posts/617493\n\nサイバーセキュリティクラウド、2026年7月〜9月「Webアプリケーションへのサイバー攻撃検知レポート」を発表　〜1日に約1165万回、1秒あたり約135回のサイバー攻撃を検知(10/16)\nhttps://security-insight.jp/2026/10/16/5226/\n\nTrendAI、2026年の日本でのインシデント急増を受け、法人組織が行うべきガイダンスを公開(10/16)\nhttps://security-insight.jp/2026/10/16/5220/\n\nS2W、2026年上半期の国家支援型APT・ランサムウェア動向レポートを公開　〜日本のランサムウェア被害が約1.6倍に(10/15)\nhttps://security-insight.jp/2026/10/15/5211/\n\nチェック・ポイント・リサーチ、2026年9月の主要なサイバー脅威を発表　〜サイバー攻撃が前年比約1.5倍に急増(10/14)\nhttps://security-insight.jp/2026/10/14/5191/\n\n米当局、ＡＩ悪用の選挙妨害に警戒呼び掛け　11月の中間選挙控え(10/17)\nhttps://www.reuters.com/jp/world/us/CMMC5LZPSBNXBBRPJJ5GMM5ZGA-2026-10-16/\n\n中国AIが暴走ならどうする、米中は情報共有を－エージェント型の安全性に高まる懸念(10/18)\nhttps://www.bloomberg.com/jp/news/articles/2026-10-17/TM755RKGIFPO00?srnd=jp-homepage#gsc.tab=0\n\n「Mythos」提供を追い風にセキュリティ環境を棚卸せよ──CISO向け「ゼロトラスト負債」返済公式(10/15)\nhttps://enterprisezine.jp/article/detail/25189\n\nPQC対応の第一歩は「CBOM」作成から──システム全体に影響を与えないクリプトアジリティの実践を(10/13)\nhttps://enterprisezine.jp/article/detail/25217\n\nビル・ゲイツ氏、AI安全対策への関与拡大　「人間専用の仕事」やAI課税を提唱(10/17)\nhttps://www.zaikei.co.jp/article/20261017/873867.html\n\n国内Web侵害119件、“情報漏えいドミノ”の背後でいま何が起きているか(10/15)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2610/15/news011.html\n\n「11回止めたのに本番DBが消えた」　AIエージェント“6つの暴走”と、人間の承認を増やしても防げない理由(10/18)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2610/18/news004.html\n\n「ダークWebで個人情報を検出しました」　アカウント“流出”の原因と、その予防策(10/17)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2610/17/news006.html\n\n「一般公開していないから安全」は通用しない　JPCERT/CCが示した不正アクセス4つの手口(10/15)\nhttps://atmarkit.itmedia.co.jp/ait/articles/2610/15/news021.html\n\n三井不動産への不正アクセス、攻撃者による資格情報の不正利用を確認(10/18)\nhttps://scan.netsecurity.ne.jp/article/2026/10/16/56479.html\n\nフクビ化学工業 英語版ウェブサイトに不正アクセス(10/18)\nhttps://scan.netsecurity.ne.jp/article/2026/10/16/56478.html\n\nサンポー食品ウェブサイトに不正アクセス、管理者権限の取得や改ざんを確認(10/18)\nhttps://scan.netsecurity.ne.jp/article/2026/10/16/56477.html\n\n「極上珈琲 生豆本舗」に SQL インジェクション攻撃、サイトが正常に表示されない障害が発生(10/18)\nhttps://scan.netsecurity.ne.jp/article/2026/10/16/56476.html\n\n「TEMAIRAZU シリーズ」を利用する宿泊施設の予約客に不審なメッセージを送信(10/18)\nhttps://scan.netsecurity.ne.jp/article/2026/10/16/56475.html\n\n今後は侵入経路と考えられるリモートデスクトップ接続を遮断 ～ 八王子学園 ランサムウェア攻撃 2報(10/18)\nhttps://scan.netsecurity.ne.jp/article/2026/10/15/56465.html\n\n「バイトル」「バイトルNEXT」に不正アクセス、最大3,885,771件のメールアドレスが漏えい(10/15)\nhttps://scan.netsecurity.ne.jp/article/2026/10/15/56464.html\n\n第一ライフグループと第一生命保険の人事システムに不正アクセス、約12万名の従業員情報が流出した可能性(10/15)\nhttps://scan.netsecurity.ne.jp/article/2026/10/15/56463.html\n\n東洋紡せんいのメールアカウントに不正アクセス、約1,500件の不審メール送信(10/15)\nhttps://scan.netsecurity.ne.jp/article/2026/10/15/56462.html\n\n両毛システムズにランサムウェア攻撃(10/15)\nhttps://scan.netsecurity.ne.jp/article/2026/10/15/56461.html\n\nレゴランド・ジャパン・ホテルが利用するオンライン予約プラットフォームに不正アクセス(10/15)\nhttps://scan.netsecurity.ne.jp/article/2026/10/15/56460.html\n\nファインズの予約システムに不正アクセス、1,536,322件の予約者情報が影響(10/15)\nhttps://scan.netsecurity.ne.jp/article/2026/10/15/56459.html\n\nキングプリンターズに不正アクセス、認証情報を用いた生成 AI サービスの不正利用が目的(10/15)\nhttps://scan.netsecurity.ne.jp/article/2026/10/15/56458.html",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "38eab92a1ff84768",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.34681690140845073,
+      "popularityPercentile": 0.030985915492957747,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 72,
+      "titleJa": null,
+      "oneLiner": "2026年10月19日時点のITとセキュリティ関連ニュースを横断的に紹介している。",
+      "takeaways": [
+        "複数企業で大規模な個人情報流出が報じられた。",
+        "VPNや遠隔操作機器を狙う攻撃が相次いでいる。",
+        "不正アクセスを受けてサービスを止める事例が続いた。"
+      ],
+      "keywords": [
+        "セキュリティ",
+        "情報漏えい",
+        "不正アクセス",
+        "ゼロデイ攻撃",
+        "フィッシング",
+        "VPN"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "【第6報】バックアップサービスの提供再開について | IDCフロンティア",
+      "url": "https://www.idcf.jp/news/topics/20261018001",
+      "publishedAt": "2026-10-18T05:07:27.000Z",
+      "tags": [
+        "テクノロジー",
+        "security",
+        "データ",
+        "サービス",
+        "セキュリティ",
+        "webサービス"
+      ],
+      "snippet": "2026年10月18日 このたびは、多大なるご心配とご迷惑をおかけしておりますことを深くお詫び申し上げます。 当社クラウドサービス「IDCFクラウド」※1に対する第三者からの不正アクセスにより、提供を停止していた「IDCFクラウド バックアップ」について、安全性の確認が完了したことからサービスの提供を再開します。 こ...",
+      "metrics": {
+        "hatena": 12
+      },
+      "sourceWeight": 3,
+      "id": "cbc820d3ceb7b4bc",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.03259259259259259,
+      "popularityPercentile": 0.14814814814814814,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "不正アクセスで停止していたIDCFクラウドのバックアップサービスが提供を再開した。",
+      "takeaways": [
+        "IDCFクラウドへの不正アクセスでバックアップが停止した。",
+        "安全性の確認を終えて10月18日に提供を再開した。",
+        "再開対象は停止していたバックアップサービスに限られる。"
+      ],
+      "keywords": [
+        "IDCフロンティア",
+        "IDCFクラウド",
+        "バックアップ",
+        "不正アクセス",
+        "サービス再開"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "〖AI News まとめ〗生成AI ニュースレポート — 2026-10-18",
+      "url": "https://qiita.com/aakan/items/cf5d30976fe393426366",
+      "publishedAt": "2026-10-17T23:51:18.000Z",
+      "author": "aakan !",
+      "authorDetail": {
+        "name": "aakan !",
+        "handle": "@aakan",
+        "url": "https://qiita.com/aakan",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/4404121/profile-images/1778072674",
+        "followers": 9,
+        "posts": 173,
+        "links": []
+      },
+      "tags": [
+        "man",
+        "ニュース",
+        "AI",
+        "GenAI"
+      ],
+      "snippet": "生成AI ニュースレポート — 2026-10-18 収集日時: 2026-10-18 対象期間: 過去48時間（直近情報を中心に） 記事数: 24件 --- 主要ニュース 1. Google OAuthのDPoPサポートを発表：リフレッシュトークンのセキュリティ強化 ソース: Google Developers Blog | 地域: Global | 日時: 2026-10-18 Google OAuthプラットフォームは、リフレッシュトークンを送信者制約するためにDPoP（所有証明の実証）をサポートし、Infostealerマルウェアや中間者攻撃を無効化します。 --- 2. 三層、1つのリポ：google/adk-recipesのツアー ソース: Google Developers Blog | 地域: Global | 日時: 2026-10-18 google/adk-recip…",
+      "body": "生成AI ニュースレポート — 2026-10-18\n収集日時: 2026-10-18\n対象期間: 過去48時間（直近情報を中心に）\n記事数: 24件\n\n---\n\n主要ニュース\n\n1. Google OAuthのDPoPサポートを発表：リフレッシュトークンのセキュリティ強化\n\nソース: Google Developers Blog | 地域: Global | 日時: 2026-10-18\n\nGoogle OAuthプラットフォームは、リフレッシュトークンを送信者制約するためにDPoP（所有証明の実証）をサポートし、Infostealerマルウェアや中間者攻撃を無効化します。\n\n---\n\n2. 三層、1つのリポ：google/adk-recipesのツアー\n\nソース: Google Developers Blog | 地域: Global | 日時: 2026-10-18\n\ngoogle/adk-recipesリポジトリは、エージェント開発キット（ADK）リソースを3つの構造化された層に統合し、AIエージェント構築のための真実の唯一のソースとして機能します。\n\n---\n\n3. AIエージェントの評価：バイブチェックを超えて\n\nソース: Google Developers Blog | 地域: Global | 日時: 2026-10-18\n\nGemini Enterprise Agent Platform、Google ADK、OpenInference標準を使用して、マルチターンAIエージェントの継続的評価パイプラインを確立するための実用的なエンジニアリングガイドとリファレンスアーキテクチャ。\n\n---\n\n4. デジタルリテラシー：共和国は「アルゴリズムに耐えられるか？」\n\nソース: ACM TechNews | 地域: Global | 日時: 2026-10-18\n\nAP通信の教育者や研究者は、オンラインの誤情報の急増に対抗する努力をしており、米国の取り組みは他の多くの民主主義国に遅れをとっています。\n\n---\n\n5. 数学方程式を解くために生きたAIとして使用される人間の脳細胞\n\nソース: ACM TechNews | 地域: Global | 日時: 2026-10-18\n\n新しい科学者チームが、実験室で育てた人間の脳細胞をコンピュータに接続し、数学方程式を解く初期ステップを踏み出しました。\n\n---\n\n6. ウクライナ、ロシアに対抗するためのグローバルツールとしてDiiaアプリを推進\n\nソース: ACM TechNews | 地域: Global | 日時: 2026-10-18\n\nウクライナの公式は、ロシアに対抗するための防波堤として、Diiaアプリの基盤技術を他の政府に輸出する意向を示しています。\n\n---\n\n7. PinnacleがサウジアラビアのホスピタリティスタートアップGathernの持分を増加\n\nソース: Wamda | 地域: Middle East | 日時: 2026-10-18\n\nサウジアラビアの投資会社Pinnacle Capitalが、Pinnacle Growth & Secondary Fundを通じて、代替宿泊プラットフォームGathernに追加投資を行い、同社の所有権を増加させました。\n\n---\n\n8. サウジのフィンテックeradがMEVP主導で2200万ドルのシリーズAを調達\n\nソース: Wamda | 地域: Middle East | 日時: 2026-10-18\n\nサウジアラビアのフィンテック企業eradが、MEVP主導で2200万ドルのシリーズA資金を調達しました。\n\n---\n\n9. AÏZAの親会社AmaaniがGCC拡大のために500万ドルのシリーズAを調達\n\nソース: Wamda | 地域: Middle East | 日時: 2026-10-18\n\nUAEの消費者企業Amaaniが、中東の美容ブランドAÏZAの背後にあり、BECO Capital主導で500万ドルのシリーズA資金調達を行いました。\n\n---\n\n10. 【海外テック動向】高速LLMからハードウェアシミュレータまで！注目ツール3選\n\nソース: Qiita AI Tag | 地域: Japan | 日時: 2026-10-18\n\nエンジニアの皆さん、こんにちは！日々進化するテクノロジーのトレンドをキャッチアップできているでしょうか？\n\n---\n\n11. OpenAIがヒューマノイドロボットを開発中だが、課題は体ではない\n\nソース: Engadget | 地域: Global | 日時: 2026-10-18\n\nOpenAIのCEOサム・アルトマンは、人間のために設計された世界で操作できるヒューマノイドを望んでいますが、ロボットの「脳」がはるかに大きな課題だと述べています。\n\n---\n\n12. 「Attention Is All You Need」が現代の大規模言語モデル設計の中心である理由\n\nソース: Medium AI | 地域: Global | 日時: 2026-10-18\n\n現代の人工知能にこれほど影響を与えた科学論文は少ないです。\n\n---\n\n13. AIエージェントにブラックボックスを与える：19,683状態の認知空間でのすべての決定を監査する\n\nソース: Dev.to AI | 地域: Global | 日時: 2026-10-18\n\nあなたはAIエージェントを出荷しました。それはあなたのRAGパイプラインを実行し、ツールを呼び出し、レポートを書きます。\n\n---\n\n14. VaultExam AI：ノートからの模擬テスト、どこにもアップロードせずに\n\nソース: Dev.to AI | 地域: Global | 日時: 2026-10-18\n\nVaultExam AIは、100%ローカルでプライバシー重視のツールで、任意の形式の章を印刷可能な質問に変換します。\n\n---\n\n15. 2つのエージェント、1つのウォレット：重複支出を防ぐメモリグラフ\n\nソース: Dev.to AI | 地域: Global | 日時: 2026-10-18\n\n同じ支出権限を持つ2つのAIエージェントに与えると、いつかは同じものに2回支払うことになります。\n\n---\n\n16. 引退したペンシルバニア大学教授がUber Eatsロボットを妨害したため逮捕\n\nソース: Hacker News | 地域: Global | 日時: 2026-10-18\n\n記事URL: https://www.phillyvoice.com/philly-woman-arrested-uber-eats-robot-protest/?l\n\n---\n\n17. Claude Codeの/loopは「固定間隔」と「セルフペーシング」をどう使い分けるか\n\nソース: Qiita AI Tag | 地域: Japan | 日時: 2026-10-18\n\n当社は、記事公開・SNS配信・売上集計などの業務をlaunchdの17ジョブとClaude Codeで回しています。\n\n---\n\n18. Lighthouse Memoryとは？ビジネスオーナーのためのAIガイド\n\nソース: Medium AI | 地域: Global | 日時: 2026-10-18\n\n私は独立した創業者です。デザインし、ビジネスを運営し、毎日AIツールに頼っています。\n\n---\n\n19. AIのゴールドラッシュ：誰が金を掘り当て、誰が取り残されるのか？\n\nソース: Medium AI | 地域: Global | 日時: 2026-10-18\n\nゴールドラッシュは新しいものではありません。\n\n---\n\n20. Claude Code・GitHub Copilot・Cursor・Windsurf・Codeiumを実装目線で比較する\n\nソース: Qiita AI Tag | 地域: Japan | 日時: 2026-10-18\n\nAIコーディングツールは結局どれを使えばいいのかという質問に答える機会が増えました。\n\n---\n\n21. ESP32の多言語コマンドワード：MultiNetのTFLite代替\n\nソース: Dev.to Machine Learning | 地域: Global | 日時: 2026-10-18\n\nESP32の音声制御は、ハードウェアが言語を決定するかのように語られます。\n\n---\n\n22. ESP32での1つのTFLiteモデル、複数のコマンドワード\n\nソース: Dev.to Machine Learning | 地域: Global | 日時: 2026-10-18\n\n多くの組み込み音声制御の例は、1つのキーワードに対して1つの検出器を使用します。\n\n---\n\n23. ESP32-S3でのカスタムウェイクワードの実行方法\n\nソース: Dev.to Machine Learning | 地域: Global | 日時: 2026-10-18\n\nカスタムウェイクワードはブラウザで簡単にデモできますが、実際のデバイスで出荷するのははるかに難しいです。\n\n---\n\n24. ミュージシャンのマルチツールがギターの練習をしない言い訳を打破する\n\nソース: New Atlas | 地域: Global | 日時: 2026-10-18\n\n40歳に近づく元ミュージシャンとして、このガジェットのプロモビデオに完全に引き込まれました。\n\n---\n\nカテゴリ別まとめ\n\nモデル・技術\n・Google OAuthのDPoPサポートを発表：リフレッシュトークンのセキュリティ強化\n・AIエージェントの評価：バイブチェックを超えて\n・ウクライナ、ロシアに対抗するためのグローバルツールとしてDiiaアプリを推進\n・サウジのフィンテックeradがMEVP主導で2200万ドルのシリーズAを調達\n・AÏZAの親会社AmaaniがGCC拡大のために500万ドルのシリーズAを調達\n・【海外テック動向】高速LLMからハードウェアシミュレータまで！注目ツール3選\n・「Attention Is All You Need」が現代の大規模言語モデル設計の中心である理由\n・AIエージェントにブラックボックスを与える：19,683状態の認知空間でのすべての決定を監査する\n・VaultExam AI：ノートからの模擬テスト、どこにもアップロードせずに\n・2つのエージェント、1つのウォレット：重複支出を防ぐメモリグラフ\n・引退したペンシルバニア大学教授がUber Eatsロボットを妨害したため逮捕\n・Claude Codeの/loopは「固定間隔」と「セルフペーシング」をどう使い分けるか\n・AIのゴールドラッシュ：誰が金を掘り当て、誰が取り残されるのか？\n・Claude Code・GitHub Copilot・Cursor・Windsurf・Codeiumを実装目線で比較する\n・ESP32の多言語コマンドワード：MultiNetのTFLite代替\n・ESP32での1つのTFLiteモデル、複数のコマンドワード\n・ESP32-S3でのカスタムウェイクワードの実行方法\n\n企業・ビジネス\n・PinnacleがサウジアラビアのホスピタリティスタートアップGathernの持分を増加\n・Lighthouse Memoryとは？ビジネスオーナーのためのAIガイド\n\nツール・プロダクト\n・三層、1つのリポ：google/adk-recipesのツアー\n・デジタルリテラシー：共和国は「アルゴリズムに耐えられるか？」\n・数学方程式を解くために生きたAIとして使用される人間の脳細胞\n・OpenAIがヒューマノイドロボットを開発中だが、課題は体ではない\n・ミュージシャンのマルチツールがギターの練習をしない言い訳を打破する\n\n市場・規制・研究\n・該当ニュースなし",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "a58a9a81370095b4",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8553802816901409,
+      "popularityPercentile": 0.7971830985915493,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "過去48時間の生成AIニュース24件から主要な動向をまとめている。",
+      "takeaways": [
+        "Google OAuthが更新用の鍵を守る仕組みを強化した。",
+        "GoogleはAIエージェント開発用の資料集を整理した。",
+        "AIエージェントを継続的に評価する方法も紹介された。"
+      ],
+      "keywords": [
+        "生成AI",
+        "Google OAuth",
+        "DPoP",
+        "google/adk-recipes",
+        "AIエージェント",
+        "Gemini Enterprise Agent Platform"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "debate": null,
+      "readingMinutes": 8,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "Zfinix/eleven — Agent-first reverse engineering for macOS, Windows and Linux: any ACP agent reads, renames and patches binaries, Android apps and GPU kernels next to you.",
+      "url": "https://github.com/Zfinix/eleven",
+      "publishedAt": "2026-10-13T13:47:31.000Z",
+      "author": "Zfinix",
+      "authorDetail": {
+        "name": "Zfinix",
+        "url": "https://github.com/Zfinix",
+        "avatarUrl": "https://github.com/Zfinix.png?size=120",
+        "bio": "Agent-first reverse engineering for macOS, Windows and Linux: any ACP agent reads, renames and patches binaries, Android apps and GPU kernels next to you."
+      },
+      "tags": [
+        "TypeScript",
+        "acp",
+        "ai-agents",
+        "android",
+        "decompiler",
+        "disassembler",
+        "ghidra",
+        "hopper"
+      ],
+      "snippet": "Agent-first reverse engineering for macOS, Windows and Linux: any ACP agent reads, renames and patches binaries, Android apps and GPU kernels next to you.",
+      "metrics": {
+        "stars": 753
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "2f0899957634cfc4",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8300000000000001,
+      "popularityPercentile": 0.45454545454545453,
+      "matchedTopics": [
+        "TypeScript",
+        "CSS",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": "eleven — AIエージェント向けの逆解析ツール",
+      "oneLiner": "elevenはAIエージェントを使って実行ファイルやアプリの解析と修正を支援する。",
+      "takeaways": [
+        "AIが実行ファイルの中身を読み解ける。",
+        "解析結果の名前変更や修正まで進められる。",
+        "macOSとWindowsとLinuxに対応している。"
+      ],
+      "keywords": [
+        "eleven",
+        "ACP",
+        "TypeScript",
+        "逆解析",
+        "Ghidra",
+        "Hopper"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nZfinix/eleven — Agent-first reverse engineering for macOS, Windows and Linux: any ACP agent reads, renames and patches binaries, Android apps and GPU kernels next to you. を動かして、README の最初の出力まで到達する\nhttps://github.com/Zfinix/eleven\n\n# 手順\n1. git clone --depth 1 https://github.com/Zfinix/eleven\n2. cd eleven && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "jwuthri-cloud/Tracely-ai — Trace-native CI/CD for AI agents: grade production traces, cluster failures, freeze them into replayable regression tests, and block PRs that regress. Self-hostable.",
+      "url": "https://github.com/jwuthri-cloud/Tracely-ai",
+      "publishedAt": "2026-10-11T15:38:03.000Z",
+      "author": "jwuthri-cloud",
+      "authorDetail": {
+        "name": "jwuthri-cloud",
+        "url": "https://github.com/jwuthri-cloud",
+        "avatarUrl": "https://github.com/jwuthri-cloud.png?size=120",
+        "bio": "Trace-native CI/CD for AI agents: grade production traces, cluster failures, freeze them into replayable regression tests, and block PRs that regress. Self-hostable."
+      },
+      "tags": [
+        "Python",
+        "agent-evaluation",
+        "ai-agents",
+        "ai-testing",
+        "ci-cd",
+        "clickhouse",
+        "developer-tools",
+        "llm-evaluation"
+      ],
+      "snippet": "Trace-native CI/CD for AI agents: grade production traces, cluster failures, freeze them into replayable regression tests, and block PRs that regress. Self-hostable.",
+      "metrics": {
+        "stars": 1022
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "cc567b7b02649f2f",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8380000000000001,
+      "popularityPercentile": 0.4909090909090909,
+      "matchedTopics": [
+        "AI / LLM",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "Tracely-ai — AIエージェントの失敗を再現テストにする基盤",
+      "oneLiner": "Tracely-aiは本番で起きたAIエージェントの失敗を再現テストに変えて変更を検査する。",
+      "takeaways": [
+        "本番で起きた失敗を自動で記録できる。",
+        "失敗を繰り返し試せるテストに変えられる。",
+        "品質が下がる変更を提出前に止められる。"
+      ],
+      "keywords": [
+        "Tracely-ai",
+        "AIエージェント",
+        "CI/CD",
+        "ClickHouse",
+        "LLM評価",
+        "回帰テスト"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": "# 試すこと\njwuthri-cloud/Tracely-ai — Trace-native CI/CD for AI agents: grade production traces, cluster failures, freeze them into replayable regression tests, and block PRs that regress. Self-hostable. を動かして、README の最初の出力まで到達する\nhttps://github.com/jwuthri-cloud/Tracely-ai\n\n# 手順\n1. git clone --depth 1 https://github.com/jwuthri-cloud/Tracely-ai\n2. cd Tracely-ai && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "Leonxlnx/earshot — Ears for coding agents: let AI hear, review and make sound. CPU-only, open source.",
+      "url": "https://github.com/Leonxlnx/earshot",
+      "publishedAt": "2026-10-15T06:52:46.000Z",
+      "author": "Leonxlnx",
+      "authorDetail": {
+        "name": "Leonxlnx",
+        "url": "https://github.com/Leonxlnx",
+        "avatarUrl": "https://github.com/Leonxlnx.png?size=120",
+        "bio": "Ears for coding agents: let AI hear, review and make sound. CPU-only, open source."
+      },
+      "tags": [
+        "Python",
+        "ai-agents",
+        "audio",
+        "claude-code",
+        "mcp",
+        "sound-design"
+      ],
+      "snippet": "Ears for coding agents: let AI hear, review and make sound. CPU-only, open source.",
+      "metrics": {
+        "stars": 794
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "bed852495db03015",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8820000000000001,
+      "popularityPercentile": 0.6909090909090909,
+      "matchedTopics": [
+        "AI / LLM",
+        "OpenAI Codex"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "earshot — AIコーディングエージェントに音を聞かせる道具",
+      "oneLiner": "earshotはAIコーディングエージェントが音を聞いて確認や音作りを行えるようにする。",
+      "takeaways": [
+        "AIが音声や音の違いを聞き分けられる。",
+        "音を使う機能の確認をAIに任せられる。",
+        "特別な画像処理装置なしで動作する。"
+      ],
+      "keywords": [
+        "earshot",
+        "Claude Code",
+        "MCP",
+        "音声",
+        "Python",
+        "AIエージェント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nLeonxlnx/earshot — Ears for coding agents: let AI hear, review and make sound. CPU-only, open source. を動かして、README の最初の出力まで到達する\nhttps://github.com/Leonxlnx/earshot\n\n# 手順\n1. git clone --depth 1 https://github.com/Leonxlnx/earshot\n2. cd earshot && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "trhhubsd/ARTEX — ARTEX · AI autonomous penetration testing system (multi-agent LLM, Go + Next.js) · AI 自主渗透测试系统 · 百度 agent+ 攻防挑战赛冠军",
+      "url": "https://github.com/trhhubsd/ARTEX",
+      "publishedAt": "2026-10-08T20:35:22.000Z",
+      "author": "trhhubsd",
+      "authorDetail": {
+        "name": "trhhubsd",
+        "url": "https://github.com/trhhubsd",
+        "avatarUrl": "https://github.com/trhhubsd.png?size=120",
+        "bio": "ARTEX · AI autonomous penetration testing system (multi-agent LLM, Go + Next.js) · AI 自主渗透测试系统 · 百度 agent+ 攻防挑战赛冠军"
+      },
+      "tags": [
+        "Go",
+        "ai-agent",
+        "ai-security",
+        "artex",
+        "autonomous-agents",
+        "cybersecurity",
+        "go",
+        "hacking"
+      ],
+      "snippet": "ARTEX · AI autonomous penetration testing system (multi-agent LLM, Go + Next.js) · AI 自主渗透测试系统 · 百度 agent+ 攻防挑战赛冠军",
+      "metrics": {
+        "stars": 1248
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "a192ddc48f580119",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8220000000000001,
+      "popularityPercentile": 0.41818181818181815,
+      "matchedTopics": [
+        "Next.js",
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "ARTEX — AIで自動化する侵入テスト基盤",
+      "oneLiner": "ARTEXは複数のAIエージェントでサイバー攻撃を模擬する侵入テストシステムである。",
+      "takeaways": [
+        "AIがシステムの弱点を自動で探す。",
+        "複数のAIが役割を分担して攻撃を試す。",
+        "GoとNext.jsで構成された基盤を公開している。"
+      ],
+      "keywords": [
+        "ARTEX",
+        "Next.js",
+        "Go",
+        "侵入テスト",
+        "マルチエージェント",
+        "サイバーセキュリティ"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "debate": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\ntrhhubsd/ARTEX — ARTEX · AI autonomous penetration testing system (multi-agent LLM, Go + Next.js) · AI 自主渗透测试系统 · 百度 agent+ 攻防挑战赛冠军 を動かして、README の最初の出力まで到達する\nhttps://github.com/trhhubsd/ARTEX\n\n# 手順\n1. git clone --depth 1 https://github.com/trhhubsd/ARTEX\n2. cd ARTEX && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "「もう何もしなくていい」が何度も変わる。Codexとのやり取りをIssueにした",
+      "url": "https://qiita.com/ishizakahiroshi/items/5511f41b19748a1f5bfb",
+      "publishedAt": "2026-10-17T23:26:19.000Z",
+      "author": "hiroshi ishizaka",
+      "authorDetail": {
+        "name": "hiroshi ishizaka",
+        "handle": "@ishizakahiroshi",
+        "url": "https://qiita.com/ishizakahiroshi",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4423880/049abdd348db632de359b7a933054dacc58166bb/large.png?1782949151",
+        "bio": "田舎在宅エンジニアです。\r\n\r\nhttps://x.com/ishizakahiroshi",
+        "location": "群馬県",
+        "followers": 4,
+        "posts": 98,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/ishizakahiroshi"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/ishizakahiroshi"
+          },
+          {
+            "label": "Web",
+            "url": "https://ishizakahiroshi.com/"
+          }
+        ]
+      },
+      "tags": [
+        "codex",
+        "AI",
+        "GitHub"
+      ],
+      "snippet": "先に、結論を3行で書きます。 Codexに残作業を確認したら、完了・未完了・対応不要の説明が何度も変わりました。 残作業と担当を問い直し、矛盾を指摘したうえで、実際の発言をGitHub Issueにまとめて送りました。 手元で実装した対策と、それでも残った問題、次に試す案を分けて残します。 時間に合わせて、読み方を選べます。 ・少し忙しい人向け：5分で読める要約版（個人サイト） ・もっと深掘りしたい人は、このまま本文へどうぞ。 終わったなら、閉じてよいか知りたかった Windowsでmany-ai-cliを介してCodexを使い、黄色の停止表示に関するバグを直してもらっていました。AIからは、修正も普段使うHubへの反映も、実画面での確認も完了したと報告されていました。 修正後、何が残り、次に何をする必要があるのかを確認しました。 ところが、一時フォルダの削除が自動審査で拒否された話と、別…",
+      "body": "先に、結論を3行で書きます。\n\nCodexに残作業を確認したら、完了・未完了・対応不要の説明が何度も変わりました。 \n残作業と担当を問い直し、矛盾を指摘したうえで、実際の発言をGitHub Issueにまとめて送りました。 \n手元で実装した対策と、それでも残った問題、次に試す案を分けて残します。\n\n \n\n時間に合わせて、読み方を選べます。\n・少し忙しい人向け：5分で読める要約版（個人サイト）\n・もっと深掘りしたい人は、このまま本文へどうぞ。\n\n終わったなら、閉じてよいか知りたかった\n\nWindowsでmany-ai-cliを介してCodexを使い、黄色の停止表示に関するバグを直してもらっていました。AIからは、修正も普段使うHubへの反映も、実画面での確認も完了したと報告されていました。\n\n修正後、何が残り、次に何をする必要があるのかを確認しました。\n\nところが、一時フォルダの削除が自動審査で拒否された話と、別セッションへの影響が未確認という話も出てきました。修正が終わったという説明と、残っているものの扱いが、うまくつながりません。\n\n聞き直すと、必要なことが変わっていく\n\n最初の説明は、こうでした。\n今、あなたにしていただく操作はありません。セッションを閉じて大丈夫です。\n\n残っている話が気になり、もう一度確認すると、こう変わりました。\n『削除だけ残っていて、もう何もしなくてよい』という前の説明は誤りでした。\n\nさらに、AIは自分のHub更新で別の作業を止めてしまったかもしれない、と説明しました。そして次にすべきことを、こう述べました。\n私が次にすべきことは、#16の作業が途中で切れたのか、成果が残っているのかを確認することです。\n\nただし、本当にHub更新が原因だったかは未確認です。「#16」は会話中の作業の呼び名です。\n\n途中では既存ログも調べています。ただ、その調査後も、別セッションが終了した原因は未確定でした。\n\n何もすることがないのに、あるように書いたのかと尋ねると、「追加の必須作業があると確認できていない」と説明されました。\n\nそして、残件の扱いを聞くと、こう続きました。\n今回のバグ修正は完了しています。この件で追加の作業は不要です。\n\nところが、不要な一時フォルダなら片付けるべきではないかと指摘すると、また説明が変わります。\n片付いていないものを、私が途中から『対応不要』と言い換えました。『追加作業は不要』という説明を撤回します。\n\n続けて、「削除は未完了のままです。」とも言われました。\n\n \n\n図は会話での説明の変化です。実際の作業状態が、そのたびに変化したことを示すものではありません。\n\n訂正されるほど、何を信じればよいのか分からない\n\n訂正のあとに別の断定が出て、それも撤回される。最新の返事を読んでも安心できません。誰が何をする必要があるのか、聞き直すたびに分からなくなりました。\n\n実際に、こう伝えています。\nもうわけわかんないよ 困るよ どういうことなんだよ\n\n短く説明してもらえば済むと思っていたのに、こちらが前後の返事を突き合わせ続けることになりました。\n\n一時フォルダは、AIが操作した際に自動審査で削除を拒否された、という記録です。削除できた、別作業が復旧した、といった結末も確認できていません。\n\n \n\nIssueを送る前に、何をしたか\n\n対応は、会話の矛盾を問い直すこと、手元の作業手順を変えること、根拠を付けて外部へ報告することの3つでした。\n\n| 行ったこと | 狙いと、実際の結果 |\n|---|---|\n| 「何が課題で、何が残り、何をする必要があるか」を聞き直した | 終了できる条件を知りたかった。ただし、その後も説明は反転しました |\n| 「あなたの操作は不要」という返事の意味を確かめた | 自分に操作が要らないなら、残作業もないのかを聞き直しました。AIは途中で自分の確認作業を挙げましたが、また不要と説明しました |\n| 未完了を「対応不要」と言い換えた点を指摘した | 不要な一時フォルダなら片付ける、消せないなら消せていないと説明する。その状態を勝手に消さないよう求めました |\n| 矛盾する実際の発言をまとめて報告するよう依頼した | 一般的な不満だけでなく、どの説明がどう反転したかをIssue本文に残しました |\n\n手元では、作業を止めて道具と手順を変えた\n\nこの終了確認に入る前から、手元の運用も見直していました。バグ修正が長引いた段階で作業を止め、経緯を図付きで説明するよう求めました。その後、子の広い変更候補をそのまま採用せず、親が修正を引き取り、元の不具合を直す範囲へ戻しています。\n\nさらに、再発防止の検討だけで終わらせず、実装を承認しました。\n\n| 手元で変えたこと | 確認できたこと |\n|---|---|\n| check-bugfix-handoff.ps1を追加 | 調査段階を実装準備済みと扱わず、必要な欄の不足や方針の版違いを判別する |\n| 既存の委託skillとbugfixルールを更新 | 親は委託前、子は編集前に、同じ依頼文書を検査する手順へ接続した |\n| 手戻りが続いた際の進め方を変更 | 同じ論点で2回目の差し戻しになったら、親が指示・差分・証拠を見直す |\n\n道具の合成ケース89件と別CLI受入31件で、入力の不足や不一致を区別できるかを確認して配置しました。CLAUDE.md本文は増やさず、既存の手順と実行できる道具へ反映しました。\n\nただし、この対策の対象は実装前の引き渡しです。終了説明の反転まで自動検査するものではありません。手元で制御できる工程は変更し、その後にも残った会話上の問題をIssueへ報告した、という順序です。\n\n報告文だけで終わらず、送信まで任せた\n\nこのやり取りを不具合として報告したいと頼みました。最初は、報告文を作ることと、私が/feedbackを手動で操作する案内でした。\n\nそこで、「あなたが自動的に作って送ることできないの」と聞きました。結果として、認証済みのGitHub経路を使い、手元のAIがGitHub CLIからIssueを1件投稿しました。/feedbackの画面を操作して送ったわけではありません。\n\n報告はこちらです。\n\nhttps://github.com/openai/codex/issues/54939\n\n2026年10月18日7時15分ごろ、日本時間で投稿され、投稿者・本文の一致も確認しています。自動送信できたのは、この環境での実績です。\n\nまた、Issueを投稿できたことと、OpenAIが調査・回答・修正したことは別です。そこまで進んだとは確認していません。\n\n正確なモデルIDやCLIの版は未確認です。特定モデルの欠陥や、意図的な隠蔽も断定できません。報告したのは、この会話で続いた説明の矛盾です。\n\n次は「終わった？」の一問にまとめない\n\nこちらでできる工夫として考えているのは、終了報告の項目を固定することです。次のような形なら、前の返事とどこが変わったかを照合しやすくなります。\n\n [code] \n\n削除を拒否されたなら「未削除」。原因を確定できないなら「原因未確定」。新しい根拠がないのに、聞き返されたことだけを理由に「不要」へ変えないよう求めます。\n\nただ、これは次に試す案です。今回この形式を先に使って防げたという実績はなく、専用の自動検査も追加していません。AIへの指示文だけで、矛盾がなくなると保証することもできません。\n\n読者が手元で取り入れるなら、実装を渡す前の記載チェックと、終了時の報告比較を別の確認として持つ方法があります。前者は今回導入済み、後者の形式は次に試す案です。\n\n \n\n未完了を「対応不要」に言い換えないでほしい\n\n削除できないなら「削除できていない」。原因が分からないなら「原因未確定」。必要な片付けを勝手に不要へ変えず、判断を変えるなら新しい根拠も示してほしいです。\n\n手元の作業手順を変えることと、サービス側へ具体例を報告すること。今回は両方行いました。次は終了報告の比較も試し、役に立ったかまで記録していこうと思います。\n\n---\n\n前段の体験はAIにバグ修正を任せる前に、原因と修正方針を分けて確かめるに書いています。実装を依頼したときの手戻りを扱った記事で、今回はその後の終了確認の話です。\n\n※ ヘッダー画像の絵はAI（画像生成）で作成し、日本語の文字は別途組版しています。インフォグラフィックと説明図は文字と図形を組み合わせて制作しています。\n\n※ 本文の挿絵もAI（画像生成）で作成しています。\n\n書いた人: ishizakahiroshi \n群馬の北部で、保護猫2匹と暮らす、在宅エンジニア（何でも屋） \nhttps://ishizakahiroshi.com/ \nhttps://github.com/ishizakahiroshi \nX（業務委託・各種相談はこちら）： \nhttps://x.com/ishizakahiroshi\n\nバックエンド・インフラ・AI連携まわりで、業務委託のご相談を受け付けています。フルリモートです。スポットや週2〜3時間からでも歓迎で、いろんな案件に携われたらうれしいです。こんな相談、歓迎です。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "884f3bf448c64b4c",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8572394366197184,
+      "popularityPercentile": 0.8056338028169014,
+      "matchedTopics": [
+        "OpenAI Codex",
+        "Git / 開発ワークフロー"
+      ],
+      "buzz": false,
+      "score": 79,
+      "titleJa": null,
+      "oneLiner": "Codexの完了報告が変化したため残作業と担当をGitHub Issueに記録した。",
+      "takeaways": [
+        "Codexの完了報告が対話のたびに変わった。",
+        "残作業と担当を問い直して記録した。",
+        "作業終了の判断には実際の確認が必要だった。"
+      ],
+      "keywords": [
+        "OpenAI Codex",
+        "GitHub Issue",
+        "many-ai-cli",
+        "Windows",
+        "AIエージェント",
+        "作業完了報告"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "AIの完了報告を信じるか人が証拠を確認するか",
+        "forSide": "AIの説明だけで閉じずIssueに事実と未確認点を残せる。",
+        "againstSide": "確認を重ねるほど小さな修正でも人の作業時間が増える。",
+        "oneSided": false,
+        "yourAngle": "AIエージェントの報告と実際の差分やテスト結果を照合できる。"
+      },
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Websites are closing their doors to AI agents",
+      "url": "https://www.theverge.com/ai-artificial-intelligence/1013195/ai-agents-blocked-web",
+      "publishedAt": "2026-10-18T14:58:10.000Z",
+      "author": "evolve2k",
+      "authorDetail": {
+        "name": "evolve2k",
+        "handle": "evolve2k",
+        "url": "https://news.ycombinator.com/user?id=evolve2k"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 133,
+        "comments": 125
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "a743c56f322723d9",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.5866326530612246,
+      "popularityPercentile": 0.7346938775510204,
+      "matchedTopics": [
+        "AI / LLM"
+      ],
+      "buzz": false,
+      "score": 79,
+      "titleJa": "AIエージェントを拒むウェブサイトの増加",
+      "oneLiner": "ウェブサイトがAIエージェントによるアクセスを拒む動きを強めている。",
+      "takeaways": [
+        "ウェブサイトがAIエージェントを締め出している。",
+        "理由には無断利用と負荷への懸念がある。",
+        "自動化とサイト運営の利害が衝突している。"
+      ],
+      "keywords": [
+        "AIエージェント",
+        "Webサイト",
+        "スクレイピング",
+        "ボット対策",
+        "robots.txt"
+      ],
+      "category": "AI/エージェント",
+      "lane": "talk",
+      "debate": {
+        "axis": "公開サイトをAIに開くか人間向けに閉じるか",
+        "forSide": "無断収集や負荷を防ぐには機械的なアクセス制限が必要だ。",
+        "againstSide": "閉鎖が広がると情報探索と新しいサービスの基盤が狭くなる。",
+        "oneSided": false,
+        "yourAngle": "AIエージェントから自社APIや公開ページへ接続する設計を持つ。"
+      },
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Florida's HOAs and condo associations are making the housing crisis worse",
+      "url": "https://hoaspy.com/hoa/fl/florida-hoa-housing-crisis.html",
+      "publishedAt": "2026-10-18T18:40:16.000Z",
+      "author": "lovewins",
+      "authorDetail": {
+        "name": "lovewins",
+        "handle": "lovewins",
+        "url": "https://news.ycombinator.com/user?id=lovewins"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 153,
+        "comments": 259
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "78247e18232f56db",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.19755102040816327,
+      "popularityPercentile": 0.8979591836734694,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "Floridaの住宅危機を悪化させるHOAとコンドミニアム",
+      "oneLiner": "Floridaの住宅費高騰にHOAとコンドミニアムの費用や規制が影響していると論じる。",
+      "takeaways": [
+        "Floridaで住宅費の負担が重くなっている。",
+        "住宅団体の費用と規則が負担を増やしている。",
+        "住宅不足だけでは説明できない要因がある。"
+      ],
+      "keywords": [
+        "Florida",
+        "HOA",
+        "コンドミニアム",
+        "住宅危機",
+        "住宅費"
+      ],
+      "category": "調査・考察",
+      "lane": "talk",
+      "debate": {
+        "axis": "住宅団体の規制を守るか住宅費の軽減を優先するか",
+        "forSide": "維持費や安全規則を支えるには住民団体の負担が必要だ。",
+        "againstSide": "固定費と規制が高すぎると手頃な住宅がさらに減る。",
+        "oneSided": true,
+        "yourAngle": ""
+      },
+      "readingMinutes": 9,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "NY announces game ownership bill requiring ownership rather than licensing",
+      "url": "https://www.tomshardware.com/video-games/new-york-rep-announces-game-ownership-bill-that-would-require-consumer-ownership-rather-than-sale-of-licenses-would-also-require-publishers-to-keep-the-game-functional-after-support-ends",
+      "publishedAt": "2026-10-18T00:14:22.000Z",
+      "author": "guiambros",
+      "authorDetail": {
+        "name": "guiambros",
+        "handle": "guiambros",
+        "url": "https://news.ycombinator.com/user?id=guiambros"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 425,
+        "comments": 196,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "fb6bc630eb9352e1",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.1795918367346939,
+      "popularityPercentile": 0.8163265306122449,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 78,
+      "titleJa": "NY州がゲームの所有権を求める法案",
+      "oneLiner": "NY州がゲームを単なる利用許諾ではなく所有できるよう求める法案を発表した。",
+      "takeaways": [
+        "NY州がゲームの所有権を求める法案を出した。",
+        "利用許諾だけでは購入者の権利が弱い。",
+        "販売後のサービス停止が争点になっている。"
+      ],
+      "keywords": [
+        "New York",
+        "ゲーム所有権",
+        "ライセンス",
+        "デジタル販売",
+        "消費者保護"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "talk",
+      "debate": {
+        "axis": "デジタルゲームを所有物とするか利用許諾とするか",
+        "forSide": "購入者が遊び続けられる権利を明確にできる。",
+        "againstSide": "所有権を広げると運営型ゲームの更新や終了が難しくなる。",
+        "oneSided": true,
+        "yourAngle": ""
+      },
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 672,
+    "afterDedupe": 607,
+    "afterPreScore": 150,
+    "ranked": 150,
+    "bySource": {
+      "qiita": 356,
+      "zenn": 112,
+      "hatena": 30,
+      "hackernews": 50,
+      "devto": 6,
+      "github_release": 4,
+      "github_repo": 96,
+      "rss": 17,
+      "changelog": 1
+    },
+    "byLane": {
+      "know": 6,
+      "build": 6,
+      "talk": 6
+    },
+    "estimatedReadMinutes": 38
+  },
+  "topics": [
+    "React",
+    "Next.js",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "CSS",
+    "ブラウザ / Web標準",
+    "Vite / ビルドツール",
+    "周辺ライブラリ",
+    "AI / LLM",
+    "Claude Code",
+    "OpenAI Codex",
+    "Git / 開発ワークフロー",
+    "Google Cloud",
+    "FDE / プロダクトエンジニアリング"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3460,
+        "outputTokens": 502,
+        "cacheReadTokens": 0,
+        "elapsedMs": 5757,
+        "estimatedCostUsd": 0.0012944
+      },
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4320,
+        "outputTokens": 1270,
+        "cacheReadTokens": 0,
+        "elapsedMs": 14115,
+        "estimatedCostUsd": 0.002388
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3171,
+        "outputTokens": 2233,
+        "cacheReadTokens": 0,
+        "elapsedMs": 21423,
+        "estimatedCostUsd": 0.0033138
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 20855,
+        "outputTokens": 1827,
+        "cacheReadTokens": 3404,
+        "elapsedMs": 20280,
+        "estimatedCostUsd": 0.00643148
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 15378,
+        "outputTokens": 1834,
+        "cacheReadTokens": 1779,
+        "elapsedMs": 19948,
+        "estimatedCostUsd": 0.00531198
+      },
+      "score:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 15838,
+        "outputTokens": 1987,
+        "cacheReadTokens": 3260,
+        "elapsedMs": 24253,
+        "estimatedCostUsd": 0.005617199999999999
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 12454,
+        "outputTokens": 2115,
+        "cacheReadTokens": 0,
+        "elapsedMs": 16059,
+        "estimatedCostUsd": 0.0050288
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 11010,
+        "outputTokens": 2366,
+        "cacheReadTokens": 0,
+        "elapsedMs": 18954,
+        "estimatedCostUsd": 0.0050412
+      },
+      "describe:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 13765,
+        "outputTokens": 3961,
+        "cacheReadTokens": 0,
+        "elapsedMs": 30070,
+        "estimatedCostUsd": 0.0075062
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 14136,
+        "outputTokens": 3406,
+        "cacheReadTokens": 11807,
+        "elapsedMs": 30698,
+        "estimatedCostUsd": 0.0071505399999999995
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 19433,
+        "outputTokens": 6118,
+        "cacheReadTokens": 15625,
+        "elapsedMs": 46442,
+        "estimatedCostUsd": 0.011540699999999997
+      },
+      "deep:talk": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 18485,
+        "outputTokens": 5353,
+        "cacheReadTokens": 12965,
+        "elapsedMs": 42976,
+        "estimatedCostUsd": 0.0103799
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3452,
+        "outputTokens": 346,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4107,
+        "estimatedCostUsd": 0.0011056000000000002
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4301,
+        "outputTokens": 340,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3509,
+        "estimatedCostUsd": 0.0012682000000000001
+      }
+    },
+    "totalCostUsd": 0.0734
+  },
+  "notes": []
+}
