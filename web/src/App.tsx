@@ -8,17 +8,17 @@ import { SelectionSearch } from './SelectionSearch';
 import type { Manifest } from './types';
 import { ArchiveView } from './views/ArchiveView';
 import { CommunityView } from './views/CommunityView';
-import { RadarView } from './views/RadarView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
 import { TodayView } from './views/TodayView';
+import { ToolboxView } from './views/ToolboxView';
 
 export type Route =
   | { name: 'today'; date?: string }
   | { name: 'search'; q?: string }
   | { name: 'archive' }
   | { name: 'community' }
-  | { name: 'radar' }
+  | { name: 'toolbox' }
   | { name: 'settings' };
 
 function parseHash(hash: string): Route {
@@ -37,8 +37,11 @@ function parseHash(hash: string): Route {
     case 'trend':
       // トレンドタブは廃止した。古いブックマークは今日へ送る
       return { name: 'today' };
+    case 'toolbox':
+      return { name: 'toolbox' };
     case 'radar':
-      return { name: 'radar' };
+      // 発掘タブは道具箱に統合した。古いブックマークは道具箱へ送る
+      return { name: 'toolbox' };
     case 'settings':
       return { name: 'settings' };
     case 'today':
@@ -78,10 +81,10 @@ type Tab = { key: Route['name']; label: string; href: string };
 const TABS: Tab[] = [
   { key: 'today', label: '今日', href: '/today' },
   /*
-   * 発掘はその次。今日・トレンドが「いま何が起きているか」を時間で見る枠なのに対して、
-   * こちらは時間ではなく**地域の差**を見る枠なので、日次の 2 つのあとに置く。
+   * 道具箱は今日の隣。今日が「読んで知る」枠なのに対して、こちらは「触る」枠で、
+   * 今日の記事に出た道具もここに集まる。
    */
-  { key: 'radar', label: '発掘', href: '/radar' },
+  { key: 'toolbox', label: '道具箱', href: '/toolbox' },
   { key: 'community', label: 'コミュニティ', href: '/community' },
   { key: 'archive', label: 'アーカイブ', href: '/archive' },
   { key: 'search', label: '検索', href: '/search' },
@@ -270,7 +273,7 @@ export function App() {
             <TodayView manifest={manifest} date={route.date} />
           )}
           {/* 盤面は manifest に依存しない（日付を持たない 1 ファイルなので） */}
-          {route.name === 'radar' && <RadarView />}
+          {route.name === 'toolbox' && <ToolboxView />}
           {route.name === 'community' && <CommunityView />}
           {!error && route.name === 'archive' && <ArchiveView manifest={manifest} />}
           {!error && route.name === 'search' && (

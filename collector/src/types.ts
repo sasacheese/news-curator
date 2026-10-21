@@ -1050,3 +1050,128 @@ export interface RadarBoard {
   };
   notes: string[];
 }
+
+/* ------------------------------------------------------------------ *
+ * 道具箱
+ *
+ * 記事ではなく**道具**を単位に、日をまたいで持つ台帳。選別より網羅が目的で、
+ * 一覧が膨らみ続けないよう「新着のまま 7 日放置したら退避」「新しい信号が来たら再浮上」
+ * の 2 つで見える量を抑える。消さない（退避したものも台帳と検索には残る）。
+ *
+ * 台帳（data/tools/ledger.json）は collector だけが読む。ブラウザが読むのは
+ * 盤面（data/tools/board.json）だけ——発掘の台帳と盤面を分けているのと同じ理由。
+ * ------------------------------------------------------------------ */
+
+/** 種類。誤ラベルのリスクが低い軸として選んだ。判定はルールベースで、迷ったら other */
+export const TOOL_KINDS = ['cli', 'library', 'skill', 'plugin', 'mcp', 'saas', 'cloud', 'other'] as const;
+export type ToolKind = (typeof TOOL_KINDS)[number];
+
+/**
+ * 読者が付ける状態。new と archived だけは collector が付ける。
+ * - interested: スマホで「気になる」を押した。PC で触る候補として盤面の先頭に出る
+ * - prepared  : 下準備まで済んだ（下準備の仕組みは後続で入れる）
+ * - tried     : 触った
+ * - passed    : 見送った。理由は passReason
+ */
+export const TOOL_STATES = ['new', 'interested', 'prepared', 'tried', 'passed', 'archived'] as const;
+export type ToolState = (typeof TOOL_STATES)[number];
+
+/** 見送りの理由。似た道具の点数を下げるのに使う */
+export const PASS_REASONS = ['have-equivalent', 'out-of-scope', 'too-costly', 'not-mature', 'other'] as const;
+export type PassReason = (typeof PASS_REASONS)[number];
+
+export interface ToolIdentity {
+  npm?: string;
+  /** owner/repo */
+  github?: string;
+  /** npm / GitHub で特定できないもの（SaaS・クラウドの新サービス・マーケットプレイスの項目） */
+  url?: string;
+}
+
+/** 道具を見かけた記録。入口ごと・日ごとに 1 件 */
+export interface ToolSignal {
+  /** 入口の識別子（digest:top / digest:other / release / gh-trending / show-hn / radar / mcp-registry / …） */
+  source: string;
+  date: string;
+  /** 0〜2。手で追加したもの > 深掘り > 一覧 > 急上昇の順 */
+  strength: number;
+  title?: string;
+  url?: string;
+  note?: string;
+}
+
+export interface ToolEntry {
+  id: string;
+  name: string;
+  kind: ToolKind;
+  identity: ToolIdentity;
+  /** 開く先。GitHub / npm / 公式サイト */
+  homepage: string;
+  /** 何ができるか（1〜2 文）。LLM が書く。書けなかった日は元の説明文 */
+  summary: string | null;
+  /** 何の代わりになるか。分からなければ null */
+  replaces: string | null;
+  /** 試すのに要るもの（アカウント登録 / API キー / 有料 / OS など） */
+  requires: string[];
+  /** 信頼の目印。スキル・プラグイン・MCP は自分の環境でコードを動かすので必ず出す */
+  trust: {
+    official: boolean;
+    author: string | null;
+    stars: number | null;
+    archived: boolean | null;
+    license: string | null;
+  };
+  /** 元の説明文（GitHub の description / npm の description / 入口の説明） */
+  description: string | null;
+  signals: ToolSignal[];
+  firstSeen: string;
+  lastSignal: string;
+  state: ToolState;
+  stateAt: string;
+  passReason?: PassReason | null;
+  /** 退避から戻した日 */
+  resurfacedAt?: string | null;
+  /** 種類・信頼の情報を取りに行ったか（GitHub / npm を叩くのは 1 道具 1 回） */
+  inspected: boolean;
+  /** LLM の要約を試みたか（失敗しても毎日やり直さない） */
+  described: boolean;
+}
+
+export interface ToolLedger {
+  updatedAt: string;
+  tools: Record<string, ToolEntry>;
+}
+
+export interface ToolBoardItem {
+  id: string;
+  name: string;
+  kind: ToolKind;
+  homepage: string;
+  summary: string | null;
+  replaces: string | null;
+  requires: string[];
+  trust: ToolEntry['trust'];
+  state: ToolState;
+  /** 盤面に出た理由の短い説明（どこで見かけたか） */
+  seenIn: { source: string; date: string; title?: string; url?: string }[];
+  firstSeen: string;
+  lastSignal: string;
+  isNew: boolean;
+  resurfaced: boolean;
+  score: number;
+  tryPrompt: string | null;
+}
+
+export interface ToolBoard {
+  updatedAt: string;
+  date: string;
+  /** 気になる・準備済み。PC で触る候補 */
+  queue: ToolBoardItem[];
+  /** 新着（退避していないもの）。種類ごとに画面で棚に分ける */
+  items: ToolBoardItem[];
+  /** 触ったもの。直近から */
+  tried: ToolBoardItem[];
+  byKind: Record<string, number>;
+  stats: { ledger: number; archived: number; passed: number; addedToday: number; resurfacedToday: number };
+  notes: string[];
+}

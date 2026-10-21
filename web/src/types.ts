@@ -508,62 +508,56 @@ export interface TopicsConfig {
 }
 
 /* ------------------------------------------------------------------ *
- * 発掘（data/radar.json をそのまま読む）
+ * 道具箱（data/tools/board.json）。collector/src/types.ts の ToolBoard と同じ形
  * ------------------------------------------------------------------ */
 
-export type RadarVerdict = 'early' | 'hidden';
+export type ToolKind = 'cli' | 'library' | 'skill' | 'plugin' | 'mcp' | 'saas' | 'cloud' | 'other';
+export type ToolState = 'new' | 'interested' | 'prepared' | 'tried' | 'passed' | 'archived';
+export type PassReason = 'have-equivalent' | 'out-of-scope' | 'too-costly' | 'not-mature' | 'other';
 
-export interface RadarMeasure {
-  githubRepo: string | null;
-  githubStars: number | null;
-  githubPushedAt: string | null;
-  githubArchived: boolean | null;
-  npmPackage: string | null;
-  npmVersion: string | null;
-  npmDeprecated: boolean | null;
-  npmWeekly: number | null;
-  /** 直近 7 日 ÷ その前の 7 日。1.0 で横ばい */
-  npmTrend: number | null;
-  abroadMentions: number;
-  qiitaArticles: number | null;
-  qiitaMethod: 'mention' | 'tag' | null;
-  zennArticles: number | null;
-  zennMethod: 'topic' | 'search' | null;
-  /** 件数が総数として確定しているか。false なら下限値 */
-  zennComplete: boolean | null;
-  domesticMentions: number;
-  measuredAt: string;
-}
-
-export interface RadarItem {
+export interface ToolBoardItem {
   id: string;
   name: string;
-  /** そのまま貼って試し始められるプロンプト。発掘は身元が必ず取れるので、ほぼ全件に入る */
-  tryPrompt?: string | null;
-  verdict: RadarVerdict;
-  score: number;
-  what: string;
-  pitch: string;
-  insteadOf: string[];
-  firstStep: string | null;
-  fitFor: string[];
-  caution: string | null;
-  measure: RadarMeasure;
-  /** 判定の根拠。数字を含む文で、生成ではなく計測値から組み立てている */
-  evidence: string[];
-  links: { label: string; url: string }[];
-  firstSeenAt: string;
+  kind: ToolKind;
+  homepage: string;
+  summary: string | null;
+  replaces: string | null;
+  requires: string[];
+  trust: {
+    official: boolean;
+    author: string | null;
+    stars: number | null;
+    archived: boolean | null;
+    license: string | null;
+  };
+  state: ToolState;
+  seenIn: { source: string; date: string; title?: string; url?: string }[];
+  firstSeen: string;
+  lastSignal: string;
   isNew: boolean;
-  foundVia: { title: string; url: string } | null;
+  resurfaced: boolean;
+  score: number;
+  tryPrompt: string | null;
 }
 
-export interface RadarBoard {
+export interface ToolBoard {
   updatedAt: string;
   date: string;
-  items: RadarItem[];
-  byVerdict: Record<string, number>;
-  stats: { ledgerSize: number; measuredToday: number; notTool: number };
+  queue: ToolBoardItem[];
+  items: ToolBoardItem[];
+  tried: ToolBoardItem[];
+  byKind: Record<string, number>;
+  stats: { ledger: number; archived: number; passed: number; addedToday: number; resurfacedToday: number };
   notes: string[];
 }
 
-
+/** data/tools/archive.json の 1 件。退避・見送りしたものを検索で引くためだけの形 */
+export interface ToolArchiveItem {
+  id: string;
+  name: string;
+  kind: ToolKind;
+  homepage: string;
+  summary: string | null;
+  state: ToolState;
+  lastSignal: string;
+}

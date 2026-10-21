@@ -8,8 +8,11 @@ import type {
   Manifest,
   RadarBoard,
   RadarLedgerEntry,
+  ToolBoard,
+  ToolLedger,
 } from './types.js';
 import type { IncidentLedger } from './incidents.js';
+import { emptyLedger } from './tools.js';
 import { log, normalizeUrl } from './util.js';
 
 const DIGEST_DIR = resolve(DATA_DIR, 'digests');
@@ -365,4 +368,43 @@ export async function saveIncidentLedger(ledger: IncidentLedger): Promise<void> 
   await mkdir(resolve(DATA_DIR, 'security'), { recursive: true });
   await writeJson(INCIDENT_PATH, ledger);
   log.info(`保存: data/security/incidents.json (${Object.keys(ledger).length} 件)`);
+}
+
+/**
+ * 道具箱。台帳（ledger）は collector だけが読み、ブラウザは盤面（board）だけを読む。
+ * 台帳は退避したものも残るので増える一方だが、1 道具 2KB 前後なので 1 万件でも 20MB に届かない。
+ * 増えすぎたら、退避から 90 日経ったものを落とす処理を足す。
+ */
+const TOOLS_DIR = resolve(DATA_DIR, 'tools');
+
+export async function loadToolLedger(): Promise<ToolLedger> {
+  const raw = await readJsonOr<Partial<ToolLedger>>(resolve(TOOLS_DIR, 'ledger.json'), {});
+  return { ...emptyLedger(), ...raw, tools: raw.tools ?? {} };
+}
+
+export async function saveToolbox(ledger: ToolLedger, board: ToolBoard): Promise<void> {
+  await mkdir(TOOLS_DIR, { recursive: true });
+  await writeJson(resolve(TOOLS_DIR, 'ledger.json'), ledger);
+  await writeJson(resolve(TOOLS_DIR, 'board.json'), board);
+  /*
+   * 退避したものは盤面に出ないが、道具箱タブの検索からは引けるようにする。
+   * 検索したときだけ読むファイルなので、盤面とは分けて最小の項目だけ持たせる。
+   */
+  const archive = Object.values(ledger.tools)
+    .filter((t) => t.state === 'archived' || t.state === 'passed')
+    .sort((a, b) => (a.lastSignal < b.lastSignal ? 1 : -1))
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      kind: t.kind,
+      homepage: t.homepage,
+      summary: t.summary ?? t.description,
+      state: t.state,
+      lastSignal: t.lastSignal,
+    }));
+  await writeJson(resolve(TOOLS_DIR, 'archive.json'), archive);
+  log.info(
+    `保存: data/tools/{ledger,board}.json (台帳 ${board.stats.ledger} / 盤面 ${board.items.length}` +
+      ` / キュー ${board.queue.length})`,
+  );
 }

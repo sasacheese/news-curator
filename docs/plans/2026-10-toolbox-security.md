@@ -12,7 +12,7 @@
 | 道具箱 | 新タブ。選別より網羅（流量は多めでよい） |
 | 退避 | 新着のまま 7 日放置で一覧から外す（削除はしない） |
 | 分類軸 | 種類（誤ラベルのリスクが低いため） |
-| X | 有料 API は使わない。共有ボタン経由のみ |
+| X | 有料 API は使わない。「URL を貼って追加」経由のみ |
 | 道具ノート | リポジトリ JSON（公開される前提） |
 
 ---
@@ -150,16 +150,16 @@ GitHub の判定はリポジトリのファイル一覧を API で 1 回取る�
 
 ---
 
-## Phase 4: 共有ボタン（X などから道具箱へ送る）
+## Phase 4: URL を貼って追加（X などから道具箱へ送る）
 
-- `manifest.webmanifest` に `share_target`（GET、`url` / `text` / `title`）を追加し、受け口として `#/toolbox/add` を作る
-- 受け口は共有された URL を Firestore の `toolInbox/{id}` に書く（URL・時刻のみ。個人情報は載せない）
-- **iOS は Web Share Target に対応していない**。そのため次の 2 つを併設する
-  - 道具箱タブの「URL を貼って追加」欄（どの端末でも使える基本の入口）
-  - iOS ショートカットの手順を README に書く（共有シートで受けた URL を受け口に渡す）
-- collector が毎朝 inbox を読み、URL を解決する
-  - X の投稿 URL は **API を使わずに** oEmbed（`publish.twitter.com/oembed`）で本文を取得し、本文中のリンクから身元を取る
-  - 取れなければ「未解決」として一覧に出し、手で直せるようにする
+2026-10-21 の決定で、PWA の共有ボタン（Web Share Target）と iOS ショートカットは入れず、
+**道具箱タブの「URL を貼って追加」欄だけ**にした（iOS は Web Share Target 非対応のため、どの端末でも使える入口に揃える）。
+
+- 欄は貼られた URL を Firestore の `toolInbox/{id}` に書く（URL・時刻のみ。個人情報は載せない）
+- collector が毎朝 inbox を読み、URL を解決して「気になる」として登録し、受付を消す
+  - X の投稿 URL は **API を使わずに** oEmbed（`publish.twitter.com/oembed`）で本文を取得し、本文中のリンク（t.co は展開）から身元を取る
+  - 取れなければ最初のリンクをサービスの URL とし、リンクが無ければ「未解決: ○○ の投稿」として登録する
+  - 取りに行くのは https の公開ホストだけ（localhost・IP 直打ちは拒否）。1 回 30 件まで
 
 ---
 
@@ -182,6 +182,6 @@ GitHub の判定はリポジトリのファイル一覧を API で 1 回取る�
 Phase 0 ──┐
 Phase 1 ──┼─ 互いに独立（触るファイルが重なるのは index.ts / TodayView.tsx だけなので、順に入れる）
 Phase 2 ──┴→ Phase 3（入口の追加）
-          └→ Phase 4（共有ボタン）
+          └→ Phase 4（URL を貼って追加）
           └→ Phase 5（別途相談）
 ```

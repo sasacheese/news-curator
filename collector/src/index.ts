@@ -1,6 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { collectCommunity } from './community.js';
-import { loadCommunity, loadRadar, loadRuntimeConfig, loadSources, loadTopics } from './config.js';
+import {
+  loadCommunity,
+  loadRadar,
+  loadRuntimeConfig,
+  loadSources,
+  loadToolSources,
+  loadTopics,
+} from './config.js';
 import { enrichHatenaCounts, enrichTopItems } from './enrich.js';
 import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
 import {
@@ -35,10 +42,12 @@ import {
   loadRecentIndexEntries,
   loadRecentSummaries,
   loadSeenUrls,
+  loadToolLedger,
   saveCommunityBoard,
   saveDigest,
   saveIncidentLedger,
   saveRadarBoard,
+  saveToolbox,
 } from './store.js';
 import type {
   CommunityBoard,
@@ -52,6 +61,7 @@ import type {
   ReleaseItem,
   TopItem,
 } from './types.js';
+import { runToolbox } from './tools-run.js';
 import { buildTryPrompt, identityFromUrl, otherQuestions } from './try-prompt.js';
 import { COMMUNITY_ACTIONS, LANES, LANE_LABELS } from './types.js';
 import { formatJst, log, mapLimit, normalizeUrl, resolveWindow, safe } from './util.js';
@@ -531,6 +541,28 @@ async function main(): Promise<void> {
     notes,
   };
 
+  /* 道具箱 ----------------------------------------------------------- */
+  /*
+   * 今日のダイジェスト・収集・発掘と、道具専用のソースから道具を拾って台帳に足す。
+   * 落ちてもダイジェストは出す（safe で包む）。盤面は日付を持たない 1 ファイル。
+   */
+  log.step('道具箱');
+  const toolbox = await safe(
+    'toolbox',
+    async () =>
+      runToolbox({
+        date,
+        windowStart: start,
+        digest,
+        collected,
+        radar: radar?.board,
+        ledger: await loadToolLedger(),
+        sources: await loadToolSources(),
+        runtime,
+      }),
+    null,
+  );
+
   log.step('使用量');
   logUsage();
 
@@ -571,10 +603,11 @@ async function main(): Promise<void> {
   // 盤面は日付を持たない別ファイル。ダイジェストが落ちた日でも単独で更新される
   await saveCommunityBoard(communityBoard);
   if (radar) await saveRadarBoard(radar.board, radar.ledger);
+  if (toolbox) await saveToolbox(toolbox.ledger, toolbox.board);
   log.info(
     `\n✔ 完了: ベスト${top.length}件 + その他${others.length}件` +
       ` + コミュニティ${community.items.length}件` +
-      ` + 発掘${radar?.board.items.length ?? 0}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
+      ` + 発掘${radar?.board.items.length ?? 0}件 + 道具${toolbox?.board.items.length ?? 0}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
   );
 }
 

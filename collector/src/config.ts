@@ -1,3 +1,4 @@
+import type { ToolSourcesConfig } from './tools-sources.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -437,4 +438,38 @@ function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
     seen.add(k);
     return true;
   });
+}
+
+/**
+ * 道具箱の入口（config/tools.json）。読めなければ道具専用のソースだけ止める
+ * （いつもの収集から拾う入口は設定に依らず動く）。
+ * 項目が欠けていたら既定値で埋める。手で編集する前提なので、1 か所の typo で全部を止めない。
+ */
+const TOOL_SOURCE_DEFAULTS: ToolSourcesConfig = {
+  mcpRegistry: { enabled: false, maxPages: 3, maxItems: 40 },
+  claudeMarketplace: {
+    enabled: false,
+    url: 'https://raw.githubusercontent.com/anthropics/claude-plugins-official/main/.claude-plugin/marketplace.json',
+    maxNewPerRun: 15,
+  },
+  anthropicSkills: { enabled: false, repo: 'anthropics/skills', path: 'skills', maxNewPerRun: 5 },
+  githubTopics: { enabled: false, topics: [], createdWithinDays: 7, minStars: 10, perTopic: 15 },
+  cloudFeeds: { enabled: false, feeds: [], maxPerFeed: 8 },
+  productHunt: { enabled: false, url: 'https://www.producthunt.com/feed?category=developer-tools', maxItems: 15 },
+};
+
+export async function loadToolSources(): Promise<ToolSourcesConfig> {
+  let raw: Partial<Record<keyof ToolSourcesConfig, Record<string, unknown>>>;
+  try {
+    raw = await readJson(resolve(CONFIG_DIR, 'tools.json'));
+  } catch {
+    log.warn('config/tools.json が読めないため、道具専用のソースを止めます。');
+    return TOOL_SOURCE_DEFAULTS;
+  }
+  const merged = {} as Record<string, unknown>;
+  for (const key of Object.keys(TOOL_SOURCE_DEFAULTS) as (keyof ToolSourcesConfig)[]) {
+    const section = raw[key] && typeof raw[key] === 'object' ? raw[key] : {};
+    merged[key] = { ...TOOL_SOURCE_DEFAULTS[key], ...section, enabled: section.enabled === true };
+  }
+  return merged as unknown as ToolSourcesConfig;
 }

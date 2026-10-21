@@ -323,11 +323,74 @@ connpass / Doorkeeper は日時・場所・定員を構造化データで返す�
 `speak` が空の日は、connpass のキーが無いか、その日は本当に募集が無いかのどちらかです。
 実行ログの `登壇できる: N/M 件が募集中` で区別できます。
 
+## 道具箱は「網羅して、放置したら退かせる」
+
+ツール・ライブラリ・リポジトリ・Claude Code のスキルやプラグイン・MCP サーバー・クラウドの新サービスを、
+**記事ではなく道具を単位に**集めるタブです。スマホで眺めて「気になる」を付け、PC を触れるときに
+「PC で触る」の上から試す、という使い方を想定しています。選別より網羅を優先しているので、1 日に数十〜百件以上入ります。
+
+### どこから集めるか
+
+| 入口 | 中身 | 設定 |
+| --- | --- | --- |
+| 今日のダイジェスト | ベスト・その他の注目記事・リリース情報のうち、URL が GitHub / npm を指すもの | — |
+| いつもの収集 | GitHub 急上昇、Show HN（URL が GitHub でなくてもサービスとして拾う） | — |
+| 発掘 | 「海外で先行・国内で薄い」と測れた道具（発掘タブは道具箱に統合しました） | `config/radar.json` |
+| MCP Registry | 公式レジストリの新着。1 日 200 件を超えるので、台帳に無いもの・リポジトリ公開のものを優先して 40 件まで | `config/tools.json` |
+| Claude Code 公式マーケットプレイス | `anthropics/claude-plugins-official`。日付が無いので、台帳に無いものを 1 日 15 件ずつ | 同上 |
+| anthropics/skills | 公式のスキル集。1 日 5 件ずつ | 同上 |
+| GitHub topic | `claude-code` `claude-skills` `mcp-server` `cursor-rules` などで直近 7 日に作られたもの | 同上 |
+| クラウド | AWS / Google Cloud / Cloudflare / Vercel の changelog のうち、新製品と GA だけ | 同上 |
+| Product Hunt | Developer Tools の新着 | 同上 |
+| 自分で追加 | 道具箱タブの「URL を貼って追加」（X の投稿・GitHub・npm・サービスの URL） | — |
+
+cursor.directory は取得すると 429 が返るため入れていません。X の特定アカウントの投稿は、公式 API が
+従量課金（2026 年時点で投稿 1 件あたり約 $0.005）なので入れず、**自分で貼る**入口だけにしています。
+X の投稿 URL は API を使わず oEmbed（`publish.twitter.com`）で本文を取り、本文中のリンクから
+GitHub / npm を探します。
+
+### 種類で分ける（誤ラベルの少ない軸）
+
+`CLI / ライブラリ / Skill / Plugin / MCP / SaaS / クラウド / その他` の 8 つ。用途（テスト・認証…）ではなく
+種類にしているのは、**機械的な証拠だけで決められて外れにくい**からです。判定はルールベースで、
+LLM は使いません（`collector/src/tools-inspect.ts`）。
+
+- `SKILL.md` がある → Skill、`.claude-plugin/` がある → Plugin（ただし `package.json` などがある
+  コードのリポジトリが同梱しているだけのものは Plugin にしない）
+- topic・npm のキーワード・名前に `mcp` → MCP
+- npm の `bin` がある → CLI、無い → ライブラリ
+- 決められなければ「その他」
+
+### 溜まり続けないための仕組み
+
+消さずに、**見える場所から退かせます**（退避・見送りしたものも道具箱タブの検索では引けます）。
+
+1. **新着のまま 7 日放置したら退避**（`ARCHIVE_DAYS`）
+2. **退避したものに新しい信号が来たら再浮上**（記事・リリース・急上昇で再び見かけたら「再浮上」の印で戻る）。見送ったものは戻しません
+3. **見送りの理由を学習** — 種類ごとの見送り率で点数を最大 4 割下げ、「同等のものを使っている」で見送った道具と
+   同じものを置き換える道具は点数を半分にします
+4. **上限** — 新着は 300 件まで
+
+並び順は「入口の強さ × 新しさの減衰（半減期 7 日）の和」に、公式・スター数を少し足したものです。
+
+### 操作と保存先
+
+- 「気になる / 触った / 見送る（理由つき）」と「URL を貼って追加」は、**読者フィードバックを解除した本人の端末**
+  （`?fb=...` を一度開いた端末）にだけ出ます
+- 押した結果は Firestore（`toolState` / `toolInbox`）に書き、翌朝の collector が読んで台帳に反映します。
+  反映までの間は端末の localStorage で表示を先に切り替えます
+- 台帳は `data/tools/ledger.json`（collector だけが読む）、画面が読むのは `data/tools/board.json`、
+  検索用に退避・見送りしたものを `data/tools/archive.json` に出します
+- 道具ごとの「何ができるか・何の代わりか・試すのに要るもの」は、新しく入った道具にだけ Haiku で書きます
+  （1 日最大 90 件・1 道具 1 回）
+- スキル・プラグイン・MCP は自分の環境でコードを動かすので、公式でないものには「入れる前に作者と中身を
+  確かめる」注意を必ず出します
+
 ## 発掘は「2 つの物差しの差」を測ります
 
 「このライブラリ知ってます？あんまり話題じゃないけど便利で」
 「これ海外で話題だけど日本ではまだ使われてなくて」——これを**根拠つきで人に言える**
-状態にするための枠で、**「発掘」タブ**に出ます。
+状態にするための枠で、結果は**道具箱の入口の 1 つ**として使います（単独のタブは廃止しました）。
 
 日次ダイジェストの「作る」レーンとは目的が違います。あちらが出すのは
 *今日試したくなるもの*ですが、ここで足りないのは面白い道具そのものではなく
@@ -862,7 +925,9 @@ npm run compare -- $SP/A.json $SP/B.json
 - **「試し方」はそのまま貼れるプロンプト** — 作るレーンのカードの「試し方」は、コーディング
   エージェントに貼って試し始められる形で出ます。コピーと、開く先のボタンが付きます（PC は
   Claude Desktop / iximiuz Labs / Codespaces / Cloud Shell、スマホは Claude アプリ）。
-  その他の注目記事・リリース情報・発掘の道具（GitHub / npm）にも同じものが畳んで付きます
+  その他の注目記事・リリース情報・道具箱の道具（GitHub / npm）にも同じものが畳んで付きます
+- **道具箱**（別タブ） — 道具を種類の棚に並べます。上に「PC で触る」（気になるを付けたもの）、
+  その下に新着、検索すると一覧から外れたものも出ます。操作ボタンは本人の端末にだけ出ます
 
 ## 「✳ Claude に聞く」の仕組み
 
@@ -940,7 +1005,7 @@ URL でプロンプトを渡せるクラウド環境は無かったので、ど�
 
 ### 作るレーン以外にも付きます
 
-その他の注目記事・リリース情報・発掘の**道具**（URL が GitHub リポジトリか npm を
+その他の注目記事・リリース情報・道具箱の**道具**（URL が GitHub リポジトリか npm を
 指すもの）には、身元から機械的に組んだ同じ形のプロンプトが「⎘ 試すプロンプト」として
 畳んで付きます（LLM を通さないので追加費用はゼロ）。記事（Qiita / Zenn / はてな / HN）
 からは身元が取れないので付きません——記事であって道具ではないので、これは正しい挙動です。
@@ -1037,16 +1102,42 @@ URL に秘密のパラメータを渡した本人のブラウザだけで表示�
              && d.source is string && d.source.size() < 40
              && d.sourceLabel is string && d.sourceLabel.size() < 80
              && d.category is string && d.category.size() < 40
-             && (d.lane == null || d.lane in ['know', 'build', 'talk'])
+             && (d.lane == null || d.lane in ['security', 'know', 'build', 'talk'])
              && d.matchedTopics is list && d.matchedTopics.size() <= 20
              && (d.score == null || (d.score is number && d.score >= 0 && d.score <= 100))
              && d.title is string && d.title.size() <= 300
              && d.url is string && d.url.size() <= 2000 && d.url.matches('^https?://.*');
          }
        }
+
+       // 道具箱の状態（気になる・触った・見送り）。読むのは collector だけ
+       match /toolState/{toolId} {
+         allow read, list, delete: if false;
+         allow create, update: if request.resource.data.keys().hasOnly(['state', 'reason', 'updatedAt'])
+           && request.resource.data.state in ['new', 'interested', 'prepared', 'tried', 'passed']
+           && (request.resource.data.reason == null
+               || request.resource.data.reason in ['have-equivalent', 'out-of-scope', 'too-costly', 'not-mature', 'other'])
+           && request.resource.data.updatedAt == request.time
+           && toolId.size() <= 600;
+       }
+
+       // 道具箱の「URL を貼って追加」。collector が処理したら消す
+       match /toolInbox/{id} {
+         allow read, list, update, delete: if false;
+         allow create: if request.resource.data.keys().hasOnly(['url', 'createdAt'])
+           && request.resource.data.url is string
+           && request.resource.data.url.size() <= 2000
+           && request.resource.data.url.matches('^https://.*')
+           && request.resource.data.createdAt == request.time;
+       }
      }
    }
    ```
+
+   > **セキュリティ枠と道具箱を入れる前から使っている場合は、ルールを貼り直してください。**
+   > 旧ルールは `lane` を `know / build / talk` に限っているので、セキュリティ枠の記事への Good/Bad が
+   > 拒否されます。`toolState` / `toolInbox` の match が無いと、道具箱の操作もすべて拒否されます
+   > （どちらも失敗は `console.warn` に出るだけで、画面には出ません）。
 
    > **レーン導入前から使っている場合は、先にルールを更新してください。**
    > `hasOnly([...])` は許可する項目の**ホワイトリスト**なので、旧ルール
@@ -1372,7 +1463,11 @@ npm run radar:dry -- --thin=60 --budget=8
 | `data/community.json` | コミュニティの盤面。**日付を持たず、毎朝まるごと差し替わります** |
 
 
-| `data/radar.json` | 発掘の盤面。日付を持たず、毎朝まるごと差し替わります |
+| `data/tools/board.json` | 道具箱の盤面。日付を持たず、毎朝まるごと差し替わります |
+| `data/tools/ledger.json` | 道具箱の台帳（退避・見送りしたものも含む全件）。**ブラウザからは読みません** |
+| `data/tools/archive.json` | 退避・見送りした道具の最小限の一覧。道具箱タブで検索したときだけ読みます |
+| `data/security/incidents.json` | セキュリティ事案の名寄せ台帳（直近 30 日）。**ブラウザからは読みません** |
+| `data/radar.json` | 発掘の盤面（道具箱の入口として collector が読みます）。日付を持たず、毎朝まるごと差し替わります |
 | `data/radar-ledger.json` | 発掘の台帳（計測済みの語・名前解決の結果・計測履歴）。**ブラウザからは読みません** |
 | `data/index/YYYY-MM.json` | 検索用の月別インデックス（タイトル・要約・キーワード・リンク） |
 | `data/manifest.json` | 生成済みの日付・月の一覧と、生成元リポジトリ（設定編集リンク用） |
@@ -1418,8 +1513,8 @@ index を痩せさせる案は、占有が url 20% / summary 17% / title 15% / k
 ```
 collector/     収集・採点・要約（Node.js + TypeScript、GitHub Actions 上で実行）
 web/           閲覧用の SPA（Vite + React、GitHub Pages で配信）
-config/        トピック定義・監視対象・ソース定義・コミュニティの検索範囲・発掘のしきい値
-data/          生成されたダイジェスト・検索インデックス・話題台帳・発掘の台帳
+config/        トピック定義・監視対象・ソース定義・コミュニティの検索範囲・発掘のしきい値・道具箱の入口
+data/          生成されたダイジェスト・検索インデックス・道具箱・発掘とセキュリティ事案の台帳
 ```
 
 ## 注意点
