@@ -7,6 +7,8 @@ import {
   BuildDeepDiveSchema,
   DescribeResultSchema,
   KnowDeepDiveSchema,
+  SecurityDeepDiveSchema,
+  SecurityDescribeResultSchema,
   TalkDeepDiveSchema,
   DigestOutlookSchema,
   DigestSummarySchema,
@@ -15,10 +17,19 @@ import {
   type BuildDeepDiveResult,
   type DescribeItem,
   type KnowDeepDiveResult,
+  type SecurityDeepDiveResult,
   type TalkDeepDiveResult,
 } from './schemas.js';
 import { pickTopDiverse } from './prescore.js';
-import { DURABILITIES, LANES, LANE_LABELS, PAYOFFS } from './types.js';
+import {
+  ATTACK_STAGES,
+  DEFENSE_KINDS,
+  DURABILITIES,
+  GENERAL_LANES,
+  LANES,
+  LANE_LABELS,
+  PAYOFFS,
+} from './types.js';
 import type {
   Debate,
   DeepDive,
@@ -186,6 +197,26 @@ function readerContext(topics: TopicsConfig, feedbackNote?: string | null): stri
  * 答えられなければ落とす、という 1 つの問いのほうが境界が安定する。
  */
 const LANE_RUBRICS: Record<Lane, string> = {
+  security: `# このレーンの目的
+企業や組織の**情報漏洩・不正アクセス・攻撃の事案**を拾う。読者はこの枠で、
+攻撃がどう行われたのかと、個人・企業がとるべき具体的な対策を知りたい。
+
+# 採点基準（対策を引き出せるか × 事案の具体性）
+- 90-100: 実際に起きた事案で、侵入経路や手口が公表されている。個人にも企業にも
+  具体的な対策が引き出せる。広く使われている製品・サービスが関わっている。
+- 70-89 : 実際の事案で被害の規模は分かるが、手口は一部しか分からない。
+  または、悪用が確認された脆弱性で対処方法が明確なもの。
+- 50-69 : 事案はあるが情報が少なく、対策が一般論にとどまる。
+- 30-49 : 一般的な注意喚起・調査レポート・製品紹介で、特定の事案が無い。
+- 0-29  : 宣伝、セキュリティを題材にしただけの記事、まとめ記事。
+
+# 一次情報を上に置く
+被害組織の公式発表・JPCERT/CC・IPA・CISA など公的機関の情報は、同じ事案の二次報道より高くする。
+
+# 判定の問い
+**「この記事から、個人と企業がそれぞれ明日から何をすればよいか書けるか」**
+書けないなら 50 点未満。`,
+
   know: `# このレーンの目的
 「知っておかないと判断を間違えるもの」だけを拾う。**読者の関心領域かどうかは問わない。**
 ハードウェアの価格、企業の買収、規制、大規模障害のように、読者の関心トピック一覧に
@@ -301,6 +332,15 @@ ${LANE_RUBRICS[lane]}
  * talk レーンだけは項目自体が増える（意見の足場）。
  */
 const LANE_DESCRIBE_BLOCKS: Record<Lane, string> = {
+  security: `# このレーンについて
+これらは「情報漏洩・攻撃の事案」として選ばれている。
+takeaways には、誰が・何を・どれくらい失ったか、と、どうやって入られたかを入れる。
+手口が分からないなら、分からないと書く。
+
+# incident（事案の名寄せ）
+同じ事案を別の媒体が書いた記事には、**同じ incident の文字列を付ける。**
+既知の事案一覧が渡されていれば、同じ事案はその文字列をそのまま使う。`,
+
   know: `# このレーンについて
 これらは「知っておかないと判断を間違えるもの」として選ばれている。
 takeaways には規模が伝わる具体を必ず入れる——何に、いつから、どれくらいの範囲で効くのか。
@@ -645,6 +685,7 @@ async function describePass(
   topics: TopicsConfig,
   cfg: RuntimeConfig,
   feedbackNote?: string | null,
+  knownIncidents: readonly string[] = [],
 ): Promise<Map<string, DescribeItem>> {
   const described = new Map<string, DescribeItem>();
   if (shortlist.length === 0) return described;
@@ -664,8 +705,17 @@ async function describePass(
   }
 
   const system = describeSystemPrompt(lane, topics, feedbackNote);
-  // talk レーンだけ「意見の足場」の 5 項目が乗る。他のレーンで無駄な出力をさせない
-  const schema = lane === 'talk' ? TalkDescribeResultSchema : DescribeResultSchema;
+  // talk は「意見の足場」、security は事案の名寄せキーが乗る。他のレーンで無駄な出力をさせない
+  const schema =
+    lane === 'talk'
+      ? TalkDescribeResultSchema
+      : lane === 'security'
+        ? SecurityDescribeResultSchema
+        : DescribeResultSchema;
+  const incidentBlock =
+    lane === 'security' && knownIncidents.length
+      ? `\n\n# 既知の事案一覧（同じ事案ならこの文字列を incident にそのまま使う）\n${knownIncidents.map((k) => `- ${k}`).join('\n')}`
+      : '';
   await mapLimit(batches, 3, async (batch, batchIndex) => {
     // ref は採点段と同じく通し番号で振る（実装が食い違うと取り違えの温床になる）
     const offset = batchIndex * DESCRIBE_BATCH_SIZE;
@@ -676,7 +726,7 @@ async function describePass(
         model: cfg.rankModel,
         maxTokens: 16000,
         system,
-        prompt: `以下 ${batch.length} 件を要約してください。\n\n${body}`,
+        prompt: `以下 ${batch.length} 件を要約してください。${incidentBlock}\n\n${body}`,
         schema,
       });
       for (const r of parsed.items ?? []) {
@@ -743,6 +793,8 @@ export async function rankItems(
   topics: TopicsConfig,
   cfg: RuntimeConfig,
   feedbackNote?: string | null,
+  /** security の名寄せに使う、直近の既知の事案キー */
+  knownIncidents: readonly string[] = [],
 ): Promise<RankedItem[]> {
   const b = await getBackend();
   if (!b) {
@@ -757,7 +809,9 @@ export async function rankItems(
   }
 
   const perLane = await Promise.all(
-    LANES.map((lane) => rankLane(b, lane, byLane[lane], topics, cfg, feedbackNote)),
+    LANES.map((lane) =>
+      rankLane(b, lane, byLane[lane], topics, cfg, feedbackNote, knownIncidents),
+    ),
   );
   return perLane.flat();
 }
@@ -814,7 +868,7 @@ export function describeShortlist<T extends PreScoredItem>(
   otherN: number,
 ): T[] {
   const byScore = [...items].sort((a, b) => scoreOf(b) - scoreOf(a));
-  const laneOtherN = Math.ceil(otherN / LANES.length);
+  const laneOtherN = Math.ceil(otherN / GENERAL_LANES.length);
   const base = byScore.slice(0, topN + laneOtherN + 6);
   const taken = new Set(base.map((i) => i.id));
   const extra: T[] = [];
@@ -850,6 +904,7 @@ async function rankLane(
   topics: TopicsConfig,
   cfg: RuntimeConfig,
   feedbackNote?: string | null,
+  knownIncidents: readonly string[] = [],
 ): Promise<RankedItem[]> {
   if (items.length === 0) return [];
 
@@ -869,9 +924,26 @@ async function rankLane(
    * 選ばれると、要約が本文の切り出しになり durability も既定値になる
    * （判定していないのに枠を満たしてしまう）。その分だけ候補を広げておく。
    */
-  const shortlist = describeShortlist(items, scoreOf, cfg.topN, cfg.otherN);
+  // security は予算を別に持つ。describeShortlist は otherN を 3 レーンで割るので、3 倍して渡す
+  const shortlist =
+    lane === 'security'
+      ? describeShortlist(
+          items,
+          scoreOf,
+          cfg.securityTopN,
+          cfg.securityOtherN * GENERAL_LANES.length,
+        )
+      : describeShortlist(items, scoreOf, cfg.topN, cfg.otherN);
 
-  const described = await describePass(b, lane, shortlist, topics, cfg, feedbackNote);
+  const described = await describePass(
+    b,
+    lane,
+    shortlist,
+    topics,
+    cfg,
+    feedbackNote,
+    knownIncidents,
+  );
   log.info(`  [${LANE_LABELS[lane]}] 要約: ${described.size}/${shortlist.length} 件`);
   warnLongTakeaways(lane, described);
 
@@ -895,6 +967,7 @@ async function rankLane(
       category: CATEGORIES.includes(r.category) ? r.category : 'その他',
       lane,
       debate: lane === 'talk' ? toDebate(r) : null,
+      ...(lane === 'security' ? { incident: r.incident?.trim() || null } : {}),
       readingMinutes: Number.isFinite(r.readingMinutes)
         ? Math.max(1, Math.min(30, Math.round(r.readingMinutes)))
         : 5,
@@ -940,6 +1013,25 @@ function warnMissingTitleJa(lane: Lane, shortlist: PreScoredItem[], ranked: Rank
  * 一覧側の要約（describe）と食い違わないよう、判定の問いは採点基準と同じものを使う。
  */
 const LANE_DEEP_BLOCKS: Record<Lane, string> = {
+  security: `# このカードの目的:「セキュリティ」
+これは企業・組織の情報漏洩や攻撃の事案として選ばれている。読者が知りたいのは
+**どうやって攻撃されたのか** と **自分（個人として・企業として）は何をすればよいか** である。
+
+**このレーンの箇条書きは一覧表として書く。** 1 項目 1 行で、事実・手口・行動だけを置く。
+
+- **whatHappened** — 被害組織・漏洩した情報・件数・日付。推測は書かない。
+- **attackChain** — 記事から読み取れた段階だけを起きた順に書く。
+  **書かれていない段階を一般論で埋めない。** 手口が未公表なら空配列にして unknowns に書く。
+- **personal** — 個人が今日やること。この事案の利用者なら何をするか、そうでない人でも
+  同じ手口から身を守るには何をするか。打てる操作・開く設定まで具体化する。
+- **organization** — 企業が入れること。**この事案の手口のどの段階を止めるか**が分かるように書く。
+  手口と関係の無い一般論は書かない。
+- **relevance** — 該当するかを目で拾える条件だけ（「〜を使っている人」など）。
+- **whatsNew** — 「前回までに分かっていたこと」が渡されたときだけ、そこからの差分を書く。
+  同じことを繰り返さない。
+- 図は、侵入から持ち出しまでの経路なら architecture、発覚から公表までの時系列なら flow が合う。
+- relatedLinks には、被害組織の公式発表や公的機関の注意喚起が本文にあれば優先して入れる。`,
+
   know: `# このカードの目的:「知る」
 これは規模の大きい話として選ばれている。読者が知りたいのは使い方ではなく、
 **自分がどう巻き込まれるか** である。手順を書く項目も「試す」ではなく「確認する」に寄せる。
@@ -1229,6 +1321,8 @@ export async function deepDive(
   topics: TopicsConfig,
   cfg: RuntimeConfig,
   bodyImages: readonly BodyImage[] = [],
+  /** security の続報のとき、前回までに分かっていたこと */
+  previousIncident: string | null = null,
 ): Promise<DeepDive> {
   const b = await getBackend();
   if (!b) return fallbackDeepDive(item);
@@ -1245,6 +1339,7 @@ export async function deepDive(
      * 同じ記事について画面の上下で違うことを言うことになる。
      */
     item.debate ? `一覧で提示済みの争点: ${item.debate.axis}` : null,
+    previousIncident ? `前回までに分かっていたこと（この事案の続報）: ${previousIncident}` : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -1264,6 +1359,31 @@ export async function deepDive(
   try {
     // スキーマはレーンごとに違うので、分岐したうえで呼ぶ（union のままだと型が絞れない）
     switch (item.lane) {
+      case 'security': {
+        const p = await complete(b, { ...request, schema: SecurityDeepDiveSchema });
+        return {
+          ...toBase(p, item, bodyImages),
+          lane: 'security',
+          whatHappened: clean(p.whatHappened),
+          attackChain: (p.attackChain ?? [])
+            .map((st) => ({
+              stage: ATTACK_STAGES.includes(st.stage) ? st.stage : 'other',
+              detail: st.detail?.trim() ?? '',
+            }))
+            .filter((st) => st.detail),
+          personal: clean(p.personal),
+          organization: (p.organization ?? [])
+            .map((o) => ({
+              kind: DEFENSE_KINDS.includes(o.kind) ? o.kind : 'tech',
+              action: o.action?.trim() ?? '',
+            }))
+            .filter((o) => o.action),
+          relevance: clean(p.relevance),
+          unknowns: clean(p.unknowns),
+          // 前回の文脈を渡していないのに書いてきたものは採らない（比べる相手の無い差分は捏造）
+          whatsNew: previousIncident ? p.whatsNew?.trim() || null : null,
+        };
+      }
       case 'know': {
         const p = await complete(b, { ...request, schema: KnowDeepDiveSchema });
         return {
@@ -1325,7 +1445,11 @@ export async function deepDive(
 
 /** 3 レーン共通の項目を整える */
 function toBase(
-  parsed: KnowDeepDiveResult | BuildDeepDiveResult | TalkDeepDiveResult,
+  parsed:
+    | SecurityDeepDiveResult
+    | KnowDeepDiveResult
+    | BuildDeepDiveResult
+    | TalkDeepDiveResult,
   item: RankedItem,
   bodyImages: readonly BodyImage[],
 ) {
@@ -1445,6 +1569,18 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
   const failed = 'LLM による要約に失敗したため、抜粋のみ表示しています。';
 
   switch (item.lane) {
+    case 'security':
+      return {
+        ...base,
+        lane: 'security',
+        whatHappened: [],
+        attackChain: [],
+        personal: [],
+        organization: [],
+        relevance: [],
+        unknowns: [failed],
+        whatsNew: null,
+      };
     case 'know':
       return { ...base, lane: 'know', impact: [], timeline: [], checkNow: [], unknowns: [failed] };
     case 'build':

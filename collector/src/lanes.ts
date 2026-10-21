@@ -2,6 +2,21 @@ import type { Lane, PreScoredItem } from './types.js';
 import { LANES } from './types.js';
 
 /* ------------------------------------------------------------------ *
+ * security: 事案の語彙
+ *
+ * 規模の語彙（CONSEQUENCE_TERMS）と重なるが、こちらは「攻撃・漏洩の事案か」だけを見る。
+ * 障害・廃止・買収は know の仕事なので入れない。
+ * ------------------------------------------------------------------ */
+const SECURITY_TERMS = [
+  '脆弱性', '情報漏洩', '情報漏えい', '漏洩', '漏えい', '流出', '不正アクセス', 'サイバー攻撃',
+  'ランサムウェア', 'マルウェア', 'フィッシング', '標的型', '乗っ取り', 'ゼロデイ', '侵害',
+  'サプライチェーン攻撃', '認証情報', 'クレデンシャル', '改ざん', 'バックドア', '不正ログイン',
+  'vulnerability', 'exploit', 'breach', 'data leak', 'leaked', 'ransomware', 'malware',
+  'phishing', 'zero-day', '0-day', 'compromise', 'credential', 'backdoor', 'supply chain attack',
+  'infostealer', 'cve-', 'ghsa-', 'threat actor', 'apt',
+];
+
+/* ------------------------------------------------------------------ *
  * レーンの事前フィルタ
  *
  * 以前は preScore 1 本で 600 件を 150 件に絞っていた。preScore の主項は
@@ -85,6 +100,8 @@ const CONTENTION_TERMS = [
 ];
 
 export interface LaneAffinity {
+  /** 無ければ 0 とみなす（security 導入前のテストと設定が書いたまま通るように） */
+  security?: number;
   know: number;
   build: number;
   talk: number;
@@ -193,6 +210,20 @@ function talkScore(item: PreScoredItem, hay: string): number {
   return clamp01(vocabulary * 0.45 + ratio * 0.3 + visibility + question);
 }
 
+/**
+ * security: 攻撃・漏洩の事案か。
+ *
+ * セキュリティ系のフィード（watchlist の category: "security"）は定義上そうなので 1。
+ * それ以外は、見出しに語彙があれば強く、本文だけなら 2 語以上で届く強さにする。
+ * 本文に「攻撃」と 1 回書いてあるだけの設計記事まで吸い込まないため。
+ */
+function securityScore(item: PreScoredItem, hay: string): number {
+  if (item.feedCategory === 'security') return 1;
+  const title = item.title.toLowerCase();
+  const inTitle = SECURITY_TERMS.some((t) => title.includes(t)) ? 0.6 : 0;
+  return clamp01(Math.max(inTitle, saturate(hits(hay, SECURITY_TERMS), 1.5)));
+}
+
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
 }
@@ -200,6 +231,7 @@ function clamp01(n: number): number {
 export function laneAffinity(item: PreScoredItem): LaneAffinity {
   const hay = haystack(item);
   return {
+    security: securityScore(item, hay),
     know: knowScore(item, hay),
     build: buildScore(item, hay),
     talk: talkScore(item, hay),
@@ -207,6 +239,8 @@ export function laneAffinity(item: PreScoredItem): LaneAffinity {
 }
 
 export interface LaneThresholds {
+  /** 無ければ security には振り分けない */
+  security?: number;
   know: number;
   talk: number;
 }
@@ -223,6 +257,10 @@ export interface LaneThresholds {
  * 決められないので、ログにレーン別の件数を出して調整できる形にした。
  */
 export function assignLane(affinity: LaneAffinity, thresholds: LaneThresholds): Lane {
+  // security を先に見る。事案は規模の語彙にも当たるので、know が先だと全部 know に取られる
+  if (thresholds.security != null && (affinity.security ?? 0) >= thresholds.security) {
+    return 'security';
+  }
   if (affinity.know >= thresholds.know) return 'know';
   if (affinity.talk >= thresholds.talk) return 'talk';
   return 'build';
@@ -247,23 +285,31 @@ export function selectLaneCandidates(
   items: readonly PreScoredItem[],
   perLane: number,
   thresholds: LaneThresholds,
+  /** security だけ別の上限にする。省略時は perLane */
+  securityPerLane: number = perLane,
 ): LaneSelection {
+  const limit = (lane: Lane) => (lane === 'security' ? securityPerLane : perLane);
   const scored = items.map((item) => ({ item, affinity: laneAffinity(item) }));
 
-  const buckets: Record<Lane, typeof scored> = { know: [], build: [], talk: [] };
+  const buckets: Record<Lane, typeof scored> = { security: [], know: [], build: [], talk: [] };
   for (const entry of scored) buckets[assignLane(entry.affinity, thresholds)].push(entry);
 
-  const assigned = { know: buckets.know.length, build: buckets.build.length, talk: buckets.talk.length };
-  const candidates: Record<Lane, PreScoredItem[]> = { know: [], build: [], talk: [] };
+  const assigned = {
+    security: buckets.security.length,
+    know: buckets.know.length,
+    build: buckets.build.length,
+    talk: buckets.talk.length,
+  };
+  const candidates: Record<Lane, PreScoredItem[]> = { security: [], know: [], build: [], talk: [] };
   const taken = new Set<string>();
 
-  // know から埋める。取りこぼしたときの損失がいちばん大きいレーンなので先に確保する
+  // LANES の順（security → know → …）で埋める。取りこぼしの損失が大きい順に確保する
   for (const lane of LANES) {
     const picked = buckets[lane]
       .slice()
-      .sort((a, b) => b.affinity[lane] - a.affinity[lane])
+      .sort((a, b) => (b.affinity[lane] ?? 0) - (a.affinity[lane] ?? 0))
       .filter((e) => !taken.has(e.item.id))
-      .slice(0, perLane);
+      .slice(0, limit(lane));
     for (const e of picked) taken.add(e.item.id);
     candidates[lane] = picked.map((e) => e.item);
   }
@@ -276,10 +322,15 @@ export function selectLaneCandidates(
    * （index.ts の minTopScore / minOtherScore）で落ちる。
    */
   for (const lane of LANES) {
+    /*
+     * security は補充しない。事案でない記事を「その日のセキュリティ」として
+     * 採点に回しても、出てくるのは無関係な記事の要約だけで、空の日より悪い。
+     */
+    if (lane === 'security') continue;
     if (candidates[lane].length >= perLane) continue;
     const fill = scored
       .filter((e) => !taken.has(e.item.id))
-      .sort((a, b) => b.affinity[lane] - a.affinity[lane])
+      .sort((a, b) => (b.affinity[lane] ?? 0) - (a.affinity[lane] ?? 0))
       .slice(0, perLane - candidates[lane].length);
     for (const e of fill) taken.add(e.item.id);
     candidates[lane].push(...fill.map((e) => e.item));

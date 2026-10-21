@@ -40,7 +40,7 @@ export type Durability = 'foundational' | 'durable' | 'ephemeral';
  * キュレーションのレーン。読者の 3 つの目的に対応する。
  * この機能より前の日は undefined で、代わりに domain（ai / general）が入っている。
  */
-export type Lane = 'know' | 'build' | 'talk';
+export type Lane = 'security' | 'know' | 'build' | 'talk';
 
 /** talk レーンの記事に付く「意見の足場」。意見の下書きではない */
 export interface Debate {
@@ -214,6 +214,29 @@ export interface DeepDiveBase {
   headline?: string;
 }
 
+export type AttackStage =
+  | 'initial-access'
+  | 'privilege-escalation'
+  | 'lateral-movement'
+  | 'exfiltration'
+  | 'impact'
+  | 'other';
+
+export type DefenseKind = 'tech' | 'ops' | 'org';
+
+/** セキュリティ: 事案 → 攻撃の流れ → 個人と企業の対策 */
+export interface SecurityDeepDive extends DeepDiveBase {
+  lane: 'security';
+  whatHappened: string[];
+  attackChain: { stage: AttackStage; detail: string }[];
+  personal: string[];
+  organization: { kind: DefenseKind; action: string }[];
+  relevance: string[];
+  unknowns: string[];
+  /** 続報のとき、前回から変わったこと */
+  whatsNew: string | null;
+}
+
 export interface KnowDeepDive extends DeepDiveBase {
   lane: 'know';
   impact: string[];
@@ -290,7 +313,12 @@ export interface LegacyDeepDive extends DeepDiveBase {
   caveats: string[];
 }
 
-export type DeepDive = KnowDeepDive | BuildDeepDive | TalkDeepDive | LegacyDeepDive;
+export type DeepDive =
+  | SecurityDeepDive
+  | KnowDeepDive
+  | BuildDeepDive
+  | TalkDeepDive
+  | LegacyDeepDive;
 
 export interface TopItem extends RankedItem {
   rank: number;

@@ -55,6 +55,8 @@ export interface RawItem {
   lang: 'ja' | 'en' | 'unknown';
   /** ソース定義側で与えた基礎点（RSS の weight など） */
   sourceWeight: number;
+  /** フィード側で与えた分類（watchlist の category）。今は 'security' だけ */
+  feedCategory?: string;
   /** 重複排除でまとめた際に、どのソースから見つかったか。話題性の判定に使う */
   foundIn?: SourceKind[];
   /**
@@ -90,6 +92,8 @@ export interface PreScoredItem extends RawItem {
  * 単一プロダクトの話に偏ったのはそれが原因だった。目的ごとに別の証拠を使い、
  * 別の予算を与える。
  *
+ * - security: 企業の情報漏洩・攻撃の事案。攻撃手段と、個人・企業の対策まで書く専用枠。
+ *          セキュリティ系のフィード由来か、見出しに事案の語彙があるものだけが入る。
  * - know : 知る。規模の大きい話。影響範囲 × 取り返しのつかなさで測る。
  *          読者の関心と独立に成立するので、トピック一致を判定に使わない。
  * - build: 作る。試したくなるもの。可能性の差分 × 触れる実体で測る。
@@ -98,11 +102,20 @@ export interface PreScoredItem extends RawItem {
  * - talk : 話す。意見が言えるもの。立場が割れることを discussion 量と語彙で測る。
  *          二次情報のほうが強いことが多いので、一次情報を優遇しない。
  */
-export const LANES = ['know', 'build', 'talk'] as const;
+export const LANES = ['security', 'know', 'build', 'talk'] as const;
 export type Lane = (typeof LANES)[number];
+
+/**
+ * security 以外の 3 レーン。「その他の注目記事」を等分する母数はこちら。
+ *
+ * security は後から足した専用枠で、件数の予算を別に持つ（config の security*）。
+ * 等分の母数に入れると、既存の 3 レーンの枠が黙って 3/4 に減る。
+ */
+export const GENERAL_LANES = ['know', 'build', 'talk'] as const;
 
 /** 実行ログ・LLM への指示・画面で共通の表示名 */
 export const LANE_LABELS: Record<Lane, string> = {
+  security: 'セキュリティ',
   know: '知る',
   build: '作る',
   talk: '話す',
@@ -184,6 +197,11 @@ export interface RankedItem extends PreScoredItem {
   lane: Lane;
   /** talk レーンのときだけ入る意見の足場。他のレーンでは null */
   debate: Debate | null;
+  /**
+   * security レーンのときだけ入る事案の名寄せキー（「被害組織 事案の種類」）。
+   * 同じ事案の記事を 1 件にまとめ、日をまたいで続報を追うのに使う。他のレーンでは無い。
+   */
+  incident?: string | null;
   /** 元記事の読了目安（分）。時間対効果の「コスト」側 */
   readingMinutes: number;
   payoff: Payoff;
@@ -439,7 +457,46 @@ export interface TalkDeepDive extends DeepDiveBase {
   verify: string[];
 }
 
-export type DeepDive = KnowDeepDive | BuildDeepDive | TalkDeepDive;
+/** 攻撃の段階。記事から読み取れた段階だけを並べる */
+export const ATTACK_STAGES = [
+  'initial-access',
+  'privilege-escalation',
+  'lateral-movement',
+  'exfiltration',
+  'impact',
+  'other',
+] as const;
+export type AttackStage = (typeof ATTACK_STAGES)[number];
+
+export const DEFENSE_KINDS = ['tech', 'ops', 'org'] as const;
+export type DefenseKind = (typeof DEFENSE_KINDS)[number];
+
+/**
+ * セキュリティ: 事案を「何が起きたか → どう攻められたか → 何をすればよいか」で読む。
+ *
+ * 対策は個人と企業で分ける。同じ事案でも、個人が今日やること（パスワード変更・
+ * 通知の確認）と、企業が仕組みとして入れること（MFA の強制・ログ監視）は
+ * 粒度も主語も違うので、混ぜると両方とも読めなくなる。
+ */
+export interface SecurityDeepDive extends DeepDiveBase {
+  lane: 'security';
+  /** 何が起きたか。企業・規模・時系列を 1 行ずつ */
+  whatHappened: string[];
+  /** 攻撃の流れ。記事から読み取れた段階だけ */
+  attackChain: { stage: AttackStage; detail: string }[];
+  /** 個人が今日やること */
+  personal: string[];
+  /** 企業が入れること。技術・運用・組織に分ける */
+  organization: { kind: DefenseKind; action: string }[];
+  /** 読者に関係があるかの判断材料 */
+  relevance: string[];
+  /** まだ確定していないこと */
+  unknowns: string[];
+  /** 続報のとき、前回から変わったこと。初報なら null */
+  whatsNew: string | null;
+}
+
+export type DeepDive = SecurityDeepDive | KnowDeepDive | BuildDeepDive | TalkDeepDive;
 
 export interface TopItem extends RankedItem {
   rank: number;
@@ -706,7 +763,7 @@ export interface Manifest {
  */
 export interface Watchlist {
   repos: string[];
-  feeds: { label: string; url: string; weight: number }[];
+  feeds: { label: string; url: string; weight: number; category?: string }[];
   changelogs: { label: string; url: string; homepage: string }[];
 }
 

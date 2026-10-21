@@ -162,3 +162,35 @@ describe('selectLaneCandidates', () => {
     assert.equal(total, 2);
   });
 });
+
+describe('security レーン', () => {
+  const WITH_SECURITY = { security: 0.55, know: 0.42, talk: 0.4 };
+
+  it('セキュリティ系フィードの記事は security に入る', () => {
+    const a = laneAffinity(item({ id: 's1', source: 'rss', feedCategory: 'security', title: '定期メンテナンスのお知らせ' }));
+    assert.equal(assignLane(a, WITH_SECURITY), 'security');
+  });
+
+  it('見出しに事案の語彙があれば、know より先に security に入る', () => {
+    const a = laneAffinity(item({ id: 's2', title: '大手通販サイトで不正アクセス、顧客情報 50 万件が流出' }));
+    assert.equal(assignLane(a, WITH_SECURITY), 'security');
+  });
+
+  it('本文で 1 回触れただけの記事は security に入れない', () => {
+    const a = laneAffinity(
+      item({ id: 's3', title: 'React の状態管理を見直した話', snippet: '攻撃面を減らす設計の話も少し。' }),
+    );
+    assert.notEqual(assignLane(a, WITH_SECURITY), 'security');
+  });
+
+  it('しきい値に security が無ければ振り分けない（従来どおり know に入る）', () => {
+    const a = laneAffinity(item({ id: 's4', title: '大規模な脆弱性が見つかり緊急の対応が必要' }));
+    assert.equal(assignLane(a, THRESHOLDS), 'know');
+  });
+
+  it('security の候補は他のレーンから補充しない', () => {
+    const items = Array.from({ length: 6 }, (_, i) => item({ id: `n${i}` }));
+    const { candidates } = selectLaneCandidates(items, 3, WITH_SECURITY, 3);
+    assert.equal(candidates.security.length, 0);
+  });
+});

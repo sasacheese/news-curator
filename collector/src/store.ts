@@ -9,6 +9,7 @@ import type {
   RadarBoard,
   RadarLedgerEntry,
 } from './types.js';
+import type { IncidentLedger } from './incidents.js';
 import { log, normalizeUrl } from './util.js';
 
 const DIGEST_DIR = resolve(DATA_DIR, 'digests');
@@ -26,6 +27,12 @@ const RADAR_PATH = resolve(DATA_DIR, 'radar.json');
  * 閲覧者が毎回数百件ぶんを落とすことになる。
  */
 const RADAR_LEDGER_PATH = resolve(DATA_DIR, 'radar-ledger.json');
+/**
+ * セキュリティ事案の台帳。**ブラウザからは読まない。**
+ * 日をまたいで続報を名寄せするためだけに collector が読み書きする。
+ */
+const INCIDENT_PATH = resolve(DATA_DIR, 'security', 'incidents.json');
+
 async function ensureDirs(): Promise<void> {
   await mkdir(DIGEST_DIR, { recursive: true });
   await mkdir(INDEX_DIR, { recursive: true });
@@ -348,4 +355,14 @@ export async function loadRecentIndexEntries(date: string, days: number): Promis
   }
   entries.sort((a, b) => (a.date < b.date ? 1 : -1));
   return entries;
+}
+
+export async function loadIncidentLedger(): Promise<IncidentLedger> {
+  return readJsonOr<IncidentLedger>(INCIDENT_PATH, {});
+}
+
+export async function saveIncidentLedger(ledger: IncidentLedger): Promise<void> {
+  await mkdir(resolve(DATA_DIR, 'security'), { recursive: true });
+  await writeJson(INCIDENT_PATH, ledger);
+  log.info(`保存: data/security/incidents.json (${Object.keys(ledger).length} 件)`);
 }

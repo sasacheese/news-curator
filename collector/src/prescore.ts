@@ -1,5 +1,5 @@
 import type { Lane, PreScoredItem, RawItem, SourceKind, TopicsConfig } from './types.js';
-import { LANES } from './types.js';
+import { GENERAL_LANES, LANES } from './types.js';
 import { isHttpUrl, normalizeUrl, titleKey } from './util.js';
 
 /**
@@ -321,21 +321,24 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
 export function pickByLane<T extends { lane: Lane }>(
   ranked: readonly T[],
   total: number,
+  /** security の件数。等分の外で別に取る（既存 3 レーンの枠を削らないため） */
+  securityTotal = 0,
 ): Record<Lane, T[]> {
-  const quota = Math.floor(total / LANES.length);
-  const picked: Record<Lane, T[]> = { know: [], build: [], talk: [] };
+  const quota = Math.floor(total / GENERAL_LANES.length);
+  const picked: Record<Lane, T[]> = { security: [], know: [], build: [], talk: [] };
 
-  for (const lane of LANES) {
+  picked.security = ranked.filter((i) => i.lane === 'security').slice(0, securityTotal);
+  for (const lane of GENERAL_LANES) {
     picked[lane] = ranked.filter((i) => i.lane === lane).slice(0, quota);
   }
 
-  // 端数と、埋まらなかったレーンのぶんを、残りからスコア順で配る
+  // 端数と、埋まらなかったレーンのぶんを、残りからスコア順で配る（security は対象外）
   const taken = new Set<T>(LANES.flatMap((lane) => picked[lane]));
-  let remaining = total - taken.size;
+  let remaining = total - GENERAL_LANES.reduce((n, lane) => n + picked[lane].length, 0);
   if (remaining > 0) {
     for (const item of ranked) {
       if (remaining <= 0) break;
-      if (taken.has(item)) continue;
+      if (taken.has(item) || item.lane === 'security') continue;
       picked[item.lane].push(item);
       taken.add(item);
       remaining--;

@@ -26,6 +26,8 @@ import { TryBlock } from '../TryBlock';
 import { buildTryPrompt } from '../tryPrompt';
 import { groupByLane } from '../lanes';
 import type {
+  AttackStage,
+  DefenseKind,
   Clash,
   Debate,
   DeepDive,
@@ -607,6 +609,21 @@ function Byline({ item }: { item: RankedItem }) {
   );
 }
 
+const ATTACK_STAGE_LABELS: Record<AttackStage, string> = {
+  'initial-access': '侵入',
+  'privilege-escalation': '権限昇格',
+  'lateral-movement': '横展開',
+  exfiltration: '持ち出し',
+  impact: '実害',
+  other: 'その他',
+};
+
+const DEFENSE_KIND_LABELS: Record<DefenseKind, string> = {
+  tech: '技術',
+  ops: '運用',
+  org: '組織',
+};
+
 /**
  * カードの本体。レーンごとに項目構成が違う。
  *
@@ -688,6 +705,54 @@ function CardBody({
     ) : null;
 
   switch (deep.lane) {
+    case 'security':
+      return (
+        <>
+          {deep.whatsNew && (
+            <Detail label="前回からの続報">
+              <p>{deep.whatsNew}</p>
+            </Detail>
+          )}
+          {list('何が起きたか', deep.whatHappened, 'what')}
+          {deep.attackChain.length > 0 && (
+            <Detail label="攻撃の流れ">
+              <ol className="attack-chain">
+                {deep.attackChain.map((st, i) => (
+                  <li key={i}>
+                    <span className="attack-chain__stage">{ATTACK_STAGE_LABELS[st.stage]}</span>
+                    <Annotated
+                      text={st.detail}
+                      prerequisites={prerequisites}
+                      idPrefix={`${itemId}-atk-${i}`}
+                    />
+                  </li>
+                ))}
+              </ol>
+            </Detail>
+          )}
+          {steps('個人の対策', deep.personal)}
+          {deep.organization.length > 0 && (
+            <Detail label="企業の対策">
+              <ul className="defense">
+                {deep.organization.map((o, i) => (
+                  <li key={i}>
+                    <span className={`defense__kind defense__kind--${o.kind}`}>
+                      {DEFENSE_KIND_LABELS[o.kind]}
+                    </span>
+                    <Annotated
+                      text={o.action}
+                      prerequisites={prerequisites}
+                      idPrefix={`${itemId}-def-${i}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Detail>
+          )}
+          {list('関係があるか', deep.relevance, 'relevance')}
+          {list('まだ確定していないこと', deep.unknowns, 'unknown', true)}
+        </>
+      );
     case 'know':
       return (
         <>

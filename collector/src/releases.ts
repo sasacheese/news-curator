@@ -108,6 +108,8 @@ export function collectReleaseCandidates(
     if (item.source === 'changelog') {
       candidates.push({ item, alsoReleased: [], definite: true });
     } else if (item.source === 'rss') {
+      // セキュリティ系のフィードは事案の報道で、リリース告知ではない（security レーンが扱う）
+      if (item.feedCategory === 'security') continue;
       // 公式ブログにはリリース告知と事業発表が混ざるので LLM に判定させる
       candidates.push({ item, alsoReleased: [], definite: false });
     } else if (item.source === 'github_repo') {
