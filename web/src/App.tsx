@@ -12,14 +12,12 @@ import { RadarView } from './views/RadarView';
 import { SearchView } from './views/SearchView';
 import { SettingsView } from './views/SettingsView';
 import { TodayView } from './views/TodayView';
-import { TrendView } from './views/TrendView';
 
 export type Route =
   | { name: 'today'; date?: string }
   | { name: 'search'; q?: string }
   | { name: 'archive' }
   | { name: 'community' }
-  | { name: 'trend' }
   | { name: 'radar' }
   | { name: 'settings' };
 
@@ -37,7 +35,8 @@ function parseHash(hash: string): Route {
     case 'community':
       return { name: 'community' };
     case 'trend':
-      return { name: 'trend' };
+      // トレンドタブは廃止した。古いブックマークは今日へ送る
+      return { name: 'today' };
     case 'radar':
       return { name: 'radar' };
     case 'settings':
@@ -78,11 +77,6 @@ type Tab = { key: Route['name']; label: string; href: string };
  */
 const TABS: Tab[] = [
   { key: 'today', label: '今日', href: '/today' },
-  /*
-   * トレンドは「今日」の隣。日次の差分（今日）と、日をまたいだ状態（トレンド）は
-   * 対になっているので、この 2 つは並べる。
-   */
-  { key: 'trend', label: 'トレンド', href: '/trend' },
   /*
    * 発掘はその次。今日・トレンドが「いま何が起きているか」を時間で見る枠なのに対して、
    * こちらは時間ではなく**地域の差**を見る枠なので、日次の 2 つのあとに置く。
@@ -278,7 +272,6 @@ export function App() {
           {/* 盤面は manifest に依存しない（日付を持たない 1 ファイルなので） */}
           {route.name === 'radar' && <RadarView />}
           {route.name === 'community' && <CommunityView />}
-          {route.name === 'trend' && <TrendView />}
           {!error && route.name === 'archive' && <ArchiveView manifest={manifest} />}
           {!error && route.name === 'search' && (
             <SearchView manifest={manifest} initialQuery={route.q ?? ''} />

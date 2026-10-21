@@ -5,7 +5,6 @@ import type {
   IndexEntry,
   Manifest,
   TopicsConfig,
-  TrendBoard,
   Watchlist,
 } from './types';
 
@@ -71,16 +70,6 @@ export function loadCommunityBoard(): Promise<CommunityBoard> {
  */
 export function loadRadarBoard(): Promise<RadarBoard> {
   return getJson<RadarBoard>('data/radar.json');
-}
-
-/**
- * トレンドの盤面を読む。
- *
- * コミュニティと同じ、日付を持たない 1 ファイル。過去ぶんが無いので常に検証する。
- * まだ一度も生成していないリポジトリでは 404 になるので、呼び出し側で受ける。
- */
-export function loadTrendBoard(): Promise<TrendBoard> {
-  return getJson<TrendBoard>('data/trends/board.json');
 }
 
 /**

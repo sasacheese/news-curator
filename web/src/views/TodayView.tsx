@@ -4,7 +4,6 @@ import { AuthorModal } from '../AuthorModal';
 import { OtherArticles } from '../OtherArticles';
 import { ReleaseList } from '../ReleaseList';
 import { VisualFigure } from '../VisualFigure';
-import { TrendBand } from '../TrendBand';
 import { WatchlistPanel } from '../WatchlistPanel';
 import { loadDigest } from '../api';
 import { Annotated, TermChips } from '../Annotated';
@@ -244,12 +243,6 @@ export function TodayView({ manifest, date }: Props) {
           )}
         </section>
       )}
-
-      {/*
-        動いている話題の帯。ここは気づきの入口で、追うのはトレンドタブ側。
-        過去日を開いているときは出さない（盤面は日付を持たないので嘘になる）。
-      */}
-      <TrendBand isToday={targetDate != null && targetDate === manifest?.latest} />
 
       {/*
         同じ数字を文章と数値タイルで二度出していたので、タイルをやめて 1 つの塊にした。
