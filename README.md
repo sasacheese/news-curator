@@ -1075,100 +1075,25 @@ URL に秘密のパラメータを渡した本人のブラウザだけで表示�
 1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成し、
    Firestore を **Native mode** で有効化する
 2. プロジェクト設定 → アプリを追加 → ウェブアプリを登録し、`apiKey` / `projectId` / `appId` を控える
-3. Firestore → ルール で以下を貼り付けて公開する
+3. Firestore のルールは、リポジトリの [`firestore.rules`](firestore.rules) が正本です。
+   **main にマージすると GitHub Actions（`.github/workflows/firestore-rules.yml`）が公開します。**
+   main 以外のブランチに push したときは、コンソールの現行ルールと比べるだけで公開しません。
+   手動実行（Actions → Firestore rules → Run workflow）でも比べられ、`apply` を付けたときだけ公開します
 
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /feedback/{articleId} {
-         allow read, list, delete: if false;
-         allow create, update: if isValidFeedback(articleId);
+   - 公開に使う鍵は collector と同じ `FIREBASE_SERVICE_ACCOUNT_JSON` です
+   - ログにはルールの本文を出さず、match ブロックの名前と変更の有無だけを出します（リポジトリが公開なので）
+   - 現行ルールにだけあるブロック（コンソールで直接足したもの）があると、消さないよう公開せずに失敗します。
+     その場合は `firestore.rules` に取り込んでから push してください
+   - コンソールで直接編集したルールは、次の公開で上書きされます
 
-         function isValidFeedback(articleId) {
-           let d = request.resource.data;
-           return d.keys().hasOnly([
-               'articleId','vote','votedAt','expireAt','digestDate','tier',
-               'source','sourceLabel','category','lane','matchedTopics','score','title','url'
-             ])
-             && d.articleId is string && d.articleId == articleId
-             && d.vote in ['good', 'bad']
-             && d.votedAt == request.time
-             && d.expireAt is timestamp
-             && d.expireAt > request.time
-             && d.expireAt < request.time + duration.value(15, 'd')
-             && d.digestDate is string && d.digestDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-             && d.tier in ['top', 'other', 'release', 'community']
-             && d.source is string && d.source.size() < 40
-             && d.sourceLabel is string && d.sourceLabel.size() < 80
-             && d.category is string && d.category.size() < 40
-             && (d.lane == null || d.lane in ['security', 'know', 'build', 'talk'])
-             && d.matchedTopics is list && d.matchedTopics.size() <= 20
-             && (d.score == null || (d.score is number && d.score >= 0 && d.score <= 100))
-             && d.title is string && d.title.size() <= 300
-             && d.url is string && d.url.size() <= 2000 && d.url.matches('^https?://.*');
-         }
-       }
+   > **ルールはサイトより先に公開します。** `hasOnly([...])` は許可する項目のホワイトリストで、
+   > 新しい項目や値（例: `lane` の `security`、`tier` の `community`）を送る画面が先に出ると、
+   > その投票は静かに全部拒否されます（失敗は `console.warn` に出るだけ）。main へのマージ直後に
+   > Actions がルールを公開し、サイトは翌朝のダイジェストのときにデプロイされるので、通常はこの順序になります。
+   > 旧い画面と新しい画面が混在する期間にキーを増やすときは、`d.get('key', null)` で
+   > 「無いことがある」前提に書いてください（直接アクセスはキーが無いと評価エラーで拒否されます）。
 
-       // 道具箱の状態（気になる・触った・見送り）。読むのは collector だけ
-       match /toolState/{toolId} {
-         allow read, list, delete: if false;
-         allow create, update: if request.resource.data.keys().hasOnly(['state', 'reason', 'updatedAt'])
-           && request.resource.data.state in ['new', 'interested', 'prepared', 'tried', 'passed']
-           && (request.resource.data.reason == null
-               || request.resource.data.reason in ['have-equivalent', 'out-of-scope', 'too-costly', 'not-mature', 'other'])
-           && request.resource.data.updatedAt == request.time
-           && toolId.size() <= 600;
-       }
-
-       // 道具箱の「URL を貼って追加」。collector が処理したら消す
-       match /toolInbox/{id} {
-         allow read, list, update, delete: if false;
-         allow create: if request.resource.data.keys().hasOnly(['url', 'createdAt'])
-           && request.resource.data.url is string
-           && request.resource.data.url.size() <= 2000
-           && request.resource.data.url.matches('^https://.*')
-           && request.resource.data.createdAt == request.time;
-       }
-     }
-   }
-   ```
-
-   > **セキュリティ枠と道具箱を入れる前から使っている場合は、ルールを貼り直してください。**
-   > 旧ルールは `lane` を `know / build / talk` に限っているので、セキュリティ枠の記事への Good/Bad が
-   > 拒否されます。`toolState` / `toolInbox` の match が無いと、道具箱の操作もすべて拒否されます
-   > （どちらも失敗は `console.warn` に出るだけで、画面には出ません）。
-
-   > **レーン導入前から使っている場合は、先にルールを更新してください。**
-   > `hasOnly([...])` は許可する項目の**ホワイトリスト**なので、旧ルール
-   > （`'domain'` が入っているもの）のままだと、`lane` を送るようになった
-   > 新しい画面からの投票がすべて拒否されます。投票の失敗は `console.warn` に
-   > 出るだけで画面には出ない（ボタンは押した色に変わる）ため、気づかないまま
-   > Good/Bad が 1 件も貯まらない状態になります。
-   >
-   > 新旧どちらのサイトからの投票も落とさずに移行するには、**両方の項目を許可した
-   > ルールを先に公開**してから、サイトをデプロイしてください。旧サイトは `domain`
-   > だけ・新サイトは `lane` だけを送るので、**どちらも「無いことがある」前提で
-   > 書く必要があります**。`d.domain` のような直接アクセスはキーが存在しないと
-   > ルール評価がエラーになって拒否されるため、ここは `get()` を使います。
-   >
-   > ```
-   >   'source','sourceLabel','category','domain','lane','matchedTopics','score','title','url'
-   > ...
-   >   && (d.get('domain', null) == null || d.get('domain', null) in ['ai', 'general'])
-   >   && (d.get('lane', null) == null || d.get('lane', null) in ['know', 'build', 'talk'])
-   > ```
-   >
-   > 新しいサイトからの投票が届いていることを確認したら、`'domain'` を落として
-   > 上のルールに揃えます（その時点では `lane` は必ず送られるので直接アクセスで構いません）。
-   >
-   > なお `rules_version` はルール**言語**のバージョンで、`'2'` のまま変更しません。
-   >
-   > **`tier` に `'community'` を足すのも同じ話です。** コミュニティ情報より前の
-   > ルール（`['top','other','release']`）のままだと、コミュニティ欄からの投票だけが
-   > 静かに全部拒否されます。**ルールを先に公開してから**デプロイしてください。
-
-   書き込みは投票本人のブラウザから直接行いますが、上のルールで
+   書き込みは投票本人のブラウザから直接行いますが、`firestore.rules` で
    `feedback` コレクションへの `create`/`update` 以外（読み取り・一覧・削除）を
    すべて拒否しています。`apiKey` などはこの設計では秘密情報ではありません
    （Firebase のアクセス制御はクライアントの鍵ではなくこのルール側で行います）。
@@ -1254,30 +1179,8 @@ URL に秘密のパラメータを渡した本人のブラウザだけで表示�
 
    公開鍵はビルド済み JS に入る前提の値なので Variables でよく、秘密鍵だけが Secrets です。
 
-3. Firestore → ルール に `pushSubscriptions` の match ブロックを**追記**して公開する
-   （既存の `feedback` の match と並べて置きます）
-
-   ```
-   match /pushSubscriptions/{subId} {
-     // endpoint は購読者以外に見せない。漏れると第三者がその端末へ通知を送れてしまう
-     allow read, list: if false;
-     // ドキュメント ID は endpoint の SHA-256。ID を知っている＝購読した本人の端末なので、
-     // 解除（削除）はそのまま許す
-     allow delete: if true;
-     allow create, update: if isValidSubscription();
-
-     function isValidSubscription() {
-       let d = request.resource.data;
-       return d.keys().hasOnly(['endpoint', 'p256dh', 'auth', 'updatedAt'])
-         && d.endpoint is string
-         && d.endpoint.matches('^https://.*')
-         && d.endpoint.size() <= 2000
-         && d.p256dh is string && d.p256dh.size() > 0 && d.p256dh.size() <= 300
-         && d.auth is string && d.auth.size() > 0 && d.auth.size() <= 100
-         && d.updatedAt == request.time;
-     }
-   }
-   ```
+3. Firestore のルールは `firestore.rules` に `pushSubscriptions` の match が入っています。
+   main にマージすると Actions が公開します（読者フィードバックのセットアップを参照）
 
 4. 次のデプロイ後、受け取りたい端末で設定画面から「この端末で受け取る」を押す
    （iOS は先にホーム画面へ追加し、そのアプリの中で押します）
