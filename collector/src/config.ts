@@ -1,3 +1,4 @@
+import type { ToolSourcesConfig } from './tools-sources.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,7 +29,10 @@ export interface SourcesConfig {
   githubTrending: { enabled: boolean; minStars: number; perPage: number; queries: string[] };
   /** 検索語を持たない新着枠。「まだ名前を知らない道具」はここからしか入ってこない */
   githubNew: { enabled: boolean; minStars: number; days: number; perPage: number };
-  rss: { enabled: boolean; feeds: { label: string; url: string; weight: number }[] };
+  rss: {
+    enabled: boolean;
+    feeds: { label: string; url: string; weight: number; category?: string }[];
+  };
   changelogs: { enabled: boolean; entries: { label: string; url: string; homepage: string }[] };
   advisories: AdvisoryConfig;
 }
@@ -54,11 +58,14 @@ export interface RuntimeConfig {
   /** 1 レーンあたり LLM へ渡す候補数。合計はこの 3 倍 */
   laneCandidates: number;
   /** レーンの振り分けしきい値。実データを見ながら動かす前提 */
-  laneThresholds: { know: number; talk: number };
+  laneThresholds: { security: number; know: number; talk: number };
   /** 深掘り要約する件数（= 各レーンのベスト N） */
   topN: number;
   /** 「その他の注目記事」として保存する件数 */
   otherN: number;
+  securityTopN: number;
+  securityOtherN: number;
+  securityPerLane: number;
   /** 深掘りする最低スコア。これを下回るレーンは件数を減らす */
   minTopScore: number;
   /** 一覧に載せる最低スコア */
@@ -109,6 +116,12 @@ export function loadRuntimeConfig(): RuntimeConfig {
      * know が 1 日 30〜80 件、talk が 40〜100 件くらいに収まるあたりを狙う。
      */
     laneThresholds: {
+      /*
+       * security はフィード由来なら 1、それ以外は見出しに事案の語彙があるか
+       * 本文に 2 語以上で届く値。1 語だけ本文に出る記事（「攻撃」に触れただけの
+       * 設計記事など）は入れない。
+       */
+      security: num('SECURITY_THRESHOLD', 0.55),
       know: num('KNOW_THRESHOLD', 0.42),
       talk: num('TALK_THRESHOLD', 0.4),
     },
@@ -119,8 +132,16 @@ export function loadRuntimeConfig(): RuntimeConfig {
      * コストを戻したいなら TOP_N=1（3 件）にする。
      */
     topN: num('TOP_N', 2),
-    /** 「その他の注目記事」の合計。3 レーンで等分する（既定 12 → 各 4 件） */
+    /** 「その他の注目記事」の合計。security 以外の 3 レーンで等分する（既定 12 → 各 4 件） */
     otherN: num('OTHER_N', 12),
+    /**
+     * セキュリティ枠の予算。他のレーンとは別に持つ。
+     * 深掘り 3 件（Sonnet）で 1 日 +$0.03〜0.04 ほど。一覧は Haiku の要約だけ。
+     */
+    securityTopN: num('SECURITY_TOP_N', 3),
+    securityOtherN: num('SECURITY_OTHER_N', 6),
+    /** LLM 採点に回すセキュリティ候補の上限。他のレーンの 50 件より絞る */
+    securityPerLane: num('SECURITY_PER_LANE', 30),
     /**
      * 掲載のスコア下限。
      *
@@ -196,6 +217,9 @@ export async function loadWatchlist(): Promise<Watchlist> {
           label: f.label.trim(),
           url: f.url.trim(),
           weight: Number.isFinite(weight) ? clamp(weight, 1, 5) : 3,
+          ...(typeof f.category === 'string' && f.category.trim()
+            ? { category: f.category.trim() }
+            : {}),
         },
       ];
     }),
@@ -414,4 +438,38 @@ function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
     seen.add(k);
     return true;
   });
+}
+
+/**
+ * 道具箱の入口（config/tools.json）。読めなければ道具専用のソースだけ止める
+ * （いつもの収集から拾う入口は設定に依らず動く）。
+ * 項目が欠けていたら既定値で埋める。手で編集する前提なので、1 か所の typo で全部を止めない。
+ */
+const TOOL_SOURCE_DEFAULTS: ToolSourcesConfig = {
+  mcpRegistry: { enabled: false, maxPages: 3, maxItems: 40 },
+  claudeMarketplace: {
+    enabled: false,
+    url: 'https://raw.githubusercontent.com/anthropics/claude-plugins-official/main/.claude-plugin/marketplace.json',
+    maxNewPerRun: 15,
+  },
+  anthropicSkills: { enabled: false, repo: 'anthropics/skills', path: 'skills', maxNewPerRun: 5 },
+  githubTopics: { enabled: false, topics: [], createdWithinDays: 7, minStars: 10, perTopic: 15 },
+  cloudFeeds: { enabled: false, feeds: [], maxPerFeed: 8 },
+  productHunt: { enabled: false, url: 'https://www.producthunt.com/feed?category=developer-tools', maxItems: 15 },
+};
+
+export async function loadToolSources(): Promise<ToolSourcesConfig> {
+  let raw: Partial<Record<keyof ToolSourcesConfig, Record<string, unknown>>>;
+  try {
+    raw = await readJson(resolve(CONFIG_DIR, 'tools.json'));
+  } catch {
+    log.warn('config/tools.json が読めないため、道具専用のソースを止めます。');
+    return TOOL_SOURCE_DEFAULTS;
+  }
+  const merged = {} as Record<string, unknown>;
+  for (const key of Object.keys(TOOL_SOURCE_DEFAULTS) as (keyof ToolSourcesConfig)[]) {
+    const section = raw[key] && typeof raw[key] === 'object' ? raw[key] : {};
+    merged[key] = { ...TOOL_SOURCE_DEFAULTS[key], ...section, enabled: section.enabled === true };
+  }
+  return merged as unknown as ToolSourcesConfig;
 }

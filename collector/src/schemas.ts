@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CATEGORIES } from './categories.js';
-import { DURABILITIES, RELEASE_IMPACTS, RELEASE_KINDS } from './types.js';
+import { ATTACK_STAGES, DEFENSE_KINDS, DURABILITIES, RELEASE_IMPACTS, RELEASE_KINDS } from './types.js';
 
 /**
  * LLM に返させる構造の定義元。
@@ -140,6 +140,27 @@ export const TalkDescribeResultSchema = z.object({
         .nullable()
         .describe(
           '読者プロフィールに照らして、読者が実体験として語れそうな接点を1文・60字以内。意見の下書きではなく、「どこが読者にとって一次情報になるか」を指す。例:「同じ構成を業務で毎日動かしているので、〜の頻度は実測値として出せる」。接点が無ければ null。',
+        ),
+    }),
+  ),
+});
+
+/**
+ * security レーン専用。要約に加えて事案の名寄せキーを書かせる。
+ *
+ * 同じ事案は複数のメディアが書くので、ここで「どの事案か」を決めておけば、
+ * 深掘りの前に 1 件へまとめられる。日をまたいだ続報も、既知のキーを
+ * プロンプトに並べて同じ文字列を選ばせることで追う。
+ */
+export const SecurityDescribeResultSchema = z.object({
+  items: z.array(
+    z.object({
+      ...describeItemShape,
+      incident: z
+        .string()
+        .nullable()
+        .describe(
+          '事案の名寄せキー。「被害組織または製品 事案の種類」の形で1行・30字以内（例:「アスクル ランサムウェア」「npm サプライチェーン攻撃」「Salesforce 連携 情報漏洩」）。**既知の事案一覧に同じ事案があれば、その文字列をそのまま使う。** 特定の事案ではない記事（一般的な解説・注意喚起・調査レポート）は null。',
         ),
     }),
   ),
@@ -410,6 +431,65 @@ export const KnowDeepDiveSchema = z.object({
     ),
 });
 
+/** セキュリティ: 事案 → 攻撃の流れ → 個人と企業の対策 */
+export const SecurityDeepDiveSchema = z.object({
+  ...deepDiveBaseShape,
+  whatHappened: z
+    .array(z.string())
+    .describe(
+      '何が起きたか。**1項目1行・60字以内。2〜4個。** 被害組織・漏洩した情報の種類と件数・発覚と公表の日付を、日付が分かるものは「2026-10-12 不正アクセスを検知」の形で書く。推測は書かない（unknowns に回す）。',
+    ),
+  attackChain: z
+    .array(
+      z.object({
+        stage: z
+          .enum(ATTACK_STAGES)
+          .catch('other')
+          .describe(
+            'initial-access = 初期侵入（フィッシング・脆弱性・盗まれた認証情報など） / privilege-escalation = 権限昇格 / lateral-movement = 横展開 / exfiltration = 持ち出し / impact = 暗号化・破壊・公開などの実害 / other = それ以外',
+          ),
+        detail: z
+          .string()
+          .describe('その段階で何が使われたか。1行・60字以内。製品名・CVE 番号・手口の名前を具体的に。'),
+      }),
+    )
+    .describe(
+      '攻撃の流れ。**記事から読み取れた段階だけを、起きた順に 0〜5 個。** 書かれていない段階を一般論で埋めない——手口が公表されていなければ空配列にして、そのことを unknowns に書く。',
+    ),
+  personal: z
+    .array(z.string())
+    .describe(
+      '個人が今日やること。**1項目1行・60字以内。2〜4個。** この事案の利用者・一般の個人として取る具体的な行動（パスワードの変更先、確認すべき通知・メール、有効にすべき設定、詐欺メールの見分け方）。「注意する」「気をつける」のように何をするか決まらない書き方は禁止。',
+    ),
+  organization: z
+    .array(
+      z.object({
+        kind: z
+          .enum(DEFENSE_KINDS)
+          .catch('tech')
+          .describe('tech = 技術的な対策（設定・製品・パッチ） / ops = 運用（監視・手順・訓練） / org = 組織（体制・契約・委託先管理）'),
+        action: z.string().describe('企業として入れること。1行・70字以内。この事案の攻撃の段階のどれを止めるかが分かるように書く。'),
+      }),
+    )
+    .describe(
+      '企業が仕組みとして入れること。**2〜5個。** この事案の手口に効くものを優先し、手口と関係の無い一般論（「セキュリティ意識の向上」など）は書かない。',
+    ),
+  relevance: z
+    .array(z.string())
+    .describe(
+      '読者に関係があるかの判断材料。**1項目1行・50字以内。1〜3個。** 「〜を使っている人」「〜を委託先にしている企業」のように、該当するかを目で拾える条件だけ。',
+    ),
+  unknowns: z
+    .array(z.string())
+    .describe('まだ確定していないこと。**1項目1行・40字以内。0〜3個。** 手口・被害範囲・攻撃者が未公表なら、そう書く。'),
+  whatsNew: z
+    .string()
+    .nullable()
+    .describe(
+      '「前回までに分かっていたこと」が渡されたときだけ書く。前回から新しく分かったこと・変わったことを1〜2文・120字以内。渡されていなければ null。',
+    ),
+});
+
 /** 作る: 読者はこのカードを読んでそのまま手を動かす */
 export const BuildDeepDiveSchema = z.object({
   ...deepDiveBaseShape,
@@ -570,8 +650,11 @@ export type CommunitySpeakResult = z.infer<typeof CommunitySpeakResultSchema>;
 export type DescribeResult = z.infer<typeof DescribeResultSchema>;
 export type TalkDescribeResult = z.infer<typeof TalkDescribeResultSchema>;
 /** 要約段の 1 件ぶん。talk レーンだけ debate* が乗る */
+export type SecurityDescribeResult = z.infer<typeof SecurityDescribeResultSchema>;
 export type DescribeItem = DescribeResult['items'][number] &
-  Partial<TalkDescribeResult['items'][number]>;
+  Partial<TalkDescribeResult['items'][number]> &
+  Partial<SecurityDescribeResult['items'][number]>;
+export type SecurityDeepDiveResult = z.infer<typeof SecurityDeepDiveSchema>;
 export type KnowDeepDiveResult = z.infer<typeof KnowDeepDiveSchema>;
 export type BuildDeepDiveResult = z.infer<typeof BuildDeepDiveSchema>;
 export type TalkDeepDiveResult = z.infer<typeof TalkDeepDiveSchema>;

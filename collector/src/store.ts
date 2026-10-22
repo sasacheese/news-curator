@@ -8,10 +8,11 @@ import type {
   Manifest,
   RadarBoard,
   RadarLedgerEntry,
-  TrendBoard,
-  TrendDay,
-  TrendShard,
+  ToolBoard,
+  ToolLedger,
 } from './types.js';
+import type { IncidentLedger } from './incidents.js';
+import { emptyLedger } from './tools.js';
 import { log, normalizeUrl } from './util.js';
 
 const DIGEST_DIR = resolve(DATA_DIR, 'digests');
@@ -30,18 +31,14 @@ const RADAR_PATH = resolve(DATA_DIR, 'radar.json');
  */
 const RADAR_LEDGER_PATH = resolve(DATA_DIR, 'radar-ledger.json');
 /**
- * 話題台帳とトレンドの盤面。
- *
- * 台帳は data/index と同じ月別シャード（過去月は書き換わらない）。盤面は
- * コミュニティと同じく日付を持たない 1 ファイルで、毎回まるごと差し替える。
+ * セキュリティ事案の台帳。**ブラウザからは読まない。**
+ * 日をまたいで続報を名寄せするためだけに collector が読み書きする。
  */
-const TREND_DIR = resolve(DATA_DIR, 'trends');
-const TREND_BOARD_PATH = resolve(TREND_DIR, 'board.json');
+const INCIDENT_PATH = resolve(DATA_DIR, 'security', 'incidents.json');
 
 async function ensureDirs(): Promise<void> {
   await mkdir(DIGEST_DIR, { recursive: true });
   await mkdir(INDEX_DIR, { recursive: true });
-  await mkdir(TREND_DIR, { recursive: true });
 }
 
 async function readJsonOr<T>(path: string, fallback: T): Promise<T> {
@@ -363,84 +360,51 @@ export async function loadRecentIndexEntries(date: string, days: number): Promis
   return entries;
 }
 
-function trendShardPath(month: string): string {
-  return resolve(TREND_DIR, `${month}.json`);
+export async function loadIncidentLedger(): Promise<IncidentLedger> {
+  return readJsonOr<IncidentLedger>(INCIDENT_PATH, {});
 }
 
-/** YYYY-MM-DD の月をひとつ前にずらす */
-function previousMonth(month: string): string {
-  const [y, m] = month.split('-').map(Number);
-  const d = new Date(Date.UTC(y!, m! - 1, 1));
-  d.setUTCMonth(d.getUTCMonth() - 1);
-  return d.toISOString().slice(0, 7);
-}
-
-/**
- * 台帳を読む。保持期間（28 日）は月をまたぐので、当月と前月の 2 シャードで足りる。
- * 表示名は日ごとに持たないので、2 つのシャードのぶんを合わせて返す。
- */
-export async function loadTrendLedger(
-  date: string,
-): Promise<{ days: TrendDay[]; labels: Record<string, string> }> {
-  await ensureDirs();
-  const month = date.slice(0, 7);
-  const shards = await Promise.all(
-    [previousMonth(month), month].map((m) =>
-      readJsonOr<Partial<TrendShard>>(trendShardPath(m), {}),
-    ),
-  );
-  const days: TrendDay[] = [];
-  let labels: Record<string, string> = {};
-  for (const shard of shards) {
-    days.push(...(shard.days ?? []));
-    labels = { ...labels, ...(shard.labels ?? {}) };
-  }
-  days.sort((a, b) => (a.date < b.date ? -1 : 1));
-  return { days, labels };
+export async function saveIncidentLedger(ledger: IncidentLedger): Promise<void> {
+  await mkdir(resolve(DATA_DIR, 'security'), { recursive: true });
+  await writeJson(INCIDENT_PATH, ledger);
+  log.info(`保存: data/security/incidents.json (${Object.keys(ledger).length} 件)`);
 }
 
 /**
- * 台帳を月別シャードへ書き戻す。
- *
- * 保持期間の外に出た日はシャードから消す。過去月のシャードは、そこに残る日が
- * 無くなるまで（＝月が変わって 28 日経つまで）書き換わり続ける。
+ * 道具箱。台帳（ledger）は collector だけが読み、ブラウザは盤面（board）だけを読む。
+ * 台帳は退避したものも残るので増える一方だが、1 道具 2KB 前後なので 1 万件でも 20MB に届かない。
+ * 増えすぎたら、退避から 90 日経ったものを落とす処理を足す。
  */
-export async function saveTrendLedger(
-  days: readonly TrendDay[],
-  labels: Readonly<Record<string, string>>,
-): Promise<void> {
-  await ensureDirs();
-  const byMonth = new Map<string, TrendDay[]>();
-  for (const day of days) {
-    const month = day.date.slice(0, 7);
-    const list = byMonth.get(month) ?? [];
-    list.push(day);
-    byMonth.set(month, list);
-  }
+const TOOLS_DIR = resolve(DATA_DIR, 'tools');
 
-  for (const [month, monthDays] of byMonth) {
-    // その月に残る日で使われている表示名だけを持たせる
-    const keys = new Set<string>();
-    for (const day of monthDays) for (const key of Object.keys(day.counts)) keys.add(key);
-    const shardLabels: Record<string, string> = {};
-    for (const key of keys) if (labels[key]) shardLabels[key] = labels[key]!;
-    await writeJson(trendShardPath(month), { labels: shardLabels, days: monthDays });
-  }
-
-  const total = days.reduce((sum, d) => sum + Object.keys(d.counts).length, 0);
-  log.info(`保存: data/trends/*.json (${days.length} 日 / 話題 ${total} 件)`);
+export async function loadToolLedger(): Promise<ToolLedger> {
+  const raw = await readJsonOr<Partial<ToolLedger>>(resolve(TOOLS_DIR, 'ledger.json'), {});
+  return { ...emptyLedger(), ...raw, tools: raw.tools ?? {} };
 }
 
-/**
- * 盤面をまるごと差し替える。
- *
- * 日次ダイジェストのように日付ごとには残さない。トレンドは「いまの状態」なので、
- * 3 か月後にその日を開いた人に当時の盤面を見せても嘘になる。
- */
-export async function saveTrendBoard(board: TrendBoard): Promise<void> {
-  await ensureDirs();
-  await writeJson(TREND_BOARD_PATH, board);
+export async function saveToolbox(ledger: ToolLedger, board: ToolBoard): Promise<void> {
+  await mkdir(TOOLS_DIR, { recursive: true });
+  await writeJson(resolve(TOOLS_DIR, 'ledger.json'), ledger);
+  await writeJson(resolve(TOOLS_DIR, 'board.json'), board);
+  /*
+   * 退避したものは盤面に出ないが、道具箱タブの検索からは引けるようにする。
+   * 検索したときだけ読むファイルなので、盤面とは分けて最小の項目だけ持たせる。
+   */
+  const archive = Object.values(ledger.tools)
+    .filter((t) => t.state === 'archived' || t.state === 'passed')
+    .sort((a, b) => (a.lastSignal < b.lastSignal ? 1 : -1))
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      kind: t.kind,
+      homepage: t.homepage,
+      summary: t.summary ?? t.description,
+      state: t.state,
+      lastSignal: t.lastSignal,
+    }));
+  await writeJson(resolve(TOOLS_DIR, 'archive.json'), archive);
   log.info(
-    `保存: data/trends/board.json (動いた ${board.hot.length} / 追跡 ${board.keep.length} / 落ち着き ${board.cool.length})`,
+    `保存: data/tools/{ledger,board}.json (台帳 ${board.stats.ledger} / 盤面 ${board.items.length}` +
+      ` / キュー ${board.queue.length})`,
   );
 }

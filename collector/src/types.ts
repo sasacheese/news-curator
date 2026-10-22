@@ -55,6 +55,8 @@ export interface RawItem {
   lang: 'ja' | 'en' | 'unknown';
   /** ソース定義側で与えた基礎点（RSS の weight など） */
   sourceWeight: number;
+  /** フィード側で与えた分類（watchlist の category）。今は 'security' だけ */
+  feedCategory?: string;
   /** 重複排除でまとめた際に、どのソースから見つかったか。話題性の判定に使う */
   foundIn?: SourceKind[];
   /**
@@ -90,6 +92,8 @@ export interface PreScoredItem extends RawItem {
  * 単一プロダクトの話に偏ったのはそれが原因だった。目的ごとに別の証拠を使い、
  * 別の予算を与える。
  *
+ * - security: 企業の情報漏洩・攻撃の事案。攻撃手段と、個人・企業の対策まで書く専用枠。
+ *          セキュリティ系のフィード由来か、見出しに事案の語彙があるものだけが入る。
  * - know : 知る。規模の大きい話。影響範囲 × 取り返しのつかなさで測る。
  *          読者の関心と独立に成立するので、トピック一致を判定に使わない。
  * - build: 作る。試したくなるもの。可能性の差分 × 触れる実体で測る。
@@ -98,11 +102,20 @@ export interface PreScoredItem extends RawItem {
  * - talk : 話す。意見が言えるもの。立場が割れることを discussion 量と語彙で測る。
  *          二次情報のほうが強いことが多いので、一次情報を優遇しない。
  */
-export const LANES = ['know', 'build', 'talk'] as const;
+export const LANES = ['security', 'know', 'build', 'talk'] as const;
 export type Lane = (typeof LANES)[number];
+
+/**
+ * security 以外の 3 レーン。「その他の注目記事」を等分する母数はこちら。
+ *
+ * security は後から足した専用枠で、件数の予算を別に持つ（config の security*）。
+ * 等分の母数に入れると、既存の 3 レーンの枠が黙って 3/4 に減る。
+ */
+export const GENERAL_LANES = ['know', 'build', 'talk'] as const;
 
 /** 実行ログ・LLM への指示・画面で共通の表示名 */
 export const LANE_LABELS: Record<Lane, string> = {
+  security: 'セキュリティ',
   know: '知る',
   build: '作る',
   talk: '話す',
@@ -184,6 +197,11 @@ export interface RankedItem extends PreScoredItem {
   lane: Lane;
   /** talk レーンのときだけ入る意見の足場。他のレーンでは null */
   debate: Debate | null;
+  /**
+   * security レーンのときだけ入る事案の名寄せキー（「被害組織 事案の種類」）。
+   * 同じ事案の記事を 1 件にまとめ、日をまたいで続報を追うのに使う。他のレーンでは無い。
+   */
+  incident?: string | null;
   /** 元記事の読了目安（分）。時間対効果の「コスト」側 */
   readingMinutes: number;
   payoff: Payoff;
@@ -439,7 +457,46 @@ export interface TalkDeepDive extends DeepDiveBase {
   verify: string[];
 }
 
-export type DeepDive = KnowDeepDive | BuildDeepDive | TalkDeepDive;
+/** 攻撃の段階。記事から読み取れた段階だけを並べる */
+export const ATTACK_STAGES = [
+  'initial-access',
+  'privilege-escalation',
+  'lateral-movement',
+  'exfiltration',
+  'impact',
+  'other',
+] as const;
+export type AttackStage = (typeof ATTACK_STAGES)[number];
+
+export const DEFENSE_KINDS = ['tech', 'ops', 'org'] as const;
+export type DefenseKind = (typeof DEFENSE_KINDS)[number];
+
+/**
+ * セキュリティ: 事案を「何が起きたか → どう攻められたか → 何をすればよいか」で読む。
+ *
+ * 対策は個人と企業で分ける。同じ事案でも、個人が今日やること（パスワード変更・
+ * 通知の確認）と、企業が仕組みとして入れること（MFA の強制・ログ監視）は
+ * 粒度も主語も違うので、混ぜると両方とも読めなくなる。
+ */
+export interface SecurityDeepDive extends DeepDiveBase {
+  lane: 'security';
+  /** 何が起きたか。企業・規模・時系列を 1 行ずつ */
+  whatHappened: string[];
+  /** 攻撃の流れ。記事から読み取れた段階だけ */
+  attackChain: { stage: AttackStage; detail: string }[];
+  /** 個人が今日やること */
+  personal: string[];
+  /** 企業が入れること。技術・運用・組織に分ける */
+  organization: { kind: DefenseKind; action: string }[];
+  /** 読者に関係があるかの判断材料 */
+  relevance: string[];
+  /** まだ確定していないこと */
+  unknowns: string[];
+  /** 続報のとき、前回から変わったこと。初報なら null */
+  whatsNew: string | null;
+}
+
+export type DeepDive = SecurityDeepDive | KnowDeepDive | BuildDeepDive | TalkDeepDive;
 
 export interface TopItem extends RankedItem {
   rank: number;
@@ -706,7 +763,7 @@ export interface Manifest {
  */
 export interface Watchlist {
   repos: string[];
-  feeds: { label: string; url: string; weight: number }[];
+  feeds: { label: string; url: string; weight: number; category?: string }[];
   changelogs: { label: string; url: string; homepage: string }[];
 }
 
@@ -721,128 +778,6 @@ export interface TopicsConfig {
   topics: Topic[];
   exclude: { keywords: string[] };
 }
-
-/* ------------------------------------------------------------------ *
- * トレンド（話題台帳）
- *
- * 日次ダイジェストは「その日に公開されたもの」の差分刊行なので、昨日の1位は
- * 今日には出ない。24 時間ウィンドウと掲載済み URL の除外は差分としては正しいが、
- * 「まだ続いている話題」を構造的に消している。トレンドはその状態（stock）側で、
- * ランキングとは別の枠で持つ。
- *
- * 台帳（TrendShard）は data/index と同じ月別シャード。盤面（TrendBoard）は
- * data/community.json と同じく日付を持たない 1 ファイルで、毎回まるごと差し替える。
- * 過去日のアーカイブに埋めると、3 か月後にその日を開いた人に古い盤面が出てしまう。
- * ------------------------------------------------------------------ */
-
-/** 話題台帳の 1 日分 */
-export interface TrendDay {
-  date: string;
-  /**
-   * その日に走査した記事数。
-   *
-   * 平常比は生の件数ではなく「その日の母集団に対する比率」で出す。ソースの
-   * 増減や閑散日で母集団が変わると、生の件数の比較は意味を失うため。
-   */
-  pool: number;
-  /** 表記統合キー -> その日に出現した記事数 */
-  counts: Record<string, number>;
-}
-
-/** 台帳の月別シャード。表示名は日ごとに持たず、シャードに 1 つ持つ */
-export interface TrendShard {
-  /** 表記統合キー -> 表示名（観測された実表記のうち最頻のもの） */
-  labels: Record<string, string>;
-  days: TrendDay[];
-}
-
-/** 今日動いた / 追跡中 / 落ち着いた */
-export type TrendState = 'hot' | 'keep' | 'cool';
-
-/** その記事がその日どう扱われたか。none は収集したが載せなかったもの */
-export type TrendPlacement = 'top' | 'other' | 'release' | 'none';
-
-export interface TrendArticle {
-  date: string;
-  title: string;
-  /**
-   * 日本語の見出し。原題が日本語の記事・未掲載のもの・この機能より前の日は null。
-   *
-   * タイムラインにも要る。日本語の一覧に英語のタイトルだけが混ざると、
-   * そこで読むのが止まる（掲載側と同じ判断）。
-   */
-  titleJa: string | null;
-  url: string;
-  placement: TrendPlacement;
-  lane: Lane | null;
-  /** ベストの順位。その他・リリース・未掲載は null */
-  rank: number | null;
-}
-
-export interface TrendTopic {
-  key: string;
-  name: string;
-  /**
-   * 観測された実表記のうち、名前と数字・記号だけの差ではないもの。
-   *
-   * 話題名を固有名詞のまま持つと表記ゆれで繋がらない（Qwen / Qwen3.6 /
-   * Qwen3.8-27B / QwenAudio が全部「累計1本」になる）。かたや抽象カテゴリに
-   * 丸めると情報量が消える。そこで見出しはファミリ、その下に実表記を出す。
-   */
-  variants: string[];
-  state: TrendState;
-  /** 台帳に初めて載った日 */
-  firstSeen: string;
-  /** 最後に出た日 */
-  lastSeen: string;
-  /** 台帳の保持期間ぶんの合計本数 */
-  total: number;
-  today: number;
-  /** 当日の平常比（1.0 が平常）。平常値が取れない初出の日は null */
-  lift: number | null;
-  /**
-   * 直近 5 日の平常比。「続いているか」はこちらで測る。
-   *
-   * 出現日数では測れない。母集団 600 件では大半の語が毎日出るので、
-   * 「7 日のうち 3 日以上」は何も絞れていなかった。
-   */
-  liftRecent: number | null;
-  /** 直近 5 日の本数 */
-  recentCount: number;
-  /** 直近 7 日のうち出現した日数。参考値 */
-  activeDays7: number;
-  /** スパークライン用の日別本数（古い順） */
-  history: number[];
-  articles: TrendArticle[];
-}
-
-export interface TrendBoard {
-  updatedAt: string;
-  date: string;
-  /**
-   * 台帳が何日ぶん貯まっているか。
-   *
-   * 平常比も「落ち着いた」も履歴が要る。走り始めた直後は判定できないので、
-   * 画面側でその旨を出すために持つ。
-   */
-  ledgerDays: number;
-  /** スパークラインと平常比の窓 */
-  windowDays: number;
-  /**
-   * 履歴が足りず、平常比で判定できていない状態。
-   *
-   * このとき hot は「急上昇」ではなく単に「今日よく出ている話題」なので、
-   * 画面側で見出しとバッジを差し替える。走り始めの数日を嘘で埋めないため。
-   */
-  warmingUp: boolean;
-  hot: TrendTopic[];
-  keep: TrendTopic[];
-  cool: TrendTopic[];
-  /** 常時出ている語。トレンドとして扱わないが、何を外したかは見せる */
-  ubiquitous: string[];
-  notes: string[];
-}
-
 
 /* ------------------------------------------------------------------ *
  * 発掘（Radar）
@@ -1113,5 +1048,130 @@ export interface RadarBoard {
     /** 道具ではないと判定して台帳に記録済みの語数 */
     notTool: number;
   };
+  notes: string[];
+}
+
+/* ------------------------------------------------------------------ *
+ * 道具箱
+ *
+ * 記事ではなく**道具**を単位に、日をまたいで持つ台帳。選別より網羅が目的で、
+ * 一覧が膨らみ続けないよう「新着のまま 7 日放置したら退避」「新しい信号が来たら再浮上」
+ * の 2 つで見える量を抑える。消さない（退避したものも台帳と検索には残る）。
+ *
+ * 台帳（data/tools/ledger.json）は collector だけが読む。ブラウザが読むのは
+ * 盤面（data/tools/board.json）だけ——発掘の台帳と盤面を分けているのと同じ理由。
+ * ------------------------------------------------------------------ */
+
+/** 種類。誤ラベルのリスクが低い軸として選んだ。判定はルールベースで、迷ったら other */
+export const TOOL_KINDS = ['cli', 'library', 'skill', 'plugin', 'mcp', 'saas', 'cloud', 'other'] as const;
+export type ToolKind = (typeof TOOL_KINDS)[number];
+
+/**
+ * 読者が付ける状態。new と archived だけは collector が付ける。
+ * - interested: スマホで「気になる」を押した。PC で触る候補として盤面の先頭に出る
+ * - prepared  : 下準備まで済んだ（下準備の仕組みは後続で入れる）
+ * - tried     : 触った
+ * - passed    : 見送った。理由は passReason
+ */
+export const TOOL_STATES = ['new', 'interested', 'prepared', 'tried', 'passed', 'archived'] as const;
+export type ToolState = (typeof TOOL_STATES)[number];
+
+/** 見送りの理由。似た道具の点数を下げるのに使う */
+export const PASS_REASONS = ['have-equivalent', 'out-of-scope', 'too-costly', 'not-mature', 'other'] as const;
+export type PassReason = (typeof PASS_REASONS)[number];
+
+export interface ToolIdentity {
+  npm?: string;
+  /** owner/repo */
+  github?: string;
+  /** npm / GitHub で特定できないもの（SaaS・クラウドの新サービス・マーケットプレイスの項目） */
+  url?: string;
+}
+
+/** 道具を見かけた記録。入口ごと・日ごとに 1 件 */
+export interface ToolSignal {
+  /** 入口の識別子（digest:top / digest:other / release / gh-trending / show-hn / radar / mcp-registry / …） */
+  source: string;
+  date: string;
+  /** 0〜2。手で追加したもの > 深掘り > 一覧 > 急上昇の順 */
+  strength: number;
+  title?: string;
+  url?: string;
+  note?: string;
+}
+
+export interface ToolEntry {
+  id: string;
+  name: string;
+  kind: ToolKind;
+  identity: ToolIdentity;
+  /** 開く先。GitHub / npm / 公式サイト */
+  homepage: string;
+  /** 何ができるか（1〜2 文）。LLM が書く。書けなかった日は元の説明文 */
+  summary: string | null;
+  /** 何の代わりになるか。分からなければ null */
+  replaces: string | null;
+  /** 試すのに要るもの（アカウント登録 / API キー / 有料 / OS など） */
+  requires: string[];
+  /** 信頼の目印。スキル・プラグイン・MCP は自分の環境でコードを動かすので必ず出す */
+  trust: {
+    official: boolean;
+    author: string | null;
+    stars: number | null;
+    archived: boolean | null;
+    license: string | null;
+  };
+  /** 元の説明文（GitHub の description / npm の description / 入口の説明） */
+  description: string | null;
+  signals: ToolSignal[];
+  firstSeen: string;
+  lastSignal: string;
+  state: ToolState;
+  stateAt: string;
+  passReason?: PassReason | null;
+  /** 退避から戻した日 */
+  resurfacedAt?: string | null;
+  /** 種類・信頼の情報を取りに行ったか（GitHub / npm を叩くのは 1 道具 1 回） */
+  inspected: boolean;
+  /** LLM の要約を試みたか（失敗しても毎日やり直さない） */
+  described: boolean;
+}
+
+export interface ToolLedger {
+  updatedAt: string;
+  tools: Record<string, ToolEntry>;
+}
+
+export interface ToolBoardItem {
+  id: string;
+  name: string;
+  kind: ToolKind;
+  homepage: string;
+  summary: string | null;
+  replaces: string | null;
+  requires: string[];
+  trust: ToolEntry['trust'];
+  state: ToolState;
+  /** 盤面に出た理由の短い説明（どこで見かけたか） */
+  seenIn: { source: string; date: string; title?: string; url?: string }[];
+  firstSeen: string;
+  lastSignal: string;
+  isNew: boolean;
+  resurfaced: boolean;
+  score: number;
+  tryPrompt: string | null;
+}
+
+export interface ToolBoard {
+  updatedAt: string;
+  date: string;
+  /** 気になる・準備済み。PC で触る候補 */
+  queue: ToolBoardItem[];
+  /** 新着（退避していないもの）。種類ごとに画面で棚に分ける */
+  items: ToolBoardItem[];
+  /** 触ったもの。直近から */
+  tried: ToolBoardItem[];
+  byKind: Record<string, number>;
+  stats: { ledger: number; archived: number; passed: number; addedToday: number; resurfacedToday: number };
   notes: string[];
 }

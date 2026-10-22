@@ -682,6 +682,7 @@ async function collectRss(cfg: SourcesConfig['rss'], w: Window): Promise<RawItem
               body: e.content.length > 400 ? e.content : undefined,
               metrics: {},
               sourceWeight: feed.weight,
+              ...(feed.category ? { feedCategory: feed.category } : {}),
             }),
           );
       },

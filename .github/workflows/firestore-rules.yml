@@ -1,0 +1,61 @@
+name: Firestore rules
+
+# firestore.rules を Firebase に公開する。
+#
+# - main に入ったとき          → 現行と比べてから公開する
+# - main 以外のブランチへの push → 比べるだけ（PR をマージする前に差分を確かめるため）
+# - 手動実行                    → 既定は比べるだけ。apply を付けたときだけ公開する
+#
+# 鍵（FIREBASE_SERVICE_ACCOUNT_JSON）を使うので、fork からの PR で動く起動条件
+# （pull_request / pull_request_target）は付けない。push と手動実行はどちらも
+# このリポジトリへの書き込み権限がある人しか起こせない。
+#
+# リポジトリが公開なのでログも誰でも読める。スクリプトはルールの本文を出さず、
+# match ブロックの名前と変更の有無だけを出す（collector/src/firestore-rules.ts）。
+on:
+  push:
+    paths:
+      - firestore.rules
+      - collector/src/firestore-rules.ts
+      - .github/workflows/firestore-rules.yml
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '比べたあとに公開する'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # 公開が並ぶと後から始まったほうが勝つとは限らないので、ブランチをまたいで 1 本ずつ
+  group: firestore-rules
+  cancel-in-progress: false
+
+jobs:
+  rules:
+    name: ルールの確認・公開
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: 比べる・公開する
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          # main への push か、手動実行で apply を付けたときだけ公開する
+          APPLY: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.apply) }}
+        run: |
+          if [ "$APPLY" = "true" ]; then
+            npm run -w collector rules:apply
+          else
+            npm run -w collector rules:check
+          fi

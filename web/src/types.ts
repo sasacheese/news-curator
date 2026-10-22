@@ -40,7 +40,7 @@ export type Durability = 'foundational' | 'durable' | 'ephemeral';
  * キュレーションのレーン。読者の 3 つの目的に対応する。
  * この機能より前の日は undefined で、代わりに domain（ai / general）が入っている。
  */
-export type Lane = 'know' | 'build' | 'talk';
+export type Lane = 'security' | 'know' | 'build' | 'talk';
 
 /** talk レーンの記事に付く「意見の足場」。意見の下書きではない */
 export interface Debate {
@@ -214,6 +214,29 @@ export interface DeepDiveBase {
   headline?: string;
 }
 
+export type AttackStage =
+  | 'initial-access'
+  | 'privilege-escalation'
+  | 'lateral-movement'
+  | 'exfiltration'
+  | 'impact'
+  | 'other';
+
+export type DefenseKind = 'tech' | 'ops' | 'org';
+
+/** セキュリティ: 事案 → 攻撃の流れ → 個人と企業の対策 */
+export interface SecurityDeepDive extends DeepDiveBase {
+  lane: 'security';
+  whatHappened: string[];
+  attackChain: { stage: AttackStage; detail: string }[];
+  personal: string[];
+  organization: { kind: DefenseKind; action: string }[];
+  relevance: string[];
+  unknowns: string[];
+  /** 続報のとき、前回から変わったこと */
+  whatsNew: string | null;
+}
+
 export interface KnowDeepDive extends DeepDiveBase {
   lane: 'know';
   impact: string[];
@@ -290,7 +313,12 @@ export interface LegacyDeepDive extends DeepDiveBase {
   caveats: string[];
 }
 
-export type DeepDive = KnowDeepDive | BuildDeepDive | TalkDeepDive | LegacyDeepDive;
+export type DeepDive =
+  | SecurityDeepDive
+  | KnowDeepDive
+  | BuildDeepDive
+  | TalkDeepDive
+  | LegacyDeepDive;
 
 export interface TopItem extends RankedItem {
   rank: number;
@@ -480,125 +508,56 @@ export interface TopicsConfig {
 }
 
 /* ------------------------------------------------------------------ *
- * 発掘（data/radar.json をそのまま読む）
+ * 道具箱（data/tools/board.json）。collector/src/types.ts の ToolBoard と同じ形
  * ------------------------------------------------------------------ */
 
-export type RadarVerdict = 'early' | 'hidden';
+export type ToolKind = 'cli' | 'library' | 'skill' | 'plugin' | 'mcp' | 'saas' | 'cloud' | 'other';
+export type ToolState = 'new' | 'interested' | 'prepared' | 'tried' | 'passed' | 'archived';
+export type PassReason = 'have-equivalent' | 'out-of-scope' | 'too-costly' | 'not-mature' | 'other';
 
-export interface RadarMeasure {
-  githubRepo: string | null;
-  githubStars: number | null;
-  githubPushedAt: string | null;
-  githubArchived: boolean | null;
-  npmPackage: string | null;
-  npmVersion: string | null;
-  npmDeprecated: boolean | null;
-  npmWeekly: number | null;
-  /** 直近 7 日 ÷ その前の 7 日。1.0 で横ばい */
-  npmTrend: number | null;
-  abroadMentions: number;
-  qiitaArticles: number | null;
-  qiitaMethod: 'mention' | 'tag' | null;
-  zennArticles: number | null;
-  zennMethod: 'topic' | 'search' | null;
-  /** 件数が総数として確定しているか。false なら下限値 */
-  zennComplete: boolean | null;
-  domesticMentions: number;
-  measuredAt: string;
-}
-
-export interface RadarItem {
+export interface ToolBoardItem {
   id: string;
   name: string;
-  /** そのまま貼って試し始められるプロンプト。発掘は身元が必ず取れるので、ほぼ全件に入る */
-  tryPrompt?: string | null;
-  verdict: RadarVerdict;
-  score: number;
-  what: string;
-  pitch: string;
-  insteadOf: string[];
-  firstStep: string | null;
-  fitFor: string[];
-  caution: string | null;
-  measure: RadarMeasure;
-  /** 判定の根拠。数字を含む文で、生成ではなく計測値から組み立てている */
-  evidence: string[];
-  links: { label: string; url: string }[];
-  firstSeenAt: string;
-  isNew: boolean;
-  foundVia: { title: string; url: string } | null;
-}
-
-export interface RadarBoard {
-  updatedAt: string;
-  date: string;
-  items: RadarItem[];
-  byVerdict: Record<string, number>;
-  stats: { ledgerSize: number; measuredToday: number; notTool: number };
-  notes: string[];
-}
-
-
-/* ------------------------------------------------------------------ *
- * トレンド（話題台帳）
- *
- * 日次ダイジェストは差分刊行なので、昨日の 1 位は今日には出ない。トレンドは
- * その状態（stock）側で、ランキングとは別の枠。data/trends/board.json は
- * コミュニティと同じく日付を持たない 1 ファイルで、毎回まるごと差し替わる。
- * ------------------------------------------------------------------ */
-
-export type TrendState = 'hot' | 'keep' | 'cool';
-
-/** その記事がその日どう扱われたか。none は収集したが載せなかったもの */
-export type TrendPlacement = 'top' | 'other' | 'release' | 'none';
-
-export interface TrendArticle {
-  date: string;
-  title: string;
-  /**
-   * 日本語の見出し。原題が日本語の記事・未掲載のもの・この機能より前の日は null。
-   *
-   * タイムラインにも要る。日本語の一覧に英語のタイトルだけが混ざると、
-   * そこで読むのが止まる（掲載側と同じ判断）。
-   */
-  titleJa: string | null;
-  url: string;
-  placement: TrendPlacement;
-  lane: Lane | null;
-  rank: number | null;
-}
-
-export interface TrendTopic {
-  key: string;
-  name: string;
-  /** 観測された実表記。見出しがファミリ（Cursor）、ここが実表記（Cursor Origin） */
-  variants: string[];
-  state: TrendState;
+  kind: ToolKind;
+  homepage: string;
+  summary: string | null;
+  replaces: string | null;
+  requires: string[];
+  trust: {
+    official: boolean;
+    author: string | null;
+    stars: number | null;
+    archived: boolean | null;
+    license: string | null;
+  };
+  state: ToolState;
+  seenIn: { source: string; date: string; title?: string; url?: string }[];
   firstSeen: string;
-  lastSeen: string;
-  total: number;
-  today: number;
-  /** 当日の平常比。平常値が取れない初出は null */
-  lift: number | null;
-  /** 直近 5 日の平常比。「続いているか」はこちら */
-  liftRecent: number | null;
-  recentCount: number;
-  activeDays7: number;
-  /** スパークライン用の日別本数（古い順） */
-  history: number[];
-  articles: TrendArticle[];
+  lastSignal: string;
+  isNew: boolean;
+  resurfaced: boolean;
+  score: number;
+  tryPrompt: string | null;
 }
 
-export interface TrendBoard {
+export interface ToolBoard {
   updatedAt: string;
   date: string;
-  ledgerDays: number;
-  windowDays: number;
-  /** 履歴が足りず平常比で判定できていない。見出しとバッジを差し替える */
-  warmingUp: boolean;
-  hot: TrendTopic[];
-  keep: TrendTopic[];
-  cool: TrendTopic[];
-  ubiquitous: string[];
+  queue: ToolBoardItem[];
+  items: ToolBoardItem[];
+  tried: ToolBoardItem[];
+  byKind: Record<string, number>;
+  stats: { ledger: number; archived: number; passed: number; addedToday: number; resurfacedToday: number };
   notes: string[];
+}
+
+/** data/tools/archive.json の 1 件。退避・見送りしたものを検索で引くためだけの形 */
+export interface ToolArchiveItem {
+  id: string;
+  name: string;
+  kind: ToolKind;
+  homepage: string;
+  summary: string | null;
+  state: ToolState;
+  lastSignal: string;
 }

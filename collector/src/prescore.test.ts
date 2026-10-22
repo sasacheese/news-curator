@@ -170,6 +170,18 @@ describe('pickByLane', () => {
     const got = pickByLane(pool, 4);
     assert.deepEqual(got.build.map((i) => i.id), ['b0', 'b1']);
   });
+
+  it('security は等分の外で別枠として取り、他レーンの枠も埋め戻しにも使わない', () => {
+    const pool = [
+      ...Array.from({ length: 5 }, (_, i) => item(`s${i}`, 'security')),
+      ...Array.from({ length: 6 }, (_, i) => item(`b${i}`, 'build')),
+      item('k0', 'know'),
+    ];
+    const got = pickByLane(pool, 6, 2);
+    assert.equal(got.security.length, 2);
+    // 3 レーンの合計は total のまま（security が枠を食わない）
+    assert.equal(got.know.length + got.build.length + got.talk.length, 6);
+  });
 });
 
 describe('dedupe', () => {

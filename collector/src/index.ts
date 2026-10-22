@@ -1,6 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { collectCommunity } from './community.js';
-import { loadCommunity, loadRadar, loadRuntimeConfig, loadSources, loadTopics } from './config.js';
+import {
+  loadCommunity,
+  loadRadar,
+  loadRuntimeConfig,
+  loadSources,
+  loadToolSources,
+  loadTopics,
+} from './config.js';
 import { enrichHatenaCounts, enrichTopItems } from './enrich.js';
 import { applyFeedbackToTopics, loadFeedbackSignal, renderFeedbackNote } from './feedback.js';
 import {
@@ -13,6 +20,13 @@ import {
   resetUsage,
   summarizeDigest,
 } from './llm.js';
+import {
+  dedupeByIncident,
+  knownIncidentLabels,
+  normalizeIncidentKey,
+  previousSummary,
+  updateIncidentLedger,
+} from './incidents.js';
 import { selectLaneCandidates } from './lanes.js';
 import type { SlotRule } from './prescore.js';
 import { dedupe, pickByLane, pickTopDiverse, preScore } from './prescore.js';
@@ -21,31 +35,20 @@ import { collectReleaseCandidates, extractReleases, sortReleases } from './relea
 import { collectAdvisories } from './advisories.js';
 import { collectAll } from './sources.js';
 import {
+  loadIncidentLedger,
   loadPreviousCommunityIds,
   loadPreviousRadarIds,
   loadRadarLedger,
   loadRecentIndexEntries,
   loadRecentSummaries,
   loadSeenUrls,
-  loadTrendLedger,
+  loadToolLedger,
   saveCommunityBoard,
   saveDigest,
+  saveIncidentLedger,
   saveRadarBoard,
-  saveTrendBoard,
-  saveTrendLedger,
-  toIndexEntries,
+  saveToolbox,
 } from './store.js';
-import {
-  LEDGER_DAYS,
-  assignPublished,
-  buildBoard,
-  buildVocabulary,
-  collectUnplaced,
-  countDay,
-  labelsForLedger,
-  mergeLedger,
-  trimLedger,
-} from './trends.js';
 import type {
   CommunityBoard,
   CommunityItem,
@@ -58,6 +61,7 @@ import type {
   ReleaseItem,
   TopItem,
 } from './types.js';
+import { runToolbox } from './tools-run.js';
 import { buildTryPrompt, identityFromUrl, otherQuestions } from './try-prompt.js';
 import { COMMUNITY_ACTIONS, LANES, LANE_LABELS } from './types.js';
 import { formatJst, log, mapLimit, normalizeUrl, resolveWindow, safe } from './util.js';
@@ -261,11 +265,13 @@ async function main(): Promise<void> {
     preScored,
     runtime.laneCandidates,
     runtime.laneThresholds,
+    runtime.securityPerLane,
   );
   const candidates = LANES.flatMap((lane) => selection.candidates[lane]);
   log.info(
     `  振り分け: ${LANES.map((l) => `${LANE_LABELS[l]} ${selection.assigned[l]}`).join(' / ')}` +
-      `（しきい値 know=${runtime.laneThresholds.know} talk=${runtime.laneThresholds.talk}）`,
+      `（しきい値 security=${runtime.laneThresholds.security}` +
+      ` know=${runtime.laneThresholds.know} talk=${runtime.laneThresholds.talk}）`,
   );
   log.info(
     `LLM 採点対象 ${candidates.length} 件: ` +
@@ -279,7 +285,14 @@ async function main(): Promise<void> {
    * talk の 80 点は「立場が割れるか」への答えで、別の問いへの答えだからだ。
    * 並べ替えは常にレーン内で行う。
    */
-  const ranked = await rankItems(selection.candidates, effectiveTopics, runtime, feedbackNote);
+  const incidentLedger = await safe('incidents', () => loadIncidentLedger(), {});
+  const ranked = await rankItems(
+    selection.candidates,
+    effectiveTopics,
+    runtime,
+    feedbackNote,
+    knownIncidentLabels(incidentLedger),
+  );
 
   /*
    * 採点が 1 件も成立しなかった日を、画面から見えるようにする。
@@ -338,6 +351,8 @@ async function main(): Promise<void> {
     match: (i) => i.payoff === 'apply' || i.source === 'github_repo',
   };
   const laneSlotRules: Record<Lane, SlotRule<RankedItem>[]> = {
+    // 被害組織の発表や公的機関の注意喚起を、同じ事案の二次報道より優先して残す
+    security: [primarySource],
     know: [primarySource, durable],
     build: [tangible, durable],
     talk: [],
@@ -349,19 +364,23 @@ async function main(): Promise<void> {
      * 必ず topN 件が深掘りされる（全部 20 点の日でも上位 2 件が Sonnet に回る）。
      * 件数を埋めることより、薄い日は薄いまま出すことを優先する。
      */
-    const pool = rankedByLane(lane).filter((i) => i.score >= runtime.minTopScore);
-    const dropped = rankedByLane(lane).length - pool.length;
-    const picked = pickTopDiverse(pool, runtime.topN, laneSlotRules[lane]);
-    if (picked.length < runtime.topN) {
+    // security は同じ事案を複数の媒体が書くので、深掘りの前に事案単位へまとめる
+    const laneRanked =
+      lane === 'security' ? dedupeByIncident(rankedByLane(lane)) : rankedByLane(lane);
+    const n = lane === 'security' ? runtime.securityTopN : runtime.topN;
+    const pool = laneRanked.filter((i) => i.score >= runtime.minTopScore);
+    const dropped = laneRanked.length - pool.length;
+    const picked = pickTopDiverse(pool, n, laneSlotRules[lane]);
+    if (picked.length < n) {
       log.warn(
-        `  ${LANE_LABELS[lane]}のベストは ${picked.length}/${runtime.topN} 件` +
+        `  ${LANE_LABELS[lane]}のベストは ${picked.length}/${n} 件` +
           `（${runtime.minTopScore} 点未満を ${dropped} 件除外）`,
       );
     }
     for (const rule of laneSlotRules[lane]) {
       if (picked.length > 0 && !picked.some(rule.match)) {
         log.warn(
-          `  ${LANE_LABELS[lane]}のベスト${runtime.topN}に「${rule.label}」の枠を確保できませんでした`,
+          `  ${LANE_LABELS[lane]}のベスト${n}に「${rule.label}」の枠を確保できませんでした`,
         );
       }
     }
@@ -382,7 +401,13 @@ async function main(): Promise<void> {
 
   const top: TopItem[] = await mapLimit(topCandidates, 3, async (item) => {
     const withBody = { ...item, ...(enrichedById.get(item.id) ?? {}) } as RankedItem;
-    const deep = await deepDive(withBody, topics, runtime, enriched.bodyImages.get(item.id));
+    const deep = await deepDive(
+      withBody,
+      topics,
+      runtime,
+      enriched.bodyImages.get(item.id),
+      previousSummary(incidentLedger, item.incident, date),
+    );
     log.info(`  [${LANE_LABELS[item.lane]}] #${rankOf.get(item.id)} ${item.oneLiner}`);
     return { ...withBody, rank: rankOf.get(item.id) ?? 1, deep };
   });
@@ -397,7 +422,21 @@ async function main(): Promise<void> {
         item.score >= runtime.minOtherScore,
     ),
   );
-  const byLane = pickByLane(remaining, runtime.otherN);
+  /*
+   * 一覧側の security も事案単位にまとめる。深掘りした事案は一覧に重ねない
+   * （同じ事案の別媒体の記事が「その他」に並ぶと、カードの下で同じ話を読み直すことになる）。
+   */
+  const topIncidents = new Set(
+    top.flatMap((t) => (t.incident ? [normalizeIncidentKey(t.incident)] : [])),
+  );
+  const remainingDeduped = [
+    ...dedupeByIncident(
+      remaining.filter((i) => i.lane === 'security'),
+      topIncidents,
+    ),
+    ...remaining.filter((i) => i.lane !== 'security'),
+  ];
+  const byLane = pickByLane(remainingDeduped, runtime.otherN, runtime.securityOtherN);
   /*
    * 画面はレーンで分けて出すので、保存もレーン順にまとめておく。
    *
@@ -502,60 +541,27 @@ async function main(): Promise<void> {
     notes,
   };
 
-  /* トレンド（話題台帳） --------------------------------------------- */
+  /* 道具箱 ----------------------------------------------------------- */
   /*
-   * ダイジェストは差分刊行なので、昨日の 1 位は今日どこにも出ない。ここでは
-   * 記事ではなく「話題」を単位に、日をまたいだ状態を持つ。LLM は通さないので
-   * 追加費用はゼロ。落ちてもダイジェストは出す（safe で包む）。
-   *
-   * 数えるのは掲載した 30 件ではなく重複排除後の全件。掲載ぶんだけを母集団に
-   * すると、その日に 10 本出ていた話題が 1 本にしか見えない。
+   * 今日のダイジェスト・収集・発掘と、道具専用のソースから道具を拾って台帳に足す。
+   * 落ちてもダイジェストは出す（safe で包む）。盤面は日付を持たない 1 ファイル。
    */
-  log.step('トレンド');
-  const trend = await safe(
-    'trends',
-    async () => {
-      const [ledger, pastEntries] = await Promise.all([
-        loadTrendLedger(date),
-        loadRecentIndexEntries(date, LEDGER_DAYS),
-      ]);
-      const todayEntries = toIndexEntries(digest);
-      const vocab = buildVocabulary(
-        [...pastEntries, ...todayEntries].flatMap((e) => e.keywords ?? []),
-        preScored,
-      );
-      const counted = countDay(date, preScored, vocab);
-      const days = trimLedger(mergeLedger(ledger.days, counted.day));
-      const publishedUrls = new Set(todayEntries.map((e) => normalizeUrl(e.url)));
-      const board = buildBoard({
+  log.step('道具箱');
+  const toolbox = await safe(
+    'toolbox',
+    async () =>
+      runToolbox({
         date,
-        updatedAt: new Date().toISOString(),
-        days,
-        labels: vocab.labels,
-        variantsByTopic: counted.variantsByTopic,
-        publishedByTopic: assignPublished(
-          // 今日ぶんは index にまだ無いので、ここで足してから割り当てる
-          [...todayEntries, ...pastEntries.filter((e) => e.date !== date)],
-          vocab,
-        ),
-        unplacedByTopic: collectUnplaced(counted.itemsByTopic, publishedUrls, normalizeUrl),
-      });
-      const labels = labelsForLedger(days, vocab.labels, ledger.labels);
-      log.info(
-        `  語彙 ${vocab.labels.size} / 話題 ${Object.keys(counted.day.counts).length}` +
-          ` / 台帳 ${days.length} 日`,
-      );
-      for (const topic of board.hot) {
-        const lift = topic.lift == null ? '初出' : `平常比 ${topic.lift.toFixed(1)}`;
-        log.info(`  [動いた] ${topic.name}（今日 ${topic.today} 本・${lift}）`);
-      }
-      return { board, days, labels };
-    },
+        windowStart: start,
+        digest,
+        collected,
+        radar: radar?.board,
+        ledger: await loadToolLedger(),
+        sources: await loadToolSources(),
+        runtime,
+      }),
     null,
   );
-  if (!trend) {
-    log.warn('  トレンドの算出に失敗しました。盤面は前回のまま残ります。');
-  }
 
   log.step('使用量');
   logUsage();
@@ -579,17 +585,29 @@ async function main(): Promise<void> {
   }
 
   await saveDigest(digest);
+  await safe(
+    'incidents',
+    () =>
+      saveIncidentLedger(
+        updateIncidentLedger(incidentLedger, date, [
+          ...top
+            .filter((t) => t.lane === 'security')
+            .map((t) => ({ incident: t.incident, summary: t.deep.summary, deep: true })),
+          ...others
+            .filter((o) => o.lane === 'security')
+            .map((o) => ({ incident: o.incident, summary: o.oneLiner, deep: false })),
+        ]),
+      ),
+    undefined,
+  );
   // 盤面は日付を持たない別ファイル。ダイジェストが落ちた日でも単独で更新される
   await saveCommunityBoard(communityBoard);
   if (radar) await saveRadarBoard(radar.board, radar.ledger);
-  if (trend) {
-    await saveTrendLedger(trend.days, trend.labels);
-    await saveTrendBoard(trend.board);
-  }
+  if (toolbox) await saveToolbox(toolbox.ledger, toolbox.board);
   log.info(
     `\n✔ 完了: ベスト${top.length}件 + その他${others.length}件` +
       ` + コミュニティ${community.items.length}件` +
-      ` + 発掘${radar?.board.items.length ?? 0}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
+      ` + 発掘${radar?.board.items.length ?? 0}件 + 道具${toolbox?.board.items.length ?? 0}件 / 想定 ${digest.stats.estimatedReadMinutes} 分`,
   );
 }
 

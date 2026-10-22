@@ -3556,6 +3556,45 @@ a.btn {
   text-autospace: normal;
 }
 
+/*
+ * セキュリティの「攻撃の流れ」と「企業の対策」。段階・種類のラベルを左の固定列に置く。
+ * 文の頭に埋めると、どの段階の話かを拾うのに毎行読み始める必要がある。
+ */
+.attack-chain,
+.defense {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attack-chain li,
+.defense li {
+  display: grid;
+  grid-template-columns: 4.6em 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.attack-chain li + li,
+.defense li + li {
+  margin-top: 6px;
+}
+
+.attack-chain__stage,
+.defense__kind {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* 段階の順番が流れとして見えるよう、左に線を引く */
+.attack-chain {
+  border-left: 2px solid var(--border-strong);
+  padding-left: 10px;
+}
+
 /* 「争点」項目の頭に置く 1 行。この下に論点ごとの対が並ぶ */
 .clashes__axis {
   margin: 0 0 10px;
@@ -4077,776 +4116,6 @@ a.btn {
   margin-top: 7px;
 }
 
-/* ================================================================== *
- * トレンド（話題台帳）
- *
- * ランキングとは別枠。カード 1 枚が 1 つの話題で、中身は「現在地」——
- * 平常比・日別の本数・掲載した記事の並び。既存のカードと同じ器を使うが、
- * 読み物ではなく一覧なので情報密度を上げてある。
- * ================================================================== */
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* ---------- 「今日」タブに置く帯 ---------- */
-
-.tband {
-  display: flex;
-  align-items: center;
-  /* 縦は行間ぶんだけ、横はラベルとチップが別物に見えるぶん。同じ値にはしない */
-  gap: 6px 10px;
-  flex-wrap: wrap;
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-sunken);
-}
-
-.tband__label {
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-/*
- * チップの箱。`flex: 1`（= flex-basis 0）にすると、狭い画面でこの箱が
- * ラベルとリンクに挟まれて潰れ、チップが 1 個ずつ縦に積まれてしまう
- * （4 個で 5 行になっていた）。伸ばさず、中身の幅で置く。
- */
-.tband__chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-.tband__all {
-  font-size: 12.5px;
-  white-space: nowrap;
-  text-decoration: none;
-  /* 広い画面では右端へ */
-  margin-left: auto;
-}
-
-.tband__all:hover {
-  text-decoration: underline;
-}
-
-.tchip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--bg-elevated);
-  color: var(--text);
-  font-size: 12.5px;
-  font-weight: 600;
-  text-decoration: none;
-  /* 「Claude Code」を途中で折らない。折れると chip が 2 行の塊になる */
-  white-space: nowrap;
-}
-
-.tchip:hover {
-  border-color: var(--accent);
-}
-
-.tchip__n {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.tchip--new {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-/* 追っている話題には印を付ける。★を付ける動機がここに出る */
-.tchip--watched::before {
-  content: '★';
-  font-size: 10px;
-  color: var(--accent);
-}
-
-/*
- * 1 行に収まらない幅（ラベル・チップ 4 つ・リンクで 665px 必要）では 2 行に
- * 組み替える。
- *
- * 1 行目にラベルと「トレンド →」、2 行目にチップを横一列。チップは折り返さず
- * 横スクロールにする——チップの行き先は 4 つとも同じトレンドタブなので、端で
- * 切れても失うものが無い。上のタブ帯と同じ所作にそろえる意味もある。
- */
-@media (max-width: 640px) {
-  .tband {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: var(--sp-2) 10px;
-    /* チップの列はカードの右端まで流す。切れ目が枠の内側にあると迷子に見える */
-    padding-right: 0;
-  }
-  .tband__label {
-    grid-area: 1 / 1;
-  }
-  .tband__all {
-    grid-area: 1 / 2;
-    margin-left: 0;
-    padding-right: 14px;
-  }
-  .tband__chips {
-    grid-area: 2 / 1 / 3 / 3;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    padding-right: 14px;
-  }
-  .tband__chips::-webkit-scrollbar {
-    display: none;
-  }
-  .tchip {
-    scroll-snap-align: start;
-  }
-}
-
-/* ---------- 話題カード ---------- */
-
-.tcards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tcard {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 15px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow);
-}
-/* ---------------- 発掘 ---------------- */
-/*
- * この画面の主役は要約ではなく「海外での使われ方」と「日本語の記事の量」の対比。
- * 対比を左右に置き、間に「日本では」を挟む。縦に積むと 2 つが同列の指標に見えて、
- * 差が読み取れなくなる——差そのものがこの画面の情報なので、そこは崩せない。
- */
-
-.radar-group {
-  margin-bottom: var(--sp-7);
-}
-.radar-group__count {
-  margin-left: var(--sp-2);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-faint);
-}
-.radar-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
-}
-
-.radar {
-  padding: var(--sp-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow);
-}
-
-/* 落ち着いたものは器から降ろす。追う対象ではないことを見た目で示す */
-.tcard--cool {
-  background: transparent;
-  box-shadow: none;
-}
-
-.tcard--cool .tcard__name,
-.tcard--cool .tev__t {
-  color: var(--text-muted);
-}
-
-/*
- * 落ち着いたカードでは当日の本数を強調しない。「落ち着いた」と言いながら
- * 今日の件数がアクセント色で光っていると、読者には矛盾に見える。
- */
-.tcard--cool .tmeta--now {
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
-.tcard__hd {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.tcard__id {
-  flex: 1;
-  min-width: 0;
-}
-
-.tcard__name {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.005em;
-  word-break: break-word;
-}
-
-/*
- * 実表記。見出しはファミリ（Cursor）で、ここが実際に出た名前（Cursor Origin）。
- * 固有名詞のまま並べると表記ゆれで繋がらず、抽象カテゴリに丸めると情報量が消える。
- */
-.tcard__vars {
-  margin: 2px 0 0;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--text-muted);
-  word-break: break-word;
-}
-
-.tcard__st {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-shrink: 0;
-}
-
-.tbadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2.5px 8px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.tbadge b {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.tbadge--new {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.tbadge--rise {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.tbadge--keep {
-  border-color: var(--border-strong);
-  color: var(--text-muted);
-}
-
-.tbadge--cool {
-  border-color: var(--border);
-  color: var(--text-faint);
-}
-
-.twatch {
-  display: grid;
-  place-items: center;
-  padding: 3px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text-faint);
-  cursor: pointer;
-}
-
-.twatch:hover,
-.twatch[aria-pressed='true'] {
-  color: var(--accent);
-}
-
-.twatch[aria-pressed='true'] path {
-  fill: currentColor;
-}
-
-.tcard__meta {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-wrap: wrap;
-}
-
-.tmeta {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.tmeta__sep {
-  font-size: 12px;
-  color: var(--border-strong);
-}
-
-.tmeta--now {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.tmeta--off {
-  color: var(--text-faint);
-}
-
-/*
- * 日別本数。折れ線は出さない——読者の行動が変わるのは「伸びているか枯れているか」
- * の形だけで、値の精密な読み取りではない。最後の日だけ色を付けて現在地を示す。
- */
-.tspark {
-  display: block;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.tspark__bar {
-  fill: var(--border-strong);
-}
-
-.tspark__bar--zero {
-  fill: var(--border);
-}
-
-.tspark__bar--now {
-  fill: var(--accent);
-}
-
-/* ---------- タイムライン ---------- */
-
-.tev-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin: 0;
-  padding: 9px 0 0;
-  border-top: 1px solid var(--border);
-  list-style: none;
-}
-
-.tev {
-  display: grid;
-  grid-template-columns: 3.1em 1fr auto;
-  gap: 9px;
-  align-items: baseline;
-  padding: 3px 0;
-}
-
-.tev__d {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-/*
- * タイトルは 2 行で切る。英語のリポジトリ説明が 3 行に折り返すと、
- * 1 枚のカードの中で行の高さが揃わず一覧として読めなくなる。
- */
-.tev__t {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--text);
-  text-decoration: none;
-}
-
-.tev__t:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-.tev__m {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.ttag {
-  padding: 1.5px 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg-sunken);
-  color: var(--text-faint);
-  font-size: 10.5px;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.ttag--rank {
-  border-color: var(--border-strong);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.ttag--new {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.tcard__empty {
-  margin: 0;
-  padding-top: 9px;
-  border-top: 1px solid var(--border);
-  font-size: 12.5px;
-  color: var(--text-faint);
-}
-
-.tmore {
-  align-self: flex-start;
-  padding: 2px 0;
-  border: 0;
-  background: none;
-  color: var(--link);
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.tmore:hover {
-  text-decoration: underline;
-}
-
-.tcard__ft {
-  padding-top: 9px;
-  border-top: 1px solid var(--border);
-}
-
-.tsearch {
-  font-size: 12.5px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.tsearch:hover {
-  text-decoration: underline;
-}
-
-/* ---------- 背景（常在語） ---------- */
-
-.tbg {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 30px;
-  padding: 14px 15px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-sunken);
-}
-
-.tbg__label {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.tbg__values {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--text-muted);
-  word-break: break-word;
-}
-
-.tbg__note {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--text-faint);
-}
-
-@media (max-width: 560px) {
-  .tcard__hd {
-    flex-wrap: wrap;
-  }
-
-  .tev {
-    grid-template-columns: 3.1em 1fr;
-  }
-
-  .tev__m {
-    grid-column: 2;
-    margin-top: 1px;
-  }
-
-  .tspark {
-    margin-left: 0;
-    width: 100%;
-    max-width: 200px;
-  }
-}
-.radar__head {
-  margin-bottom: var(--sp-4);
-}
-.radar__name {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-  margin: 0;
-  font-size: 20px;
-  letter-spacing: -0.01em;
-}
-.radar__new {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.radar__what {
-  margin: var(--sp-1) 0 0;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-/* 紹介の一言。ここだけ塗って、カードの中でどこを読めばよいか一目で分かるようにする */
-.radar__pitch {
-  margin-bottom: var(--sp-4);
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
-}
-.radar__pitch-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
-}
-.radar__pitch-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-.radar__pitch-body {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.75;
-}
-
-.radar__gap {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-4);
-  padding: var(--sp-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-}
-.radar__side-label {
-  margin: 0 0 var(--sp-2);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
-}
-.radar__figures {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-.radar__figures li {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-}
-.radar__num {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-feature-settings: 'palt' 1;
-  font-variant-numeric: tabular-nums;
-}
-.radar__num--unknown {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--text-faint);
-}
-.radar__unit {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-/* 何を測ったのかを隠さない。パッケージ名が違えば数字も違う */
-.radar__pkg {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-faint);
-}
-.radar__breakdown {
-  display: flex;
-  gap: var(--sp-2);
-  font-size: 11px;
-  color: var(--text-faint);
-}
-.radar__vs {
-  margin: 0;
-  padding: 0 var(--sp-1);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-faint);
-  writing-mode: vertical-rl;
-  letter-spacing: 0.1em;
-}
-/* 国内側は「少ないこと」が情報なので、アクセントで拾わせる */
-.radar__side--domestic .radar__num {
-  color: var(--accent);
-}
-
-.radar__detail {
-  display: grid;
-  grid-template-columns: 8.5em 1fr;
-  gap: var(--sp-3);
-  padding: var(--sp-3) 0;
-  border-top: 1px solid var(--border);
-}
-.radar__detail-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.radar__detail-body {
-  font-size: 14px;
-  line-height: 1.8;
-}
-.radar__detail-body p {
-  margin: 0;
-}
-.radar__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.radar__list li {
-  position: relative;
-  padding-left: 1.1em;
-}
-.radar__list li::before {
-  content: '・';
-  position: absolute;
-  left: 0;
-  color: var(--text-faint);
-}
-.radar__instead {
-  font-weight: 600;
-}
-.radar__caution {
-  color: var(--warn);
-}
-
-.radar__step {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-}
-.radar__step code {
-  padding: 4px 9px;
-  border-radius: var(--radius-sm);
-  background: var(--code-bg);
-  color: var(--code-text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
-.radar__evidence {
-  margin-top: var(--sp-2);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--border);
-  font-size: 13px;
-}
-.radar__evidence summary {
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-.radar__evidence .radar__list {
-  margin-top: var(--sp-2);
-  color: var(--text-muted);
-}
-.radar__via,
-.radar__measured {
-  margin: var(--sp-2) 0 0;
-  font-size: 12px;
-  color: var(--text-faint);
-}
-
-.radar__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-3);
-  margin: var(--sp-3) 0 0;
-  font-size: 13px;
-}
-
-@media (max-width: 560px) {
-  /*
-   * 幅が無いと 3 列は読めないので縦に積む。積むと対比が弱くなるので、
-   * 「日本では」を横書きに戻して境界として機能させる。
-   */
-  .radar__gap {
-    grid-template-columns: 1fr;
-  }
-  .radar__vs {
-    writing-mode: horizontal-tb;
-    padding: var(--sp-1) 0;
-    border-top: 1px solid var(--border);
-  }
-  .radar__detail {
-    grid-template-columns: 1fr;
-    gap: var(--sp-1);
-  }
-}
-
 /* ---------------- 用語チップ（畳んだカードに出る） ---------------- */
 
 /*
@@ -5213,4 +4482,248 @@ a.btn {
     white-space: normal;
     line-height: 1.55;
   }
+}
+
+/* ---------------- 道具箱 ---------------- */
+/*
+ * 網羅が目的なので、カードは読み物ではなく一覧の 1 行に近い密度にする。
+ * スマホで流し読みして「気になる」を押すのが主な使い方なので、名前・種類・
+ * 何ができるかの 3 つが最初の 2 行に収まることを優先している。
+ */
+
+.btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.toolbox-search {
+  margin: var(--sp-4) 0 var(--sp-2);
+}
+
+.toolbox-search__input,
+.tool-add__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.tool-add {
+  margin: var(--sp-4) 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.tool-add__label {
+  display: block;
+  margin-bottom: var(--sp-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tool-add__row {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.tool-add__row .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tool-add__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.tool-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--sp-4);
+}
+
+.tool-kinds__chip {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tool-kinds__chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tool {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
+}
+
+.tool--passed {
+  opacity: 0.6;
+}
+
+.tool__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+}
+
+.tool__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.tool__kind,
+.tool__flag,
+.tool__req,
+.tool__trust {
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+.tool__kind {
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.tool__flag {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.tool__flag--new {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.tool__summary {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.tool__replaces {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.tool__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tool__req {
+  border: 1px dashed var(--border-strong);
+}
+
+.tool__trust--official {
+  border: 1px solid var(--accent);
+  color: var(--text);
+}
+
+.tool__trust--warn {
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.tool__caution {
+  margin: 6px 0 0;
+  padding-left: 9px;
+  border-left: 2px solid var(--border-strong);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tool__seen {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.tool__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tool__reason {
+  padding: 3px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.tool-archive {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.tool-archive li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-archive__summary {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tool-tried {
+  margin-top: var(--sp-6);
+}
+
+.tool-tried > summary {
+  cursor: pointer;
 }

@@ -12,6 +12,15 @@ import type { Lane, RankedItem } from './types';
  * 意味の精度は見出し下の lead が担保する。
  */
 export const LANE_META: { id: Lane; label: string; lead: string }[] = [
+  /*
+   * セキュリティは先頭に置く。サマリーのすぐ下で読ませたい枠で、
+   * 1 日の 30 分の中で最初に目に入る位置にする。
+   */
+  {
+    id: 'security',
+    label: 'セキュリティ',
+    lead: '企業の情報漏洩や攻撃の事案です。どう攻められたかと、個人・企業がとるべき対策を添えています。',
+  },
   {
     id: 'know',
     label: '知る',
@@ -29,7 +38,7 @@ export const LANE_META: { id: Lane; label: string; lead: string }[] = [
   },
 ];
 
-/** レーン -> ラベル。トレンドの掲載バッジのように、単発で名前だけ要る場所で使う */
+/** レーン -> ラベル。単発で名前だけ要る場所で使う */
 export const LANE_LABELS: Record<Lane, string> = Object.fromEntries(
   LANE_META.map((m) => [m.id, m.label]),
 ) as Record<Lane, string>;
