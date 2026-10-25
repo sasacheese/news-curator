@@ -21,6 +21,24 @@ function rawPopularity(item: RawItem): number | null {
       return m.hatena ?? 0;
     case 'github_repo':
       return m.stars ?? 0;
+    case 'x': {
+      // いいね + リポスト等を、公開からの時間で割って順位にする（割るのは呼び出し側）。
+      // 表示回数は桁が違いすぎるので入れない。指標が一つも無ければ「測れない」。
+      const has =
+        m.likes != null ||
+        m.reposts != null ||
+        m.quotes != null ||
+        m.replies != null ||
+        m.bookmarks != null;
+      if (!has) return null;
+      return (
+        (m.likes ?? 0) +
+        (m.reposts ?? 0) * 2 +
+        (m.quotes ?? 0) * 2 +
+        (m.replies ?? 0) * 0.5 +
+        (m.bookmarks ?? 0)
+      );
+    }
     default:
       // RSS・リリースノート・CHANGELOG は人気指標を持たない
       return m.hatena ?? null;
@@ -121,6 +139,10 @@ function sourceBonus(item: RawItem): number {
       return 0.06 + Math.min(0.18, item.sourceWeight * 0.035);
     case 'github_repo':
       return 0.05;
+    case 'x':
+      // 人が選んで置いた投稿なので、指標の無い一次情報の底上げよりは小さく、
+      // 何も足さないコミュニティ投稿よりは残す。公式ブログ（rss）の基礎点と同じ。
+      return 0.06;
     default:
       return 0;
   }
@@ -154,6 +176,10 @@ export function isBuzzing(item: RawItem): boolean {
       return (m.points ?? 0) >= 300;
     case 'github_repo':
       return (m.stars ?? 0) >= 3000;
+    case 'x':
+      // 実測が貯まるまでの絶対値。180 いいね、または 60 リポスト、あるいはその合算。
+      // ここを下げると「いいねが少し付いた投稿」が毎日話題扱いになり、buzz が意味を失う。
+      return (m.likes ?? 0) + (m.reposts ?? 0) * 3 + (m.quotes ?? 0) * 2 >= 180;
     default:
       // 公式ブログ・リリースノートは指標を持たないので、はてブが付くかどうかだけ
       return false;
@@ -252,6 +278,16 @@ export function pickTopDiverse<T extends { id: string; sourceLabel: string; scor
   return picked.sort((a, b) => b.score - a.score);
 }
 
+function maxMetric(a?: number, b?: number): number | undefined {
+  const n = Math.max(a ?? 0, b ?? 0);
+  return n > 0 ? n : undefined;
+}
+
+function mergeLinks(a?: string[], b?: string[]): string[] | undefined {
+  const merged = [...new Set([...(a ?? []), ...(b ?? [])])];
+  return merged.length > 0 ? merged : undefined;
+}
+
 /**
  * URL 正規化・タイトル近似・過去ダイジェスト済み URL の 3 段で重複を落とす。
  * 同一記事が複数ソースから来た場合はメトリクスをマージする。
@@ -281,13 +317,19 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
       // どこから見つかったかは全部覚えておく（はてブ経由かどうかが話題性の根拠になる）
       foundIn: [...new Set([...(existing.foundIn ?? [existing.source]), item.source])],
       metrics: {
-        likes: Math.max(winner.metrics.likes ?? 0, loser.metrics.likes ?? 0) || undefined,
-        stocks: Math.max(winner.metrics.stocks ?? 0, loser.metrics.stocks ?? 0) || undefined,
-        stars: Math.max(winner.metrics.stars ?? 0, loser.metrics.stars ?? 0) || undefined,
-        points: Math.max(winner.metrics.points ?? 0, loser.metrics.points ?? 0) || undefined,
-        comments: Math.max(winner.metrics.comments ?? 0, loser.metrics.comments ?? 0) || undefined,
-        hatena: Math.max(winner.metrics.hatena ?? 0, loser.metrics.hatena ?? 0) || undefined,
+        likes: maxMetric(winner.metrics.likes, loser.metrics.likes),
+        stocks: maxMetric(winner.metrics.stocks, loser.metrics.stocks),
+        stars: maxMetric(winner.metrics.stars, loser.metrics.stars),
+        points: maxMetric(winner.metrics.points, loser.metrics.points),
+        comments: maxMetric(winner.metrics.comments, loser.metrics.comments),
+        hatena: maxMetric(winner.metrics.hatena, loser.metrics.hatena),
+        reposts: maxMetric(winner.metrics.reposts, loser.metrics.reposts),
+        replies: maxMetric(winner.metrics.replies, loser.metrics.replies),
+        quotes: maxMetric(winner.metrics.quotes, loser.metrics.quotes),
+        bookmarks: maxMetric(winner.metrics.bookmarks, loser.metrics.bookmarks),
+        impressions: maxMetric(winner.metrics.impressions, loser.metrics.impressions),
       },
+      linkedUrls: mergeLinks(winner.linkedUrls, loser.linkedUrls),
     });
   }
 
@@ -297,10 +339,18 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
     // 外部 API / RSS 由来の link は信用しない（javascript: などを保存させない）
     if (!isHttpUrl(item.url)) continue;
     if (seenUrls.has(normalizeUrl(item.url))) continue;
-    const tk = titleKey(item.title);
-    if (tk.length >= 8) {
-      if (seenTitles.has(tk)) continue;
-      seenTitles.add(tk);
+    /*
+     * 投稿には題が無いので、見出しは「作者 + 本文の1行目」から作っている。
+     * 同じ書き出しの別投稿（スレッド、引用、定型の告知）まで記事の近似重複として
+     * 落とすと、URL が違うのに片方が消える。投稿は URL だけで同一判定する。
+     * タイトルキーにも入れない。先に処理した投稿が、後続の記事を巻き込まないため。
+     */
+    if (item.source !== 'x') {
+      const tk = titleKey(item.title);
+      if (tk.length >= 8) {
+        if (seenTitles.has(tk)) continue;
+        seenTitles.add(tk);
+      }
     }
     out.push(item);
   }

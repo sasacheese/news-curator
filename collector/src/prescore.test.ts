@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dedupe, isBuzzing, pickByLane, pickTopDiverse } from './prescore.js';
+import { dedupe, isBuzzing, pickByLane, pickTopDiverse, popularityPercentiles, preScore } from './prescore.js';
 import type { Lane, Metrics, RawItem, SourceKind } from './types.js';
 
 /*
@@ -259,6 +259,41 @@ describe('dedupe', () => {
     assert.equal(got.length, 1);
   });
 
+  it('同じ書き出しの X 投稿をタイトル近似でまとめない', () => {
+    const title = '@someone: Claude Code の権限設定を本番でこうしている';
+    const got = dedupe(
+      [
+        item({
+          id: '1',
+          source: 'x',
+          title,
+          url: 'https://x.com/someone/status/111',
+        }),
+        item({
+          id: '2',
+          source: 'x',
+          title,
+          url: 'https://x.com/someone/status/222',
+        }),
+        item({
+          id: '3',
+          source: 'qiita',
+          title,
+          url: 'https://qiita.com/items/aaa',
+        }),
+      ],
+      new Set(),
+    );
+    assert.deepEqual(
+      got.map((i) => i.url).sort(),
+      [
+        'https://qiita.com/items/aaa',
+        'https://x.com/someone/status/111',
+        'https://x.com/someone/status/222',
+      ],
+    );
+  });
+
   it('タイトルが短い記事は近似判定にかけない', () => {
     // 8文字未満のキーは衝突しやすいので、別記事を消してはいけない
     const got = dedupe(
@@ -306,5 +341,42 @@ describe('isBuzzing', () => {
     assert.equal(buzz('changelog', {}), false);
     assert.equal(buzz('github_release', {}), false);
     assert.equal(buzz('rss', { hatena: 8 }), true);
+  });
+
+  it('X はいいね・リポスト・引用の合算が 180 以上で話題', () => {
+    assert.equal(buzz('x', { likes: 180 }), true);
+    assert.equal(buzz('x', { reposts: 60 }), true);
+    assert.equal(buzz('x', { likes: 100, reposts: 20, quotes: 10 }), true);
+    assert.equal(buzz('x', { likes: 100, reposts: 20 }), false);
+    assert.equal(buzz('x', {}), false);
+  });
+});
+
+describe('X の事前スコア', () => {
+  const topics = { profile: '', topics: [], exclude: { keywords: [] } };
+
+  it('指標が無くても一次情報より小さい下駄を足す', () => {
+    const [post] = preScore([item({ id: 'x', source: 'x' })], topics);
+    const [article] = preScore([item({ id: 'q', source: 'qiita' })], topics);
+    assert.ok(post && article);
+    assert.ok(post.preScore > article.preScore);
+    assert.equal(post.popularityPercentile, 0.5);
+  });
+
+  it('いいねとリポストを経過時間あたりの伸びで順位にする', () => {
+    const now = new Date('2026-08-02T00:00:00Z');
+    const publishedAt = '2026-08-01T00:00:00Z';
+    const items = [
+      item({ id: 'likes', source: 'x', metrics: { likes: 10 }, publishedAt }),
+      item({ id: 'reposts', source: 'x', metrics: { reposts: 10 }, publishedAt }),
+      item({ id: 'mid', source: 'x', metrics: { likes: 30 }, publishedAt }),
+      item({ id: 'low', source: 'x', metrics: { likes: 1 }, publishedAt }),
+      item({ id: 'high', source: 'x', metrics: { likes: 100 }, publishedAt }),
+    ];
+    const percentiles = popularityPercentiles(items, now);
+    // リポストは 2 倍。10 リポスト（20）は 10 いいねより上、30 いいねより下。
+    assert.ok((percentiles.get('reposts') ?? 0) > (percentiles.get('likes') ?? 0));
+    assert.ok((percentiles.get('mid') ?? 0) > (percentiles.get('reposts') ?? 0));
+    assert.ok((percentiles.get('high') ?? 0) > (percentiles.get('low') ?? 1));
   });
 });

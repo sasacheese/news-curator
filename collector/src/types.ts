@@ -7,7 +7,8 @@ export type SourceKind =
   | 'github_release'
   | 'github_repo'
   | 'changelog'
-  | 'rss';
+  | 'rss'
+  | 'x';
 
 export interface Metrics {
   likes?: number;
@@ -16,6 +17,14 @@ export interface Metrics {
   points?: number;
   comments?: number;
   hatena?: number;
+  /** X のリポスト。人気度では likes より重く見る */
+  reposts?: number;
+  /** X の返信。talk の discussion 比では comments と同じものとして扱う */
+  replies?: number;
+  quotes?: number;
+  bookmarks?: number;
+  /** 表示回数。桁が違うので人気度の計算には使わない */
+  impressions?: number;
 }
 
 /**
@@ -55,6 +64,13 @@ export interface RawItem {
   lang: 'ja' | 'en' | 'unknown';
   /** ソース定義側で与えた基礎点（RSS の weight など） */
   sourceWeight: number;
+  /**
+   * 本文とは別のリンク（X の投稿が指している記事など）。
+   *
+   * 深掘りで本文を補うときに、ここだけを取りに行く。ステータス URL 自体は
+   * ログイン壁の向こうなので取らない。過去のダイジェストには無い。
+   */
+  linkedUrls?: string[];
   /** フィード側で与えた分類（watchlist の category）。今は 'security' だけ */
   feedCategory?: string;
   /** 重複排除でまとめた際に、どのソースから見つかったか。話題性の判定に使う */

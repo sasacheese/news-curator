@@ -1,8 +1,8 @@
 # news-curator
 
-関心のあるトピックの最新情報を、**毎朝 8:00 までに「前日 7:00 からの 24 時間」分だけ集めて、30 分でキャッチアップできる形に要約する**ツールです。
+関心のあるトピックの最新情報を、**「前日 7:00 からの 24 時間」分だけ集めて、30 分でキャッチアップできる形に要約する**ツールです。公開の目標は、窓が閉じる **7:00 JST のあと 7:30 頃**です。
 
-- 収集・要約は GitHub Actions が毎朝 7:00 JST に起動し、8:00 までに読める状態になります（PC を起動していなくても動きます）
+- 収集は GitHub Actions が 7:07 / 7:17 / 7:27 JST に起動を試み、先に成功した 1 回だけがサイトと通知を更新します。7:05 頃に外部から起動することもできます（「朝の配信」）。PC を起動していなくても動きます
 - 結果は GitHub Pages の静的サイトで読みます（スマホからも見られます）
 - 概要・リンク・キーワードは Git 管理の JSON に貯まるので、「あれ何だっけ」をあとから全文検索できます
 
@@ -57,8 +57,107 @@ Public API Access Token が必要とされています。閉じられたら
 
 **Actions → Daily digest → Run workflow** を実行します。2〜3 分で
 `https://<あなたのユーザー名>.github.io/news-curator/` にダイジェストが出ます。
+その日のファイルが既にあるときは、**作り直す**（`force`）にチェックを入れたときだけ
+収集と通知をやり直します。チェックが無ければ何もしません。デプロイだけ失敗したときは
+**再デプロイ**（`skip_collect`）です。通知は出ません。
 
-以降は毎朝自動で更新されます（起動は 7:00 JST、読めるようになるのは 8:00 まで）。
+以降は毎朝自動で更新されます。目標は 7:30 JST 頃に読める状態です。時刻の仕組みは「朝の配信」にあります。
+
+### 朝の配信
+
+窓は `[前日 07:00, 当日 07:00) JST` のままです。公開の目標は **07:30 JST 頃**です。
+07:00 より前に当日分は出しません。07:00 ちょうどから当日の窓は閉じています。
+
+GitHub の schedule は正時（分が 0）に最も遅れます。以前の `0 22 * * *`（07:00 JST）は、
+直近 30 回で実行の作成が 08:42–11:48 JST でした。ジョブ自体は 4–9 分です。
+正時をやめ、次の時刻に分けて起動します（cron は UTC、右は JST）。
+
+| JST | cron（UTC） | 役割 |
+| --- | --- | --- |
+| 07:07 | `7 22 * * *` | 最初の試行 |
+| 07:17 | `17 22 * * *` | 07:07 がまだならここ |
+| 07:27 | `27 22 * * *` | 07:30 に間に合わせる予備 |
+| 09:17 | `17 0 * * *` | 22 時台が丸ごと遅れたときの回収 |
+| 11:17 | `17 2 * * *` | 実測の遅れ幅の終わり近くの回収 |
+
+同じ日の `data/digests/YYYY-MM-DD.json` がデフォルトブランチの先端にある実行は、
+収集も Pages へのデプロイもプッシュ通知もしません。先に成功した 1 回だけがコミットし、
+通知を 1 通出します。`concurrency` は `digest` で、実行中のジョブはキャンセルしません。
+後から来た実行は、先の push が見える状態で判定します。ジョブの開始時に配信元ブランチの
+先端へ合わせるので、開始前に main へ入った inbox はその日の収集に入ります。
+
+07:07 の定時が時間通りに動けば、外部起動が無くてもそこが担当します。GitHub が schedule を
+数時間遅らせる可能性は残っているので、**07:30 を確実にする経路は 07:05 JST の外部起動**です。
+その起動が先に成功すれば、あとの定時は何もしません。定時が先に成功していれば、外部起動は何もしません。
+
+#### 外部から起動する
+
+`repository_dispatch` の `event_type` は `digest` です。この定義がデフォルトブランチに
+入ったあとで有効になります。07:05 JST に 1 回送れば足ります。
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  https://api.github.com/repos/sasacheese/news-curator/dispatches \
+  -d '{"event_type":"digest"}'
+```
+
+成功は **HTTP 204** で、本文はありません。これはイベントを受け取ったことだけで、
+ダイジェストが公開されたことではありません。ワークフローが成功でも、ログの
+`delivery action=skip` のときは収集もデプロイも通知もしていません。公開できたかは
+`data/digests/その日.json` が main に増えたかで見ます。
+
+任意の `client_payload`（どちらも省略できます）:
+
+| フィールド | 型 | 意味 |
+| --- | --- | --- |
+| `date` | 文字列 `YYYY-MM-DD` | 対象日。省略すると実行時刻の JST で 07:00 区切りの日 |
+| `force` | JSON の真偽値 `true` | その日のファイルが既にあっても作り直し、通知も送る。文字列の `"true"` は無効 |
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  https://api.github.com/repos/sasacheese/news-curator/dispatches \
+  -d '{"event_type":"digest","client_payload":{"force":false}}'
+```
+
+07:00 より前に当日を指定しても、窓が閉じていないので収集しません（ワークフローは成功で終わり、
+デプロイも通知もしません）。07:00 より前に日付を省略すると、前日のファイルが無いときだけ前日分を出します。
+
+トークンは外部スケジューラ側で持ち、このリポジトリの Secrets には置きません。
+
+| トークン | 必要な権限 |
+| --- | --- |
+| Fine-grained personal access token（このリポジトリだけ） | **Contents: Read and write** |
+| GitHub App | リポジトリの **Contents: Read and write** |
+| classic personal access token | **`repo` scope**（[Create a repository dispatch event](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event) の記載） |
+
+`Contents: Read` だけでは 403 になります。public リポジトリでも、公式の classic PAT の要件は `repo` scope です。範囲をこのリポジトリの Contents 書き込みに絞るなら fine-grained を使ってください。
+
+作り直すとき、または画面の Run workflow と同じことを API で行うときは `workflow_dispatch` です。
+
+```bash
+curl -sS -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  https://api.github.com/repos/sasacheese/news-curator/actions/workflows/digest.yml/dispatches \
+  -d '{"ref":"main","inputs":{"force":true,"skip_collect":false}}'
+```
+
+| input | 既定 | 意味 |
+| --- | --- | --- |
+| `date` | 空 | `YYYY-MM-DD`。空なら 07:00 区切りの日 |
+| `force` | false | true のとき、既にあっても作り直して通知する |
+| `skip_collect` | false | true のとき収集も通知もせず、今のツリーを Pages に出し直す。`force` より優先 |
+
+`force` と `skip_collect` は JSON の真偽値です。権限は fine-grained PAT と GitHub App の **Actions: Read and write**、classic PAT の **`repo` scope** です（[Create a workflow dispatch event](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)）。既にその日のダイジェストがある状態で両方 false（または `inputs` を省略）だと、収集もデプロイも通知もせずに終わります。
+
+`gh workflow run digest.yml --ref main -f force=true -f skip_collect=false` も同じ入力です。
 
 ---
 
@@ -78,10 +177,11 @@ Public API Access Token が必要とされています。閉じられたら
 | はてなブックマーク | テクノロジーカテゴリのホットエントリー |
 | Hacker News | 一定スコア以上のストーリー |
 | dev.to | リアクション数の多い記事 |
-| GitHub Releases | ウォッチ対象 35 リポジトリのリリースノート（React / Next.js / TypeScript / Vite / Prisma / Zod / TanStack / Playwright / Claude Code / Codex など） |
+| GitHub Releases | ウォッチ対象 22 リポジトリのリリースノート（Claude Code / Codex / Terraform / OpenTelemetry / React / Next.js / TypeScript / Vite / Playwright など） |
 | GitHub 急上昇リポジトリ | 直近 3 週間に作られてスターを集めているリポジトリ |
-| 公式ブログ RSS | Chrome Developers / web.dev / V8 / MDN / Node.js / TypeScript / React / Next.js / Vite / Vercel / GitHub / Cloudflare / Google Cloud / OpenAI など 22 フィード |
+| 公式ブログ RSS | AWS / Google Cloud / OpenTelemetry / Cloudflare / Vercel / Cursor / OpenAI / GitHub / セキュリティ各社など 35 フィード |
 | CHANGELOG | Claude Code の CHANGELOG.md |
+| X | `data/inbox/YYYY-MM-DD.json` にコミットされた投稿。本文はファイルの `text` を使い、x.com は取得しない |
 | connpass | 勉強会・もくもく会・登壇募集（**API キーが必要**。後述） |
 | Doorkeeper | 同上。母集団は connpass より 1 桁小さく、ビジネスセミナーが多い |
 | confs.tech | カンファレンスの CFP 締切（`tech-conferences/conference-data`） |
@@ -98,7 +198,7 @@ Public API Access Token が必要とされています。閉じられたら
 ```jsonc
 {
   // GitHub Releases を見るリポジトリ。owner/repo
-  "repos": ["facebook/react", "vitejs/vite"],
+  "repos": ["react/react", "vitejs/vite"],
   // RSS / Atom。weight は事前スコアの下駄（1〜5、既定 3）で、一次情報ほど高く
   "feeds": [{ "label": "React Blog", "url": "https://react.dev/rss.xml", "weight": 5 }],
   // リリースノートを持たず CHANGELOG.md だけ更新するもの。url は raw、homepage は表示用（省略可）
@@ -109,6 +209,61 @@ Public API Access Token が必要とされています。閉じられたら
 書式を外した項目は警告を出してスキップし、URL の重複も落とします。1 行の typo でその日の収集が
 丸ごと止まることはありません。実行ログの `監視対象: リポジトリ N / フィード N / CHANGELOG N` で
 実際に読まれた件数を確認できます。
+
+### 外部からの取り込み（X）
+
+毎朝の収集より前に、人手または外部のアシスタントが選んだ投稿をリポジトリへコミットします。
+収集側はそれを他のソースと同じ列に足し、重複排除・事前スコア・レーン・採点・深掘りを通します。
+x.com はログイン壁の向こうなので、**本文はファイルの `text` だけを使います。** ステータス URL は取りに行きません。
+`links` に記事 URL があれば、深掘り対象になったときだけその記事の HTML を取りに行きます。
+
+置く場所は `data/inbox/YYYY-MM-DD.json` です。`YYYY-MM-DD` は**ダイジェスト日**（ウィンドウ終端の JST 日付）です。
+06:15–06:30 JST に動かすなら、その朝の日付がファイル名になります。`example.json` のように日付でないファイルは読みません。
+
+ウィンドウは `[前日 07:00, 当日 07:00) JST` の半開区間です。06:30 の投稿は当日分に入り、翌日の実行が同じファイルを
+開いても、`publishedAt` が新しいウィンドウの外なのでもう一度は入りません。07:00 ちょうどは翌日の先頭です。
+時刻にタイムゾーンが無い項目は、UTC と JST の取り違えで別の日に入るので、その項目だけスキップします。
+
+ファイルが無い、JSON が壊れている、中の 1 件が不正、のいずれでも収集全体は止まりません。壊れているものは実行ログと
+ダイジェストの `notes` に出します。
+
+```json
+{
+  "items": [
+    {
+      "source": "x",
+      "url": "https://x.com/example/status/1234567890123456789",
+      "author": { "handle": "example", "name": "Example" },
+      "publishedAt": "2026-10-26T06:12:00+09:00",
+      "text": "投稿の全文。採点と深掘りはこの文字列を本文にする。",
+      "metrics": {
+        "likes": 120,
+        "reposts": 30,
+        "replies": 8,
+        "quotes": 2,
+        "bookmarks": 15,
+        "impressions": 40000
+      },
+      "links": ["https://example.com/article"]
+    }
+  ]
+}
+```
+
+| フィールド | 必須 | 内容 |
+| --- | --- | --- |
+| `source` | はい | いま受け付けるのは `"x"` だけ。他の値はスキップする（後から種類を足す余白） |
+| `url` | はい | 投稿 URL。`x.com` / `twitter.com` / `mobile.twitter.com` は `https://x.com/<user>/status/<id>` に揃える。`?s=20` や `?t=` は落とす |
+| `author` | はい | `{ "handle", "name" }`。どちらか一方でもよい。`handle` は `@` 無しでもよく、X と同じく英数字と `_` の 1〜15 文字。それ以外は項目ごとスキップする |
+| `publishedAt` | はい | タイムゾーン付きの ISO 8601（`Z` または `+09:00`） |
+| `text` | はい | 投稿の全文。見出しは「`@handle`: 最初の行」から作る。別投稿が同じ書き出しでも、タイトル近似ではまとめない |
+| `metrics` | いいえ | `likes` / `reposts` / `replies` / `quotes` / `bookmarks` / `impressions`。0 以上の数。人気度はいいねとリポスト等を経過時間で割った順位 |
+| `links` | いいえ | 投稿が指している http(s) の URL。深掘りの補強にだけ使う |
+| `tags` | いいえ | 文字列の配列 |
+
+コミット先はデフォルトブランチです。ジョブは開始時にそのブランチの先端へ合わせるので、
+**開始より前**に push されていればその朝の収集に入ります。07:00 JST より前に置いてください。
+06:15–06:30 のコミットは、07:07 の定時でも 07:05 の外部起動でも間に合います。
 
 ## リリース情報は別枠
 
@@ -172,15 +327,21 @@ GitHub では脆弱性はリリースノートではなく Security Advisory と
     "enabled": true,
     "severities": ["critical", "high"],
     "ecosystems": ["npm", "actions", "pip", "go"],
-    // watchlist.json の repos から名前を導けないものを補う
-    "extraPackages": ["@tanstack/react-router"]
+    // watchlist.json の repos から名前を導けないもの、
+    // リリース監視から外したパッケージ（axios や @prisma/client など）を補う
+    "extraPackages": ["axios", "@prisma/client", "@tanstack/react-router"],
+    // owner 単位の照合。prisma を repos から外しても @prisma/* を残す
+    "extraScopes": ["prisma", "tanstack"]
   }
 }
 ```
 
 `watchlist.json` の `repos` からパッケージ名を導いて絞り込みます
-（`facebook/react` → `react`、スコープ `@facebook/*`）。リポジトリ名とパッケージ名が
-ずれるもの（`TanStack/router` の実体は `@tanstack/react-router`）は `extraPackages` に足してください。
+（`react/react` → `react`、スコープ `@react/*`）。リポジトリ名とパッケージ名が
+ずれるもの（`@tanstack/react-router` など）は `extraPackages` に足してください。
+リリース監視から外したパッケージ（axios / express / prisma / drizzle-orm / trpc / eslint /
+storybook / hono / pnpm / swr / react-router / TanStack / biome / oxc / rolldown など）も
+`extraPackages` と `extraScopes` に残してあり、critical / high の照合範囲は狭めていません。
 **取得件数と採用件数は実行ログに出る**ので、取りこぼしていれば分かります。
 
 LLM は通しません。GitHub が付けた深刻度・CVSS・修正版のほうが、要約より確かで有用です。
@@ -1363,6 +1524,7 @@ npm run radar:dry -- --thin=60 --budget=8
 | パス | 内容 |
 | --- | --- |
 | `data/digests/YYYY-MM-DD.json` | その日のダイジェスト全文（ベスト3の深掘り + リリース情報 + その他） |
+| `data/inbox/YYYY-MM-DD.json` | 外部取り込み（X など）。ダイジェスト日の朝、収集より前に置く。`example.json` は読まれない |
 | `data/community.json` | コミュニティの盤面。**日付を持たず、毎朝まるごと差し替わります** |
 
 
@@ -1422,7 +1584,7 @@ data/          生成されたダイジェスト・検索インデックス・�
 
 ## 注意点
 
-- GitHub Actions の cron は**数分〜十数分遅れることがあります**。収集と要約にも数分かかるため、7:00 ちょうどには更新されません。画面では「毎朝 8:00 までに」と案内しています
+- 窓は起動時刻ではなく 07:00 JST 区切りのままです。11 時台に始まっても対象日は動きません。GitHub の schedule は正時に最も遅れ、以前の `0 22 * * *`（07:00 JST）は直近 30 回で実行の作成が **08:42–11:48 JST** でした（`createdAt` と `startedAt` はほぼ同じで、ジョブ自体は 4–9 分）。いまは正時を外した複数回と、外部からの `repository_dispatch` で 07:30 頃を狙います。schedule が数時間遅れる可能性は残るので、07:30 を確実にする経路は 07:05 JST の外部起動です。同じ日に先へ出た実行があると、後続は収集もデプロイも通知もしません
 - リポジトリを private にすると GitHub Pages の配信に GitHub Pro が必要になります。無料のまま private にしたい場合は、配信先を Cloudflare Pages に変えてください（`BASE_PATH=/` を渡してビルドします）
 - Zenn・はてなブックマークの API は非公式のため、仕様変更で壊れる可能性があります。1 つのソースが落ちても、他のソースだけで処理は続行します
 - Doorkeeper の `events` は実測では未認証で読めますが、公式ドキュメントでは token 必須です。閉じられたら `DOORKEEPER_TOKEN` を登録してください

@@ -1,5 +1,5 @@
 import type { RawItem, SourceKind } from './types.js';
-import { fetchText, fetchWithRetry, log, safe, stripHtml } from './util.js';
+import { fetchText, fetchWithRetry, isXStatusUrl, log, safe, stripHtml } from './util.js';
 
 /**
  * ベスト記事のサムネイル画像を決める。
@@ -216,15 +216,23 @@ export async function verifyImage(url: string): Promise<boolean> {
  * Zenn と GitHub リポジトリは本文を API から取っていて HTML が手元に無いので、
  * ここで取りに行く——どちらも書き手が画像を指定できる（実測でリポジトリ側に 2 件あった）。
  */
-export async function resolveImage(item: RawItem, html?: string): Promise<string | undefined> {
+export async function resolveImage(
+  item: RawItem,
+  html?: string,
+  pageUrl?: string,
+): Promise<string | undefined> {
   if (NO_REAL_OG.has(item.source)) return undefined;
+
+  const target = pageUrl ?? item.url;
+  // ログイン壁の向こう。HTML を渡されたときだけ（リンク先記事の og:image）見る。
+  if (!html && isXStatusUrl(target)) return undefined;
 
   const page =
     html ??
     (await safe(
-      `og(${item.url})`,
+      `og(${target})`,
       () =>
-        fetchText(item.url, {
+        fetchText(target, {
           timeoutMs: 20_000,
           retries: 1,
           headers: { accept: 'text/html,application/xhtml+xml' },
@@ -233,7 +241,7 @@ export async function resolveImage(item: RawItem, html?: string): Promise<string
     ));
   if (!page) return undefined;
 
-  const candidate = pickOgImage(page, item.url);
+  const candidate = pickOgImage(page, target);
   if (!candidate || isGeneratedCard(candidate)) return undefined;
 
   const usable = await safe(`image(${candidate})`, () => verifyImage(candidate), false);

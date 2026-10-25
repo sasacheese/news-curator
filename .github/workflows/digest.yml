@@ -2,24 +2,42 @@ name: Daily digest
 
 on:
   schedule:
-    # 22:00 UTC = 07:00 JST。GitHub Actions の cron は数分〜十数分遅延することがあります。
-    - cron: '0 22 * * *'
+    # GitHub の schedule は正時（分 0）に最も遅れる。07:00 JST ぴったりは使わない。
+    # 直近の実測では 07:00 の枠が 08:42–11:48 JST に作られていた。
+    # 07:07 / 07:17 / 07:27 JST。先に成功した日は、あとの回が収集も通知もしない。
+    - cron: '7 22 * * *'
+    - cron: '17 22 * * *'
+    - cron: '27 22 * * *'
+    # 22 時台がまとめて遅れたときの回収。09:17 JST と 11:17 JST。
+    - cron: '17 0 * * *'
+    - cron: '17 2 * * *'
   workflow_dispatch:
     inputs:
       date:
-        description: '対象日 (YYYY-MM-DD)。省略すると当日ぶん。'
+        description: '対象日 (YYYY-MM-DD)。省略すると 07:00 JST 区切りの当日。'
         required: false
         type: string
       skip_collect:
-        description: '収集をスキップして、既存データの再デプロイだけ行う'
+        description: '再デプロイだけする。収集も通知もしない'
         required: false
         type: boolean
         default: false
+      force:
+        description: '作り直す。その日のダイジェストが既にあっても収集し、通知も送る'
+        required: false
+        type: boolean
+        default: false
+  # 07:05 JST 頃の外部スケジューラ用。event_type は digest。
+  # その日のファイルが既にあれば何もしない。force は client_payload の JSON 真偽値。
+  repository_dispatch:
+    types: [digest]
 
 # 権限はジョブ単位で与える。collect にデプロイ権限は要らず、
 # deploy にリポジトリへの書き込み権限は要らない。
 permissions: {}
 
+# 同じ朝の複数起動を直列にする。先の実行をキャンセルすると、
+# 収集の途中で次の枠が始まる。後続は先の push のあとでファイルを見る。
 concurrency:
   group: digest
   cancel-in-progress: false
@@ -34,8 +52,26 @@ jobs:
     # data/ にダイジェストを push するため
     permissions:
       contents: write
+    outputs:
+      action: ${{ steps.decide.outputs.action }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # schedule は実行が作られた時点の SHA を指す。inbox がそのあとで
+      # main に入っても、開始時に先端へ合わせればその朝の収集に入る。
+      # 判定もこの先端で行うので、先に終わった実行のコミットが見える。
+      - name: 配信元ブランチの先端へ合わせる
+        run: |
+          ref="$GITHUB_REF_NAME"
+          case "$ref" in
+            ''|*..*|*[!A-Za-z0-9._/-]*)
+              echo "::error::ブランチ名が不正です"
+              exit 1
+              ;;
+          esac
+          git fetch origin "$ref"
+          git checkout -B "$ref" "origin/$ref"
+          git branch --set-upstream-to="origin/$ref" "$ref"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -45,8 +81,19 @@ jobs:
       - name: 依存関係をインストール
         run: npm ci
 
+      - name: 配信するかを決める
+        id: decide
+        env:
+          DELIVERY_EVENT: ${{ github.event_name }}
+          # client_payload は repository_dispatch のときだけ読む。日付も force も
+          # シェルには渡さず、CLI が形式を見てから使う。
+          DELIVERY_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.date || github.event_name == 'repository_dispatch' && github.event.client_payload.date || '' }}
+          DELIVERY_FORCE: ${{ (github.event_name == 'workflow_dispatch' && inputs.force) || (github.event_name == 'repository_dispatch' && github.event.client_payload.force == true) }}
+          DELIVERY_SKIP_COLLECT: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_collect }}
+        run: npm run -w collector delivery:decide
+
       - name: ダイジェストを生成
-        if: ${{ !inputs.skip_collect }}
+        if: steps.decide.outputs.action == 'collect'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # RANK_MODEL / SUMMARY_MODEL に gpt-* を指定したときに使う。
@@ -75,18 +122,30 @@ jobs:
           # 掲載のスコア下限。該当が乏しいレーンで低評価の記事が深掘りへ回るのを防ぐ。
           MIN_TOP_SCORE: ${{ vars.MIN_TOP_SCORE }}
           MIN_OTHER_SCORE: ${{ vars.MIN_OTHER_SCORE }}
-          # 式を直接 run に埋め込まず環境変数経由で渡す（シェルへの注入を避けるため）
-          DIGEST_DATE: ${{ inputs.date }}
+          # 判定が決めた日を渡す。ジョブが時刻をまたいでも窓がずれない。
+          DIGEST_DATE: ${{ steps.decide.outputs.date }}
         run: |
-          if [ -n "${DIGEST_DATE:-}" ]; then
-            npm run collect -- --date="$DIGEST_DATE"
-          else
-            npm run collect
-          fi
+          case "$DIGEST_DATE" in
+            [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+            *)
+              echo "::error::対象日が不正です"
+              exit 1
+              ;;
+          esac
+          npm run collect -- --date="$DIGEST_DATE"
 
       - name: 結果をコミット
-        if: ${{ !inputs.skip_collect }}
+        if: steps.decide.outputs.action == 'collect'
+        env:
+          DIGEST_DATE: ${{ steps.decide.outputs.date }}
         run: |
+          case "$DIGEST_DATE" in
+            [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+            *)
+              echo "::error::対象日が不正です"
+              exit 1
+              ;;
+          esac
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data
@@ -94,7 +153,7 @@ jobs:
             echo "変更なし"
             exit 0
           fi
-          git commit -m "chore(digest): $(TZ=Asia/Tokyo date '+%Y-%m-%d') のダイジェストを追加"
+          git commit -m "chore(digest): ${DIGEST_DATE} のダイジェストを追加"
           # 手で push した変更と重なると単発の push は落ちる。
           # 落ちるとその朝のダイジェストが丸ごと失われるので、取り込んで 3 回まで試す。
           for attempt in 1 2 3; do
@@ -110,6 +169,9 @@ jobs:
   deploy:
     name: GitHub Pages へデプロイ
     needs: collect
+    # action が skip のときはジョブごと走らない。デプロイも通知も出ない。
+    # カスタム if は success() を消すので、収集が失敗したあとにデプロイしないよう付ける。
+    if: success() && (needs.collect.outputs.action == 'collect' || needs.collect.outputs.action == 'redeploy')
     # 手順は deploy.yml に置いてある。
     #
     # ⚠️ ここで permissions を宣言しないと動かない。このワークフローは
@@ -121,6 +183,6 @@ jobs:
       id-token: write
     uses: ./.github/workflows/deploy.yml
     with:
-      # 再デプロイ（skip_collect）の朝に同じ通知を二度出さない
-      send_push: ${{ !inputs.skip_collect }}
+      # 収集した朝だけ通知する。再デプロイ（skip_collect）では送らない。
+      send_push: ${{ needs.collect.outputs.action == 'collect' }}
     secrets: inherit

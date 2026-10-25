@@ -402,6 +402,9 @@ export async function loadSources(): Promise<SourcesConfig> {
       severities: asArray(file.advisories?.severities).filter((v) => typeof v === 'string'),
       ecosystems: asArray(file.advisories?.ecosystems).filter((v) => typeof v === 'string'),
       extraPackages: asArray(file.advisories?.extraPackages).filter((v) => typeof v === 'string'),
+      extraScopes: asArray(file.advisories?.extraScopes)
+        .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+        .map((v) => v.trim().replace(/^@/, '')),
       perPage: clamp(file.advisories?.perPage ?? 100, 1, 100),
     },
   };

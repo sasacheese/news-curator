@@ -1,4 +1,5 @@
 import type { SourcesConfig } from './config.js';
+import { collectInbox } from './inbox.js';
 import { fetchFeed } from './rss.js';
 import type { AuthorDetail, RawItem, SourceKind } from './types.js';
 import {
@@ -742,8 +743,13 @@ async function collectChangelogs(cfg: SourcesConfig['changelogs'], w: Window): P
 
 type Collector = { name: SourceKind | string; run: () => Promise<RawItem[]> };
 
-export async function collectAll(cfg: SourcesConfig, w: Window): Promise<RawItem[]> {
+export async function collectAll(
+  cfg: SourcesConfig,
+  w: Window,
+  notes?: string[],
+): Promise<RawItem[]> {
   const collectors: Collector[] = [];
+  const inboxNotes: string[] = [];
 
   if (cfg.qiita.enabled) collectors.push({ name: 'qiita', run: () => collectQiita(cfg.qiita, w) });
   if (cfg.zenn.enabled) collectors.push({ name: 'zenn', run: () => collectZenn(cfg.zenn, w) });
@@ -767,6 +773,14 @@ export async function collectAll(cfg: SourcesConfig, w: Window): Promise<RawItem
   if (cfg.rss.enabled) collectors.push({ name: 'rss', run: () => collectRss(cfg.rss, w) });
   if (cfg.changelogs.enabled)
     collectors.push({ name: 'changelog', run: () => collectChangelogs(cfg.changelogs, w) });
+  collectors.push({
+    name: 'x',
+    run: async () => {
+      const result = await collectInbox(w);
+      inboxNotes.push(...result.notes);
+      return result.items;
+    },
+  });
 
   const results = await Promise.all(
     collectors.map(async (c) => {
@@ -776,5 +790,7 @@ export async function collectAll(cfg: SourcesConfig, w: Window): Promise<RawItem
     }),
   );
 
+  for (const note of inboxNotes) log.warn(`inbox: ${note}`);
+  if (notes) notes.push(...inboxNotes);
   return results.flat();
 }

@@ -100,7 +100,7 @@ export function SettingsView({ manifest }: { manifest: Manifest | null }) {
           <li>
             <strong>翌朝の実行から効く</strong>
             <span>
-              収集は毎朝 7:00 の GitHub Actions で走るので、反映されるのは次回の実行からです。
+              収集は翌朝の GitHub Actions で走るので、反映されるのは次回の実行からです。
               今日のダイジェストが作り直されるわけではありません。
             </span>
           </li>
