@@ -217,7 +217,7 @@ export function App() {
             </span>
             <span>
               Tech Digest
-              <span className="brand__sub"> ／ 毎朝8:00・30分</span>
+              <span className="brand__sub"> ／ 毎朝7:30・30分</span>
             </span>
           </a>
           <nav className="tabs" aria-label="メインナビゲーション" ref={tabsRef}>
@@ -290,11 +290,10 @@ export function App() {
         <div className="container">
           <p>
             {/*
-              cron は 7:00 JST に起動するが、GitHub Actions の cron は数分〜十数分
-              遅れることがあり、収集と要約にも数分かかる。実際に読めるようになるのは
-              8:00 までなので、そう書いている。
+              窓は 7:00 JST で閉じる。公開の目標は 7:30 頃。定時は正時を外した
+              複数回で、先に成功した 1 回だけがサイトと通知を更新する。
             */}
-            毎朝 8:00 JST までに、前日 7:00 からの 24 時間分を収集・要約しています。
+            前日 7:00 から当日 7:00 JST を集め、7:30 頃の公開を目標にしています。
             {manifest?.updatedAt && (
               <> 最終更新 {new Date(manifest.updatedAt).toLocaleString('ja-JP')}。</>
             )}
