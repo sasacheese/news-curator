@@ -26,8 +26,15 @@ export interface AdvisoryConfig {
   /**
    * watchlist から名前を導けないパッケージを手で足す。
    * 例: TanStack/router → @tanstack/react-router のように名前がずれるもの。
+   * リリース監視から外したリポジトリのパッケージ名もここへ残す。
    */
   extraPackages: string[];
+  /**
+   * リポジトリの owner と同じ npm スコープ。
+   * `prisma/prisma` を watchlist から外しても `@prisma/*` を拾い続けるために使う。
+   * 未設定の sources.json では空。
+   */
+  extraScopes: string[];
   /** 1 エコシステムあたりの取得件数 */
   perPage: number;
 }
@@ -60,10 +67,12 @@ interface RawAdvisory {
  * `facebook/react` → `react`、`@facebook/react`、スコープ `facebook`。
  * リポジトリ名とパッケージ名は一致しないことが多いので（TanStack/router の
  * 実体は @tanstack/react-router）、スコープでの照合と extraPackages で補う。
+ * extraScopes は、リリース監視から外した owner の `@scope/*` を残すため。
  */
 export function packageMatcher(
   repos: readonly string[],
   extraPackages: readonly string[],
+  extraScopes: readonly string[] = [],
 ): (packageName: string) => boolean {
   const names = new Set<string>();
   const scopes = new Set<string>();
@@ -76,6 +85,10 @@ export function packageMatcher(
     scopes.add(owner);
   }
   for (const p of extraPackages) names.add(p.toLowerCase());
+  for (const s of extraScopes) {
+    const scope = s.trim().toLowerCase().replace(/^@/, '');
+    if (scope && !scope.includes('/')) scopes.add(scope);
+  }
 
   return (packageName: string): boolean => {
     const n = packageName.trim().toLowerCase();
@@ -175,7 +188,7 @@ export async function collectAdvisories(
 ): Promise<ReleaseItem[]> {
   if (!cfg.enabled) return [];
 
-  const matches = packageMatcher(repos, cfg.extraPackages);
+  const matches = packageMatcher(repos, cfg.extraPackages, cfg.extraScopes);
   const headers: Record<string, string> = { accept: 'application/vnd.github+json' };
   if (token) headers.authorization = `Bearer ${token}`;
 

@@ -84,6 +84,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   github_repo: 'GitHub リポジトリ',
   changelog: 'CHANGELOG',
   rss: '公式ブログ / RSS',
+  x: 'X',
 };
 
 /**

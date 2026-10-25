@@ -3,7 +3,7 @@ import { JSDOM } from 'jsdom';
 import { type BodyImage, pickBodyImages, resolveImage, verifyBodyImages } from './image.js';
 import { fetchGithubReadme, fetchHatenaCounts, fetchZennBodyHtml } from './sources.js';
 import type { RawItem, SourceKind } from './types.js';
-import { fetchText, log, mapLimit, safe, stripHtml, truncate } from './util.js';
+import { fetchText, isHttpUrl, isXStatusUrl, log, mapLimit, safe, stripHtml, truncate } from './util.js';
 
 /**
  * 収集時点で一次情報の本文が手に入っているソース。
@@ -13,7 +13,37 @@ const AUTHORITATIVE_BODY: ReadonlySet<SourceKind> = new Set([
   'qiita',
   'github_release',
   'changelog',
+  // 投稿本文は取り込みファイルに入っている。短くても x.com を取りに行かない。
+  'x',
 ]);
+
+const SKIP_LINK_HOSTS = new Set([
+  'x.com',
+  'twitter.com',
+  'mobile.twitter.com',
+  't.co',
+  'pic.twitter.com',
+]);
+
+/**
+ * 投稿が指している記事 URL。ステータス URL や短縮 URL はログイン壁か
+ * リダイレクト先が投稿そのものなので、ここから先の取得対象にしない。
+ */
+function linkedArticleUrl(item: RawItem): string | undefined {
+  const fromBody = item.body?.match(/https?:\/\/[^\s<>)\]]+/g) ?? [];
+  for (const raw of [...(item.linkedUrls ?? []), ...fromBody]) {
+    const cleaned = raw.replace(/[.,;:!?)]+$/, '');
+    if (!isHttpUrl(cleaned) || isXStatusUrl(cleaned)) continue;
+    try {
+      const host = new URL(cleaned).hostname.replace(/^www\./i, '').toLowerCase();
+      if (SKIP_LINK_HOSTS.has(host)) continue;
+    } catch {
+      continue;
+    }
+    return cleaned;
+  }
+  return undefined;
+}
 
 /**
  * 抽出結果が本文らしいか。ナビゲーションやフッターの塊は句点をほとんど含まないので、
@@ -64,13 +94,46 @@ interface Enrichment {
 }
 
 /**
+ * X の投稿。ステータス URL は取らず、本文はファイルに入っている text を使う。
+ * 記事 URL が付いていれば、その HTML だけを本文と画像の補強に使う。
+ */
+async function enrichExternalPost(item: RawItem): Promise<Enrichment> {
+  const out: Enrichment = { bodyImages: [] };
+  const article = linkedArticleUrl(item);
+  if (!article) return out;
+
+  const page = await safe(
+    `page(${article})`,
+    () =>
+      fetchText(article, {
+        timeoutMs: 20_000,
+        retries: 1,
+        headers: { accept: 'text/html,application/xhtml+xml' },
+      }),
+    '',
+  );
+  if (!page) return out;
+
+  const extracted = extractArticle(page, article);
+  const post = (item.body ?? item.snippet).trim();
+  if (extracted.text) out.body = post ? `${post}\n\n${extracted.text}` : extracted.text;
+  if (extracted.contentHtml) out.bodyImages = pickBodyImages(extracted.contentHtml, article);
+  out.imageUrl = await resolveImage(item, page, article);
+  out.bodyImages = await verifyBodyImages(out.bodyImages, out.imageUrl);
+  return out;
+}
+
+/**
  * 1 件ぶんの本文・サムネイル・本文中の画像を、記事ページの取得 1 回で揃える。
  *
  * 本文が既に手元にある記事でも記事ページを取りに行く。画像だけはまだ無いからで、
  * 収集時点の API 本文は Markdown を素のテキストに落としたもの——画像の URL は
  * その時点で消えている。取得は 1 回に集約して、同じページを二度取らないようにしている。
+ * X の投稿だけは例外で、ステータス URL を取りに行かない。
  */
 async function enrichOne(item: RawItem, needBody: boolean): Promise<Enrichment> {
+  if (item.source === 'x' || isXStatusUrl(item.url)) return enrichExternalPost(item);
+
   const out: Enrichment = { bodyImages: [] };
 
   /*

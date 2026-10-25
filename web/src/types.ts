@@ -7,7 +7,8 @@ export type SourceKind =
   | 'github_release'
   | 'github_repo'
   | 'changelog'
-  | 'rss';
+  | 'rss'
+  | 'x';
 
 export interface Metrics {
   likes?: number;
@@ -16,6 +17,11 @@ export interface Metrics {
   points?: number;
   comments?: number;
   hatena?: number;
+  reposts?: number;
+  replies?: number;
+  quotes?: number;
+  bookmarks?: number;
+  impressions?: number;
 }
 
 export interface AuthorDetail {

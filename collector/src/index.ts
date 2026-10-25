@@ -135,7 +135,7 @@ async function main(): Promise<void> {
    * （トレンド系のソースは実行のたびに中身が変わる）。実験用で、本番では使わない。
    */
   const collected = await withCollectCache(process.env.COLLECT_CACHE, () =>
-    collectAll(sources, { start, end }),
+    collectAll(sources, { start, end }, notes),
   );
   log.info(`合計 ${collected.length} 件`);
 

@@ -291,6 +291,46 @@ export function detectLang(text: string): 'ja' | 'en' | 'unknown' {
   return 'unknown';
 }
 
+const X_STATUS_HOSTS = new Set(['x.com', 'twitter.com', 'mobile.twitter.com']);
+
+/**
+ * X / Twitter のステータス URL を比較・保存用の形に揃える。
+ *
+ * `x.com` / `twitter.com` / `mobile.twitter.com` と `?s=20` / `?t=` を
+ * `https://x.com/<user>/status/<id>` に落とす。ユーザー名は大文字小文字を
+ * 区別しないので小文字にする。該当しなければ null（普通の URL は触らない）。
+ */
+export function canonicalXStatusUrl(raw: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+  if (!X_STATUS_HOSTS.has(host)) return null;
+
+  const parts = u.pathname.split('/').filter(Boolean);
+  const statusIdx = parts.findIndex((part) => {
+    const s = part.toLowerCase();
+    return s === 'status' || s === 'statuses';
+  });
+  if (statusIdx < 1) return null;
+  const id = parts[statusIdx + 1];
+  if (!id || !/^\d+$/.test(id)) return null;
+
+  let user = parts[statusIdx - 1]!;
+  // /i/web/status/<id> は /i/status/<id> に畳む（ユーザー名が無い共有 URL）
+  if (user.toLowerCase() === 'web' && parts[0]?.toLowerCase() === 'i') user = 'i';
+  const normalizedUser = user.toLowerCase();
+  if (normalizedUser === 'intent' || normalizedUser === 'share') return null;
+  return `https://x.com/${normalizedUser}/status/${id}`;
+}
+
+export function isXStatusUrl(raw: string): boolean {
+  return canonicalXStatusUrl(raw) !== null;
+}
+
 /**
  * 保存・表示する URL を整える。
  *
@@ -298,8 +338,14 @@ export function detectLang(text: string): 'ja' | 'en' | 'unknown' {
  * ホスト名とパスは配信元が返した形のまま残す（`www.` と末尾スラッシュを
  * 落とすと開けなくなるサイトがある。ITmedia と日経はパスを無視して
  * トップページへ飛ばすので、記事に辿り着けなくなる）。
+ *
+ * 例外は X / Twitter のステータス URL。ホストが 3 種類あり、`?s=` と `?t=` が
+ * 付いたままだと同じ投稿が別記事になる。こちらは正規形を保存してよい
+ * （x.com のステータスはユーザー名の大文字小文字で別ページにならない）。
  */
 export function cleanUrl(raw: string): string {
+  const social = canonicalXStatusUrl(raw);
+  if (social) return social;
   try {
     const u = new URL(raw);
     u.hash = '';

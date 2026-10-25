@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  canonicalXStatusUrl,
   cleanUrl,
   decodeEntities,
   hasKana,
@@ -121,6 +122,33 @@ describe('normalizeUrl', () => {
       normalizeUrl('https://www.itmedia.co.jp/news/article/2608/17/2000000563/'),
       normalizeUrl('https://itmedia.co.jp/news/article/2608/17/2000000563'),
     );
+  });
+
+  it('x.com / twitter.com / mobile.twitter.com を同じステータス URL に揃える', () => {
+    const canonical = 'https://x.com/someuser/status/1234567890123456789';
+    for (const raw of [
+      'https://x.com/someuser/status/1234567890123456789?s=20',
+      'https://x.com/SomeUser/status/1234567890123456789?t=abc&s=20',
+      'https://twitter.com/someuser/status/1234567890123456789?s=20&t=xyz',
+      'https://mobile.twitter.com/someuser/status/1234567890123456789/',
+      'https://www.twitter.com/someuser/statuses/1234567890123456789?ref_src=twsrc',
+    ]) {
+      assert.equal(canonicalXStatusUrl(raw), canonical);
+      assert.equal(normalizeUrl(raw), canonical);
+      assert.equal(cleanUrl(raw), canonical);
+    }
+  });
+
+  it('ユーザー名の無い共有 URL は /i/status/<id> に畳む', () => {
+    assert.equal(
+      canonicalXStatusUrl('https://x.com/i/web/status/99?s=20'),
+      'https://x.com/i/status/99',
+    );
+  });
+
+  it('ステータスではない X の URL はホストを書き換えない', () => {
+    assert.equal(canonicalXStatusUrl('https://x.com/someuser'), null);
+    assert.equal(cleanUrl('https://twitter.com/someuser'), 'https://twitter.com/someuser');
   });
 });
 

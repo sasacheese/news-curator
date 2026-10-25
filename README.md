@@ -78,10 +78,11 @@ Public API Access Token が必要とされています。閉じられたら
 | はてなブックマーク | テクノロジーカテゴリのホットエントリー |
 | Hacker News | 一定スコア以上のストーリー |
 | dev.to | リアクション数の多い記事 |
-| GitHub Releases | ウォッチ対象 35 リポジトリのリリースノート（React / Next.js / TypeScript / Vite / Prisma / Zod / TanStack / Playwright / Claude Code / Codex など） |
+| GitHub Releases | ウォッチ対象 22 リポジトリのリリースノート（Claude Code / Codex / Terraform / OpenTelemetry / React / Next.js / TypeScript / Vite / Playwright など） |
 | GitHub 急上昇リポジトリ | 直近 3 週間に作られてスターを集めているリポジトリ |
-| 公式ブログ RSS | Chrome Developers / web.dev / V8 / MDN / Node.js / TypeScript / React / Next.js / Vite / Vercel / GitHub / Cloudflare / Google Cloud / OpenAI など 22 フィード |
+| 公式ブログ RSS | AWS / Google Cloud / OpenTelemetry / Cloudflare / Vercel / Cursor / OpenAI / GitHub / セキュリティ各社など 35 フィード |
 | CHANGELOG | Claude Code の CHANGELOG.md |
+| X | `data/inbox/YYYY-MM-DD.json` にコミットされた投稿。本文はファイルの `text` を使い、x.com は取得しない |
 | connpass | 勉強会・もくもく会・登壇募集（**API キーが必要**。後述） |
 | Doorkeeper | 同上。母集団は connpass より 1 桁小さく、ビジネスセミナーが多い |
 | confs.tech | カンファレンスの CFP 締切（`tech-conferences/conference-data`） |
@@ -98,7 +99,7 @@ Public API Access Token が必要とされています。閉じられたら
 ```jsonc
 {
   // GitHub Releases を見るリポジトリ。owner/repo
-  "repos": ["facebook/react", "vitejs/vite"],
+  "repos": ["react/react", "vitejs/vite"],
   // RSS / Atom。weight は事前スコアの下駄（1〜5、既定 3）で、一次情報ほど高く
   "feeds": [{ "label": "React Blog", "url": "https://react.dev/rss.xml", "weight": 5 }],
   // リリースノートを持たず CHANGELOG.md だけ更新するもの。url は raw、homepage は表示用（省略可）
@@ -109,6 +110,61 @@ Public API Access Token が必要とされています。閉じられたら
 書式を外した項目は警告を出してスキップし、URL の重複も落とします。1 行の typo でその日の収集が
 丸ごと止まることはありません。実行ログの `監視対象: リポジトリ N / フィード N / CHANGELOG N` で
 実際に読まれた件数を確認できます。
+
+### 外部からの取り込み（X）
+
+毎朝の収集より前に、人手または外部のアシスタントが選んだ投稿をリポジトリへコミットします。
+収集側はそれを他のソースと同じ列に足し、重複排除・事前スコア・レーン・採点・深掘りを通します。
+x.com はログイン壁の向こうなので、**本文はファイルの `text` だけを使います。** ステータス URL は取りに行きません。
+`links` に記事 URL があれば、深掘り対象になったときだけその記事の HTML を取りに行きます。
+
+置く場所は `data/inbox/YYYY-MM-DD.json` です。`YYYY-MM-DD` は**ダイジェスト日**（ウィンドウ終端の JST 日付）です。
+06:15–06:30 JST に動かすなら、その朝の日付がファイル名になります。`example.json` のように日付でないファイルは読みません。
+
+ウィンドウは `[前日 07:00, 当日 07:00) JST` の半開区間です。06:30 の投稿は当日分に入り、翌日の実行が同じファイルを
+開いても、`publishedAt` が新しいウィンドウの外なのでもう一度は入りません。07:00 ちょうどは翌日の先頭です。
+時刻にタイムゾーンが無い項目は、UTC と JST の取り違えで別の日に入るので、その項目だけスキップします。
+
+ファイルが無い、JSON が壊れている、中の 1 件が不正、のいずれでも収集全体は止まりません。壊れているものは実行ログと
+ダイジェストの `notes` に出します。
+
+```json
+{
+  "items": [
+    {
+      "source": "x",
+      "url": "https://x.com/example/status/1234567890123456789",
+      "author": { "handle": "example", "name": "Example" },
+      "publishedAt": "2026-10-26T06:12:00+09:00",
+      "text": "投稿の全文。採点と深掘りはこの文字列を本文にする。",
+      "metrics": {
+        "likes": 120,
+        "reposts": 30,
+        "replies": 8,
+        "quotes": 2,
+        "bookmarks": 15,
+        "impressions": 40000
+      },
+      "links": ["https://example.com/article"]
+    }
+  ]
+}
+```
+
+| フィールド | 必須 | 内容 |
+| --- | --- | --- |
+| `source` | はい | いま受け付けるのは `"x"` だけ。他の値はスキップする（後から種類を足す余白） |
+| `url` | はい | 投稿 URL。`x.com` / `twitter.com` / `mobile.twitter.com` は `https://x.com/<user>/status/<id>` に揃える。`?s=20` や `?t=` は落とす |
+| `author` | はい | `{ "handle", "name" }`。どちらか一方でもよい。`handle` は `@` 無しでもよく、X と同じく英数字と `_` の 1〜15 文字。それ以外は項目ごとスキップする |
+| `publishedAt` | はい | タイムゾーン付きの ISO 8601（`Z` または `+09:00`） |
+| `text` | はい | 投稿の全文。見出しは「`@handle`: 最初の行」から作る。別投稿が同じ書き出しでも、タイトル近似ではまとめない |
+| `metrics` | いいえ | `likes` / `reposts` / `replies` / `quotes` / `bookmarks` / `impressions`。0 以上の数。人気度はいいねとリポスト等を経過時間で割った順位 |
+| `links` | いいえ | 投稿が指している http(s) の URL。深掘りの補強にだけ使う |
+| `tags` | いいえ | 文字列の配列 |
+
+コミット先はデフォルトブランチです。ワークフローは実行が作られた時点のツリーを checkout するので、
+**その作成より前**に push されている必要があります。直近の定時実行は 07:00 JST ではなく
+08:42–11:48 JST 頃に始まっています（後述）。06:30 までのコミットなら、この遅れの範囲では間に合います。
 
 ## リリース情報は別枠
 
@@ -172,15 +228,21 @@ GitHub では脆弱性はリリースノートではなく Security Advisory と
     "enabled": true,
     "severities": ["critical", "high"],
     "ecosystems": ["npm", "actions", "pip", "go"],
-    // watchlist.json の repos から名前を導けないものを補う
-    "extraPackages": ["@tanstack/react-router"]
+    // watchlist.json の repos から名前を導けないもの、
+    // リリース監視から外したパッケージ（axios や @prisma/client など）を補う
+    "extraPackages": ["axios", "@prisma/client", "@tanstack/react-router"],
+    // owner 単位の照合。prisma を repos から外しても @prisma/* を残す
+    "extraScopes": ["prisma", "tanstack"]
   }
 }
 ```
 
 `watchlist.json` の `repos` からパッケージ名を導いて絞り込みます
-（`facebook/react` → `react`、スコープ `@facebook/*`）。リポジトリ名とパッケージ名が
-ずれるもの（`TanStack/router` の実体は `@tanstack/react-router`）は `extraPackages` に足してください。
+（`react/react` → `react`、スコープ `@react/*`）。リポジトリ名とパッケージ名が
+ずれるもの（`@tanstack/react-router` など）は `extraPackages` に足してください。
+リリース監視から外したパッケージ（axios / express / prisma / drizzle-orm / trpc / eslint /
+storybook / hono / pnpm / swr / react-router / TanStack / biome / oxc / rolldown など）も
+`extraPackages` と `extraScopes` に残してあり、critical / high の照合範囲は狭めていません。
 **取得件数と採用件数は実行ログに出る**ので、取りこぼしていれば分かります。
 
 LLM は通しません。GitHub が付けた深刻度・CVSS・修正版のほうが、要約より確かで有用です。
@@ -1363,6 +1425,7 @@ npm run radar:dry -- --thin=60 --budget=8
 | パス | 内容 |
 | --- | --- |
 | `data/digests/YYYY-MM-DD.json` | その日のダイジェスト全文（ベスト3の深掘り + リリース情報 + その他） |
+| `data/inbox/YYYY-MM-DD.json` | 外部取り込み（X など）。ダイジェスト日の朝、収集より前に置く。`example.json` は読まれない |
 | `data/community.json` | コミュニティの盤面。**日付を持たず、毎朝まるごと差し替わります** |
 
 
@@ -1422,7 +1485,7 @@ data/          生成されたダイジェスト・検索インデックス・�
 
 ## 注意点
 
-- GitHub Actions の cron は**数分〜十数分遅れることがあります**。収集と要約にも数分かかるため、7:00 ちょうどには更新されません。画面では「毎朝 8:00 までに」と案内しています
+- GitHub Actions の cron は、このリポジトリでは数分では終わらない遅れ方をしています。直近 30 回の定時実行は、予定の 22:00 UTC（07:00 JST）に対して実行の作成が **08:42–11:48 JST** でした。`createdAt` と `startedAt` はほぼ同じで、ジョブ自体は 4–9 分で終わっています。遅れはワークフローの処理時間や `concurrency` ではなく、GitHub が schedule の実行を作り始める時刻の側にあります。ウィンドウは起動時刻ではなく 07:00 区切りのままなので、11 時台に始まっても対象日は動きません。画面の「毎朝 8:00 までに」は、この遅れが続いているあいだは守れていません
 - リポジトリを private にすると GitHub Pages の配信に GitHub Pro が必要になります。無料のまま private にしたい場合は、配信先を Cloudflare Pages に変えてください（`BASE_PATH=/` を渡してビルドします）
 - Zenn・はてなブックマークの API は非公式のため、仕様変更で壊れる可能性があります。1 つのソースが落ちても、他のソースだけで処理は続行します
 - Doorkeeper の `events` は実測では未認証で読めますが、公式ドキュメントでは token 必須です。閉じられたら `DOORKEEPER_TOKEN` を登録してください
