@@ -131,43 +131,40 @@ describe('pickByLane', () => {
     const pool = [
       ...Array.from({ length: 14 }, (_, i) => item(`b${i}`, 'build')),
       item('k0', 'know'),
-      item('t0', 'talk'),
     ];
     const got = pickByLane(pool, 9);
     assert.equal(got.know.length, 1, 'know が確保されていない');
-    assert.equal(got.talk.length, 1, 'talk が確保されていない');
-    assert.equal(got.know.length + got.build.length + got.talk.length, 9);
+    assert.equal(got.know.length + got.build.length, 9);
   });
 
   it('足りないレーンのぶんは他レーンで埋める', () => {
     const pool = [item('k0', 'know'), ...Array.from({ length: 8 }, (_, i) => item(`b${i}`, 'build'))];
     const got = pickByLane(pool, 6);
     assert.equal(got.know.length, 1);
-    assert.equal(got.talk.length, 0);
-    assert.equal(got.know.length + got.build.length + got.talk.length, 6);
+    assert.equal(got.know.length + got.build.length, 6);
   });
 
   it('埋め戻しで同じ記事を二重に入れない', () => {
-    const pool = [item('k0', 'know'), item('b0', 'build'), item('b1', 'build'), item('t0', 'talk')];
+    const pool = [item('k0', 'know'), item('b0', 'build'), item('b1', 'build'), item('k1', 'know')];
     const got = pickByLane(pool, 4);
-    const ids = [...got.know, ...got.build, ...got.talk].map((i) => i.id);
+    const ids = [...got.know, ...got.build].map((i) => i.id);
     assert.equal(new Set(ids).size, ids.length, '同じ記事が複数のレーンに入っている');
   });
 
   it('母集団が総数に足りない日は水増ししない', () => {
     const got = pickByLane([item('k0', 'know'), item('b0', 'build')], 10);
-    assert.equal(got.know.length + got.build.length + got.talk.length, 2);
+    assert.equal(got.know.length + got.build.length, 2);
   });
 
   it('端数はスコア順（渡された順）に配る', () => {
-    // total 4 / 3 レーン → 各 1 件 + 端数 1 件
+    // total 3 / 2 レーン → 各 1 件 + 端数 1 件
     const pool = [
       item('b0', 'build'),
       item('k0', 'know'),
-      item('t0', 'talk'),
       item('b1', 'build'),
+      item('k1', 'know'),
     ];
-    const got = pickByLane(pool, 4);
+    const got = pickByLane(pool, 3);
     assert.deepEqual(got.build.map((i) => i.id), ['b0', 'b1']);
   });
 
@@ -179,8 +176,8 @@ describe('pickByLane', () => {
     ];
     const got = pickByLane(pool, 6, 2);
     assert.equal(got.security.length, 2);
-    // 3 レーンの合計は total のまま（security が枠を食わない）
-    assert.equal(got.know.length + got.build.length + got.talk.length, 6);
+    // security 以外の合計は total のまま（security が枠を食わない）
+    assert.equal(got.know.length + got.build.length, 6);
   });
 });
 

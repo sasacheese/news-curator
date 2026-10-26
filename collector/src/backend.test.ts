@@ -14,7 +14,7 @@ import { toSchemaName } from './backend.js';
 describe('toSchemaName', () => {
   it('レーン付きの stage 名（コロン区切り）を通す形に落とす', () => {
     assert.equal(toSchemaName('score:know'), 'score_know');
-    assert.equal(toSchemaName('describe:talk'), 'describe_talk');
+    assert.equal(toSchemaName('describe:build'), 'describe_build');
     assert.equal(toSchemaName('deep:build'), 'deep_build');
   });
 
@@ -31,7 +31,7 @@ describe('toSchemaName', () => {
 
   it('どんな stage 名でも API の制約を満たす', () => {
     const pattern = /^[a-zA-Z0-9_-]+$/;
-    for (const s of ['日本語', 'a b', 'a.b', '', '::', 'score:know', 'deep/talk']) {
+    for (const s of ['日本語', 'a b', 'a.b', '', '::', 'score:know', 'deep/build']) {
       assert.match(toSchemaName(s), pattern, `stage=${JSON.stringify(s)} が通らない`);
     }
   });

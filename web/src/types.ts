@@ -43,20 +43,10 @@ export type Payoff = 'apply' | 'decide' | 'aware';
 export type Durability = 'foundational' | 'durable' | 'ephemeral';
 
 /**
- * キュレーションのレーン。読者の 3 つの目的に対応する。
+ * キュレーションのレーン。読者の目的に対応する。
  * この機能より前の日は undefined で、代わりに domain（ai / general）が入っている。
  */
-export type Lane = 'security' | 'know' | 'build' | 'talk';
-
-/** talk レーンの記事に付く「意見の足場」。意見の下書きではない */
-export interface Debate {
-  axis: string;
-  forSide: string;
-  againstSide: string;
-  /** 記事が片側しか書いていないか。true なら againstSide は記事の外からの補い */
-  oneSided?: boolean;
-  yourAngle?: string;
-}
+export type Lane = 'security' | 'know' | 'build';
 
 export interface RankedItem {
   id: string;
@@ -106,8 +96,6 @@ export interface RankedItem {
   category: string;
   /** どの目的で選ばれたか。この機能より前の日は undefined */
   lane?: Lane;
-  /** talk レーンの記事に付く意見の足場 */
-  debate?: Debate | null;
   /** 旧: AI が主題か、それ以外か。レーン導入前の日にだけ入っている */
   domain?: 'ai' | 'general';
   /** 元記事の読了目安（分） */
@@ -210,8 +198,7 @@ export interface DeepDiveBase {
   figures?: Figure[];
   code: { lang: string; caption: string; content: string } | null;
   /**
-   * 「なぜ重要か」。いまは talk レーン（なぜ今この争点か）と
-   * レーン導入前の日だけが持つ。know / build では summary と重複していたので落とした。
+   * 「なぜ重要か」。いまはレーン導入前の日だけが持つ。know / build では summary と重複していたので落とした。
    */
   whyItMatters?: string;
   relatedLinks: { label: string; url: string }[];
@@ -268,43 +255,6 @@ export interface BuildDeepDive extends DeepDiveBase {
   tryPrompt?: string | null;
 }
 
-/** 争点を論点ごとに分解した対。「A と言われるが B だ」の噛み合いを表す */
-export interface Clash {
-  point: string;
-  /** こう言われる（記事の立場） */
-  claim: string;
-  /** こう返せる（反対の立場） */
-  counter: string;
-  /** false なら counter は記事の外から補ったもの。記事の主張として引用させない */
-  counterInArticle?: boolean;
-}
-
-/** 読者が足せること。切り口と「なぜ自分が言えるか」の対 */
-export interface Firsthand {
-  /** 切り口の名前。名詞句のみ */
-  angle: string;
-  /** なぜこの読者がそれを言えるのか */
-  why: string;
-}
-
-export interface TalkDeepDive extends DeepDiveBase {
-  lane: 'talk';
-  /** 論点ごとの噛み合い（画面では「争点」）。この形より前の日は undefined */
-  clashes?: Clash[];
-  /** 読者が足せること（画面では「一次情報を出すとしたら？」） */
-  firsthand?: Firsthand[];
-  verify: string[];
-  /* 以下は clashes / firsthand 導入より前の日にだけ入っている */
-  /** 旧: 賛成側の根拠 */
-  evidence?: string[];
-  /** 旧: 反対側の根拠 */
-  counterEvidence?: string[];
-  /** 旧: 成り立つ条件・崩れる条件 */
-  whenItHolds?: string[];
-  /** 旧: 語れる角度（名詞句のみ、根拠なし） */
-  angles?: string[];
-}
-
 /**
  * レーン導入前に生成した日のカード。
  *
@@ -323,7 +273,6 @@ export type DeepDive =
   | SecurityDeepDive
   | KnowDeepDive
   | BuildDeepDive
-  | TalkDeepDive
   | LegacyDeepDive;
 
 export interface TopItem extends RankedItem {

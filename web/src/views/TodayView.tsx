@@ -20,7 +20,6 @@ import {
   Takeaways,
   Thumbnail,
 } from '../components';
-import { DebateScaffold } from '../DebateScaffold';
 import { FeedbackButtons } from '../FeedbackButtons';
 import { TryBlock } from '../TryBlock';
 import { buildTryPrompt } from '../tryPrompt';
@@ -28,8 +27,6 @@ import { groupByLane } from '../lanes';
 import type {
   AttackStage,
   DefenseKind,
-  Clash,
-  Debate,
   DeepDive,
   Digest,
   Manifest,
@@ -468,16 +465,6 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           */}
         {d.figures && d.figures.length > 0 && <Figures figures={d.figures} />}
 
-        {/*
-          * 新しい形（clashes を持つ日）では、争点は下の「争点」項目がまとめて担う
-          * ——1 行の争点も論点ごとの対も同じ見出しの下に置く。ここに二列ブロックを
-          * 出すと、同じ対立を 2 回読ませることになる。
-          * 旧形式の日は、従来どおりここで二列ブロックを出す。
-          */}
-        {item.debate && !(d.lane === 'talk' && d.clashes?.length) && (
-          <DebateScaffold debate={item.debate} />
-        )}
-
         {(d.prerequisites?.length ?? 0) > 0 && (
           <details className="prereq">
             <summary className="prereq__summary">
@@ -507,7 +494,6 @@ function TopCard({ item, digestDate }: { item: TopItem; digestDate: string }) {
           deep={d}
           itemId={item.id}
           prerequisites={pr}
-          debate={item.debate}
           title={displayTitle(item)}
           url={item.url}
         />
@@ -628,23 +614,19 @@ const DEFENSE_KIND_LABELS: Record<DefenseKind, string> = {
  * カードの本体。レーンごとに項目構成が違う。
  *
  * 「何が変わるか」と「何ができるようになるか」は以前は別項目だったが、同じ差分を
- * 二度書いていた。3 レーンとも見ているのは同じ差分で、見る向きが違うだけなので、
- * レーンごとに 1 項目へ統合してある（知る = 影響範囲 / 作る = できるようになること /
- * 話す = そもそも差分ではないので持たない）。
+ * 二度書いていた。どのレーンも見ているのは同じ差分で、見る向きが違うだけなので、
+ * レーンごとに 1 項目へ統合してある（知る = 影響範囲 / 作る = できるようになること）。
  */
 function CardBody({
   deep,
   itemId,
   prerequisites,
-  debate,
   title,
   url,
 }: {
   deep: DeepDive;
   itemId: string;
   prerequisites: Prerequisite[];
-  /** 話す レーンのとき、「争点」項目の頭に置く 1 行として使う */
-  debate?: Debate | null;
   /** 作る レーンのとき、試すプロンプトの「試すこと」に使う */
   title: string;
   url: string;
@@ -690,7 +672,7 @@ function CardBody({
     );
   };
 
-  /** いまは talk（なぜ今この争点か）と、レーン導入前の日だけが使う */
+  /** いまはレーン導入前の日だけが使う */
   const why = (label: string) =>
     deep.whyItMatters ? (
       <Detail label={label}>
@@ -779,75 +761,6 @@ function CardBody({
           {list('注意点', deep.caveats, 'caveat', true)}
         </>
       );
-    case 'talk':
-      /*
-       * clashes フィールドの有無で新旧を分ける（長さでは分けない）。
-       *
-       * 空配列は「新しい形で、かつモデルが争点を組み立てられなかった」を意味する。
-       * 実測で、本文が実質ジョークの記事（1,714 字あるので長さでは弾けない）に対して
-       * モデルが正しく生成を拒み、clashes も firsthand も 0 件で返ってきた日があった。
-       * これを長さで旧形式へ落とすと、旧項目も無いのでカード本体が丸ごと空になる。
-       * もっともらしい空の箇条書きを並べるより、組み立てられなかったことを見せる。
-       */
-      if (deep.clashes) {
-        if (deep.clashes.length === 0 && !deep.firsthand?.length) {
-          return (
-            <p className="card__empty">
-              この記事からは争点を組み立てられませんでした。元記事とコメントを直接ご覧ください。
-            </p>
-          );
-        }
-        return (
-          <>
-            <Detail label="争点">
-              {/* 争点の 1 行 → 論点ごとの対。見出しを 2 つに割らず 1 つにまとめる */}
-              {debate?.axis && <p className="clashes__axis">{debate.axis}</p>}
-              <ClashList clashes={deep.clashes} />
-            </Detail>
-            {/*
-              * 中心の問い「この争点に、自分の経験から何を足せるか」に直接答える項目。
-              * 切り口だけでは足りない——発信の障壁は「これを自分が言っていいのか」なので、
-              * なぜ言えるのかを対で見せる。
-              */}
-            {(deep.firsthand?.length ?? 0) > 0 && (
-              <Detail label="一次情報を出すとしたら？">
-                <ul className="firsthand">
-                  {deep.firsthand!.map((f, i) => (
-                    <li key={i}>
-                      <span className="firsthand__angle">{f.angle}</span>
-                      <span className="firsthand__why">{f.why}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="angles__note">切り口だけです。どう書くかはご自身の言葉でどうぞ。</p>
-              </Detail>
-            )}
-            {steps('確かめられること', deep.verify)}
-          </>
-        );
-      }
-      return (
-        <>
-          {list('賛成側の根拠', deep.evidence ?? [], 'ev')}
-          {list('反対側の根拠', deep.counterEvidence ?? [], 'cev')}
-          {list('成り立つ条件・崩れる条件', deep.whenItHolds ?? [], 'when')}
-          {/* 名詞句だけを並べる。文にすると意見の代筆になり、読者の言葉でなくなる */}
-          {(deep.angles?.length ?? 0) > 0 && (
-            <Detail label="語れる角度">
-              <ul className="angles">
-                {deep.angles!.map((a, i) => (
-                  <li key={i}>{a}</li>
-                ))}
-              </ul>
-              <p className="angles__note">
-                切り口だけです。どう書くかはご自身の言葉でどうぞ。
-              </p>
-            </Detail>
-          )}
-          {steps('自分で確かめる', deep.verify)}
-          {why('なぜ今この争点か')}
-        </>
-      );
     default:
       // レーン導入前に生成した日
       return (
@@ -860,44 +773,6 @@ function CardBody({
         </>
       );
   }
-}
-
-/**
- * 論点ごとの噛み合い。
- *
- * 以前は「賛成側の根拠」「反対側の根拠」を別々の箇条書きで並べていた。平行な 2 つの
- * リストは噛み合いを表現できず、読者が頭の中で対応づける必要があった（実測では
- * 対応していない項目も混ざっていた）。論点を見出しにして左右に対で置く。
- *
- * 左右に並べるのは DebateScaffold と同じ理由——縦に積むと上が結論に見える。
- */
-function ClashList({ clashes }: { clashes: Clash[] }) {
-  return (
-    <div className="clashes">
-      {clashes.map((c, i) => (
-        <div className="clash" key={i}>
-          <p className="clash__point">{c.point}</p>
-          <div className="clash__sides">
-            <div className="clash__side">
-              <p className="clash__side-label">こう言われる</p>
-              <p className="clash__side-body">{c.claim}</p>
-            </div>
-            <div className="clash__side clash__side--counter">
-              <p className="clash__side-label">
-                こう返せる
-                {/*
-                  記事に無い反論をそのまま引用すると「記事にはこう書いてある」と
-                  誤って紹介することになる。出所が違うことは形として見せる。
-                */}
-                {c.counterInArticle === false && <span className="debate__tag">記事の外</span>}
-              </p>
-              <p className="clash__side-body">{c.counter}</p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function CodeBlock({ code }: { code: DeepDive['code'] }) {

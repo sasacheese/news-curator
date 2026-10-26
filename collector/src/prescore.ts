@@ -371,11 +371,11 @@ export function dedupe(items: RawItem[], seenUrls: ReadonlySet<string>): RawItem
 export function pickByLane<T extends { lane: Lane }>(
   ranked: readonly T[],
   total: number,
-  /** security の件数。等分の外で別に取る（既存 3 レーンの枠を削らないため） */
+  /** security の件数。等分の外で別に取る（既存レーンの枠を削らないため） */
   securityTotal = 0,
 ): Record<Lane, T[]> {
   const quota = Math.floor(total / GENERAL_LANES.length);
-  const picked: Record<Lane, T[]> = { security: [], know: [], build: [], talk: [] };
+  const picked: Record<Lane, T[]> = { security: [], know: [], build: [] };
 
   picked.security = ranked.filter((i) => i.lane === 'security').slice(0, securityTotal);
   for (const lane of GENERAL_LANES) {

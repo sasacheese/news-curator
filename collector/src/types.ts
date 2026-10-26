@@ -19,7 +19,7 @@ export interface Metrics {
   hatena?: number;
   /** X のリポスト。人気度では likes より重く見る */
   reposts?: number;
-  /** X の返信。talk の discussion 比では comments と同じものとして扱う */
+  /** X の返信。comments と同じものとして扱う */
   replies?: number;
   quotes?: number;
   bookmarks?: number;
@@ -101,7 +101,7 @@ export interface PreScoredItem extends RawItem {
 }
 
 /**
- * キュレーションのレーン。読者が持つ 3 つの目的にそのまま対応する。
+ * キュレーションのレーン。読者が持つ目的にそのまま対応する。
  *
  * ひとつの「価値スコア」に畳むと、いちばん測りやすい指標——このツールでは
  * 関心トピックとのキーワード一致——だけが残る。実測で掲載記事の 43% が
@@ -115,51 +115,24 @@ export interface PreScoredItem extends RawItem {
  * - build: 作る。試したくなるもの。可能性の差分 × 触れる実体で測る。
  *          新しいものほど語彙に無いので、ここでも一致は主軸にしない。
  *          どのレーンにも寄らなかったものはここに入る（既定のレーン）。
- * - talk : 話す。意見が言えるもの。立場が割れることを discussion 量と語彙で測る。
- *          二次情報のほうが強いことが多いので、一次情報を優遇しない。
  */
-export const LANES = ['security', 'know', 'build', 'talk'] as const;
+export const LANES = ['security', 'know', 'build'] as const;
 export type Lane = (typeof LANES)[number];
 
 /**
- * security 以外の 3 レーン。「その他の注目記事」を等分する母数はこちら。
+ * security 以外のレーン。「その他の注目記事」を等分する母数はこちら。
  *
  * security は後から足した専用枠で、件数の予算を別に持つ（config の security*）。
- * 等分の母数に入れると、既存の 3 レーンの枠が黙って 3/4 に減る。
+ * 等分の母数に入れると、既存のレーンの枠が黙って減る。
  */
-export const GENERAL_LANES = ['know', 'build', 'talk'] as const;
+export const GENERAL_LANES = ['know', 'build'] as const;
 
 /** 実行ログ・LLM への指示・画面で共通の表示名 */
 export const LANE_LABELS: Record<Lane, string> = {
   security: 'セキュリティ',
   know: '知る',
   build: '作る',
-  talk: '話す',
 };
-
-/**
- * talk レーンの記事に付ける「意見の足場」。
- *
- * 意見が出ない理由を分解すると、主張の理解 → 反対側の把握 → 自分の位置決め →
- * 自分にしか書けない一点、の順にハードルが上がる。詰まるのは最後の一点なので、
- * そこを名指しする。意見の下書きは作らない——そのまま出せてしまうと読者の
- * 言葉でなくなるうえ、裏取りされていない文章が外に出る。渡すのは足場だけ。
- */
-export interface Debate {
-  /** 争点。「A か B か」の形にする */
-  axis: string;
-  /** 賛成側の一番強い言い分 */
-  forSide: string;
-  /** 反対側の一番強い言い分 */
-  againstSide: string;
-  /**
-   * 記事が片側しか書いていないか。true のとき againstSide は記事の外から
-   * 補った一般的な反論なので、そのまま引用してはいけないことを画面で示す。
-   */
-  oneSided: boolean;
-  /** 読者のプロフィール上、実体験として語れそうな接点 */
-  yourAngle: string;
-}
 
 /** 読んだ結果として何が得られるか。時間対効果の「リターン」側。 */
 export const PAYOFFS = ['apply', 'decide', 'aware'] as const;
@@ -211,8 +184,6 @@ export interface RankedItem extends PreScoredItem {
   category: string;
   /** どの目的で選ばれたか。選定・表示の単位 */
   lane: Lane;
-  /** talk レーンのときだけ入る意見の足場。他のレーンでは null */
-  debate: Debate | null;
   /**
    * security レーンのときだけ入る事案の名寄せキー（「被害組織 事案の種類」）。
    * 同じ事案の記事を 1 件にまとめ、日をまたいで続報を追うのに使う。他のレーンでは無い。
@@ -326,11 +297,10 @@ export interface Figure {
  * 深掘りカードの共通部分。
  *
  * 差分（何が変わるか / 何ができるようになるか）はレーンごとに 1 項目へ統合してある。
- * 3 レーンとも見ているのは同じ差分で、見る向きが違うだけ。
+ * どのレーンも見ているのは同じ差分で、見る向きが違うだけ。
  *
  * - know : 自分への影響として見る → impact
  * - build: 可能性の広がりとして見る → unlocks（「これまで◯◯ → これから△△」の形）
- * - talk : そもそも差分ではなく立場の対立なので、どちらも持たない
  *
  * headline は廃止した。oneLiner・takeaways・summary と 4 つ目の要約になっていて、
  * 実測で 1 つの事実が 5 箇所に書かれていた。カードの見出しは元記事のタイトルにする。
@@ -420,59 +390,6 @@ export interface BuildDeepDive extends DeepDiveBase {
   tryPrompt: string | null;
 }
 
-/**
- * 争点を論点ごとに分解した対。
- *
- * 以前は賛成側の根拠と反対側の根拠を別々の平行なリストで持っていた。読者が頭の中で
- * 対応づけないと噛み合いが見えず、実測では対応していない項目も混ざっていた
- * （記事と同じ立場の補強が「反対側の根拠」に入っていた）。議論の形は
- * 「A と言われるが B だ」という噛み合いなので、対で持つ。
- */
-export interface Clash {
-  /** 何について争っているか。名詞句 */
-  point: string;
-  /** こう言われる（記事の立場） */
-  claim: string;
-  /** こう返せる（反対の立場）。claim と必ず噛み合っていること */
-  counter: string;
-  /**
-   * その反論が記事の中にあるか。false のとき counter は記事の外から補ったものなので、
-   * 記事の主張として引用してはいけないことを画面で示す。
-   */
-  counterInArticle: boolean;
-}
-
-/**
- * 読者が自分の経験からこの争点に足せること（画面では「一次情報を出すとしたら？」）。
- *
- * 発信の最大の障壁は「これを自分が言っていいのか」なので、切り口の名前だけでは足りない。
- * **なぜこの読者がそれを言えるのか**を対で持たせる。
- */
-export interface Firsthand {
-  /** 書ける切り口の名前。**名詞句だけ**。文にすると意見の代筆になる */
-  angle: string;
-  /** なぜこの読者がそれを言えるのか。読者プロフィールとの接点 */
-  why: string;
-}
-
-/**
- * 話す: 発信するための材料を渡す。意見の下書きは作らない。
- *
- * このレーンの行動変容は「発信したくなること」で、カードの中心の問いは
- * **「この争点に、自分の経験から何を足せるか」**。両側の言い分が分かっても人は発信しない
- * （それで得られるのは「詳しくなった」状態）。発信が起きるのは、自分の手元にある事実が
- * この議論の材料になると気づいた瞬間なので、そこを名指しする。
- */
-export interface TalkDeepDive extends DeepDiveBase {
-  lane: 'talk';
-  /** 論点ごとの噛み合い（画面では「争点」） */
-  clashes: Clash[];
-  /** 読者が足せること（画面では「一次情報を出すとしたら？」） */
-  firsthand: Firsthand[];
-  /** 自分の環境で主張の真偽を確かめる方法（画面では「確かめられること」）。無ければ空 */
-  verify: string[];
-}
-
 /** 攻撃の段階。記事から読み取れた段階だけを並べる */
 export const ATTACK_STAGES = [
   'initial-access',
@@ -512,7 +429,7 @@ export interface SecurityDeepDive extends DeepDiveBase {
   whatsNew: string | null;
 }
 
-export type DeepDive = SecurityDeepDive | KnowDeepDive | BuildDeepDive | TalkDeepDive;
+export type DeepDive = SecurityDeepDive | KnowDeepDive | BuildDeepDive;
 
 export interface TopItem extends RankedItem {
   rank: number;
@@ -680,7 +597,7 @@ export interface CommunityItem {
   /**
    * speak のときだけ: 読者のプロフィールから出せる題材。
    * **名詞句だけ**を並べ、文にしない。文にすると LT の代筆になる。
-   * TalkDeepDive.angles と同じ思想・同じ後処理を通す。
+   * 後処理は llm.ts の looksLikeOpinion を通す（文で返ってきたものは落とす）。
    */
   angles: string[];
   /** 前日のダイジェストに無かった = 今日はじめて盤面に乗った */

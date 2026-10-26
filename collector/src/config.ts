@@ -55,10 +55,10 @@ type SourcesFile = Omit<
 
 /** 実行時のチューニング項目。すべて環境変数で上書きできる。 */
 export interface RuntimeConfig {
-  /** 1 レーンあたり LLM へ渡す候補数。合計はこの 3 倍 */
+  /** 1 レーンあたり LLM へ渡す候補数 */
   laneCandidates: number;
   /** レーンの振り分けしきい値。実データを見ながら動かす前提 */
-  laneThresholds: { security: number; know: number; talk: number };
+  laneThresholds: { security: number; know: number };
   /** 深掘り要約する件数（= 各レーンのベスト N） */
   topN: number;
   /** 「その他の注目記事」として保存する件数 */
@@ -95,7 +95,7 @@ export function loadRuntimeConfig(): RuntimeConfig {
   const effort = str('SUMMARY_EFFORT', 'medium') as RuntimeConfig['summaryEffort'];
   return {
     /**
-     * 1 レーンあたり LLM に採点させる候補数。合計 150 件は 3 レーン化の前と同じ。
+     * 1 レーンあたり LLM に採点させる候補数。
      *
      * 採点は 2 段階（スコアのみ → 上位だけ文章化）なので、ここを増やして
      * 増えるのは安い 1 段目の入力だけ。2 段目と深掘りのコストは変わらない。
@@ -107,13 +107,13 @@ export function loadRuntimeConfig(): RuntimeConfig {
     /**
      * レーンの振り分けしきい値。
      *
-     * know / talk は「要件を満たすか」で判定し、満たさなければ build に落ちる
+     * know は「要件を満たすか」で判定し、満たさなければ build に落ちる
      * （build が既定のレーン）。適正値は実データを見ないと決められないので、
      * 実行ログにレーン別の件数を出して調整する前提の値にしてある。
      *
-     * 高くしすぎると know / talk が空になり、低くしすぎると build から
+     * 高くしすぎると know が空になり、低くしすぎると build から
      * 中身の薄いものが流れ込む。まずはログの「振り分け」の行を見て、
-     * know が 1 日 30〜80 件、talk が 40〜100 件くらいに収まるあたりを狙う。
+     * know が 1 日 30〜80 件くらいに収まるあたりを狙う。
      */
     laneThresholds: {
       /*
@@ -123,16 +123,14 @@ export function loadRuntimeConfig(): RuntimeConfig {
        */
       security: num('SECURITY_THRESHOLD', 0.55),
       know: num('KNOW_THRESHOLD', 0.42),
-      talk: num('TALK_THRESHOLD', 0.4),
     },
     /**
-     * 深掘りする件数。**レーンごと**なので、既定 2 で 6 件。
+     * 深掘りする件数。**レーンごと**なので、既定 2 で 4 件（security は別枠）。
      * 深掘りは Sonnet を使う一番高い工程で、実測でも全体の 6〜7 割を占める。
-     * 2 レーン時代の 4 件から 6 件になるので、1 日あたり $0.06〜0.08 ほど増える。
-     * コストを戻したいなら TOP_N=1（3 件）にする。
+     * コストを抑えたいなら TOP_N=1（2 件）にする。
      */
     topN: num('TOP_N', 2),
-    /** 「その他の注目記事」の合計。security 以外の 3 レーンで等分する（既定 12 → 各 4 件） */
+    /** 「その他の注目記事」の合計。security 以外のレーンで等分する（既定 12 → 各 6 件） */
     otherN: num('OTHER_N', 12),
     /**
      * セキュリティ枠の予算。他のレーンとは別に持つ。

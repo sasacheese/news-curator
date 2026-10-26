@@ -154,7 +154,7 @@ function parseMetrics(value: unknown, label: string, notes: string[]): Metrics |
     }
     metrics[key] = n;
   }
-  // 既存の talk レーンは comments / likes で議論の量を見る。返信は comments に相当する。
+  // 返信は comments に相当する。
   if (metrics.replies != null) metrics.comments = metrics.replies;
   return metrics;
 }

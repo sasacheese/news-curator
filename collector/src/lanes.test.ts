@@ -32,7 +32,7 @@ function item(over: Partial<PreScoredItem> & { id: string }): PreScoredItem {
   };
 }
 
-const THRESHOLDS = { know: 0.42, talk: 0.4 };
+const THRESHOLDS = { know: 0.42 };
 
 describe('laneAffinity', () => {
   it('know は関心トピックに一致しなくても規模で拾う', () => {
@@ -95,37 +95,16 @@ describe('laneAffinity', () => {
     const post = item({ id: 'p' });
     assert.ok(laneAffinity(repo).build > laneAffinity(post).build);
   });
-
-  it('talk は支持数の割にコメントが多いものを論争として拾う', () => {
-    // 賛同だけなら star が伸びてコメントは伸びない。割れるとコメント側が伸びる
-    const quiet = item({ id: 'q', metrics: { points: 300, comments: 8 } });
-    const loud = item({ id: 'l', metrics: { points: 300, comments: 240 } });
-    const qv = laneAffinity(quiet).talk;
-    const lv = laneAffinity(loud).talk;
-    assert.ok(lv > qv, `論争 ${lv} が静か ${qv} を上回っていない`);
-  });
-
-  it('talk は「やめた」「べきか」の形を拾う', () => {
-    const opinion = item({ id: 'o', title: 'モノレポをやめた。本当に必要だったのかを再考する' });
-    const neutral = item({ id: 'n', title: 'モノレポの構成手順' });
-    assert.ok(
-      laneAffinity(opinion).talk > laneAffinity(neutral).talk,
-    );
-  });
 });
 
 describe('assignLane', () => {
   it('どのレーンの要件も満たさないものは build に落ちる', () => {
-    assert.equal(assignLane({ know: 0.1, build: 0.2, talk: 0.1 }, THRESHOLDS), 'build');
-  });
-
-  it('know を talk より優先する', () => {
-    assert.equal(assignLane({ know: 0.9, build: 0.1, talk: 0.9 }, THRESHOLDS), 'know');
+    assert.equal(assignLane({ know: 0.1, build: 0.2 }, THRESHOLDS), 'build');
   });
 
   it('build のスコアが高くても know の要件を満たせば know にする', () => {
     // build は既定のレーンであって、勝ち取るレーンではない
-    assert.equal(assignLane({ know: 0.5, build: 0.99, talk: 0.1 }, THRESHOLDS), 'know');
+    assert.equal(assignLane({ know: 0.5, build: 0.99 }, THRESHOLDS), 'know');
   });
 });
 
@@ -139,7 +118,7 @@ describe('selectLaneCandidates', () => {
       }),
     );
     const { candidates } = selectLaneCandidates(items, 5, THRESHOLDS);
-    const ids = [...candidates.know, ...candidates.build, ...candidates.talk].map((i) => i.id);
+    const ids = [...candidates.know, ...candidates.build].map((i) => i.id);
     assert.equal(new Set(ids).size, ids.length, '同じ記事が複数のレーンに入っている');
   });
 
@@ -149,7 +128,6 @@ describe('selectLaneCandidates', () => {
     const items = Array.from({ length: 20 }, (_, i) => item({ id: `i${i}` }));
     const { candidates } = selectLaneCandidates(items, 3, THRESHOLDS);
     assert.ok(candidates.know.length > 0, 'know が空のまま');
-    assert.ok(candidates.talk.length > 0, 'talk が空のまま');
   });
 
   it('母集団が枠に足りない日は水増ししない', () => {
@@ -158,13 +136,13 @@ describe('selectLaneCandidates', () => {
       10,
       THRESHOLDS,
     );
-    const total = candidates.know.length + candidates.build.length + candidates.talk.length;
+    const total = candidates.know.length + candidates.build.length;
     assert.equal(total, 2);
   });
 });
 
 describe('security レーン', () => {
-  const WITH_SECURITY = { security: 0.55, know: 0.42, talk: 0.4 };
+  const WITH_SECURITY = { security: 0.55, know: 0.42 };
 
   it('セキュリティ系フィードの記事は security に入る', () => {
     const a = laneAffinity(item({ id: 's1', source: 'rss', feedCategory: 'security', title: '定期メンテナンスのお知らせ' }));
