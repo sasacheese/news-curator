@@ -21,15 +21,13 @@ const SECURITY_TERMS = [
  *
  * 以前は preScore 1 本で 600 件を 150 件に絞っていた。preScore の主項は
  * トピックキーワードの一致なので、この絞り込みは「読者が既に知っている領域か」
- * を測っていたことになる。3 つの目的のうち「知る」の一部しか通らない。
+ * を測っていたことになる。目的のうち「知る」の一部しか通らない。
  *
  *   - 大きな話題は読者の関心と独立に成立する（サプライチェーン攻撃も
  *     ハードウェアの価格高騰も topics.json には無い）→ 一致で測れない
  *   - 試したくなるかは「今日動かせる形か」で決まる → 一致では測れない
- *   - 意見が言える記事は二次情報が多い → 一次情報優遇と逆を向く
  *
- * なので目的ごとに別の信号で絞る。3 レーン × 50 件で、LLM に渡す総数は
- * 従来と同じ 150 件のまま。ここは全部ルールベースなので追加コストはゼロ。
+ * なので目的ごとに別の信号で絞る。ここは全部ルールベースなので追加コストはゼロ。
  * ------------------------------------------------------------------ */
 
 /**
@@ -82,29 +80,11 @@ const TANGIBLE_TERMS = [
   'getting started', 'quickstart', 'installation',
 ];
 
-/**
- * 立場が割れることの語彙。
- *
- * 賛否の本質は「事実が争われている」ことではなく「優先順位が争われている」こと。
- * 速さ vs 安全、自動化 vs 制御、統一 vs 自由。同じ事実から違う結論が出るとき、
- * そこに立場が生まれる。その気配が出やすい言い回しを集めている。
- */
-const CONTENTION_TERMS = [
-  '賛否', '反論', '批判', '異論', '議論', '主張', '意見', '思想', '再考', '見直す',
-  'やめた', 'やめました', 'やめるべき', 'べきか', 'べきではない', '本当に', '本当は',
-  'アンチパターン', '間違い', '誤解', '神話', '幻想', '限界', '向いていない',
-  '不要', '要らない', 'は死んだ', 'つらい', '失敗', '後悔', 'なぜ',
-  'considered harmful', 'is dead', 'stop using', "don't use", 'rethinking', 'myth',
-  'wrong', 'against', 'why i', 'we ditched', 'we moved', 'lessons learned', 'postmortem',
-  'unpopular', 'debate', 'controversial', 'overrated', 'overkill',
-];
-
 export interface LaneAffinity {
   /** 無ければ 0 とみなす（security 導入前のテストと設定が書いたまま通るように） */
   security?: number;
   know: number;
   build: number;
-  talk: number;
 }
 
 function haystack(item: PreScoredItem): string {
@@ -190,27 +170,6 @@ function buildScore(item: PreScoredItem, hay: string): number {
 }
 
 /**
- * talk: 立場が割れること。
- *
- * いちばん信頼できる証拠は語彙ではなく discussion の量比。
- * 人気の割にコメントが多い記事は、ほぼ確実に何かが争われている。
- * この比は metrics.points / metrics.comments で既に取れている。
- */
-function talkScore(item: PreScoredItem, hay: string): number {
-  const m = item.metrics;
-  const points = m.points ?? m.likes ?? m.hatena ?? 0;
-  const comments = m.comments ?? 0;
-  // 賛同だけなら star が伸びてコメントは伸びない。割れているとコメント側が伸びる
-  const ratio = points > 0 ? Math.min(1, comments / Math.max(1, points * 0.35)) : 0;
-  const vocabulary = saturate(hits(hay, CONTENTION_TERMS), 1.2);
-  const question = /[?？]\s*$|かのか$|べきか|のか[?？]?$/.test(item.title.trim()) ? 0.15 : 0;
-  // 話題になっていない意見記事は、そもそも共通の話題にならない
-  const visibility = Math.min(0.25, item.popularityPercentile * 0.25);
-
-  return clamp01(vocabulary * 0.45 + ratio * 0.3 + visibility + question);
-}
-
-/**
  * security: 攻撃・漏洩の事案か。
  *
  * セキュリティ系のフィード（watchlist の category: "security"）は定義上そうなので 1。
@@ -234,7 +193,6 @@ export function laneAffinity(item: PreScoredItem): LaneAffinity {
     security: securityScore(item, hay),
     know: knowScore(item, hay),
     build: buildScore(item, hay),
-    talk: talkScore(item, hay),
   };
 }
 
@@ -242,15 +200,14 @@ export interface LaneThresholds {
   /** 無ければ security には振り分けない */
   security?: number;
   know: number;
-  talk: number;
 }
 
 /**
  * レーンを 1 つだけ割り当てる。
  *
- * argmax は使わない。3 つのスコアは別の信号から作っていて尺度が揃っておらず、
- * 素点を比べても意味が無いため。代わりに「know の要件を満たすか」「talk の要件を
- * 満たすか」を順に見て、どちらでもなければ build に落とす。build が既定の
+ * argmax は使わない。レーンごとのスコアは別の信号から作っていて尺度が揃っておらず、
+ * 素点を比べても意味が無いため。代わりに「know の要件を満たすか」を見て、
+ * 満たさなければ build に落とす。build が既定の
  * レーンなのは、それが従来の動作（関心トピックの実装ノウハウ）の行き先だから。
  *
  * しきい値は環境変数で動かせるようにしてある。実データを見ないと適正値は
@@ -262,7 +219,6 @@ export function assignLane(affinity: LaneAffinity, thresholds: LaneThresholds): 
     return 'security';
   }
   if (affinity.know >= thresholds.know) return 'know';
-  if (affinity.talk >= thresholds.talk) return 'talk';
   return 'build';
 }
 
@@ -291,16 +247,15 @@ export function selectLaneCandidates(
   const limit = (lane: Lane) => (lane === 'security' ? securityPerLane : perLane);
   const scored = items.map((item) => ({ item, affinity: laneAffinity(item) }));
 
-  const buckets: Record<Lane, typeof scored> = { security: [], know: [], build: [], talk: [] };
+  const buckets: Record<Lane, typeof scored> = { security: [], know: [], build: [] };
   for (const entry of scored) buckets[assignLane(entry.affinity, thresholds)].push(entry);
 
   const assigned = {
     security: buckets.security.length,
     know: buckets.know.length,
     build: buckets.build.length,
-    talk: buckets.talk.length,
   };
-  const candidates: Record<Lane, PreScoredItem[]> = { security: [], know: [], build: [], talk: [] };
+  const candidates: Record<Lane, PreScoredItem[]> = { security: [], know: [], build: [] };
   const taken = new Set<string>();
 
   // LANES の順（security → know → …）で埋める。取りこぼしの損失が大きい順に確保する

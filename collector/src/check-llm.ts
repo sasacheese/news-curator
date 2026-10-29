@@ -9,8 +9,6 @@ import {
   KnowDeepDiveSchema,
   ReleaseResultSchema,
   ScoreResultSchema,
-  TalkDeepDiveSchema,
-  TalkDescribeResultSchema,
 } from './schemas.js';
 import { log } from './util.js';
 
@@ -53,12 +51,6 @@ const CASES: Case[] = [
     prompt: '[0] TSKaigi 2026 登壇者募集（LT 5分 × 6枠）\n\n以上 1 件を判定してください。',
   },
   {
-    // 「話す」レーンだけ要約に「意見の足場」5 項目が乗るので、別スキーマになっている
-    name: 'describe/talk',
-    schema: TalkDescribeResultSchema,
-    prompt: '[0] テスト記事 — モノレポをやめた理由\n\n以上 1 件を要約してください。',
-  },
-  {
     name: 'deep/know',
     schema: KnowDeepDiveSchema,
     prompt: 'npm の広範なパッケージが改ざんされた、という記事だとして深掘りしてください。',
@@ -68,12 +60,6 @@ const CASES: Case[] = [
     name: 'deep/build',
     schema: BuildDeepDiveSchema,
     prompt: 'TypeScript 5.9 で satisfies 演算子が改善された、という記事だとして深掘りしてください。',
-    deep: true,
-  },
-  {
-    name: 'deep/talk',
-    schema: TalkDeepDiveSchema,
-    prompt: 'コードレビューは自動化すべきだ、と主張する記事だとして深掘りしてください。',
     deep: true,
   },
 ] as const;

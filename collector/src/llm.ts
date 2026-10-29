@@ -9,16 +9,13 @@ import {
   KnowDeepDiveSchema,
   SecurityDeepDiveSchema,
   SecurityDescribeResultSchema,
-  TalkDeepDiveSchema,
   DigestOutlookSchema,
   DigestSummarySchema,
   ScoreResultSchema,
-  TalkDescribeResultSchema,
   type BuildDeepDiveResult,
   type DescribeItem,
   type KnowDeepDiveResult,
   type SecurityDeepDiveResult,
-  type TalkDeepDiveResult,
 } from './schemas.js';
 import { pickTopDiverse } from './prescore.js';
 import {
@@ -31,7 +28,6 @@ import {
   PAYOFFS,
 } from './types.js';
 import type {
-  Debate,
   DeepDive,
   Figure,
   Lane,
@@ -276,32 +272,6 @@ const LANE_RUBRICS: Record<Lane, string> = {
 # 判定の問い
 **「これの前後で、作れるものの集合はどう変わったか」**
 「同じものがより楽に作れる」しか答えられないなら 60 点未満。`,
-
-  talk: `# このレーンの目的
-「読者が自分の意見を言える記事」を拾う。SNS で発信するための素材なので、
-正しさや一次情報らしさより **立場が割れること** を優先する。
-
-# 採点基準（立場が割れること）
-- 90-100: 同じ事実から正反対の結論が出る。実際に界隈で意見が割れていて、
-  賛成側も反対側も具体的な根拠を持てる。
-- 70-89 : 明確な主張があり、反論が成り立つ。設計論、やめた話、比較検証、失敗談。
-- 50-69 : 主張はあるが反論しづらい（ほぼ誰もが同意する）。
-- 30-49 : 事実の報告で、立場の取りようが無い。
-- 0-29  : 宣伝、単なる手順書、中身のない感想。
-
-# 判定の問い ← このレーンで一番大事な判断
-**「反対の立場を、藁人形にせず1文で書けるか」**
-書けないものは論点ではなく事実。事実を扱うのは別のレーンの仕事なので、ここでは 40 点未満。
-
-# 争われているのは優先順位である
-賛否の本質は「どちらが正しいか」ではなく「何を優先するか」が違うこと。
-速さ vs 安全、自動化 vs 制御、統一 vs 自由、今の生産性 vs 将来の保守性。
-この形に還元できる記事を高く置く。事実の正誤が争われているだけのものは論点ではない。
-
-# このレーンでは一次情報を優遇しない
-公式のリリースノートに意見は書けない。個人の主張・検証・体験談のほうがここでは価値が高い。
-**「〜してみた」「やめた」「後悔した」を、その形だからという理由で減点しない。**
-ただし主張が無く手順だけのものは 40 点未満。`,
 };
 
 function scoreSystemPrompt(
@@ -329,7 +299,6 @@ ${LANE_RUBRICS[lane]}
 
 /**
  * レーンごとに、要約で何に焦点を当てるかの指示。
- * talk レーンだけは項目自体が増える（意見の足場）。
  */
 const LANE_DESCRIBE_BLOCKS: Record<Lane, string> = {
   security: `# このレーンについて
@@ -351,31 +320,6 @@ takeaways には規模が伝わる具体を必ず入れる——何に、いつ�
 takeaways には「これまでできなかった何ができるようになるか」を入れる。
 できるようになることが無く、既存のやり方が楽になるだけなら、それを率直にそう書く。
 無理に「新しくできること」をひねり出さない。`,
-
-  talk: `# このレーンについて
-これらは「読者が自分の意見を言えるもの」として選ばれている。
-通常の項目に加えて、debate の 5 項目を書くこと。
-
-# debate（意見の足場）
-読者はこれを見て SNS に投稿する。**意見の下書きは書かない。**
-下書きを渡すと読者自身の言葉でなくなるうえ、裏を取っていない文章がそのまま外に出る。
-渡すのは、読者が自分で書き始められる足場だけ。
-
-- **debateAxis は「A か B か」の形にする。**「〜について」は争点ではない。
-  優先順位の対立に還元する（速さ vs 安全、自動化 vs 制御、統一 vs 自由、
-  今の生産性 vs 将来の保守性）。
-- **debateFor / debateAgainst は、それぞれの立場の一番強い言い分を書く。**
-  反対側を弱く書かない。実際にその立場を取る人が言うことを書く。
-  藁人形を立てると、読者がそれを引用した時点で恥をかく。
-- 記事が片側の立場しか書いていないなら **debateOneSided を true** にする。
-  そのとき debateAgainst は記事の外から補った一般論なので、記事の主張として
-  読める書き方をしない。
-- **debateYourAngle は読者プロフィールとの接点。** 「読者が実体験として持っている
-  一次情報はどこか」を指す。意見そのものは書かない。
-  ✗「自動化には慎重であるべきだと言える」（意見の代筆）
-  ✓「同じ構成を業務で毎日動かしているので、手戻りの頻度は実測値として出せる」
-- **争点が本当に無い記事なら、5 項目すべて null / false にする。無理に作らない。**
-  事実の報告に無理やり争点をかぶせるのが、この項目で一番やってはいけないこと。`,
 };
 
 function describeSystemPrompt(
@@ -547,12 +491,10 @@ payoff とは別の軸。「今日役に立つか」ではなく「1年後にも
 /**
  * レーンごとに、判定の役に立つ機械的な事実だけを添える。
  *
- * know なら「複数のプラットフォームで同時に取り上げられている」が規模の証拠になり、
- * talk なら「人気の割にコメントが多い」が論争の証拠になる。どちらもモデルが
- * 本文からは読み取れない情報なので、こちらで渡す。build には該当する指標が無い。
+ * know なら「複数のプラットフォームで同時に取り上げられている」が規模の証拠になる。
+ * モデルが本文からは読み取れない情報なので、こちらで渡す。build には該当する指標が無い。
  */
 function laneEvidence(item: PreScoredItem, lane: Lane): string | null {
-  const m = item.metrics;
   switch (lane) {
     case 'know': {
       const parts: string[] = [];
@@ -560,15 +502,6 @@ function laneEvidence(item: PreScoredItem, lane: Lane): string | null {
       if (sources > 1) parts.push(`${sources} つのプラットフォームで同時に浮上`);
       if (item.buzz) parts.push('その日として明らかに伸びている');
       return parts.length > 0 ? parts.join(' / ') : null;
-    }
-    case 'talk': {
-      const points = m.points ?? m.likes ?? m.hatena ?? 0;
-      const comments = m.comments ?? 0;
-      if (comments <= 0) return null;
-      // 賛同だけなら star が伸びてコメントは伸びない。割れているとコメント側が伸びる
-      return points > 0
-        ? `コメント ${comments} 件（支持 ${points} に対して）`
-        : `コメント ${comments} 件`;
     }
     default:
       return null;
@@ -620,7 +553,6 @@ function ruleBasedFields(item: PreScoredItem, lane: Lane, note: string) {
     keywords: item.matchedTopics.slice(0, 5),
     category: 'その他',
     lane,
-    debate: null,
     // 本文の長さから機械的に見積もる（日本語は約 600 字/分）
     readingMinutes: Math.max(1, Math.min(30, Math.round((item.body?.length ?? 600) / 600))),
     payoff: 'aware' as const,
@@ -705,13 +637,8 @@ async function describePass(
   }
 
   const system = describeSystemPrompt(lane, topics, feedbackNote);
-  // talk は「意見の足場」、security は事案の名寄せキーが乗る。他のレーンで無駄な出力をさせない
-  const schema =
-    lane === 'talk'
-      ? TalkDescribeResultSchema
-      : lane === 'security'
-        ? SecurityDescribeResultSchema
-        : DescribeResultSchema;
+  // security は事案の名寄せキーが乗る。他のレーンで無駄な出力をさせない
+  const schema = lane === 'security' ? SecurityDescribeResultSchema : DescribeResultSchema;
   const incidentBlock =
     lane === 'security' && knownIncidents.length
       ? `\n\n# 既知の事案一覧（同じ事案ならこの文字列を incident にそのまま使う）\n${knownIncidents.map((k) => `- ${k}`).join('\n')}`
@@ -760,32 +687,11 @@ function pickTitleJa(item: PreScoredItem, raw: string | null | undefined): strin
 }
 
 /**
- * 要約結果から「意見の足場」を組み立てる。
- *
- * 争点が本当に無い記事に無理やり争点をかぶせるのが一番まずいので、
- * 軸か賛成側か反対側のどれかが欠けていたら、まるごと null にして表示しない。
- * 半端な足場は、無い足場より読者を迷わせる。
- */
-function toDebate(r: DescribeItem): Debate | null {
-  const axis = r.debateAxis?.trim();
-  const forSide = r.debateFor?.trim();
-  const againstSide = r.debateAgainst?.trim();
-  if (!axis || !forSide || !againstSide) return null;
-  return {
-    axis,
-    forSide,
-    againstSide,
-    oneSided: r.debateOneSided === true,
-    yourAngle: r.debateYourAngle?.trim() || '',
-  };
-}
-
-/**
  * レーンごとに採点し、そのレーンのラベルを付けた RankedItem を返す。
  *
  * レーンをまたいだ重複は起きない。候補の割り当て（lanes.ts）の時点で
  * 1 件は 1 レーンにしか入らないため、ここでは単純に連結すればよい。
- * score はレーン内でのみ意味を持つ値になる——know の 80 点と talk の 80 点は
+ * score はレーン内でのみ意味を持つ値になる——know の 80 点と build の 80 点は
  * 別の問いへの答えなので、レーンをまたいで並べ替えてはいけない。
  */
 export async function rankItems(
@@ -888,7 +794,7 @@ export function describeShortlist<T extends PreScoredItem>(
    * 「1 ソース 1 件」の多様化が到達しうる分。
    *
    * 上位が同じソースで埋まっている日、多様化はスコア順のずっと下から拾う。実測で
-   * 話すレーンの上位 5 件が全部 Qiita だった日に 6 番目（60 点）が繰り上がり、
+   * あるレーンの上位 5 件が全部 Qiita だった日に 6 番目（60 点）が繰り上がり、
    * それが base に入っていなかったため要約されず、3 行要約が空のカードが出た。
    * 多様化が触れるのは各ソースの最上位だけなので、先頭から topN ソース分を足す。
    */
@@ -924,7 +830,7 @@ async function rankLane(
    * 選ばれると、要約が本文の切り出しになり durability も既定値になる
    * （判定していないのに枠を満たしてしまう）。その分だけ候補を広げておく。
    */
-  // security は予算を別に持つ。describeShortlist は otherN を 3 レーンで割るので、3 倍して渡す
+  // security は予算を別に持つ。describeShortlist は otherN をレーン数で割るので、その数を掛けて渡す
   const shortlist =
     lane === 'security'
       ? describeShortlist(
@@ -966,7 +872,6 @@ async function rankLane(
       keywords: (r.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 8),
       category: CATEGORIES.includes(r.category) ? r.category : 'その他',
       lane,
-      debate: lane === 'talk' ? toDebate(r) : null,
       ...(lane === 'security' ? { incident: r.incident?.trim() || null } : {}),
       readingMinutes: Number.isFinite(r.readingMinutes)
         ? Math.max(1, Math.min(30, Math.round(r.readingMinutes)))
@@ -1132,43 +1037,6 @@ const LANE_DEEP_BLOCKS: Record<Lane, string> = {
   一般論も書かない。該当が無ければ空配列にする——**埋めるために書かない。**
 - 図は、何をどこに差すかという構成なら architecture、動く順序なら flow、
   記事に実測値があるなら metrics。`,
-
-  talk: `# このカードの目的:「話す」
-これは読者が自分の意見を発信するための素材として選ばれている。
-**意見の下書きを書かないこと。** 読者自身の言葉で書けるための材料だけを渡す。
-
-# このカードの中心の問い
-**「この争点に、読者は自分の経験から何を足せるか」**
-
-両側の言い分が分かっても、人は発信しない。それで得られるのは「詳しくなった」状態である。
-発信が起きるのは、**自分の手元にある事実がこの議論の材料になると気づいた瞬間**。
-「賛成です」「反対です」は誰でも書けて、投稿する価値が無い。
-
-- **clashes** — 争点を論点ごとに分解し、**「こう言われる（claim）／こう返せる（counter）」を
-  対で**書く。2〜3 組。
-  **claim と counter は必ず噛み合わせること。** ここがこの項目の全部である。
-  ✗ claim「ボトルネックは実装ではなく境界の設計」/ counter「ハルシネーションは完全になくならない」
-  　（別の話をしている。読者は対応づけられない）
-  ✗ counter に、記事と同じ立場の補強を書く（反論になっていない）
-  ✓ claim「ボトルネックは実装ではなく境界の設計」/ counter「境界を先に固めても、
-  　公開 API や DB 移行の変更コストは下がらない」
-  記事からの引用を長く貼らない。各 50 字で、自分の言葉に詰めること。
-  **成り立つ条件・崩れる条件は独立した項目にせず、この対の中に入れる**
-  （「小規模なら前者、CI が遅いチームなら後者」）。賛否の本質は正誤ではなく
-  優先順位の違い（速さ vs 安全、自動化 vs 制御）なので、その分かれ目が対の中に出る。
-  反対側が記事に書かれていないなら counterInArticle を false にする。
-- **firsthand** — **この項目が中心の問いに直接答える。**
-  読者が自分の経験からこの争点に足せることを、**切り口（angle）と、なぜ読者が
-  それを言えるのか（why）の対で**書く。1〜3 組。
-  angle は**名詞句だけ。文にしない。主張を書かない。**
-  ✗「レビューの自動化には慎重であるべきだ」（意見の代筆になっている）
-  ✓「生成量とレビュー負荷の実測」「見逃し率3倍という数字の測定条件」
-  why は、読者プロフィールにある技術・立場・日常の作業と結びつける。
-  ✓「同じ構成を業務で毎日動かしているので、手戻りの頻度を実測値として出せる」
-  **切り口だけを渡してはいけない。** 発信の最大の障壁は「これを自分が言っていいのか」で、
-  それに答えるのは why の側である。接点が本当に無ければ空配列にする。ひねり出さない。
-- **verify** — 読者が自分の環境で真偽を確かめる方法。0〜2 個。無ければ空配列。
-- 図は、賛成側と反対側の対比なら comparison。ただし clashes と同じ内容になるなら null。`,
 };
 
 function deepSystemPrompt(lane: Lane, topics: TopicsConfig): string {
@@ -1270,7 +1138,7 @@ ${LANE_DEEP_BLOCKS[lane]}
   左の列で 1 本・右の列で 1 本の経路になるように並べる。1 本しかない層は 1 個だけにする。
 - **flow** — **時間の順序があるもの。** 事故が起きた経緯、移行のスケジュール、手順。
   「同時に存在するものの配置」は時間ではないので architecture を使う。
-- **comparison** — 二つの状態の対比。変更前と変更後、賛成側と反対側。
+- **comparison** — 二つの状態の対比。変更前と変更後。
   **「観点ごとの一覧表」を作るために使ってはいけない**（それは箇条書きの言い換え）。
 - **metrics** — 記事に実際の数値が書かれている場合のみ。数値を推測で作らない。
 - どれも当てはまらない、または図にしても情報が増えないなら null。無理に図を作らない。
@@ -1334,11 +1202,6 @@ export async function deepDive(
     `公開: ${item.publishedAt}`,
     item.tags.length ? `タグ: ${item.tags.join(', ')}` : null,
     item.matchedTopics.length ? `関連トピック: ${item.matchedTopics.join(', ')}` : null,
-    /*
-     * 一覧側で既に書かせた争点を渡す。カード側で別の軸を立てると、
-     * 同じ記事について画面の上下で違うことを言うことになる。
-     */
-    item.debate ? `一覧で提示済みの争点: ${item.debate.axis}` : null,
     previousIncident ? `前回までに分かっていたこと（この事案の続報）: ${previousIncident}` : null,
   ]
     .filter(Boolean)
@@ -1408,34 +1271,6 @@ export async function deepDive(
           tryPrompt: sanitizeTryPrompt(p.tryPrompt),
         };
       }
-      case 'talk': {
-        const p = await complete(b, { ...request, schema: TalkDeepDiveSchema });
-        return {
-          ...toBase(p, item, bodyImages),
-          lane: 'talk',
-          /*
-           * 片側だけの対は噛み合いにならないので落とす。半端な対は、
-           * 無い対より読者を迷わせる（一覧の debate を丸ごと null にするのと同じ判断）。
-           */
-          clashes: (p.clashes ?? [])
-            .filter((c) => c?.point?.trim() && c?.claim?.trim() && c?.counter?.trim())
-            .map((c) => ({
-              point: c.point.trim(),
-              claim: c.claim.trim(),
-              counter: c.counter.trim(),
-              counterInArticle: c.counterInArticle === true,
-            })),
-          /*
-           * 角度は名詞句だけにさせている。文で返ってきたものは意見の代筆なので落とす。
-           * why は逆に文でよい（読者自身の状況の説明であって、主題への意見ではない）。
-           */
-          firsthand: (p.firsthand ?? [])
-            .filter((f) => f?.angle?.trim() && f?.why?.trim())
-            .filter((f) => !looksLikeOpinion(f.angle.trim()))
-            .map((f) => ({ angle: f.angle.trim(), why: f.why.trim() })),
-          verify: clean(p.verify),
-        };
-      }
     }
   } catch (err) {
     log.warn(`深掘り失敗 (${item.title}): ${err instanceof Error ? err.message : err}`);
@@ -1448,8 +1283,7 @@ function toBase(
   parsed:
     | SecurityDeepDiveResult
     | KnowDeepDiveResult
-    | BuildDeepDiveResult
-    | TalkDeepDiveResult,
+    | BuildDeepDiveResult,
   item: RankedItem,
   bodyImages: readonly BodyImage[],
 ) {
@@ -1497,18 +1331,12 @@ function clean(list: string[] | undefined): string[] {
 }
 
 /**
- * 「語れる角度」が主張になっていないか。
- *
- * 角度は読者が自分の言葉で書き始めるための見出しなので、名詞句でなければならない。
- * 文を渡すと読者はそれをそのまま投稿でき、裏を取っていない意見が本人の名前で外に出る。
- * プロンプトでも禁じているが、破られたときに画面まで通さないようにする。
- */
-/**
  * 文で返ってきた「角度」を弾く。
  *
+ * 角度は読者が自分の言葉で書き始めるための見出しなので、名詞句でなければならない。
  * 名詞句だけを並べさせているのに、モデルは文を書きたがる。文になったものは
- * 意見の代筆なので落とす。コミュニティの「あなたが出せる題材」も同じ思想なので、
- * community.ts から共有している（判定を二重に持つと片方だけ緩む）。
+ * 意見の代筆なので落とす。プロンプトでも禁じているが、破られたときに画面まで通さない。
+ * コミュニティの「あなたが出せる題材」（community.ts）が使っている。
  */
 export function looksLikeOpinion(text: string): boolean {
   return /[。.]$/.test(text) || /べき|だと言える|と思う|しよう|ではないか/.test(text);
@@ -1595,8 +1423,6 @@ function fallbackDeepDive(item: RankedItem): DeepDive {
         notFor: [],
         caveats: [failed],
       };
-    case 'talk':
-      return { ...base, lane: 'talk', clashes: [], firsthand: [], verify: [] };
   }
 }
 

@@ -3,7 +3,7 @@ import type { Lane, RankedItem } from './types';
 /**
  * レーンの表示定義。
  *
- * ラベルは収集側（collector/src/types.ts の LANE_LABELS）と同じ「知る／作る／話す」。
+ * ラベルは収集側（collector/src/types.ts の LANE_LABELS）と同じ「知る／作る」。
  * 以前は画面だけ「潮目／手札／論点」という含みのある語にしていたが、3 つ並べたときに
  * 体系が読めなかった（潮目=状況 / 手札=道具 / 論点=議題 で抽象度が揃っていない）うえ、
  * 語がレーンの実体からずれていた——「潮目」に入る記事の多くは大局の転換ではなく、
@@ -30,11 +30,6 @@ export const LANE_META: { id: Lane; label: string; lead: string }[] = [
     id: 'build',
     label: '作る',
     lead: 'できることが増えるもの。新しい道具と、今日そのまま動かせるものを集めています。',
-  },
-  {
-    id: 'talk',
-    label: '話す',
-    lead: '立場が割れているもの。争点と両側の言い分を添えてあるので、そこから書き始められます。',
   },
 ];
 

@@ -3,7 +3,6 @@ import { navigate } from './App';
 import { AskClaudeButton } from './AskClaudeButton';
 import { askContextForItem } from './askClaude';
 import { BuzzChip, Chip, ShareButtons, Takeaways } from './components';
-import { DebateScaffold } from './DebateScaffold';
 import { FeedbackButtons } from './FeedbackButtons';
 import { TryBlock } from './TryBlock';
 import { buildTryPrompt } from './tryPrompt';
@@ -14,9 +13,9 @@ import type { Payoff, RankedItem } from './types';
 /**
  * その他の注目記事。
  *
- * 目的（知る／作る／話す）をタブで切り替える。
+ * 目的（セキュリティ／知る／作る）をタブで切り替える。
  * 混ぜて 1 列に並べると件数の多い目的が上を占めてしまい、
- * 「今日は何を書けるか」を探しにきた時に見つからない。収集側でも
+ * 少ない側の目的の記事を探しにきた時に見つからない。収集側でも
  * レーンごとに枠を確保している。
  *
  * 並びは重要度順の一本にした。時間対効果順も付けていたが使われなかったので外した。
@@ -52,8 +51,6 @@ function Row({ item, digestDate }: { item: RankedItem; digestDate: string }) {
         </p>
         <p className="row__summary">{item.oneLiner}</p>
         <Takeaways lines={takeawayLines(item)} compact />
-        {/* 一覧でも争点まで見せる。開かないと立場が決められないなら足場にならない */}
-        {item.debate && <DebateScaffold debate={item.debate} compact />}
         <div className="row__meta">
           {item.buzz && <BuzzChip />}
           {item.readingMinutes != null && item.payoff && (

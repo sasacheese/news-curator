@@ -913,7 +913,7 @@ export async function judgeSpeakItems(
       ...item,
       deadline,
       callFor: r.callFor?.trim() || null,
-      // 文で返ってきたものは発表の代筆なので落とす（talk レーンと同じ判定を共有）
+      // 文で返ってきたものは発表の代筆なので落とす
       angles: (r.angles ?? [])
         .map((a) => a.trim())
         .filter(Boolean)

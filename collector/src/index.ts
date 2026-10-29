@@ -271,7 +271,7 @@ async function main(): Promise<void> {
   log.info(
     `  振り分け: ${LANES.map((l) => `${LANE_LABELS[l]} ${selection.assigned[l]}`).join(' / ')}` +
       `（しきい値 security=${runtime.laneThresholds.security}` +
-      ` know=${runtime.laneThresholds.know} talk=${runtime.laneThresholds.talk}）`,
+      ` know=${runtime.laneThresholds.know}）`,
   );
   log.info(
     `LLM 採点対象 ${candidates.length} 件: ` +
@@ -282,7 +282,7 @@ async function main(): Promise<void> {
   log.step('4/7 LLM ランキング');
   /*
    * レーンをまたいだスコアの比較には意味が無い。know の 80 点は「規模」への、
-   * talk の 80 点は「立場が割れるか」への答えで、別の問いへの答えだからだ。
+   * build の 80 点は「試したくなるか」への答えで、別の問いへの答えだからだ。
    * 並べ替えは常にレーン内で行う。
    */
   const incidentLedger = await safe('incidents', () => loadIncidentLedger(), {});
@@ -335,8 +335,6 @@ async function main(): Promise<void> {
    *   公式ブログを毎日 40 件拾っているのに二次情報が構造的に勝っていた。
    * - build: 触れる実体があるもの。「すごそう」だけで枠が埋まると、
    *   このレーンは目的を果たさない。payoff=apply とリポジトリ由来を実体とみなす。
-   * - talk: 枠を確保しない。争点があるかどうかは採点で見ており、
-   *   それ以上に「この性質のものを必ず入れる」と決められる軸が無い。
    */
   const primarySource: SlotRule<RankedItem> = {
     label: '一次情報',
@@ -355,7 +353,6 @@ async function main(): Promise<void> {
     security: [primarySource],
     know: [primarySource, durable],
     build: [tangible, durable],
-    talk: [],
   };
 
   const topCandidates = LANES.flatMap((lane) => {

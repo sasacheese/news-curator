@@ -37,7 +37,6 @@ function ranked(over: Partial<RankedItem> & { id: string }): RankedItem {
     keywords: [],
     category: 'AI/エージェント',
     lane: 'know',
-    debate: null,
     readingMinutes: 3,
     payoff: 'aware',
     durability: 'durable',

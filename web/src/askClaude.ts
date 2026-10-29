@@ -1,5 +1,5 @@
 import { formatPublished, safeUrl, takeawayLines } from './format';
-import type { Debate, Prerequisite, RankedItem, ReleaseItem, TopItem } from './types';
+import type { Prerequisite, RankedItem, ReleaseItem, TopItem } from './types';
 
 /**
  * 読んだ記事の文脈を載せたまま Claude の新規チャットを開くための組み立て。
@@ -42,7 +42,6 @@ export interface AskContext {
   /** サイト側の要約。行ごとに渡す */
   summary?: string[];
   prerequisites?: Prerequisite[];
-  debate?: Debate | null;
   keywords?: string[];
   /**
    * あると効くが無くても会話が始まるもの（原文の抜粋など）。
@@ -88,8 +87,8 @@ export function buildAskPrompt(
 
   /*
    * 落としてよい節を、残したい順に並べる。上限を超えたら後ろから外す。
-   * 争点より前提知識を残すのは、用語が分からないまま説明を読んでも進めないため。
-   * キーワードを争点より後ろにしているのに、原文の抜粋より前にあるのは、
+   * 要約の次に前提知識を残すのは、用語が分からないまま説明を読んでも進めないため。
+   * キーワードを原文の抜粋より前にしているのは、
    * 数十文字しか使わないのに話題の範囲が伝わって割がいいから。
    */
   const optional = [
@@ -100,15 +99,6 @@ export function buildAskPrompt(
         .slice(0, 4)
         .map((p) => `- ${p.term}: ${clamp(p.explanation, 80)}`),
     ),
-    ctx.debate
-      ? block('# 争点', [
-          ctx.debate.axis,
-          `記事の立場: ${clamp(ctx.debate.forSide, 100)}`,
-          `反対の立場: ${clamp(ctx.debate.againstSide, 100)}${
-            ctx.debate.oneSided ? '（記事の外からの補い）' : ''
-          }`,
-        ])
-      : null,
     block('# キーワード', [(ctx.keywords ?? []).slice(0, 8).join(', ')]),
     ctx.note ? block(`# ${ctx.note.heading}`, [clamp(ctx.note.body, 260)]) : null,
   ].filter((b): b is string => b !== null);
@@ -141,7 +131,6 @@ export function askContextForTop(item: TopItem): AskContext {
     // 3 行要約（平易な側）と summary（記事の語彙のまま詳しい側）の両方を渡す
     summary: [...takeawayLines(item), item.deep.summary],
     prerequisites: item.deep.prerequisites,
-    debate: item.debate,
     keywords: item.keywords,
     note: topNote(item),
   };
@@ -150,25 +139,10 @@ export function askContextForTop(item: TopItem): AskContext {
 /**
  * カードの中でいちばん会話の役に立つ 1 節を選んで渡す。
  *
- * 話す レーンは論点ごとの噛み合いを持っているので、それを渡すと Claude が
- * 「どちらの立場で書くか」から会話を始められる。他のレーンは whyItMatters が
- * 残っていればそれを使う（いまは旧形式の日だけが持っている）。
+ * whyItMatters が残っていればそれを使う（いまは旧形式の日だけが持っている）。
  */
 function topNote(item: TopItem): AskContext['note'] {
   const deep = item.deep;
-  if (deep.lane === 'talk' && deep.clashes?.length) {
-    return {
-      heading: 'このサイトが整理した論点ごとの噛み合い',
-      body: deep.clashes
-        .map(
-          (c) =>
-            `【${c.point}】こう言われる: ${c.claim} / こう返せる: ${c.counter}${
-              c.counterInArticle === false ? '（記事の外からの補い）' : ''
-            }`,
-        )
-        .join('\n'),
-    };
-  }
   return deep.whyItMatters
     ? { heading: 'このサイトが書いた「なぜ重要か」', body: deep.whyItMatters }
     : undefined;
@@ -182,7 +156,6 @@ export function askContextForItem(item: RankedItem): AskContext {
     sourceLabel: item.sourceLabel,
     publishedAt: item.publishedAt,
     summary: [item.oneLiner, ...takeawayLines(item)],
-    debate: item.debate,
     keywords: item.keywords,
     note: item.snippet ? { heading: '原文の抜粋', body: item.snippet } : undefined,
   };

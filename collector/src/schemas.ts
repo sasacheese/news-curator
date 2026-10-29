@@ -100,52 +100,6 @@ export const DescribeResultSchema = z.object({
 });
 
 /**
- * talk レーン専用。要約に加えて「意見の足場」を書かせる。
- *
- * このレーンだけスキーマを分けているのは、know / build の要約にまで
- * 5 項目ぶんの出力を足すとコストが乗るのと、争点の無い記事に無理やり
- * 争点を書かせることになるため。レーンごとにバッチが分かれているので
- * スキーマも分けられる。
- */
-export const TalkDescribeResultSchema = z.object({
-  items: z.array(
-    z.object({
-      ...describeItemShape,
-      debateAxis: z
-        .string()
-        .nullable()
-        .describe(
-          '争点を「A か B か」の形で1行。例:「レビューを自動化すべきか、人が最終確認すべきか」。同じ事実から違う結論が出る対立軸を書く。事実が争われているだけ（正しいか誤りか）なら争点ではないので null。',
-        ),
-      debateFor: z
-        .string()
-        .nullable()
-        .describe(
-          '記事の立場（賛成側）の一番強い言い分を1文・60字以内。記事が挙げている具体・数字を1つ含める。争点が無ければ null。',
-        ),
-      debateAgainst: z
-        .string()
-        .nullable()
-        .describe(
-          '反対側の一番強い言い分を1文・60字以内。藁人形にしない——実際にその立場を取る人が言いそうなことを書く。争点が無ければ null。',
-        ),
-      debateOneSided: z
-        .boolean()
-        .catch(false)
-        .describe(
-          '記事が片側の立場しか書いていないなら true。true のとき debateAgainst は記事の外から補った一般的な反論であり、記事の引用として使ってはいけないことを示す。',
-        ),
-      debateYourAngle: z
-        .string()
-        .nullable()
-        .describe(
-          '読者プロフィールに照らして、読者が実体験として語れそうな接点を1文・60字以内。意見の下書きではなく、「どこが読者にとって一次情報になるか」を指す。例:「同じ構成を業務で毎日動かしているので、〜の頻度は実測値として出せる」。接点が無ければ null。',
-        ),
-    }),
-  ),
-});
-
-/**
  * security レーン専用。要約に加えて事案の名寄せキーを書かせる。
  *
  * 同じ事案は複数のメディアが書くので、ここで「どの事案か」を決めておけば、
@@ -538,66 +492,6 @@ export const BuildDeepDiveSchema = z.object({
 });
 
 /**
- * 話す: 発信するための材料を渡す。意見の下書きは作らない。
- *
- * 以前は賛成側の根拠・反対側の根拠を**別々の平行なリスト**（各2〜4項目）で持っていた。
- * 読者が頭の中で対応づけないと噛み合いが見えず、実測では対応していない項目もあった
- * （記事と同じ立場の補強が「反対側の根拠」に混ざっていた）。議論の形は
- * 「A と言われるが B だ」という噛み合いなので、**論点ごとに対で持つ**形に変えた。
- */
-export const TalkDeepDiveSchema = z.object({
-  ...deepDiveBaseShape,
-  clashes: z
-    .array(
-      z.object({
-        point: z.string().describe('何について争っているか。名詞句で20字以内。例:「何を先に決めるか」'),
-        claim: z
-          .string()
-          .describe(
-            'その論点について**こう言われる**（記事の立場）。**50字以内を厳守。** 記事が挙げている具体・数字を含める。**記事の紹介文にせず、主張そのものを直接話法で書く。** ✗「記事は〜と書いている」「記事は〜を前提している」（紹介文になっており、そのまま引用できない）/ ✓「AIツールの多くがPythonで書かれているから、Pythonは学ぶ価値がある」。記事からの引用を長く貼らず、自分の言葉で詰める。',
-          ),
-        counter: z
-          .string()
-          .describe(
-            '同じ論点に**こう返せる**（反対の立場）。**50字以内を厳守。** claim と同じく直接話法で書く（「記事は〜」で始めない）。**claim と必ず噛み合わせる**——別の話題の指摘や、記事と同じ立場の補強を書いてはいけない。藁人形にせず、実際にその立場を取る人が言うことを書く。',
-          ),
-        counterInArticle: z
-          .boolean()
-          .catch(false)
-          .describe(
-            'その反論が記事の中に書かれているなら true。記事の外から補ったなら false（画面に「記事の外」と出るので、読者が記事の主張として引用してしまうのを防げる）。',
-          ),
-      }),
-    )
-    .describe(
-      '争点を論点ごとに分解した対。2〜3組。**成り立つ条件・崩れる条件は独立させず、この対の中に入れる**（「小規模なら前者、CI が遅いチームなら後者」）。賛否の本質は正誤ではなく優先順位の違いなので、その分かれ目が対の中に出る。',
-    ),
-  firsthand: z
-    .array(
-      z.object({
-        angle: z
-          .string()
-          .describe(
-            '書ける切り口の**名前だけ**。25字以内。**文にしない。主張を書かない。** ✗「レビューの自動化には慎重であるべきだ」/ ✓「生成量とレビュー負荷の実測」',
-          ),
-        why: z
-          .string()
-          .describe(
-            '**なぜこの読者がそれを言えるのか。** 60字以内。読者プロフィールにある技術・立場・日常の作業と結びつけ、「どこが読者にとって一次情報になるか」を書く。意見そのものは書かない。例:「同じ構成を業務で毎日動かしているので、手戻りの頻度を実測値として出せる」',
-          ),
-      }),
-    )
-    .describe(
-      '読者が自分の経験からこの争点に足せること。1〜3組。**発信の最大の障壁は「これを自分が言っていいのか」なので、切り口だけでなく必ず根拠（why）を対で書く。** 読者プロフィールとの接点が本当に無ければ空配列にする。ひねり出さない。',
-    ),
-  verify: z
-    .array(z.string())
-    .describe(
-      '読者が自分の環境で主張の真偽を確かめる方法。**0〜2個**、各60字以内。手順やコマンド。確かめようが無い主張なら空配列。',
-    ),
-});
-
-/**
  * コミュニティの「登壇できる」枠だけに通す判定。
  *
  * ルールベースでは「LT」「登壇者募集」の語で拾うところまでしかできない。
@@ -648,16 +542,13 @@ export const CommunitySpeakResultSchema = z.object({
 export type ScoreResult = z.infer<typeof ScoreResultSchema>;
 export type CommunitySpeakResult = z.infer<typeof CommunitySpeakResultSchema>;
 export type DescribeResult = z.infer<typeof DescribeResultSchema>;
-export type TalkDescribeResult = z.infer<typeof TalkDescribeResultSchema>;
-/** 要約段の 1 件ぶん。talk レーンだけ debate* が乗る */
 export type SecurityDescribeResult = z.infer<typeof SecurityDescribeResultSchema>;
+/** 要約段の 1 件ぶん。security レーンだけ incident が乗る */
 export type DescribeItem = DescribeResult['items'][number] &
-  Partial<TalkDescribeResult['items'][number]> &
   Partial<SecurityDescribeResult['items'][number]>;
 export type SecurityDeepDiveResult = z.infer<typeof SecurityDeepDiveSchema>;
 export type KnowDeepDiveResult = z.infer<typeof KnowDeepDiveSchema>;
 export type BuildDeepDiveResult = z.infer<typeof BuildDeepDiveSchema>;
-export type TalkDeepDiveResult = z.infer<typeof TalkDeepDiveSchema>;
 export type DigestSummaryResult = z.infer<typeof DigestSummarySchema>;
 
 /* ------------------------------------------------------------------ *
