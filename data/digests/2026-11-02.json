@@ -1,0 +1,2634 @@
+{
+  "date": "2026-11-02",
+  "generatedAt": "2026-11-01T22:16:29.578Z",
+  "window": {
+    "start": "2026-10-31T22:00:00.000Z",
+    "end": "2026-11-01T22:00:00.000Z"
+  },
+  "summary": [
+    "セキュリティ関連が9件と多く、脆弱性対応から侵害後の再構築まで焦点が広がった。",
+    "委託先や外部スクリプト、依存パッケージを起点とするサプライチェーンリスクが目立った。",
+    "修正版の公開だけでは不十分で、証明書・実行環境・成果物まで更新確認する流れが強まった。",
+    "AI・エージェント関連は5件あり、実行制御や中断復旧時の副作用管理にも関心が集まった。"
+  ],
+  "outlook": "実悪用と委託先・依存物・外部スクリプトを起点とする侵害が続き、修正適用だけでなく成果物と実行環境の検証、復旧設計までが定着しつつある。AIエージェントも権限分離と副作用管理が前提となり、今後は供給網全体の可視化と自律実行の統制が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "certifi を固定していると eMudhra の失効対応は届かないので、自分で更新が必要です",
+      "url": "https://qiita.com/masakai/items/3753a922375c237a5a5d",
+      "publishedAt": "2026-11-01T06:18:45.000Z",
+      "author": "坂井 正徳",
+      "authorDetail": {
+        "name": "坂井 正徳",
+        "handle": "@masakai",
+        "url": "https://qiita.com/masakai",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/87948/24dd3a25edcd0123962baba48ecf3ef87971108b/x_large.png?1772982924",
+        "bio": "中小製造業むけのITコンサルティング会社を経営しております。\r\nコンサルティングのかたわら、お客様向けの業務システムの開発もやっております。\r\nhttps://apps.genbaflow.comというデジタル日報管理システム（クラウドサービス）の開発・運営もやっております。\r\n\r\nフライフィッシングが趣味でしたが、昨今は月光天文台で観望会のボランティアもやっております。",
+        "organization": "株式会社　リバーランズ・コンサルティング",
+        "location": "静岡県三島市",
+        "followers": 62,
+        "posts": 36,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/Masakai"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/masakai"
+          },
+          {
+            "label": "Web",
+            "url": "https://riverruns-consulting.com"
+          }
+        ]
+      },
+      "tags": [
+        "Python",
+        "certifi",
+        "Security",
+        "Docker",
+        "PyInstaller"
+      ],
+      "snippet": "2026年10月20日に、eMudhra の8つの中間 CA 証明書の秘密鍵が、公開されている証明書から1秒未満で復元できる状態だったと公表された。 これらの中間 CA は、Python の certifi（requests などが使う CA 証明書の一覧）に含まれていた emSign ECC Root CA - G3 につながっている。 通信経路に割り込める攻撃者は、この鍵で任意のホスト名の証明書を発行し、TLS 通信を傍受や改ざんできる（GHSA-6q48-6c7w-9gw2）。 中間 CA は10月18日に失効済みだが、この記事の検証では、古い certifi を使う requests はテストホストへ接続できた。 対処は次の更新である。 | 対象 | 更新先 | |---|---| | certifi | 2026.10.19 以降 | | pip | 26.2.2 以降 | | …",
+      "body": "2026年10月20日に、eMudhra の8つの中間 CA 証明書の秘密鍵が、公開されている証明書から1秒未満で復元できる状態だったと公表された。\nこれらの中間 CA は、Python の certifi（requests などが使う CA 証明書の一覧）に含まれていた emSign ECC Root CA - G3 につながっている。\n\n通信経路に割り込める攻撃者は、この鍵で任意のホスト名の証明書を発行し、TLS 通信を傍受や改ざんできる（GHSA-6q48-6c7w-9gw2）。\n中間 CA は10月18日に失効済みだが、この記事の検証では、古い certifi を使う requests はテストホストへ接続できた。\n\n対処は次の更新である。\n\n| 対象 | 更新先 |\n|---|---|\n| certifi | 2026.10.19 以降 |\n| pip | 26.2.2 以降 |\n| Python | 3.15.2 / 3.14.10 / 3.13.18 / 3.12.16 / 3.11.18 以降 |\n| OS の CA 証明書 | ディストリビューションのセキュリティ更新 |\n| CA 証明書を同梱するライブラリ | ライブラリごとの修正版（例：stripe 15.6.2） |\n\nただし、次の環境は修正版が公開されても自動では更新されない。\n・certifi のバージョンを固定している環境\n・Docker のキャッシュを使っている環境\n・PyInstaller で配布した実行ファイル\n\nこの記事では、ケースごとの確認方法と更新手順、納品されたシステムを開発会社に直してもらう場合に決めておくことを説明する。\n\n自分が運用している SaaS の公開イメージも、CI で依存を監査して Dependabot も設定していたが、古い certifi のままだった。\n\n [code] \n\nこのイメージと本番のコンテナは修正済みで、原因と修正内容は後半に書いた。\n\n検証は 2026年11月1日に、Docker の python:-slim イメージで行った。\nライブラリの版は requests 2.34.2、urllib3 2.8.0、httpx 0.28.1 である。\n\n既存の解説記事と、CVE 番号の対応\n\nOS を更新しても pip や certifi が更新されない仕組みは、次の記事で説明されている。\n・ブラウザを更新したのに、なぜ pip は直らない？\n・eMudhra 中間 CA 漏洩、OS もブラウザも最新なのにコンテナ 9 個と Python 環境 16 個が偽の証明書を信じていた\n・認証局の秘密鍵が「1〜255」だった件と、Python ユーザーが今すぐやること\n・eMudhra事件でWebアプリ開発者が点検すべきこと\n\n今回の件には複数の番号があり、対象が異なる。\n\n| 番号 | 対象 | 修正 |\n|---|---|---|\n| GHSA-6q48-6c7w-9gw2 / PYSEC-2026-4320 | certifi のバンドル | certifi 2026.10.18。互換性のため 2026.10.19 以降を推奨 |\n| CVE-2026-115557 | CPython の ssl モジュール | 3.15.2 / 3.14.10 / 3.13.18 / 3.12.16 / 3.11.18（10月26日） |\n| CVE-2026-111943 | 8本の中間 CA。Go はこの番号で拒否を実装 | Go 1.27.3 / 1.26.10 |\n\nCVE-2026-111944 も同じ Qualys 記事の URL に含まれているが、内容は確認できなかった。\n\nPython の修正は2段階ある。\n10月21日の 3.15.1 / 3.14.9 / 3.13.17 は、同梱の pip を 26.2.2 に上げただけである。\n10月26日のリリースでは、ssl モジュールが8本の鍵を拒否するようになった。\n\ncertifi の版番号ではなく、テストホストへの接続で確かめる\n\n確認には、Zenn の記事が紹介していて、Python の議論でも使われているテストホスト dv-g3b-emudhra.we-have-a-problem.com を使う。\n証明書エラーになれば正常で、応答が返れば、そのクライアントは漏洩した中間 CA を信頼している。\n\ncertifi の版番号だけでは判定できない。\n次の表は、certifi を 2026.2.25 に固定したまま Python のイメージだけを変えて接続した結果である。\n\n| Python | urllib / urllib3 | requests / httpx | 状態 |\n|---|---|---|---|\n| 3.10.22 / 3.14.6 | 接続 | 接続 | イメージの OS の CA 証明書も certifi も古い |\n| 3.14.9 / 3.13.17 / 3.12.15 | 拒否 | 接続 | OS の CA 証明書は更新済み。certifi が古い |\n| 3.14.10 / 3.12.16 / 3.11.18 | 拒否 | 拒否 | ssl モジュールが8つの鍵を拒否する |\n\nurllib と urllib3 は OS の CA 証明書を使い、requests と httpx は certifi を使う。\nそのため、どちらか一方の更新では足りない。\n・3.14.6 のイメージで certifi だけを 2026.10.23 に上げると、requests と httpx は拒否するが、urllib と urllib3 は接続する\n・同じイメージで ca-certificates だけを 20250419+deb13u1 に上げると、urllib と urllib3 は拒否するが、requests と httpx は接続する\n\n10月21日の 3.14.9 や 3.13.17 に上げても、環境に入っている certifi は変わらない。\n更新されるのは Python に同梱の pip で、既存の venv の pip も変わらない。\n\n10月26日以降の Python なら、certifi が古くても8つの鍵を使った証明書は拒否される。\nただし、リリース告知はこの機能を \"last resort\"（最後の手段）と呼んでいて、対象はこの8つの鍵だけである。\ncertifi の更新は別に必要で、3.10 以前には修正が提供されない。\n\nテストホストには dv-g3b-aaa-emudhra もあるが、Python の確認には使わない。\ncertifi にはこのホストのルート（Comodo AAA）が入っていないので、古い certifi でも requests と httpx は拒否する。\n\npip は別に確認する。\npip は自分専用の certifi を同梱していて、pip list には表示されない。\n\n [code] \n\nSkipping page が出るのは接続できた証拠で、修正済みなら SSLError になる。\n\ncertifi が自動で更新されない6つのケース\n\n| ケース | 更新されない理由 | 対処 |\n|---|---|---|\n| requirements.txt で certifi を固定 | pip install -r で指定の版に戻る | 該当行を変更する |\n| ロックファイルに間接依存として固定 | 再ロックしても版を維持する | uv lock --upgrade-package certifi など |\n| --require-hashes を使用 | 版だけ変えるとハッシュ不一致で失敗する | pip-compile --generate-hashes --upgrade-package certifi |\n| Docker のレイヤキャッシュ | RUN pip install の層が再利用される | docker build --pull --no-cache |\n| PyInstaller の実行ファイル | ビルド時の cacert.pem と Python が中に入っている | 再ビルドして配布し直す |\n| インターネットに接続できない機器 | PyPI から取得できない | wheel を持ち込んで入れる |\n\nrequirements.txt で certifi を固定している\n\nrequirements.txt に certifi==2026.2.25 と書いてある場合、手で上げても、次の pip install -r で元に戻る。\n\n [code] \n\n該当行を変更すれば直る。\ncertifi を直接固定する理由がなければ、行ごと削除してもよい。\n\nロックファイルに間接依存として固定されている\n\nrequests としか書いていなくても、ロックファイルには certifi が固定される。\nuv lock を実行しても版は変わらず、--upgrade-package の指定が必要である。\n次の例は、2026年10月1日より前の版でロックした状態から始めている。\n\n [code] \n\npip-tools でも同じで、pip-compile だけでは変わらず、pip-compile --upgrade-package certifi で上がった。\nなお、新しい uv で再ロックすると無関係な行まで変わる場合があることを、Zenn の記事が報告している。\n\n--require-hashes でハッシュを検証している\n\n版番号だけを書き換えると、ハッシュの不一致で止まる。\n\n [code] \n\nGot の値を手で書き写さず、requirements.txt を生成し直す。\n\n [code] \n\nDocker のレイヤキャッシュが使われている\n\nバージョンを固定していなくても、RUN pip install の層がキャッシュから再利用されると、certifi は更新されない。\nローカルに立てたパッケージインデックスの中身を certifi 2026.2.25 から 2026.10.23 に差し替えて、同じ Dockerfile を2回ビルドした。\n\n [code] \n\n| ビルド | RUN pip install の層 | certifi |\n|---|---|---|\n| 1回目 | 実行 | 2026.2.25 |\n| 差し替え後の2回目 | CACHED | 2026.2.25 |\n| --no-cache | 実行 | 2026.10.23 |\n\nrequirements.txt が変わらなければ層は再利用される。\nGitHub Actions の cache-from: type=gha でも、同じ条件なら再利用される可能性がある。\nローカルにあるベースイメージも古いまま使われるので、再ビルドには --pull --no-cache を付ける。\n\nPyInstaller の実行ファイルを配布している\n\nPyInstaller は、ビルド時点の cacert.pem を実行ファイルの中に入れる。\nビルド環境の certifi を上げても、配布済みの実行ファイルは変わらない。\n次の例の app は、引数の URL に requests で接続して certifi の版と結果を表示するプログラムを、pyinstaller --onefile でビルドしたものである。\n\n [code] \n\nPython 本体も実行ファイルに入っているので、10月26日以降の Python に上げるにも再ビルドが必要である。\n中身の確認は pyi-archiveviewer でできる。\n\n [code] \n\n再ビルドして配り直すまでのあいだ、requests を使っているなら環境変数で CA バンドルを差し替えられる。\nclean.pem は certifi 2026.10.23 の cacert.pem である。\n\n [code] \n\nコードの中で verify=certifi.where() と明示している場合、この環境変数は使われず、接続は 200 になった。\n環境変数を使う前に、ソースの確認が必要である。\n\nインターネットに接続できない機器\n\nテストホストに接続できないので、certifi のファイルに問題のルート証明書が残っているかを調べる。\n\n [code] \n\n3は該当する行数で、修正済みなら0になる。\ncertifi 以外の CA バンドルは、次の節のスクリプトで調べる。\n\n更新するには、インターネットに接続できる端末で wheel を取得して持ち込む。\n\n [code] \n\ncertifi からルート証明書が削除されるので、接続先のサーバーが emSign 系の証明書を使っていると、更新後に検証が失敗する場合がある。\n社内サーバーの証明書の発行元を、更新の前に確認する。\n\nrequirements.txt に書いていない certifi と CA バンドルの見つけ方\n\npyproject.toml や requirements.in に requests とだけ書いても、certifi は依存として自動でロックファイルに入る。\n自分で追加していないので、固定されていることに気づきにくい。\n\nどのパッケージが certifi を必要としているかは、次のコマンドで確認できる。\n\n [code] \n\npip-tools の出力なら # via requests のコメントが付き、入っている環境なら pip show certifi の Required-by で分かる。\n\npip-audit は、渡すファイルによって結果が変わる。\npip freeze の結果を渡すと、入っている古い版を検出する。\nrequests とだけ書かれた requirements.txt を渡すと、その時点の最新版を監査するので、環境に入っている古い版は検出しない。\n\n [code] \n\n監査には、実際に動いている環境やイメージの pip freeze の結果を使う。\n\ncertifi 以外にも CA バンドルを持つライブラリがある。\n次のスクリプトは、ファイルシステム全体から、問題のルート証明書を含むファイルを SHA-256 指紋で探す。\nラベルのコメントがないファイルでも検出できる。\n\n [code] \n\nこの SaaS の修正前のイメージで実行すると、5つ見つかった。\n\n [code] \n\n4行目は Stripe の SDK が自分で同梱しているバンドルで、certifi を上げても変わらない。\nStripe の変更履歴によると、バンドルを差し替えて emSign ECC Root CA - G3 を外している。\n実際に 15.0.1 にはこのルートがあり、15.6.2 と 16.1.0 にはなかった。\nrequirements.txt の stripe==15.0.1 を上げるまで、このバンドルは更新されない。\n\n納品されたシステムを、開発会社に直してもらうとき\n\n業務システムを開発会社に作ってもらった会社では、ここまでの手順を自社で実行できないことが多い。\nソース、ロックファイル、ビルド環境が開発会社の手元にあるからだ。\nPyInstaller の実行ファイルや、インターネットに接続できない機器が納品物なら、自社でできるのは接続の確認と REQUESTSCABUNDLE の指定くらいしかない。\n\nたとえば、自社の担当者がテストホストへの接続を試して、納品されたシステムが接続してしまったとする。\n実行ファイルは再ビルドできず、環境変数を変えて動作保証の対象から外れないかも分からない。\n開発会社に連絡すると、最初に話すのは、依存ライブラリの更新が保守の範囲に入るかどうかになるだろう。\n\n保守契約に第三者ライブラリのセキュリティ更新が含まれていることは稀である。\n含まれていなければ、開発会社には無償で対応する義務がなく、自社にも修正を求める根拠がない。\n好意で対応してもらえても、次に同じことが起きたときに同じように動いてもらえるとは限らない。\n\nインシデントのあとで範囲を交渉すると時間がかかるので、次の項目は保守契約を結ぶときに決めておく。\n\n| 決めること | 具体的な内容 |\n|---|---|\n| 保守の範囲 | OS、言語ランタイム、第三者ライブラリ、同梱の CA バンドルが含まれるか |\n| 連絡の流れ | どちらが先に連絡するか。開発会社が脆弱性情報を監視する義務まで負うのか |\n| 期限と費用 | 緊急時の着手までの時間、修正費用の負担、範囲外だった場合の精算 |\n| 自社で先にやってよいこと | 環境変数の変更や CA バンドルの差し替えをしても動作保証が続くか |\n| 再ビルドに必要なもの | ソース、ロックファイル、ビルド手順の所在。開発会社が廃業した場合の扱い |\n| 受け取る資料 | 納品物の依存一覧（SBOM など） |\n\n既存の契約を今すぐ直せないなら、まず納品されたシステムの一覧に、更新を依頼する開発会社の名前と連絡先を書く。\n書けない行のシステムは、今回の更新も入っていない可能性がある。\n\nCA バンドルを同梱するか、OS のものを使うか\n\n40年の実務で見てきたのは、環境によらず同じ CA 証明書で検証するために、OS の CA 証明書を使う形から、アプリが CA バンドルを同梱する形へ移った流れである。\nその結果、CA バンドルの更新が venv やイメージごとに必要になった。\n\nOS の CA 証明書を使うように変更する方法を試すと、3つの問題があった。\n\n1つ目は、環境変数がクライアントごとに違うことである。\n古い certifi と古い OS ストアの 3.14.6 に、修正済みのバンドルを指定した結果が次の表である。\n\n| 指定 | urllib | urllib3 | requests | httpx |\n|---|---|---|---|---|\n| SSLCERTFILE | 接続 | 接続 | 接続 | 拒否 |\n| SSLCERTFILE + SSLCERTDIR | 拒否 | 拒否 | 接続 | 拒否 |\n| REQUESTSCABUNDLE | 接続 | 接続 | 拒否 | 接続 |\n\nrequests は SSLCERTFILE を読まず、REQUESTSCABUNDLE を読む。\nDebian 系の urllib と urllib3 は /etc/ssl/certs の個別ファイルも読むので、SSLCERTDIR も指定しないと古いルート証明書が残る。\npip は、Python の議論によると PIPCERT だけでは足りず、非推奨の PIPUSEDEPRECATED=legacy-certs との組み合わせが要る。\n\n2つ目は、truststore を使っても requests と httpx は certifi を読むことである。\nOS ストアを更新したイメージで truststore.injectintossl() を呼んでも、古い certifi の requests と httpx は接続したままだった。\ncertifi のバンドルが OS の証明書に追加で読み込まれるためと考えられる（pip について議論されている挙動と同じ形である）。\n\n3つ目は、コンテナでは OS の CA 証明書もイメージの中にあることである。\nスクリプトで見つかった5つのうち2つは OS のファイルで、イメージを再ビルドしなければ更新されない。\n\nそのため、OS の CA 証明書へ切り替える方法は勧めない。\nロックファイルは残したまま、certifi、CA バンドルを同梱するライブラリ、ベースイメージを定期的に更新する。\n\nSaaS なら、更新するのは自社のイメージだけで済む。\n自分の SaaS では GitHub Actions でイメージを作り、SaaS にもオンプレミスにも GHCR から配っている。\nオンプレミス側は Watchtower がイメージを定期的に取りに行く構成である（インターネットに接続できない客先では取得できない）。\n実行ファイルの配り直しと、顧客ごとの更新作業は、この構成で避けられる。\n\nただし、イメージを再ビルドしなければ更新されない。\n冒頭のとおり、自分の SaaS のイメージは9月24日のビルドのままだった。\n原因は次のとおりである。\n・デプロイのワークフローは push か手動実行でしか動かず、最後のビルドは9月24日だった\n・certifi は requirements.txt になく、Stripe などの依存を通じて入っていた\n・監査の pip-audit -r requirements.txt はその時点の最新を見るので、イメージの中身を見ていない。そもそも push がなければ動かない\n・仮に push しても、requirements.txt が変わらなければ cache-from: type=gha で依存の層が再利用される可能性がある\n・certifi の更新 PR は来ていなかった\n\n自分の SaaS の修正内容\n\n11月1日に修正した。\nstripe の固定を上げ、requirements.txt に certifi>=2026.10.19 を明記して、イメージを作り直した。\n\n| 項目 | 修正前（9月24日） | 修正後（11月1日） |\n|---|---|---|\n| Python | 3.12.14 | 3.12.16 |\n| certifi | 2026.7.22 | 2026.10.23 |\n| stripe | 15.0.1 | 15.6.2 |\n| ca-certificates | 20250419deb12u1 | 20250419deb12u2 |\n| スクリプトで「含む」と出たファイル | 5 | 0 |\n| テストホストへの requests | 200 | SSLError |\n\n修正後のイメージでも https://api.stripe.com/ への TLS 接続は通っている。\nSaaS 用の latest とオンプレミス用の onprem-latest の両方で、同じ結果を確認した。\n\nSaaS の本番では、同じ日の 14:39（JST）に Watchtower が新しいイメージでコンテナを起動し直していた。\n稼働中のコンテナの中でも、版は表と同じで、テストホストへの requests は SSLError になった。\nオンプレミスの客先で動いているコンテナは、この確認の範囲に入っていない。\n\n再発防止には、公開イメージの中身を週次で監査するジョブを足した。\n問題のルート証明書の確認に加えて、イメージの中で pip-audit を実行し、ビルドから30日を超えたイメージも検知する。\nこのジョブ自体はビルドも配備もしない。\nこの構成では再ビルドがそのまま本番の更新につながるので、監査が失敗したら内容を見てから手動で再ビルドすることにした。\n\n次の CA 失効に備えて定期的にやること\n\n今回の確認作業は、次の項目に分けて定期的に実行できる。\n別の CA で同じことが起きた場合は、スクリプトの指紋とテストホストを変えれば同じ手順を使える。\n・バージョンを固定している場所を一覧にする：イメージ、venv、配布した実行ファイル、インターネットに接続できない機器、納品されたシステム。行ごとに、更新する自社の担当者か、依頼先の開発会社を書く\n・push がなくても動くジョブを用意する：--pull --no-cache の再ビルドを cron で動かすか、再ビルドが本番に直結するなら公開イメージの週次監査にする\n・動いている環境を監査する：pip freeze の結果を pip-audit に渡し、requirements.txt だけで済ませない\n・CA バンドルを探すスクリプトをイメージごとに実行する：同梱バンドルは、ライブラリの勧告が出ていなければ pip-audit では検出できない\n・テストホストが公開されている間は、クライアントごとに接続して拒否されることを確認する\n\n一覧を作ったら一度この手順を実行し、所要時間を記録しておくと、次回の作業時間を見積もれる。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0a2ee514919e08c6",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6314758269720102,
+      "popularityPercentile": 0.5521628498727735,
+      "matchedTopics": [
+        "クラウド / 本番環境構築",
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "eMudhraの中間CA秘密鍵漏洩により、古いcertifiでは失効情報が反映されない。",
+      "takeaways": [
+        "eMudhraの中間証明書の秘密鍵が1秒未満で復元された。",
+        "攻撃者は通信に割り込み任意の証明書を発行できた。",
+        "固定版や配布済み実行ファイルは手動更新が必要だった。"
+      ],
+      "keywords": [
+        "eMudhra",
+        "certifi",
+        "GHSA-6q48-6c7w-9gw2",
+        "TLS",
+        "PyInstaller"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "security",
+      "incident": "eMudhra CA 秘密鍵危殆化",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "eMudhra の8本の中間CA証明書では、公開証明書から秘密鍵に相当する値を1秒未満で復元でき、任意ホスト名の証明書発行に悪用できる状態でした。10月18日に中間CAは失効しましたが、古い certifi を使う requests と httpx は接続を許可しました。urllib と urllib3 はOSのCA証明書を使う一方、requests と httpx は certifi を使うため、片方だけの更新では不十分です。certifi 2026.10.19以降、対象Pythonの ssl 修正版、OSのCA証明書、CAバンドルを同梱するライブラリを成果物ごとに更新する必要があります。requirements.txtやロックファイルの固定、Docker キャッシュ、PyInstaller の埋め込みにより、修正版が公開されても実行環境は古いまま残ります。実際の検証器でテストホストへの接続が SSLError になること、イメージ内に問題のCAが残っていないことを確認してください。",
+        "prerequisites": [
+          {
+            "term": "中間CA",
+            "stumblingPoint": "記事は「eMudhra の8つの中間CA証明書」と書いているが、CA階層を知らないと何を失効させたのか読み取れない。",
+            "explanation": "中間CAは、ルートCAから信頼を受けてサーバー証明書を発行する証明書です。今回そこに対応する秘密鍵が復元可能だったため、攻撃者は正規ドメイン向けの証明書を作れました。中間CAの失効情報をクライアントが参照できなければ、古いクライアントはその証明書を信頼し続けます。"
+          },
+          {
+            "term": "certifi",
+            "stumblingPoint": "記事は「requests と httpx は certifi を使う」と書いているが、OSのCA証明書とは別の参照先だと知らないと更新漏れの理由が分からない。",
+            "explanation": "certifiはPythonパッケージに同梱されたCA証明書一覧です。requestsやhttpxはOSのCAストアだけでなく、このファイルを参照するため、OSを更新してもcertifiが古ければ問題のルートや中間CAを信頼する可能性があります。依存関係として間接的に入るため、requirements.txtに直接書かれていない場合もあります。"
+          },
+          {
+            "term": "CAバンドル",
+            "stumblingPoint": "記事は「CAバンドルを同梱するライブラリ」と書いているが、certifiを更新してもStripeのバンドルが変わらない理由が分からない。",
+            "explanation": "CAバンドルは、TLS証明書の検証に使うCA証明書ファイルの集合です。ライブラリが独自ファイルを同梱すると、certifiやOSストアとは別の更新対象になります。記事ではStripe 15.0.1には問題のルートがあり、15.6.2と16.1.0にはなかったため、Stripe自体の更新が必要でした。"
+          },
+          {
+            "term": "PyInstaller",
+            "stumblingPoint": "記事は「PyInstallerはビルド時点のcacert.pemを実行ファイルの中に入れる」と書いているが、実行環境のpip更新で直らない理由が分からない。",
+            "explanation": "PyInstallerはPython本体や依存ファイルを実行ファイルへまとめるため、配布後の環境にあるcertifiを参照しない構成になります。ビルド時のcacert.pemとPythonのssl実装が成果物に固定されるので、修正版へ再ビルドして配布し直す必要があります。"
+          },
+          {
+            "term": "Docker キャッシュ",
+            "stumblingPoint": "記事は「RUN pip installの層がキャッシュから再利用される」と書いているが、依存指定を変えていない再ビルドで更新されない仕組みが必要になる。",
+            "explanation": "Dockerは同じDockerfile命令と入力ファイルに対応するレイヤーを再利用します。パッケージインデックスの中身だけが変わっても、requirements.txtが同じなら古いインストール結果が使われます。ベースイメージと依存層を取り直すにはdocker build --pull --no-cacheが必要です。"
+          },
+          {
+            "term": "sslモジュール",
+            "stumblingPoint": "記事は「10月26日のリリースではsslモジュールが8つの鍵を拒否」と書いているが、certifi更新との役割の違いが分かりにくい。",
+            "explanation": "sslモジュールはPythonのTLS検証を実装する部分で、今回の修正では問題の8つの鍵を特別に拒否します。これは古いcertifiを使っていても働く最後の防御ですが、対象は8つの鍵に限られます。したがってcertifiや他ライブラリのCAバンドル更新の代替にはなりません。"
+          },
+          {
+            "term": "テストホスト",
+            "stumblingPoint": "記事は「証明書エラーになれば正常」と書いているが、版番号だけでなく実通信を確認する意味を知らないと判定を誤る。",
+            "explanation": "テストホストは、失効対象の中間CAを使う証明書を提示して、クライアントの実際の検証経路を確認するための接続先です。dv-g3b-emudhra.we-have-a-problem.comへの接続がSSLErrorになれば拒否できています。ライブラリの版番号が新しくても、実行中の環境や別のCAバンドルが古ければ結果は変わります。"
+          },
+          {
+            "term": "pip-audit",
+            "stumblingPoint": "記事は「pip freezeの結果をpip-auditに渡す」と書いているが、requirements.txtを監査するだけでは実環境を検出できない理由が分からない。",
+            "explanation": "pip-auditは入力された依存一覧を監査します。requirements.txtだけを渡すと、実行中の古いインストール状態ではなく、そのファイルから解決される最新版を評価する場合があります。実際のイメージやvenvでpip freezeを取り、その結果を監査しなければ、キャッシュや固定版による残存を見逃します。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "失効対応の流れ",
+          "steps": [
+            {
+              "label": "脆弱性公表",
+              "detail": "8本の中間CAの秘密鍵を復元可能"
+            },
+            {
+              "label": "中間CA失効",
+              "detail": "10月18日に失効処理が実施"
+            },
+            {
+              "label": "古い環境",
+              "detail": "古いcertifiのrequestsが接続を許可"
+            },
+            {
+              "label": "修正版適用",
+              "detail": "certifi・Python・OS・SDKを更新"
+            },
+            {
+              "label": "実通信確認",
+              "detail": "テストホストがSSLErrorになることを確認"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 12,
+        "lane": "security",
+        "whatHappened": [
+          "eMudhraの8本の中間CA秘密鍵が2026-10-20に復元可能と公表された",
+          "攻撃者は任意ホスト名の証明書を発行しTLS通信を傍受・改ざんできた",
+          "中間CAは2026-10-18に失効したが古いcertifiのrequestsは接続できた",
+          "記事のSaaSイメージは2026-11-01に更新されテスト接続がSSLErrorになった"
+        ],
+        "attackChain": [
+          {
+            "stage": "other",
+            "detail": "eMudhraの8本の中間CAで秘密鍵に相当する値を復元可能だった"
+          },
+          {
+            "stage": "other",
+            "detail": "復元した鍵で任意ホスト名の証明書を発行できた"
+          },
+          {
+            "stage": "impact",
+            "detail": "通信経路に割り込める攻撃者がTLS通信を傍受・改ざんできた"
+          }
+        ],
+        "personal": [
+          "Python環境でpip freezeを取り、pip-auditへ渡して実インストール状態を監査する",
+          "dv-g3b-emudhra.we-have-a-problem.comへ接続し、200ではなくSSLErrorになるか確認する",
+          "certifiを2026.10.19以降へ更新し、requirements.txt・ロックファイルの固定も変更する",
+          "PyInstaller製品は修正版Pythonとcertifiで再ビルドし、配布済み実行ファイルを置き換える"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "初期の信頼判定を止めるためcertifi 2026.10.19以降、対象Python、OSのCA証明書を更新する"
+          },
+          {
+            "kind": "tech",
+            "action": "CAバンドル内の残存を止めるためStripeなど同梱ライブラリを修正版へ更新する"
+          },
+          {
+            "kind": "ops",
+            "action": "Dockerの古い依存層を止めるため--pull --no-cacheで再ビルドし、稼働中コンテナを確認する"
+          },
+          {
+            "kind": "ops",
+            "action": "更新漏れを検知するため実イメージのpip freeze、CA指紋検索、テストホスト接続を週次実行する"
+          },
+          {
+            "kind": "org",
+            "action": "納品システムの再ビルドを止めないため保守範囲、緊急期限、費用、SBOMとビルド手順を契約に明記する"
+          }
+        ],
+        "relevance": [
+          "Pythonのrequests・httpx・pipを使っている環境",
+          "DockerイメージやPyInstaller実行ファイルを配布している企業",
+          "StripeなどCAバンドルを同梱するライブラリを使うシステム"
+        ],
+        "unknowns": [
+          "実際に偽証明書を使った攻撃の有無は記事で確認できない",
+          "攻撃者の身元と被害組織は記事で特定されていない",
+          "CVE-2026-111944の内容は確認できていない"
+        ],
+        "whatsNew": "今回の記事では、古いcertifiを残したままでもクライアントごとに接続結果が分かれることと、Docker・PyInstaller・同梱CAバンドルの具体的な更新手順が示された。自社SaaSでは2026-11-01に更新し、残存ファイル5件を0件、接続結果を200からSSLErrorへ変更した。"
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "Hackers Steal About $2.7 Million From Polymarket Traders via Hijacked DebugBear Script",
+      "url": "https://thehackernews.com/2026/11/hackers-steal-about-27-million-from.html",
+      "publishedAt": "2026-11-01T07:25:40.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "Malicious code on the website of prediction market Polymarket sold some signed-in traders' positions and moved their funds to the hackers on October 29. The code had replaced a page-speed script that the site loaded from an outside company. Polymarket says it is refunding about $2.7 million to 726 affected wallets. Blockchain records show crypto worth about $2.64 million reached",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "28398a882f530148",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.275,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "Polymarketの外部スクリプト改ざんで資産流出",
+      "oneLiner": "Polymarketが外部のページ高速化スクリプトを改ざんされ、約270万ドルが流出した。",
+      "takeaways": [
+        "Polymarketの外部スクリプトに悪意ある処理が入った。",
+        "ログイン中の726個の口座から資産が移された。",
+        "流出額は約270万ドルでPolymarketは返金を進めている。"
+      ],
+      "keywords": [
+        "Polymarket",
+        "DebugBear",
+        "サプライチェーン攻撃",
+        "外部スクリプト",
+        "暗号資産"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "Polymarket 外部スクリプト改ざん",
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "2026-10-29、予測市場 Polymarket のWebサイトに読み込まれていた、外部企業 DebugBear の page-speed script が悪意あるコードに置き換えられました。ログイン済みの一部の signed-in traders について、そのコードが保有ポジションを売却し、資金を攻撃者へ移しました。Polymarket は影響を受けた 726 wallets に約 $2.7 million を返金するとしています。Blockchain records では、約 $2.64 million 相当の暗号資産が攻撃者側へ到達したことが確認されています。外部 script の改変が、ログイン状態と取引操作を悪用する入口になりました。",
+        "prerequisites": [
+          {
+            "term": "Polymarket",
+            "stumblingPoint": "記事は「prediction market Polymarket」と書いているが、通常の取引所と何が違うかを知らないと被害の対象を読み取れない。",
+            "explanation": "Polymarket は、将来の出来事の結果に連動するポジションを売買する prediction market です。この記事でいう「positions」は、ログイン中の利用者が保有するこのポジションを指します。悪意あるコードはサイト上の表示だけでなく、売却と資金移動に関わりました。"
+          },
+          {
+            "term": "DebugBear",
+            "stumblingPoint": "記事は「outside company」から読み込む script と説明しているが、DebugBear がサイト本体ではないことを知らないと侵入経路が分からない。",
+            "explanation": "DebugBear はWebサイトの速度や性能を計測するための外部サービスです。Polymarket のページにそのサービス由来の page-speed script が組み込まれていたため、Polymarket のアプリ本体ではない第三者経由のコードが利用者のブラウザで実行されました。"
+          },
+          {
+            "term": "page-speed script",
+            "stumblingPoint": "「page-speed script が置き換えられた」とあるが、単なる計測用コードの改変がなぜ取引被害につながるか読み取りにくい。",
+            "explanation": "page-speed script はページの読み込み速度などを計測するため、サイトを開いた利用者のブラウザで実行されます。今回の記事では、その読み込まれるコード自体が悪意あるコードに置き換えられ、Polymarket のログイン済み画面上で取引操作と資金移動を実行しました。"
+          },
+          {
+            "term": "signed-in traders",
+            "stumblingPoint": "記事は「signed-in traders」の positions が売却されたと書いているが、なぜログイン状態が被害条件になるかが省略されている。",
+            "explanation": "signed-in traders は Polymarket にログインした状態で取引していた利用者です。記事から確定しているのは、悪意あるコードがこのログイン済み利用者の一部を対象にしたことまでで、認証情報を盗んだのか、既存セッションを利用したのかは公表されていません。"
+          },
+          {
+            "term": "wallets",
+            "stumblingPoint": "「726 affected wallets」とあるが、wallet が利用者数ではなく暗号資産の保管・送受信単位である点を知らないと件数の意味を誤る。",
+            "explanation": "wallet は暗号資産を保有し、取引や送金の対象になるアカウント単位です。Polymarket の発表は、被害を受けた利用者数ではなく、影響を受けた wallet が 726 件であることを示しています。"
+          },
+          {
+            "term": "Blockchain records",
+            "stumblingPoint": "「Blockchain records show crypto worth about $2.64 million reached」とあるが、返金予定額との違いを知らないと被害額を一つに決めてしまう。",
+            "explanation": "Blockchain records は、公開されたブロックチェーン上の送金履歴です。Polymarket が返金する約 $2.7 million は補償予定額で、記録上攻撃者側に到達した暗号資産は約 $2.64 million と報じられています。記事は両者の差額の理由を説明していません。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "攻撃から返金まで",
+          "steps": [
+            {
+              "label": "外部script改変",
+              "detail": "DebugBearのpage-speed scriptが置換"
+            },
+            {
+              "label": "サイトで実行",
+              "detail": "ログイン済み利用者の画面で悪性コードが動作"
+            },
+            {
+              "label": "資金移動",
+              "detail": "ポジション売却と攻撃者への送金"
+            },
+            {
+              "label": "返金対応",
+              "detail": "726 walletsへ約$2.7 millionを返金"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "security",
+        "whatHappened": [
+          "2026-10-29 Polymarketでログイン済み利用者のポジションが売却された",
+          "悪意あるコードが外部のDebugBear page-speed scriptを置換した",
+          "726 walletsが影響を受け、Polymarketは約$2.7 millionを返金",
+          "Blockchain recordsで約$2.64 millionが攻撃者側へ到達"
+        ],
+        "attackChain": [
+          {
+            "stage": "other",
+            "detail": "外部企業から読み込むpage-speed scriptが悪意あるコードに置換された"
+          },
+          {
+            "stage": "impact",
+            "detail": "コードがログイン済みtradersのpositionsを売却した"
+          },
+          {
+            "stage": "exfiltration",
+            "detail": "売却資金が攻撃者側へ移された"
+          }
+        ],
+        "personal": [
+          "2026-10-29前後にPolymarketを使った人はwalletの取引履歴と送金先を確認する",
+          "不審な売却・送金があれば公式サイトのサポート窓口へ取引ID付きで連絡する",
+          "Polymarket利用時は資産を全額置かず、取引専用walletに必要額だけ移す",
+          "公式ドメインをブックマークから開き、SNSやメールのリンク経由でログインしない"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "外部page-speed scriptを自社配信に移し、SRIで改変を検知して置換段階を止める"
+          },
+          {
+            "kind": "tech",
+            "action": "CSPのscript-srcで許可先を限定し、未承認の外部script実行を止める"
+          },
+          {
+            "kind": "ops",
+            "action": "外部scriptの内容・ハッシュ・送信先を監視し、置換段階を検知して即時停止する"
+          },
+          {
+            "kind": "tech",
+            "action": "ブラウザ上のscriptだけで資産操作を完了させず、売却・送金に追加確認を要求する"
+          },
+          {
+            "kind": "ops",
+            "action": "walletごとの売却・送金を監査し、異常な宛先への移動を検知して被害拡大を止める"
+          }
+        ],
+        "relevance": [
+          "Polymarketで2026-10-29前後に取引した人",
+          "ログイン状態で資産操作を行うWebサービスを運営する企業",
+          "DebugBearなど外部企業のscriptを自社サイトに読み込む企業"
+        ],
+        "unknowns": [
+          "DebugBearのscriptが置換された具体的な原因と侵害箇所",
+          "攻撃者の身元と、ログイン状態を利用した具体的な実行方法",
+          "726 wallets以外に影響したwalletや最終被害額"
+        ],
+        "whatsNew": null
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "BleepingComputer",
+      "title": "Alpine Linux rebuilds GitLab after attempted RCE attack",
+      "url": "https://www.bleepingcomputer.com/news/security/alpine-linux-rebuilds-gitlab-after-attempted-rce-attack/",
+      "publishedAt": "2026-11-01T15:11:21.000Z",
+      "author": "Bill Toulas",
+      "authorDetail": {
+        "name": "Bill Toulas"
+      },
+      "tags": [
+        "Security",
+        "Linux"
+      ],
+      "snippet": "Hackers attempted to exploit a critical GitLab vulnerability in Alpine Linux's development infrastructure on October 20-21, prompting the open-source project to rebuild its GitLab server and reset all passwords over concerns of a possible compromise. [...]",
+      "body": "Hackers attempted to exploit a critical GitLab vulnerability in Alpine Linux's development infrastructure on October 20–21, prompting the open-source project to rebuild its GitLab server and reset all passwords over concerns of a possible compromise.\n\nThe attacks targeted CVE-2026-97229, a maximum-severity remote code execution flaw, repeatedly crashing GitLab processes, with some attempts coming close to succeeding.\n\nAlthough Alpine Linux found no evidence that attackers executed code or tampered with its software packages and releases, it could not rule out a successful compromise due to missing logs and a lack of outbound connection records.\n\n\"Because we cannot rule out code execution, and the evidence we would need to confirm it no longer exists, we took the harder route and rebuilt the GitLab instance from scratch,\" explained the Alpine Linux team.\n\nAlpine Linux is a small, lightweight operating system widely used as the foundation for Docker container images that run applications and services.\n\nTheir GitLab instance hosts development repositories, code reviews, and CI jobs, including the \"aports\" build recipes used to produce Alpine’s software packages.\n\nThat makes it a valuable supply chain target, as tampering with their GitLab environment could affect downstream software.\n\nCVE-2026-97229 is a maximum-severity integer overflow vulnerability in GitLab’s CI/CD regular expression compiler Onigmo, bundled in Ruby, that could allow unauthenticated attackers to execute arbitrary code on the server.\n\nGitLab disclosed the flaw and made fixes available on October 12, warning that attackers can trigger it under certain conditions by submitting a specially crafted regular expression in a CI/CD pipeline configuration.\n\nAlpine initially installed GitLab 19.3.4 instead of the patched version, 19.3.5. A later upgrade to 19.3.6 also failed to close the flaw because the fix required a patch to Ruby, which GitLab bundled with its official packages but Alpine’s custom container image did not include.\n\nOn October 20-21, the attacker submitted malicious CI configurations targeting the flaw, causing eight worker crashes; four were partially successful, though none seemed to go all the way.\n\nThe Alpine Linux team found that the attackers downloaded its GitLab container image, suggesting they may have been preparing a supply-chain attack.\n\nAfter investigating, Alpine found no tampering in the repository commits, packages, or releases up to October 27. Also, no signing keys could have been exposed, as those aren’t stored on the GitLab server.\n\nIncident timeline\nSource: Alpine Linux\n\nIf exploitation succeeded, potentially exposed information includes user details, password hashes, 2FA secrets, CI/CD secrets, integration credentials, and private project content, though no compromise of the above has been confirmed.\n\nAlpine advises users to reset their GitLab passwords and pull the alpinelinux/gitlab:19.3.6 image published on October 27, which contains Ruby 3.3.13 and addresses CVE-2026-97229.\n\n\t   \n\n    \n            \n        \n    \n    \n        \n            Uncover email threats your existing defenses may miss.\n        \n        Adaptive Security's AI agents analyze email intent, context, and behavior to uncover phishing, business email compromise, and invoice fraud.See what's getting through with a 14-day read-only scan of Microsoft 365 or Google Workspace, with no MX changes.\n        Start your free email security scan.",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "138c74f69eb8cb33",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.3883333333333333,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 73,
+      "titleJa": "Alpine LinuxのGitLabがRCE攻撃を受け再構築",
+      "oneLiner": "Alpine Linuxの開発基盤がGitLabの重大な脆弱性を狙われ、サーバー再構築と全パスワード変更を行った。",
+      "takeaways": [
+        "Alpine Linuxの開発基盤が侵入攻撃の対象になった。",
+        "攻撃者はGitLabの重大な弱点を悪用しようとした。",
+        "侵害の可能性を受けてサーバーと認証情報を再設定した。"
+      ],
+      "keywords": [
+        "Alpine Linux",
+        "GitLab",
+        "RCE",
+        "開発基盤",
+        "パスワードリセット"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "GitLab RCE脆弱性悪用",
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://www.bleepstatic.com/content/hl-images/2026/10/30/alpine-linux.jpg",
+      "rank": 3,
+      "deep": {
+        "summary": "Alpine Linuxの開発基盤GitLabが、CVE-2026-97229を悪用した未認証RCE攻撃の標的になった。攻撃者は2026-10-20〜21に細工したCI/CD設定を送信し、GitLabのworkerを8回クラッシュさせ、4回は部分的に成功した。Alpineはコード実行やリポジトリ・パッケージ改ざんの証拠を確認できなかったが、ログ不足と外向き通信記録の欠落から侵害を否定できず、GitLabを再構築して全パスワードをリセットした。原因はGitLab 19.3.6へ更新しても、Alpineのカスタムコンテナイメージに修正済みRubyが含まれていなかったことだった。攻撃者によるGitLabコンテナイメージのダウンロードも確認され、ソフトウェアサプライチェーン攻撃の準備だった可能性がある。",
+        "prerequisites": [
+          {
+            "term": "CVE-2026-97229",
+            "stumblingPoint": "記事はCVE-2026-97229を「maximum-severity remote code execution flaw」と呼ぶが、何を入力するとGitLab上でコード実行に至るのかが読み取りにくい。",
+            "explanation": "CVE-2026-97229は、GitLabのCI/CD設定に細工した正規表現を投入できると、サーバー上で任意コードを実行される脆弱性です。認証不要で攻撃できるため、GitLabのアカウントを奪われていなくても攻撃対象になります。この記事では、攻撃者が実際に悪意あるCI設定を送信し、workerのクラッシュを引き起こしています。"
+          },
+          {
+            "term": "Onigmo",
+            "stumblingPoint": "記事は「GitLab’s CI/CD regular expression compiler Onigmo, bundled in Ruby」と説明するが、Onigmoの不具合がGitLabのCI/CDからどう呼ばれるかが省略されている。",
+            "explanation": "OnigmoはRubyに組み込まれている正規表現コンパイラです。GitLabはCI/CD設定内の正規表現を処理する際にこのコードを通るため、正規表現の入力がGitLabサーバー上の脆弱な処理へ到達します。つまり、通常のWeb画面への攻撃ではなく、CI/CD設定の内容が攻撃ペイロードになります。"
+          },
+          {
+            "term": "Ruby 3.3.13",
+            "stumblingPoint": "記事はGitLab 19.3.6が修正済みでも、Ruby 3.3.13を含むイメージへ差し替える必要があると書くが、GitLabのバージョン更新だけでは不十分な理由が分かりにくい。",
+            "explanation": "Ruby 3.3.13は、この脆弱性を修正したRubyのバージョンです。GitLab 19.3.6自体は修正を含んでいても、Alpineのカスタムコンテナイメージが古いRubyを内包していれば、実行時には脆弱なOnigmoが残ります。パッケージのバージョン番号だけでなく、実際にデプロイしたイメージ内のRubyまで確認する必要があります。"
+          },
+          {
+            "term": "CI/CD",
+            "stumblingPoint": "記事は「malicious CI configurations」を攻撃入力として扱うが、CI/CD設定が単なるビルド手順ではなくGitLabサーバーの攻撃面になる点を説明していない。",
+            "explanation": "CI/CDは、ソースコードの変更を検証・ビルド・デプロイする自動処理です。この記事では、その設定に含まれる正規表現がGitLab内部のRuby処理へ渡され、認証なしの攻撃入力になりました。CIジョブを実行するrunnerだけでなく、設定を解析するGitLab本体も防御対象です。"
+          },
+          {
+            "term": "GitLabコンテナイメージ",
+            "stumblingPoint": "記事は攻撃者がGitLabコンテナイメージをダウンロードしたと述べるが、侵入後の窃取なのか、攻撃準備なのかを断定していない。",
+            "explanation": "GitLabコンテナイメージには、サーバーの構成や依存関係を調べる材料が含まれ得ます。この記事で確認されているのはダウンロード行為だけで、そこから直ちに改ざんや持ち出しが成立したとは書かれていません。そのため、本文では「サプライチェーン攻撃の準備だった可能性」として扱い、確定した攻撃段階とは分けています。"
+          },
+          {
+            "term": "サプライチェーン攻撃",
+            "stumblingPoint": "記事はAlpineのGitLabを「valuable supply chain target」と呼ぶが、GitLabの侵害が利用者のパッケージに波及する経路が省略されている。",
+            "explanation": "サプライチェーン攻撃は、開発元やビルド基盤を改ざんし、そこから配布されるソフトウェアを通じて利用者へ影響を広げる攻撃です。AlpineのGitLabには、パッケージを作る「aports」のビルドレシピとCIジョブがあります。ここが改ざんされれば、下流のAlpineパッケージやコンテナイメージに不正な変更が混入する可能性があります。"
+          },
+          {
+            "term": "2FA secrets",
+            "stumblingPoint": "記事は侵害時に「2FA secrets」も露出し得たと列挙するが、パスワード漏洩と同じ対応で済むのかが分かりにくい。",
+            "explanation": "2FA secretsは、二要素認証コードを生成するための秘密情報です。これが漏れると、パスワード変更だけでは認証を安全な状態へ戻せない可能性があります。この記事では漏洩は確認されていませんが、侵害を否定できない利用者はGitLabの二要素認証を再登録し、CI/CD secretsや連携認証情報も影響範囲として扱う必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "侵害対応の時系列",
+          "steps": [
+            {
+              "label": "修正公開",
+              "detail": "10月12日GitLabが修正を公開"
+            },
+            {
+              "label": "攻撃試行",
+              "detail": "10月20〜21日CI設定を送信"
+            },
+            {
+              "label": "調査",
+              "detail": "8回のworkerクラッシュを確認"
+            },
+            {
+              "label": "影響確認",
+              "detail": "10月27日まで改ざんなしを確認"
+            },
+            {
+              "label": "再構築",
+              "detail": "GitLab再構築と全パスワードリセット"
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://www.bleepstatic.com/images/news/u/1220909/2026/October/timeline.jpg",
+            "alt": "Incident timeline Source: Alpine Linux",
+            "caption": "10月20〜21日の攻撃試行から、調査、10月27日までの改ざん確認、GitLab再構築に至る対応の順序を確認できる。"
+          }
+        ],
+        "code": {
+          "lang": "sh",
+          "caption": "Alpineが案内する修正済みGitLabコンテナイメージを取得する",
+          "content": "docker pull alpinelinux/gitlab:19.3.6"
+        },
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "security",
+        "whatHappened": [
+          "Alpine LinuxのGitLabが2026-10-20〜21に攻撃を受けた",
+          "CVE-2026-97229を狙うCI設定でworkerが8回クラッシュした",
+          "4回は部分的に成功したがコード実行は確認されていない",
+          "GitLabを再構築し、全パスワードをリセットした"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "攻撃者が悪意あるCI/CD設定を送信し、脆弱な正規表現処理を誘発した"
+          },
+          {
+            "stage": "other",
+            "detail": "攻撃によりGitLabのworkerが8回クラッシュし、4回は部分的に成功した"
+          },
+          {
+            "stage": "other",
+            "detail": "攻撃者がAlpineのGitLabコンテナイメージをダウンロードした"
+          }
+        ],
+        "personal": [
+          "AlpineのGitLab利用者はパスワードを直ちに変更する",
+          "GitLabの2FAを再登録し、CI/CD secretsと連携認証情報を更新する",
+          "Alpine利用者はalpinelinux/gitlab:19.3.6をpullして差し替える"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "初期侵入を止めるため、GitLab本体だけでなく内包するRuby 3.3.13まで修正済みか確認する"
+          },
+          {
+            "kind": "ops",
+            "action": "攻撃の成否を判定できるよう、GitLab処理ログと外向き通信記録を保存する"
+          },
+          {
+            "kind": "tech",
+            "action": "CI/CD設定の正規表現処理を対象に、CVE-2026-97229の再現テストを実施する"
+          },
+          {
+            "kind": "ops",
+            "action": "侵害を否定できない場合はGitLabを再構築し、全利用者のパスワードと関連秘密情報を更新する"
+          },
+          {
+            "kind": "org",
+            "action": "影響を限定するため、署名鍵をGitLabサーバーに保存せず、ビルド基盤から分離する"
+          }
+        ],
+        "relevance": [
+          "Alpine LinuxのGitLabやaportsを利用している組織",
+          "GitLab 19.3.4〜19.3.6のカスタムコンテナイメージを使う環境",
+          "CI/CD設定で正規表現を処理するGitLab利用者"
+        ],
+        "unknowns": [
+          "攻撃者が実際にコードを実行できたかは未確認",
+          "リポジトリ・パッケージ・リリースの改ざんは未確認",
+          "攻撃者の身元と外向き通信の有無は未公表"
+        ],
+        "whatsNew": "Alpine Linuxの事案では、攻撃者がCVE-2026-97229を狙うCI設定を送信し、workerを8回クラッシュさせた。GitLab 19.3.6への更新後も、Alpineのカスタムイメージに修正済みRubyが含まれず脆弱性が残っていたため、GitLab再構築と全パスワードリセットに至った。"
+      }
+    },
+    {
+      "id": "5bc0da57da880483",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@cc_lab_jp: Brotli のデコーダ脆弱性（CVE-2026-111497）が CISA の悪用確認済み脆弱性カタログ（KEV）に追加。細工した圧縮データでメモリ破壊や任…",
+      "url": "https://x.com/cc_lab_jp/status/2116651612248637684",
+      "publishedAt": "2026-10-31T22:00:44.000Z",
+      "author": "Claude Code Lab @CWorksL",
+      "authorDetail": {
+        "name": "Claude Code Lab @CWorksL",
+        "handle": "@cc_lab_jp",
+        "url": "https://x.com/cc_lab_jp"
+      },
+      "tags": [],
+      "snippet": "Brotli のデコーダ脆弱性（CVE-2026-111497）が CISA の悪用確認済み脆弱性カタログ（KEV）に追加。細工した圧縮データでメモリ破壊や任意コード実行の可能性。Node.js は node:zlib で信頼できない Brotli を展開する場合が対象、修正版は 26.12.1 / 24.22.1 / 22.23.4 🤖自動投稿",
+      "body": "Brotli のデコーダ脆弱性（CVE-2026-111497）が CISA の悪用確認済み脆弱性カタログ（KEV）に追加。細工した圧縮データでメモリ破壊や任意コード実行の可能性。Node.js は node:zlib で信頼できない Brotli を展開する場合が対象、修正版は 26.12.1 / 24.22.1 / 22.23.4 🤖自動投稿",
+      "metrics": {
+        "likes": 0,
+        "reposts": 0,
+        "replies": 0,
+        "quotes": 0,
+        "bookmarks": 0,
+        "impressions": 58,
+        "comments": 0
+      },
+      "lang": "ja",
+      "sourceWeight": 3,
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.4566666666666667,
+      "popularityPercentile": 0,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "Brotliの脆弱性CVE-2026-111497がCISAのKEVに追加され、Node.jsにも修正版が公開された。",
+      "takeaways": [
+        "細工した圧縮データでメモリを壊せる。",
+        "攻撃者が任意のプログラムを動かせる。",
+        "Node.jsは26.12.1などへ更新が必要になった。"
+      ],
+      "keywords": [
+        "CVE-2026-111497",
+        "Brotli",
+        "CISA KEV",
+        "Node.js",
+        "node:zlib",
+        "26.12.1"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "Brotli のデコーダ脆弱性 CVE-2026-111497 が、CISA の KEV（悪用確認済み脆弱性カタログ）に追加された。攻撃者が細工した Brotli 圧縮データを処理させると、メモリ破壊が起き、任意コード実行につながる可能性がある。Node.js アプリケーションでは、node:zlib を使って信頼できない Brotli データを展開する処理が該当する。修正版は Node.js 26.12.1、24.22.1、22.23.4 と示されている。公開 API、ファイルアップロード、メッセージ処理などで外部入力を Brotli 展開している場合は、実行ランタイムの更新と利用箇所の洗い出しが必要になる。",
+        "prerequisites": [
+          {
+            "term": "Brotli",
+            "stumblingPoint": "記事は「Brotli のデコーダ脆弱性」と書いているが、何を処理する仕組みか知らないと対象箇所を特定できない。",
+            "explanation": "Brotli はデータを圧縮・展開するための圧縮方式で、HTTP 通信やファイル処理などで使われます。今回の問題は圧縮する側ではなく、受け取った Brotli データを元に戻すデコーダ側にあります。そのため、アプリが圧縮データを受信して展開する経路が確認対象です。"
+          },
+          {
+            "term": "CVE-2026-111497",
+            "stumblingPoint": "記事は「CVE-2026-111497」と脆弱性番号だけを示しており、番号が手元の修正確認にどう使えるか読み取りにくい。",
+            "explanation": "CVE-2026-111497 はこの脆弱性を世界共通で識別する番号です。脆弱性管理台帳、Node.js のリリースノート、依存関係スキャン結果を突き合わせるキーになります。Node.js の修正版へ更新できているかを確認するときにも、この番号を記録しておくと対象を取り違えません。"
+          },
+          {
+            "term": "KEV",
+            "stumblingPoint": "記事は「CISA の KEV に追加」と書いているが、通常の脆弱性情報より対応優先度が高い理由が分からない。",
+            "explanation": "KEV は CISA が実際に悪用を確認した脆弱性を掲載するカタログです。未確認の潜在的な脆弱性ではなく、攻撃に使われていることを前提に防御側の対応優先度を上げるための情報です。今回の掲載は、Brotli 展開処理を持つ本番システムで先送りしにくい状態を示します。"
+          },
+          {
+            "term": "node:zlib",
+            "stumblingPoint": "記事は「Node.js は node:zlib で信頼できない Brotli を展開」と書いているが、どの実装を検索すべきか止まりやすい。",
+            "explanation": "node:zlib は Node.js に組み込まれた圧縮・展開 API を提供するモジュールです。Brotli の展開には createBrotliDecompress() や brotliDecompress() などが関係するため、まず node:zlib の import と Brotli API の呼び出しを検索します。外部入力がそのまま渡される箇所が、今回のリスク評価の起点です。"
+          },
+          {
+            "term": "メモリ破壊",
+            "stumblingPoint": "記事は「メモリ破壊や任意コード実行の可能性」と書いているが、アプリの障害と侵害の違いが読み取りにくい。",
+            "explanation": "メモリ破壊は、デコーダが想定外のデータによってメモリ領域を誤って読み書きする状態です。単なるプロセス停止にとどまらず、攻撃者が処理の流れを操作できる場合には任意コード実行へ発展します。Brotli データを展開するサービスでは、入力サイズ制限だけで解決するとは限らず、まず修正版ランタイムへの更新が必要です。"
+          },
+          {
+            "term": "任意コード実行",
+            "stumblingPoint": "記事は「任意コード実行の可能性」と断定しているが、侵害時に何が起きるリスクかを補う必要がある。",
+            "explanation": "任意コード実行は、攻撃者が対象プロセスの権限で意図しないコードを動かせる状態です。Web サーバーやワーカーで発生すると、環境変数、ファイル、ネットワーク接続先などへの追加アクセスにつながる可能性があります。実際の被害範囲は配置された権限や隔離状況に左右されるため、Node.js の更新と合わせて実行権限も確認します。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "Brotli 展開の攻撃経路",
+          "layers": [
+            {
+              "label": "入力元",
+              "nodes": [
+                {
+                  "name": "信頼できないデータ",
+                  "note": "攻撃者が細工した圧縮データ",
+                  "highlight": false
+                }
+              ],
+              "via": "圧縮データ"
+            },
+            {
+              "label": "展開処理",
+              "nodes": [
+                {
+                  "name": "node:zlib",
+                  "note": "Brotli デコーダを実行",
+                  "highlight": true
+                }
+              ],
+              "via": "デコード処理"
+            },
+            {
+              "label": "影響",
+              "nodes": [
+                {
+                  "name": "メモリ破壊",
+                  "note": "プロセスのメモリを誤操作",
+                  "highlight": true
+                },
+                {
+                  "name": "任意コード実行",
+                  "note": "攻撃者のコードが動く可能性",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "X上の原文",
+            "url": "https://x.com/cc_lab_jp/status/2116651612248637684"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "Node.js で Brotli を展開する人",
+          "node:zlib を使うアプリ開発者",
+          "外部入力を圧縮展開する人",
+          "Node.js の本番運用担当者"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "node --version で実行中の Node.js を確認する",
+          "rg \"node:zlib|createBrotli|brotliDecompress\" で利用箇所を検索する",
+          "26.12.1 / 24.22.1 / 22.23.4 以上へ更新する"
+        ],
+        "unknowns": [
+          "実際の攻撃手法や被害事例は本文で不明"
+        ]
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "楽天証券、顧客情報流出の可能性　NTTデータ委託先不正アクセスで",
+      "url": "https://japan.cnet.com/article/35254251/",
+      "publishedAt": "2026-10-31T23:27:23.000Z",
+      "tags": [
+        "テクノロジー",
+        "セキュリティ",
+        "あとで読む",
+        "NTT",
+        "データ",
+        "security",
+        "ICT"
+      ],
+      "snippet": "不正アクセスを受けたのは、特典の申し込みなどに使われる外部サービスの提供元、NTTデータの委託先が提供する「デジタル証券プラットフォーム」。楽天証券はNTTデータから、システム内の情報が外部に持ち出された可能性があるとの報告を受けた。発生日時は10月30日としている。 対象は「カゴメ株式会社 第1回無担保社債...",
+      "metrics": {
+        "hatena": 119
+      },
+      "sourceWeight": 3,
+      "id": "7ec463df6bac784f",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.15,
+      "popularityPercentile": 0.6818181818181818,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "NTTデータの委託先が不正アクセスを受け、楽天証券の顧客情報が持ち出された可能性が判明した。",
+      "takeaways": [
+        "楽天証券の外部委託先が不正アクセスを受けた。",
+        "顧客情報が外部へ持ち出された可能性がある。",
+        "発生日時は10月30日で対象情報は調査中になっている。"
+      ],
+      "keywords": [
+        "楽天証券",
+        "NTTデータ",
+        "デジタル証券プラットフォーム",
+        "不正アクセス",
+        "顧客情報流出"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "imageUrl": "https://japan.cnet.com/storage/2026/11/01/55e17d53779072292a88f6ed0ea5eece/rakuten_sec_20261101_header.jpg",
+      "body": "楽天証券は10月31日、デジタル特典付き社債を購入した一部の顧客の情報延べ362件が、外部サービスへの不正アクセスで漏えいした可能性があると発表した。楽天証券自身のシステムが不正アクセスを受けたものではないとしている。\n\n      \n        \n        \n\n  \n     \n    楽天証券のスマートフォンアプリ「iSPEED」\n  ※クリックすると拡大画像が見られます\n  \n\n　不正アクセスを受けたのは、特典の申し込みなどに使われる外部サービスの提供元、NTTデータの委託先が提供する「デジタル証券プラットフォーム」。楽天証券はNTTデータから、システム内の情報が外部に持ち出された可能性があるとの報告を受けた。発生日時は10月30日としている。\n      \n        \n      \n        \n        \n\n　対象は「カゴメ株式会社 第1回無担保社債」と「西日本旅客鉄道株式会社第80回無担保社債」を購入した一部の顧客、および「近鉄グループホールディングス株式会社第135回無担保社債」を100万円以上購入した顧客。各社債の発行日は、それぞれ2023年2月21日、2024年6月19日、2026年7月24日。\n      \n        \n      \n        \n        \n\n　同社によると、楽天証券のログインに必要なIDやパスワード、取引に必要な各種情報は、漏えいした可能性がある情報に含まれていないとの報告を受けているという。発表時点で、この件に起因すると考えられる不正アクセスや不正取引は確認されていないとしている。\n      \n        \n        \n\n　楽天証券はNTTデータや同社の委託先などと連携し、原因や影響範囲、漏えいした可能性がある情報の詳細を調査している。影響が確認された顧客には個別に連絡する。\n      \n        \n        \n\n　同社や関係会社を装った不審なメール、SMS、電話などに注意し、不審な連絡に記載されたURLへのアクセスや個人情報の入力を控えるよう呼びかけている。\n      \n        \n        \n\nAmazonで現在開催中のセールを見る\n\nAmazonのアソシエイトとして、CNET Japanは適格販売により収入を得ています\n      \n        \n      \n        \n\n      \n      \n      \n      \n      \n      \n      \n        \n    CNET Japanの記事を毎朝メールでまとめ読み（無料）",
+      "rank": 2,
+      "deep": {
+        "summary": "楽天証券は2026年10月31日、デジタル特典付き社債の購入者に関する延べ362件の情報が、外部サービスへの不正アクセスで漏えいした可能性を公表した。対象サービスは、NTTデータの委託先が提供するデジタル証券プラットフォームで、発生日時は10月30日とされている。楽天証券のログインID・パスワードや取引に必要な各種情報は、漏えいした可能性がある情報には含まれないとの報告を受けている。不正取引は確認されていないが、漏えい情報の詳細、原因、影響範囲は調査中である。楽天証券は、関係会社を装ったメール・SMS・電話による二次的な詐欺に注意するよう呼びかけている。",
+        "prerequisites": [
+          {
+            "term": "デジタル証券プラットフォーム",
+            "stumblingPoint": "記事は「委託先が提供するデジタル証券プラットフォーム」と書いているが、証券取引システムとの違いを知らないと影響箇所が読めない。",
+            "explanation": "それは、社債購入者へのデジタル特典の申し込みなどを処理する外部システムである。楽天証券のログインや取引そのものを担うシステムではないため、今回の不正アクセスは楽天証券本体への侵入とは区別される。"
+          },
+          {
+            "term": "委託先",
+            "stumblingPoint": "記事は「NTTデータの委託先」と説明するが、楽天証券とNTTデータとサービス提供者の関係を知らないと責任範囲を追いにくい。",
+            "explanation": "それは、NTTデータから業務やシステム提供を任された別の事業者を指す。今回の報告では、実際に不正アクセスを受けたのはこの委託先が提供するサービスであり、楽天証券自身のシステムではない。"
+          },
+          {
+            "term": "外部サービス",
+            "stumblingPoint": "記事は「外部サービスへの不正アクセス」と書いているが、顧客情報がどの経路で楽天証券の外へ渡ったかを知らないと読めない。",
+            "explanation": "それは、楽天証券の管理領域とは別の事業者が提供するサービスである。特典申し込みのために連携された情報が、そのサービス内に保存されていた可能性が今回の調査対象になっている。"
+          },
+          {
+            "term": "情報持ち出し",
+            "stumblingPoint": "記事は「システム内の情報が外部に持ち出された可能性」と書いているが、漏えい確定なのかを区別しないと被害を過大評価する。",
+            "explanation": "それは、攻撃者がシステム内の情報を外部へ取得した可能性を示す表現である。記事時点では362件について漏えいの可能性が公表されているが、実際に取得された項目や全範囲は確定していない。"
+          },
+          {
+            "term": "不正取引",
+            "stumblingPoint": "記事は「不正アクセスや不正取引は確認されていない」と並べているが、両者が同じ事象でないと安全性を誤解する。",
+            "explanation": "それは、顧客口座への侵入とは別に、証券の売買などが勝手に実行されることを指す。今回確認されていないのは、この件に起因する楽天証券への不正アクセスや取引であり、外部サービス側の調査完了を意味しない。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "情報連携と侵入箇所",
+          "layers": [
+            {
+              "label": "顧客・証券会社",
+              "nodes": [
+                {
+                  "name": "社債購入者",
+                  "note": "特典を申し込む顧客",
+                  "highlight": false
+                },
+                {
+                  "name": "楽天証券",
+                  "note": "購入情報を連携",
+                  "highlight": false
+                }
+              ],
+              "via": "特典申込情報"
+            },
+            {
+              "label": "外部サービス",
+              "nodes": [
+                {
+                  "name": "NTTデータ",
+                  "note": "サービスを委託",
+                  "highlight": false
+                },
+                {
+                  "name": "委託先",
+                  "note": "サービス提供事業者",
+                  "highlight": true
+                }
+              ],
+              "via": "サービス提供"
+            },
+            {
+              "label": "処理基盤",
+              "nodes": [
+                {
+                  "name": "デジタル証券プラットフォーム",
+                  "note": "特典申込などを処理",
+                  "highlight": true
+                }
+              ],
+              "via": "システム内情報"
+            },
+            {
+              "label": "攻撃者",
+              "nodes": [
+                {
+                  "name": "外部アクセス",
+                  "note": "情報持ち出しの可能性",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "対象社債を購入した顧客",
+          "デジタル証券プラットフォームを運用する人",
+          "NTTデータの委託先を利用する企業",
+          "楽天証券を装う連絡を受ける人"
+        ],
+        "timeline": [
+          "2026-10-30 不正アクセス発生",
+          "2026-10-31 楽天証券が公表"
+        ],
+        "checkNow": [
+          "楽天証券・関係会社を装うメールやSMSのURLを開かない",
+          "不審な連絡には個人情報を入力せず、公式窓口へ確認する"
+        ],
+        "unknowns": [
+          "漏えいした情報項目は調査中",
+          "原因と影響範囲は調査中",
+          "対象顧客への個別連絡時期は不明"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "D3voz/openjutsu — One-click character swap for videos: an open-source, local Higgsfield Genjutsu alternative built on ComfyUI and MiniMax H3, with FLUX.3 Klein relighting.",
+      "url": "https://github.com/D3voz/openjutsu",
+      "publishedAt": "2026-10-26T13:48:11.000Z",
+      "author": "D3voz",
+      "authorDetail": {
+        "name": "D3voz",
+        "url": "https://github.com/D3voz",
+        "avatarUrl": "https://github.com/D3voz.png?size=120",
+        "bio": "One-click character swap for videos: an open-source, local Higgsfield Genjutsu alternative built on ComfyUI and MiniMax H3, with FLUX.3 Klein relighting."
+      },
+      "tags": [
+        "TypeScript",
+        "character-swap",
+        "comfyui",
+        "minimax-h3",
+        "nextjs",
+        "open-weights",
+        "opensourcehiggsfield",
+        "video-generation"
+      ],
+      "snippet": "One-click character swap for videos: an open-source, local Higgsfield Genjutsu alternative built on ComfyUI and MiniMax H3, with FLUX.3 Klein relighting.",
+      "metrics": {
+        "stars": 1038
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "951a8eadfc100516",
+      "foundIn": [
+        "github_repo"
+      ],
+      "body": "Openjutsu\n\nAn open-source, Genjutsu-style character and object swap for video. Drop a video and a character photo, press Generate, and the main person in the video is replaced by your character. Or change their hair or clothes, remove something, or put them somewhere else. The camera, cuts, motion and soundtrack stay. Everything runs on open weights on your own GPU: MiniMax H3 for the video, SAM 3.1 to track people, and Qwen3-VL 8B to describe the pictures and shots.\n\nThe app is a small Next.js front end over a ComfyUI workflow. It uses @comfyorg/sdk, following Comfy's comfy-reshoot reference app.\n\nhttps://github.com/user-attachments/assets/2d8d763a-1764-49a6-9116-d6d1be661ff6\n\n| Advanced: several people, pick who becomes who | Object swap: paint where it goes |\n| --- | --- |\n| | |\n| From picture: a new look and place from one picture | Post-processing: fix faces |\n| | |\n\nFrom picture → Relight: new light in the same pass\n\n \n\nFirst visit: visual describer\n\nThe welcome page lets you choose the vision-language model that describes pictures and video frames and writes prompts. Qwen3-VL 8B INT8 remains the default; Qwen3-VL 4B FP8 and Gemma 4 E2B INT8 are smaller alternatives. Install a compatible single-file model including its vision weights in ComfyUI/models/textencoders, then press Refresh models. Other installed models can be selected if they support image/video input and text generation through ComfyUI's CLIPLoader and Generate Text nodes. Text-only models and files requiring a different loader are unsuitable.\n\nChoose according to available VRAM and leave room for image/video context and working memory; file size is not a VRAM requirement, and H3 generation has separate memory needs. Your selection is saved in this browser and used for swaps, prompt descriptions and Find people. Reopen Welcome & models to change it, or use Visual describer under Model components. Alternative describers may change prompt quality and person matching. Set up later opens the editor; generation still checks the required files. The separate H3 text encoder remains unchanged.\n\nModes\n・Simple motion transfer: available. One character replaces the main person (the one who fills the most of the frame). Runs workflows/simple.api.json, exported from H3 One-Click Single Swap (DMAD 6 step).json.\n・Advanced motion transfer: available. 1–4 characters, each with an optional role; every tracked person is matched to a role per shot, and people without a character stay untouched. Runs workflows/advanced.api.json, exported from H3 One-Click Advanced Swap (DMAD 6 step).json; One pass per person (two characters) runs workflows/advancedmaxq.api.json.\n・Object swap: available. Change what SAM tracks (hair, a jacket, a car) into what you describe or show in a picture; Remove it; or change the Background around it (person stays). Only that area is regenerated. Runs workflows/object.api.json, exported from H3 One-Click Object Swap (DMAD 6 step).json.\n・From picture (under Object swap): FLUX prepares the character in the raw video frame's pose and body cut while keeping the character picture's background. Review or regenerate the image, then choose Use this image to set the video length, video and motion-reference resolutions, models, LoRAs, steps and seed. SolarRenderer defaults to four steps with a selectable rank-384 or rank-64 four-step/control pair and supports up to 15 seconds, like the native H3 renderer. SolarRenderer clips longer than six seconds can take considerably longer to render, especially at higher resolutions; see the workflow requirements for the extended-silence node fix. Both LoRA file pickers support models/loras and its subfolders. Use this image also has the visual describer watch the part and write what happens (actions, held objects, expressions), then rewrite it for the prepared picture; check and edit that video description before rendering. Render video reuses the saved preview with normal-map motion guidance, the video description and the source soundtrack, in one clip without a context loop. H3 rounds the requested length down to its valid frame grid. Relight (off by default) changes the light in the same FLUX pass: pick one of seventeen looks, each shown with an example picture, or describe your own light. FLUX then sees only your picture, and the Qwen 3.5 9B prompt upsampler reads the pose from the video frame. Magenta club and Teal lasers mostly recolour the background. Relight the video's own person skips the character picture: FLUX relights the video frame itself, keeping its person, pose and setting. See the workflow requirements.\n・Post-processing: available, for a finished video. Fix faces: H3 draws faces poorly when the person is small in the frame, so this redraws the face of the person in a photo at close-up size and pastes it back. Runs workflows/face.api.json, written by workflows/build/openjutsufacebuild.py. Fix colours softens H3's harsh look without an H3 run: Image Detail Contrast takes some fine detail contrast out, then Orion4D's DCTL Tone Mapper grades every frame. Runs workflows/color.api.json.\n\nRequirements\n・An NVIDIA GPU. Tested on an RTX 4060 Ti 16 GB with 64 GB of system RAM; the H3 int8 models stream from RAM.\n・ComfyUI 0.41.2 or newer. Core provides MiniMax H3, SAM 3.1 and TextGenerate.\n・Node.js 22.6 or newer, and Python for comfy-api-proxy.\n\nCustom nodes\n\nInstall these into ComfyUI/customnodes (ComfyUI Manager finds the first three by name):\n\n| Pack | Used for |\n| --- | --- |\n| SolarRenderer | From picture: SolarRenderer LoRA loading, conditioning and four-step sampling |\n| ComfyUI-MiniMaxH3-Context-Loop 0.7.3+ | clip loop, checkpoints, final assembly |\n| ComfyUI-Fantastic-MiniMaxH3-PromptBuilder | masked video-edit latent |\n| ComfyUI-KJNodes | Grow Mask With Blur; From picture: VRAM cleanup |\n| comfyuicontrolnetaux | From picture: Metric3D normal maps |\n| ComfyUI-VideoHelperSuite | video loading |\n| comfyui-h3-oneclick-swap | swap and object plans, people and role masks, grey mannequins, track labelling, cut finder, shot list, face-fix chunks |\n| ComfyUI-H3-FaceRefine | Fix faces: face tracking and cropping, SAM face masks, pasting back |\n| ComfyUI-Impact-Pack | Fix faces: SAM loader |\n| comfyui-image-detail-contrast | Fix colours: Image Detail Contrast |\n| Orion4DFXMax | Fix colours: DCTL Tone Mapper and its presets |\n| comfyui-websocket-reconnect-fix | every job: keeps live progress coming after the proxy reconnects to ComfyUI (adds no nodes) |\n\nRestart ComfyUI after installing them.\n\nBefore uploading a job, Openjutsu checks the selected workflow against ComfyUI's node and model lists. Missing packs appear with installation links; missing model files appear with their destination folders. Disabled steps are excluded from the check. This checks registered nodes and listed model files, not Python dependencies, model integrity or available VRAM. COMFYUIURL must point at ComfyUI itself (normally http://127.0.0.1:8188).\n\nModels\n\nFor From picture → SolarRenderer, download solarrenderer4steplora.safetensors and solarrenderercontrollora.safetensors from Enderfga/SolarRenderer, or the corresponding rank-64 pair from mdevoz/SolarRendererRank64. Put both in ComfyUI/models/loras or a subfolder, reload the app and choose their paths in the render settings.\n\n| Folder in ComfyUI/models | File |\n| --- | --- |\n| diffusionmodels | minimaxh3ref2vaprunedint8convrot.safetensors |\n| loras | minimaxh3DMAD4stepfullloraavgrank39bf16.safetensors |\n| textencoders | qwen3vl32bminimaxh3int4convrot.safetensors (H3 text encoder) |\n| textencoders | qwen3vl8bint8convrot.safetensors (describer) |\n| vae | minimaxh3videovaeint8convrot.safetensors, minimaxh3audiovaefp32.safetensors |\n| checkpoints | sam3.1multiplexfp16.safetensors |\n| ultralytics/bbox, ultralytics/segm | faceyolov8m.pt, personyolov8m-seg.pt (Bingsu/adetailer), for Fix faces |\n| sams | samvitb01ec64.pth, for Fix faces |\n| insightface/models | buffalol (InsightFace downloads it on first use), for Fix faces |\n\nRun it locally\n\nOn Windows, double-click startopenjutsu.bat (ComfyUI must be running, or started while it waits). The first run installs comfy-api-proxy 0.1.6 into .venv-proxy and the node packages, and patchproxy.py fixes the proxy's live progress (node changes and mid-job previews). Each run builds the app, then opens the proxy and the app (npm start, the production server) in two windows and the page in your browser. Close those two windows to stop Openjutsu. The manual steps:\n\n1. Start ComfyUI on 127.0.0.1:8188. On Windows, set AIOHTTPNOSENDFILE=1 first (PowerShell: $env:AIOHTTPNOSENDFILE = \"1\"). Without it, the first partial-file request (the video player sends one when you seek) can stall ComfyUI's /view, and every later file download hangs until ComfyUI restarts.\n2. Install the proxy, fix its live progress with this repo's patchproxy.py (run it with the same Python), and start it. It serves the Comfy API v2 on 127.0.0.1:8189. Raise the upload cap for longer videos (the default is 100 MB):\n\n [code] \n\n3. Install and start the app:\n\n [code] \n\n While changing the code, npm run dev runs the development server instead.\n\n4. Open .\n\n.env.local sets COMFYBASEURL=http://127.0.0.1:8189. Leave COMFYAPIKEY empty for a local proxy. The base model and LoRA pickers read ComfyUI's model lists from COMFYUIURL (default http://127.0.0.1:8188); without it they become text fields.\n\nUploads are limited to 512 MB total per request, including reference pictures. Uploads are streamed to a temporary folder, and up to three can arrive at once per app process; a fourth is asked to retry shortly. After a job ends, its uploads are removed from comfy-api-proxy, but the files stay in ComfyUI's input/ folder. Generation continues in ComfyUI independently.\n\nA 6 s clip at 480p takes about 6–13 minutes on a 4060 Ti, most of it in H3 sampling. 736p is the default; 1080p is about 2.5× slower than 736p and needs much more memory. Custom sets an exact width × height from 256 to 2048 px a side (rounded to 32); the video is scaled and centre-cropped to that shape first. It needs the shortedge input of the H3 Swap Plan nodes in comfyui-h3-oneclick-swap.\n\nAdvanced motion transfer has a Montage tab for edited clips where different people take turns within one shot without a hard cut (whip pans, selfie handovers, travel montages). Write roles as \"who - looks\" (\"the dancer - white polo, jeans\"): the looks help match the people, and only the part before \" - \" reaches H3. Generate tracks everyone with SAM over the whole video, matches each appearance to the roles with Qwen (a person SAM loses and finds again is matched again, so they keep their photo; Qwen sees each appearance in its frame and close up at three moments, a few appearances at a time, and is asked again about any it skips or matches to one photo twice at the same moment) and makes the video as one chain like Standard, with overlapping clips: each clip has one H3 pass per photo on screen in it (the two with the most screen time) that masks only that photo's appearances, with a prompt about that person only. Appearances on screen for under 12 frames or at under 2% of the frame stay as they are, since H3 draws them as grey figures; the result page lists them. Find people (about 3 minutes for 18 s of video) is the optional review: it does the tracking and matching alone, lists the appearances with a photo picker each and saves the tracks, and Generate from that list masks with exactly those tracks. The saved tracks live in ComfyUI's temp folder and are checked against the video, part and size, so after a ComfyUI restart or a change, Find people again. It needs the pack's H3TrackCrops and H3TrackRoles (which now runs Qwen itself), H3MontagePeople, H3MontageTracks, H3MontagePicks, H3MontagePlan and H3MontagePass nodes.\n\nTips\n・Paint an edit area: under Object swap -> Change, expand Paint edit area and brush extra space around the tracked part. Use the eraser, brush size and keyframe controls to refine it. Duri…",
+      "preScore": 0.3339285714285714,
+      "popularityPercentile": 0.5178571428571429,
+      "matchedTopics": [
+        "フロントエンドの新技術"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "openjutsu — ローカルで動画の人物を入れ替えるツール",
+      "oneLiner": "openjutsuはComfyUIなどを組み合わせて動画内の人物をワンクリックで入れ替えるOSSです。",
+      "takeaways": [
+        "動画の登場人物を別の人物に置き換えられる。",
+        "処理は手元の環境で完結する設計になっている。",
+        "光の当たり方まで変えて自然な映像に仕上げる。"
+      ],
+      "keywords": [
+        "openjutsu",
+        "ComfyUI",
+        "MiniMax H3",
+        "FLUX.3 Klein",
+        "character swap",
+        "動画生成"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "Openjutsuは、動画とキャラクター画像を渡すと、カメラワーク・カット・動き・音声を保ったまま人物を置き換えるローカルアプリです。Next.jsの画面からComfyUIのワークフローを呼び出し、MiniMax H3が動画生成、SAM 3.1が人物追跡、Qwen3-VL 8Bが画像・動画の説明と人物照合を担当します。1人置換だけでなく、最大4人の役割付き置換、髪や服などのオブジェクト置換、背景変更、顔修正、色補正に対応します。From pictureではFLUXとSolarRendererを使い、1枚のキャラクター画像から動画のポーズに合わせた素材を作り、Relightで照明も同じ処理に含められます。RTX 4060 Ti 16 GBと64 GB RAMで、480p・6秒の動画は約6〜13分かかり、1080pは736pの約2.5倍遅くなります。",
+        "prerequisites": [
+          {
+            "term": "Openjutsu",
+            "stumblingPoint": "記事は「Next.js front end over a ComfyUI workflow」と書くが、どのプロセスを起動すれば画面と生成処理がつながるか読み取りにくい。",
+            "explanation": "Openjutsuは動画生成モデルそのものではなく、ComfyUIにジョブを送るフロントエンドです。ブラウザの画面は通常8189番ポートのproxy経由でAPIを呼び、生成本体は8188番ポートのComfyUIで動きます。そのため、Openjutsuだけ起動してもComfyUIが動いていなければ生成できません。"
+          },
+          {
+            "term": "MiniMax H3",
+            "stumblingPoint": "「MiniMax H3 for the video」とあるが、動画生成に必要なファイルが複数のComfyUI/models配下に分かれている理由が分かりにくい。",
+            "explanation": "MiniMax H3は動画用のdiffusion modelだけでなく、H3用text encoder、video VAE、audio VAE、必要に応じてLoRAを組み合わせて動かします。本文の表にある配置先を外すと、アプリの事前チェックでファイル不足になります。H3生成のメモリ使用量はvisual describerとは別に発生します。"
+          },
+          {
+            "term": "SAM 3.1",
+            "stumblingPoint": "「SAM 3.1 to track people」とあるが、追跡結果が置換対象の指定にどう使われるか想像しづらい。",
+            "explanation": "SAM 3.1は動画の各フレームで人物や物体のマスクを作り、H3が再生成する範囲を決めます。Advanced motion transferでは、この追跡結果とQwenの照合を組み合わせて、人物ごとに対応する写真と役割を割り当てます。追跡が外れると、対象が置換されないか灰色の人物として残ります。"
+          },
+          {
+            "term": "Qwen3-VL 8B",
+            "stumblingPoint": "「visual describer」と「Find people」の両方に使われるが、動画生成モデルとは別のモデルだと分からないと構成を誤る。",
+            "explanation": "Qwen3-VL 8Bは動画を生成せず、画像やフレームを見て説明文を書いたり、登場人物と参照写真を照合したりする視覚言語モデルです。既定値はQwen3-VL 8B INT8で、ComfyUI/models/textencodersにvision weights込みの対応ファイルを置きます。4BやGemma 4 E2Bへの変更はVRAMを抑えられますが、プロンプト品質や人物照合結果が変わります。"
+          },
+          {
+            "term": "SolarRenderer",
+            "stumblingPoint": "From pictureの説明で「four-step/control pair」とあるが、通常のH3動画生成と別のモデル選択が必要だと読み落としやすい。",
+            "explanation": "SolarRendererは、キャラクター画像を動画フレームのポーズ・体の切り取りに合わせるFrom picture用の経路です。rank-384またはrank-64のLoRAペアをComfyUI/models/lorasに置き、画面でパスを選びます。既定は4ステップで、最大15秒を扱えますが、6秒を超える高解像度動画は大幅に時間が伸びます。"
+          },
+          {
+            "term": "ComfyUI-MiniMaxH3-Context-Loop",
+            "stumblingPoint": "カスタムノード一覧に「ComfyUI-MiniMaxH3-Context-Loop 0.7.3+」とあるが、これが無いとどの処理が壊れるか判断しにくい。",
+            "explanation": "このパックはH3のcheckpoint読込、clip loop、最終動画の組み立てを担当します。Openjutsuは既存のComfyUIワークフローをそのまま送るため、ワークフロー内のノードが登録されていないとジョブ投入前のチェックで止まります。インストール後はComfyUIを再起動してノード一覧を更新します。"
+          },
+          {
+            "term": "COMFYUIURL",
+            "stumblingPoint": "本文はCOMFYBASEURLとCOMFYUIURLを別々に示すが、両方ともComfyUI接続先に見える。",
+            "explanation": "COMFYBASEURLはOpenjutsuが生成ジョブを送るproxyのURLで、通常はhttp://127.0.0.1:8189です。COMFYUIURLはモデル一覧を取得するComfyUI本体のURLで、通常はhttp://127.0.0.1:8188です。COMFYUIURLが未設定だとモデル選択欄が単なるテキスト入力になります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "ローカル生成経路",
+          "layers": [
+            {
+              "label": "操作",
+              "nodes": [
+                {
+                  "name": "ブラウザ",
+                  "note": "動画と画像を選ぶ",
+                  "highlight": false
+                }
+              ],
+              "via": "HTTP"
+            },
+            {
+              "label": "アプリ",
+              "nodes": [
+                {
+                  "name": "Openjutsu",
+                  "note": "Next.js画面と検証",
+                  "highlight": true
+                }
+              ],
+              "via": "Comfy API v2"
+            },
+            {
+              "label": "中継",
+              "nodes": [
+                {
+                  "name": "comfy-api-proxy",
+                  "note": "8189番でジョブ受付",
+                  "highlight": false
+                }
+              ],
+              "via": "HTTP"
+            },
+            {
+              "label": "生成基盤",
+              "nodes": [
+                {
+                  "name": "ComfyUI",
+                  "note": "8188番でワークフロー実行",
+                  "highlight": false
+                },
+                {
+                  "name": "MiniMax H3 / SAM 3.1 / Qwen3-VL",
+                  "note": "動画・追跡・説明を担当",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://github.com/D3voz/openjutsu/raw/main/docs/media/from_picture.jpg",
+            "alt": "A video frame and a picture combined into a posed picture, then a video",
+            "caption": "動画フレームのポーズにキャラクター画像を合成してから、同じ素材を動画へ戻すFrom pictureの流れが分かる。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Openjutsu GitHubリポジトリ",
+            "url": "https://github.com/D3voz/openjutsu"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "build",
+        "unlocks": [
+          "動画と写真を渡し、音声付きの人物置換動画を作れる",
+          "1枚の写真から動画のポーズと照明に合う人物を作れる"
+        ],
+        "howToTry": [
+          "git clone https://github.com/D3voz/openjutsu.git",
+          "ComfyUI 0.41.2以降を127.0.0.1:8188で起動し、本文のcustomnodesとmodelsを配置して再起動する。",
+          "WindowsではPowerShellで `$env:AIOHTTPNOSENDFILE = \"1\"` を設定してからComfyUIを起動する。",
+          "リポジトリの `startopenjutsu.bat` をダブルクリックし、初回のproxyとnode packageのセットアップを完了する。",
+          "ブラウザで開いたOpenjutsuに動画と人物写真を読み込み、Simple motion transferでGenerateを押す。"
+        ],
+        "fitFor": [
+          "NVIDIA GPUと64 GB程度のRAMを使えるとき",
+          "ローカルComfyUIでopen weightsを実行したいとき",
+          "動画の音声・カット・カメラ動作を残して人物だけ変えたいとき"
+        ],
+        "notFor": [
+          "NVIDIA GPUなしで実行するとき",
+          "ComfyUI 0.41.1以前を使っているとき",
+          "数分以内に1080p動画を完成させたいとき"
+        ],
+        "caveats": [
+          "WindowsではAIOHTTPNOSENDFILE=1がないと動画シーク後にComfyUIが停止する。"
+        ],
+        "tryPrompt": "# 試すこと\nOpenjutsuをローカルComfyUIに接続し、短い動画の人物を参照写真へ置き換える。\nhttps://github.com/D3voz/openjutsu\n\n# 手順\n1. `git clone https://github.com/D3voz/openjutsu.git`\n2. `cd openjutsu`\n3. NVIDIA GPU、ComfyUI 0.41.2以降、Node.js 22.6以降、Pythonがあることを確認する。\n4. ComfyUIを127.0.0.1:8188で起動する。Windowsでは起動前に `$env:AIOHTTPNOSENDFILE = \"1\"` を設定する。\n5. READMEのcustomnodes一覧にあるパックをComfyUI/customnodesへインストールし、必要なMiniMax H3、SAM 3.1、Qwen3-VL 8Bのモデルを指定フォルダへ配置する。（手動）\n6. ComfyUIを再起動する。\n7. Windowsでは `startopenjutsu.bat` を実行する。\n8. ブラウザでOpenjutsuを開き、Welcome画面でQwen3-VL 8B INT8を選び、Refresh modelsを押す。（手動）\n9. 6秒程度の動画と人物写真を選び、Simple motion transferでGenerateを押す。（手動）\n\n# 確認したいこと\n- READMEの手順だけでproxyとNext.js本番サーバーが起動するか\n- 生成前チェックが不足ノード・モデルを正しく表示するか\n- 4060 Ti 16 GB級で480p動画が約6〜13分で完了するか\n\n# 前提・注意\n- 記事本文ではproxyのインストールコマンドとアップロード上限変更コマンドが欠落しているため、READMEの記載を優先する。\n- ComfyUI本体、モデル、custom nodesの導入は別途必要。動画と参照画像を用意する。"
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ConoHa VPSに無料同梱されたTakumi Guardを試す——npm・PyPIの悪性パッケージを403で止めるプロキシ",
+      "url": "https://qiita.com/sakutto-panda/items/13fce1d456dc0c905d83",
+      "publishedAt": "2026-11-01T00:30:11.000Z",
+      "author": "サクッとぱんだ",
+      "authorDetail": {
+        "name": "サクッとぱんだ",
+        "handle": "@sakutto-panda",
+        "url": "https://qiita.com/sakutto-panda",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4408128/6443653cc1645e4efd863f4e52c6b0e932fec8a2/x_large.png?1776127679",
+        "bio": "ブラウザ内完結の無料Webツール「ぱんだツールズ」を作っています。\r\nPDF・CSV・画像・テキスト処理など60ツール以上を公開中。\r\n\r\nNext.js / TypeScript / Cloudflare Pages で個人開発。\r\n投資分析ツールや自動化スクリプトの開発も。\r\n\r\n🐼 ぱんだツールズ → https://sakutto-panda.com",
+        "followers": 9,
+        "posts": 153,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/pannda0330tm-cloud"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/sktt_panda"
+          },
+          {
+            "label": "Web",
+            "url": "https://sakutto-panda.com/"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "npm",
+        "Python",
+        "UV",
+        "ClaudeCode"
+      ],
+      "snippet": "3行まとめ ・GMOインターネットが、ConoHa VPSのAIエージェント向けテンプレート7種（Claude Code・Codex CLIなど）に、GMO Flatt Securityの悪性パッケージ遮断機能「Takumi Guard」のスクリプトを無料で同梱し始めた。仕組みはレジストリの手前に置く透過プロキシで、ConoHaの外でもレジストリURLを変えるだけで匿名・無料で使える ・公式のテスト用パッケージで確かめると、Guard経由では 403 とブロック理由のJSONが返り、通常のパッケージは公式レジストリと同じメタデータがそのまま返った。2026年10月24日（日本時間）公開の anthropic 2.3.0 も問題なく見えた ・自分のプロジェクトに入れるときの落とし穴は3つ。uvは PIPINDEXURL を読まない、スコープ別レジストリや追加インデックス経由のパッケージは検査…",
+      "body": "3行まとめ\n・GMOインターネットが、ConoHa VPSのAIエージェント向けテンプレート7種（Claude Code・Codex CLIなど）に、GMO Flatt Securityの悪性パッケージ遮断機能「Takumi Guard」のスクリプトを無料で同梱し始めた。仕組みはレジストリの手前に置く透過プロキシで、ConoHaの外でもレジストリURLを変えるだけで匿名・無料で使える\n・公式のテスト用パッケージで確かめると、Guard経由では 403 とブロック理由のJSONが返り、通常のパッケージは公式レジストリと同じメタデータがそのまま返った。2026年10月24日（日本時間）公開の anthropic 2.3.0 も問題なく見えた\n・自分のプロジェクトに入れるときの落とし穴は3つ。uvは PIPINDEXURL を読まない、スコープ別レジストリや追加インデックス経由のパッケージは検査されない、ロックファイルに記録されるレジストリURLの扱い\n\n---\n\n2026年10月1日、GMOインターネットが、ConoHa VPSのAIエージェント系テンプレートに「Takumi byGMO」のGuard機能を無料で同梱したと発表した。同梱は9月25日から始まっている。\n\nhttps://group.gmo/news/article/10203/\n\n狙いはソフトウェアサプライチェーン攻撃への対策だ。AIコーディングエージェントは npm install や pip install を自分の判断で実行する。依存パッケージに悪意のあるコードが混ざっていれば、人間が確認する前にそれが手元で動く。Guardはそこに割り込む。\n\nこの記事では、発表内容と仕組みを整理し、実際にGuardのレジストリへHTTPで問い合わせて挙動を確かめる。そのうえで、npmとuvを使う自分の個人開発プロジェクトに入れる場合の注意点をまとめる。\n\n発表の中身：7種のAIエージェント向けテンプレートに同梱\n\n対象は、ConoHa VPSの「スタートアップスクリプト」で選べるAIエージェント系のテンプレート7種。\n\n| 区分 | テンプレート |\n|---|---|\n| AIコーディングエージェント | Claude Code、Codex CLI、OpenCode、Antigravity CLI |\n| AIタスク実行エージェント | OpenClaw、NanoClaw、Hermes Agent |\n\nサーバーを作っただけでは有効にならない。利用者が同梱のスクリプトを実行して有効化する。\n・takumi-enable：匿名モードで有効化（ブロックのみ）\n・takumi-register → takumi-login：メールアドレスを登録し、ダウンロードの追跡と、後から悪性と判明したときの通知も受ける\n・takumi-status / takumi-renew / takumi-disable：状態確認・更新・無効化\n\n常駐プロセスではなく、実行した時点で検出したパッケージマネージャーにだけ設定を書き込む方式だ。後から別のパッケージマネージャーを入れたら、スクリプトを再実行する必要がある。\n\n発表によると、対応エコシステムはnpm、pip・uv、RubyGems、Go modules、Composer（2026年8月時点）。Guardが検査したダウンロード数は2026年8月に1日5,000万件を超えた日があり、GMO Flatt Securityの脅威レポートでは半年で約3万1,000件の悪性パッケージを検出したとしている。\n\n仕組み：レジストリの手前に置くプロキシ\n\nGuardは、パッケージマネージャーと公式レジストリの間に入るプロキシだ。\n\n [code] \n\nインストール済みのパッケージを後からスキャンするのではなく、ダウンロードの時点で止めるのが特徴になる。悪性パッケージには、インストール時のスクリプト（npmの postinstall や、Pythonのsdistのビルド処理）で悪さをするものがあるので、手元に届く前に止められる意味は大きい。\n\nConoHa専用の機能ではなく、Takumi Guard自体は匿名なら誰でも無料で使える。公式のクイックスタートには、レジストリURLを変えるだけの設定方法が載っている。\n\nhttps://shisho.dev/docs/ja/t/guard/quickstart/npm\n\n実際に問い合わせてみる\n\nパッケージのインストールまではせず、Guardのレジストリと公式レジストリに curl でHTTPリクエストを送り、応答を比べた。公式ドキュメントには、動作確認用に常にブロックされるテスト用パッケージ @panda-guard/test-malicious が用意されている。\n\n [code] \n\n結果はこうなった（2026年10月28日実行）。\n\n| リクエスト先 | ステータス | サイズ | 時間（参考値） |\n|---|---|---|---|\n| Guard：テスト用悪性パッケージ | 403 | 217B | 0.07秒 |\n| npm公式：テスト用悪性パッケージ | 404 | 21B | 0.52秒 |\n| Guard：papaparse | 200 | 125KB | 0.10秒 |\n| Guard（PyPI）：anthropic のSimple API | 200 | 98KB | 0.11秒 |\n\nブロックされたときのレスポンス本文は次のJSONだった。\n\n [code] \n\nnpmはこの 403 をエラーとして報告し、インストールを失敗させる。テスト用パッケージは公式レジストリには存在しない（404）ので、Guardのブロックリストでだけ扱われる名前だとわかる。\n\n通常のパッケージについては、レジストリのメタデータがそのまま返ってくる。新しく公開された版が遅れて見えるかも確認した。\n\n [code] \n\n日本時間の10月24日朝に公開された anthropic 2.3.0 は、約4日後の時点でGuard経由でも見えた。npmの @anthropic-ai/sdk も、dist-tags.latest が 1.3.0、最終更新時刻が 2026-10-23T23:31:48.354Z で、公式レジストリとまったく同じだった。\n\n自分のプロジェクトに入れるときの注意点\n\n個人開発では、ブラウザツール集のNext.jsプロジェクトでnpmを、投資分析ツールRakuScanでPython + uvを使っている。それぞれに入れる場合を想定して、公式ドキュメントから注意点を拾った。\n\nnpm：.npmrc 1行で切り替わる\n\n [code] \n\nnpm config set registry https://npm.flatt.tech/ でも同じ。Guardは読み取り専用なので、npm publish や npm login では --registry=https://registry.npmjs.org/ を明示する。\n\nロックファイルについて、公式ドキュメントは次のように説明している。\n・npm v11.15.0以降、yarn v1、bunでは、Guardの設定中に追加・更新したエントリの resolved に npm.flatt.tech のURLが記録される\n・pnpmはレジストリURLを記録しない\n・パッケージマネージャーはインテグリティハッシュで検証するので、既存のロックファイルはそのまま使える\n・Guardをやめて npm.flatt.tech のURLを消したいときは、ロックファイルを作り直す\n\nブラウザツール集の package-lock.json には registry.npmjs.org を指す resolved が679件ある。入れるなら、.npmrc をリポジトリにコミットしてCIも同じレジストリを使うようにしておかないと、更新した人や環境によって resolved のURLが混ざっていく。\n\nuv：PIPINDEXURL は効かない\n\nここが一番ハマりやすい。uvは PIPINDEXURL も pip.conf も読まない。pip向けの設定をしただけで「uvも守られている」と思い込むと、uvは公式のPyPIからそのまま取ってくる。uvでは UVDEFAULTINDEX を使う。\n\n [code] \n\nプロジェクト単位で固定するなら pyproject.toml に書く。\n\n [code] \n\nRakuScanの uv.lock には、依存の59パッケージすべてに source = { registry = \"https://pypi.org/simple\" } として取得元が記録されている。各パッケージのファイルURLも files.pythonhosted.org を指している。一方、Guardの Simple API が返すファイルURLは https://pypi.flatt.tech/files/... に書き換えられていた。切り替えたらロックを作り直し、差分で source やファイルURLがGuard側に変わったことを確かめると、本当にGuardを通っているかを確認できる。環境変数だけで切り替えると、自分の端末とCIで取得元が食い違いやすいので、pyproject.toml に書いてリポジトリで共有するほうが管理しやすい。\n\nちなみにRakuScanの依存のうち、yfinance が使っている multitasking はwheelがなくsdistだけで配布されている。sdistはインストール時にビルド処理、つまりパッケージ側のコードが手元で実行される。仮にこうしたパッケージが乗っ取られて悪性の版が公開されても、ブロックリストに載っていれば、手元でビルドが走る前に止められる。\n\n検査されない経路がある\n\n公式ドキュメントに明記されている「Guardを通らない経路」も押さえておきたい。\n・npmでスコープ別に別レジストリを指定したパッケージ（@your-company:registry=...）\n・pipの --extra-index-url など、追加インデックスから取得したパッケージ\n・yarn.lock で archiveUrl を持つパッケージ\n\n社内レジストリと併用する構成では、そちら側のパッケージは守られない。\n\n匿名モードでできないこと\n\n匿名モードはブロックだけで、後から悪性と判明したパッケージの通知は受けられない。すでにインストールしたパッケージが後日ブロックリストに載っても、匿名では気づけない。通知が欲しければメールアドレスを登録して tganon トークンを使う（名前にanonと付くが、メール登録で発行されるトークン）。ConoHaの同梱スクリプトでは takumi-register → takumi-login がこれに当たる。\n\nまた、プロキシである以上、どのパッケージを取得したかのリクエストはGuardを経由する。業務で使う場合は、この点が社内のルール上問題ないかを確認しておきたい。\n\nまとめ\n・GMOはConoHa VPSのAIエージェント向けテンプレート7種に、Takumi Guardのスクリプトを無料で同梱した。Guard自体はレジストリURLを変えるだけで、ConoHaの外でも匿名・無料で使える\n・実際に問い合わせると、ブロック対象には 403 とブロック理由のJSONが返り、通常のパッケージは公式と同じメタデータが返った。数日前に公開された新しい版も見えていた\n・導入時は、uvでは UVDEFAULTINDEX を使うこと、スコープ別レジストリや追加インデックスは検査されないこと、ロックファイルのレジストリURLをチームとCIで揃えることに注意する\n\nただし、Guardは既知の悪性パッケージを止める方式なので、公開直後でまだ検出されていないものは通りうる。ロックファイルでの版の固定や、インストールスクリプトを無効にする設定（npmの ignore-scripts など）と組み合わせる前提で考えたい。\n\nAIエージェントに npm install を任せる場面は今後も増える。人間がパッケージ名を目で確認する前提が崩れているなら、インストールの経路そのものに検査を入れておくのは筋がいい。設定1行で試せるので、まずは手元の開発環境から入れてみるとよさそうだ。\n\n---\nこの記事は Zenn にも同じ内容を投稿しています。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "14430cc846b1742e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7982061068702291,
+      "popularityPercentile": 0.9236641221374046,
+      "matchedTopics": [
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "Takumi GuardはnpmやPyPIの悪性パッケージを手前で検査し403で遮断する仕組みです。",
+      "takeaways": [
+        "Takumi Guardが危険なパッケージを403で止める。",
+        "通常のパッケージは元の配布元と同じように取得できる。",
+        "uvや追加の配布元では検査されない場合がある。"
+      ],
+      "keywords": [
+        "Takumi Guard",
+        "ConoHa VPS",
+        "npm",
+        "PyPI",
+        "uv",
+        "Claude Code"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "Takumi Guardは、npm・pip・uvなどのパッケージマネージャーと公式レジストリの間に置く読み取り専用プロキシで、既知の悪性パッケージをダウンロード前に403で遮断する。ConoHa VPSのAIエージェント向けテンプレート7種には、Guardを有効化するスクリプトが無料同梱されたが、Guard自体はConoHa外からも匿名・無料で利用できる。テスト用の@panda-guard/test-maliciousはGuard経由で403とブロック理由のJSONを返し、通常のパッケージや公開直後のanthropic 2.3.0は取得できた。導入時はnpmのレジストリ設定に加え、uvではPIPINDEXURLやpip.confではなくUVDEFAULTINDEXを使う必要がある。スコープ別レジストリ、追加インデックス、yarn.lockのarchiveUrl経由は検査されず、ロックファイルの取得元URLをCIと共有する運用も必要になる。",
+        "prerequisites": [
+          {
+            "term": "Takumi Guard",
+            "stumblingPoint": "記事は「レジストリの手前に置くプロキシ」と書くが、通常のキャッシュや後追いスキャンとの違いが読み取りにくい。",
+            "explanation": "Takumi Guardは、パッケージマネージャーが取得要求を出した時点で公式レジストリの代わりに応答するプロキシです。既知の悪性パッケージなら、npmのpostinstallやPythonのsdistのビルド処理が手元で始まる前に403を返します。一方、すでに取得済みの依存関係を後から検査する仕組みではありません。"
+          },
+          {
+            "term": "透過プロキシ",
+            "stumblingPoint": "「透過プロキシ」とあるが、読者は何を変更すれば通信経路が変わるのかを知らないと導入手順につながらない。",
+            "explanation": "この文脈では、パッケージマネージャーのregistryまたはindexのURLをGuard側へ変更するだけで、パッケージ名や通常のインストール操作は変えません。Guardが通常のメタデータを取得して返し、ブロック対象だけ403に差し替えます。"
+          },
+          {
+            "term": "UVDEFAULTINDEX",
+            "stumblingPoint": "記事は「uvはPIPINDEXURLもpip.confも読まない」と書くが、pipの設定を流用できない理由が分からないと設定漏れになる。",
+            "explanation": "uvはpipとは別のパッケージマネージャーなので、pip向けの環境変数や設定ファイルを見ません。uvの取得先はUVDEFAULTINDEXまたはpyproject.tomlの設定で指定し、uv.lockを作り直してGuard側のURLが記録されたことまで確認する必要があります。"
+          },
+          {
+            "term": "resolved",
+            "stumblingPoint": "ロックファイルのresolvedにnpm.flatt.techが記録されるとあるが、なぜURLの混在が問題になるのか分かりにくい。",
+            "explanation": "resolvedは、その依存パッケージをどのURLから取得するかをロックファイルに残す情報です。.npmrcだけをローカルに置くと、設定した環境ではGuardを通っても、未設定の環境では別URLがロックに追加されます。リポジトリとCIで同じ設定を共有し、Guardをやめる場合はロックファイルを作り直します。"
+          },
+          {
+            "term": "スコープ別レジストリ",
+            "stumblingPoint": "「@your-company:registry=...」が検査されないとあるが、npm全体のregistry設定との優先順位が分からない。",
+            "explanation": "npmではパッケージ名のスコープごとに取得先を上書きできます。その指定が社内レジストリなど別URLを指す場合、全体のregistryをGuardへ変更しても、そのスコープの取得はGuardを経由しません。社内レジストリ側にも別途検査が必要です。"
+          },
+          {
+            "term": "追加インデックス",
+            "stumblingPoint": "pipの「--extra-index-url」が検査されないとあるが、通常のindexとの違いを知らないと見落としやすい。",
+            "explanation": "追加インデックスは、主インデックスで見つからないパッケージなどを別の取得先から探す経路です。主インデックスをGuardにしても追加先は自動的にGuardへ置き換わらないため、そこから取得される依存パッケージはGuardのブロック対象になりません。"
+          },
+          {
+            "term": "匿名モード",
+            "stumblingPoint": "匿名モードは無料でブロックできるとあるが、後から悪性判定されたパッケージを検知できない点を読み落としやすい。",
+            "explanation": "匿名モードはダウンロード時のブロックだけを行い、取得後に判定が更新されても通知を受けません。通知やダウンロード追跡が必要ならメールアドレスを登録し、takumi-registerとtakumi-loginでtganonトークンを使います。"
+          },
+          {
+            "term": "sdist",
+            "stumblingPoint": "Pythonの「sdistのビルド処理」が危険と書かれているが、wheelとの違いが分からないとリスクを評価できない。",
+            "explanation": "sdistはソース配布形式で、インストール時に手元でビルド処理が走ります。その処理にはパッケージ側のコードが含まれるため、悪性化した依存関係があればインストール中に実行されます。Guardは、そのファイルが届く前に既知の悪性パッケージを止めます。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "取得経路",
+          "layers": [
+            {
+              "label": "呼び出し側",
+              "nodes": [
+                {
+                  "name": "npm / uv",
+                  "note": "依存パッケージを要求",
+                  "highlight": false
+                }
+              ],
+              "via": "HTTP要求"
+            },
+            {
+              "label": "検査層",
+              "nodes": [
+                {
+                  "name": "Takumi Guard",
+                  "note": "既知の悪性品を403",
+                  "highlight": true
+                }
+              ],
+              "via": "許可済み要求"
+            },
+            {
+              "label": "レジストリ",
+              "nodes": [
+                {
+                  "name": "npm公式 / PyPI",
+                  "note": "メタデータと配布物",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": {
+          "lang": "ini",
+          "caption": "npmの取得先をGuardへ切り替える最小設定。",
+          "content": "registry=https://npm.flatt.tech/"
+        },
+        "relatedLinks": [
+          {
+            "label": "GMOインターネット発表",
+            "url": "https://group.gmo/news/article/10203/"
+          },
+          {
+            "label": "Takumi Guard npmクイックスタート",
+            "url": "https://shisho.dev/docs/ja/t/guard/quickstart/npm"
+          }
+        ],
+        "readingMinutes": 7,
+        "lane": "build",
+        "unlocks": [
+          "パッケージを手元に落とす前に、403で悪性版を止められる",
+          "npmとuvの取得先を1行の設定でGuard経由にできる"
+        ],
+        "howToTry": [
+          "npm config set registry https://npm.flatt.tech/",
+          "プロジェクト内でnpm installを実行し、通常の依存パッケージが取得できることを確認する。",
+          "uvを使う場合は、公式クイックスタートを開き、取得先をGuardのPyPIエンドポイントへ設定する。",
+          "uvではPIPINDEXURLやpip.confではなく、記事に記載されたUVDEFAULTINDEXを設定する。",
+          "npmのロックファイルまたはuv.lockを作り直し、resolved・source・配布ファイルURLがGuard側になっていることを確認する。",
+          "テスト用パッケージによる403確認は、公式クイックスタートに記載されたcurlコマンドをそのまま実行する。"
+        ],
+        "fitFor": [
+          "AIエージェントがnpm installやuv syncを実行する環境",
+          "npmまたはPyPIの公式レジストリを設定で差し替えられるプロジェクト",
+          "開発環境とCIで同じロックファイル・取得先を共有できる場合"
+        ],
+        "notFor": [
+          "社内レジストリや追加インデックスの取得も同じ検査で守りたい場合",
+          "npmのスコープ別レジストリを別URLのまま使う場合",
+          "すでに取得済みの依存関係を後から一括検査したい場合"
+        ],
+        "caveats": [
+          "匿名モードでは、取得後に悪性判定された依存関係の通知を受けられない。"
+        ],
+        "tryPrompt": "# 試すこと\nnpmの取得先をTakumi Guardへ切り替え、通常パッケージの取得とロックファイルのURLを確認する。\nhttps://shisho.dev/docs/ja/t/guard/quickstart/npm\n# 手順\n1. npm config set registry https://npm.flatt.tech/\n2. mkdir -p /tmp/takumi-guard-test && cd /tmp/takumi-guard-test\n3. npm init -y\n4. npm install papaparse\n5. grep -n \"npm.flatt.tech\\|resolved\" package-lock.json\n6. 公式クイックスタートにあるテスト用パッケージのcurlコマンドを実行する（手動）\n7. uvを確認する場合は、公式クイックスタートのPyPI設定を参照し、記事に記載されたUVDEFAULTINDEXをGuardのPyPIエンドポイントへ設定する（手動）\n# 確認したいこと\n- papaparseがGuard経由でインストールできるか\n- package-lock.jsonのresolvedにnpm.flatt.techが記録されるか\n- テスト用パッケージへのリクエストが403とブロック理由のJSONを返すか\n# 前提・注意\n- Node.jsとnpmが必要。\n- npmの設定変更はユーザー設定に反映されるため、検証後はnpm config delete registryで戻す。\n- 記事本文では一部のcurlコマンドとPyPIの具体的な設定値が省略されているため、公式クイックスタートから補う。"
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "bee68069314452e5",
+      "product": "Claude Code",
+      "what": "AIコーディングエージェントの開発ツール",
+      "version": "2.1.316",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "推論無効化やサブエージェントの実行努力度を設定できるようになる",
+      "change": {
+        "before": "推論やサブエージェントの設定項目が限定的",
+        "after": "環境変数で推論・実行努力度を制御"
+      },
+      "scope": [],
+      "summary": "CLAUDECODEDISABLEULTRATHINKでultrathinkを無効化でき、CLAUDECODESUBAGENTEFFORTでサブエージェントの実行努力度を設定可能になりました。Claude apps gatewayには、グループ共有の月額予算と相互認証するシステム証明書を保持する設定も追加されています。",
+      "title": "Claude Code CHANGELOG 2.1.316",
+      "url": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md",
+      "sourceLabel": "Claude Code CHANGELOG",
+      "publishedAt": "2026-11-01T22:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Code 2.1.316 を入れて、「推論無効化やサブエージェントの実行努力度を設定できるようになる」を確かめる\nhttps://github.com/anthropics/claude-code/blob/main/CHANGELOG.md\n\n# 手順\n1. git clone --depth 1 https://github.com/anthropics/claude-code\n2. cd claude-code && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- 2.1.316 が実際に入って動くか\n- 「推論無効化やサブエージェントの実行努力度を設定できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    }
+  ],
+  "others": [
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "CVE-2026-112816（LXD、CVSS 10.0）はIBM Planning Analytics（TM1）に影響する？ PAの環境でLXDを確かめる手順",
+      "url": "https://qiita.com/tc_mayoke/items/b6d5285c1d8ea6179669",
+      "publishedAt": "2026-11-01T18:24:17.000Z",
+      "author": "Planning Analytics Watcher",
+      "authorDetail": {
+        "name": "Planning Analytics Watcher",
+        "handle": "@tc_mayoke",
+        "url": "https://qiita.com/tc_mayoke",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4514062/d76903d4abd8f343f3ad637ff80f33e1c24464ab/large.png?1792461554",
+        "bio": "TM1／Cognos Express時代から10年以上、TM1の開発に携わっています。Qiitaでは、IBM Planning Analytics（TM1）の脆弱性・更新情報の要点をまとめています。詳しい手順や運用メモはnoteで発信しています（IBM非公式）。",
+        "followers": 0,
+        "posts": 11,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://note.com/tc_mayoke/n/nce5dca0d9ede"
+          }
+        ]
+      },
+      "tags": [
+        "TM1",
+        "PlanningAnalytics",
+        "脆弱性",
+        "lxd",
+        "Linux"
+      ],
+      "snippet": "コンテナと仮想マシンの管理基盤LXDの脆弱性CVE-2026-112816（CVSS v4.0で10.0）について、IBM Planning Analytics（TM1）の利用者の視点で整理します。2026年11月2日時点の情報です。 :::note warn PAの製品の脆弱性ではありませんが、PAのサーバーを動かしている基盤がLXDなら影響が及びえます。PAのサーバーの中だけを調べて「対象外」と判断しないようにしてください。 ::: :::note info IBM非公式の個人による記事です。PAが影響を受けうる構成、基盤の担当への確認事項、チェックリストは、記事末尾のリンク先（note、全文無料）にまとめています。 ::: 脆弱性の概要 | 項目 | 内容 | |---|---| | 対象 | Canonical LXD、MicroCloud | | 内容 | 管理API（HTTPS…",
+      "body": "コンテナと仮想マシンの管理基盤LXDの脆弱性CVE-2026-112816（CVSS v4.0で10.0）について、IBM Planning Analytics（TM1）の利用者の視点で整理します。2026年11月2日時点の情報です。\n\n:::note warn\nPAの製品の脆弱性ではありませんが、PAのサーバーを動かしている基盤がLXDなら影響が及びえます。PAのサーバーの中だけを調べて「対象外」と判断しないようにしてください。\n:::\n\n:::note info\nIBM非公式の個人による記事です。PAが影響を受けうる構成、基盤の担当への確認事項、チェックリストは、記事末尾のリンク先（note、全文無料）にまとめています。\n:::\n\n脆弱性の概要\n\n| 項目 | 内容 |\n|---|---|\n| 対象 | Canonical LXD、MicroCloud |\n| 内容 | 管理API（HTTPS）のクライアント証明書チェーンの確認不備。信頼済み利用者の公開証明書があれば、その利用者になりすませる |\n| 影響 | 利用者の権限によっては、ホストのroot権限を取られるおそれ（Canonical） |\n| 深刻度 | CVSS v4.0：10.0（Critical、Canonicalの評価） |\n| 公表 | 10月29日（Canonicalの勧告と修正版）。NVD登録は10月31日 |\n| 修正版 | LXD 6.10.1、5.21.9、5.0.11、4.0.15／MicroCloud 3.4.1、2.1.5 |\n\nPAとの関係\n\n| 対象 | 考え方 |\n|---|---|\n| TM1 Server、TM1 Web、PAfE | LXDを必要としない。製品そのものは対象外 |\n| PAW（RHEL） | IBMの手順ではPodmanを使う。LXDとは別の製品 |\n| PAのサーバーがLXD上の仮想マシン／コンテナ | 要確認。管理APIを乗っ取られると、PAのサーバーの停止やディスクの読み書きのおそれ |\n| PAの周辺のサーバーがLXD上 | 要確認。足がかりにされるおそれ |\n\n11月2日時点で、この件についてPAを対象にしたIBMの情報は見当たりません。上の表は製品の要件と公開情報からの判断です。\n\nPAのLinuxサーバーで確認する（読み取りだけ）\n\n [code] \n\n何も出なくても、分かるのは「このサーバーの中にはない」ことだけです。PAのサーバーを動かしている基盤がLXDかどうかは、基盤の担当に確認します。\n\nLXDが見つかったら\n\n [code] \n・管理API（初期設定ではポート8443）に届く範囲を、管理用の端末に限る\n・信頼済み証明書の一覧（lxc config trust list）に見慣れないものがないか確認する\n・PAのサーバーがその上にある場合は、PAの停止と起動の計画と合わせて更新する\n\n判断の流れ\n\n1. PAのサーバーの中にLXDがある → 更新\n2. ない → PAのサーバーの基盤がLXD／MicroCloudか確認\n3. 基盤もLXDでない → この件は対象外と記録\n4. 基盤が分からない → 確認できるまで「対象外」としない\n\nもっと詳しく\n\nLXDとDocker・Podmanの違い、PAが影響を受けうる構成、基盤の担当への確認事項、チェックリストは、noteにまとめています（全文無料）。\n\nhttps://note.com/tcmayoke/n/n783123b97ff8\n\n公式情報\n・Canonical: Security advisory: Critical vulnerability found in Canonical LXD and MicroCloud\n・NVD: CVE-2026-112816\n・IBM: Installing Planning Analytics Workspace Local on Red Hat Enterprise Linux（PAWがPodmanを使うことの参考）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "41699d5524134dbf",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.548969465648855,
+      "popularityPercentile": 0.04834605597964377,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "LXDとMicroCloudの重大な認証不備が、IBM Planning Analytics基盤にも及びうる。",
+      "takeaways": [
+        "LXDの認証不備で信頼された利用者になりすませた。",
+        "攻撃者は基盤上の仮想環境へ入れる可能性があった。",
+        "製品内部ではなく実行基盤まで確認する必要がある。"
+      ],
+      "keywords": [
+        "CVE-2026-112816",
+        "LXD",
+        "MicroCloud",
+        "IBM Planning Analytics",
+        "TM1"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "security",
+      "incident": "LXD・MicroCloud 証明書偽装脆弱性",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【CVE-2026-98432】Ubuntuカーネルの TCP 受付処理の use-after-free を整理して、確認と対応の手順をまとめる",
+      "url": "https://qiita.com/akira_papa_AI/items/86132bc13f0c285ebe01",
+      "publishedAt": "2026-11-01T09:12:06.000Z",
+      "author": "あきらパパ",
+      "authorDetail": {
+        "name": "あきらパパ",
+        "handle": "@akira_papa_AI",
+        "url": "https://qiita.com/akira_papa_AI",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/435233/3aea22c8644dc7da73abcbeeb73b349565f1ac87/x_large.png?1743893740",
+        "bio": "生成AI、プログラミング、IT、自己成長、課題解決などのお役立ち情報をアップしてるんで見てね～😊⭐ 34歳。3児のパパ。仕事は、主にシステム開発・プログラミング教育を行ってます～♫フォローぜひ🙌",
+        "followers": 1358,
+        "posts": 150,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/Akira-Papa"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/akira_papa_IT"
+          }
+        ]
+      },
+      "tags": [
+        "Ubuntu",
+        "Linux",
+        "kernel",
+        "Security",
+        "cve"
+      ],
+      "snippet": "TL;DR ・Linux カーネルの IPv4 TCP で、受付中のソケット（request socket）の IP オプション ireqopt が、子ソケットへコピーされずに渡り、通常の kfree() で解放されるため、並行して SYNACK を組み立てる別 CPU が解放済みメモリを読む（use-after-free in ipoptionsbuild()） ・修正は inetsockdestruct() と tcpv4reqskdestructor() の解放を kfreercu() にするもの（upstream e3f33b0、7.3-rc7） ・Ubuntu の優先度は High、CVSS は出どころで割れている（9.8／8.3／8.1） ・2026-10-30 更新時点、Ubuntu の linux パッケージはまだ Fixed ではない（22.04〜26.10 は work…",
+      "body": "TL;DR\n・Linux カーネルの IPv4 TCP で、受付中のソケット（request socket）の IP オプション ireqopt が、子ソケットへコピーされずに渡り、通常の kfree() で解放されるため、並行して SYNACK を組み立てる別 CPU が解放済みメモリを読む（use-after-free in ipoptionsbuild()）\n・修正は inetsockdestruct() と tcpv4reqskdestructor() の解放を kfreercu() にするもの（upstream e3f33b0、7.3-rc7）\n・Ubuntu の優先度は High、CVSS は出どころで割れている（9.8／8.3／8.1）\n・2026-10-30 更新時点、Ubuntu の linux パッケージはまだ Fixed ではない（22.04〜26.10 は work in progress）\n・対応は「uname -r を控える → 修正版が出たら apt upgrade → 再起動 → uname -r が変わったことを確認」\n2026-11-01 時点の情報です。必ず https://ubuntu.com/security/CVE-2026-98432 の最新を確認してください。\n\n何が起きているか\n\n公式の説明（Ubuntu の CVE ページに掲載のカーネル側の説明）を要約します。\n\n1. tcpv4synrecvsock() が ireq->ireqopt の所有権を子ソケット（newinet->inetopt）へ移す。コピーしない\n2. 別の CPU が、同じ request socket への再送 SYN を処理し、tcpcheckreq() から SYNACK を送ることがある\n3. tcpv4sendsynack()・inetcskroutereq() は ireq->ireqopt を rcureadlock() の下で読むだけ。ipbuildandsendpkt()・ipoptionsbuild() は opt->optlen を2回読む\n4. 079096f103fa（tcp/dccp: install synrecv requests into ehash table）以降、request socket はリスナーのロックなしで処理されるので、SYNACK を組み立てている最中に子ソケットが解放されうる\n5. TCP の子ソケットには SOCKRCUFREE が無く、inetsockdestruct() は inetopt を素の kfree() で解放 → use-after-free\n\nもう1つの経路として、request socket の移し替え（net.ipv4.tcpmigratereq=1 または BPFSKREUSEPORTSELECTORMIGRATE）でも、inetreqskclone() でクローンと元が同じ ireqopt を共有し、tcpv4reqskdestructor() が素の kfree() を使うため同様の問題が起きる。\n\n読む側はすでに RCU を使っており、inetopt を差し替える他の経路（doipsetsockopt()、cipsov4socksetattr() など）は kfreercu() を使っている。そこで残りの2か所も kfreercu() にそろえた、というのが修正。\n\nIPv6 は tcpv6synrecvsock() がオプションを複製するため1つ目の問題の影響なし。ipv6opt（CALIPSO のみが設定）の移し替えの問題は別パッチ。\n\n深刻度\n\n| 出どころ | 値 |\n|---|---|\n| Ubuntu priority | High |\n| NVD／Linux Kernel CNA（CVSS 3.1） | 9.8 AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H |\n| Ubuntu 内訳（CVSS 4.0） | 8.3 AV:N/AC:L/AT:P/PR:N/UI:N/VC:L/VI:L/VA:H |\n| SUSE（CVSS 3.1） | 8.1 AC:H |\n| SUSE（CVSS 4.0） | 9.2 |\n| Red Hat | Urgent |\n\n競合状態（race）なので再現の条件はある（AT:P・AC:H の評価はそこを見ている）。Wiz のデータベース（AI 生成と明記）では公開 PoC なし・KEV 掲載なし。これは公式の確認ではない。\n\nUbuntu の状況（2026-10-30 更新・パッケージ linux）\n\n| リリース | 状態 |\n|---|---|\n| 26.10 stonking | Vulnerable, work in progress（7.3.0-10.10） |\n| 26.04 LTS resolute | Vulnerable, work in progress（7.0.0-43.43） |\n| 24.04 LTS noble | Vulnerable, work in progress（6.8.0-149.149） |\n| 22.04 LTS jammy | Vulnerable, work in progress（5.15.0-203.213） |\n| 20.04 / 18.04 / 16.04 LTS | Vulnerable |\n| 14.04 LTS trusty | Not affected（linux-aws の 14.04 は Vulnerable） |\n\nlinux-aws・linux-azure・linux-gcp・linux-oracle・linux-hwe-・linux-fips なども同様に表に並んでいる。自分のカーネルのフレーバー（uname -r の末尾の -aws／-generic 等）で行を探すこと。\n\n参考：Debian は修正済み（trixie 6.12.113-1／DSA-6568-1、bookworm 6.1.190-1／DLA-4841-1）。\n\n確認と対応の手順\n\n1. 版とカーネル\n\n [code] \n\n2. CVE の状況\n\n [code] \n\nUbuntu Pro Client（pro）は CVE 番号で該当パッケージと修正の有無を見てくれる。修正前なら未解決のまま終わる。\n\n3. 修正版が出たら\n\n [code] \n\nUbuntu 公式は、個別パッケージの cherry-pick ではなく apt upgrade での全体更新を推奨している。\n\n4. 入れ替わりの確認\n\n [code] \n\n新しいカーネルが入っていても、再起動していなければ古いカーネルが動き続ける。unattended-upgrades で入っただけの状態に注意。\n\n5. 環境ごとの注意\n・コンテナ：ホストのカーネルを共有する。イメージを更新してもカーネルは直らない → ホストを更新・再起動\n・クラウド：linux-aws 等の行を確認。マネージドなノード（GKE 等）は提供元の告知も確認\n・標準サポートが終わった 20.04／18.04／16.04：Ubuntu Pro（ESM・Legacy add-on）が修正を受け取るのに必要（公式の表はまだ Vulnerable のみで、修正の予定は表で確認）。ESM は個人なら5台まで無料。pro status で有効か確認\n・Livepatch：Ubuntu Pro の機能。今回の修正が Livepatch で配られるかは公式告知で確認\n\nつなぎの設定について\n\n [code] \n\ntcpmigratereq=0 は移し替えの経路を減らすだけで、通常の再送 SYN の経路は残る（Wiz／Red Hat Bugzilla の利用者コメント）。根本対策はカーネル更新＋再起動。\n\n出典\n・https://ubuntu.com/security/CVE-2026-98432\n・https://ubuntu.com/security/cves/about\n・https://git.kernel.org/linus/e3f33b0a1d89d738e2b913dab519226eaf76e15b\n・https://security-tracker.debian.org/tracker/CVE-2026-98432\n・https://www.suse.com/security/cve/CVE-2026-98432\n・https://bugzilla.redhat.com/showbug.cgi?id=2553390\n・https://www.wiz.io/vulnerability-database/cve/cve-2026-98432（各社・AI生成と明記）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "ebdf44de782446ca",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7457124681933843,
+      "popularityPercentile": 0.42748091603053434,
+      "matchedTopics": [
+        "セキュアな開発",
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "UbuntuカーネルのTCP処理に解放済みメモリを読む脆弱性が見つかり、修正版は未公開だった。",
+      "takeaways": [
+        "Linuxの通信処理で解放済みメモリを読む欠陥が見つかった。",
+        "別の処理が同じ領域を使うと異常動作につながる。",
+        "2026年11月1日時点でUbuntuの修正版は未公開だった。"
+      ],
+      "keywords": [
+        "CVE-2026-98432",
+        "Ubuntu",
+        "Linux kernel",
+        "TCP",
+        "use-after-free"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "Linux TCP脆弱性悪用",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "NetamLoader Malware Targets Government Windows 10 Systems in Asia via .NET Injection",
+      "url": "https://thehackernews.com/2026/11/netamloader-malware-targets-government.html",
+      "publishedAt": "2026-11-01T07:02:58.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "Cybersecurity researchers have disclosed details of what has been described as a \"highly sophisticated infection chain\" targeting government organizations in Asia. The activity, detailed by Kaspersky this week, targeted a custom Windows 10 build used exclusively by government entities in Asia and involves the deployment of a previously undocumented .NET assembly-loading framework codenamed",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "537f4ace6f71b193",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.7566666666666668,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 72,
+      "titleJa": "NetamLoaderがアジア政府のWindows 10を標的",
+      "oneLiner": "NetamLoaderがアジアの政府組織向けWindows 10環境を狙う高度な感染経路を使っていた。",
+      "takeaways": [
+        "NetamLoaderがアジアの政府組織を狙っていた。",
+        "標的は政府専用のWindows 10環境だった。",
+        "未知の部品を読み込む仕組みが感染に使われた。"
+      ],
+      "keywords": [
+        "NetamLoader",
+        "Windows 10",
+        ".NET",
+        "Kaspersky",
+        "アジア政府機関"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "NetamLoader アジア政府攻撃",
+      "readingMinutes": 7,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "保有資産だけでなく「動いているもの」を見張る — Binance と Polymarket の事件から考える継続スキャン",
+      "url": "https://qiita.com/0xNurstar/items/3d637eb36ceda350f202",
+      "publishedAt": "2026-11-01T14:14:22.000Z",
+      "author": "Nurstar",
+      "authorDetail": {
+        "name": "Nurstar",
+        "handle": "@0xNurstar",
+        "url": "https://qiita.com/0xNurstar",
+        "avatarUrl": "https://pbs.twimg.com/profile_images/2004426614675759104/Yv2O5tKy_bigger.jpg",
+        "bio": "Nurstar です。自律型エージェントフレームワーク Aeon(aeon.fun) の Growth コントリビューター。Aeon は AI エージェントが「スキル」を組み合わせてタスクを自律的に実行できるようにするオープンソースのフレームワークです。日本が大好きで、日本語も少し話せます。拙い日本語ですが、発信していきます。",
+        "organization": "Aeon Inc",
+        "followers": 1,
+        "posts": 10,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/0xNurstar"
+          },
+          {
+            "label": "Web",
+            "url": "https://www.aeon.fun/"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "Agent",
+        "binance",
+        "Polymarket"
+      ],
+      "snippet": "この記事について 本記事は、aeon 公式ブログに掲載された英語記事 Watch what runs, not just what you hold: Binance, Polymarket, and the case for continuous scanning（2026年10月30日）を日本語に翻訳したものです。原文の著者は aeon の作者 @aaronjmars です。 訳者は aeon の Growth コントリビューターであり、利害関係があるため明記しておきます。金額・日時・数値はすべて原文どおりです。記事内のリンクは 2026-11-01 時点で到達確認済みです（CoinDesk、AP、The Block、Cyber Kendra はボット対策で自動確認できなかったため、ブラウザでの確認を推奨します）。 今週起きた2つの大きな暗号資産インシデントは、どちらもスマートコントラ…",
+      "body": "この記事について\n本記事は、aeon 公式ブログに掲載された英語記事 Watch what runs, not just what you hold: Binance, Polymarket, and the case for continuous scanning（2026年10月30日）を日本語に翻訳したものです。原文の著者は aeon の作者 @aaronjmars です。\n訳者は aeon の Growth コントリビューターであり、利害関係があるため明記しておきます。金額・日時・数値はすべて原文どおりです。記事内のリンクは 2026-11-01 時点で到達確認済みです（CoinDesk、AP、The Block、Cyber Kendra はボット対策で自動確認できなかったため、ブラウザでの確認を推奨します）。\n今週起きた2つの大きな暗号資産インシデントは、どちらもスマートコントラクトのバグとは無関係でした。どちらのケースでも、資金を管理するコードは指示されたとおりに動いています。問題は、誰が指示を出していたかです。\nBinance: ノート PC、コンテナ、出金キュー\n10月29日（木）の深夜、Binance のホットウォレットは 20:20 UTC から 11 回のトランザクションに分けて、約 18,270 BTC を単一のアドレスに送金しました。その後、コインは 19 のアドレスに分散されています（CoinDesk）。\nBinance の暫定的な説明によれば、原因は侵害された DevOps エンジニアのノート PC です。攻撃者はそこから、不正な出金の送信に使われたサービスコンテナへアクセスしました。取引所は、どのウォレットの秘密鍵についても漏洩の証拠はないとしています（Crystal Intelligence）。\nこれまでに報じられていること:\n影響: Binance は影響を受けた資産を約 63 億ドルと見積もっています。これは推定値であり、最終的な損失額ではありません。\n凍結: Tech Insider が Binance の話として伝えたところでは、約 30 億ドルがパートナーと協力して凍結または保全されたとのことです。ステーブルコインの発行体はアドレスをブラックリストに入れられますが、ビットコインはその方法では凍結できません。\n対応: Binance は当初、入金と出金を停止しました。金曜日の時点で入金は影響を受けていないとし、出金は停止したままです。共同 CEO の Yi He は、Binance がすべての損失を補填すると述べています（AP、The Block）。\n帰属: TRM Labs はこの攻撃を北朝鮮の TraderTraitor によるものと「高い確度で」判断しています。Binance はこれを確認していません。\nノート PC がどう侵害されたのか、攻撃者がどれくらいの期間内部にいたのかは、まだわかっていません。Binance はその後、調査で追加の侵入箇所が見つかったと発表しています（AP）。\nこの暫定的な説明から得られる教訓は、秘密鍵を秘密にしておくだけでは、署名サービスの悪用は防げないということです。出金の送信を許可された内部サービスが乗っ取られたと報じられており、それによって不正なリクエストが信頼された経路を通って署名レイヤーに届きえました。鍵の漏洩は確認されておらず、攻撃経路の全体像はまだ調査中です。\nPolymarket: 取引を始めたパフォーマンス計測スクリプト\n同じ日、Polymarket の国際版サイト Polymarket.com は、改ざんされた DebugBear の Real User Monitoring（RUM）スクリプトを配信していました。DebugBear はサードパーティの Web パフォーマンス計測ベンダーです。このスクリプトは訪問者がログインしているかを確認し、そのライブセッションを使ってポジションを売却するか、ポジショントークンを攻撃者のウォレットに送っていました（BleepingComputer、SecurityWeek）。\n損失: 攻撃者のものとみられるウォレットまで追跡できたのは約 250 万ドルです。情報源によって、ほかに 220 万〜270 万ドルの推計もあります。いずれも確定した損失総額ではありません。\n対応: 米国東部時間の午後 2:05 からキャンセルのみ可能なモードに移行し、約1時間後に取引が再開されました。Polymarket は影響を受けたトレーダー全員に全額を補填するとしていますが、時期は公表していません。\nコントラクトは無傷: スマートコントラクトのバグは一切必要ありませんでした。スクリプトは、被害者のブラウザがすでに持っていた権限を使っただけです。\n初めてではない: 6月にも、侵害された別のベンダーが Polymarket のフロントエンドにウォレットを抜き取るスクリプトを注入し、約 300 万ドルの損失が出ています（Cyber Kendra）。\nDebugBear は「進行中のセキュリティインシデントの影響を受けている」ことを認め、顧客に埋め込みコードを削除するよう伝えました。Polymarket は「サードパーティプロバイダの1社が侵害された」と述べるにとどまっています（SecurityWeek、BleepingComputer）。\n共通点\n2つのインシデントはどこで信頼境界を越えたか\n \nAeon のような定期スキャナが効く範囲と、効かない範囲\nAeon は、セキュリティ系の skill を自分の GitHub リポジトリ上で定期実行されるエージェントとして動かします。以下は、その守備範囲を正直にまとめた短い地図です。\n現在あるもの\nvuln-scanner は、専用のスキャナ（データフロー解析、検証付きのシークレット検出、依存関係の CVE）でリポジトリを監査し、finding を適切な開示チャネルに振り分けます。コードの欠陥は非公開の脆弱性報告へ、PR はすでに公開済みの依存関係 CVE の場合にだけ出します。\nカスタム skill として作れる追加チェック\n以下は提案中のカスタム skill であり、現在の Aeon カタログで提供されているものではありません。\nworkflow-security-audit: GitHub Actions に対して zizmor と actionlint を定期実行し、後退（regression）を検出する。CI パイプラインは、開発者のノート PC から本番のクレデンシャルに至る典型的な経路です。\nsecurity-digest: CISA の Known Exploited Vulnerabilities（KEV）カタログと GitHub Advisories を、実際に使っているスタックに絞り込み、1項目ごとに1つのアクションを示す。\nskill-security-scan: エージェントの skill と付随スクリプトに、インジェクション、データ持ち出し、プロンプト上書きのリスクがないかを確認する。\n今回のケースで何が変わり、何が変わらなかったか\nPolymarket 型のスクリプト差し替えは、定期チェックと相性がよいケースです。すべてのページを取得し、外部スクリプトをすべて列挙してハッシュを取り、ハッシュが変わるか新しいオリジンが現れたらアラートを出します。cdn.debugbear.com 上のファイルの中身が変われば、diff として表面化します。この方針でハッシュ差分アラートを出す定期実行の site-scan skill は開発中で、まだ提供されていません。\nスキャナにはクリーンなコピーを見せ、被害者には悪意あるコピーを配る、ということも可能です。そのため、より強い対策は予防的なものです。Subresource Integrity（SRI）のハッシュ、厳格な Content-Security-Policy（CSP）、そしてログインが必要なページに置くベンダースクリプトのセルフホストです。\nBinance 型の侵入は、一部しか守備範囲に入りません。リポジトリと CI のスキャナで被害範囲（blast radius）は小さくできます。過剰な権限を持つサービストークン、workflow 内のシークレット、2つ目の統制なしに出金を送信できるコンテナ、といったものです。しかし定期ジョブはエンドポイント検知ではありません。盗まれたノート PC をリアルタイムで捕まえることはできません。継続的なセキュリティ態勢のチェックに使い、エンドポイント検知・対応（EDR）と、出金経路そのものに対する異常検知ルールを組み合わせてください。\n今週実行できるチェックリスト\nログインが必要なページ上のサードパーティスクリプトをすべて棚卸しする。トレーディング UI 上の分析ツールや RUM のように、なくてもよいものは外す。\n残ったものは SRI で固定するか、セルフホストする。未知のオリジンをブロックする CSP を追加する。\nそれらのスクリプトを定期的にハッシュ化して diff を取り、自分たちが出荷していない変更があればアラートを出す。\n誰が、何が出金を送信できるのかを洗い出す。その経路上のすべてのサービス ID は権限を可能な限り絞り、通常と異なる操作には独立した2つ目の承認を必須にする。\nCI/CD は四半期に一度ではなく、変更のたびに監査する。開発者のマシンはパイプラインを通じて本番に到達する。\n金額の大きさだけでなく、新しいアクターに対してアラートを出す。新しいコンテナやトークンが突然出金を送信し始めることは、金額よりも強いシグナルになる。\n両社とも、ユーザーの損失は補填されるとしています。しかし次のチームにそれができるとは限りません。どちらの攻撃も、最も安く止められたタイミングは最初の変化の時点、つまり最初の出金よりずっと前でした。\n出典（英語）\nCoinDesk\nTech Insider\nTRM Labs\nBleepingComputer\nThe Block\nSecurityWeek\nCyber Kendra\nCrystal Intelligence\nAP\n訳者から\nコードを読むなら、まずは skills/vuln-scanner/SKILL.md を。aeon では 1 skill = 1 SKILL.md なので、上で紹介したスキャン手順と開示チャネルの振り分けルールはこのファイル1枚に書かれています。記事中のほかの skill は提案段階で、リポジトリにはまだありません。\nリポジトリ: aeonfun/aeon（MIT License）\n原文（英語）: Watch what runs, not just what you hold: Binance, Polymarket, and the case for continuous scanning\n誤訳や不正確な表現があれば、コメントで教えてください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f59cd511e567cb56",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.4647455470737914,
+      "popularityPercentile": 0.1806615776081425,
+      "matchedTopics": [
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 72,
+      "titleJa": null,
+      "oneLiner": "BinanceとPolymarketの事件は、保有資産ではなく実行中のコードを継続監視する必要性を示した。",
+      "takeaways": [
+        "Binanceでは侵害された端末から出金操作が行われた。",
+        "Polymarketでは外部スクリプトが利用者の資産を動かした。",
+        "問題はコードより指示を出す経路の乗っ取りだった。"
+      ],
+      "keywords": [
+        "Binance",
+        "Polymarket",
+        "継続スキャン",
+        "DevOps端末",
+        "外部スクリプト"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "IBM Semeru Runtime 10月版の修正状況と、IBM Planning Analytics（TM1）で確認すること（Java 17・21は公開、Java 8・11は未確認）",
+      "url": "https://qiita.com/tc_mayoke/items/351618499cc46426f882",
+      "publishedAt": "2026-11-01T18:25:02.000Z",
+      "author": "Planning Analytics Watcher",
+      "authorDetail": {
+        "name": "Planning Analytics Watcher",
+        "handle": "@tc_mayoke",
+        "url": "https://qiita.com/tc_mayoke",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4514062/d76903d4abd8f343f3ad637ff80f33e1c24464ab/large.png?1792461554",
+        "bio": "TM1／Cognos Express時代から10年以上、TM1の開発に携わっています。Qiitaでは、IBM Planning Analytics（TM1）の脆弱性・更新情報の要点をまとめています。詳しい手順や運用メモはnoteで発信しています（IBM非公式）。",
+        "followers": 0,
+        "posts": 11,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://note.com/tc_mayoke/n/nce5dca0d9ede"
+          }
+        ]
+      },
+      "tags": [
+        "TM1",
+        "PlanningAnalytics",
+        "脆弱性",
+        "Java",
+        "semeru"
+      ],
+      "snippet": "10月20日〜24日に公表されたJavaの脆弱性について、IBM Semeru Runtimeの10月版がリリースノートに掲載されました。IBM Planning Analytics（TM1）の利用者の視点で、何が直ったのか、PAで何を確認するべきかを整理します。2026年10月31日時点の情報です。 :::note warn Semeruの修正版が出たことは、PAが直ったことを意味しません。 10月31日時点で、今回のJavaの脆弱性についてPA（TM1 Server、TM1 Web、PAW、PAfE）を対象にしたIBMのセキュリティ情報は確認できません。 ::: :::note info IBM非公式の個人による記事です。PAへの影響の考え方、IBMサポートへの確認事項、チェックリストは、記事末尾のリンク先（note、全文無料）にまとめています。 ::: Semeruの系統別の状況 |…",
+      "body": "10月20日〜24日に公表されたJavaの脆弱性について、IBM Semeru Runtimeの10月版がリリースノートに掲載されました。IBM Planning Analytics（TM1）の利用者の視点で、何が直ったのか、PAで何を確認するべきかを整理します。2026年10月31日時点の情報です。\n\n:::note warn\nSemeruの修正版が出たことは、PAが直ったことを意味しません。 10月31日時点で、今回のJavaの脆弱性についてPA（TM1 Server、TM1 Web、PAW、PAfE）を対象にしたIBMのセキュリティ情報は確認できません。\n:::\n\n:::note info\nIBM非公式の個人による記事です。PAへの影響の考え方、IBMサポートへの確認事項、チェックリストは、記事末尾のリンク先（note、全文無料）にまとめています。\n:::\n\nSemeruの系統別の状況\n\n| Java系統 | 最新版 | 10月の修正 |\n|---|---|---|\n| 17 | 17.0.21.0 | 修正を明記 |\n| 21 | 21.0.13.0 | 修正を明記 |\n| 25 | 25.0.5.0 | 修正を明記 |\n| 27 | 27.0.1.0（Open Editionのみ） | 修正を明記 |\n| 11 | 11.0.32.15 | 未確認 |\n| 8 | 8.0.504.5（Open Editionのみ） | 未確認 |\n\n17〜27の10月版には「OpenJDKの10月20日・21日・24日の勧告への修正を含む」と書かれています。11と8の版は、土台のOpenJDK（11.0.32.1、8u504）がOpenJDKの勧告で「影響を受けるバージョン」に挙がっているため、修正済みとは扱えません。\n\n関係する脆弱性\n\n| CVE | CVSS | 内容・IBMの情報 |\n|---|---|---|\n| CVE-2026-91403 / CVE-2026-114820 | 9.1 | eMudhraの中間CA証明書の秘密鍵漏えい。IBM SDK Java 8の8.0.8.71以前が対象（10月29日のIBMセキュリティ情報）。修正版はまだなく、回避策のみ |\n| CVE-2026-87294 | 6.5 | APAR IJ60690。修正先：Semeru 17.0.21.0、21.0.13.0、25.0.5.0、11.0.33.0、IBM SDK 8.0.8.75 |\n| CVE-2026-91333 | 3.7 | APAR IJ60576。修正先：Semeru 21.0.13.0、25.0.5.0、IBM SDK 8.0.8.75 |\n\nIBMの過去のセキュリティ情報では、PAはIBM JRE、PAWはIBM JRE／IBM Semeruを同梱しています。そのため、PAにはIBM SDK Java 8系とSemeruの両方が関係しえます。\n\nPAが使っているJavaを確認する（読み取りだけ）\n\nPATH上のjava -versionだけでは、PAが実際に使っているJavaは分かりません。\n\n [code] \n\n [code] \n\nPAWをコンテナで動かしている場合、ホストのjava -versionではコンテナ内のJavaは分かりません。\n\n:::note alert\nIBMやOpenJDKは、信頼ストアから証明書を削除する回避策（keytool -delete）を案内しています。ただし、製品に同梱されたJavaの信頼ストアの書き換えや、Javaの差し替えは、IBMに確認してからにしてください。サポートの対象外になるおそれや、接続が失敗するおそれがあります。\n:::\n\n今やること\n\n1. PAの各コンポーネントが使っているJavaの実体とバージョンを記録する\n2. IBM SDK Java 8系（8.0.8.71以前）を使っているものがあるか確認する\n3. IBMサポートに、影響の有無と回避策の適用可否、修正の予定を問い合わせる\n4. PAの周辺で単体で入れたJavaは、それぞれの案内に沿って更新する（Semeru 17・21は10月版あり）\n5. 2.1.26のFix ListやPAのセキュリティ情報を追う\n\nもっと詳しく\n\nSemeruの修正とPA製品の修正の違い、証明書の問題がPAのどこに関係するか、IBMサポートへの確認事項、チェックリストは、noteにまとめています（全文無料）。\n\nhttps://note.com/tcmayoke/n/n987d9da305c9\n\n公式情報\n・IBM: Semeru Runtimes release notes\n・IBM Security Bulletin: eMudhra CA Certificate Compromise (CVE-2026-91403 and CVE-2026-114820)\n・IBM APAR IJ60690 (CVE-2026-87294)\n・IBM APAR IJ60576 (CVE-2026-91333)\n・OpenJDK Vulnerability Advisory: 2026/10/21\n・OpenJDK Vulnerability Advisory: 2026/10/24\n・OpenJDK: Compromised Certificates and OpenJDK Java Runtimes",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0a2fe61e56b46730",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.37840966921119595,
+      "popularityPercentile": 0.04580152671755725,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 72,
+      "titleJa": null,
+      "oneLiner": "IBM Semeruの10月版はJava 17以降の脆弱性を修正したが、Planning Analyticsへの影響は未確認だった。",
+      "takeaways": [
+        "IBM SemeruのJava 17から27に修正版が公開された。",
+        "Java 8と11では修正状況を確認できなかった。",
+        "実行環境の修正だけではPlanning Analyticsの修正を意味しない。"
+      ],
+      "keywords": [
+        "IBM Semeru",
+        "Java 17",
+        "Java 21",
+        "Planning Analytics",
+        "TM1"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 6,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "楽天証券、顧客情報流出の可能性　NTTデータ委託先不正アクセスで（CNET Japan） - Yahoo!ニュース",
+      "url": "https://news.yahoo.co.jp/articles/005b8b559abd8087bf6998381fecfc02882aa2e1",
+      "publishedAt": "2026-11-01T01:54:39.000Z",
+      "tags": [
+        "テクノロジー",
+        "楽天"
+      ],
+      "snippet": "楽天証券のスマートフォンアプリ「iSPEED」（CNET Japan） 楽天証券は10月31日、デジタル特典付き社債を購入した一部の顧客の情報延べ362件が、外部サービスへの不正アクセスで漏えいした可能性があると発表した。楽天証券自身のシステムが不正アクセスを受けたものではないとしている。 不正アクセスを受けたのは、特...",
+      "metrics": {
+        "hatena": 13
+      },
+      "sourceWeight": 3,
+      "id": "6b54b9257d0aa17c",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.01,
+      "popularityPercentile": 0.045454545454545456,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 70,
+      "titleJa": null,
+      "oneLiner": "楽天証券は委託先への不正アクセスにより、顧客情報362件が漏洩した可能性を公表した。",
+      "takeaways": [
+        "楽天証券の顧客情報362件が漏れた可能性がある。",
+        "侵入口は楽天証券ではなく外部サービスだった。",
+        "社債購入特典を使った一部顧客が影響を受けた。"
+      ],
+      "keywords": [
+        "楽天証券",
+        "NTTデータ",
+        "iSPEED",
+        "不正アクセス",
+        "個人情報漏洩"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "NTTデータ委託先 不正アクセス",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "id": "b4ce307f644c1c3b",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@rMATLAB_x: Linuxカーネルの脆弱性CVE-2026-98432（CVSS 9.8）。IPv4のTCP受付処理のメモリ解放ミスで、ログイン不要の遠隔攻撃のおそれ。Deb…",
+      "url": "https://x.com/rmatlab_x/status/2116671000763105469",
+      "publishedAt": "2026-10-31T23:17:47.000Z",
+      "author": "merci :D",
+      "authorDetail": {
+        "name": "merci :D",
+        "handle": "@rMATLAB_x",
+        "url": "https://x.com/rMATLAB_x"
+      },
+      "tags": [],
+      "snippet": "Linuxカーネルの脆弱性CVE-2026-98432（CVSS 9.8）。IPv4のTCP受付処理のメモリ解放ミスで、ログイン不要の遠隔攻撃のおそれ。Debianは修正済、Ubuntu・RHELは準備中。修正が出たらカーネル更新＋再起動を。当面はRed Hatの緩和策も。#脆弱性 #Linux https://t.co/tNN6pfOrmR",
+      "body": "Linuxカーネルの脆弱性CVE-2026-98432（CVSS 9.8）。IPv4のTCP受付処理のメモリ解放ミスで、ログイン不要の遠隔攻撃のおそれ。Debianは修正済、Ubuntu・RHELは準備中。修正が出たらカーネル更新＋再起動を。当面はRed Hatの緩和策も。#脆弱性 #Linux https://t.co/tNN6pfOrmR",
+      "metrics": {
+        "likes": 0,
+        "reposts": 0,
+        "replies": 0,
+        "quotes": 0,
+        "bookmarks": 0,
+        "impressions": 146,
+        "comments": 0
+      },
+      "lang": "ja",
+      "sourceWeight": 3,
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.46888888888888897,
+      "popularityPercentile": 0.05555555555555555,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "LinuxカーネルのCVE-2026-98432で、ログイン不要の遠隔攻撃につながるメモリ解放ミスが確認された。",
+      "takeaways": [
+        "外部から通信を送るだけで攻撃できる。",
+        "Linuxの通信処理でメモリの扱いを誤る。",
+        "Debianは修正済みで他社版は対応待ちになっている。"
+      ],
+      "keywords": [
+        "CVE-2026-98432",
+        "Linux kernel",
+        "IPv4",
+        "TCP",
+        "Debian",
+        "Ubuntu",
+        "RHEL"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "id": "51df28c410d43f52",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@GabakuG: こないだのLinuxカーネル（TCPのUAF）の件とは違って「全員関係ある」わけではないけど、対象のインフラを組んでいる人にとっては背筋が凍るCVSS 10.…",
+      "url": "https://x.com/gabakug/status/2116775179053650352",
+      "publishedAt": "2026-11-01T06:11:45.000Z",
+      "author": "にゃんでもハンプティ",
+      "authorDetail": {
+        "name": "にゃんでもハンプティ",
+        "handle": "@GabakuG",
+        "url": "https://x.com/GabakuG"
+      },
+      "tags": [],
+      "snippet": "こないだのLinuxカーネル（TCPのUAF）の件とは違って「全員関係ある」わけではないけど、対象のインフラを組んでいる人にとっては背筋が凍るCVSS 10.0（満点）の脆弱性が出た。 UbuntuのCanonical社が開発するコンテナ・仮想マシン基盤「LXD」の脆弱性（CVE-2026-112816）。 これうち大丈夫みたい。",
+      "body": "こないだのLinuxカーネル（TCPのUAF）の件とは違って「全員関係ある」わけではないけど、対象のインフラを組んでいる人にとっては背筋が凍るCVSS 10.0（満点）の脆弱性が出た。  UbuntuのCanonical社が開発するコンテナ・仮想マシン基盤「LXD」の脆弱性（CVE-2026-112816）。\nこれうち大丈夫みたい。",
+      "metrics": {
+        "likes": 6,
+        "reposts": 0,
+        "replies": 0,
+        "quotes": 0,
+        "bookmarks": 0,
+        "impressions": 441,
+        "comments": 0
+      },
+      "lang": "ja",
+      "sourceWeight": 3,
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.445,
+      "popularityPercentile": 0.3333333333333333,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 76,
+      "titleJa": null,
+      "oneLiner": "CanonicalのLXDにCVSS 10.0の脆弱性CVE-2026-112816が見つかり、対象基盤への影響確認が必要になった。",
+      "takeaways": [
+        "LXDの欠陥が満点評価の危険度になった。",
+        "仮想マシンやコンテナの基盤が対象になる。",
+        "使っていない環境には影響しない可能性がある。"
+      ],
+      "keywords": [
+        "CVE-2026-112816",
+        "LXD",
+        "Canonical",
+        "コンテナ",
+        "仮想マシン",
+        "CVSS 10.0"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "【独自】GMO攻撃、北朝鮮ハッカーか　複数の痕跡、政府に報告",
+      "url": "https://www.47news.jp/15170379.html",
+      "publishedAt": "2026-11-01T14:23:54.000Z",
+      "tags": [
+        "テクノロジー",
+        "謎",
+        "あとで読む"
+      ],
+      "snippet": "GMOインターネットグループが、一連の不正アクセスの攻撃側に北朝鮮系のハッカー集団がいる可能性が高いと分析していることが1日、関係者への取材で分かった。マルウエア（悪意あるソフト）の特徴など攻撃者の複数の痕跡から判断したとみられる。GMOは政府側に報告したもようで、真相解明が今後の焦点だ。複数の国をまた...",
+      "metrics": {
+        "hatena": 41
+      },
+      "sourceWeight": 3,
+      "id": "2b659d2c61a0c2f8",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.16,
+      "popularityPercentile": 0.7272727272727273,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 65,
+      "titleJa": null,
+      "oneLiner": "GMOインターネットグループへの不正アクセスに北朝鮮系ハッカーが関与した可能性が高いと分析された。",
+      "takeaways": [
+        "GMOへの攻撃に複数の痕跡が見つかった。",
+        "攻撃者は北朝鮮系集団の可能性がある。",
+        "GMOは分析結果を政府側へ報告したとみられる。"
+      ],
+      "keywords": [
+        "GMOインターネットグループ",
+        "北朝鮮系ハッカー",
+        "不正アクセス",
+        "マルウェア",
+        "サイバー攻撃"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "【速報】GMO不正アクセス、北朝鮮関与か",
+      "url": "https://www.47news.jp/15170287.html",
+      "publishedAt": "2026-11-01T11:43:09.000Z",
+      "tags": [
+        "テクノロジー",
+        "セキュリティ",
+        "あとで読む",
+        "security",
+        "privacy",
+        "北朝鮮",
+        "インターネット",
+        "これはひどい",
+        "ネタ"
+      ],
+      "snippet": "GMOインターネットグループが、一連の不正アクセスの攻撃側に北朝鮮系のハッカー集団がいる可能性が高いと分析していることが1日、関係者への取材で分かった。",
+      "metrics": {
+        "hatena": 89
+      },
+      "sourceWeight": 3,
+      "id": "362b1c0494929f7d",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.18000000000000002,
+      "popularityPercentile": 0.8181818181818182,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 62,
+      "titleJa": null,
+      "oneLiner": "GMOインターネットグループへの一連の不正アクセスに北朝鮮の関与が疑われている。",
+      "takeaways": [
+        "GMOへの不正アクセスで北朝鮮関与が疑われる。",
+        "攻撃側の詳しい身元は確定していない。",
+        "関係者への取材で可能性が明らかになった。"
+      ],
+      "keywords": [
+        "GMOインターネットグループ",
+        "北朝鮮",
+        "不正アクセス",
+        "サイバーセキュリティ",
+        "security"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Cloudflare AgentsがPi 1.4に対応したので、Agentの中断・復旧・永続化を検証する",
+      "url": "https://qiita.com/tanahiro2010/items/9b9db576e2a89b839797",
+      "publishedAt": "2026-11-01T14:30:34.000Z",
+      "author": "tanahiro2010",
+      "authorDetail": {
+        "name": "tanahiro2010",
+        "handle": "@tanahiro2010",
+        "url": "https://qiita.com/tanahiro2010",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3360352/771226b3b305f1e7bae54e0df00b8a3fb6324e51/x_large.png?1737423097",
+        "bio": "高校生弱小エンジニアもどき\r\n\r\nhttps://tanahiro2010.com",
+        "organization": "学生",
+        "location": "日本",
+        "followers": 16,
+        "posts": 24,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/tanahiro2010"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/tanahiro2010"
+          },
+          {
+            "label": "Web",
+            "url": "https://tanahiro2010.com"
+          }
+        ]
+      },
+      "tags": [
+        "cloudflare",
+        "Agents"
+      ],
+      "snippet": "中断された Agent は、最後のチェックポイントから正しく再開しました。副作用が2回起きたのは、そのせいです。 この記事の結論 Cloudflare Agents SDK が Pi 1.4 に対応したので、Durable Object 上の Agent を実際に停止させ、会話履歴・タスク・ツール実行がどこまで復旧するかを測りました。復旧機構は期待どおり動きましたが、Agent が復旧することと、外部の副作用が重複しないことは別です。 ・Pi 1.4 で追加された Hibernation と Parked Tasks は、実際の Durable Object で確認できた ・replay: \"safe\" は冪等性を検査しない。非冪等なツールに付けると、同じ副作用が2回起きる ・Storage Error Recovery は進行中の呼び出しを救わず、次の操作から Pi を開き直す仕組みだっ…",
+      "body": "中断された Agent は、最後のチェックポイントから正しく再開しました。副作用が2回起きたのは、そのせいです。\n\nこの記事の結論\n\nCloudflare Agents SDK が Pi 1.4 に対応したので、Durable Object 上の Agent を実際に停止させ、会話履歴・タスク・ツール実行がどこまで復旧するかを測りました。復旧機構は期待どおり動きましたが、Agent が復旧することと、外部の副作用が重複しないことは別です。\n・Pi 1.4 で追加された Hibernation と Parked Tasks は、実際の Durable Object で確認できた\n・replay: \"safe\" は冪等性を検査しない。非冪等なツールに付けると、同じ副作用が2回起きる\n・Storage Error Recovery は進行中の呼び出しを救わず、次の操作から Pi を開き直す仕組みだった\n・agents@0.30.0 には、別タスクが動いているとリトライ待機中のタスクを起こせない既知の不具合がある。使うなら 0.30.1 以降にする\n\n| 観測したもの | 結果 |\n| --- | ---: |\n| 再起動後の会話履歴 | 読み戻せた |\n| 完了済みタスク | 二重実行されなかった |\n| safe な冪等ツール | 再実行されたが副作用は1回 |\n| safe と宣言した非冪等ツール | 副作用が2回 |\n| unsafe ツール | 自動再実行されず、完了もしない |\n| Hibernation | 待機中に別インスタンスで再開 |\n\n検証コードはこちらです: https://github.com/tanahiro2010/slides/tree/main/slides/slides/Cloudflare%20Agents%E3%81%8CPi%201.4%E3%81%AB%E5%AF%BE%E5%BF%9C%E3%81%97%E3%81%9F%E3%81%AE%E3%81%A7%E3%80%81Agent%E3%81%AE%E4%B8%AD%E6%96%AD%E3%83%BB%E5%BE%A9%E6%97%A7%E3%83%BB%E6%B0%B8%E7%B6%9A%E5%8C%96%E3%82%92%E6%A4%9C%E8%A8%BC%E3%81%99%E3%82%8B/sandbox\n\nそして、この記事で一番伝えたいことを先に書いておきます。\n\nreplay: \"safe\" は、ツールを安全にする機能ではありません。 Pi に対して「このツールは途中で止まったら再実行してよい」と宣言するだけです。副作用が本当に冪等か、同じリクエストを2回受けても外部 API が重複処理しないかは、ツールの実装側が保証しなければなりません。\nこの記事は「Cloudflare AgentsがPi 1.4に対応したので、Agentの中断・復旧・永続化を検証する」の登壇内容に、発表で話しきれなかった検証手順・実測値・失敗した測定を足したものです。対象は Cloudflare Agents と Pi Durable を使って、外部 API やデータベースを操作する人です。\n\n---\n\n1. 「Pi 1.4 対応」の4項目を分解する\n\n2026年10月22日、Cloudflare は Agents SDK の Pi 1.4 対応を発表しました。Changelog には次の4項目が並んでいます。\n・Hibernation\n・Parked Tasks\n・Storage Error Recovery\n・Model Stream Retry\n\n最初は、4つとも Pi 1.4 の新機能だと思いました。しかし、配布物と変更履歴を追うと、出どころは2層に分かれていました。\n\n| Changelog の項目 | 実際の変更元 |\n| --- | --- |\n| Hibernation | Pi 1.4 の sleeping タスクを Agents SDK が配線 |\n| Parked Tasks | Pi 1.4 の機能を Agents SDK が公開 |\n| Storage Error Recovery | Agents SDK 側の修正。Pi のバージョンとは別 |\n| Model Stream Retry | Agents SDK 側の修正。Pi 1.3 でも成立 |\n\n特に Model Stream Retry の PR には、Pi 1.3.0 と Pi main の両方で判定を確認したと書かれていました。つまり、Storage Error Recovery と Model Stream Retry を Pi 1.3 と 1.4 で比較するのは軸が違います。比較すべきなのは agents@0.29.0 と agents@0.30.x です。\n\nベンダーの Changelog は、利用者にとって分かりやすい単位で変更をまとめています。一方、障害が起きたときに調べるには、どのパッケージのどの層が責任を持つかを分ける必要があります。\n\n2. Pi、PiHarness、Lifecycleの役割\n\n今回の構成には3つの層があります。\n\n| 層 | 担当 |\n| --- | --- |\n| Pi Durable | Agent の実行ループ、タスク、チェックポイント、replay |\n| PiHarness | Pi に Durable Object の SQLite と起動処理を接続 |\n| Lifecycle | Durable Object 上で長時間の仕事を実行し、必要なときに起こす |\n\nPi Durable は Cloudflare のパッケージではありません。@earendil-works/pi-durable として提供され、Agents SDK 側の PiHarness が Durable Object に組み込みます。\n\nここで重要なのは、保存と再開が別の機能だということです。\n・会話履歴やタスクの保存先は、pi で始まる SQLite テーブル\n・眠っているタスクを再開するのは、Lifecycle の Wake ジョブと Durable Object Alarm\n\n保存できていても、起こす仕組みがなければ再開しません。逆に、再開できてもチェックポイントがなければ、どこから続けるか分かりません。今回の検証では、この2つを混ぜないようにしました。\n\nPi Durable の設計記事には、次のようにあります。\nevery step of a run is a task that stores a checkpoint before it moves on.\n\nこのチェックポイントが、再起動後に「完了済みのタスクをもう一度実行しない」ための基礎になります。\n\n3. まず、観測そのものを永続化する\n\n障害復旧を測るとき、最初に作るべきなのは実験対象ではなく記録機構です。Durable Object の書き込みは、呼び出した瞬間にすべてがディスクへ確定するわけではありません。\n\n検証用のレコーダは、イベントを SQLite に書いたあと、通常は ctx.storage.sync() を呼ぶようにしました。直後に ctx.abort() を呼び、再起動後にイベントが残っているかを比較します。\n\n| 記録の仕方 | 再起動 | 再起動後に残った行数 |\n| --- | --- | ---: |\n| sync() あり | した | 1 |\n| sync() なし | した | 0 |\n\nどちらもコンストラクタで発行したインスタンス ID が変わっていました。本当に同じインスタンスが動き続けたのではなく、再生成後のインスタンスが SQLite を読んでいます。\n\nctx.abort() は通常の throw とは違います。アプリケーションコードでは catch できず、Durable Object を即座にリセットします。障害注入に通常の例外を使うと、Agent の復旧ではなく「同じインスタンスのエラー処理」を測ってしまいます。\n\nこの土台を確認してから、以降のイベントはすべて sync() ありで記録しました。ログに残らなかった観測を、復旧の証拠には使っていません。\n\n4. 会話履歴とタスクは再起動を越えて残る\n\nツールを1回実行する Agent を動かし、処理が完了したあとに ctx.abort() で Durable Object を落としました。再起動後に transcript とイベントを読みます。\n\n| 観測 | 再起動前 | 再起動後 |\n| --- | ---: | ---: |\n| インスタンス識別子 | — | 変化した |\n| transcript のエントリ数 | 5 | 5 |\n| ツール実行開始 | 1 | 1 |\n| 副作用 | 1 | 1 |\n\n完了済みのタスクは二重実行されませんでした。同じ operationId を使った submit も、1回目は accepted: true、2回目は accepted: false になりました。異なる ID を使うと accepted: true になるため、submit 全体が壊れたわけではありません。\n\nここまでは、Pi Durable がチェックポイントと submit の識別子を使って、完了済みの仕事を保護している結果です。\n\n5. クライアントが切れても、Agentは動き続ける\n\n次に、モデルのリトライで処理時間を伸ばし、途中で WebSocket を切断しました。クライアントがいなくなったあとも実行が続くかを確認します。\n\n結果は、最終的に done になりました。モデル呼び出しは「失敗2回、成功1回」の3回です。切断前後でインスタンス IDは変わっていません。\n\nこれは「落ちて復旧した」のではありません。Agent の実行がクライアント接続に依存していなかったということです。\n\n再接続後は snapshot から現在の状態を組み立て直せました。ただし、切断中に流れたイベントをカーソルで途中から再生できるわけではありません。イベントストリームは状態を追うためのものではありますが、履歴ストリームの代わりではありません。\n\n6. Parked Tasksはクラッシュループを止める\n\n同じ場所で何度も ctx.abort() を発生させ、restartLimit を2に下げて測りました。\n\n| 落とし方 | 障害発火 | インスタンス生成 | pending() | 次の Alarm |\n| --- | ---: | ---: | --- | --- |\n| ctx.abort() | 2 | 2 | parked | なし |\n| 通常の例外 | 1 | 0 | 空 | なし |\n\n通常の例外は Durable Object をリセットしないため、再起動回数には入りません。Parked に到達するには、実際に再起動される障害が必要です。\n\nParked になったタスクは、放置しても Durable Object を起こし続けません。手動では2つの抜け方があります。\n\n| 操作 | 戻り値 | wait() |\n| --- | --- | --- |\n| session.retry() | true | done |\n| session.abort() | ok | unanswered / aborted |\n\nretry() はやり直す操作、abort() は放棄する操作です。クラッシュループを止めるだけでなく、運用者が判断して再開か放棄かを選べる設計になっています。\n\nなお、ツールが api.output() で進捗を8回出しても、再起動カウントは戻りませんでした。Pi が進捗として扱うのは、ツールの出力ではなく、タスクが次の状態をコミットしたことです。まだ完了していない1つのツールが出力を吐き続けても、クラッシュループの上限はリセットされません。\n\n7. Storage Error Recoveryは「次の操作」から効く\n\nStorage Error Recovery は、ストレージエラーが起きたあとに Pi を開き直せる機能です。ここでは Storage を Proxy で包み、次の2種類のエラーを注入しました。\n・commit() などから任意のエラーを返す\n・読み取りから StorageRequestError を返す\n\nどちらも、現在進行中の呼び出しはエラーになりました。しかし、次の submit() は成功し、最終的に done になりました。致命的な Storage エラーでは factory の実行回数が1から2に増えましたが、Durable Object 自体のインスタンス IDは変わっていません。\n\nつまり、これは Durable Object のクラッシュ復旧ではありません。PiHarness が壊れた Pi をキャッシュから外し、次の操作または Wake ジョブの次のステップで Pi を開き直しています。\n\n進行中の呼び出しは救われません。 仕様にも、すでに実行中の呼び出しは SessionFailed で失敗するとあります。factory は何度実行されても正しく初期化できるように書く必要があります。\n\n8. replay: \"safe\" は副作用を守らない\n\nここが今回の中心です。4種類のツールを用意し、実行開始・副作用の確定・終了を別々に記録しました。副作用確定直後に Durable Object を落とし、再起動後の挙動を比較します。\n\n| ツール | replay | 冪等性 | 実行開始 | 副作用 | 完了 |\n| --- | --- | --- | ---: | ---: | ---: |\n| writerecord | safe | あり | 2 | 1 | 1 |\n| bumpunsafe | 未指定 | なし | 1 | 1 | 0 |\n| bumpsafeunguarded | safe | なし | 2 | 2 | 1 |\n| bumpsafeguarded | safe | あり | 2 | 1 | 1 |\n\nwriterecord は同じ値を書き込むので、2回実行されても結果は変わりません。bumpsafeunguarded はカウンターを1増やすだけで、実行されるたびに結果が変わります。このツールに safe を付けると、Pi は宣言を信じて再実行し、副作用が2回確定しました。\n\n一方、bumpunsafe は自動再実行されません。副作用確定後に落としたケースでは、副作用は1回だけ残りましたが、ツールは完了していません。Agent は中断されたツール結果をモデルへ渡して run を決着させます。\n\n中断されたツールの transcript は、専用のエントリになるわけではありません。通常と同じ pi.tool-result ですが、内容が次のように変わります。\n\n [code] \n\nこのメッセージは、モデルに「部分的に実行されたかもしれない」と伝える平文です。その後にモデルが同じツールを呼び直すかどうかは、モデルの判断に委ねられます。今回の実モデルによる3試行では呼び直しませんでしたが、1モデル・1プロンプト・3試行だけなので一般化はしません。\n\nbumpsafeguarded には冪等キーを入れました。再実行自体は起きていますが、2回目はキーを見て副作用をスキップし、確定回数は1回に収まりました。\n\nここから分かることは明確です。safe の判断を間違えても Pi は警告しません。 外部 API、決済、メール送信、データベース更新などをツールに持たせるなら、safe の設定とは別に冪等キーや重複排除を実装する必要があります。\n\n9. Model Stream Retryはエラー文言で判定される\n\nModel Stream Retry は、途切れたモデルストリームを一時的なエラーとして扱い、ターン全体を再試行します。配布物を読むと、判定はエラー本文の正規表現でした。\n\n同じ回数だけ失敗させ、エラー文言だけを変えました。\n\n| エラー文言 | 結果 | モデル呼び出し |\n| --- | --- | ---: |\n| The stream ended before the model finished its answer. | unanswered | 1 |\n| The stream ended without the model finishing its answer. | done | 3 |\n| Model stream stalled: no data received for 60s. | unanswered | 1 |\n| Model stream timed out: no data received for 60s. | done | 3 |\n| insufficientquota: the account has no remaining credit. | unanswered | 1 |\n\n再試行対象の文言では「失敗2回、成功1回」の3回になりました。つまり、再試行は部分的なストリームの続きではなく、モデルリクエスト全体の作り直しです。\n\nbaseDelayMs を100秒に設定しても、待機時間の上限は約60秒でした。既定の maxAgentDelayMs が60,000ミリ秒だからです。設定値を大きくしたからといって、無制限に待つわけではありません。\n\n10. Hibernationは、待機中に別インスタンスで再開する\n\nHibernation の測定では、最初に alarm の時刻を比べました。しかし、ローカルの workerd では onWake の有無にかかわらず、alarm の秒数が一致しました。これは測定対象を間違えています。\n\nHibernation の本質は、alarm の時刻ではなく、待機中に Durable Object がメモリから退避できるかです。そこで実デプロイし、コンストラクタでインスタンス IDを記録して、リトライがどのインスタンスで走るかを見ました。\n\nonWake を渡した場合は、次のようになりました。\n\n [code] \n\nonWake を渡さない場合は、次のようになりました。\n\n [code] \n\n| onWake | リトライを走らせたインスタンス |\n| --- | --- |\n| 渡す | 別インスタンス |\n| 渡さない | 同じインスタンス |\n\nリトライ待機中は、測定のために一度もリクエストを送りませんでした。途中で触るとオブジェクトが起きてしまい、退避を観測できないからです。\n\n処理中の work と、リトライ待ちの sleep は別の状態です。work がある間は heartbeat Alarm が30秒ごとに再設定されます。一方、sleep 中は最初に起きるタスクの時刻が次の Alarm になります。この2つを混ぜると、Hibernation の測定結果を誤読します。\n\n11. agents@0.30.0 の不具合を再現する\n\n公式が案内した agents@0.30.0 で検証を始めようとしました。しかし、このバージョンには、別タスクが動いているとリトライ待機中のタスクが起きない既知の不具合があります。\n\n1つの Harness で、次の2本を並行させました。\n・セッションA: 60秒走るツールを実行する\n・セッションB: 再試行対象のエラーを返し、12秒の backoff に入る\n\n| | B単独 | 並行する work あり |\n| --- | ---: | ---: |\n| agents@0.30.1 | 12秒 | 12秒 |\n| agents@0.30.0 | 12秒 | 57秒 |\n\n0.30.0 では、B のリトライが A の完了まで止まっていました。0.30.1 では、A が動いていても B は予定どおり12秒後に再開します。\n\n原因は配布物の差分からも確認できます。0.30.0 は Pi が active かどうかだけを見ていました。0.30.1 では、sleep の期限 wake.at を次の待機期限に使い、期限に達したら pi.resume() を呼びます。\n\nこれは煽るための話ではありません。PiHarness が Beta と案内されていることの、具体的な例です。Pi 1.4 の Hibernation を検証するなら、agents@0.30.1 以降を使う必要があります。\n\n12. Pi 1.4に上げると、1.3には戻せない\n\nPi 1.4 は session storage の SQLite schema を更新するため、Pi 1.3 へロールバックできません。\n\n実際に Pi 1.4 で1ターン実行したあとの schema version は 2 でした。配布物のマイグレーション定義を比べると、次の差があります。\n\n| バージョン | マイグレーション |\n| --- | --- |\n| pi-durable@1.3.0 | version 1 のみ |\n| pi-durable@1.4.0 | version 1 と version 2 sleepingStatus |\n\nPi 1.3 のマイグレーションランナーは、対応していない新しい schema version を見つけるとエラーにします。追加された sleepingStatus は、Pi 1.4 の Hibernation を支える sleeping タスク状態そのものです。\n\nつまり、Durable Object を退避できるようになったことと、ロールバックできなくなったことは、別々の変更ではありません。同じ schema 変更の表と裏です。\n\nPi 1.4 と1.3を比較するときは、同じ Durable Object を使い回してはいけません。実験用の名前を分け、マイグレーションを一方向のものとして扱います。\n\n13. 測定をやり直して分かったこと\n\nこの検証では、最初の測定結果をそのまま記事にしませんでした。対照を組み直した結果、3つの主張を修正または保留にしています。\n\nWebSocketのイベント取りこぼし\n\n最初は、遅いイベントリスナーがイベントを取りこぼすように見えました。しかし、WebSocket を8秒で閉じていたことが原因でした。ドレイン時間を30秒に延ばすと、遅いリスナーでもイベント数は一致しました。\n\n進捗の定義\n\n自前カウンターの更新を Pi の進捗だと思い込んでいました。api.output() を8回呼ぶ対照に変えても、未完了のツールは Parked になりました。ツールの出力ではなく、タスクが状態をコミットしたかどうかが進捗です。\n\n19分のモデルストリーム\n\nWorker 内の faux Provider で約19.2分のストリームを流したところ、モデル呼び出し1回のまま完走しました。ただし、これは外部モデル API へのHTTP接続を19分維持した測定ではありません。公式の「15分を越えるリクエストは切断されることがある」という制約を否定する材料にはならないため、結論は保留にしました。\n\n障害復旧の検証では、「結果が出た」だけでは不十分です。そもそも障害が起きていなかった、観測側が先に接続を閉じた、という可能性を対照で潰す必要があります。\n\n14. まとめ\n\nCloudflare Agents と Pi 1.4 の復旧機構は、実際に動きました。会話履歴は再起動後に読み戻せ、完了済みタスクは二重実行されず、クラッシュループは Parked Tasks で止まり、リトライ待機中の Agent は Hibernation によって別インスタンスで再開できました。\n\nしかし、Pi が守っているのは Agent の実行状態です。あなたの外部副作用まで自動的に exactly-once にしてくれるわけではありません。\n\n実装時には、次の点を守る必要があります。\n・外部操作には冪等キーや重複排除を入れる\n・replay: \"safe\" は、2回実行しても安全だと自分で証明できるツールだけに付ける\n・unsafe にしても、確定済みの副作用が消えるわけではない\n・factory は Storage Error Recovery で何度も呼ばれる前提で書く\n・Hibernation を使うなら agents@0.30.1 以降を使う\n・Pi 1.4 に上げた Durable Object は、Pi 1.3 に戻せない\n\n最後に、検証から持ち帰る教訓を1つに絞るならこれです。\n\n「復旧した」と「重複せずに完了した」は、別の主張です。\n\n参考\n・Cloudflare Changelog — Agents SDK now supports the latest Pi 1.4 release — Pi 1.4 対応として発表された4項目\n・Cloudflare Docs — Pi — PiHarness、Recovery、Hibernation の公式ドキュメント\n・Cloudflare Docs — Pi Extensions — ツールの replay 設定と復旧時の扱い\n・agents CHANGELOG — 0.30.0 / 0.30.1 の変更\n・cloudflare/agents#2683 — onWake と並行タスクに関する既知の不具合\n・pi-durable CHANGELOG 1.4.0 — Pi 1.4 の sleeping タスクと schema migration\n・Pi Durable の設計記事 — チェックポイントとタスク実行の設計",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6956d0a4abc67c53",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7147073791348602,
+      "popularityPercentile": 0.15776081424936386,
+      "matchedTopics": [
+        "クラウド / 本番環境構築",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 62,
+      "titleJa": null,
+      "oneLiner": "Cloudflare Agentsの中断復旧を検証し、処理の再実行で外部への副作用が重複する条件を明らかにした。",
+      "takeaways": [
+        "中断した処理は最後の保存地点から再開できた。",
+        "外部操作は同じ処理が2回起きる場合がある。",
+        "agents 0.30.0には処理を起こせない不具合がある。"
+      ],
+      "keywords": [
+        "Cloudflare Agents",
+        "Pi 1.4",
+        "Durable Objects",
+        "agents@0.30.0",
+        "agents@0.30.1",
+        "Hibernation"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "readingMinutes": 10,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AI業界動向：検索収益への影響とオープンソースモデルの進化",
+      "url": "https://qiita.com/maskot1977/items/5bfe64f680ac56f95f8c",
+      "publishedAt": "2026-11-01T14:30:03.000Z",
+      "author": "Ikemen Mas Kot",
+      "authorDetail": {
+        "name": "Ikemen Mas Kot",
+        "handle": "@maskot1977",
+        "url": "https://qiita.com/maskot1977",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/211162/9ce8eece955027de889d5120d4068bd49366857f/x_large.png?1732553025",
+        "bio": "大学や大学院等で機械学習やプログラミングの講義をしております。ご興味のある方はお声がけください。",
+        "followers": 760,
+        "posts": 1036,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/HandsomeKinoko"
+          }
+        ]
+      },
+      "tags": [
+        "AI"
+      ],
+      "snippet": "https://lspace.beehiiv.com/p/ainews-google-admits-ai-mode-hurts-search-revenue-15-500b-drop-worst-since-2004-ipo-ai-bear-market-c?bhlid=c827bf28bb75550fc6e63a8b2b9a0138beaac0bb https://latent.space/p/arca/?utmsource=latent.space&utmmedium=ainews&utmcampaign=lsbeehiiv&bhlid=42f15dd95f7a1e46f8a34d68252ae71c210f6d91 提供されたソース資料は、AI技術の急速な進化、検索ビジネスモデルの構造変化、フロンティアモデルおよびオープンウェイトモデルの競争、実業務におけるAIエージェントの安全設計…",
+      "body": "https://lspace.beehiiv.com/p/ainews-google-admits-ai-mode-hurts-search-revenue-15-500b-drop-worst-since-2004-ipo-ai-bear-market-c?bhlid=c827bf28bb75550fc6e63a8b2b9a0138beaac0bb\n\nhttps://latent.space/p/arca/?utmsource=latent.space&utmmedium=ainews&utmcampaign=lsbeehiiv&bhlid=42f15dd95f7a1e46f8a34d68252ae71c210f6d91\n\n提供されたソース資料は、AI技術の急速な進化、検索ビジネスモデルの構造変化、フロンティアモデルおよびオープンウェイトモデルの競争、実業務におけるAIエージェントの安全設計、そしてセキュリティやガバナンスを巡る多角的な動向を網羅的に描出しています `。\n\nソースが示す「AI技術動向とニュース」の主要な議論を、4つのテーマに分けて詳細に解説します。\n\n---\n\n1. 検索ビジネスモデルの構造的危機と巨額の資本投下\n\nAI検索の台頭は、従来の検索広告を主収益源としてきたハイパースケーラーの経済基盤を揺さぶり始めています。\n・GoogleのAI Modeと検索収益のカニバリゼーション（共食い） \n GoogleはAI Overviews（AI Mode）の検索クエリ急増に伴いマネタイズ率が低下したことを認め、検索収益の減少（時価総額5,000億ドルの下落、2004年のIPO以来最悪の落ち込み）を引き起こしたと報じられています 。AIによる要約（Overview）がユーザーの疑問を即座に解決するため、下層の元ソースページを閲覧する必要性が薄れ、従来の検索広告収益と相反する構造的緊張が生じています 。この影響で、Redditなどのサードパーティへの検索参照トラフィックが週100万件以上減少するなどの二次的影響も出ています 。\n・投資対効果（ROI）を無視した資本競争 \n Googleのラリー・ペイジが「AIレースに負けるくらいなら破産しても構わない」と社内で発言したと伝えられるように、短期的なROIではなく、超知能（AGI）や生存戦略を賭けた巨額の設備投資（Capex）競争が続いています 。\n・主要AI企業の財務とIPO動向 \n AnthropicはNasdaqへの上場に向けたS-1（有価証券報告書）を提出し、2026年上半期の売上高が163億ドルに達したことを示しました 。また、Opusなどの計算資源負荷に対するサブスクリプション価格の妥当性やAPI利益率（約92%）に関する財務構造も分析されています 。一方、OpenAIは企業向けデータ管理を強化した「OpenAI Private Intelligence」を展開し、高評価額での資金調達を進めています 。半導体市場では、AI需要によるDRAM/メモリ価格の高騰がPC市場の縮小を引き起こしている点も指摘されています 。\n\n---\n\n2. フロンティアモデルとオープンウェイト・量子化技術の進化\n\nモデル開発の最前線では、閉鎖型（Proprietary）モデルの性能更新と、オープンウェイト（Open-Weight）モデルの急速な大規模化・高効率化が同時に進んでいます。\n・最先端フロンティアモデルの攻防 \n Google DeepMindの「Gemini 4 Carbon」がText Arenaで1位、AA-Omniscience 1.1ベンチマークでトップを獲得したほか 、リアルタイムシミュレーションを生成する世界モデル「Genie 4」などが登場しています 。Anthropicは「Claude Ultra」等の上位プランで5時間制限を撤廃し、大容量処理への対応を強めています 。\n・オープンウェイトモデルの巨大化と運用の壁 \n Mistralが発表した「Mistral Large 4（“Le Chonk”）」は、1兆（1T）パラメータ（アクティブ52B）の巨大MoE（Mixture of Experts）モデルであり、100万トークンのコンテキストに対応しています 。しかし、ローカル推論に必要なVRAM消費量が膨大であるため、個人・商用での現実的な配備可能性を巡りコミュニティ内で議論が起きています 。また、Alibaba Cloudも「Qwen4」シリーズの公開を予告しています 。\n・量子化（Quantization）とローカル推論の最適化 \n Unslothによる「DeepSeek-V4.1-Flash」のDynamic GGUF量子化など、低ビット（1-bit〜2-bit）運用時の精度維持技術が活発に検証されています 。量子化されたモデルは精度低下を補うために思考チェーン（Reasoning Trace）を長く出力する傾向があることなども報告されています 。\n・ドメイン特化モデルと分散推論ツール \n Microsoftの4Bパラメータ・OS操作エージェント 、音声対話に特化した「Phonic-1」 、リバースエンジニアリング特化型「Swift 1.5 Flash Next Heretic v2」 など、特定領域に尖らせたモデル開発が進んでいます。さらに、WebGPUとWebRTCを利用してブラウザ間でGPUメモリを分散し、27Bモデルを協調推論させる「ClusterChat」のような新しい軽量分散環境も登場しています 。\n\n---\n\n3. 産業現場におけるAIエージェントの安全設計（Arcaの実践例）\n\nAIエージェントを実際のビジネスプロセスに組み込む際の実践的なアプローチとして、AIネイティブな資産管理会社「Arca」のアーキテクチャが詳しく紹介されています 。\n・「エージェントが人間をプロンプトする」設計 \n 金融業務は複数日に及ぶ（最大10日間）長期・段階的なタスクであり、複数の意思決定点や引き継ぎが存在します 。Arcaでは、AIが背景分析やタスク追跡を行い、人間に次のアクションを促す（Agents prompt people more than people prompt agents）という協働パターンを構築しています 。\n・決定論的（Deterministic）な安全境界 \n AIエージェントの役割は「分析と解決策の提案」に厳しく限定されています 。実際の資産取引（トレード）や資金移動などのリスクを伴う決定権は、人間のアドバイザーのみが保持する決定論的なガードレールが敷かれています 。\n・カスタムハーネスと永続的メモリー \n 単一のモデルに依存せず、独自ベンチマークに基づいてタスクごとに最適モデル（ClaudeやOpenAI等）へ動的ルーティングする独自ハーネス（Harness）を開発 。さらに、エージェントが生成したコードをバックエンドに渡す前に厳格なフォーマットへ変換・検証・フィルタリングすることで、プロンプトインジェクションやセキュリティリスクを遮断しています 。\n\n---\n\n4. AIの安全性・セキュリティ・ガバナンスと権利問題\n\nAIの拡大に伴い、セキュリティ上の脆弱性やプラットフォームによる統制を巡る議論が激化しています。\n・レッドチーミングと事前学習バックドアリスク \n Anthropicは数千のClaudeエージェントを用いて監視回避コードを生成させる自動レッドチーム実験を実施 。研究面では、事前学習データにわずか0.0005%〜0.1%の毒性データを混入させるだけで、SFTやRL（強化学習）をかいくぐりCLIエージェントに遠隔コード実行（RCE）のバックドアを植え付けられる脆弱性が指摘されています 。\n・サプライチェーン攻撃とプロキシ防衛 \n Cursorのマーケットプレイスにおいて、Claude Codeを装った悪意ある偽拡張機能が検出・削除される事件が発生しました 。防衛側としては、ツール呼び出し前に資格情報漏洩やサンドボックス脱出を検出するHugging Faceの「safeagents」プロキシなどが開発されています 。\n・プラットフォーム統制とオープンソース側の反発 \n AnthropicはClaude Codeにおいて既存ゲームの複製・クローン作成を遮断するサーバー側フラグ（tenguheronbrook）を導入し、IP（知的財産）リスクへの警戒を強めています 。また、Claudeが生成・編集したテキストに不可視ウォーターマークを導入する方針に対しては、検証手段の不均衡や過去の論文がAI作成と誤判定される懸念が議論されています 。こうした閉鎖型APIの利用規約や統制強化に対し、利用者がオープンウェイトモデルのローカル運用へ移行する動機となっている点も浮き彫りになっています 。\n\n---\n\nまとめ\n\nこれらのソースが示しているのは、「AIモデルの性能向上」という単一の軸にとどまらず、検索広告ビジネスの崩壊と再構築、巨額資本の投資レース、オープンモデルの量子化・高効率化、そして実業務で不可欠となる高度な安全性・ガバナンス設計」が複雑に絡み合った現代AI業界の全体像です `。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "e828da0dbb941440",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6869338422391859,
+      "popularityPercentile": 0.16030534351145037,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 55,
+      "titleJa": null,
+      "oneLiner": "AI検索による広告収益の変化と、公開モデルやAIエージェントの安全設計を整理した。",
+      "takeaways": [
+        "AI検索が従来の検索広告を圧迫し始めている。",
+        "Googleでは時価総額5000億ドルの下落が報じられた。",
+        "公開モデルの競争と安全な業務利用が進んでいる。"
+      ],
+      "keywords": [
+        "Google AI Mode",
+        "AI検索",
+        "検索広告",
+        "オープンウェイトモデル",
+        "AIエージェント",
+        "AIガバナンス"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 15,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "eliasbiondo/antirion — 🕷️ The fastest open-source AI Gateway and LLM Gateway — one binary with built-in console to route, secure, budget and observe every LLM call across OpenAI, Anthropic, Gemini, Bedrock and more.",
+      "url": "https://github.com/eliasbiondo/antirion",
+      "publishedAt": "2026-10-17T21:43:39.000Z",
+      "author": "eliasbiondo",
+      "authorDetail": {
+        "name": "eliasbiondo",
+        "url": "https://github.com/eliasbiondo",
+        "avatarUrl": "https://github.com/eliasbiondo.png?size=120",
+        "bio": "🕷️ The fastest open-source AI Gateway and LLM Gateway — one binary with built-in console to route, secure, budget and observe every LLM call across OpenAI, Anthropic, Gemini, Bedrock and more."
+      },
+      "tags": [
+        "Rust",
+        "a2a",
+        "ai-gateway",
+        "anthropic",
+        "api-gateway",
+        "bifrost-alternative",
+        "guardrails",
+        "litellm-alternative"
+      ],
+      "snippet": "🕷️ The fastest open-source AI Gateway and LLM Gateway — one binary with built-in console to route, secure, budget and observe every LLM call across OpenAI, Anthropic, Gemini, Bedrock and more.",
+      "metrics": {
+        "stars": 605
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "15700fb1a724b8fa",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.3490476190476191,
+      "popularityPercentile": 0.07142857142857142,
+      "matchedTopics": [
+        "AIエージェント構築",
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "antirion — 複数のAIサービスを束ねる高速ゲートウェイ",
+      "oneLiner": "antirionは複数のAIサービスへの呼び出しを一つの実行ファイルで管理するOSSゲートウェイです。",
+      "takeaways": [
+        "複数のAIサービスへの接続先を一つにまとめられる。",
+        "利用料の上限や安全策をまとめて管理できる。",
+        "すべての呼び出しを記録して利用状況を見渡せる。"
+      ],
+      "keywords": [
+        "antirion",
+        "Rust",
+        "AI Gateway",
+        "LLM Gateway",
+        "OpenAI",
+        "Anthropic"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 2,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": "# 試すこと\neliasbiondo/antirion — 🕷️ The fastest open-source AI Gateway and LLM Gateway — one binary with built-in console to route, secure, budget and observe every LLM call across OpenAI, Anthropic, Gemini, Bedrock and more. を動かして、README の最初の出力まで到達する\nhttps://github.com/eliasbiondo/antirion\n\n# 手順\n1. git clone --depth 1 https://github.com/eliasbiondo/antirion\n2. cd antirion && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "ZiChuanLan/agent-purge — One persona, many coding agents. Replace or inject system prompts across codex, claude, opencode, grok, omp, hermes, pi, zcode - with a local web console.",
+      "url": "https://github.com/ZiChuanLan/agent-purge",
+      "publishedAt": "2026-10-25T06:06:02.000Z",
+      "author": "ZiChuanLan",
+      "authorDetail": {
+        "name": "ZiChuanLan",
+        "url": "https://github.com/ZiChuanLan",
+        "avatarUrl": "https://github.com/ZiChuanLan.png?size=120",
+        "bio": "One persona, many coding agents. Replace or inject system prompts across codex, claude, opencode, grok, omp, hermes, pi, zcode - with a local web console."
+      },
+      "tags": [
+        "JavaScript",
+        "claude-code",
+        "codex",
+        "coding-agent",
+        "deepseek-harness",
+        "harness",
+        "omp",
+        "opencode"
+      ],
+      "snippet": "One persona, many coding agents. Replace or inject system prompts across codex, claude, opencode, grok, omp, hermes, pi, zcode - with a local web console.",
+      "metrics": {
+        "stars": 961
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "f88a168984b678a4",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.820357142857143,
+      "popularityPercentile": 0.4107142857142857,
+      "matchedTopics": [
+        "AI支援開発・品質",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": "agent-purge — 複数のAIコーディングツールを同じ人格で動かす管理画面",
+      "oneLiner": "agent-purgeは複数のAIコーディングツールの指示文を一括で差し替えるローカル管理ツールです。",
+      "takeaways": [
+        "複数のAIコーディングツールに同じ指示を配れる。",
+        "ツールごとの指示文をまとめて差し替えられる。",
+        "手元の画面から設定を管理できる。"
+      ],
+      "keywords": [
+        "agent-purge",
+        "Claude Code",
+        "Codex",
+        "OpenCode",
+        "coding agent",
+        "system prompt"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 2,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nZiChuanLan/agent-purge — One persona, many coding agents. Replace or inject system prompts across codex, claude, opencode, grok, omp, hermes, pi, zcode - with a local web console. を動かして、README の最初の出力まで到達する\nhttps://github.com/ZiChuanLan/agent-purge\n\n# 手順\n1. git clone --depth 1 https://github.com/ZiChuanLan/agent-purge\n2. cd agent-purge && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "elvarofficial/teardown — A Claude Code skill that turns any machine into a 3D simulator you can take apart",
+      "url": "https://github.com/elvarofficial/teardown",
+      "publishedAt": "2026-10-30T09:29:01.000Z",
+      "author": "elvarofficial",
+      "authorDetail": {
+        "name": "elvarofficial",
+        "url": "https://github.com/elvarofficial",
+        "avatarUrl": "https://github.com/elvarofficial.png?size=120",
+        "bio": "A Claude Code skill that turns any machine into a 3D simulator you can take apart"
+      },
+      "tags": [
+        "JavaScript"
+      ],
+      "snippet": "A Claude Code skill that turns any machine into a 3D simulator you can take apart",
+      "metrics": {
+        "stars": 891
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "dbabd989a617eb16",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.6321428571428572,
+      "popularityPercentile": 0.7142857142857143,
+      "matchedTopics": [
+        "AI支援開発・品質"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "teardown — 機械を分解できる3Dシミュレーターを作るClaude Code拡張",
+      "oneLiner": "teardownはClaude Codeを使って機械を分解できる3Dシミュレーターへ変える拡張機能です。",
+      "takeaways": [
+        "機械の内部を立体的に見られる画面を作れる。",
+        "部品を取り外して構造を確かめられる。",
+        "Claude Codeからシミュレーター作成を進められる。"
+      ],
+      "keywords": [
+        "teardown",
+        "Claude Code",
+        "3D simulator",
+        "agent skill",
+        "JavaScript"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nelvarofficial/teardown — A Claude Code skill that turns any machine into a 3D simulator you can take apart を動かして、README の最初の出力まで到達する\nhttps://github.com/elvarofficial/teardown\n\n# 手順\n1. git clone --depth 1 https://github.com/elvarofficial/teardown\n2. cd teardown && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "【GitHub 1万Star】スマートTVの広告とプリインを一掃！Wi-Fi経由でApple TV風にする話題のOSS「CleanYourTV」の仕組みを解説",
+      "url": "https://qiita.com/dayu510/items/e799bcb685e5ef4bda42",
+      "publishedAt": "2026-11-01T07:22:18.000Z",
+      "author": "dayu510",
+      "authorDetail": {
+        "name": "dayu510",
+        "handle": "@dayu510",
+        "url": "https://qiita.com/dayu510",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocJ4sMyNmnTxJpk5-hdzNB6i7dhhQEWKazGkBc6GcAkNHxrdBA=s96-c",
+        "followers": 0,
+        "posts": 3,
+        "links": []
+      },
+      "tags": [
+        "AndroidGoogleTVClaudeAIOSS"
+      ],
+      "snippet": "はじめに：テレビは誰のものか？ 最近のスマートテレビ（Android TV / Google TV）を使っていて、こんなストレスを感じたことはないでしょうか？ 「大画面テレビを買ったはずなのに、電源をつけると画面の半分がスポンサー広告と不要なおすすめ動画で埋め尽くされている…」 「バックグラウンドで動くメーカー独自のテレメトリ（情報収集）のせいで、年々リモコンの反応がもっさり重くなる…」 そんな悩みを、海外のエンジニアが Claude Code などの AI コーディングアシスタント を駆使してスマートに解決して話題になっています。 それが、GitHub 公開わずか数日で 10,000+ Star を叩き出した超話題のオープンソースプロジェクト 「CleanYourTV」 です。 --- CleanYourTV とは？何ができるのか？ CleanYourTV は、Wi-Fi 経由で And…",
+      "body": "はじめに：テレビは誰のものか？\n\n最近のスマートテレビ（Android TV / Google TV）を使っていて、こんなストレスを感じたことはないでしょうか？\n「大画面テレビを買ったはずなのに、電源をつけると画面の半分がスポンサー広告と不要なおすすめ動画で埋め尽くされている…」 \n「バックグラウンドで動くメーカー独自のテレメトリ（情報収集）のせいで、年々リモコンの反応がもっさり重くなる…」\n\nそんな悩みを、海外のエンジニアが Claude Code などの AI コーディングアシスタント を駆使してスマートに解決して話題になっています。\n\nそれが、GitHub 公開わずか数日で 10,000+ Star を叩き出した超話題のオープンソースプロジェクト 「CleanYourTV」 です。\n\n \n\n---\n\nCleanYourTV とは？何ができるのか？\n\nCleanYourTV は、Wi-Fi 経由で Android TV / Google TV に接続し、広告・プリインストールされた不要アプリ・追跡サービスを丸ごと無効化 した上で、Apple TV 風の美しい極限ミニマルランチャー に置き換えてくれるツールです。\n・ルート化（root）一切不要\n・物理的な配線や分解一切不要（Wi-Fi と ADB デバッグだけで完結）\n・不具合が起きても 1 コマンドで 100% 元通りに復元可能\n\n---\n\n🛠️ 動作の仕組み：なぜ安全なのか？\n\n多くの人が「テレビのシステムをいじるのは文鎮化（故障）が怖い」と感じるはずです。CleanYourTV が支持されている最大の理由は、その安全設計 にあります。\n\n1. 事前バックアップ： \n スクリプト実行時、テレビ内にインストールされている全パッケージの状態、デフォルトのホーム画面、アニメーション倍率などをローカルに記録します。\n2. 削除ではなく「無効化」： \n ファイルを無理やり消すのではなく、Android 標準の pm disable-user コマンドを使って該当の広告やテレメトリを「眠らせる」だけです。\n3. いつでも復元可能： \n 万が一元に戻したくなったら、同梱の restore.sh を叩くだけで、数秒で出荷時の状態に戻ります。\n\n---\n\n✨ 魅力的な機能ハイライト\n\n1. Apple TV 風の極限ミニマルホーム\n漆黒の背景に、お気に入りの 4〜6 個のアプリだけが並ぶ丸角 Dock。リモコンの「下」を押すと、グリッド状に他のアプリが滑らかに展開します。\n\n2. 1GB メモリの旧型テレビでも「爆速」\nこのランチャーは Java ネイティブで極限まで軽量化されています。重い動画プレビューやバックグラウンド通信を一切行わないため、「テレビを買い替えたのかと思うほどリモコン操作がサクサクになった」 と話題です。\n\n3. 多彩なテーマと OLED 焼き付き防止スクリーンセーバー\n気分に合わせて Aurora（オーロラ）などのテーマに変更可能。また、細いフォントがゆっくり漂うスクリーンセーバーも内蔵されており、有機ELテレビの焼き付き防止にも配慮されています。\n\n \n \n\n---\n\n📺 対応デバイス\n\nAndroid TV / Google TV OS を搭載した幅広いスマートテレビ・ストリーミング端末に対応しています：\n・SONY BRAVIA（ブラビア）\n・TCL スマートテレビ\n・Chromecast with Google TV\n・Xiaomi TV\n・SHARP AQUOS（Android TV 搭載モデル）\n・Anker Nebula 等のスマートプロジェクター\n\n※ 詳しいセットアップ手順や Claude Code との連携用 PROMPT.md は、公式リポジトリに丁寧に記載されています。\n\n👉 GitHub リポジトリ: https://github.com/Gathin23/cleanyourtv\n\n---\n\n💡 おわりに ＆ 個人開発の紹介\n\n海外のオープンソースコミュニティでは、このように「日常のちょっとした不満を AI とコードで鮮やかに解決する」素晴らしいプロジェクトが日々生まれています。\n\n私自身も、日々の作業ストレスを減らすために、Mac画面上の英語エラーや海外ドキュメントをショートカット1発（0.3秒）でサクッと翻訳できるツール「Zipp」を個人開発しています。\n\n今回紹介したような海外の最新 GitHub リポジトリや英語ドキュメントを読むときにも、画面を囲むだけで爆速で日本語化できるので重宝しています。\n\n開発の進捗や海外の面白いOSSの紹介は、X（Twitter: @dayu510）で定期的に発信しています。エンジニア仲間としてぜひ気軽に繋がっていただけると嬉しいです！\n\n---\nこの記事が参考になったら、ぜひ「LGTM」やストックをお願いします！",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "0cda506fd3f4cbe3",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.2547455470737914,
+      "popularityPercentile": 0.5139949109414759,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "CleanYourTVはAndroid TVやGoogle TVの広告と不要アプリを無線で無効化するOSSです。",
+      "takeaways": [
+        "CleanYourTVがテレビの広告表示を減らす。",
+        "不要な標準アプリや追跡機能も止められる。",
+        "配線や管理者権限なしで元に戻せる設計になっている。"
+      ],
+      "keywords": [
+        "CleanYourTV",
+        "Android TV",
+        "Google TV",
+        "ADB",
+        "Claude Code",
+        "OSS"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "yzlin286-wq/Deepscient — 让 AI 与人类一起攻克真正的科学难题 —— 12 阶段 55 门 · 36 工具 · 98 条技能 · 证据链与可复现",
+      "url": "https://github.com/yzlin286-wq/Deepscient",
+      "publishedAt": "2026-10-21T07:44:10.000Z",
+      "author": "yzlin286-wq",
+      "authorDetail": {
+        "name": "yzlin286-wq",
+        "url": "https://github.com/yzlin286-wq",
+        "avatarUrl": "https://github.com/yzlin286-wq.png?size=120",
+        "bio": "让 AI 与人类一起攻克真正的科学难题 —— 12 阶段 55 门 · 36 工具 · 98 条技能 · 证据链与可复现"
+      },
+      "tags": [
+        "JavaScript",
+        "agent-skills",
+        "cordis",
+        "deepseek-harness",
+        "literature-review",
+        "mcp",
+        "nodejs",
+        "reproducibility"
+      ],
+      "snippet": "让 AI 与人类一起攻克真正的科学难题 —— 12 阶段 55 门 · 36 工具 · 98 条技能 · 证据链与可复现",
+      "metrics": {
+        "stars": 628
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "11d553315c3ff1e3",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.3647619047619048,
+      "popularityPercentile": 0.14285714285714285,
+      "matchedTopics": [
+        "AIエージェント構築",
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "Deepscient — 科学研究を証拠と再現性で支援するAI基盤",
+      "oneLiner": "Deepscientは科学研究を12段階に分けてAIと人間が進めるためのOSS基盤です。",
+      "takeaways": [
+        "科学の課題を12段階の作業に分けて進める。",
+        "36個の道具と98個の技能を組み合わせて使う。",
+        "根拠を残して同じ結果を再現できる形にする。"
+      ],
+      "keywords": [
+        "Deepscient",
+        "DeepSeek Harness",
+        "MCP",
+        "literature review",
+        "reproducibility",
+        "agent skills"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": "# 試すこと\nyzlin286-wq/Deepscient — 让 AI 与人类一起攻克真正的科学难题 —— 12 阶段 55 门 · 36 工具 · 98 条技能 · 证据链与可复现 を動かして、README の最初の出力まで到達する\nhttps://github.com/yzlin286-wq/Deepscient\n\n# 手順\n1. git clone --depth 1 https://github.com/yzlin286-wq/Deepscient\n2. cd Deepscient && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "konlu/story-studio — 从选题到剪映草稿的一站式 AI 短视频内容创作 Agent Skill",
+      "url": "https://github.com/konlu/story-studio",
+      "publishedAt": "2026-10-26T09:20:06.000Z",
+      "author": "konlu",
+      "authorDetail": {
+        "name": "konlu",
+        "url": "https://github.com/konlu",
+        "avatarUrl": "https://github.com/konlu.png?size=120",
+        "bio": "从选题到剪映草稿的一站式 AI 短视频内容创作 Agent Skill"
+      },
+      "tags": [
+        "Python"
+      ],
+      "snippet": "从选题到剪映草稿的一站式 AI 短视频内容创作 Agent Skill",
+      "metrics": {
+        "stars": 624
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "b1e90ac88597da4e",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.4851190476190476,
+      "popularityPercentile": 0.30357142857142855,
+      "matchedTopics": [
+        "AIエージェント構築",
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 75,
+      "titleJa": "story-studio — 短編動画の企画から編集素材まで作るAIエージェント",
+      "oneLiner": "story-studioは短編動画の企画から剪映の編集用下書きまでを一貫して作るAIエージェントです。",
+      "takeaways": [
+        "動画の題材探しから制作の流れを一つにまとめる。",
+        "企画内容を短編動画の形へ変換できる。",
+        "剪映で編集を始められる下書きまで作成する。"
+      ],
+      "keywords": [
+        "story-studio",
+        "AI Agent Skill",
+        "Python",
+        "剪映",
+        "短編動画",
+        "動画制作"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nkonlu/story-studio — 从选题到剪映草稿的一站式 AI 短视频内容创作 Agent Skill を動かして、README の最初の出力まで到達する\nhttps://github.com/konlu/story-studio\n\n# 手順\n1. git clone --depth 1 https://github.com/konlu/story-studio\n2. cd story-studio && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    }
+  ],
+  "stats": {
+    "collected": 722,
+    "afterDedupe": 679,
+    "afterPreScore": 130,
+    "ranked": 130,
+    "bySource": {
+      "qiita": 394,
+      "zenn": 144,
+      "hatena": 24,
+      "hackernews": 32,
+      "devto": 8,
+      "github_repo": 92,
+      "rss": 8,
+      "changelog": 1,
+      "x": 19
+    },
+    "byLane": {
+      "security": 9,
+      "know": 8,
+      "build": 8
+    },
+    "estimatedReadMinutes": 49
+  },
+  "topics": [
+    "クラウド / 本番環境構築",
+    "AI支援開発・品質",
+    "セキュアな開発",
+    "AIプロダクトのUI/UX",
+    "AIエージェント構築",
+    "フロントエンドの新技術",
+    "FDE / 業務改革",
+    "成果の測り方・評価",
+    "データ基盤",
+    "言語 / ランタイム"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2657,
+        "outputTokens": 234,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3157,
+        "estimatedCostUsd": 0.0008122
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3423,
+        "outputTokens": 532,
+        "cacheReadTokens": 0,
+        "elapsedMs": 7697,
+        "estimatedCostUsd": 0.001323
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2947,
+        "outputTokens": 1263,
+        "cacheReadTokens": 0,
+        "elapsedMs": 14765,
+        "estimatedCostUsd": 0.002105
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14719,
+        "outputTokens": 1669,
+        "cacheReadTokens": 3728,
+        "elapsedMs": 18512,
+        "estimatedCostUsd": 0.00502116
+      },
+      "score:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 10398,
+        "outputTokens": 966,
+        "cacheReadTokens": 1598,
+        "elapsedMs": 12545,
+        "estimatedCostUsd": 0.00327076
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 18186,
+        "outputTokens": 2077,
+        "cacheReadTokens": 3574,
+        "elapsedMs": 24725,
+        "estimatedCostUsd": 0.0062010799999999994
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 11648,
+        "outputTokens": 3028,
+        "cacheReadTokens": 8057,
+        "elapsedMs": 28899,
+        "estimatedCostUsd": 0.006124340000000001
+      },
+      "describe:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 14337,
+        "outputTokens": 4528,
+        "cacheReadTokens": 8588,
+        "elapsedMs": 46612,
+        "estimatedCostUsd": 0.00847276
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 12752,
+        "outputTokens": 3835,
+        "cacheReadTokens": 8064,
+        "elapsedMs": 35374,
+        "estimatedCostUsd": 0.0073136799999999995
+      },
+      "deep:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 20147,
+        "outputTokens": 8822,
+        "cacheReadTokens": 24824,
+        "elapsedMs": 75758,
+        "estimatedCostUsd": 0.015112279999999999
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13236,
+        "outputTokens": 3870,
+        "cacheReadTokens": 11987,
+        "elapsedMs": 33874,
+        "estimatedCostUsd": 0.007530940000000001
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 22463,
+        "outputTokens": 6045,
+        "cacheReadTokens": 15805,
+        "elapsedMs": 51870,
+        "estimatedCostUsd": 0.012062699999999999
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4135,
+        "outputTokens": 340,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4366,
+        "estimatedCostUsd": 0.001235
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5040,
+        "outputTokens": 350,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3728,
+        "estimatedCostUsd": 0.001428
+      }
+    },
+    "totalCostUsd": 0.078
+  },
+  "notes": []
+}

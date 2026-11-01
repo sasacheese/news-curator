@@ -14,8 +14,8 @@
   "emudhraca秘密鍵危殆化": {
     "label": "eMudhra CA 秘密鍵危殆化",
     "firstSeen": "2026-10-23",
-    "lastSeen": "2026-10-26",
-    "summary": "2026年10月17日、eMudhraの8件の中間CAで、P-384の秘密鍵に相当する整数が256未満という問題が報告されました。暗号方式の破綻ではなく、HSM内で弱い鍵を生成し、似た鍵ラベルのためCSRに誤使用したことが原因です。秘密鍵を復元できると、本物のドメイン名を持つ証明書を発行でき、DNS改ざんや経路操作と組み合わせてTLSの接続先認証を突破できます。ChromeやFirefoxは拒否情報を配信していますが、Node.js、Java、Python、curl、Electron、コンテナなどは独自の証明書ストアや更新経路を持つため、OSやブラウザだけの更新では不十分です。開発者は、実際の検証器・参照ストア・更新方法を成果物単位で棚卸しし、不特定ネットワークで動く環境から修正版の適用と実通信経路での拒否確認を進める必要があります。"
+    "lastSeen": "2026-11-02",
+    "summary": "eMudhra の8本の中間CA証明書では、公開証明書から秘密鍵に相当する値を1秒未満で復元でき、任意ホスト名の証明書発行に悪用できる状態でした。10月18日に中間CAは失効しましたが、古い certifi を使う requests と httpx は接続を許可しました。urllib と urllib3 はOSのCA証明書を使う一方、requests と httpx は certifi を使うため、片方だけの更新では不十分です。certifi 2026.10.19以降、対象Pythonの ssl 修正版、OSのCA証明書、CAバンドルを同梱するライブラリを成果物ごとに更新する必要があります。requirements.txtやロックファイルの固定、Docker キャッシュ、PyInstaller の埋め込みにより、修正版が公開されても実行環境は古いまま残ります。実際の検証器でテストホストへの接続が SSLError になること、イメージ内に問題のCAが残っていないことを確認してください。"
   },
   "nec委託先不正アクセス": {
     "label": "NEC委託先 不正アクセス",
@@ -146,7 +146,7 @@
   "linuxtcp脆弱性悪用": {
     "label": "Linux TCP脆弱性悪用",
     "firstSeen": "2026-10-30",
-    "lastSeen": "2026-11-01",
+    "lastSeen": "2026-11-02",
     "summary": "CVE-2026-98432は、LinuxカーネルのIPv4 TCP処理で解放済みのIPオプションを別CPUが読むuse-after-freeです。認証不要で到達可能なIPv4 TCPサーバーが対象となり、LinuxカーネルCNAはCVSS 9.8（Critical）と評価しています。修正はkfree()をkfree_rcu()へ変更し、読み手が処理を終えるまでメモリ解放を遅延させます。AnthropicはMPTCPリスナーに対し、KASLR突破後にrootで任意コマンドを実行する実証を10月27日に公表しました。4.4以降のLinuxカーネルが影響し、KEVには10月29日時点で未掲載ですが、ディストリビューションごとの修正版提供状況は異なります。"
   },
   "binancedevops端末暗号資産窃取": {
@@ -170,8 +170,8 @@
   "gitlabrce脆弱性悪用": {
     "label": "GitLab RCE脆弱性悪用",
     "firstSeen": "2026-10-31",
-    "lastSeen": "2026-10-31",
-    "summary": "CISAは修正済みのGitLab最大深刻度脆弱性が実際の攻撃で悪用されたと発表した。"
+    "lastSeen": "2026-11-02",
+    "summary": "Alpine Linuxの開発基盤GitLabが、CVE-2026-97229を悪用した未認証RCE攻撃の標的になった。攻撃者は2026-10-20〜21に細工したCI/CD設定を送信し、GitLabのworkerを8回クラッシュさせ、4回は部分的に成功した。Alpineはコード実行やリポジトリ・パッケージ改ざんの証拠を確認できなかったが、ログ不足と外向き通信記録の欠落から侵害を否定できず、GitLabを再構築して全パスワードをリセットした。原因はGitLab 19.3.6へ更新しても、Alpineのカスタムコンテナイメージに修正済みRubyが含まれていなかったことだった。攻撃者によるGitLabコンテナイメージのダウンロードも確認され、ソフトウェアサプライチェーン攻撃の準備だった可能性がある。"
   },
   "huggingfaceモデル悪用マイニング": {
     "label": "Hugging Faceモデル悪用マイニング",
@@ -196,5 +196,29 @@
     "firstSeen": "2026-11-01",
     "lastSeen": "2026-11-01",
     "summary": "Chainalysisは攻撃者が内部システムとツールに侵入し顧客の識別情報を取得したと公表した。"
+  },
+  "polymarket外部スクリプト改ざん": {
+    "label": "Polymarket 外部スクリプト改ざん",
+    "firstSeen": "2026-11-02",
+    "lastSeen": "2026-11-02",
+    "summary": "2026-10-29、予測市場 Polymarket のWebサイトに読み込まれていた、外部企業 DebugBear の page-speed script が悪意あるコードに置き換えられました。ログイン済みの一部の signed-in traders について、そのコードが保有ポジションを売却し、資金を攻撃者へ移しました。Polymarket は影響を受けた 726 wallets に約 $2.7 million を返金するとしています。Blockchain records では、約 $2.64 million 相当の暗号資産が攻撃者側へ到達したことが確認されています。外部 script の改変が、ログイン状態と取引操作を悪用する入口になりました。"
+  },
+  "lxdmicrocloud証明書偽装脆弱性": {
+    "label": "LXD・MicroCloud 証明書偽装脆弱性",
+    "firstSeen": "2026-11-02",
+    "lastSeen": "2026-11-02",
+    "summary": "LXDとMicroCloudの重大な認証不備が、IBM Planning Analytics基盤にも及びうる。"
+  },
+  "netamloaderアジア政府攻撃": {
+    "label": "NetamLoader アジア政府攻撃",
+    "firstSeen": "2026-11-02",
+    "lastSeen": "2026-11-02",
+    "summary": "NetamLoaderがアジアの政府組織向けWindows 10環境を狙う高度な感染経路を使っていた。"
+  },
+  "nttデータ委託先不正アクセス": {
+    "label": "NTTデータ委託先 不正アクセス",
+    "firstSeen": "2026-11-02",
+    "lastSeen": "2026-11-02",
+    "summary": "楽天証券は委託先への不正アクセスにより、顧客情報362件が漏洩した可能性を公表した。"
   }
 }
