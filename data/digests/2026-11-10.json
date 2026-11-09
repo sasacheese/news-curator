@@ -1,0 +1,3017 @@
+{
+  "date": "2026-11-10",
+  "generatedAt": "2026-11-09T22:12:55.924Z",
+  "window": {
+    "start": "2026-11-08T22:00:00.000Z",
+    "end": "2026-11-09T22:00:00.000Z"
+  },
+  "summary": [
+    "セキュリティ関連が9件に達し、実被害や悪用確認を伴う動きが目立った。",
+    "認証回避、依存関係、管理基盤など、侵入口の多様化と早期対応の難しさが浮かんだ。",
+    "AIエージェントは開発環境やスマートフォン操作へ広がり、外部送信を抑える構成も現れた。",
+    "リリースは19件中14件が新機能で、AI基盤とクラウド実行環境の拡張が続いた。"
+  ],
+  "outlook": "認証回避や依存関係、委託先を含む侵入口の多様化が続き、AIエージェントとクラウド実行の拡張に対して、権限・外部送信・監視を本番設計へ組み込む段階に入りつつある。今後は侵害を前提に、変更管理や復旧まで含む運用力が成果を左右する焦点になりそうだ。",
+  "top": [
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "Hackers Compromise Ethersphere's bee-js and Swarm Desktop to Deliver Wallet-Stealing Malware",
+      "url": "https://thehackernews.com/2026/11/hackers-compromise-etherspheres-bee-js.html",
+      "publishedAt": "2026-11-09T17:36:28.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "Attackers used the Ethersphere project's own release automation to publish malicious versions of two of its tools for the Swarm decentralized storage network: bee-js 13.3.0 and Swarm Desktop 0.56.2. Both releases download and run code built to steal the wallet key that Swarm Desktop keeps for its node, along with the stored password that unlocks it. The code is also built to install a backdoor",
+      "body": "Attackers used the Ethersphere project's own release automation to publish malicious versions of two of its tools for the Swarm decentralized storage network: bee-js 13.3.0 and Swarm Desktop 0.56.2.\n\nBoth releases download and run code built to steal the wallet key that Swarm Desktop keeps for its node, along with the stored password that unlocks it. The code is also built to install a backdoor on Windows, macOS, and Linux machines.\n\nThe bee-js package is the JavaScript library behind Swarm Desktop and the swarm-cli command-line tool. Swarm Desktop runs a Swarm node on a user's own computer and saves the node's private keys there.\n\nBoth malicious releases have been taken down, and the project's maintainers released a clean Swarm Desktop update today. Neither step removes a backdoor already installed nor protects a key already sent. No theft of funds had been reported at the time of writing.\n\nSwarm Desktop 0.56.2 appeared on GitHub at about 00:36 UTC today and was withdrawn about 8.5 hours later. The app's built-in updater could offer it to Windows x64 computers and Apple Silicon Macs within about 10 minutes, according to an incident analysis by Socket, a supply chain security firm. Intel Macs were never offered it, and Linux installs do not update automatically.\n\nThe bee-js release, version 13.3.0, was the latest version on npm for about 75 minutes, from 00:09 to 01:25 UTC today. Its code runs as a postinstall script, which npm executes automatically during installation unless install scripts are disabled. A project did not need to import the library for the code to run.\n\nThe project's own swarm-cli and bee-dashboard packages, and the Swarm Desktop source code, accepted version ranges that included 13.3.0. A fresh install within that window could have pulled in the malicious version.\n\nNone of the reports gave a count of infected machines. The firm's rough estimate is that bee-js 13.3.0 was downloaded about 10 times, including by security scanners and mirrors. Swarm Desktop 0.56.2's download count reached 65 by 08:27 UTC, including researchers.\n\nEthersphere's maintainers withdrew 0.56.2 and replaced it today with a clean release, version 0.56.3. In the change that set up the new release, one of them wrote that 0.56.2 \"was published by an attacker using stolen CI credentials and has been withdrawn.\"\n\nVersion 0.56.3 is the same code as the previous version, 0.56.1, signed with a newly issued Developer ID certificate, according to that maintainer's incident note. The note says the app's auto-updater will move installs of 0.56.2 to it, although Linux packages still need to be replaced by hand. A comparison of the two versions' source code by The Hacker News found no changes beyond the version number and release notes.\nWhen The Hacker News checked npm today, 13.2.0 was again the latest bee-js version, and 13.3.0 could no longer be downloaded from the registry.\n\nWhat to Do\n\nThe GitHub advisory for bee-js 13.3.0 says: \"Any computer that has this package installed or running should be considered fully compromised.\" SafeDep, a software supply chain security company, offers the same advice for any computer on which Swarm Desktop 0.56.2 was installed.\n\nIf you use bee-js in a project or CI job:\n\n  Search lockfiles, package caches, internal registries, and CI install logs for @ethersphere/bee-js@13.3.0, including copies pulled in by other packages.\n  Pin 13.2.0, and clear cached copies of 13.3.0, including any npm mirror you install through.\n  If 13.3.0 was installed with install scripts turned on, treat that machine or CI runner as compromised, even if the install log shows no errors. The code hides its own network errors.\n  From a clean computer, rotate every password, token, and key that the installing user or CI job could read.\n\nIf you run Swarm Desktop:\n\n  Look for the line Bee Desktop version: 0.56.2 (production) in the app's log file, bee-desktop.log. Version 0.56.2 is written at every launch, just before the malicious code runs.\n  The log folder is ~/Library/Logs/Swarm Desktop/ on macOS, %LOCALAPPDATA%\\Swarm Desktop\\Log\\ on Windows, and ~/.local/state/Swarm Desktop/ on Linux.\n  Install 0.56.3. On Linux, replace the package by hand.\n  If 0.56.2 ever ran, treat the node's key and password as stolen. From a clean computer, move the node's funds, chequebook, and stake to a new key.\n\nOn any machine where the code ran:\n\n  Remove the ~/.solidity/ folder, the solidity-langsupport-runner.service user service on Linux, the com.solidity.langsupport.runner LaunchAgent on macOS, and the ScreenConnect Client (5cbe79c9c25524df) service on Windows.\n  Updating, reinstalling, or removing the app or package does not remove them.\n  Where possible, rebuild the machine from a trusted image instead of cleaning it in place.\n\nHow the Malware Works\n\nBoth releases carry the same loader, SafeDep found in its technical analysis. It is a few lines of code that download more code from api.frameworkmetrics[.]xyz and run it with the user's permissions. In bee-js the loader is the postinstall script, and in Swarm Desktop it runs each time the app starts.\n\nThe downloaded code looks for two files in Swarm Desktop's data folder: config.yaml and data-dir/keys/swarm.key. If both are there, it sends them to the attackers' server.\n\nThe key file is an encrypted Ethereum keystore, but Swarm Desktop keeps its password in plain text in config.yaml. With both files, the attackers can take the node wallet's xDAI and xBZZ tokens, its chequebook funds, and its stake, the company says.\n\nThe downloaded code also installs a backdoor. On Linux and macOS, it is a Go remote shell called evjawbreaker, saved in a hidden ~/.solidity folder. It runs in the background as a user service on Linux and as a LaunchAgent on macOS.\n\nThe shell reads the address of its control server from an Ethereum smart contract, so the attackers can change that address at any time. They had updated it 29 minutes before the malicious bee-js code was added.\n\nOn Windows, the downloaded code installs a genuine ScreenConnect remote-access client, signed by its maker, ConnectWise. The client runs as a system service and connects to the attackers' relay.\n\nIf the user is an administrator, the code gets administrator rights through a known way around the User Account Control prompt. If not, it shows the prompt again whenever the user cancels. With those rights, it adds a Microsoft Defender exclusion and installs the client silently.\n\nHow the Releases Got Out\n\nBoth releases came from bee-worker, the account Ethersphere uses to automate its releases. Neither change was signed nor submitted as a pull request.\n\nFor bee-js, the attackers published a GitHub release for the new version, which started the project's npm publishing workflow. That workflow needed no approval and published the package to npm in 73 seconds, according to Socket.\n\nBecause the project's real workflow built it, the package carried valid provenance, the record that links an npm package to the repository and workflow that built it. Provenance shows where a package was built, not whether anyone reviewed the code inside it.\n\nFor Swarm Desktop, the attackers manually started a build workflow that had the project's Apple and Windows signing certificates and needed no approval. The macOS app was signed with the project's Developer ID and notarized by Apple, so macOS displayed only its normal first-launch prompt, the firm found.\n\nThe maintainers have since made the app's signing jobs wait for approval from the project's DevOps team and run only from the main branch.\n\nHow the attackers gained access remained unclear at the time of writing. The maintainer's incident note blames the theft of CI credentials and secrets.\n\nThe firm's analysis indicates that two GitHub accounts were used: bee-worker and a long-time maintainer's account. None of the reports explained how the credentials were stolen.\n\nLinks to Earlier Attacks\n\nThe payloads share an Ethereum contract, a ScreenConnect relay, and file names with fake extensions for Solidity developers that appeared on the Open VSX marketplace in September. Researchers at Pluto Security described those extensions in their October 1 EtherDuck analysis.\n\nPluto ties them \"with high confidence\" to the group behind the original SleepyDuck extension, which read its server address from a different Ethereum contract in 2025. Socket says the same group is behind the bee-js and Swarm Desktop releases.\n\nIndicators of Compromise\n\nDefenders can search logs and machines for the following.\n\n  Domain: api.frameworkmetrics[.]xyz\n  URL path: /v1/analytics (bee-js loader)\n  URL path: /v1/electron (Swarm Desktop loader)\n  URL path: /v1/assets/ (further payloads)\n  URL path: /v1/swarm/report (stolen wallet files)\n  HTTP header: X-Ethersphere: 1\n  IP:port: 193[.]57[.]9[.]155:4912 (evjawbreaker control server)\n  IP:port: 185[.]232[.]84[.]169:8041 (ScreenConnect relay)\n  Ethereum contract: 0xf8a900Db50b3331be6B768bA460BB59f3E40C344\n  Path: ~/.solidity/\n  systemd unit: solidity-langsupport-runner.service\n  LaunchAgent: com.solidity.langsupport.runner\n  Service: ScreenConnect Client (5cbe79c9c25524df)\n  SHA-256: 9b73e7cd4e1425e770392549d8df46c706139ef476f4f7b9ac405165dc8d9696 (linux_amd64)\n  SHA-256: b601776817363b96295119f7221338a122d5247a35a77a64b04f286e1bbcc565 (linux_arm64)\n  SHA-256: 80d2672e2599732d3c0ae2a4cd0d1e3fe4d555a60273ce33feb99db3f34d250f (darwin_amd64)\n  SHA-256: fae61f31f00988fdc5cc9e7272b51e08af2e245d81003237875415930fd27358 (darwin_arm64)\n  SHA-256: 37d14bff30762ca701e9c1f8bc6c57c065bb20ae3a2208cb7411a6530610f08e (invoke.ps1)\n  SHA-256: 7527e86d70e7c9493db4356f1c3775380431b310000f2602c1e993cf435d01da (app.msi)\n\nFound this article interesting?  Follow us on Google News, Twitter and LinkedIn to read more exclusive content we post.",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "228061b9fd7084ae",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.615,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 92,
+      "titleJa": "Ethersphereの配布経路を悪用したウォレット窃取",
+      "oneLiner": "攻撃者はEthersphereの公開手順を悪用し、ウォレット情報を盗む改ざん版ツールを配布した。",
+      "takeaways": [
+        "Ethersphereの配布手順から悪意ある版が公開された。",
+        "改ざん版はウォレット鍵と解除用パスワードを盗んだ。",
+        "端末への裏口も仕込まれ継続侵入を可能にした。"
+      ],
+      "keywords": [
+        "Ethersphere",
+        "bee-js 13.3.0",
+        "Swarm Desktop 0.56.2",
+        "サプライチェーン攻撃",
+        "ウォレット窃取"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg4ZFiesBwDTk8fRRfKfNIw0lLkhqF6ZAExRxuuRtfRCWrxs6Rg7M5UdSIcJqH2zstViFreL30JMmdebYTlMOKvg4D6GvaS70XPdembzyIZoX2KBj_S3kxKWmBjJll4exWUYXrap9IDW_ugXHOux5jZXk44_v5xac1mxFouywezDcsGeMdLrGd1sJStMoo/s1700-nu-rw-lo-l85-e365/bees.jpg",
+      "rank": 1,
+      "deep": {
+        "summary": "攻撃者は盗んだ CI credentials を使い、Ethersphere の release automation から bee-js 13.3.0 と Swarm Desktop 0.56.2 を公開した。bee-js の postinstall script または Swarm Desktop 起動時にローダーが実行され、api.frameworkmetrics[.]xyz から追加コードを取得した。追加コードは Swarm Desktop の config.yaml と swarm.key を外部へ送信し、Linux・macOS では evjawbreaker、Windows では ScreenConnect のバックドアを設置した。npm の valid provenance や macOS の Developer ID 署名が付いていても、公開前のコードレビューを保証しないことが示された。両リリースは撤回され、Swarm Desktop は 0.56.3 に更新されたが、既に実行された端末や流出した鍵は自動では安全にならない。",
+        "prerequisites": [
+          {
+            "term": "bee-js",
+            "stumblingPoint": "記事は bee-js が Swarm Desktop と swarm-cli の基盤だと書くが、単なる実行時依存ではなくインストール時にも動く点が読み取りにくい。",
+            "explanation": "bee-js は Swarm Desktop と swarm-cli が利用する JavaScript ライブラリです。今回の 13.3.0 には postinstall script が含まれ、プロジェクトがライブラリを import しなくても npm install 時にコードが実行されました。そのため lockfile や間接依存だけに現れる場合でも、CI runner や開発端末が影響を受けます。"
+          },
+          {
+            "term": "postinstall script",
+            "stumblingPoint": "記事は「npm executes automatically」と説明するが、コードを import していないプロジェクトまで感染対象になる理由が分かりにくい。",
+            "explanation": "postinstall script は npm がパッケージのインストール完了後に自動実行する処理です。アプリケーションコードの import より前に動くため、今回の悪意ある処理は bee-js の API を一度も呼ばないプロジェクトでも実行されました。install scripts を無効化していればこの実行経路は抑止できますが、記事は既に実行済みの端末を安全とは扱っていません。"
+          },
+          {
+            "term": "CI credentials",
+            "stumblingPoint": "記事は stolen CI credentials による公開とするが、なぜコード変更や承認なしで正規リリースとして配布できたのかが詰まりやすい。",
+            "explanation": "CI credentials は GitHub のリリースや npm 公開、署名処理を自動実行する権限情報です。今回は攻撃者が bee-worker などのアカウントや秘密情報を使い、承認不要の npm publishing workflow と build workflow を起動しました。したがって、ソース管理への pull request が無くても、正規のパイプライン経由で利用者へ届きました。"
+          },
+          {
+            "term": "valid provenance",
+            "stumblingPoint": "記事は悪意あるパッケージにも valid provenance が付いたと書くが、署名のような安全証明と誤解しやすい。",
+            "explanation": "valid provenance は npm パッケージがどのリポジトリと workflow からビルドされたかを示す記録です。今回のように攻撃者が正規 workflow を起動すれば、悪意あるコードでも正しい出所情報が付きます。provenance は「誰が内容をレビューしたか」や「コードが安全か」を保証しません。"
+          },
+          {
+            "term": "Developer ID",
+            "stumblingPoint": "記事は macOS アプリが Developer ID で署名・notarized されたため通常の初回起動表示だけだったと書くが、署名の意味を切り分けにくい。",
+            "explanation": "Developer ID は macOS が開発元を確認するための署名証明書です。署名と notarization は配布元や改変の有無を検証しますが、侵害されたビルド元から生成されたコードの意図までは検証しません。今回は正規の証明書で悪意ある 0.56.2 が署名されたため、利用者には不審な警告が出ませんでした。"
+          },
+          {
+            "term": "config.yaml",
+            "stumblingPoint": "記事は config.yaml にパスワードが平文で保存されると書くが、なぜ swarm.key だけでなく両方が流出すると危険なのかが詰まりやすい。",
+            "explanation": "config.yaml は Swarm Desktop のデータフォルダーにある設定ファイルで、今回の実装では node wallet のパスワードを平文で保持していました。data-dir/keys/swarm.key は暗号化された Ethereum keystore ですが、両方が揃うと攻撃者が復号して鍵を利用できます。その結果、xDAI・xBZZ、chequebook funds、stake が移動対象になります。"
+          },
+          {
+            "term": "evjawbreaker",
+            "stumblingPoint": "記事は Linux と macOS に Go remote shell の evjawbreaker を置くと書くが、アプリ削除だけでは消えない理由が読み取りにくい。",
+            "explanation": "evjawbreaker は攻撃者の control server と通信する Go 製の remote shell です。Linux では user service、macOS では LaunchAgent として登録され、アプリ本体とは別にログイン後も動き続けます。さらに制御先を Ethereum smart contract から取得するため、後から通信先を変更できる構成でした。"
+          },
+          {
+            "term": "ScreenConnect",
+            "stumblingPoint": "記事は正規の ScreenConnect を Windows の system service として利用すると書くが、正規署名がある侵害要素の見分け方が必要になる。",
+            "explanation": "ScreenConnect は ConnectWise が提供するリモートアクセスクライアントです。今回のローダーは正規署名されたクライアントを攻撃者の relay に接続する system service として設置しました。そのため製品名や署名だけで安全と判断せず、サービス名 ScreenConnect Client (5cbe79c9c25524df) と通信先を確認する必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "侵害リリースの経路",
+          "layers": [
+            {
+              "label": "攻撃者",
+              "nodes": [
+                {
+                  "name": "盗難認証情報",
+                  "note": "CI credentials を利用",
+                  "highlight": false
+                }
+              ],
+              "via": "workflow 起動"
+            },
+            {
+              "label": "公開経路",
+              "nodes": [
+                {
+                  "name": "npm workflow",
+                  "note": "bee-js を公開",
+                  "highlight": false
+                },
+                {
+                  "name": "build workflow",
+                  "note": "署名付きアプリを生成",
+                  "highlight": false
+                }
+              ],
+              "via": "npm・自動更新"
+            },
+            {
+              "label": "利用者端末",
+              "nodes": [
+                {
+                  "name": "bee-js 13.3.0",
+                  "note": "postinstall script",
+                  "highlight": true
+                },
+                {
+                  "name": "Swarm Desktop 0.56.2",
+                  "note": "起動時にローダー実行",
+                  "highlight": true
+                }
+              ],
+              "via": "HTTP ダウンロード"
+            },
+            {
+              "label": "攻撃コード",
+              "nodes": [
+                {
+                  "name": "追加ペイロード",
+                  "note": "鍵情報を送信",
+                  "highlight": false
+                },
+                {
+                  "name": "バックドア",
+                  "note": "evjawbreaker・ScreenConnect",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "security",
+        "whatHappened": [
+          "2026-11-09 bee-js 13.3.0 と Swarm Desktop 0.56.2 を公開",
+          "wallet key とパスワード、端末へのバックドア設置機能を含んだ",
+          "Swarm Desktop 0.56.2 は約8.5時間後に撤回",
+          "bee-js 13.3.0 は約75分 npm に存在"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "攻撃者が盗んだ CI credentials で bee-worker の公開権限を使用"
+          },
+          {
+            "stage": "other",
+            "detail": "承認不要の workflow から悪意ある bee-js と Swarm Desktop を生成・公開"
+          },
+          {
+            "stage": "other",
+            "detail": "bee-js は postinstall、Swarm Desktop は起動時にローダーを実行"
+          },
+          {
+            "stage": "exfiltration",
+            "detail": "config.yaml と data-dir/keys/swarm.key を攻撃者サーバーへ送信"
+          },
+          {
+            "stage": "impact",
+            "detail": "Linux・macOS に evjawbreaker、Windows に ScreenConnect を設置"
+          }
+        ],
+        "personal": [
+          "bee-js 利用者は lockfile・cache・CI ログで @ethersphere/bee-js@13.3.0 を検索する",
+          "該当する bee-js は 13.2.0 に固定し、13.3.0 の npm cache と mirror コピーを削除する",
+          "Swarm Desktop はログの Bee Desktop version: 0.56.2 を確認し、0.56.3へ更新する",
+          "実行済み端末は鍵・password・tokenを清浄端末から交換し、可能なら信頼済みイメージで再構築する"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "initial-accessを止めるため、CI credentialsを短期トークン化し、npm公開・署名workflowにMFAと最小権限を適用する"
+          },
+          {
+            "kind": "ops",
+            "action": "公開前のコードレビューを必須化し、承認なしで起動できる release・signing workflow を停止する"
+          },
+          {
+            "kind": "tech",
+            "action": "otherの実行を止めるため、依存パッケージのinstall scriptsを監査し、13.3.0と未承認版をCIで拒否する"
+          },
+          {
+            "kind": "ops",
+            "action": "exfiltrationを検知するため、api.frameworkmetrics[.]xyzと指定URL pathへのDNS・HTTP通信を検索する"
+          },
+          {
+            "kind": "tech",
+            "action": "impactを封じるため、指定されたsolidityサービス、LaunchAgent、ScreenConnect serviceを隔離端末で除去する"
+          }
+        ],
+        "relevance": [
+          "bee-js、swarm-cli、Swarm Desktopを使っている人",
+          "EthersphereのnpmパッケージをCIや社内mirrorで取得する企業",
+          "GitHub Actionsでnpm公開やmacOS・Windows署名を自動化している組織"
+        ],
+        "unknowns": [
+          "CI credentialsが盗まれた具体的な経路は未公表",
+          "攻撃者が実際に鍵や資金を盗んだ件数は未公表",
+          "感染端末数は未確定で、資金盗難は記事時点で未報告"
+        ],
+        "whatsNew": null
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "BleepingComputer",
+      "title": "Hackers exploit SSHole OpenSSH flaw to breach Linux systems",
+      "url": "https://www.bleepingcomputer.com/news/security/hackers-exploit-sshole-openssh-flaw-to-breach-linux-systems/",
+      "publishedAt": "2026-11-09T16:04:57.000Z",
+      "author": "Bill Toulas",
+      "authorDetail": {
+        "name": "Bill Toulas"
+      },
+      "tags": [
+        "Security"
+      ],
+      "snippet": "Hackers are actively exploiting the \"SSHole\" vulnerability (CVE-2026-123158) in OpenSSH to execute commands, steal credentials, and establish persistent access. [...]",
+      "body": "Hackers are actively exploiting the \"SSHole\" vulnerability (CVE-2026-123158) in OpenSSH to execute commands, steal credentials, and establish persistent access.\n\nMultiple cybersecurity firms have confirmed the attacks, reporting that exploitation attempts began on November 5, the day a proof-of-concept exploit became available, with successful exploitation recorded the following day.\n\nDisclosed by security researcher Ozgun Kultekin last week, SSHole allows bypassing authentication in OpenSSH running on certain musl-based Linux systems, including the lightweight Alpine distribution used in cloud and virtual environments.\n\nThe flaw lets attackers log in to accounts with a password hash is set to an asterisk (*) to prevent password logins.\n\nAn oversized password causes musl’s password-hashing function to return * on error, which OpenSSH mistakenly treats as a match for the account’s stored value.\n\nKultekin explained that exploitation requires specific authentication settings, does not affect accounts with valid password hashes, and can lead to root access where the compromised account has passwordless administrative privileges.\n\nOpenSSH maintainers fixed the vulnerability in version 10.6p2 released on November 5, while exploit code became available roughly four hours later.\n\nFinnish security company Defused said over the weekend that it had observed \"a small amount of actors\" trying to exploit SSHole, although the activity was not widespread.\n\nThreat intelligence company GreyNoise recorded the first successful exploitation of SSHole in the wild on November 7 at 00:46 UTC, approximately 40 hours after the fix.\n\nThe researchers logged 16 successful exploitation chains targeting networks protected by GreyNoise from six source IP addresses linked to post-exploitation activity. The company says that these attacks are not representative of the broader activity involving SSHole.\n\nIn the attacks that GreyNoise observed, the threat actor ran system and container reconnaissance, initiated queries to cloud metadata services, attempted to read password hashes and root SSH keys, and tried to modify SSH ‘authorized_keys’ files to gain persistent access.\n\nOne attacker gained root privileges and installed TAC Agent, a Python command-and-control agent. However, the implant couldn’t reach its command-and-control (C2) server at ‘tac.vpnla[.]org,’ and never received a task.\n\nTAC Agent and C2 exchange\nSource: GreyNoise\n\nAnalysis of the TAC Agent payload shows that the implant supports shell command execution, extensive system reconnaissance, file upload/download operations, and can update itself.\n\nThe agent has no built-in persistence, so the attackers attempt to secure it by configuring a startup service.\n\nGreyNoise notes that the implant’s comments, logs, and errors were in Chinese, which may be used in conjunction with other evidence to determine the attacker’s origin.\n\nA finding that suggests possible automated operation is a missing tool check that returns feedback which could help an automated planner revise commands as needed for the attack to proceed.\n\nOverall, GreyNoise has recorded 27.5 million port-22 scans and 20.1 million attempted SSH sessions, though these aren’t confirmed SSHole attacks.\n\nSensors from network security company Previdian also confirmed successful SSHole exploitation, with telemetry data showing 20 attempts from 13 attacker IP addresses in nine countries.\n\nOffensive security firm watchTower said on November 6 that it observed SSHole being exploited in attacks associated with botnets and cryptomining activity.\n\nSystem administrators should update OpenSSH as soon as possible, or disable SSH password authentication on systems affected by SSHole.\n\nIt is also recommended to check for unexpected successful password logins to accounts whose /etc/shadow password field is *, unauthorized SSH keys, and TAC Agent files or startup services.\n\n\t   \n\n    \n            \n        \n    \n    \n        \n            Uncover email threats your existing defenses may miss.\n        \n        Adaptive Security's AI agents analyze email intent, context, and behavior to uncover phishing, business email compromise, and invoice fraud.See what's getting through with a 14-day read-only scan of Microsoft 365 or Google Workspace, with no MX changes.\n        Start your free email security scan.",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "544230eab2f764e0",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.3883333333333333,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 91,
+      "titleJa": "SSHoleを悪用したLinuxサーバー侵入",
+      "oneLiner": "攻撃者はOpenSSHのSSHole脆弱性を悪用し、Linuxシステムへの侵入と認証情報の窃取を進めている。",
+      "takeaways": [
+        "攻撃者はOpenSSHの欠陥を使ってLinuxへ侵入した。",
+        "侵入後に命令を実行して認証情報を盗んだ。",
+        "裏口を残して長期的なアクセスを確保した。"
+      ],
+      "keywords": [
+        "SSHole",
+        "OpenSSH",
+        "CVE-2026-123158",
+        "Linux",
+        "認証情報窃取"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "imageUrl": "https://www.bleepstatic.com/content/hl-images/2026/11/09/openssh.jpg",
+      "rank": 2,
+      "deep": {
+        "summary": "CVE-2026-123158「SSHole」は、特定のmusl-based Linux上のOpenSSHで認証を回避し、パスワードハッシュが`*`のアカウントへログインできる脆弱性です。OpenSSH 10.6p2が2026年11月5日に公開され、その約4時間後にPoCが公開されました。GreyNoiseは11月7日に実環境での成功事例を初めて観測し、認証後にコンテナ・システム偵察、クラウドメタデータ照会、ハッシュやroot SSH鍵の読み取り、`authorized_keys`の変更が試みられました。一部の攻撃ではroot権限でTAC Agentが配置され、起動サービスによる永続化も試みられました。影響を受けるシステムはOpenSSHを10.6p2以降へ更新し、更新できない場合はSSHパスワード認証を無効化して、既存の侵害痕跡を確認します。",
+        "prerequisites": [
+          {
+            "term": "SSHole",
+            "stumblingPoint": "記事は「SSHole allows bypassing authentication」と書いているが、どの入力と設定の組み合わせで認証が通るのかが読み取りにくい。",
+            "explanation": "SSHoleは、特定の認証設定で、パスワードハッシュが`*`になっているアカウントを対象にするOpenSSHの認証処理不備です。攻撃者が長すぎるパスワードを送ると、muslのハッシュ計算がエラー時に`*`を返します。OpenSSHがその戻り値を保存済みの`*`と一致したと誤認するため、正しいパスワードを知らなくてもログインが成立します。通常の有効なパスワードハッシュを持つアカウントには影響しないと記事は説明しています。"
+          },
+          {
+            "term": "musl-based Linux",
+            "stumblingPoint": "記事は「certain musl-based Linux systems」と書いているが、glibc系Linuxにも同じように影響するのか判断できない。",
+            "explanation": "musl-based Linuxは、Linuxの標準的なCライブラリとしてmuslを使うディストリビューションを指します。この記事で明示されている代表例はAlpineで、クラウドや仮想環境でも使われています。今回の認証処理の挙動はmuslのパスワードハッシュ関数に依存するため、すべてのLinuxが対象という意味ではありません。"
+          },
+          {
+            "term": "OpenSSH 10.6p2",
+            "stumblingPoint": "記事は「fixed the vulnerability in version 10.6p2」と書いているが、利用中のsshdがその修正版かをどう確認するかが省略されている。",
+            "explanation": "OpenSSH 10.6p2は、記事が示すSSHoleの修正版です。確認対象はSSHクライアントではなく、外部から接続を受けるsshdのバージョンと、OSベンダーが提供する修正済みパッケージです。パッケージの表示バージョンが異なる場合でも、ディストリビューションのセキュリティ修正がバックポートされている可能性があるため、パッケージ更新履歴も確認します。"
+          },
+          {
+            "term": "/etc/shadow",
+            "stumblingPoint": "記事は「accounts whose /etc/shadow password field is *」を確認せよと書いているが、`*`が通常何を意味するのかが分からないと対象を絞れない。",
+            "explanation": "/etc/shadowは、Linuxアカウントのパスワードハッシュなどを保持するファイルです。パスワード欄の`*`は、通常のパスワードログインを無効化するために使われます。今回の脆弱性では、まさにこの`*`を保存値として持つアカウントが攻撃対象になり得るため、SSHログイン履歴と組み合わせて確認します。"
+          },
+          {
+            "term": "authorized_keys",
+            "stumblingPoint": "記事は攻撃者が「modify SSH ‘authorized_keys’ files」と書いているが、そこを変更されると何が変わるのかが読み取りにくい。",
+            "explanation": "authorized_keysは、SSH公開鍵認証でログインを許可する公開鍵の登録ファイルです。攻撃者が自分の公開鍵を追加すると、パスワードを使わず再接続できるため、認証回避後の永続化に使われます。今回の調査では、想定外の鍵、変更時刻、所有者、配置されたアカウントを確認する必要があります。"
+          },
+          {
+            "term": "TAC Agent",
+            "stumblingPoint": "記事は「installed TAC Agent」と書いているが、単なるログ収集ツールなのか、侵害後に何ができるものなのかが分からない。",
+            "explanation": "TAC Agentは、この記事で観測されたPython製のコマンド・アンド・コントロール用エージェントです。シェルコマンド実行、システム偵察、ファイルのアップロード・ダウンロード、自己更新をサポートします。組み込みの永続化機能はなく、攻撃者は起動サービスを構成して再起動後も動かそうとしました。"
+          },
+          {
+            "term": "C2",
+            "stumblingPoint": "記事は「C2 server」や「C2 exchange」と書いているが、侵害されたホストとの通信が何を表すのかが分からない。",
+            "explanation": "C2は、攻撃者が侵害済みホストへ命令を送り、結果を受け取る指令サーバーです。今回のTAC Agentは`tac.vpnla[.]org`へ接続しようとしましたが、到達できずタスクを受け取れませんでした。したがって、エージェントが配置されていても、この記事の観測事例ではC2から追加命令が実行されたとは確認されていません。"
+          },
+          {
+            "term": "port-22 scans",
+            "stumblingPoint": "記事は「27.5 million port-22 scans」と「20.1 million attempted SSH sessions」を並べているが、これらがSSHole攻撃件数なのか判断しにくい。",
+            "explanation": "port-22 scansはSSHの標準ポートである22番ポートを探す通信で、attempted SSH sessionsはSSH接続を試みた回数です。GreyNoiseは両方を大量に記録しましたが、記事はこれらをSSHole攻撃とは確認していません。SSHoleとして成功が確認されたのは、GreyNoiseで16の成功チェーン、Previdianで20回の試行です。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "公表から実 exploitation まで",
+          "steps": [
+            {
+              "label": "修正版公開",
+              "detail": "11月5日 OpenSSH 10.6p2を公開"
+            },
+            {
+              "label": "PoC公開",
+              "detail": "修正版公開の約4時間後に exploit code"
+            },
+            {
+              "label": "攻撃開始",
+              "detail": "11月5日から exploitation attempts"
+            },
+            {
+              "label": "成功観測",
+              "detail": "11月7日00:46 UTCに初成功"
+            },
+            {
+              "label": "侵害後活動",
+              "detail": "偵察・鍵読み取り・永続化を試行"
+            }
+          ]
+        },
+        "figures": [],
+        "code": {
+          "lang": "bash",
+          "caption": "OpenSSHのバージョン、危険な`*`アカウント、SSH鍵と起動サービスの確認",
+          "content": "# sshd のバージョン（出力は stderr の場合がある）\nsudo sshd -V 2>&1\n\n# /etc/shadow のパスワード欄が * のアカウント\nsudo awk -F: '$2 == \"*\" {print $1}' /etc/shadow\n\n# authorized_keys の候補と更新時刻\nsudo find /root /home -type f -path '*/.ssh/authorized_keys' -printf '%TY-%Tm-%Td %TH:%TM %u %p\\n' 2>/dev/null\n\n# TAC Agent の名前・起動サービスの候補を検索\nsudo find / -iname '*tac*agent*' -o -iname '*tac_agent*' 2>/dev/null\nsudo systemctl list-unit-files --type=service | grep -i tac"
+        },
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "security",
+        "whatHappened": [
+          "2026-11-05 OpenSSH 10.6p2公開後、SSHoleの攻撃試行を複数社が観測",
+          "2026-11-07 GreyNoiseが16の成功チェーンと、TAC Agent配置事例を確認",
+          "被害組織名・漏洩件数は記事に記載なし"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "長すぎるパスワードで`*`ハッシュのアカウント認証を回避"
+          },
+          {
+            "stage": "other",
+            "detail": "システム・コンテナ偵察とクラウドメタデータサービス照会"
+          },
+          {
+            "stage": "other",
+            "detail": "パスワードハッシュとroot SSH鍵の読み取りを試行"
+          },
+          {
+            "stage": "other",
+            "detail": "`authorized_keys`変更と起動サービス設定で永続化を試行"
+          },
+          {
+            "stage": "impact",
+            "detail": "root権限でTAC Agentを配置しC2接続を試行"
+          }
+        ],
+        "personal": [
+          "管理対象がAlpine等のmusl-based Linuxなら、`sudo sshd -V 2>&1`でOpenSSHを確認し、10.6p2またはOSベンダーの修正版へ更新する。",
+          "更新までの間、`/etc/ssh/sshd_config`で`PasswordAuthentication no`を設定し、`sudo sshd -t && sudo systemctl reload sshd`で反映する。",
+          "`sudo awk -F: '$2 == \"*\" {print $1}' /etc/shadow`で対象アカウントを確認し、SSHログと照合して予期しない成功ログインを調査する。",
+          "`authorized_keys`の未知の鍵、TAC Agentファイル、想定外の起動サービスを確認し、侵害が疑われるホストはネットワークから隔離して認証情報を再発行する。"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "OpenSSHを10.6p2またはOSベンダー修正版へ更新し、初期侵入段階の認証回避を止める。"
+          },
+          {
+            "kind": "tech",
+            "action": "影響対象ではSSHパスワード認証を無効化し、長すぎるパスワードによる認証回避を止める。"
+          },
+          {
+            "kind": "ops",
+            "action": "SSH成功ログと`/etc/shadow`の`*`アカウントを突合し、認証回避後の不正ログインを検知する。"
+          },
+          {
+            "kind": "ops",
+            "action": "`authorized_keys`、root SSH鍵、クラウドメタデータへのアクセスを監視し、侵入後の認証情報窃取と永続化を検知する。"
+          },
+          {
+            "kind": "ops",
+            "action": "TAC Agentのファイルと起動サービスを全ホストで検索し、C2接続やコマンド実行に進む前に隔離・駆除する。"
+          }
+        ],
+        "relevance": [
+          "Alpineなどmusl-based LinuxでOpenSSHサーバーを運用している人",
+          "クラウド・仮想環境でSSHをインターネット公開している企業",
+          "SSHパスワード認証や`*`ハッシュの管理アカウントを使っている環境"
+        ],
+        "unknowns": [
+          "攻撃対象となる正確な認証設定の組み合わせは未特定",
+          "攻撃者の身元と広範な被害範囲は未公表",
+          "SSHole経由で実際に持ち出された情報量は未確認"
+        ],
+        "whatsNew": null
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "piyolog",
+      "title": "ドコモオンラインショップとMy docomoへの不正アクセスについてまとめてみた",
+      "url": "https://piyolog.hatenadiary.jp/entry/2026/11/09/090504",
+      "publishedAt": "2026-11-09T00:05:04.000Z",
+      "tags": [
+        "重要インフラ",
+        "不正アクセス"
+      ],
+      "snippet": "2026年11月5日、ドコモは、ドコモオンラインショップとMy docomoへの不正アクセスで顧客情報が流出したことを確認したと公表しました。ここでは関連する情報をまとめます。 経路遮断と一時再開の後に再停止 ドコモオンラインショップとMy docomoでは、2026年11月4日10時30分頃にアラートを検知して対応を始め、攻撃経路を遮断してMy docomoを一時再開した。同日23時台に不正アクセスの可能性を把握し、5日1時5分頃にMy docomoを再び停止し、ドコモオンラインショップも停止して、2時10分に顧客情報の流出を確認した。 4日は7時頃から、検知の閾値に達しない動きが少しずつ始まっていたと後のログ解析で判明し、ドコモは7時まで遡って通信を分析した(出典: 7, 8)。10時30分頃に監視システムが大量アクセスによる異常なシステム負荷のアラートを検知し、負荷対策と攻撃への対応…",
+      "body": "2026年11月5日、ドコモは、ドコモオンラインショップとMy docomoへの不正アクセスで顧客情報が流出したことを確認したと公表しました。ここでは関連する情報をまとめます。\n\n \n 経路遮断と一時再開の後に再停止\n\n ドコモオンラインショップとMy docomoでは、2026年11月4日10時30分頃にアラートを検知して対応を始め、攻撃経路を遮断してMy docomoを一時再開した。同日23時台に不正アクセスの可能性を把握し、5日1時5分頃にMy docomoを再び停止し、ドコモオンラインショップも停止して、2時10分に顧客情報の流出を確認した。\n 4日は7時頃から、検知の閾値に達しない動きが少しずつ始まっていたと後のログ解析で判明し、ドコモは7時まで遡って通信を分析した(出典: 7, 8)。10時30分頃に監視システムが大量アクセスによる異常なシステム負荷のアラートを検知し、負荷対策と攻撃への対応を開始(出典: 7, 8, 9, 10)。14時30分に海外IPアドレスからのアクセスを遮断したが効果がなく、国内を含む特定のIPアドレスを順次遮断した(出典: 7, 8, 9, 10)。16時20分にMy docomoをメンテナンスモードに切り替え(出典: 8, 9, 10)、18時10分に特定の攻撃経路を遮断した(出典: 7, 8, 9)。ドコモの説明では、流出が止まったのはこの時点(出典: 7)。\n 20時32分にMy docomoを一時再開(出典: 7, 8, 9)。23時16分に不正アクセスの可能性を検知し(出典: 7, 9)、5日1時5分頃にドコモオンラインショップとMy docomoにおける各種手続きを停止した(出典: 2, 7)。2時10分に顧客情報の流出を確認(出典: 7, 8, 9, 10)。\n 20時32分の再開は、既存の復旧ルールに基づき安全性が確保されたと判断したもの(出典: 7, 8, 12)。アラート後に流出の可能性も調べていたが明確な結果が出ず、経路を遮断できたと判断したためで、再開後に異常なアクセスは確認されなかった(出典: 7, 12)。23時台は、並行して進めていた検証で流出の懸念が強まり、攻撃再開のリスクも考慮して再停止した(出典: 8)。\n ドコモは5日午前9時時点の告知で、ドコモオンラインショップとMy docomoにおける各種手続きの停止が継続中と公表。外部から不正なアクセスが行われた可能性が高いと判断したとし、原因は調査中、急ぎの手続きは店頭での相談を案内した(出典: 1)。\n\n \n 最大約30万件の顧客情報流出\n\n ドコモは5日18時30分時点の第二報で、4日に外部からの不正なアクセスを確認し、その後の調査で一部の顧客情報の流出を確認したと公表。対象は最大約30万件で、原因は調査中、新たな情報流出は確認されていないとした(出典: 2)。6日には流出した情報を区分して示し、原因を「外部からの不正アクセス」とした(出典: 3)。\n 流出の対象となった顧客全員について流出したのは次の5種類。(出典: 3)\n\n \n 氏名、生年月日、年齢等\n\n 住所、連絡先電話番号、メールアドレス等の連絡先等\n\n 本人確認書類の番号 *1 \n\n 携帯電話番号、契約開始年月日等の契約情報\n\n 料金プラン、オプション、割引等の契約内容\n\n 一部の顧客で流出したのは次の4種類。(出典: 3)\n\n \n 法定代理人、手続代理人の氏名、連絡先\n\n 勤務先、法人の名称、所在地等\n\n 金融機関名、支店名、口座番号、口座名義等\n\n 子育て応援プログラムに関する情報\n\n 公表文の「最大 約30万件」とは別に、6日夜の会見では最大29万4839回線分と説明した。内訳は個人契約が20万4157回線、法人契約が9万682回線で、解約済みの顧客を含む(出典: 7, 9, 11)。流出した情報にユーザーの地域や料金プランなどの共通点はないという(出典: 6)。\n クレジットカード番号はマスキング済みで流出しておらず、マイナンバーは画像も番号も保存していないため対象外。「通信の秘密」に抵触する情報の漏えいはないと説明した(出典: 7, 12)。\n\n \n dアカウントを入り口に複数システムの連動を悪用\n\n ドコモは6日の会見で、外部の攻撃者がインターネット経由で不正にアクセスし、複数のシステムが連携する仕組みを悪用したと説明した(出典: 7)。攻撃の段階は次のとおり。\n\n \n 入口: 基本的にdアカウントを入り口にしていた *2 。2段階認証やパスキーといった認証機能は正常に機能しており、認証の突破ではない(出典: 7, 8)\n\n 連動の悪用による取得: リクエストを受けたドコモ内部の複数のシステムや機能が連動してデータを処理する仕組みを悪用し、顧客情報を機械的に検索、取得。取得したデータは、保管時とシステム間の通信時は暗号化やマスキングをしていたが、あるシステムでデータを解釈する段階で保護が解除された後のものだった(出典: 7, 8, 9, 11)\n\n ドコモは、これまでの脆弱性診断では特定できていなかった経路で、名前の付いた既知の手法ではなく、想定していなかった組み合わせだったと説明した(出典: 7, 8, 10)。システム自体の不具合ではない *3 とし、既存の仕組みの組み合わせを突いたもので、APIそのものを直接狙った攻撃ではないと説明した(出典: 9, 10, 12)。\n 攻撃元は特定できておらず、攻撃へのAIエージェントの活用の有無は調査中(出典: 7, 10)。\n\n ドコモへの攻撃の流れ \n\n \n 類似経路も遮断し再開は改修後\n\n ドコモは、確認された攻撃経路に加えて類似する経路も遮断し、外部から顧客情報を取得できない状態にしたと説明した(出典: 7, 9)。ドコモオンラインショップとMy docomoは、システム改修と安全性の確認を終え次第再開する方針で、6日18時時点で復旧見込みは未定(出典: 3, 7, 9)。復旧ルールやITガバナンスのあり方を含めて見直すとした(出典: 8)。\n 社長は会見で謝罪し、「早期に抑え込めたとは思っていない」と述べた。NTTグループ全体で再発防止を徹底する考えを示した(出典: 7, 10, 12)。\n\n \n 個人顧客へSMSで通知\n\n ドコモは6日、流出対象の個人顧客へのSMSでの通知を始めた。以降もSMSやダイレクトメールで順次案内し、法人顧客には営業担当者などを通じて案内する方針(出典: 7, 9, 11)。特設ダイヤル(0120-451-360)を設けている(出典: 3)。\n 流出した情報を悪用し、ドコモや関係者などを装った不審なメール、SMS、電話などが届く可能性があるとして注意を呼びかけている(出典: 2, 3)。身に覚えのないログインや購入、契約に気づいた場合は相談するよう求めている(出典: 7, 9)。\n 個人顧客と法人顧客を対象に見舞金の支払いを検討しており、対象、金額、方法は決まっていない(出典: 7, 12)。情報の種類ではなく、不安や心配をかけたことを踏まえて検討する(出典: 12)。\n\n \n ahamoサイトの予防的な停止と再開\n\n ahamoサイトは6日17時26分頃から、予防的なセキュリティ対応として緊急メンテナンスに入った(出典: 4, 5)。影響範囲はahamoの新規契約や契約者の各種手続きなどで、メンテナンス中の新規契約はドコモショップで申し込める(JALモバイル powered by ahamoを除く)(出典: 4)。ドコモは会見で、ahamoの新規受付サイトでは不正アクセスを確認していないと説明した(出典: 7)。\n 7日0時30分の更新では、原因と復旧見込みはともに確認中としていた(出典: 4)。8日にはサイトの安全性が確認できたとして再開を公表(出典: 5)。\n\n \n 関連タイムライン\n\n \n \n \n 日時 \n 出来事 \n \n\n \n 2026年11月4日 7時頃 \n 検知の閾値に達しない動きが始まる \n \n\n \n 同日 10時30分頃 \n 大量アクセスのアラートを検知 \n \n\n \n 同日 14時30分 \n 海外IPアドレスからのアクセスを遮断 \n \n\n \n 同日 16時20分 \n My docomoを停止 \n \n\n \n 同日 18時10分 \n 攻撃経路を遮断 \n \n\n \n 同日 20時32分 \n My docomoを一時再開 \n \n\n \n 同日 23時16分 \n 不正アクセスの可能性を検知 \n \n\n \n 2026年11月5日 1時5分頃 \n ドコモオンラインショップとMy docomoの各種手続きを停止 \n \n\n \n 同日 2時10分 \n 顧客情報の流出を確認 \n \n\n \n 同日 \n ドコモが停止の継続と顧客情報の流出を公表 \n \n\n \n 2026年11月6日 17時26分頃 \n ahamoサイトを予防的に停止 \n \n\n \n 同日 \n ドコモが流出した情報の区分を公表。記者会見を実施 \n \n\n \n 2026年11月8日 \n ahamoサイトを再開 \n \n\n \n\n \n 関連公表\n\n \n \n NTTドコモ\n\n \n \n [1] 2026年11月5日 NTTドコモ「 【お詫び】ドコモオンラインショップ、My docomoの緊急メンテナンス実施について（11月5日午前9時00分時点） 」\n\n [2] 2026年11月5日 NTTドコモ「 【お詫び】ドコモオンラインショップ、My docomoの緊急メンテナンス実施について/当社サーバーへの不正アクセスによるお客さま情報流出に関するお知らせ（第二報：11月5日 午後6時30分時点） 」\n\n [3] 2026年11月6日 NTTドコモ「 【お詫び】ドコモオンラインショップ、My docomoの緊急メンテナンス実施について/当社サーバーへの不正アクセスによるお客さま情報流出に関するお知らせ（第三報：11月6日 午後6時00分時点） 」\n\n [4] 2026年11月7日 NTTドコモ(ahamo)「 【お詫び/第二報】ahamoサイトの緊急メンテナンスについて 」\n\n [5] 2026年11月8日 NTTドコモ「 ahamoサイトの緊急メンテナンス完了について 」\n\n \n\n \n 報道\n\n \n \n [6] 2026年11月5日 ケータイ Watch「 ドコモに不正アクセス、最大約30万件の個人情報が漏えい 」\n\n [7] 2026年11月6日 CNET Japan「 ドコモ、不正アクセス被害者へお見舞金　流出は29万回線、本人確認書類の番号も（更新） 」\n\n [8] 2026年11月6日 ケータイ Watch「 ドコモ最大29万件超の顧客情報流出、「システム連携の隙」狙われる 」\n\n [9] 2026年11月6日 マイナビニュース TECH+「 ドコモ、最大約29.5万回線の顧客情報流出で謝罪 - 複数システムの連携を悪用した攻撃 」\n\n [10] 2026年11月6日 Impress Watch「 ドコモ不正アクセス、「料金プラン」などの情報も流出 「重く受け止めている」 」\n\n [11] 2026年11月6日 読売新聞「 ＮＴＴドコモの流出情報は本人確認書類の番号など、最大２９万４８３９件&hellip;見舞金支払いも検討 」\n\n [12] 2026年11月6日 日本経済新聞「 ドコモの顧客情報流出、本人確認書類の番号も　見舞金の支払い検討 」\n\n \n\n \n 更新履歴\n\n \n \n 2026年11月9日 新規作成\n\n \n\n \n *1 : ドコモの公表は「本人確認書類の番号」までで、書類の種類は会見でもプライバシーに関わるとして明らかにしていない(出典: 7)。 \n\n *2 : 公表された説明は、dアカウントを入り口に複数のシステムが連携する仕組みを悪用したというもので、使われたdアカウントをどう用意したかには触れていない(出典: 7, 8)。 \n\n *3 : 脆弱性に該当するかについては、明言を避けたとされる(出典: 12)一方、システム自体の脆弱性ではなく複数のシステムを連動させた仕組みの悪用と判断しているとも伝えられている(出典: 10)。",
+      "metrics": {
+        "hatena": 85
+      },
+      "sourceWeight": 5,
+      "feedCategory": "security",
+      "id": "9c12edc0b42bd7ef",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.795,
+      "popularityPercentile": 1,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 87,
+      "titleJa": null,
+      "oneLiner": "ドコモオンラインショップとMy docomoへの不正アクセスで顧客情報の流出が確認された。",
+      "takeaways": [
+        "ドコモの2サービスで顧客情報の流出が確認された。",
+        "攻撃は11月4日朝から始まり翌日まで続いた。",
+        "経路遮断後も再発しサービスを再停止した。"
+      ],
+      "keywords": [
+        "NTTドコモ",
+        "My docomo",
+        "ドコモオンラインショップ",
+        "不正アクセス",
+        "顧客情報流出"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable",
+      "imageUrl": "https://ogimage.blog.st-hatena.com/10257846132616586766/14729835035335774631/1794182704",
+      "rank": 3,
+      "deep": {
+        "summary": "2026年11月4日、ドコモオンラインショップとMy docomoで大量アクセスのアラートが発生し、翌5日に顧客情報の流出が確認された。最大29万4839回線分、最大約30万件の顧客情報が対象で、氏名・連絡先・本人確認書類の番号・契約情報などが含まれる。攻撃者はdアカウントを入口に、複数システムが連動してデータを処理する仕組みを悪用した。2段階認証やパスキーの突破、APIそのものへの直接攻撃ではないと説明されている。保管時やシステム間通信時には暗号化やマスキングが施されていたが、あるシステムでデータを解釈する段階に保護解除後の情報が扱われていた。攻撃元、dアカウントの用意方法、AIエージェントの利用有無は未確定である。",
+        "prerequisites": [
+          {
+            "term": "dアカウント",
+            "stumblingPoint": "記事は「基本的にdアカウントを入り口にしていた」と書いているが、攻撃者が何を認証したのか読み取りにくい。",
+            "explanation": "dアカウントは、ドコモのオンラインサービスへログインするための共通アカウントです。この記事では、攻撃者がまずこの認証入口を経由し、その後ろにある複数システムの処理を組み合わせて悪用した、という意味です。ただし、どのdアカウントをどう用意したかは公表されていません。"
+          },
+          {
+            "term": "2段階認証",
+            "stumblingPoint": "記事は「2段階認証やパスキーといった認証機能は正常に機能」とするが、認証突破でないことの意味が必要になる。",
+            "explanation": "2段階認証は、パスワードだけでなくSMSや認証アプリなど別の確認を加える仕組みです。今回は、その追加確認を破られてログインされたとは説明されておらず、認証後に呼び出せる機能の連携が悪用された点が焦点です。したがって、認証強化だけでは同じ種類の経路を完全には防げません。"
+          },
+          {
+            "term": "パスキー",
+            "stumblingPoint": "「パスキー」が正常に機能したとあるが、認証情報を盗む攻撃との違いが分からないと被害経路を誤解する。",
+            "explanation": "パスキーは、端末の秘密鍵と生体認証や端末ロックを使ってログインする方式です。この記事の説明では、パスキーを突破されたのではなく、認証後のシステム連携を悪用された可能性が示されています。パスキーを有効にしていても、ログイン後に許されるデータ操作が過大なら別の防御が必要です。"
+          },
+          {
+            "term": "マスキング",
+            "stumblingPoint": "記事は「暗号化やマスキング」を挙げる一方、データ解釈時には保護解除後だったと書いている。",
+            "explanation": "マスキングは、カード番号の一部を伏せるなど、画面や処理先に見せる値を制限する処理です。暗号化やマスキングが保管中・通信中に機能していても、後段システムが処理のために平文相当の値へ戻せば、その時点の取得制御が必要になります。今回の問題は、保護技術の有無だけでなく、保護解除後のデータをどの機能が読めるかにあります。"
+          },
+          {
+            "term": "API",
+            "stumblingPoint": "記事は「APIそのものを直接狙った攻撃ではない」と書くが、複数システムの連携悪用との境界が曖昧に見える。",
+            "explanation": "APIは、システム間で検索や契約処理などを呼び出す接続口です。今回は、単一のAPIの実装不具合を直接突いたと説明されたのではなく、複数のAPIや機能が想定外の順序・組み合わせで連動する経路が悪用されたとされています。個々の接続口が診断を通過していても、組み合わせた結果として過大なデータ取得が可能になる場合があります。"
+          },
+          {
+            "term": "AIエージェント",
+            "stumblingPoint": "記事は攻撃への「AIエージェント」の活用有無を調査中とするが、確定した攻撃手口と混同しやすい。",
+            "explanation": "AIエージェントは、複数の操作や判断を連続して実行するソフトウェアです。この記事では、攻撃者がAIエージェントを使ったとは確認されておらず、調査対象にとどまります。確定しているのは、複数システムの連動を悪用して顧客情報を検索・取得したことです。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "検知から公表まで",
+          "steps": [
+            {
+              "label": "異常開始",
+              "detail": "11月4日7時頃、閾値未満の動き"
+            },
+            {
+              "label": "アラート",
+              "detail": "10時30分頃、大量アクセスを検知"
+            },
+            {
+              "label": "経路遮断",
+              "detail": "18時10分、攻撃経路を遮断"
+            },
+            {
+              "label": "一時再開",
+              "detail": "20時32分、My docomoを再開"
+            },
+            {
+              "label": "再停止",
+              "detail": "23時16分検知後、翌1時5分に停止"
+            },
+            {
+              "label": "流出確認",
+              "detail": "11月5日2時10分、顧客情報流出を確認"
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://cdn-ak.f.st-hatena.com/images/fotolife/p/piyokango/20261109/20261109032417.png",
+            "alt": "ドコモへの攻撃の流れ",
+            "caption": "dアカウントを入口に、複数システムの連携を経て顧客情報が取得された攻撃経路を確認できる。単一のAPI突破ではなく、既存機能の組み合わせが焦点になっている。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "security",
+        "whatHappened": [
+          "2026-11-05 ドコモが不正アクセスと顧客情報流出を公表",
+          "最大29万4839回線分、最大約30万件が流出対象",
+          "氏名・連絡先・本人確認書類番号・契約情報等が対象",
+          "2026-11-08 安全性確認後にahamoサイトを再開"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "dアカウントを入口にインターネット経由で不正アクセス"
+          },
+          {
+            "stage": "other",
+            "detail": "複数システムや機能が連動する処理の組み合わせを悪用"
+          },
+          {
+            "stage": "other",
+            "detail": "顧客情報を機械的に検索・取得"
+          },
+          {
+            "stage": "exfiltration",
+            "detail": "外部から顧客情報を取得し、最大29万4839回線分が流出"
+          }
+        ],
+        "personal": [
+          "SMSの通知はリンクを直接開かず、公式アプリや公式サイトで確認する",
+          "身に覚えのないログイン・購入・契約をMy docomoで確認する",
+          "不審なメール・SMS・電話には本人確認書類番号や口座情報を伝えない",
+          "不正利用があればドコモ公式窓口または特設ダイヤル0120-451-360へ相談する"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "initial-accessを抑えるため、dアカウントの認証後も端末・取引・地域単位の異常を判定する"
+          },
+          {
+            "kind": "tech",
+            "action": "連動悪用を止めるため、複数システムをまたぐデータ取得を最小権限と目的単位で制限する"
+          },
+          {
+            "kind": "tech",
+            "action": "データ取得を止めるため、機械的な大量検索・反復取得にレート制限と件数上限を設ける"
+          },
+          {
+            "kind": "tech",
+            "action": "保護解除後の情報流出を止めるため、平文データの利用箇所とアクセスログを監視する"
+          },
+          {
+            "kind": "ops",
+            "action": "再開判断の誤りを防ぐため、遮断経路・類似経路・流出確認を含む復旧判定手順を検証する"
+          }
+        ],
+        "relevance": [
+          "dアカウントやMy docomoを使っている人",
+          "顧客情報を複数システム連携で処理する企業",
+          "本人確認書類番号や口座情報を保管する企業"
+        ],
+        "unknowns": [
+          "攻撃者が使用したdアカウントの用意方法",
+          "攻撃元と具体的な攻撃者の特定状況",
+          "AIエージェントを攻撃に使ったかどうか"
+        ],
+        "whatsNew": null
+      }
+    },
+    {
+      "id": "78dd509b3aae43b0",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@MalwareBibleJP: JPCERT/CC｜『OpenSSHは2026年11月5日、OpenSSHにおける認証回避の脆弱性（CVE-2026-123158）に関する修正バージョンを公…",
+      "url": "https://x.com/malwarebiblejp/status/2119774763937866034",
+      "publishedAt": "2026-11-09T12:51:01.000Z",
+      "author": "📕「マルウエアの教科書」著者 | 吉川孝志 | 増補改訂版🌟発売中",
+      "authorDetail": {
+        "name": "📕「マルウエアの教科書」著者 | 吉川孝志 | 増補改訂版🌟発売中",
+        "handle": "@MalwareBibleJP",
+        "url": "https://x.com/MalwareBibleJP"
+      },
+      "tags": [],
+      "snippet": "JPCERT/CC｜『OpenSSHは2026年11月5日、OpenSSHにおける認証回避の脆弱性（CVE-2026-123158）に関する修正バージョンを公開しました。』『2026年11月7日には、本脆弱性の悪用の成功を観測しており、同社の観測用環境において、認証回避による侵入の成功や、侵入後のコマンド実行、C2エージェントの設置などを確認したと報告しています。』｜2026年11月9日 ▼OpenSSHにおける認証回避の脆弱性（CVE-2026-123158）について https://t.co/iPRd1U3Ojj",
+      "body": "JPCERT/CC｜『OpenSSHは2026年11月5日、OpenSSHにおける認証回避の脆弱性（CVE-2026-123158）に関する修正バージョンを公開しました。』『2026年11月7日には、本脆弱性の悪用の成功を観測しており、同社の観測用環境において、認証回避による侵入の成功や、侵入後のコマンド実行、C2エージェントの設置などを確認したと報告しています。』｜2026年11月9日\n\n▼OpenSSHにおける認証回避の脆弱性（CVE-2026-123158）について\nhttps://t.co/iPRd1U3Ojj\n\nOpenSSHにおける認証回避の脆弱性（CVE-2026-123158）について\n\t\t\t\t最終更新: 2026-11-09\n\t\t\t\n\n\t\t\t\t\n\nI. 概要\n\nOpenSSHは2026年11月5日、OpenSSHにおける認証回避の脆弱性（CVE-2026-123158）に関する修正バージョン[1]を公開しました。同日、Alpine Linuxは、同ディストリビューションのopenssh-serverパッケージに関するアドバイザリ[2]を公表しました。\n\n本脆弱性は標準Cライブラリとしてmusl libcを使用し、LinuxなどのUnix系OSでユーザー認証を管理する仕組みであるPAMを使用しない構成で動作するOpenSSHにおいて、特定の条件下で認証処理に誤りが生じる問題です。悪用された場合、認証されていないリモートの攻撃者が、パスワードによるログインを無効にするための特殊な値（「*」）が設定されたアカウントに、正規のパスワードを用いずに不正にログインできる可能性があります。\n\nJPCERT/CCでは、国内においてAlpine Linuxをベースとした商用製品が利用されていることを確認しています。また、本脆弱性に関しては、すでに概念実証コードが公開されています。海外セキュリティ企業のGreyNoise[3]は、2026年11月5日以降、本脆弱性の悪用を試みる攻撃を観測したと報告しています。加えて、2026年11月7日には、本脆弱性の悪用の成功を観測しており、同社の観測用環境において、認証回避による侵入の成功や、侵入後のコマンド実行、C2エージェントの設置などを確認したと報告しています。なお、現時点で組織における侵害事例は確認できていません。本脆弱性の悪用試行が確認されていることから、影響を受ける製品を利用している場合は、開発元が提供する情報などを参考に、速やかに対策の適用および侵害有無の調査を実施してください。\n\nII. 対象\n\n本脆弱性は、OpenSSH 10.6p2より前のバージョンを使用する環境のうち、次の条件を満たす場合に影響を受ける可能性があります。\n\nmusl libcを使用するLinux環境であること\nPAMによる認証が無効化されていること\nOpenSSHのパスワード認証が有効であること\nパスワードハッシュ欄が*となっているアカウントなどが存在すること\n別のローカルアカウントに特定形式（$5$または$6$）のパスワードハッシュが設定されていること\n\n詳細については、各Linuxディストリビューションの開発元が提供する情報を確認してください。\n\nIII. 対策\n\nOpenSSHは、本脆弱性を修正したバージョン10.6p2を公開しています。また、Alpine Linuxは、各リリース向けに修正済みパッケージを提供しています。\n\nなお、Linuxディストリビューションによっては、OpenSSHの旧バージョンに修正をバックポートしているため、各製品における対策情報の詳細は各開発者が提供する情報を確認してください。\n\nIV. 侵害有無の調査方法\n\nAlpine Linuxは、SSH認証ログにおいて、本来パスワードによるログインが禁止されているアカウントへのログイン成功記録がないか確認することを推奨しています[2]。\n\n/var/log/messagesなどに記録されたSSH認証ログに、本来パスワードログインできないアカウントに対するAccepted password forの記録がないか\ndoasの使用履歴、不審なユーザーアカウントの追加やSSH公開鍵の変更がないか\n不審なファイルやプロセスの作成、外部サーバーへの通信がないか\n\n詳細は、開発者が提供する最新の情報を確認してください。\n\nV. 関連情報\n\n[1] OpenSSH\nOpenSSH 10.6p2 (2026-11-05)\nhttps://www.openssh.org/releasenotes.html#10.6p2\n\n[2] Alpine Linux Development Team\nSecurity advisory: openssh-server password authentication bypass\nhttps://alpinelinux.org/posts/2026-11-05-openssh-password-authentication-bypass/\n\n[3] GreyNoise\nSSHole (CVE-2026-123158) Activity 2026\nhttps://sshole.events.greynoise.io/\n\nCyberNewsFlashは、注意喚起とは異なり、発行時点では注意喚起の基準に満たない脆弱性の情報やセキュリティアップデート予告なども含まれます。今回の件を含め、提供いただける情報がありましたら、JPCERT/CCまでご連絡ください。\n\n一般社団法人JPCERTコーディネーションセンター（JPCERT/CC）\nサイバーセキュリティコーディネーショングループ\nEmail：ew-info@jpcert.or.jp\n\nTopへ",
+      "metrics": {
+        "likes": 3,
+        "replies": 0,
+        "quotes": 1,
+        "bookmarks": 2,
+        "impressions": 887,
+        "comments": 0
+      },
+      "lang": "ja",
+      "sourceWeight": 3,
+      "linkedUrls": [
+        "https://www.jpcert.or.jp/newsflash/2026110901.html"
+      ],
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.54,
+      "popularityPercentile": 0.25,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 90,
+      "titleJa": null,
+      "oneLiner": "JPCERT/CCはOpenSSHの認証回避脆弱性について修正版公開後の悪用を確認した。",
+      "takeaways": [
+        "OpenSSHに認証を回避できる欠陥が見つかった。",
+        "攻撃者は侵入後に命令実行や不正な常駐を行った。",
+        "修正版は11月5日に公開され悪用は11月7日に確認された。"
+      ],
+      "keywords": [
+        "OpenSSH",
+        "CVE-2026-123158",
+        "JPCERT/CC",
+        "認証回避",
+        "C2"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://www.jpcert.or.jp/common/image/ogp_image.jpg",
+      "rank": 1,
+      "deep": {
+        "summary": "OpenSSHは2026年11月5日、認証回避の脆弱性CVE-2026-123158を修正した10.6p2を公開しました。影響するのは、musl libcを使うLinux環境で、PAMを無効化し、OpenSSHのパスワード認証を有効にしている構成などです。パスワードハッシュ欄が「*」のアカウントに、認証されていないリモート攻撃者が正規のパスワードなしでログインできる可能性があります。すでに概念実証コードと悪用試行が確認され、2026年11月7日には認証回避後のコマンド実行やC2エージェント設置を含む成功例が観測されました。Linuxディストリビューションが旧版へバックポートしている場合もあるため、バージョン番号だけで判断せず、開発元の修正パッケージを適用し、SSH認証ログや侵入後の痕跡を調査する必要があります。",
+        "prerequisites": [
+          {
+            "term": "OpenSSH",
+            "stumblingPoint": "記事はOpenSSH 10.6p2を修正版本と書くが、SSHサーバー側の製品名だと知らないと対象範囲を読めない。",
+            "explanation": "OpenSSHは、SSHによるリモート接続を受け付けるサーバーと接続するクライアントを含むソフトウェア群です。今回の問題は、そのうちサーバーの認証処理が攻撃対象になります。クライアントだけを更新しても、外部から接続を受けるサーバーの脆弱性対策にはなりません。"
+          },
+          {
+            "term": "musl libc",
+            "stumblingPoint": "記事は「musl libcを使用するLinux環境」と限定しているが、glibcとの違いを知らないと自分のOSが対象か判断できない。",
+            "explanation": "musl libcは、LinuxプログラムがOS機能を利用するための標準Cライブラリの一つです。Alpine Linuxが代表的な採用例で、一般的なLinuxディストリビューションで多いglibcとは実装が異なります。したがって、Linux全体ではなく、musl libcを使う構成に対象が絞られています。"
+          },
+          {
+            "term": "PAM",
+            "stumblingPoint": "記事は「PAMによる認証が無効化」と書くが、OpenSSHの認証経路を切り替える仕組みだと分からないと条件の意味を読めない。",
+            "explanation": "PAMは、Linuxのログイン認証をSSHなどのサービスから共通利用する仕組みです。今回の脆弱性は、PAMを使わずOpenSSH自身の認証処理を使う構成で問題になります。sshd_configのUsePAM設定や、ディストリビューションの既定値を確認する必要があります。"
+          },
+          {
+            "term": "パスワードハッシュ",
+            "stumblingPoint": "記事はパスワードハッシュ欄が「*」のアカウントを挙げるが、「*」が通常のパスワード文字列ではないことを知らないと危険性を誤解する。",
+            "explanation": "パスワードハッシュは、/etc/shadowなどに保存されるパスワード検証用の値です。欄が「*」のアカウントは通常、パスワードによるログインを禁止する目的で使われます。今回の問題では、特定条件下でこの禁止が認証処理によって回避される可能性があります。"
+          },
+          {
+            "term": "C2エージェント",
+            "stumblingPoint": "記事は侵入後に「C2エージェントの設置」を確認したと書くが、侵入成功との違いを知らないと被害の深さを評価できない。",
+            "explanation": "C2エージェントは、攻撃者のCommand and Control（指令・制御）サーバーと通信し、遠隔から命令を受けるプログラムです。SSHログインだけでなく、コマンド実行やエージェント設置まで進むと、継続的な操作や追加侵害の足場になり得ます。調査では不審なプロセス、ファイル、外部通信も確認対象になります。"
+          },
+          {
+            "term": "バックポート",
+            "stumblingPoint": "記事はディストリビューションが旧版へ修正を「バックポート」すると書くが、10.6p2未満でも安全になり得る理由が読み取れない。",
+            "explanation": "バックポートは、新しい修正内容だけを古いソフトウェア系列へ取り込む対応です。そのため、表示上のOpenSSHバージョンが10.6p2未満でも、脆弱性の修正が含まれる場合があります。利用中のOSベンダーのパッケージ番号とアドバイザリを基準に判定してください。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "悪用から侵入後活動まで",
+          "steps": [
+            {
+              "label": "対象構成",
+              "detail": "musl libc・PAM無効など"
+            },
+            {
+              "label": "認証回避",
+              "detail": "「*」アカウントへ不正ログイン"
+            },
+            {
+              "label": "侵入成功",
+              "detail": "正規パスワードなしで接続"
+            },
+            {
+              "label": "侵入後活動",
+              "detail": "コマンド実行・C2設置"
+            }
+          ]
+        },
+        "figures": [],
+        "code": {
+          "lang": "sh",
+          "caption": "修正版の確認、禁止アカウントのログイン成功、侵入後痕跡を確認する最小例。",
+          "content": "# OpenSSHの実行バージョンを確認（出力は環境により異なる）\nsshd -V 2>&1 | head -n 1\n\n# Alpine LinuxのSSH認証ログを確認\nsudo grep -E 'Accepted password for ' /var/log/messages\n\n# パスワード欄が「*」のアカウントを確認（/etc/shadowの閲覧権限が必要）\nsudo awk -F: '$2 == \"*\" {print $1}' /etc/shadow\n\n# 不審なプロセス・外部通信を確認\nps auxww\nss -tpn"
+        },
+        "relatedLinks": [
+          {
+            "label": "OpenSSH 10.6p2リリースノート",
+            "url": "https://www.openssh.org/releasenotes.html#10.6p2"
+          },
+          {
+            "label": "Alpine Linuxセキュリティアドバイザリ",
+            "url": "https://alpinelinux.org/posts/2026-11-05-openssh-password-authentication-bypass/"
+          },
+          {
+            "label": "GreyNoiseの悪用活動報告",
+            "url": "https://sshole.events.greynoise.io/"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "know",
+        "impact": [
+          "Alpine Linux製品を運用する人",
+          "musl libcのLinuxを運用する人",
+          "PAMを無効化したOpenSSHを使う人",
+          "SSH認証ログを監視する人"
+        ],
+        "timeline": [
+          "2026-11-05 OpenSSH 10.6p2公開",
+          "2026-11-05 Alpine Linux修正パッケージ公開",
+          "2026-11-07 悪用成功と侵入後活動を観測"
+        ],
+        "checkNow": [
+          "`sshd -V 2>&1`とOSアドバイザリで修正状況を確認する",
+          "`/etc/ssh/sshd_config`のPasswordAuthenticationとUsePAMを確認する",
+          "`/var/log/messages`で禁止アカウントのAccepted passwordを検索する"
+        ],
+        "unknowns": [
+          "現時点で組織における侵害事例は確認されていない",
+          "利用製品ごとの修正パッケージ番号は開発元確認が必要"
+        ]
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "U.S. Agencies Warn Refrigeration Controller Attacks Could Cause Fires and Inventory Losses",
+      "url": "https://thehackernews.com/2026/11/us-agencies-warn-refrigeration.html",
+      "publishedAt": "2026-11-09T06:15:10.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "U.S. government agencies have warned that threat actors are actively targeting industrial refrigeration and cold-chain monitoring systems globally with an aim to cause service disruptions, fire hazards, and loss of inventory. \"The actors may exploit vulnerabilities or weaknesses in unpatched or internet-accessible controllers to remotely alter settings and force units into continuous heating",
+      "body": "Ravie LakshmananNov 09, 2026Critical Infrastructure / Cyber Attack\nU.S. government agencies have warned that threat actors are actively targeting industrial refrigeration and cold-chain monitoring systems globally with an aim to cause service disruptions, fire hazards, and loss of inventory.\n\n\"The actors may exploit vulnerabilities or weaknesses in unpatched or internet-accessible controllers to remotely alter settings and force units into continuous heating and defrost cycles, which can cause widespread inventory loss and equipment hazards,\" according to a joint advisory.\n\nAccording to the U.S. Cybersecurity and Infrastructure Security Agency (CISA), Federal Bureau of Investigation (FBI), Health and Human Services (HHS), Department of Agriculture (USDA), and Department of Transportation (DOT), threat actors are likely to exploit authentication bypasses, arbitrary code injection, and weak configurations to gain access to these systems and cause the following effects -\n\n  Change of temperature, which, in turn, could affect the service life of the system, create a fire hazard, cause inventory loss, or harm consumers who purchase products after unsafe storage.\n  Loss of visibility into current temperatures due to a denial-of-service.\n\nIn response to the threat, owners and operators are being urged to use strong authentication, keep systems updated, identify any systems that are accessible from the internet, isolate operational technology (OT) devices, change default passwords, retire and replace legacy devices, remove unnecessary remote access, and secure necessary remote access.\n\n\"Industrial refrigeration and cold-chain monitoring systems protect food, medicine, and other temperature-sensitive products, making them attractive targets for malicious cyber actors,\" said FBI Cyber Branch Operations Director Brett Leatherman.\n\"We are seeing these systems targeted across critical infrastructure sectors globally, putting inventory and equipment at risk.\"\n\nIn recent weeks, threat actors have targeted hundreds of supermarkets across Europe by exploiting weaknesses in internet-accessible refrigeration controllers to raise temperatures, in some cases to as high as 50 degrees Celsius (122 degrees Fahrenheit), or force cooling units into defrost mode, spoiling food and resulting in financial losses.\n\nTargets of these attacks ranged from major supermarket chains to small grocers and butchers in Belgium, Estonia, Finland, France, Germany, Ireland, Italy, Luxembourg, the Netherlands, Portugal, Sweden, and the U.K.\n\nAmong those targeted was the French Blood Establishment, which confirmed that a cybersecurity incident affecting a refrigeration equipment provider had raised temperature and defrost settings to \"extremely high levels\" at three facilities used to store blood plasma. It's unclear who is behind the hacking spree.\n\nData from Censys shows that there are still hundreds of Danfoss StoreView instances exposed globally, with most of them located in France, although the number has dropped significantly from 3,004 to 708 between October 9 and November 5, 2026. The Copeland/Dixell XWEB exposure, likewise, has declined from 3,708 to 2,420.\n\nThe attack surface management platform described the refrigeration attacks across Europe as the latest addition to a list of other recent incidents targeting critical infrastructure, including gas station tank gauges, air raid systems, and water towers.\n\n\"North America accounts for roughly 38% of global ICS [industrial control systems] exposure,\" Censys said. \"Asia's share grew from 22% in 2024 to 25% in 2026, while Europe's fell from 36.5% to 32%. However, these shifts have not produced an overall decline.\"\n\n\"While exposure numbers are high, they're hardly surprising: ICS exposure is a problem that's been reported on and warned about for years. It poses a critical risk to the public as gatekeepers to the world's critical infrastructure.\"\n\nFound this article interesting?  Follow us on Google News, Twitter and LinkedIn to read more exclusive content we post.",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "250a588706ed6bf2",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.275,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "産業用冷凍設備への攻撃で火災と在庫損失の危険",
+      "oneLiner": "米政府機関は産業用冷凍設備が攻撃され火災や在庫損失につながる危険を警告した。",
+      "takeaways": [
+        "冷凍設備の制御装置が世界各地で狙われている。",
+        "古い装置や外部公開された装置が侵入口になる。",
+        "設定変更で加熱が続き火災や在庫損失を招く恐れがある。"
+      ],
+      "keywords": [
+        "industrial refrigeration",
+        "cold-chain",
+        "CISA",
+        "ICS",
+        "OT security",
+        "The Hacker News"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 5,
+      "payoff": "decide",
+      "durability": "durable",
+      "imageUrl": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjKryTkTZPSm_Pvf-PEvYRFle3Bp0jQaXScE21oOsMfwir63sr355bqHInvPRm5zynq2sYfLswRNEeywDHo7p2snw5sQmlIrWIONBq4AoYFEGXvdgy5gNLMESgjL5zwnhbqYIwdKLRaolb18pKz1sqFynmSjWn2IT_BxlEb-0av9vDfp-oEzp23_cwOIoik/s1700-nu-rw-lo-l85-e365/ref.jpg",
+      "rank": 2,
+      "deep": {
+        "summary": "CISA、FBI、HHS、USDA、DOTは、攻撃者が世界各地のindustrial refrigerationやcold-chain monitoring systemsを狙っていると警告した。internet-accessible controllersの未修正脆弱性、authentication bypasses、arbitrary code injection、weak configurationsが侵入経路になり得る。侵入後は温度設定を変更したり、加熱・defrost cyclesを連続実行したりして、在庫廃棄、機器の火災、消費者への健康被害を引き起こす可能性がある。さらにdenial-of-serviceによって現在温度の監視が失われる場合もある。欧州では数百のスーパーが標的となり、温度が最大50℃まで上げられた事例や、血漿保管施設で設定値が異常に高く変更された事例が確認されている。",
+        "prerequisites": [
+          {
+            "term": "industrial refrigeration",
+            "stumblingPoint": "記事は「industrial refrigeration」を対象と書くが、一般的な冷蔵庫との違いを知らないと対象範囲が読めない。",
+            "explanation": "industrial refrigerationは、食品・医薬品などを保管する業務用の冷却設備です。単体の機器ではなく、温度制御、監視、遠隔管理を含む設備群を指します。この記事では、設定変更が物理的な在庫や設備に直結する制御対象として扱われています。"
+          },
+          {
+            "term": "cold-chain monitoring systems",
+            "stumblingPoint": "記事は「cold-chain monitoring systems」をindustrial refrigerationと並べるが、何を監視する仕組みかが省略されている。",
+            "explanation": "cold-chain monitoring systemsは、輸送・保管中の商品を規定温度内に保てているか監視する仕組みです。温度センサーやアラート、履歴管理が含まれ得ます。ここが停止すると、冷却自体が続いていても異常を発見できません。"
+          },
+          {
+            "term": "internet-accessible controllers",
+            "stumblingPoint": "記事は「internet-accessible controllers」の脆弱性を挙げるが、制御機器がインターネットから直接到達できる意味を知らないと危険度を判断できない。",
+            "explanation": "internet-accessible controllersは、外部ネットワークから直接通信可能な冷却設備の制御機器です。攻撃者が現場に入らず設定変更や停止操作を試せるため、物理設備への攻撃面になります。記事では、未修正状態や弱い設定と組み合わさった侵入経路として示されています。"
+          },
+          {
+            "term": "authentication bypasses",
+            "stumblingPoint": "記事は「authentication bypasses」を侵入手段として挙げるが、通常のパスワード突破との違いが読み取れない。",
+            "explanation": "authentication bypassesは、正しい認証情報を提示せずに認証済みの状態へ到達する欠陥です。パスワード変更だけでは防げない場合があり、製品の更新や外部公開停止が必要になります。この記事では、制御機器の操作権限を得る可能性がある脆弱性として挙げられています。"
+          },
+          {
+            "term": "arbitrary code injection",
+            "stumblingPoint": "記事は「arbitrary code injection」を列挙するが、設定変更だけでなく何が可能になる攻撃かが分かりにくい。",
+            "explanation": "arbitrary code injectionは、攻撃者が意図しないコードを対象機器上で実行させる攻撃です。単なる温度パラメーターの変更を超え、認証情報の窃取や制御機能の改変につながる可能性があります。この記事では、制御システムへのアクセスを得る手段の一つとして扱われています。"
+          },
+          {
+            "term": "denial-of-service",
+            "stumblingPoint": "記事は「denial-of-service」で現在温度の可視性が失われると書くが、冷却停止とは別の影響である点を見落としやすい。",
+            "explanation": "denial-of-serviceは、機器や監視サービスを利用できない状態にする攻撃です。冷却設備が動いていても、温度表示やアラートが止まれば異常を検知できません。この記事では、制御そのものの改変とは別に、運用上の判断材料を奪う影響として示されています。"
+          },
+          {
+            "term": "Danfoss StoreView",
+            "stumblingPoint": "記事は「Danfoss StoreView instances」の露出数を示すが、製品名だけでは何を確認すべきか判断しにくい。",
+            "explanation": "Danfoss StoreViewは、記事中でインターネット上に公開された冷蔵設備管理のインスタンスとして扱われています。Censysの観測では、露出数が2026-10-09の3,004件から2026-11-05の708件に減少しました。減少後も公開状態の機器が残っている点が確認事項です。"
+          },
+          {
+            "term": "Copeland/Dixell XWEB",
+            "stumblingPoint": "記事は「Copeland/Dixell XWEB」の露出数も示すが、Danfossの数字と同じ対象かが読み取りにくい。",
+            "explanation": "Copeland/Dixell XWEBも、記事中ではインターネットに露出した冷蔵設備管理システムとして計測されています。露出数は3,708件から2,420件に減少しました。Danfoss StoreViewとは別製品群なので、製品名ごとに公開状態を確認する必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "冷蔵設備への攻撃経路",
+          "layers": [
+            {
+              "label": "攻撃者",
+              "nodes": [
+                {
+                  "name": "Threat actors",
+                  "note": "外部から侵入を試みる",
+                  "highlight": false
+                }
+              ],
+              "via": "外部通信"
+            },
+            {
+              "label": "制御層",
+              "nodes": [
+                {
+                  "name": "internet-accessible controllers",
+                  "note": "認証後に設定を変更",
+                  "highlight": true
+                }
+              ],
+              "via": "設定変更・DoS"
+            },
+            {
+              "label": "現場影響",
+              "nodes": [
+                {
+                  "name": "冷却ユニット",
+                  "note": "加熱・defrostを実行",
+                  "highlight": false
+                },
+                {
+                  "name": "温度監視",
+                  "note": "現在温度が見えなくなる",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "業務用冷蔵設備を運用する人",
+          "食品・医薬品を保管する人",
+          "OT機器をインターネット公開する人",
+          "Danfoss StoreViewを使う人"
+        ],
+        "timeline": [
+          "2026-10-09 Danfoss StoreView露出3,004件",
+          "2026-11-05 Danfoss StoreView露出708件",
+          "2026-11-05 XWEB露出2,420件"
+        ],
+        "checkNow": [
+          "資産台帳とFWでinternet-accessible controllersを洗い出す",
+          "Danfoss StoreViewとCopeland/Dixell XWEBの外部公開を確認する",
+          "既定パスワードと不要な遠隔アクセスを停止する"
+        ],
+        "unknowns": [
+          "攻撃者の身元は不明",
+          "悪用された製品別脆弱性は特定されていない"
+        ]
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "JosssphZhou/poki — Let AI agents operate a real iPhone. Local MCP server and agent, no jailbreak, no extra hardware.",
+      "url": "https://github.com/JosssphZhou/poki",
+      "publishedAt": "2026-11-05T15:04:31.000Z",
+      "author": "JosssphZhou",
+      "authorDetail": {
+        "name": "JosssphZhou",
+        "url": "https://github.com/JosssphZhou",
+        "avatarUrl": "https://github.com/JosssphZhou.png?size=120",
+        "bio": "Let AI agents operate a real iPhone. Local MCP server and agent, no jailbreak, no extra hardware."
+      },
+      "tags": [
+        "Swift",
+        "ai-agents",
+        "automation",
+        "ios",
+        "iphone",
+        "mcp",
+        "model-context-protocol"
+      ],
+      "snippet": "Let AI agents operate a real iPhone. Local MCP server and agent, no jailbreak, no extra hardware.",
+      "metrics": {
+        "stars": 747
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "f082630735ffc56b",
+      "foundIn": [
+        "github_repo"
+      ],
+      "body": "Poki uses your iPhone like you do \n\n \n \n \n\n \n English | 简体中文 | 繁體中文 | 日本語 | 한국어 | Español \n poki.bot \n \n\n \n \n \n \n \n \n \n \n \n \n\nQuick start\n\nPoki on your iPhone\n\nTell your agent:\n\n [code] \n\nThe agent follows the install-poki skill and runs bin/install-iphone.mjs, which does every step it can by itself. You only do what iOS asks of you: type your Apple Account into a Poki Setup window on the Mac, tap Trust and turn on Developer Mode on the iPhone, trust the developer, and open Poki. When Poki first opens it asks for Automation Mode: tap Continue and enter the iPhone passcode. If you cancel, turn Poki on again to be asked again. The agent tells you each one in a sentence when it comes up. A free Apple Account works.\n\nRequires macOS 14+, Node.js 24+, iOS 18+, a USB data cable, an Apple Account, and a compatible VPN/proxy app on the iPhone that routes 10.7.0.1 back to it, such as Karing or Shadowrocket configured through Poki's Setup instructions. Xcode is not required. Free Apple Account signing lasts 7 days and needs renewal. Enable UI Automation in the iPhone's Developer settings and configure model access in Poki. With an older Poki Setup and no Xcode, the agent asks you to finish model-key and connection setup manually and reports those checks as unverified until you confirm them.\n\nNo Node.js 24, or on Windows? The same prompt works once Poki Setup is installed: the agent then uses the command line tool inside Poki Setup. Poki Setup's own menu also copies a prompt for your agent (Poki > Copy Prompt for Your Agent on a Mac, Settings > Use an agent on Windows).\n\nPrefer clicking through it yourself? Download Poki Setup for macOS or Windows (contributed by @ZhehanZhang) from the Alpha release and follow its window.\n\nPoki MCP for your agent\n\nLet your agent install it. Copy this to your agent:\n\n [code] \n\nPoki MCP. Already using Claude Code, Codex, or another MCP client? Connect Poki MCP and use your own subscription. No extra model account needed.\n\nStart the server and keep it running:\n\n [code] \n\nRequires macOS 15 or later, full Xcode, Rust, Node.js 24+, and ffmpeg. ./bin/setup checks for missing dependencies. The initial build takes a few minutes.\n\nPoki targets macOS. For Linux, see the community port poki-for-linux (#16), maintained outside this repo.\n\nPoki MCP on Windows: community port at scy7796/poki-for-windows (maintained by its author, not tested by us).\n\nPrebuilt macOS arm64 package\n\nDownload poki-v0.1.1-macos-arm64.tar.gz from the release and run:\n\n [code] \n\nThe package includes the native bridge and idevice tools. You do not need Rust or ./bin/setup. You still need macOS on Apple Silicon, full Xcode, Node.js 24+, Python 3, and ffmpeg. Register your MCP client and install the optional Agent as described below.\n\nIn another terminal, from the same directory, register the MCP server:\n\n [code] \n\nPoki Agent. For Poki's standalone terminal agent or messaging channels, keep npm start running and open another terminal in the same directory. Install the agent, add its command to this terminal's path, and sign in:\n\n [code] \n\nPoki Agent uses GPT-6.1 Terra (gpt-6.1-terra) with low reasoning by default. We recommend keeping it: it is the fastest setup we have tested for phone tasks. Override it with POKIAGENTMODEL; see Run Poki Agent.\n\nFor a physical iPhone, pair it with your Mac over USB first. See Physical iPhone setup.\n\nUpdate with ./bin/poki update. Set POKINOUPDATECHECK=1 to disable the daily anonymous GitHub release check. See Update for the request URL, restart steps, and prebuilt packages.\n\nTry a task\n\nWith Poki Agent, one connected iPhone is selected automatically. With multiple devices, add --device ' '.\n\n [code] \nNote: Poki controls your real iPhone. If you ask it to send messages or make payments, it will. Screen contents are sent to your configured model service.\n\nGets faster with use: Poki Agent remembers past tasks and runs them faster on repeat.\n\nChannels: After configuring an authorized channel, start it with poki imessage or poki telegram. See Poki Agent for setup.\n\nMCP clients: Claude Code, Codex, and any client supporting mcpServers JSON.\n\nPhysical iPhone support has been verified only on iPhones using the Chinese interface. Physical devices support portrait orientation only. App container export and direct links to Settings subpages are unavailable. See verification and known limits.\n\nDocs\n\n| Topic | Read |\n| --- | --- |\n| Installation, other MCP clients, and troubleshooting | Install guide |\n| Poki Agent, models, iMessage, and Telegram | Run Poki Agent |\n| MCP tool reference | Tool behavior |\n| Environment variables and sessions | Configuration |\n| USB pairing, Developer Mode, and Wi-Fi | Physical iPhone setup |\n| Test results, known limits, and disclaimers | Verification |\n| Bridge architecture | Native bridge and simulator adapter |\n| Roadmap | poki.bot |\n\nRoadmap\n\n \n <img src=\"docs/images/roadmap.png\" width=\"860\" alt=\"Poki roadmap. Shipped: Poki MCP, Poki Agent, iMessage, Telegram, and Terminal integrations, self-learning routes, remote connections. In Progress: persistent connection performance improvements, native text input (clipboard-free), simplified tool interface. Planned: Poki App, which runs locally on iPhone and is available while your Mac is powered off. Future: iPhone Duo support, physical device support (no Xcode required), additional model providers.\">\n \n\nStar History\n\n \n \n \n \n \n \n \n\nCore contributors\n\n \n \n \n ZhehanZhang The great co-creator of Poki. \n igc110 Found why taps on a physical iPhone were slow in #10 ; the fix that followed made them about a third faster. \n edge369 Made Poki run on a router in #14 , so Telegram can drive the iPhone with the Mac powered off; #15 , #17 and #19 followed. \n \n \n carrotciallo Ported Poki to Linux and tested it on a physical iPhone over USB, LAN and Tailscale in #16 ; the README now points to it. \n guangtouge82 Traced failing touches on a physical iPhone to a missing display service in #18 ; Poki now says nothing was sent and points to prepare-device. \n Dreaminmaster Fixed a corrupt cached route that aborted unrelated Agent tasks ( #21 , #22 ), then let the Agent reuse its post-action screen read in #37 . \n \n \n PeterKingXu1s Reported in #25 that a natural-language stop request did not interrupt an iMessage task; Poki now replies to mid-task messages and points to /stop. \n ScottH1122 Reproduced two Agent bugs in #27 and #28 , disabled controls offered as tap targets and partly failed batches losing their trace; both are fixed. \n jiahuipaung Fixed in #34 a RemotePairing connection that died when the iPhone's LAN address changed ( #30 ); a real iPhone reconnected in 768 ms. \n \n \n scy7796 Fixed taps that failed every time over RemotePairing from a Windows host in #39 ; 5 of 5 taps then worked. \n foshanfm Ran an insurance-terms check on a real iPhone over Tailscale in #42 ; the report shaped clearer USB errors and a per-session transport switch. \n xiaweiyi713 Recorded demo videos of Poki driving a real iPhone, so new visitors can see what it does before installing anything. \n \n \n \n\nThanks\n\nThanks to everyone who opened an issue or pull request. Your feedback and fixes make Poki better.\n\n \n \n \n \n ZhehanZhang \n carrotciallo \n Dreaminmaster \n edge369 \n foshanfm \n \n \n guangtouge82 \n igc110 \n jiahuipaung \n kilingzhang \n makirqi-alt \n \n \n mawenhao1028 \n PeterKingXu1s \n ScottH1122 \n scy7796 \n wanghao-SunSky \n \n \n windywendyday \n xiaweiyi713 \n zcyoung2000 \n Zeno6898 \n zqy5608 \n \n \n \n \n\nDisclaimer\n\nPoki is an independent open source project. It is not affiliated with, or endorsed by, Apple, OpenAI, or the makers of any app or website it operates. iPhone is a trademark of Apple Inc.\n\nAutomating third-party apps and websites may violate their terms of service. Decide for yourself whether to use Poki with a given service. You are responsible for what it does on your device and accounts, including messages it sends, changes it makes, and any account restrictions that result.\n\nPoki is provided \"as is\", without warranty, as set out in the AGPL-3.0 license.\n\nLicense\n\nPoki is open source under the AGPL-3.0-only license.\n\nCopyright (c) 2026 Joseph Zhou and contributors. Open-source dependencies retain their respective licenses; see THIRDPARTYNOTICES.md. To contribute, see CONTRIBUTING.md.\n\nAcknowledgments\n\n \n \n Open source acknowledgments: pi | idevice | idb | BlueBubbles | Hermes Agent | MCP SDK | sharp | FFmpeg",
+      "preScore": 0.4056779661016949,
+      "popularityPercentile": 0.4576271186440678,
+      "matchedTopics": [
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": "poki — iPhoneを操作するAIエージェント",
+      "oneLiner": "pokiは脱獄や追加機器なしで実機のiPhoneをAIエージェントから操作する基盤です。",
+      "takeaways": [
+        "実機のiPhoneをAIエージェントが操作できる。",
+        "脱獄も追加の機器も必要ない。",
+        "端末上で外部サービスとの接続を仲介する。"
+      ],
+      "keywords": [
+        "poki",
+        "iPhone",
+        "MCP",
+        "Swift",
+        "AIエージェント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "Pokiは、脱獄や追加ハードウェアなしで、AIエージェントから実機のiPhoneを操作するオープンソースプロジェクトです。Mac上のPoki SetupがiPhone側の署名・接続設定を補助し、Poki MCP serverをClaude CodeやCodexなどのMCPクライアントから利用できます。専用のPoki Agentを使えば、接続したiPhoneで画面操作やメッセージ送信などを自然言語で実行できます。初回はiOSのDeveloper Mode、開発者の信頼、Automation Mode、iPhoneのパスコード入力が必要です。AGPL-3.0-onlyで提供され、操作対象の画面内容は設定したモデルサービスへ送信されます。",
+        "prerequisites": [
+          {
+            "term": "Poki Setup",
+            "stumblingPoint": "記事は「Poki Setup window」にApple Accountを入力すると書いているが、これが何を担当する画面か分からないと初回設定の範囲を読み取れない。",
+            "explanation": "Poki Setupは、iPhoneへPokiを導入し、Apple Accountによる開発用署名や接続準備を補助するMacまたはWindows向けのセットアップアプリです。MacではXcodeなしで進められますが、無料Apple Accountの署名は7日間で切れるため、継続利用時は更新が必要です。"
+          },
+          {
+            "term": "MCP server",
+            "stumblingPoint": "「Poki MCP」をMCPクライアントに接続すると書かれているが、Poki Agentとの違いを知らないとどちらを選ぶべきか判断できない。",
+            "explanation": "MCP serverは、Claude CodeやCodexなど既存のエージェントにiPhone操作のツールを追加する常駐プロセスです。モデルやサブスクリプションは利用中のMCPクライアント側を使うため、Poki専用のモデルアカウントは不要です。"
+          },
+          {
+            "term": "Poki Agent",
+            "stumblingPoint": "記事は「Poki Agent remembers past tasks」と書いているが、MCPクライアントを使う構成と別の実行経路だと分からないと構成を誤解する。",
+            "explanation": "Poki Agentは、Pokiが用意する単独の端末エージェントです。ターミナルやiMessage、TelegramなどからiPhoneを操作する用途に向き、既存のClaude CodeやCodexを使う場合はPoki MCPを選びます。"
+          },
+          {
+            "term": "Automation Mode",
+            "stumblingPoint": "初回起動時に「Automation Mode」を有効化し、iPhoneのパスコードを入力するとあるが、通常のDeveloper Modeとの違いが省略されている。",
+            "explanation": "Automation Modeは、PokiがiPhone上のUI操作を実行するための初回許可です。Developer Modeを有効にしても、このモードの許可をキャンセルすると自動操作は進まないため、Poki起動時の案内に従って再度有効化します。"
+          },
+          {
+            "term": "RemotePairing",
+            "stumblingPoint": "「RemotePairing connection」やLANアドレス変更後の再接続が登場するが、USB接続を外した後の経路が読み取りにくい。",
+            "explanation": "RemotePairingは、iPhoneとMacなどをネットワーク越しに再接続する経路です。記事では、iPhoneのLANアドレスが変わった後でも768msで再接続できた修正例が示されていますが、物理iPhoneの検証条件には制限があります。"
+          },
+          {
+            "term": "AGPL-3.0-only",
+            "stumblingPoint": "ライセンスが「AGPL-3.0-only」とだけ示されているため、社内ツールや顧客向けサービスへ組み込む際の確認点が分からない。",
+            "explanation": "AGPL-3.0-onlyはPokiのソース利用条件を定めるライセンスです。単にローカルで試すだけでなく、改変版をネットワーク越しにサービス提供する場合は、配布やソース公開の義務が関係し得るため、商用組み込み前にライセンス条件を確認します."
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "iPhone操作の構成",
+          "layers": [
+            {
+              "label": "呼び出す側",
+              "nodes": [
+                {
+                  "name": "Claude Code",
+                  "note": "MCPクライアント",
+                  "highlight": false
+                },
+                {
+                  "name": "Poki Agent",
+                  "note": "専用エージェント",
+                  "highlight": true
+                }
+              ],
+              "via": "MCPツール"
+            },
+            {
+              "label": "中継",
+              "nodes": [
+                {
+                  "name": "Poki MCP",
+                  "note": "iPhone操作を公開",
+                  "highlight": true
+                },
+                {
+                  "name": "Poki Setup",
+                  "note": "導入と接続を補助",
+                  "highlight": false
+                }
+              ],
+              "via": "ネイティブ橋渡し"
+            },
+            {
+              "label": "操作対象",
+              "nodes": [
+                {
+                  "name": "実機iPhone",
+                  "note": "画面操作を実行",
+                  "highlight": true
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "自然言語で実機iPhoneの画面を操作させる",
+          "Claude CodeからiPhoneでメッセージを送らせる"
+        ],
+        "howToTry": [
+          "https://github.com/JosssphZhou/poki",
+          "macOS 14+、Node.js 24+、iOS 18+、USBデータケーブル、Apple Account、iPhoneへ10.7.0.1を戻すVPN/proxyアプリを用意する。",
+          "READMEのQuick startにあるエージェント用プロンプトをPoki Setupまたはコーディングエージェントへ貼り付ける。",
+          "iPhoneでDeveloper ModeとUI Automationを有効化し、表示されたPokiの開発者を信頼する。（手動）",
+          "Poki初回起動時にAutomation ModeでContinueをタップし、iPhoneのパスコードを入力する。（手動）",
+          "記事本文ではQuick startのコードブロックが欠落しているため、実際のインストール用プロンプトはリポジトリREADMEから取得する。"
+        ],
+        "fitFor": [
+          "手元にmacOS 14+とiOS 18+のiPhoneがある",
+          "iPhoneをUSBまたは対応VPN/proxy経由で接続できる",
+          "画面内容を設定したモデルサービスへ送信できる"
+        ],
+        "notFor": [
+          "WindowsだけでPoki MCPを動かしたい",
+          "iPhoneを横向きで操作する必要がある",
+          "送信・決済などの操作を自動実行させたくない"
+        ],
+        "caveats": [
+          "実機を直接操作するため、誤操作で送信・決済・アカウント変更が起こり得る"
+        ],
+        "tryPrompt": "# 試すこと\nPokiを使い、接続した実機iPhoneの画面をエージェントから読み取り、テスト操作まで行う。\nhttps://github.com/JosssphZhou/poki\n# 手順\n1. 上記URLのREADMEを開き、Quick startとinstall-poki skillの手順を確認する。\n2. macOS 14+、Node.js 24+、iOS 18+、USBデータケーブルが揃っているか確認する。\n3. リポジトリのREADMEに記載されたPoki Setupの入手手順を実行する。\n4. iPhoneをUSBでMacへ接続する。\n5. READMEのQuick startにあるエージェント用プロンプトを実行する。\n6. Apple Accountの入力を求められたらPoki Setup windowで入力する。（手動）\n7. iPhoneでDeveloper Mode、UI Automation、開発者の信頼を有効にする。（手動）\n8. Poki起動後にAutomation ModeでContinueをタップし、パスコードを入力する。（手動）\n9. エージェントに「iPhoneの現在の画面を読み取り、設定アプリを開いて」と依頼する。\n# 確認したいこと\n- READMEの手順だけで、Xcodeなしに初回操作まで到達できるか\n- Automation Mode許可後、実機の画面読み取りとタップが成功するか\n- 画面内容が設定したモデルサービスへ送信されることを確認できるか\n# 前提・注意\n- macOS 14+、Node.js 24+、iOS 18+、USBデータケーブル、Apple Accountが必要。\n- 10.7.0.1をiPhoneへ戻す対応VPN/proxyアプリが必要。\n- 本文ではコードブロックが欠落しているため、コマンドはREADMEの現物を優先する。\n- 実機操作なので、送信・決済・設定変更を依頼しない。"
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "社内のコードを外部AIに入れられない――外部に何も送信しないAI統合開発環境を作った",
+      "url": "https://qiita.com/cuculhart/items/1a070487970895ec2913",
+      "publishedAt": "2026-11-09T00:16:12.000Z",
+      "author": "cuculhart",
+      "authorDetail": {
+        "name": "cuculhart",
+        "handle": "@cuculhart",
+        "url": "https://qiita.com/cuculhart",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4506237/5d7197f93fc392ae531424551adbc0b1d4a01cc2/x_large.png?1790153378",
+        "followers": 0,
+        "posts": 16,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/cuculhart"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/Cuculhart"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "ollama",
+        "Electron",
+        "IDE",
+        "個人開発"
+      ],
+      "snippet": "「ChatGPT や Claude は便利だけど、社内のコードを入力していいのかわからない」「セキュリティ審査でクラウドAIが通らない」——そんな理由でAIコーディングツールの導入が止まっている現場は多いと思います。 そこで、外部に何も送信しないAI統合開発環境を作りました。 Teaspoon IDE ～Local Edition～（ティースプーン・アイディーイー ローカル・エディション）です。 何が違うのか ・AI への送信先が http://localhost:11434 だけ。AI には Ollama 経由のローカル LLM を使うため、プロンプトもコードもパソコンの外に出ません。LANケーブルを抜いても動きます ・APIキーもアカウント登録も不要。BYOK（自分のキー持ち込み）すら必要ありません。インストールして Ollama を起動すれば、すぐに日本語で相談を始められます ・完全…",
+      "body": "「ChatGPT や Claude は便利だけど、社内のコードを入力していいのかわからない」「セキュリティ審査でクラウドAIが通らない」——そんな理由でAIコーディングツールの導入が止まっている現場は多いと思います。\n\nそこで、外部に何も送信しないAI統合開発環境を作りました。\n\nTeaspoon IDE ～Local Edition～（ティースプーン・アイディーイー　ローカル・エディション）です。\n\n何が違うのか\n・AI への送信先が http://localhost:11434 だけ。AI には Ollama 経由のローカル LLM を使うため、プロンプトもコードもパソコンの外に出ません。LANケーブルを抜いても動きます\n・APIキーもアカウント登録も不要。BYOK（自分のキー持ち込み）すら必要ありません。インストールして Ollama を起動すれば、すぐに日本語で相談を始められます\n・完全日本語。UI・メニュー・ダイアログ・AI の応答まで全部日本語です\n・ソースコード公開（FSL-1.1-MIT）。外部に通信しないことを GitHub で実際に確認・監査できます\n\nどうやって作ったか\n\nTeaspoon IDE（自身の公開作品）をフォークし、クラウド関連の機能をすべて取り除きました。\n・Gemini API・LiteLLM プロキシ・BYOK・APIキー保存を全削除\n・リモート Ollama 接続先設定を削除し、localhost:11434 に固定\n・組織（マネージド）モード・サインインゲート・テレメトリーを削除\n・UI言語は日本語のみに固定し、AI には日本語で返答するよう指示\n\nつまり「設定で外部通信を切る」のではなく、外部に送るコードがコードベースに存在しない設計です。\n\n主な機能\n・ファイルエクスプローラー・エディター・AIチャット・Git・ターミナルが一体の Electron 製 IDE\n・AI はファイルの閲覧・検索・編集・コマンド実行を複数ステップで自律実行。変更はすべて承認ダイアログ経由\n・相談モード（読み取り専用）：コードレビューや問題点の指摘だけを頼むモード。ファイル書き換え・コマンド実行はアプリ側で強制ブロック。AI に勝手にコードを変えさせたくない場面で使えます\n・ブロック時は「コードモードで再試行」ボタンでワンクリック再送\n・リファレンスマニュアルとハンズオンガイドを PDF 同梱（アプリのヘルプメニューからオフラインで開けます）\n\n \n\nできること・できないこと（正直に）\n\n推奨モデルは gemma4:e4b（小型・無料・オフライン）。それ故の限界もあります。\n\nできること: コードレビュー・エラーの解説・小さなスクリプト作成（CSV集計・ログ抽出・文字コード変換など）・定型コマンドの教示\n\nできないこと: 完成品のアプリやゲームの一発生成、大規模コードベースの理解、最新情報を使った回答\n\n「得意なことに絞って使う」のがコツです。ドキュメントに限界を明記しています。\n\n使ってみる\n\n1. Ollama をインストール（winget install Ollama.Ollama でも可）\n2. ollama pull gemma4:e4b でモデルを取得\n3. Releases から teaspoon-ide-le-1.0.0-win-x64.zip をダウンロードして解凍、Teaspoon IDE Local Edition.exe を実行\n\nこんな人に向いています\n・社内ルールで外部AIが使えないエンジニア\n・AIツールの導入を情報セキュリティ部門に説明したい人\n・機密情報を含むコードのレビューをAIに頼みたい人\n・費用をかけずにAIコーディングを試したい人\n\nライセンス\n\nFSL-1.1-MIT（ソース公開型）。社内での複製・改変・監査は自由ですが、販売・有料サービスとしての提供・有償セミナーは不可です。公開から2年後にMITライセンスへ移行します。\n\nまとめ\n\n外部に何も送信しない、完全日本語のAI統合開発環境です。「会社でAIを使いたいのに使えない」を解決する一手として、導入検討や情シスへの説明に使ってみてください。\n・GitHub: https://github.com/cuculhart/teaspoon-ide-le\n・製品ページ: https://cuculhart.com/teaspoon-le.html",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "cf8834757f3fba05",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.30446666666666666,
+      "popularityPercentile": 0.74,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 87,
+      "titleJa": null,
+      "oneLiner": "Teaspoon IDE Local Editionはコードや質問を外部に送らない開発環境です。",
+      "takeaways": [
+        "AIへの入力をパソコンの外へ送らない。",
+        "通信先を自分の端末だけに限定している。",
+        "クラウド機能を削除したソースコードを公開している。"
+      ],
+      "keywords": [
+        "Teaspoon IDE",
+        "Ollama",
+        "Electron",
+        "ローカルLLM",
+        "FSL-1.1-MIT"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "Teaspoon IDE ～Local Edition～は、AIへの送信先を`http://localhost:11434`に固定したElectron製の日本語IDEです。OllamaとローカルLLMを使うため、プロンプトやコードを外部クラウドへ送らず、LANケーブルを抜いた状態でもAIチャットを利用できます。Gemini API、LiteLLMプロキシ、BYOK、APIキー保存、テレメトリーなどのクラウド関連機能はコードベースから削除されています。ファイル閲覧・編集・検索・コマンド実行に対応し、変更操作は承認ダイアログを経由します。推奨モデルは`gemma4:e4b`で、コードレビューやエラー解説には使えますが、完成品の一発生成や大規模コードベースの理解には向きません。",
+        "prerequisites": [
+          {
+            "term": "Ollama",
+            "stumblingPoint": "記事は「Ollama をインストール」とだけ書いているが、IDEがどこでモデルを呼び出すか読み取れない。",
+            "explanation": "Ollamaは、PC上でLLMを起動し、HTTP APIを提供する実行基盤です。この記事ではTeaspoon IDEが`http://localhost:11434`へ接続し、Ollamaが取得済みのモデルへリクエストを渡します。そのためOllamaが未インストール、または起動していないと、IDE本体が開いてもAI機能だけ使えません。"
+          },
+          {
+            "term": "localhost:11434",
+            "stumblingPoint": "「AI への送信先が http://localhost:11434 だけ」とあるが、localhostが外部サービス名ではないことを知らないと安全性を判断できない。",
+            "explanation": "`localhost`は、通信を実行している自分のPC自身を指します。`11434`はOllamaが待ち受けるポートで、Teaspoon IDEからのAIリクエストはこのPC内で完結します。つまりクラウド上のAI APIへ送る構成ではなく、IDEとOllamaの間のローカル通信です。"
+          },
+          {
+            "term": "Electron",
+            "stumblingPoint": "「Electron 製 IDE」とあるが、実行環境の違いがどこに関係するのか分かりにくい。",
+            "explanation": "Electronは、Web技術で作った画面をデスクトップアプリとして配布するための実行基盤です。ここではファイルエクスプローラー、エディター、AIチャット、Git、ターミナルを一つのデスクトップ画面にまとめています。記事で示されている配布物が`win-x64.zip`なのは、このデスクトップアプリとしてWindows向けに固められているためです。"
+          },
+          {
+            "term": "BYOK",
+            "stumblingPoint": "「BYOK（自分のキー持ち込み）すら必要ありません」とあるが、通常のAI開発ツールとの違いが読み取りにくい。",
+            "explanation": "BYOKは、自分で用意したクラウドAIのAPIキーをツールへ登録して使う方式です。このアプリではクラウドAPI自体を削除し、ローカルのOllamaを呼ぶため、APIキーもアカウント登録も不要です。したがって、社内で外部AIのキー発行や利用申請が止まっている場合でも、別の認証経路を用意せず試せます。"
+          },
+          {
+            "term": "相談モード",
+            "stumblingPoint": "「相談モード（読み取り専用）」とあるが、AIの指示だけでなく何が実際に禁止されるのか確認が必要になる。",
+            "explanation": "相談モードは、AIにコードレビューや問題点の指摘だけをさせるための読み取り専用モードです。ファイル書き換えとコマンド実行をアプリ側でブロックするため、モデルが実行を提案しても変更操作へ進みません。レビューだけ先に行い、必要な場合に「コードモードで再試行」へ切り替える使い方です。"
+          },
+          {
+            "term": "gemma4:e4b",
+            "stumblingPoint": "推奨モデルが「小型・無料・オフライン」とあるが、使える作業の範囲との関係が分かりにくい。",
+            "explanation": "`gemma4:e4b`はこの環境で取得して使う推奨のローカルモデルです。記事ではコードレビュー、エラー解説、小さなスクリプト作成、定型コマンドの教示を用途として挙げています。一方、モデルが小型であることから、完成品の一発生成、大規模コードベースの理解、最新情報を使った回答は期待できません。"
+          },
+          {
+            "term": "FSL-1.1-MIT",
+            "stumblingPoint": "ライセンスが「ソース公開型」と説明されているが、社内導入後に販売できるか判断できない。",
+            "explanation": "FSL-1.1-MITでは、記事の記載上、社内での複製・改変・監査は認められています。一方、販売、有料サービスとしての提供、有償セミナーはできません。公開から2年後にMITライセンスへ移行するため、社内利用と製品組み込みでは現在の制限を分けて確認する必要があります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "ローカルAI呼び出し構成",
+          "layers": [
+            {
+              "label": "呼ぶ側",
+              "nodes": [
+                {
+                  "name": "Teaspoon IDE",
+                  "note": "日本語の統合開発環境",
+                  "highlight": true
+                }
+              ],
+              "via": "HTTPリクエスト"
+            },
+            {
+              "label": "接続先",
+              "nodes": [
+                {
+                  "name": "localhost:11434",
+                  "note": "PC内のOllama API",
+                  "highlight": false
+                }
+              ],
+              "via": "ローカルAPI"
+            },
+            {
+              "label": "実行モデル",
+              "nodes": [
+                {
+                  "name": "gemma4:e4b",
+                  "note": "PC内のローカルLLM",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fcuculhart.com%2Fresource%2Fteaspoon-le-screen.png?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=e7a645f9b0b61bacbf7c041b818627cf",
+            "alt": "Teaspoon IDE ～Local Edition～ の画面 — ファイル一覧・エディター・AIチャット・ターミナルが一体",
+            "caption": "ファイル一覧・エディター・AIチャット・ターミナルが一画面に並び、レビューから編集・実行までの操作対象が同じIDE内に集約されている。"
+          }
+        ],
+        "code": {
+          "lang": "powershell",
+          "caption": "Ollamaと推奨モデルを導入する最初の2コマンド",
+          "content": "winget install Ollama.Ollama\nollama pull gemma4:e4b"
+        },
+        "relatedLinks": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/cuculhart/teaspoon-ide-le"
+          },
+          {
+            "label": "製品ページ",
+            "url": "https://cuculhart.com/teaspoon-le.html"
+          }
+        ],
+        "readingMinutes": 4,
+        "lane": "build",
+        "unlocks": [
+          "LANケーブルを抜いたまま、社内コードを日本語でレビューさせる",
+          "読み取り専用レビューから、承認付き編集へ切り替える"
+        ],
+        "howToTry": [
+          "`winget install Ollama.Ollama`をPowerShellで実行する。",
+          "Ollamaを起動し、`ollama pull gemma4:e4b`で推奨モデルを取得する。",
+          "GitHub Releasesから`teaspoon-ide-le-1.0.0-win-x64.zip`をダウンロードして解凍する。",
+          "解凍したフォルダーの`Teaspoon IDE Local Edition.exe`を起動し、AIチャットでコードレビューを依頼する。"
+        ],
+        "fitFor": [
+          "社内規定でクラウドAIへコードを送れないとき",
+          "Windows x64環境でローカルLLMを試すとき",
+          "コードレビューや小さなスクリプト作成が目的のとき"
+        ],
+        "notFor": [
+          "完成品のアプリやゲームを一度で生成したいとき",
+          "大規模コードベース全体を理解させたいとき",
+          "最新情報を参照した回答が必要なとき"
+        ],
+        "caveats": [
+          "Ollamaを起動し、gemma4:e4bを取得しないとAI機能は使えない"
+        ],
+        "tryPrompt": "# 試すこと\nOllama上のgemma4:e4bを使い、外部通信なしでTeaspoon IDE Local Editionから社内コードのレビューを実行する。\nhttps://qiita.com/cuculhart/items/1a070487970895ec2913\n\n# 手順\n1. PowerShellで `winget install Ollama.Ollama` を実行する。\n2. Ollamaを起動する。（手動）\n3. `ollama pull gemma4:e4b` を実行する。\n4. GitHub Releasesから `teaspoon-ide-le-1.0.0-win-x64.zip` をダウンロードする。（手動）\n5. ZIPを解凍する。（手動）\n6. `Teaspoon IDE Local Edition.exe` を起動する。（手動）\n7. テスト用のコードを開き、AIチャットで「このコードの問題点を日本語でレビューしてください」と送信する。（手動）\n8. 相談モードでファイル編集とコマンド実行がブロックされることを確認する。（手動）\n\n# 確認したいこと\n- `gemma4:e4b`でコードレビューの最初の回答まで到達できるか\n- 相談モードでファイル変更・コマンド実行が本当に発生しないか\n- LANケーブルを抜いた状態でも回答が返るか\n\n# 前提・注意\n- 記事の手順はWindows向けの`win-x64`配布物を使用する。\n- Ollamaのインストール後、モデル取得とOllamaの起動が必要。\n- GitHub Releasesの具体的なダウンロードURLは記事本文に記載されていないため、手動で選択する。"
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "b4852013236e202e",
+      "product": "Claude Code",
+      "what": "Claude向けAIコーディングエージェントCLI",
+      "version": "v2.1.321",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "Claude Fable 5.2を既定モデルとして利用できるようになる",
+      "change": {
+        "before": "従来のFableモデルが既定",
+        "after": "Claude Fable 5.2が既定モデル"
+      },
+      "scope": [],
+      "summary": "Claude Fable 5.2を追加し、1Mコンテキストで既定モデルに変更。remote-controlの--settings対応とMCP OAuthの秘密情報漏えい修正も含む。",
+      "title": "anthropics/claude-code v2.1.321",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.321",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-11-09T19:22:30.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Code v2.1.321 を入れて、「Claude Fable 5.2を既定モデルとして利用できるようになる」を確かめる\nhttps://github.com/anthropics/claude-code/releases/tag/v2.1.321\n\n# 手順\n1. git clone --depth 1 --branch v2.1.321 https://github.com/anthropics/claude-code\n2. cd claude-code && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v2.1.321 が実際に入って動くか\n- 「Claude Fable 5.2を既定モデルとして利用できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v2.1.321 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "892b8472d6e88dfa",
+      "product": "ChatGPT Enterprise",
+      "what": "企業向け生成AIサービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "AWS Marketplace経由でChatGPT Enterpriseを契約できるようになる",
+      "change": {
+        "before": "AWS Marketplaceから契約できない",
+        "after": "AWS Marketplaceから契約可能"
+      },
+      "scope": [
+        "AWS Marketplace"
+      ],
+      "summary": "ChatGPT EnterpriseがAWS Marketplaceで提供開始。既存のAWS購買契約と請求関係を使って調達できるようになった。",
+      "title": "ChatGPT Enterprise now available in AWS Marketplace",
+      "url": "https://openai.com/index/chatgpt-enterprise-aws-marketplace",
+      "sourceLabel": "OpenAI News",
+      "publishedAt": "2026-11-09T19:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "dc9a332c17074824",
+      "product": "Anthropic SDK for TypeScript",
+      "what": "Anthropic API用TypeScript SDK",
+      "version": "sdk-v1.7.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "Claude Fable 5.2や新しいWebhook・利用量APIを扱えるようになる",
+      "change": {
+        "before": "新モデルや追加Webhookに未対応",
+        "after": "新モデル・Webhook・組織別レポートに対応"
+      },
+      "scope": [],
+      "summary": "claude-fable-5-2、claude-mythos-5-2、組織Webhook、親組織別の使用量・コスト集計を追加。Admin APIの新エラーにも対応した。",
+      "title": "anthropics/anthropic-sdk-typescript sdk-v1.7.0",
+      "url": "https://github.com/anthropics/anthropic-sdk-typescript/releases/tag/sdk-v1.7.0",
+      "sourceLabel": "GitHub Releases / anthropics/anthropic-sdk-typescript",
+      "publishedAt": "2026-11-09T18:52:24.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nAnthropic SDK for TypeScript sdk-v1.7.0 を入れて、「Claude Fable 5.2や新しいWebhook・利用量APIを扱えるようになる」を確かめる\nhttps://github.com/anthropics/anthropic-sdk-typescript/releases/tag/sdk-v1.7.0\n\n# 手順\n1. git clone --depth 1 --branch sdk-v1.7.0 https://github.com/anthropics/anthropic-sdk-typescript\n2. cd anthropic-sdk-typescript && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- sdk-v1.7.0 が実際に入って動くか\n- 「Claude Fable 5.2や新しいWebhook・利用量APIを扱えるよう」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- sdk-v1.7.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "07b408f40a3fb624",
+      "product": "Google Maps Platform in AI Studio",
+      "what": "AI Studio向けGoogle Maps Platform連携",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "AI StudioでGoogle Maps Platformを使ったアプリを構築できるようになる",
+      "change": {
+        "before": "AI StudioからMaps Platformを利用できない",
+        "after": "AI StudioでMaps Platformを利用可能"
+      },
+      "scope": [
+        "Web"
+      ],
+      "summary": "Google AI StudioでGoogle Maps Platformを利用したアプリを構築できるようになった。",
+      "title": "Developers can now build with Google Maps Platform in AI Studio.",
+      "url": "https://blog.google/innovation-and-ai/technology/developers-tools/build-google-maps-platform-ai-studio/",
+      "sourceLabel": "Google Developers",
+      "publishedAt": "2026-11-09T17:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "2344d333ff74a9d2",
+      "product": "Wrangler",
+      "what": "Cloudflare Workersの開発・デプロイCLI",
+      "version": "wrangler@4.159.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "仮想テーブルを含むリモートD1をエクスポートできるようになる",
+      "change": {
+        "before": "仮想テーブルを含むD1をエクスポートできない",
+        "after": "--compatibility付きでリモートD1をエクスポート"
+      },
+      "scope": [
+        "CLI"
+      ],
+      "summary": "wrangler d1 exportに--compatibilityを追加し、FTS5やR\\Treeなどの仮想テーブルを含むリモートD1を出力可能にした。",
+      "title": "cloudflare/workers-sdk wrangler@4.159.0",
+      "url": "https://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.159.0",
+      "sourceLabel": "GitHub Releases / cloudflare/workers-sdk",
+      "publishedAt": "2026-11-09T15:07:17.000Z",
+      "alsoReleased": [
+        {
+          "label": "create-cloudflare@2.74.10",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/create-cloudflare%402.74.10"
+        },
+        {
+          "label": "@cloudflare/vitest-plugin@1.6.1",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vitest-plugin%401.6.1"
+        },
+        {
+          "label": "@cloudflare/workers-auth@0.17.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workers-auth%400.17.0"
+        },
+        {
+          "label": "@cloudflare/vite-plugin@1.68.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vite-plugin%401.68.0"
+        },
+        {
+          "label": "@cloudflare/deploy-helpers@0.26.1",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/deploy-helpers%400.26.1"
+        },
+        {
+          "label": "@cloudflare/workers-utils@0.52.1",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/workers-utils%400.52.1"
+        },
+        {
+          "label": "@cloudflare/codemods@0.7.5",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/codemods%400.7.5"
+        },
+        {
+          "label": "@cloudflare/containers-shared@0.24.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/containers-shared%400.24.0"
+        },
+        {
+          "label": "@cloudflare/autoconfig@0.10.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/autoconfig%400.10.0"
+        },
+        {
+          "label": "@cloudflare/config@0.31.0",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/config%400.31.0"
+        },
+        {
+          "label": "@cloudflare/playground-preview-worker@0.3.6",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/playground-preview-worker%400.3.6"
+        },
+        {
+          "label": "@cloudflare/runtime-types@0.1.24",
+          "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/runtime-types%400.1.24"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nWrangler wrangler@4.159.0 を入れて、「仮想テーブルを含むリモートD1をエクスポートできるようになる」を確かめる\nhttps://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.159.0\n\n# 手順\n1. git clone --depth 1 --branch wrangler%404.159.0 https://github.com/cloudflare/workers-sdk\n2. cd workers-sdk && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- wrangler@4.159.0 が実際に入って動くか\n- 「仮想テーブルを含むリモートD1をエクスポートできるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- wrangler%404.159.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "3981ca2a986187ec",
+      "product": "TPU Sync",
+      "what": "TPU上の推論・強化学習向け状態転送基盤",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "TPU間でKVキャッシュやモデル重みを高速転送できるようになる",
+      "change": {
+        "before": "モデル状態の転送が推論・学習のボトルネック",
+        "after": "KVキャッシュと重みを高速転送"
+      },
+      "scope": [
+        "TPU"
+      ],
+      "summary": "TPU Syncを発表。推論時のKVキャッシュと強化学習時のモデル重みを転送し、分散推論・継続学習の状態連携を高速化する。",
+      "title": "Introducing TPU Sync: Fast KV cache and weight transfer for inference and RL on TPU",
+      "url": "https://cloud.google.com/blog/topics/ai-infrastructure/introducing-tpu-sync-fast-kv-cache-and-weight-transfer-on-tpu/",
+      "sourceLabel": "Google Cloud Blog",
+      "publishedAt": "2026-11-09T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "0cbe19a835b20915",
+      "product": "TPU 8tx / TPU 8i Max",
+      "what": "Google CloudのAIアクセラレータ",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "新世代TPUでエージェント型AIを実行できるようになる",
+      "change": {
+        "before": "従来世代のTPUを利用",
+        "after": "TPU 8txとTPU 8i Maxを利用"
+      },
+      "scope": [
+        "TPU"
+      ],
+      "summary": "エージェント型AI向けの新しいTPU 8txとTPU 8i Maxを発表。大規模モデルの学習・推論や顧客向けTPU利用を想定した世代となる。",
+      "title": "Our newest TPUs: 8tx and 8i Max, built for the agentic era",
+      "url": "https://cloud.google.com/blog/topics/ai-infrastructure/tpu-8tx-and-tpu-8i-max/",
+      "sourceLabel": "Google Cloud Blog",
+      "publishedAt": "2026-11-09T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "73d9e2ca3f2d866f",
+      "product": "Cloud Pathways",
+      "what": "大規模アクセラレータ向け分散MLランタイム",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "GKE上でCloud Pathwaysを本番利用できるようになる",
+      "change": {
+        "before": "Cloud PathwaysはGA前",
+        "after": "GKEの中核ランタイムとしてGA"
+      },
+      "scope": [
+        "GKE"
+      ],
+      "summary": "Cloud Pathways（Pathways on Cloud）がGKE上でGA。異種アクセラレータ群向けの分散機械学習ランタイムを本番利用できる。",
+      "title": "Cloud Pathways, a distributed ML runtime for massive accelerator fleets, now GA",
+      "url": "https://cloud.google.com/blog/topics/ai-infrastructure/cloud-pathways-a-distributed-ml-runtime-is-ga/",
+      "sourceLabel": "Google Cloud Blog",
+      "publishedAt": "2026-11-09T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "0bd1da2067950226",
+      "product": "GLM 5.3 Flash",
+      "what": "高速推論向けAIモデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "Token PassでGLM 5.3 Flashを利用できるようになる",
+      "change": {
+        "before": "Token Passで利用できない",
+        "after": "Token Passで利用可能"
+      },
+      "scope": [],
+      "summary": "高速推論向けAIモデルGLM 5.3 Flashが、VercelのToken Passで利用可能になった。",
+      "title": "GLM 5.3 Flash is now available in Token Pass",
+      "url": "https://vercel.com/changelog/glm-5-3-flash-is-now-available-in-token-pass",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-11-09T00:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "ad95762d28753226",
+      "product": "Vercel Workflow SDK",
+      "what": "Vercel向けワークフロー実行SDK",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Vercel上のWorkflow SDKでWebSocket通信を使えるようになる",
+      "change": {
+        "before": "Workflow SDKの通信方式にWebSocketなし",
+        "after": "Vercel上でWebSocket通信に対応"
+      },
+      "scope": [
+        "Web"
+      ],
+      "summary": "Vercel上のWorkflow SDKがWebSocketで書き込めるようになり、ワークフローとの双方向通信を利用できる。",
+      "title": "Workflow SDK now writes over WebSockets on Vercel",
+      "url": "https://vercel.com/changelog/workflow-writes-now-use-websockets-on-vercel",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-11-09T00:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "c86801f8982932b2",
+      "product": "Vercel",
+      "what": "フロントエンド向けデプロイ・ホスティングサービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "ビルド時に最大64 GBのディスクを使えるようになる",
+      "change": {
+        "before": "ビルドディスク容量が64 GB未満",
+        "after": "ビルドディスク容量が64 GB"
+      },
+      "scope": [],
+      "summary": "Vercelのビルドディスク容量を64 GBへ拡大した。大きな依存関係や生成物を扱うビルドで利用可能な容量が増える。",
+      "title": "Build disk space on Vercel increased to 64 GB",
+      "url": "https://vercel.com/changelog/build-disk-space-on-vercel-increased-to-64-gb",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-11-09T00:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "2c0d9a591c4f1882",
+      "product": "Vercel Container Registry",
+      "what": "Vercelのコンテナイメージレジストリ",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "2 GBの圧縮済みイメージレイヤーを登録できるようになる",
+      "change": {
+        "before": "圧縮済みレイヤーの上限が2 GB未満",
+        "after": "2 GB圧縮レイヤーに対応"
+      },
+      "scope": [],
+      "summary": "Vercel Container Registryが、2 GBの圧縮済みコンテナイメージレイヤーに対応した。",
+      "title": "Vercel Container Registry now supports 2 GB compressed image layers",
+      "url": "https://vercel.com/changelog/vercel-container-registry-now-supports-2-gb-compressed-image-layers",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-11-09T00:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "18157fefe867788b",
+      "product": "Claude Fable 5.2",
+      "what": "AnthropicのAIモデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "Vercel AI Gateway経由でClaude Fable 5.2を使えるようになる",
+      "change": {
+        "before": "AI Gatewayで利用できない",
+        "after": "AI Gatewayで利用可能"
+      },
+      "scope": [],
+      "summary": "Claude Fable 5.2がVercel AI Gatewayで利用可能になった。",
+      "title": "Claude Fable 5.2 now available on AI Gateway",
+      "url": "https://vercel.com/changelog/claude-fable-5-2-now-available-on-ai-gateway",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-11-09T00:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "7c675fa677907621",
+      "product": "Muse Ember",
+      "what": "AI Gatewayで利用するAIモデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "AI Gateway経由でMuse Emberを使えるようになる",
+      "change": {
+        "before": "AI Gatewayで利用できない",
+        "after": "AI Gatewayで利用可能"
+      },
+      "scope": [],
+      "summary": "新しいAIモデルMuse EmberがVercel AI Gatewayで利用可能になった。",
+      "title": "Muse Ember now available on AI Gateway",
+      "url": "https://vercel.com/changelog/muse-ember-now-available-on-ai-gateway",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-11-09T00:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "9730ecd6b3a1c883",
+      "product": "GitHub Secret Scanning",
+      "what": "GitHubの秘密情報漏えい検出機能",
+      "version": null,
+      "kind": "service",
+      "impact": "security",
+      "unlock": "GitHub Actionsのワークフローログから秘密情報を検出できるようになる",
+      "change": {
+        "before": "Actionsログは秘密情報スキャン対象外",
+        "after": "Actionsログもスキャン対象"
+      },
+      "scope": [
+        "GitHub Actions"
+      ],
+      "summary": "GitHub Secret ScanningがGitHub Actionsのワークフローログに対応。プロバイダーのパターンを検出し、アラート一覧に表示する（公開プレビュー）。",
+      "title": "Secret scanning detects secrets in GitHub Actions workflow logs",
+      "url": "https://github.blog/changelog/2026-11-09-secret-scanning-detects-secrets-in-github-actions-workflow-logs",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-11-09T09:01:37.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "8774b5d646df8e35",
+      "product": "Next.js",
+      "what": "React向けフルスタックWebフレームワーク",
+      "version": "v16.4.6",
+      "kind": "patch",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "未圧縮のRoute Handlerレスポンスが残る場合がある",
+        "after": "未圧縮レスポンスを自動圧縮"
+      },
+      "scope": [],
+      "summary": "バックポートされた不具合修正として、Route Handlerの未圧縮レスポンスを自動圧縮。Tailwind固定やTurbopackのGC問題も修正した。",
+      "title": "vercel/next.js v16.4.6",
+      "url": "https://github.com/vercel/next.js/releases/tag/v16.4.6",
+      "sourceLabel": "GitHub Releases / vercel/next.js",
+      "publishedAt": "2026-11-09T20:27:17.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nNext.js v16.4.6 を入れて、この版の変更を確かめる\nhttps://github.com/vercel/next.js/releases/tag/v16.4.6\n\n# 手順\n1. git clone --depth 1 --branch v16.4.6 https://github.com/vercel/next.js\n2. cd next.js && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v16.4.6 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v16.4.6 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "90068d506acaf724",
+      "product": "GKE Dynamic Slicing",
+      "what": "GKEでTPUスライスを動的構成する機能",
+      "version": null,
+      "kind": "major",
+      "impact": "improves",
+      "unlock": null,
+      "change": {
+        "before": "TPUスライスごとに静的ノードプールを作成",
+        "after": "論理スライスと物理ノードプールを分離して動的構成"
+      },
+      "scope": [
+        "GKE"
+      ],
+      "summary": "GKEのDynamic SlicingがGA。論理TPUスライスと物理ノードプールを分離し、AIワークロードの起動を最大5倍、復旧を4.5倍高速化する。",
+      "title": "Now generally available: GKE dynamic slicing for higher resilience, and efficiency for TPUs",
+      "url": "https://cloud.google.com/blog/products/containers-kubernetes/gke-dynamic-slicing-on-tpus/",
+      "sourceLabel": "Google Cloud Blog",
+      "publishedAt": "2026-11-09T13:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "883618b9e73a62c8",
+      "product": "Claude Agent SDK for TypeScript",
+      "what": "Claudeエージェント構築用TypeScript SDK",
+      "version": "v0.3.321",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "PreToolUseフックの判定理由やフック欠落、WarmQuery.query()のハング、MCPサーバー処理などの不具合を修正した。",
+      "title": "anthropics/claude-agent-sdk-typescript v0.3.321",
+      "url": "https://github.com/anthropics/claude-agent-sdk-typescript/releases/tag/v0.3.321",
+      "sourceLabel": "GitHub Releases / anthropics/claude-agent-sdk-typescript",
+      "publishedAt": "2026-11-09T19:22:16.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Agent SDK for TypeScript v0.3.321 を入れて、この版の変更を確かめる\nhttps://github.com/anthropics/claude-agent-sdk-typescript/releases/tag/v0.3.321\n\n# 手順\n1. git clone --depth 1 --branch v0.3.321 https://github.com/anthropics/claude-agent-sdk-typescript\n2. cd claude-agent-sdk-typescript && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v0.3.321 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v0.3.321 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "d783718d03260419",
+      "product": "Vite",
+      "what": "フロントエンド向けビルドツール",
+      "version": "v8.3.7",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "依存するRolldownをv1.2.18へ更新し、lintルール、テスト後処理、shim-depsプラグインのsourcemap生成を調整した。",
+      "title": "vitejs/vite v8.3.7",
+      "url": "https://github.com/vitejs/vite/releases/tag/v8.3.7",
+      "sourceLabel": "GitHub Releases / vitejs/vite",
+      "publishedAt": "2026-11-09T10:23:22.000Z",
+      "alsoReleased": [
+        {
+          "label": "v8.2.6",
+          "url": "https://github.com/vitejs/vite/releases/tag/v8.2.6"
+        },
+        {
+          "label": "v8.2.5",
+          "url": "https://github.com/vitejs/vite/releases/tag/v8.2.5"
+        },
+        {
+          "label": "v8.1.7",
+          "url": "https://github.com/vitejs/vite/releases/tag/v8.1.7"
+        },
+        {
+          "label": "v7.3.8",
+          "url": "https://github.com/vitejs/vite/releases/tag/v7.3.8"
+        },
+        {
+          "label": "v6.4.6",
+          "url": "https://github.com/vitejs/vite/releases/tag/v6.4.6"
+        }
+      ],
+      "tryPrompt": "# 試すこと\nVite v8.3.7 を入れて、この版の変更を確かめる\nhttps://github.com/vitejs/vite/releases/tag/v8.3.7\n\n# 手順\n1. git clone --depth 1 --branch v8.3.7 https://github.com/vitejs/vite\n2. cd vite && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v8.3.7 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v8.3.7 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "rss",
+      "sourceLabel": "BleepingComputer",
+      "title": "N-able takes cloud platform offline after 30+ \"zero-days\" published",
+      "url": "https://www.bleepingcomputer.com/news/security/n-able-takes-cloud-platform-offline-after-30-plus-zero-days-published/",
+      "publishedAt": "2026-11-09T21:26:25.000Z",
+      "author": "Lawrence Abrams",
+      "authorDetail": {
+        "name": "Lawrence Abrams"
+      },
+      "tags": [
+        "Security"
+      ],
+      "snippet": "N-able has taken its hosted N-central environments offline and urged on-premises customers to shut down their servers after a security researcher publicly disclosed more than 30 alleged zero-day vulnerabilities, including exploits that could let attackers take over vulnerable systems. [...]",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "633506e229212b86",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.615,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 86,
+      "titleJa": "N-ableが30件超の脆弱性公開後にクラウド停止",
+      "oneLiner": "N-ableは30件超のゼロデイ脆弱性が公開されたため、N-centralのクラウド環境を停止した。",
+      "takeaways": [
+        "研究者がN-able製品の欠陥を30件以上公開した。",
+        "一部の欠陥はシステム全体を乗っ取れる可能性がある。",
+        "N-ableはクラウドを停止し利用者にも停止を求めた。"
+      ],
+      "keywords": [
+        "N-able",
+        "N-central",
+        "ゼロデイ",
+        "脆弱性公開",
+        "リモートコード実行"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "Security NEXT",
+      "title": "「SonicOS」のSSL VPNに認証回避の脆弱性 - 悪用報告も",
+      "url": "https://www.security-next.com/192500",
+      "publishedAt": "2026-11-08T23:52:33.000Z",
+      "author": "snadmin",
+      "authorDetail": {
+        "name": "snadmin"
+      },
+      "tags": [
+        "TOP記事",
+        "ニュース",
+        "脆弱性"
+      ],
+      "snippet": "SonicWallのファイアウォール向けOS「SonicOS」に複数の脆弱性が明らかとなった。すでに一部の脆弱性については悪用の報告があり、同社はアップデートを呼びかけている。",
+      "metrics": {},
+      "sourceWeight": 4,
+      "feedCategory": "security",
+      "id": "801f71fe98f52e6f",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.65,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "SonicWallはSonicOSの認証回避脆弱性について悪用報告を受け、更新を呼びかけた。",
+      "takeaways": [
+        "SonicOSに認証を回避できる欠陥が見つかった。",
+        "一部の欠陥は実際の攻撃に使われている。",
+        "SonicWallは利用者に更新を呼びかけている。"
+      ],
+      "keywords": [
+        "SonicWall",
+        "SonicOS",
+        "SSL VPN",
+        "認証回避",
+        "脆弱性"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 4,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "CISA Advisories",
+      "title": "CISA Adds Four Known Exploited Vulnerabilities to Catalog",
+      "url": "https://www.cisa.gov/news-events/alerts/2026/11/09/cisa-adds-four-known-exploited-vulnerabilities-catalog",
+      "publishedAt": "2026-11-09T12:00:00.000Z",
+      "author": "CISA",
+      "authorDetail": {
+        "name": "CISA"
+      },
+      "tags": [],
+      "snippet": "CISA has added four new vulnerabilities to its Known Exploited Vulnerabilities (KEV) Catalog , based on evidence of active exploitation. CVE-2026-102895 GPUStack Improper Authentication Vulnerability CVE-2026-116779 SignalWire FreeSwitch Code Injection Vulnerability CVE-2026-123158 OpenBSD OpenSSH Unexpected Status Code or Return Value Vulnerability CVE-2026-123218 IBM Aspera Faspex Incorrect Auth…",
+      "body": "CISA has added four new vulnerabilities to its Known Exploited Vulnerabilities (KEV) Catalog , based on evidence of active exploitation. \n\n \n CVE-2026-102895 GPUStack Improper Authentication Vulnerability \n\n CVE-2026-116779 SignalWire FreeSwitch Code Injection Vulnerability \n\n CVE-2026-123158 OpenBSD OpenSSH Unexpected Status Code or Return Value Vulnerability \n\n CVE-2026-123218 IBM Aspera Faspex Incorrect Authorization Vulnerability \n\n \n These types of vulnerabilities are a frequent attack vector for malicious cyber actors and pose significant risks to the federal enterprise. \n\n Binding Operational Directive (BOD) 26-04: Prioritizing Security Updates Based on Risk establishes vulnerability management requirements for Federal Civilian Executive Branch (FCEB) agencies. BOD 26-04 reinforces the importance of the KEV Catalog and requires federal agencies to prioritize rapid remediation of high-risk vulnerabilities, specifically those identified by Common Vulnerabilities and Exposures (CVEs) listed in CISA’s KEV Catalog on publicly exposed assets that grant total control of the asset post-exploitation, while deferring action for lower-risk vulnerabilities. BOD 26-04 further establishes basic expectations for when agencies must check whether threat actors compromised the system before the patch was applied. \n\n \n While BOD 26-04 applies only to FCEB agencies, CISA encourages all organizations to adopt risk-based vulnerability management and prioritize remediation of KEV Catalog vulnerabilities . CISA will continue to add vulnerabilities to the catalog that meet the specified criteria . \n\n \n Aware of an exploited vulnerability not currently listed in the KEV Catalog? Submit it for potential addition through CISA’s KEV Nomination Form . Potential KEV additions must have a CVE ID, evidence of exploitation, and clear mitigation guidance.",
+      "metrics": {},
+      "sourceWeight": 4,
+      "feedCategory": "security",
+      "id": "1fd179447ef2791b",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.42333333333333334,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "CISAが実際に悪用された脆弱性4件を追加",
+      "oneLiner": "CISAは実際の攻撃で悪用された4件の脆弱性を既知悪用カタログに追加した。",
+      "takeaways": [
+        "CISAが攻撃に使われた脆弱性を4件追加した。",
+        "対象にはGPUStackとOpenSSHの欠陥が含まれる。",
+        "米国政府は危険度に応じた更新を求めている。"
+      ],
+      "keywords": [
+        "CISA",
+        "KEV Catalog",
+        "CVE-2026-102895",
+        "CVE-2026-123158",
+        "CVE-2026-123218"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "Security NEXT",
+      "title": "データ連携基盤「Airbyte」に脆弱性 - 悪用も確認",
+      "url": "https://www.security-next.com/192518",
+      "publishedAt": "2026-11-09T03:40:00.000Z",
+      "author": "snadmin",
+      "authorDetail": {
+        "name": "snadmin"
+      },
+      "tags": [
+        "ニュース",
+        "脆弱性"
+      ],
+      "snippet": "データベースやクラウドサービスなどのデータ連携を自動化するプラットフォーム「Airbyte」に脆弱性が明らかとなった。すでに悪用が確認されているという。",
+      "metrics": {},
+      "sourceWeight": 4,
+      "feedCategory": "security",
+      "id": "a6dbd8fe4a852bc0",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.65,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Airbyteのデータ連携基盤に脆弱性が見つかり、すでに悪用も確認された。",
+      "takeaways": [
+        "Airbyteに外部から悪用できる欠陥が見つかった。",
+        "データベースやクラウドとの連携機能が影響を受ける。",
+        "実際の攻撃で使われたことも確認されている。"
+      ],
+      "keywords": [
+        "Airbyte",
+        "脆弱性",
+        "データ連携基盤",
+        "クラウド",
+        "データベース"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "Taiwan-Based Hacker Used BOSSAI AI Agents to Steal Taipei Emergency Dispatch Records",
+      "url": "https://thehackernews.com/2026/11/taiwan-based-hacker-used-bossai-ai.html",
+      "publishedAt": "2026-11-09T09:01:50.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "A single attacker using AI agents pulled emergency dispatch records covering seven Taipei districts, researchers at Acronis's Threat Research Unit said last week. The agents also found a Taipei fire department platform exposing patient data from 2018, including ECG readings and ambulance video footage, without a login. The researchers are highly confident that the attacker is a single person",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "d19f04577eb5364e",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.53,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 81,
+      "titleJa": "AIエージェントによる台北消防記録の窃取",
+      "oneLiner": "攻撃者はAIエージェントを使い、台北の緊急通報記録と未認証の患者データを取得した。",
+      "takeaways": [
+        "1人の攻撃者がAIの自動操作で7地区の記録を集めた。",
+        "消防機関の公開画面から患者情報も取得できた。",
+        "心電図や救急車映像がログインなしで閲覧できた。"
+      ],
+      "keywords": [
+        "BOSSAI",
+        "AIエージェント",
+        "台北消防",
+        "緊急通報記録",
+        "患者データ"
+      ],
+      "category": "AI/エージェント",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "piyolog",
+      "title": "相次ぐメール配信サービスへの不正アクセスについてまとめてみた",
+      "url": "https://piyolog.hatenadiary.jp/entry/2026/11/09/230435",
+      "publishedAt": "2026-11-09T14:04:35.000Z",
+      "tags": [
+        "クラウド",
+        "システム障害",
+        "業務委託"
+      ],
+      "snippet": "2026年10月13日から、メール配信などのサービスを提供する5つの事業者が、不正アクセスによる情報漏えいなどを相次いで公表しました。ここでは関連する情報をまとめます。 5つの配信サービスで相次いだ不正アクセス 各社の公表にある最初の動きは10月11日から10月27日。SpeeCAN RAIDENは災害情報などを扱い、メールのほかXやLINEなどの外部サービスとも連携する(出典: 10, 11)。 サービス 事業者 確認された最初の動き ブラストメール ラクスライトクラウド(ラクスの子会社) 10月20日21時52分にシステム監視のアラートを検知(出典: 1) Cuenote ユミルリンク 10月16日6時49分に担当者が自身のアカウントの異常に気付いた(出典: 4) アララ メッセージ アララ 10月27日8時36分に偵察とみられるアクセス(後の調査で判明)、10月28日に不正利用を確認…",
+      "body": "2026年10月13日から、メール配信などのサービスを提供する5つの事業者が、不正アクセスによる情報漏えいなどを相次いで公表しました。ここでは関連する情報をまとめます。\n\n \n 5つの配信サービスで相次いだ不正アクセス\n\n 各社の公表にある最初の動きは10月11日から10月27日。SpeeCAN RAIDENは災害情報などを扱い、メールのほかXやLINEなどの外部サービスとも連携する(出典: 10, 11)。\n\n \n \n サービス \n 事業者 \n 確認された最初の動き \n \n\n \n ブラストメール \n ラクスライトクラウド(ラクスの子会社) \n 10月20日21時52分にシステム監視のアラートを検知(出典: 1) \n \n\n \n Cuenote \n ユミルリンク \n 10月16日6時49分に担当者が自身のアカウントの異常に気付いた(出典: 4) \n \n\n \n アララ メッセージ \n アララ \n 10月27日8時36分に偵察とみられるアクセス(後の調査で判明)、10月28日に不正利用を確認(出典: 6, 7) \n \n\n \n SpeeCAN RAIDEN \n アルカディア \n 10月11日6時26分にアクセスが始まり、同日23時40分に社内の監視がデータベースの異常負荷を覚知(出典: 10) \n \n\n \n ワイメール \n イグレックス \n ポータルサイトで異常トラフィックを検知してアクセスを遮断し、10月24日3時50分頃に緊急メンテナンスを開始(出典: 12) \n \n\n \n\n \n 事業者ごとの侵入経路と攻撃の段階\n\n 公表された侵入の起点、配信機能の悪用、11月9日時点の停止と再開の状況は次のとおり。事業者ごとの段階は以降で述べる。 *1 \n\n \n \n サービス \n 公表された侵入の起点 \n 配信機能の悪用 \n 停止と再開 \n \n\n \n ブラストメール \n API用サーバー2台への侵入(経路は調査中) \n 公表なし \n 全サービス停止中 \n \n\n \n Cuenote \n プログラムの脆弱性(FCはライブラリの脆弱性) \n 同社ドメインを使った迷惑メールの注意喚起あり(送信指示とは関係がないとしている) \n 10月20日から予防停止分を順次再開 \n \n\n \n アララ メッセージ \n 共用環境はWebサーバーの脆弱性とシステム環境の問題。一連の侵入の開始時期と経路は調査中 \n 公表あり \n 全サービス停止中 \n \n\n \n SpeeCAN RAIDEN \n メディアサーバーのディレクトリパストラバーサル脆弱性 \n 公表あり \n 11月6日にAPI連携を再開 \n \n\n \n ワイメール \n ポータルサイトのサーバーへの侵入 \n 公表あり \n 11月7日にすべての顧客環境の再稼働が完了 \n \n\n \n \n ブラストメール(ラクスライトクラウド)\n\n ラクスライトクラウドの公表にある経過は、外部の第三者によるAPI用サーバー2台への侵入から始まる(出典: 1)。 *2 \n\n \n API用サーバー2台に侵入し、コマンドを実行\n\n そこから販売管理システムとサービスのデータベースに接続\n\n 全契約者の契約者情報と、一部の契約者の配信先リストなどを持ち出し\n\n 10月20日21時52分にシステム監視のアラートを検知して初動対応を始めた。10月21日0時27分から37分に全サービスへの通信を自社オフィス内からのみに制限して管理画面とAPIを緊急停止し、1時から1時6分にAPIへの外部からの通信とサーバーから外部への通信を遮断した。17時25分、不正アクセスとデータの持ち出しを公表(出典: 1)。\n piyolog.hatenadiary.jp \n\n \n Cuenote(ユミルリンク)\n\n 一斉送信のメール配信サービスCuenote FCへの攻撃は、10月16日10時10分にライブラリの脆弱性によるものと特定された。顧客管理システムCuenote BASEは、プログラムの脆弱性により契約者情報が閲覧可能な状態だった(出典: 4)。 *3 \n 攻撃の段階は次の6つ(出典: 4)。\n\n \n プログラムの脆弱性を悪用\n\n サポート、品質管理担当者のサービスへの認証情報を取得\n\n 不正プログラムを設置し、データベースからデータを出力\n\n 担当者の認証情報で他のシステムへの認証を試行\n\n 不正プログラムを介して他のシステムのデータを参照\n\n システムログイン時のセッション情報を取得し、不正ログイン\n\n 10月16日6時49分に担当者が自身のアカウントの異常に気付き、10時10分に不審なIPからのアクセスを遮断、20時10分にCuenote BASEを停止し、20時46分に脆弱性対策プログラムの適用を完了した。10月17日4時43分には不正プログラムの設置を確認したシステムを停止した(出典: 4)。\n 10月18日にはサポート、QAアカウントによる不正ログインを確認したシステムを停止し、14時15分に同じデータセンターの全システムを予防停止した。不正アクセスは特定のデータセンターで生じており、接続元は海外IPだった。操作画面とAPIにIP制限がなかった環境があり、17時にIP制限を実施した。10月20日に予防停止していた他システムを順次再開し、同日、あるシステム経由で別のシステムへ不正アクセスがあったことを確認した。10月21日15時30分には、予防措置としてIP制限が未設定だったCuenote SR-Sのサーバーにも実施した(出典: 4)。\n 10月22日から全システムのログインと操作記録を遡って調べ、10月25日21時45分に新たに42システムへの不正アクセスとデータ出力の記録を確認した(出典: 4)。\n piyolog.hatenadiary.jp \n\n \n アララ メッセージ(アララ)\n\n アララは第1報でWebサーバーの脆弱性を第三者に悪用されたと公表し、第2報で、共用環境への不正アクセスについて、当該脆弱性に加えてシステム環境における問題も関係していたと更新した(出典: 5, 6)。\n 公表された経過は次の5つ(出典: 6, 7, 8)。 *4 \n\n \n 10月27日8時36分、第三者による偵察とみられるアクセス\n\n 10月28日から30日にかけて、配信機能を不正利用して不審メールを送信\n\n 10月28日11時9分から15時43分、第1報で公表した共用環境の管理画面に不正にログインし、データの出力機能等を悪用して持ち出し\n\n 10月28日から、10月31日にサービスを停止するまで継続して、本サービスのサーバーに不正にアクセスし、そこを経由して本サービスの多数のサーバーに侵入、データベースの内容を持ち出し(日時はサーバーにより異なる。持ち出しを確認したのは契約企業の環境のサーバー97台)\n\n 同じ期間に、別のクラウド上の環境へ認証情報を不正に使用してアクセスし、メールアドレスを持ち出し\n\n 10月28日に不正利用を確認して7時に当該環境への外部からのアクセスを停止し、16時31分に共用環境を緊急停止した。10月31日午前に本サービスのサーバーを経由した持ち出しを把握し、12時58分から不正に使用されたアカウントと鍵の無効化と各サーバーの通信の遮断を順次実施、別のクラウド上の環境も認証情報を無効化して停止した。14時50分からアララ メッセージとASP repicaシリーズの全サービスを停止した(出典: 6, 7, 8)。\n piyolog.hatenadiary.jp \n\n \n SpeeCAN RAIDEN(アルカディア)\n\n アルカディアのSpeeCAN RAIDENでは、メディアサーバーのディレクトリパストラバーサル脆弱性から設定ファイル(config.ini)を取得され、サービス間ログイン用のシークレットキーが流出した。また、アカウントIDへの総当たりでログインされ、内部情報を取得された(出典: 10)。\n 攻撃の段階は次のとおり(出典: 10, 11)。\n\n \n 10月11日6時26分、ログイン画面、API、ファイルサーバーなどを探索し、ログイン試行と脆弱性チェックを繰り返す\n\n 16時39分、ディレクトリパストラバーサルでconfig.iniの取得に成功\n\n サービス間ログイン用シークレットキーが流出し、アカウントIDへの総当たりでログインされて内部情報を取得\n\n 10月12日17時5分、WordPressへの不正プラグインの追加が発覚\n\n 10月13日1時17分から7時16分、設置されたバックドアから不正メールを外部へ配信\n\n 同社運営のNET119と旧119RAIDEN、社内会計サブシステムのデータベースにも痕跡があり、raiden3のデータベースでは一部のデータが改ざんされた(10月15日に修正)(出典: 10)。\n 10月22日から23日の間に、フィッシング詐欺の疑いのある不正メールが外部へ配信された。10月11日から13日の不正アクセス時にメール送信APIのアカウントが漏えいし、総当たりでパスワードを突破されて外部から送信APIを不正に利用された。アルカディアは10月22日6時30分頃に送信APIへの連携機能を停止したが、URLパースコンフュージョン脆弱性を利用されて再度不正に利用され、10月23日10時30分頃に同脆弱性を解消した(出典: 11)。\n 10月11日23時40分に社内の監視がデータベースの異常負荷を覚知し、10月12日3時にファイルサーバーの脆弱性の修正などで不正アクセスの経路を遮断した。10月13日4時10分に不正メールの配信が発覚して7時16分に配信を停止し、11時にサービスのraiden3とs2を緊急停止した(出典: 10)。再発防止として、ログイン時の2段階認証機能を10月22日以降に各サービスへ順次追加した(出典: 11)。\n アルカディアは11月2日、被害をまとめた調書を大阪府警本部サイバー犯罪捜査課に提出した(出典: 16, 17)。府警は不正アクセス禁止法違反の疑いで捜査を進めていると、捜査関係者は話している(出典: 16, 17)。\n piyolog.hatenadiary.jp \n\n \n ワイメール(イグレックス)\n\n イグレックスが運営する「ワイメール」では、ポータルサイト(www.y-ml.com)のサーバーで攻撃を企図した外部からの異常トラフィックを検知してアクセスを遮断し、10月24日3時50分頃に緊急メンテナンスを開始した。同日の追記で、外部の第三者による攻撃的アクセスと不正侵入の痕跡を確認したと公表(出典: 12)。\n 攻撃の段階は次のとおり(出典: 12)。 *5 \n\n \n ポータルサイトのサーバーに不正に侵入\n\n ポータルから、顧客環境のセットアップ用スクリプトなどが持ち出された、または読みとられた可能性がある。イグレックスはこのスクリプトを「今回お客様環境への侵入のきっかけとなった情報」としている\n\n 漏洩した可能性がある認証情報で、一部の顧客の配信環境のWebアプリに侵入\n\n その環境で管理している顧客の宛先に、フィッシングメールを送信\n\n イグレックスのコーポレートサイトにも不審な通信が確認され、採用エントリーページなどが停止された。調査の過程では、各配信環境のアプリケーションにバージョンの違いにより攻撃を受ける可能性のある不具合があることも判明し、全顧客の環境に対応策を反映したバージョンへの強制バージョンアップを実施した(出典: 12)。\n 10月24日、不審な通信の可能性が確認された一部の配信環境を停止し、11時44分頃に全配信環境の管理者用ログイン情報を更新した。その後、侵害の恐れのある認証情報を無効化してセッションを削除し、調査や対応が必要な環境のWebサーバーを停止した。10月26日には、念のため全顧客のDKIMの秘密鍵を再作成してDNSサーバーに再登録し、DMARCポリシーを「reject」に設定する方針を公表(出典: 12)。\n\n \n 配信機能の悪用による不審メール送信\n\n 配信機能を使った不審メールの送信を事業者が公表したのは、アララ メッセージ、SpeeCAN RAIDEN、ワイメールの3つ。 *6 \n アララ メッセージでは、10月28日3時59分頃から配信機能が不正利用され、クレジットカード会社を装った不審メールが送信された。別の環境でも同日8時47分頃から不正利用が続いており、10月30日13時8分に把握して13時26分に通信を遮断、13時32分を最後に新たな送信は確認されていない。送信数は2つの環境の合計で最大約713万通。送信元は news@arara.com、件名は「利用内容確認のご依頼」「ご利用明細確認のご依頼」等で、送信先は第三者が外部から持ち込んだメールアドレス。この不正送信自体に伴うメールアドレス以外の流出は確認されていない(出典: 6)。\n SpeeCAN RAIDENでは、10月13日1時17分から7時16分に、フィッシング詐欺の疑いのある不正メール1,423,428通が外部へ配信された。多くはカード会社を装うものとされ、1,423,428通のうち少なくとも869,575通はアルカディアが社内に保有するメールアドレス宛てではなかった(出典: 10, 11)。10月22日から23日にも、送信APIを不正利用されてフィッシング詐欺の疑いのある不正メールが外部へ配信された。 *7 \n ワイメールでは、一部の顧客の配信環境からフィッシングメールとみられるメールが送信され、総送信件数は1,341,744件(11月3日時点)(出典: 12)。\n ユミルリンクの10月20日の公表は、配信機能を使った送信の公表とは異なり、同社ドメインを利用して第三者を騙った迷惑メールが複数確認されているという注意喚起。「当社および第三者が送信指示したものとは一切関係なく」、こうした内容のメールを同社のドメインから送信指示することは一切ないとしている。件名の例は「ご利用確認のお願い」「利用内容確認のご依頼」、送信元の表示は「セゾンカード」「SAISON」で、アドレスは info@cuenote.jp(出典: 3)。\n\n \n 対象となった情報の種類と件数\n\n 契約者情報、顧客が登録した配信先のリスト、サービスの運用に使う設定や接続情報が対象となっている。確認の程度は事業者ごとに異なる。\n\n \n \n サービス \n 公表された確認の程度 \n 対象となった情報 \n 件数 \n 件数の単位 \n \n\n \n ブラストメール \n 持ち出されたことを確認 \n ・全契約者の契約者情報(会社名、担当者名、電話番号、メールアドレス、請求先メールアドレス、契約と支払いの履歴など。カード番号は保持していない)\n・一部の契約者の配信先リストなど \n 421 \n 契約者情報以外の漏えいが確認された契約件数(11月9日時点。外部機関の調査の進捗により変動する可能性)(出典: 1) \n \n\n \n Cuenote \n ・FC: メールアドレスなどの出力を確認\n・BASE: 契約者情報が閲覧可能な状態だった \n ・FC: 出力されたのはメールアドレスなど。FCにはアドレス帳(メールアドレスと氏名、都道府県、生年月日などの付属情報)、配信記録、Webアクセス記録、サービス利用者情報が登録、記録される\n・BASE: 契約者情報(企業名、氏名、電話、メールアドレス) \n ・FC: 51,628,280(出力が確認されたシステムは計49システム。件数調査中のシステムが16システム)\n・BASE: 190 \n ・FC: 漏洩の恐れがある件数(延べ件数)\n・BASE: 契約者情報の件数(出典: 4) \n \n\n \n アララ メッセージ \n 持ち出された(持ち出された恐れのあるものを含む) \n ・メールアドレス\n・契約企業が登録した氏名、性別、生年月日、電話番号、会員番号、住所等(項目は契約企業により異なる)と、配信の宛先等の記録\n・管理画面を利用する担当者の情報は確認中 \n 81,329,467(区分間の重複を除く。うち属性情報等つきが47,044,380。対象の契約企業は最大約380社と推計) \n メールアドレスの数(人数ではない)(出典: 6, 7) \n \n\n \n SpeeCAN RAIDEN \n 漏えいした可能性 \n ・連絡先の名前、メールアドレス、電話番号、FAX番号、担当者、契約情報、履歴として保存されている本文の内容\n・NET119のメールアドレスに紐づく個人情報(既往歴などはない)\n・決済情報は取り扱いがなく対象外 \n ・メールアドレス約3,136,000\n・電話番号約105,000\n・FAX番号約15,000\n・NET119: 9,020 \n 漏えいの可能性がある個人情報の最大件数(推定値)。NET119は件数(出典: 10) \n \n\n \n ワイメール \n ・個人情報: 漏えいまたはそのおそれ\n・ポータルサイトのデータ: 持ち出された、または読みとられた可能性 \n ・個人情報: 名前、メールアドレス(環境によってはメールアドレスのみ)\n・ポータルサイトのデータ: セットアップ用スクリプト、決済代行会社との接続情報(カード情報は含まれない)、サーバー内アプリケーションの設定ファイル、攻撃者がサーバー内を探索した際のスクリプトやファイルの場所の記録、管理用メールアドレスとダミーデータなど(個人情報は含まれない) \n 22,527 \n 個人情報の漏えいまたはそのおそれの総件数(11月3日時点)(出典: 12) \n \n\n \n \n 件数は各社の公表のままで、数え方が異なり、事業者の間で合算できない。\n\n \n\n \n サービス停止と再開の時期\n\n 11月9日時点で、ブラストメールとアララ メッセージは全サービスの停止が続き、SpeeCAN RAIDENは再開済みで、ワイメールは顧客の配信環境の再稼働を終えた。Cuenoteは10月20日1時から、予防措置として停止していた他システムの順次再開を始めた。\n\n \n \n サービス \n 停止の範囲 \n 再開の状況 \n \n\n \n ブラストメール \n 10月21日0時30分から全サービス。管理画面とAPIが使えず、メールの配信も10月21日1時頃から停止(出典: 1) \n 停止中 \n \n\n \n Cuenote \n 10月18日14時15分に特定のデータセンターの全システムを予防停止。不正プログラムの設置などを確認したシステムも停止(出典: 4) \n 10月20日1時から、予防停止していた他システムを順次再開 \n \n\n \n アララ メッセージ \n 10月31日14時50分からアララ メッセージとASP repicaシリーズの全サービス。管理画面とAPIが使えず、予約済みの配信も実行されない(出典: 8) \n 停止中、再開は未定 \n \n\n \n SpeeCAN RAIDEN \n raiden3とs2を10月13日11時から10月15日15時10分まで約52時間緊急停止。外部システムからのAPI連携機能を10月22日から停止(出典: 10, 11) \n API連携を11月6日に再開(顧客側の設定作業が必要) \n \n\n \n ワイメール \n 10月24日から一部の配信環境を停止、10月30日時点で全顧客のサーバーを停止(出典: 12, 13) \n 11月6日夕方から再稼働、11月7日2時頃にすべての顧客環境の再稼働が完了(一部の環境は制限付き) \n \n\n ブラストメールは、11月11日頃のサービス再開を目指して安全性に配慮した新しい環境を準備している(予定)。調査の進捗や検証状況により日程が前後する可能性があるとしており、OEM版の再開予定は確定次第、別途案内する。外部専門機関による調査は11月10日に完了する見込みで、契約者情報以外の漏えいの有無は調査完了後にあらためて報告する(出典: 1)。\n アララは、再開を侵入経路の特定、認証情報の全面的な変更、安全性の確認等を行ったうえで判断するとしている。再開時には、契約企業に管理画面のパスワードや認証情報(APIキー等)の再設定を依頼する予定(出典: 6, 7)。\n イグレックスは10月31日、外部セキュリティ診断の結果が出次第、11月4日頃から順次再開する見込みとしていたが、復旧準備作業と復旧前のセキュリティ対策が難航し、11月6日からに延期した(出典: 12)。\n\n \n ワイメール復旧後に顧客へ求めた作業\n\n 復旧後の環境で顧客側に必要な作業は次のとおり(出典: 14)。\n\n \n 不正アクセスを受ける前の直近のバックアップから復元されており、不正アクセスを受けた日から長くて過去1週間以内に書き込まれたデータ(登録された読者情報、予約した号外記事など)が欠損している場合は補完\n\n 管理者以外のユーザーはすべて削除され、管理者のログインパスワードはリセットされているため、パスワードを再発行して設定\n\n 2段階認証の設定の確認と、任意のログインIPアドレス制限の設定\n\n 復旧直後は「定期処理でのメール配信」が停止中に設定されており、予約配信、ステップメール、ループメールは「配信する」に戻すまで配信されない\n\n \n\n \n ワイメールの補償方針\n\n イグレックスは11月8日、補償方針を公表。契約中で被害のなかった顧客は2026年11月分の利用料金を免除する。フィッシングメールの送信、または個人情報漏えいのおそれがあった顧客には、11月分の利用料金免除に加えて2,000円の見舞金(請求期限は2026年12月31日)を支給し、新サービスの全プラン永久半額保証も付ける。本件発生時に無料お試し期間中だった顧客には、復旧後から改めて14日間の無料お試し期間を提供する(出典: 15)。\n\n \n 利用組織による影響の公表\n\n ブラストメール、Cuenote、アララ メッセージ、SpeeCAN RAIDENでは、各サービスの利用組織が自ら影響を公表しており、組織ごとの内容は各事案の既報に掲載している。\n ワイメールの利用を明記して自ら影響を公表した組織は、piyokangoが確認できた範囲で11組織。うち運営会社名も明記しているのは9組織。公式サイトでの公表が8、当事者本人のX投稿が3。影響の種類は、フィッシングメールの配信が10組織、登録者情報の閲覧や漏えいのおそれの公表が6組織で、うち1組織は閲覧のおそれのみで配信はなかった。配信環境の停止を公表した組織もある。\n\n \n 個人情報保護委員会への連名報告と代行報告\n\n ブラストメール、アララ メッセージ、SpeeCAN RAIDEN、ワイメールの4事業者は、個人情報保護委員会への報告を顧客と連名で、または顧客に代わって行う方式を案内した。SpeeCAN RAIDENは10月23日に行政機関の漏えい等事案報告書を、ワイメールは11月6日に中間報を提出した。ブラストメールは申し込み分を取りまとめて報告する予定で、アララ メッセージは申し込みを受け付けている(期限は11月9日18時)。\n\n \n \n サービス \n 報告の方式 \n 経過 \n \n\n \n ブラストメール \n 民間の企業、団体、個人事業主は連名報告、行政機関、独立行政法人等、地方公共団体等は代行報告 \n ・10月23日に案内ページを公開し、受付は11月5日に終了\n・顧客が他の事業者から委託を受けて利用している場合(ラクスライトクラウドが再委託先に当たる場合)も対象\n・速報の目安期間を超過しても報告の遅延として扱わないことを個情委に確認したと案内\n・配信先リスト等の漏えいが確認された顧客は、本人への通知を顧客が行う(出典: 2) \n \n\n \n アララ メッセージ \n 民間事業者は連名報告、行政機関と地方公共団体は代行報告 \n ・代行報告はガイドラインに定めがないが、本事案では個情委がアララによる実施を認めた\n・申し込み期限は11月9日18時\n・速報の目安期間を超過しても遅延として扱わないことを個情委に確認したと案内(出典: 8, 9) \n \n\n \n SpeeCAN RAIDEN \n 同意を得た契約者の代行報告 \n ・10月16日に個情委と相談のうえ代行報告を行う予定と案内\n・10月23日、同意を得た契約者のリストとともに「行政機関の漏えい等事案報告書」を提出(出典: 11) \n \n\n \n ワイメール \n 連名報告 \n ・10月28日、個情委から連名で取りまとめて提出するよう依頼、指導があった\n・11月6日、10月28日付の速報に紐づく中間報を、連名報告に同意した委託元のリストとともに提出(出典: 12) \n \n\n \n\n \n 関連公表\n\n \n \n ラクスライトクラウド(ブラストメール)\n\n \n \n [1] 2026年11月9日 ラクスライトクラウド「 【重要】ブラストメールの緊急停止および個人情報漏えいに関するお詫びとご報告 」(11月9日13時更新版)\n\n [2] 2026年11月6日 ラクスライトクラウド「 個人情報保護委員会への連名報告・代行報告に関するご案内 」\n\n \n\n \n ユミルリンク(Cuenote)\n\n \n \n [3] 2026年10月20日 ユミルリンク「 【注意喚起】当社ドメイン、第三者を騙った迷惑メールにご注意ください 」\n\n [4] 2026年10月26日 ユミルリンク「 当社システムへの不正なアクセスに関するご報告(最新情報) 」(10月26日17時更新)\n\n \n\n \n アララ(アララ メッセージ)\n\n \n \n [5] 2026年10月29日 アララ「 当社が提供する「アララメッセ－ジ」への不正アクセスによる情報流出およびサービス停止について 」\n\n [6] 2026年11月2日 アララ「 当社が提供する「アララメッセ－ジ」への不正アクセスによる情報流出およびサービス停止について(第２報) 」\n\n [7] 2026年11月6日 アララ「 当社が提供する「アララメッセージ」への不正アクセスによる情報流出およびサービス停止について(第３報) 」\n\n [8] 2026年11月9日 アララ「 【重要】アララ メッセージのサービス停止および個人情報流出に関するお詫びとご報告 」(11月9日12時更新)\n\n [9] アララ「 個人情報保護委員会への連名報告・代行報告に関するご案内 」\n\n \n\n \n アルカディア(SpeeCAN RAIDEN)\n\n \n \n [10] 2026年10月23日 アルカディア「 不正アクセスによる個人情報漏えいの可能性に関して 」(報告書)\n\n [11] 2026年11月6日 アルカディア「 弊社サービスへの不正アクセスに伴う一連の対応について 」(SpeeCAN RAIDEN公式ブログ。11月6日16時15分の第26報まで)\n\n \n\n \n イグレックス(ワイメール)\n\n \n \n [12] 2026年10月24日 イグレックス「 【一部復旧】ワイメールの緊急メンテナンスについて 」(11月8日の第23報まで追記)\n\n [13] 2026年10月30日 イグレックス「 ご解約申請につきまして 」\n\n [14] 2026年11月6日 イグレックス「 【要確認】復旧環境の免責事項、ならびに復旧後からメール配信までに必要な作業 」\n\n [15] 2026年11月8日 イグレックス「 本件における補償等の対応について 」\n\n \n\n \n 報道\n\n \n \n [16] 2026年11月3日 関西テレビ「 【速報】サイバー攻撃受けたIT関連企業「アルカディア」が被害をまとめた調書を大阪府警に提出　警察は不正アクセス禁止法違反の疑いで捜査 」(FNNプライムオンライン配信)\n\n [17] 2026年11月4日 朝日放送テレビ「 ＩＴ関連会社「アルカディア」が大阪府警に調書提出　不正アクセスで情報漏えいの可能性 」\n\n \n\n \n 更新履歴\n\n \n \n 2026年11月9日 新規作成\n\n \n\n \n *1 : 各社の公表は自社のサービスの事案を扱っており、他の事業者の事案との関係には触れていない。 \n\n *2 : 侵入経路の詳細は調査中としている。 \n\n *3 : 公表されているのは「ライブラリの脆弱性」「プログラム脆弱性」という区分までで、ライブラリ名や脆弱性の識別番号は示されていない。 \n\n *4 : 公表されているのは「Webサーバーの脆弱性」と「システム環境における問題」までで、侵入の開始時期と経路は調査中としている。管理画面と別のクラウド上の環境で使われた認証情報の入手経路は示されていない。 \n\n *5 : 公表されているのは、ポータルサイトへの不正侵入の痕跡、ポータルから持ち出された可能性があるデータ、漏洩した可能性がある認証情報による配信環境への侵入まで。ポータルサイトへの侵入手段と、セットアップ用スクリプトに含まれていた情報の具体は示されていない。 \n\n *6 : ラクスライトクラウドの公表にある配信の停止は、10月20日22時39分から41分のシステムメール通知(パスワード再設定メール等)の停止と、10月21日1時頃からのメール配信の停止。 \n\n *7 : 10月22日から23日の不正メールの通数と宛先は示されていない。",
+      "metrics": {
+        "hatena": 2
+      },
+      "sourceWeight": 5,
+      "feedCategory": "security",
+      "id": "4a7d642ad1e719b0",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.9619047619047619,
+      "popularityPercentile": 0.8571428571428571,
+      "matchedTopics": [
+        "クラウド / 本番環境構築"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "5つのメール配信サービスで10月以降に不正アクセスと情報漏えいが相次いで公表された。",
+      "takeaways": [
+        "5社のメール配信サービスで侵入が相次いだ。",
+        "攻撃者は配信機能や管理画面を悪用した。",
+        "各社はサービス停止と調査を順に進めている。"
+      ],
+      "keywords": [
+        "メール配信サービス",
+        "不正アクセス",
+        "情報漏えい",
+        "ブラストメール",
+        "Cuenote",
+        "SpeeCAN RAIDEN"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "id": "2a027194e9b448a3",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@The_Cyber_News: ‼️ React Server Components Flaw Lets Hackers Execute Code Remotely Without Auth…",
+      "url": "https://x.com/the_cyber_news/status/2119713352507335105",
+      "publishedAt": "2026-11-09T08:47:00.000Z",
+      "author": "Cyber Security News",
+      "authorDetail": {
+        "name": "Cyber Security News",
+        "handle": "@The_Cyber_News",
+        "url": "https://x.com/The_Cyber_News"
+      },
+      "tags": [],
+      "snippet": "‼️ React Server Components Flaw Lets Hackers Execute Code Remotely Without Authentication Details: https://t.co/Pd5hSzPEhL A critical security flaw in React Server Components can let attackers run code remotely without logging in. React published the advisory, tracked as GHSA-xqc2-xf4c-x3h3, on October 14, 2026. The issue carries a CVSS v4 score of 9.5, and the React team recommends immediate upda…",
+      "body": "‼️ React Server Components Flaw Lets Hackers Execute Code Remotely Without Authentication \n\nDetails: https://t.co/Pd5hSzPEhL\n\nA critical security flaw in React Server Components can let attackers run code remotely without logging in. React published the advisory, tracked as GHSA-xqc2-xf4c-x3h3, on October 14, 2026.\n\nThe issue carries a CVSS v4 score of 9.5, and the React team recommends immediate updates for affected applications. The flaw affects react-server-dom-webpack, react-server-dom-parcel, and react-server-dom-turbopack. These packages support React Server Components across different build tools.\n\nThe exploitation requires an extremely rare response pattern involving multiple typed arrays and a value controlled by an attacker. Simply using React does not make every application vulnerable.\n\n#cybersecurityNews",
+      "metrics": {
+        "likes": 343,
+        "replies": 9,
+        "quotes": 16,
+        "bookmarks": 152,
+        "impressions": 37717,
+        "comments": 9
+      },
+      "lang": "en",
+      "sourceWeight": 3,
+      "linkedUrls": [
+        "https://cybersecuritynews.com/react-server-components-vulnerability-patch/"
+      ],
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.46900000000000003,
+      "popularityPercentile": 0.7,
+      "matchedTopics": [
+        "フロントエンドの新技術"
+      ],
+      "buzz": true,
+      "score": 85,
+      "titleJa": "React Server Componentsの未認証コード実行脆弱性",
+      "oneLiner": "ReactはReact Server Componentsで未認証の遠隔コード実行を許す重大な脆弱性を公開した。",
+      "takeaways": [
+        "React Server Componentsにログイン不要の欠陥が見つかった。",
+        "攻撃には非常にまれな応答の組み合わせが必要になる。",
+        "影響する3つの部品はReactの修正版への更新が必要になった。"
+      ],
+      "keywords": [
+        "React Server Components",
+        "GHSA-xqc2-xf4c-x3h3",
+        "react-server-dom-webpack",
+        "react-server-dom-parcel",
+        "react-server-dom-turbopack",
+        "CVSS v4"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "readingMinutes": 4,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "【速報】ニトリ　最大3762万件の会員情報が流出の可能性　今月6日不正アクセスを確認　客の氏名、住所、電話番号など流出か　カード情報やパスワード含まれず（TBS NEWS DIG Powered by JNN） - Yahoo!ニュース",
+      "url": "https://news.yahoo.co.jp/articles/ec14e72be9639e846f42978f9e81da07fdd05687",
+      "publishedAt": "2026-11-09T08:57:55.000Z",
+      "tags": [
+        "テクノロジー",
+        "セキュリティ",
+        "あとで読む",
+        "!!",
+        "security",
+        "privacy",
+        "Yahoo!"
+      ],
+      "snippet": "TBS NEWS DIG Powered by JNN家具大手の「ニトリホールディングス」は、不正アクセスを受け、最大でおよそ3762万件の会員情報が流出した可能性があると発表しました。 【サイバー攻撃でアイスがドロドロに】生活に身近なスーパーにも被害が＜写真で見る＞ ニトリホールディングスによりますと、今月6日に、自社で管理す...",
+      "metrics": {
+        "hatena": 102
+      },
+      "sourceWeight": 3,
+      "id": "3ba6f3a0e7a9090b",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.18666666666666668,
+      "popularityPercentile": 0.8484848484848485,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "ニトリホールディングスは不正アクセスで最大3762万件の会員情報が流出した可能性を公表した。",
+      "takeaways": [
+        "ニトリのシステムへの不正アクセスが確認された。",
+        "氏名や住所など最大3762万件が流出した可能性がある。",
+        "カード情報とパスワードは含まれていないと発表された。"
+      ],
+      "keywords": [
+        "ニトリホールディングス",
+        "不正アクセス",
+        "個人情報流出",
+        "3762万件",
+        "TBS NEWS DIG"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "128の信用金庫が13時30分に止まり19時05分に復旧した――通信機器の故障と、振込だけ最後まで戻らなかった理由",
+      "url": "https://qiita.com/maees/items/50351e68589c27ff2a2d",
+      "publishedAt": "2026-11-08T22:15:49.000Z",
+      "author": "maees",
+      "authorDetail": {
+        "name": "maees",
+        "handle": "@maees",
+        "url": "https://qiita.com/maees",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKAmn-cxPOWf_y2XpLJMpKwVQvzD74dU1ANkiKJtav4PAkKGg=s96-c",
+        "followers": 1,
+        "posts": 71,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/mnnsna66615724"
+          }
+        ]
+      },
+      "tags": [
+        "障害対応",
+        "フェイルオーバー",
+        "可用性",
+        "冪等性",
+        "アーキテクチャ"
+      ],
+      "snippet": "128の信用金庫が13時30分に止まり19時05分に復旧した――通信機器の故障と、振込だけ最後まで戻らなかった理由 2026年11月6日金曜日の午後1時30分ごろ、西日本にある128の信用金庫でATM、窓口、インターネットバンキングが一斉に使えなくなった。原因はサイバー攻撃ではなく、共同システムを動かすセンターの機器故障だった。全面復旧は同日19時05分ごろで、止まっていた時間は約5時間半に及んだ。 この記事では、障害の事実関係を整理したうえで、エンジニアの視点から3つの論点を掘り下げる。共同システムという構造が128行を同時に止めた仕組み、通信機器の故障がフェイルオーバーしにくい理由、そして他行宛の振込だけが最後まで戻らなかった理由である。同じ週に始まった地方銀行向けの共通カード基盤「CCaaS for Regional Banks」との対比も、集中の効率と集中の脆さという同じ軸で読む。…",
+      "body": "128の信用金庫が13時30分に止まり19時05分に復旧した――通信機器の故障と、振込だけ最後まで戻らなかった理由\n\n2026年11月6日金曜日の午後1時30分ごろ、西日本にある128の信用金庫でATM、窓口、インターネットバンキングが一斉に使えなくなった。原因はサイバー攻撃ではなく、共同システムを動かすセンターの機器故障だった。全面復旧は同日19時05分ごろで、止まっていた時間は約5時間半に及んだ。\n\nこの記事では、障害の事実関係を整理したうえで、エンジニアの視点から3つの論点を掘り下げる。共同システムという構造が128行を同時に止めた仕組み、通信機器の故障がフェイルオーバーしにくい理由、そして他行宛の振込だけが最後まで戻らなかった理由である。同じ週に始まった地方銀行向けの共通カード基盤「CCaaS for Regional Banks」との対比も、集中の効率と集中の脆さという同じ軸で読む。\n\n13時30分に起きたこと\n\n事実関係を時系列で整理する。\n\n| 時刻（2026年11月6日） | 出来事 |\n|---|---|\n| 13時30分ごろ | しんきん共同センター西日本センター（神戸）で障害が発生。東海以西の128信用金庫でATM、窓口、インターネットバンキング、他行宛振込などが利用不可に |\n| 16時時点 | 復旧のめどは立っていないと報じられる |\n| 18時ごろまで | 大半のサービスが再開 |\n| 19時05分ごろ | 全面復旧（報道により19時ごろと幅がある） |\n\n障害が起きたのは、信用金庫が共同で利用する勘定系システム「しんきん共同システム」である。運営するのは一般社団法人しんきん共同センターで、開発などの実務はNTTデータが担う。全国の信用金庫の9割超にあたる236の信用金庫がこのシステムを利用しており、そのうち西日本センターを使う128の信用金庫が影響を受けた。東日本センターを使う信用金庫は通常どおり営業を続けた。影響地域は東海、北陸、近畿、中国、四国、九州（沖縄を除く）で、報道では約3,430店舗が影響を受けたと伝えられている。\n\n原因について、運営側は「機器の故障によるものであり、サイバー攻撃に起因するものではない」と説明した。ただし、どの機器が故障したかの表現は報道によって揺れている。日経クロステックは「通信機器の故障の疑い」と伝え、朝日新聞は「取引データなどを記憶する装置で故障が発生した」と伝えた。発表から間もない段階の情報としては、原因の特定が続いている最中であり、断定できる段階にないと読むのが妥当である。\n\nもう一つ、運営側の説明で注意を引くのは、10月中旬に実施した西日本向けシステム更新の際、通信設備などに不具合が発生した可能性が高いとされている点である。変更から障害の顕在化まで約3週間の間隔がある。\n\n128行が同時に止まったのは、共同システムの構造そのものである\n\n128の信用金庫は、それぞれ独立した金融機関である。にもかかわらず同時に止まったのは、勘定系という中核の処理を1つの共同システムに載せていたからである。1つのセンターの機器が故障すると、そこにつながる128の窓口が同時に閉まる。これが共同システムの集中リスクの姿である。\n\n一方で、東西2つのセンターに分かれていたことは、被害の広がりを止める方向に働いた。故障は西日本センターだけで起き、東日本センターは通常どおり動いた。障害ドメインの分離が、設計どおりに機能した例である。もし全国の信用金庫が1つのセンターに載っていたら、影響は236行すべてに及んでいた。\n\nここから読み取れるのは、冗長化の単位をどこに置くかという設計判断である。東西分離は「センター単位の全損」には耐えるが、「センター内部の1台の故障」には耐えない。センターの中でも、通信機器や取引データを記憶する装置といった中核の部品は、単一障害点になりやすい。障害ドメインを分ける設計は、分け方の粒度ごとに、どこまで耐えてどこから耐えないかが決まる。今回の障害は、その境界が西日本センターの内部にあったことを示した。\n\n通信機器の故障は、サーバの故障よりフェイルオーバーしにくい\n\n障害対応の現場で、通信機器の故障はサーバの故障より扱いが難しい。サーバが死ねば、死んだことがはっきり分かる。死んだサーバを切り離し、生きているサーバへ切り替える判断は比較的しやすい。\n\n通信機器の故障は、そうはいかない。機器が生きているのに通信だけが届かない状態、あるいは一部の経路だけが届かない状態を作る。切り替え先が健全かどうかも、通信が通らなければ確認できない。「切替先は生きているか」という問いそのものが、故障した経路を通してしか確かめられない場合がある。\n\nさらに、通信の断絶はスプリットブレインの恐れを伴う。東西のセンターや、センターと各信用金庫の間で「相手が生きているか」が分からなくなると、両方が自分を正系だと思って処理を進め、後で二重処理や不整合が生まれる。だからこそ、安易な自動切替は危険であり、切り替えの前に「どちらが正しい状態を持っているか」を確認する手順が必要になる。復旧に約5時間半かかった背景には、この確認の手間があったと推測できる。運営側が復旧を最優先としたうえで、原因の特定をNTTデータと共に進めるとしたのも、切り替えより整合性の確認を優先する姿勢の表れである。\n\n設計に落とし込むと、通信経路の冗長化は「経路を2本持つ」だけでは足りない。2本の経路が同じ機器や同じ建物を共有していれば、1台の故障で両方止まる。経路の独立性をどこまで確保するか、切替の判定をどの信号で行うか、切り替え後に旧系へ戻す手順をどうするか。これらを事前に決めておかなければ、障害の最中に判断することになる。\n\n振込だけが最後まで戻らなかった理由\n\n大半のサービスは18時ごろまでに再開したのに、他行宛の振込は19時05分ごろの全面復旧まで待たされた。この時間差は、振込という処理の性質から説明できる。\n\nATMでの引き出しや窓口での入出金は、その信用金庫と顧客の間の処理で完結する。ところが他行宛の振込は、送る側の信用金庫、共同システム、受け取る側の金融機関という複数の組織をまたぐ。障害の最中に「送ったはずだが、届いたか分からない」取引が残れば、再送したときに二重振込になる恐れがある。同じ振込を2回処理してしまえば、顧客の口座から2回引き落とされる。\n\nこの二重処理を防ぐ設計が冪等性である。取引ごとに一意のID（冪等性キー）を付け、同じIDの取引は2回目以降を処理しない。冪等性キーがなければ、再送は新しい取引と区別がつかない。復旧後の作業は、障害中にどこまで処理が進んだかを1件ずつ照合し、未処理のものだけを再送する、という地道な確認になる。振込の復旧が遅れたのは、この照合と再送の手順が、他のサービスより重かったからだと考えられる。\n\n最小の台帳モデルで、冪等性キーの有無が再送の結果をどう変えるかを確認した。\n\n [code] \n\n実行結果は次のとおりである。\n\n [code] \n\nキーなしの再送は3回すべて出金され、二重処理になる。キー付きの再送は1回だけ処理され、別の取引は別々に処理される。障害の最中に「送れたか分からない」取引が出るシステムでは、この1行の分岐が、二重振込を防ぐ最後の砦になる。\n\nなお、この検証は台帳の振る舞いを確認したもので、実際の共同システムの実装を示すものではない。検証環境は Python 3.12.3 である。\n\n変更から3週間後に顕在化した故障\n\n運営側の説明によれば、10月中旬の西日本向けシステム更新の際に、通信設備などに不具合が発生した可能性が高いとされる。変更から障害まで約3週間の間隔がある点が、運用上の論点になる。\n\n変更起因の障害は、変更直後に出るとは限らない。更新で入った設定やファームウェアの不具合が、特定の負荷やタイミングで初めて表面化することがある。金曜日の午後という、取引が集中する時間帯に顕在化したのも、その一例である。カナリアリリースや段階的ロールアウトは、変更直後の異常を捉える仕組みとしては有効だが、潜伏期間のある不具合を捉える保証はない。\n\n変更と障害の因果を切り分けるには、変更の記録と障害の発生条件を突き合わせる作業が要る。何を変えたか、変えたものが障害の起きた経路とどう関係するか、変更前後で何が変わったか。今回の障害では、原因の特定が続いている段階であり、更新との関係は「可能性が高い」という表現にとどまっている。再発防止策を評価するには、原因の特定結果を待つ必要がある。\n\n同じ週のもう一つの動き――共通基盤への流れは止まらない\n\n障害の前日、2026年11月5日には、地方銀行向けのクレジットカード基盤「CCaaS for Regional Banks」の提供が始まった。ナッジとTISIの協業で、カード発行、専用スマートフォンアプリ、口座開設連携、カード運用業務などを一体で提供し、地域金融機関は最短3ヶ月でカード事業を始められるという。3年で15行への導入を目指すと報じられている。\n\nこの動きと128信金の障害は、同じ軸の両面である。共通基盤に載せることは、個別にシステムを構築する負担をなくし、小さな金融機関でも新しい事業を始められるようにする。一方で、共通基盤に載せる機関が増えるほど、基盤側の1つの故障が止める範囲も広がる。効率と集中リスクは、同じ設計判断の裏表である。\n\nだからこそ、共通基盤を選ぶ側の判断材料は「安いか、早いか」だけではない。基盤側の障害ドメインがどう分かれているか、障害時にどこまで自分の手で運用を続けられるか、取引の冪等性や照会の手段が利用者側に開かれているか。こうした点が、選定時の確認項目になる。基盤を使う側が障害時に何もできない設計では、効率の代償として脆さだけが残る。\n\n今後見るべきもの\n・しんきん共同センターによる原因究明の公表。通信機器の故障か、取引データを記憶する装置の故障か、報道で揺れている表現がどう整理されるか。10月中旬の更新との因果関係がどう説明されるか。\n・再発防止策の中身。通信経路の冗長化の具体策、切替判定の見直し、障害ドメインの分け方の変更があるか。具体策が示されないまま「全力で取り組む」で終わるのか。\n・他行宛振込の復旧手順の説明。障害中に発生した取引の照合と再送がどう行われたか、二重振込や未達がなかったか。復旧後の整合性確認の結果が公表されるか。\n・NTTデータと金融庁の動き。開発実務を担うNTTデータ側の発表や、金融庁からの報告徴求・検査といった監督上の対応があるか。\n・「CCaaS for Regional Banks」の導入行数。3年で15行という目標に対して、実際の導入がどう進むか。共通基盤への流れが障害を受けて鈍るのか、むしろ障害対応の体制が選定条件として意識されるのか。\n・他の共同システムの障害対応。全国の信用金庫の9割超が使う基盤である以上、同様の構造を持つ他の共同システムでも、障害ドメインと切替手順の見直しが進むか。\n\nまとめ\n\n128の信用金庫が同時に止まったのは、1つの共同システムに勘定系を載せていた構造の帰結である。東西2センターへの分離は被害の広がりを止めたが、センター内部の機器故障までは防げなかった。通信機器の故障は「届かない」状態を作り、自動切替の判定を難しくする。振込が最後まで戻らなかったのは、他行をまたぐ取引では二重処理が許されず、復旧後の照合と再送に時間がかかるからである。\n\n共同システムや共通基盤への流れは、効率を求める以上、止まらない。だからこそ、使う側と作る側の両方に、集中の代償を読み解く目が要る。障害が起きたときに何が止まり、何が止まらないのか。止まったものをどうやって、どの順番で戻すのか。次に同じ構造の障害が起きたとき、自分のシステムはどこまで耐え、どこから崩れるのか。その答えを、自分の設計に持ち帰ることが、この障害から得られるものである。\n\n検証環境\n・Python 3.12.3（冪等性キーの台帳モデルのみ実行。共同システムの実装ではない）\n・障害の事実関係は、2026年11月6日〜7日の報道と運営側の発表にもとづく。原因の詳細は特定が続いている段階であり、記事中の原因の記述は発表時点の説明にとどまる\n\n参考資料\n・西日本の128信用金庫、共同型の勘定系システムに障害　通信機器故障の疑い（日経クロステック、2026年11月6日）\n・西日本の128信金の取引停止が全面復旧　「サイバー攻撃ではない」（朝日新聞、2026年11月6日）\n・信金のシステム障害、完全復旧＝西日本地域、機器の故障が原因（時事通信、2026年11月6日）\n・西日本の128信金のシステム障害が復旧　「機器の故障」が原因か（産経ニュース、2026年11月6日）\n・共通システム障害で停止した日本の信用金庫128行、サービス復旧（Asia Daily、2026年11月7日）\n・ナッジとTISI、「クレカ as a Service （略称：CCaaS）」を活用したカード事業における協業を開始し、地域金融機関向けに専用メニューを提供（産経ニュース、2026年11月5日）\n・TISI、地銀の提携カード発行を支援　地元事業者とコラボしやすく（日本経済新聞、2026年11月4日）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "b0e788b620e39799",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.520888888888889,
+      "popularityPercentile": 0.8222222222222222,
+      "matchedTopics": [
+        "クラウド / 本番環境構築"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "共同システムの通信機器故障で128信用金庫が約5時間半停止し振込だけ復旧が遅れた理由を分析した。",
+      "takeaways": [
+        "128の信用金庫が約5時間半にわたり停止した。",
+        "原因は共同センターの通信機器故障だった。",
+        "他行宛振込は処理の重複を防ぐ確認で復旧が遅れた。"
+      ],
+      "keywords": [
+        "しんきん共同システム",
+        "フェイルオーバー",
+        "冪等性",
+        "障害対応",
+        "可用性",
+        "CCaaS for Regional Banks"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "ニトリ、不正アクセスにより個人・法人会員の情報最大3762万件が流出の可能性",
+      "url": "https://internet.watch.impress.co.jp/docs/news/2154931.html",
+      "publishedAt": "2026-11-09T09:26:15.000Z",
+      "tags": [
+        "テクノロジー",
+        "ICT",
+        "あとで読む",
+        "software",
+        "security",
+        "ニュース",
+        "news",
+        "社会"
+      ],
+      "snippet": "ニトリ、不正アクセスにより個人・法人会員の情報最大3762万件が流出の可能性",
+      "metrics": {
+        "hatena": 49
+      },
+      "sourceWeight": 3,
+      "id": "d044cce9adc3022c",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.16666666666666666,
+      "popularityPercentile": 0.7575757575757576,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "ニトリは不正アクセスにより個人会員と法人会員の情報最大3762万件が流出した可能性を発表した。",
+      "takeaways": [
+        "ニトリの会員情報に不正アクセスが起きた。",
+        "個人会員と法人会員を含む最大3762万件が対象になった。",
+        "流出の可能性があり対象範囲は調査中とされた。"
+      ],
+      "keywords": [
+        "ニトリホールディングス",
+        "不正アクセス",
+        "法人会員",
+        "個人情報",
+        "3762万件"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "PHPの脆弱性、うちは大丈夫？3つの質問で決まる今日やること",
+      "url": "https://qiita.com/hc_terashima/items/03af67f60c7d077d996d",
+      "publishedAt": "2026-11-09T05:50:11.000Z",
+      "author": "Kazuhiro Terashima",
+      "authorDetail": {
+        "name": "Kazuhiro Terashima",
+        "handle": "@hc_terashima",
+        "url": "https://qiita.com/hc_terashima",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4432132/738766f3e9f41a004be097e45fdcad8f3023e658/large.png?1778830131",
+        "bio": "■得意な分野\r\n・フルスタック大歓迎\r\n・主にGCP、AWS（Azule, 国内GMO ConoHa, Sakura）\r\n・Rust, Go, React（ts）、Python, PHPなど\r\n・開発企画・運用・運用データ分析\r\n・業務効率化",
+        "organization": "株式会社hautecouture",
+        "followers": 3,
+        "posts": 28,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/howlrs"
+          },
+          {
+            "label": "Web",
+            "url": "https://product.howlrs.net"
+          }
+        ]
+      },
+      "tags": [
+        "PHP",
+        "Security",
+        "WordPress",
+        "php2shell",
+        "脆弱性"
+      ],
+      "snippet": "ニュースで「PHPに緊急の脆弱性」と見たものの、うちのサイトに関係があるのか分からない。php -v で番号を見ても、それが安全なのか判断できない。更新して壊れるのは怖いし、「止めましょう」とも言い出しにくい。すでに止めたけれど、いつ戻せるのか答えられない。 こうした状態で運用を続けているなら、今日やることは3つの質問で決められます。PHPを直すのは誰か、修正は入っているか、今日中に直せるか。 直せないなら、直すまで閉じます。 セキュリティの専任がいない現場で、PHPのサイトやAPIを預かっている方に向けて書きました。コマンドに触らない方は、質問1の文面を送るところまでで、今日の作業は終わります。私たち株式会社オートクチュールが担当する本番を止めて戻した記録と、検証の詳細は別の記事にまとめました。版と数値は2026年11月9日時点のものです。 「うちは小さいから」が通じない理由 2026年…",
+      "body": "ニュースで「PHPに緊急の脆弱性」と見たものの、うちのサイトに関係があるのか分からない。php -v で番号を見ても、それが安全なのか判断できない。更新して壊れるのは怖いし、「止めましょう」とも言い出しにくい。すでに止めたけれど、いつ戻せるのか答えられない。\n\nこうした状態で運用を続けているなら、今日やることは3つの質問で決められます。PHPを直すのは誰か、修正は入っているか、今日中に直せるか。 直せないなら、直すまで閉じます。\n\n \n\nセキュリティの専任がいない現場で、PHPのサイトやAPIを預かっている方に向けて書きました。コマンドに触らない方は、質問1の文面を送るところまでで、今日の作業は終わります。私たち株式会社オートクチュールが担当する本番を止めて戻した記録と、検証の詳細は別の記事にまとめました。版と数値は2026年11月9日時点のものです。\n\n「うちは小さいから」が通じない理由\n\n2026年10月21日、PHPの緊急の脆弱性（ソフトの欠陥で、攻撃の入口になるもの）の修正が公開されました。通称PHP2Shellです。未修正のPHPが動くサーバーは、ログインなしで外からプログラムを実行されるおそれがあります。サイトを書き換えられたり、問い合わせの個人情報やデータベースの中身を盗まれたりしかねないということです。\n・相手を選びません。 Amazonは自社のおとりのサーバー群で、公開4日前の10月17日に攻撃の試行を観測し、その後も広範な試行が続いていると報告しています（Tenableのまとめ）\n・自分のコードが丁寧でも防げません。 欠陥はPHP本体にあります。WordPress、Drupal、Joomla、Magentoの特定の版でも、ログインなしのコード実行が確認されています（同じくTenableのまとめ）\n・実害の報告も出ています。 10月26日には米国CISAの悪用確認済みカタログに載り、JPCERT/CCは侵害を示唆する痕跡の報告を伝えています\n\n建物に例えると、基礎の部品にメーカーからリコールが出た状態です。どれだけ丁寧に使っていても、部品の交換は要ります。\n\n盗まれて困るものがなくても、サーバーは道具にされます\n\n「うちには盗まれて困る情報なんてない」と思うかもしれません。ただ、攻撃者にとってはサーバーそのものが道具です。EC2やGCEのようなクラウドのサーバーでも、自社に置いたサーバーでも変わりません。\n\n \n\n総務省は、侵入されたシステムが踏み台にされ、組織の内部への侵入や、外部の他の組織への攻撃に使われることがあると説明しています。攻撃された相手の記録にまず残るのは、犯人ではなくあなたの会社のサーバーです。PHP2Shellでも、侵害した機器を足がかりに内部のネットワークへ広げようとした痕跡が報告されています（JPCERT/CC）。\n\nそうなると、データの話だけでは終わりません。\n・犯罪の部品になります。 フィッシング対策協議会のガイドラインは、詐欺の分業の中に、送信元を隠すためのボットネット（乗っ取られた機器の集まり）を貸し出す業者がいると書いています。貸した覚えがなくても、貸し出し品にされるわけです\n・外から言われて初めて気づきます。 IPAの届出事例では、公開していたWebサーバーが踏み台にされ、1時間に3,000か所近くへ接続を試みていました。発覚のきっかけは外部の組織からの連絡です（この事例の侵入の手口はSSHの総当たりで、PHP2Shellではありません）\n・サーバーやアカウントを止められることがあります。 AWSは他者からの通報を受けて利用者へ通知し、24時間以内に応答がなければ、リソースのブロックやアカウントの停止もありうると案内しています\n・請求書も届きます。 Google Cloudは、仮想通貨の採掘を目的とした攻撃について、1回で数日のうちに数十万ドルの不正な利用料が出ることがあると書いています（2023年の記事で、どのサーバーでもこの額になるという意味ではありません）。採掘するのは犯人で、支払うのはあなたです\n\n質問1：PHPを直すのは誰ですか\n\n最初に決めるのは、自分で直すのか、誰かに直してもらうのかです。\n\n| サイトの置き場所 | 直す人 | 今日やること |\n|---|---|---|\n| レンタルサーバー | 提供元（版の切り替えは自分の場合もある） | 提供元のお知らせを見る。なければ問い合わせる |\n| 制作会社や保守会社に任せている | 委託先 | 下の文面を送る |\n| PHPを組み込んだ製品 | 製品の提供元 | 製品のお知らせを見る。なければ問い合わせる |\n| VPS、クラウド、自社サーバー、Docker | 自分たち | 質問2へ |\n\nどれか分からなければ、サーバーの請求書を探してください。請求元が相手です。お金の流れは正直です。\n\nWordPressなら、管理画面の「ツール」→「サイトヘルス」→「情報」→「サーバー」でPHPの版を見られます（管理者のアカウントで開いてください）。ただ、ここで分かるのは番号だけで、安全かどうかは判断できません。番号が新しく見えても、自己判断せずに相手へ聞いてください。\n\n委託先や提供元には、次の文面をそのまま送れます。\nPHPの緊急の脆弱性（PHP2Shell、CVE-2026-109618 / CVE-2026-109619）について確認させてください。\n1. 弊社サイトで動いているPHPに修正は入っていますか。版と、修正を確かめた方法を教えてください\n2. 未修正の場合、いつ修正できますか。それまでサイトを閉じる必要があるかも相談させてください\n3. 10月17日以降に不審なファイルやアクセスがないかも、確認をお願いします\n\n「確かめた方法」まで聞くのは、番号だけでは判断できないからです（理由は質問2に書きました）。\n\n任せている方は、これを送れば今日の作業は終わりです。 今日中に答えがなければ、サイトを閉じるかどうかを相談してください。質問2と質問3は、自分たちでサーバーを管理している方向けです。読むなら「止めたまま戻せないなら」と「次の緊急に備えて」へどうぞ。\n\n質問2：修正は入っていますか（番号だけでは分かりません）\n\nphp -v の番号を見たくなりますが、残念ながら番号がいちばん当てになりません。11月9日に取得した環境で試した結果です。\n\n| 環境 | php -v の番号 | 修正 |\n|---|---|---|\n| Rocky Linux 9 の標準パッケージ | 8.0.30 | 入っている |\n| Ubuntu 24.04 の標準パッケージ | 8.3.6 | 入っている |\n| 公式Dockerイメージ php:8.4.26-cli | 8.4.26 | 入っていない |\n\n8.0.30は直っていて、8.4.26は直っていません。OSのパッケージ（apt や dnf で入れたもの）は、番号を変えずに修正だけを取り込むことが多いからです。車の年式を見ても、リコールの修理が済んだかどうかは分からないのと同じです。\n\nそこで、番号ではなく修正の記録を見ます。次のスクリプトは読み取るだけで、何も変更しません。長く見えますが、中身を読む必要はありません。開いて、コードの右上のボタンでコピーしてください。\n\n check-php.sh（クリックで開く） \n\n [code] \n\n \n\nサーバーで nano check-php.sh を開いて貼り付け、保存してから実行します。sudo を付けないと、再起動を忘れた処理までは調べられません。Dockerなら、動いているコンテナの中で実行します。\n\n [code] \n\nたとえば、古いPHPが動いたままパッケージだけ更新したサーバーでは、次のように出ます。\n\n [code] \n\n| 表示 | 意味 | 次にすること |\n|---|---|---|\n| OK | 修正が入っている | 「修正できても、痕跡は確かめる」へ |\n| NG | 修正が入っていない | 質問3へ |\n| ?? | 判定できない（最小構成のOSでは、最新のパッケージでも出ることがある） | Ubuntu、Debian、Red Hatの公開情報と版を比べる。分からなければ NG と同じに扱う |\n\n複数の版が入っていると、版ごとに行が出ます。「動いているWebの処理」の名前を手がかりに、Webで使っている版の行で判断してください。再起動を促す NG が出たら、更新が済んでいても再起動が先です。\n\nPHP公式の修正版は 8.2.35 / 8.3.36 / 8.4.27 / 8.5.12 です。8.1以前には新しい版が出ません。7.4〜8.1はソースから組み込む公式パッチだけで、5.4〜7.3にはPHP公式の修正がありません。ただ、OSのパッケージなら、古い番号のまま直っていることがあります（上の Rocky Linux がそうです）。\n\n確かめるのは、動いているものです。 私たちも、切り離す直前に本番の版を調べるまで最新のつもりでいました。実際は8.3.31と8.3.29で、手元に残っていた5月のDockerイメージが使われ続けていました。作り直しは毎回成功し、自動テストの画面も緑のまま何も言いませんでした。古いPHPを、毎回きちんと作り直していたわけです。\n\n質問3：今日中に直せますか\n\n「はい」なら、更新して再起動する\n\nOSのパッケージなら、PHPに絞って更新します。Webで動くPHPは再起動するまで古いままなので、reload ではなく restart を使います。\n\n [code] \n\nDockerなら、Dockerfileの FROM を修正版のタグに書き換えて、docker build --pull で作り直します。--pull がないと、手元に残っていた古いイメージが使われることがあります。終わったら check-php.sh をもう一度実行します。\n\n「更新して壊れないか」が心配なら、私たちの例が目安になります。同じ8.3系の中の更新で、約2,000件と約260件のテストは新旧で成功と失敗が完全に一致しました。ただし、同梱のWebサーバーの更新で大きなヘッダーの扱いは変わっていました。テストが少なくても、主要なページだけ新旧を見比べてから出してください。\n\n「いいえ」なら、閉じる\n\n更新までの応急処置（緩和策）もありますが、PHP公式の告知は「完全な解決は更新だけで、緩和策は一部の攻撃経路を減らすものの、安全にはしない」という趣旨を書いています。だから、直せないなら閉じます。\n\n| 状況 | 閉じ方 |\n|---|---|\n| 社内だけで使う | ファイアウォールで社内のIPだけを許可する。共有VPNの出口や中継サーバーのIPは、第三者も通るので含めない |\n| 公開サイト（nginx + PHP-FPM） | sudo systemctl stop php8.3-fpm でPHPに届かなくなる。画面は502になるので、用意できればメンテナンス表示に替える |\n| 公開サイト（Apache） | sudo systemctl stop apache2（RHEL系は httpd）で止める。PHPのモジュールだけを外すと、.php の中身がそのまま配信されるおそれがある |\n| どうしても止められない | 公式の緩和策を入れて、止める日を決める。条件は原文で確かめる |\n\n閉じるのは大げさに聞こえるかもしれません。私たちの案件でも、最初の案は「止めない」でした。修正版のイメージがいつ出るか読めなかったので方針を変え、修正版の公開から約2時間半で閉じて、約16〜17時間で戻しました。\n\n閉じると時間が手に入ります。深夜に慌てて更新せず、翌日の日中に確かめながら進められました。\n\n修正できても、痕跡は確かめる\n\n攻撃の試行は修正の公開より前からあったので、直しただけでは終わりません。サーバーに入れる方は、10月17日以降に変わったファイルと、定期実行の設定を見てください。\n\n [code] \n\n自分で更新したファイルは出てきて当然なので、見覚えのないものを探します。一時領域に sess が大量に出るのは、多くの場合PHPのセッションファイルです。JPCERT/CCは、不審な送信の前後に出るメモリエラーや500、PHPの処理の異常終了や頻繁な再起動も痕跡に挙げています。\n\n更新日時は偽装できるので、何も見つからなくても安全の証明にはなりません。10月17日以降のログが残っていなければ、「痕跡なし」とは扱わないでください。\n\n見つかったら、その場で消さないでください。証拠まで消えてしまいます。戻す前に作り直す手順を別の記事にまとめました。個人情報が漏れたおそれがあれば、個人情報保護委員会への報告が必要になる場合があるので、早めに専門家へ相談してください。\n\n止めたまま戻せないなら、日付ではなく条件で進める\n\n「いつ戻るのか」と毎日聞かれて、答えられない。そんなときは、戻す日ではなく、戻す条件を決めて報告します。\n\n \n\n「いつ戻るのか」に日付で答えられない日は、条件の数で答えます。\n\n条件は5つです。私たちもこの形で進めました。\n\n1. 本番が修正版で動いている\n2. 主要な機能が正常に動く\n3. 確かめた範囲で痕跡がない（ログがなければ、作り直しとパスワードや鍵の更新が済んでいる）\n4. サーバーが入れ替わっても修正版で起動する\n5. 修正できない古い環境は閉じたまま\n\n報告は、たとえばこう書けます。\n基礎の部品にメーカーからリコールが出ました。点検と部品の交換が終わるまで閉館します。再開の条件は5つのうち2つが完了しました。次回の報告は明日の10時です。\n\n戻せない理由ごとの最初の一手です。\n\n| 止まっている理由 | 最初の一手 |\n|---|---|\n| どこまで上げられるか分からない | 別の環境で動かしてみる。手元の検証では、Laravel 8以降の新規プロジェクトは修正のあるPHP 8.3以上で起動し、Laravel 6と7は8.0までだった（自社のコードやライブラリの動作は別に確かめる）。6と7なら、OSのパッケージの修正か公式パッチで先に塞ぎ、そのあとLaravelを上げるか廃止するかを決める |\n| 修正版が見当たらない | OSのパッケージの修正、公式イメージのタグ、公式パッチの順に探す |\n| テストが少なくて怖い | 主要なページだけ、新旧の応答を比べる（比べるスクリプト） |\n| 直す手段がなく、古すぎる | 廃止を選択肢に入れる。私たちのPHP 7.2の旧サーバーは、機能を移し終えていたので再開せず廃止した |\n| 業務を止め続けられない | 社内や取引先のIPだけを許可して、部分的に開ける |\n\n開けるときの失敗も書いておきます。私たちはサービスの1つで、再開の直後に未修正の版が約7分半応答してしまいました。止めている仕組みの都合で、開ける前に更新できなかったためです。脆弱な版では開けないと決めていたのに、守れませんでした。止める場所を決めるときは、「止めたまま更新できるか」も確かめてください。\n\n「PHPをやめれば解決？」は、直してから考える\n\n直し終えると、「これを機にPHPをやめよう」という話が出るかもしれません。ただ、脆弱性だけを理由にするなら、答えは「やめても終わらない」です。\n\n新旧の版を同じ手順で監査すると、Laravelは7.30.7で16件、12と13は0件でした。Next.jsも、半年前の最新版だった16.2.6で27件、最新の16.4.5で0件です。どちらの陣営でも、更新すれば大きく減り、放置すれば増えます。\n\nPHP2Shell級の本体の欠陥が今年起きたのはPHPの側で、そこは公平に認めるべきです。ただ、更新できない体制は、言語を替えても一緒に引っ越してきます。判断の材料は別の記事に置きました。\n\n次の緊急に備えて、3行だけ書いておく\n\n3つの質問は、PHP以外の緊急の脆弱性にもそのまま使えます。check-php.sh は今回の脆弱性専用ですが、「番号ではなく修正の記録を探す」という考え方は次も同じです。次は慌てないように、今日分かったことを3行で残してください。\n\n [code] \n\n私たちが目標より約1日早く戻せた一因は、止める前に手順があったことだと思います。公開の約7時間前に事前告知を受け、版ごとの連絡文案を用意できていました。\n\n今日やることは、質問1から順に答えることです。答えが「分からない」で止まったら、それも今日の収穫です。その行を埋めてください。\n\nこの記事の範囲\n・手順はLinuxのサーバーを前提にしています。Windowsのサーバーは対象外です\n・check-php.sh は Ubuntu 24.04 / 22.04、Debian 12 / 13、Rocky Linux 9、AlmaLinux 8、公式Dockerイメージ、SuryとRemiのパッケージで試しました。未修正の古いパッケージや、再起動を忘れた状態で NG が出ることも確かめています\n・OK は修正が入っていることを示すだけで、攻撃を受けていないことは示しません\n・公式パッチを自分で組み込んだPHPは、番号からは見分けられないので NG と出ます\n・サーバー上で実行しても、コンテナの中のPHPは調べられません。OSのパッケージとは別に自分で組み込んだPHPがあっても、パッケージの行しか出ません\n・隔離や再開の判断は、利用者への影響と取引先との取り決めで変わります\n・踏み台にされたときの法的な責任は状況によって変わるので、この記事では扱いません\n\n著者: K-Terashima（株式会社オートクチュール）\n\n参考\n・PHP公式の緊急告知。修正版と緩和策の原典 — php.net\n・PHPの脆弱性対策について — IPA\n・PHPにおける複数の脆弱性に関する注意喚起 — JPCERT/CC\n・PHP2Shellのよくある質問。影響する版と悪用の状況 — Tenable\n・悪用が確認された脆弱性のカタログ（JSON） — CISA\n・漏えいが起きたときの報告基準 — 個人情報保護委員会\n・WordPressのサイトヘルス画面の説明 — WordPress.org\n・侵入されたシステムが踏み台にされる話 — 総務省\n・公開サーバーが踏み台にされた届出事例（2019年下半期） — IPA\n・フィッシング対策ガイドライン 2026年度版 — フィッシング対策協議会\n・AWSから不正利用の通知が来たらどうするか — AWS re:Post\n・仮想通貨の採掘攻撃はどれだけ高くつくのか — Google Cloud\n・この記事の詳しい版。本番を止めて翌日戻した記録 — Qiita",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9f19730852afe83e",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7348000000000001,
+      "popularityPercentile": 0.5066666666666667,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "PHP2Shellへの対応を担当者と修正状況と当日対応の3問で判断する運用手順を示した。",
+      "takeaways": [
+        "PHP本体の欠陥で外部から命令される危険が生じた。",
+        "未修正のサイトは書き換えや情報流出につながる。",
+        "直せない場合は修正まで公開を止める判断を求めている。"
+      ],
+      "keywords": [
+        "PHP",
+        "PHP2Shell",
+        "WordPress",
+        "php2shell",
+        "脆弱性",
+        "セキュリティ対応"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "ニトリに不正アクセス、最大3762万件の個人情報流出の可能性　法人会員も対象に",
+      "url": "https://www.itmedia.co.jp/news/article/2611/09/2000003039/",
+      "publishedAt": "2026-11-09T12:36:30.000Z",
+      "tags": [
+        "テクノロジー",
+        "あとで読む"
+      ],
+      "snippet": "ニトリホールディングスは11月9日、同社が管理するシステムへの不正アクセスにより、最大3762万件の個人情報が外部に流出した可能性があると発表した。6日に発覚した。10月中旬から下旬にかけて、不正アクセスを受けていた可能性があるという。 流出した可能性があるのは、ニトリグループの商品購入者および個人会員の会...",
+      "metrics": {
+        "hatena": 7
+      },
+      "sourceWeight": 3,
+      "id": "3b890f99b690de2e",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.08,
+      "popularityPercentile": 0.36363636363636365,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "ニトリは10月中旬から下旬の不正アクセスで最大3762万件の個人情報が流出した可能性を公表した。",
+      "takeaways": [
+        "ニトリは11月6日に不正アクセスを把握した。",
+        "攻撃は10月中旬から下旬に行われた可能性がある。",
+        "購入者や会員の情報最大3762万件が調査対象になった。"
+      ],
+      "keywords": [
+        "ニトリホールディングス",
+        "不正アクセス",
+        "個人情報流出",
+        "3762万件",
+        "11月6日"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "DIYgod/pinky — Let AI agents use your phone, with you in the loop.",
+      "url": "https://github.com/DIYgod/pinky",
+      "publishedAt": "2026-11-06T16:53:14.000Z",
+      "author": "DIYgod",
+      "authorDetail": {
+        "name": "DIYgod",
+        "url": "https://github.com/DIYgod",
+        "avatarUrl": "https://github.com/DIYgod.png?size=120",
+        "bio": "Let AI agents use your phone, with you in the loop."
+      },
+      "tags": [
+        "Go"
+      ],
+      "snippet": "Let AI agents use your phone, with you in the loop.",
+      "metrics": {
+        "stars": 1412,
+        "hatena": 32
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "12ab87ea4cd20272",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.48398305084745763,
+      "popularityPercentile": 0.8135593220338984,
+      "matchedTopics": [
+        "AIエージェント構築"
+      ],
+      "buzz": true,
+      "score": 84,
+      "titleJa": "pinky — 人が確認しながらスマートフォンを使うAIエージェント",
+      "oneLiner": "pinkyは人の確認を挟みながらAIエージェントにスマートフォンを操作させる仕組みです。",
+      "takeaways": [
+        "AIエージェントがスマートフォンを操作できる。",
+        "人が途中で確認できる仕組みを備える。",
+        "自動操作と人の判断を組み合わせている。"
+      ],
+      "keywords": [
+        "pinky",
+        "AIエージェント",
+        "スマートフォン操作",
+        "Go",
+        "Human-in-the-loop"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nDIYgod/pinky — Let AI agents use your phone, with you in the loop. を動かして、README の最初の出力まで到達する\nhttps://github.com/DIYgod/pinky\n\n# 手順\n1. git clone --depth 1 https://github.com/DIYgod/pinky\n2. cd pinky && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "iPhone・iPadでPythonを実行する：PythonIDEの編集・デバッグ・Notebookと開発機能",
+      "url": "https://qiita.com/Wenlo/items/0fbe05037b5a7cd73c58",
+      "publishedAt": "2026-11-09T18:24:54.000Z",
+      "author": "Wenlo",
+      "authorDetail": {
+        "name": "Wenlo",
+        "handle": "@Wenlo",
+        "url": "https://qiita.com/Wenlo",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4529976/1c47b5ddb9407b76d5b1f69b0891545fe5f19197/large.png?1794247747",
+        "bio": "PythonIDE",
+        "followers": 0,
+        "posts": 1,
+        "links": []
+      },
+      "tags": [
+        "Python",
+        "iOS",
+        "iPad",
+        "個人開発",
+        "開発環境"
+      ],
+      "snippet": "PythonIDEという、iPhone・iPad向けのPython開発アプリを開発しています。 この記事では、端末上でのPython実行を中心に、コード編集、デバッグ、Notebook、パッケージ管理、Web開発、リモート接続まで、できることと利用時の注意点をまとめます。 1. Pythonを端末上で編集・実行する PythonIDEはPythonの実行環境を内蔵しているため、ローカルのスクリプトを動かすためにリモートサーバーを用意する必要はありません。 エディタは構文ハイライト、コード補完、複数ファイルの編集、プロジェクト管理に対応しています。実行時には対話入力や引数を使えます。結果はテキストだけでなく、ANSIやRichによる出力、画像、グラフでも確認できます。 まず試すなら、標準ライブラリだけを使った短い処理から始めると、編集から実行までの流れを確認しやすいと思います。文字列処理や集…",
+      "body": "PythonIDEという、iPhone・iPad向けのPython開発アプリを開発しています。\n\nこの記事では、端末上でのPython実行を中心に、コード編集、デバッグ、Notebook、パッケージ管理、Web開発、リモート接続まで、できることと利用時の注意点をまとめます。\n\n1. Pythonを端末上で編集・実行する\n\nPythonIDEはPythonの実行環境を内蔵しているため、ローカルのスクリプトを動かすためにリモートサーバーを用意する必要はありません。\n\nエディタは構文ハイライト、コード補完、複数ファイルの編集、プロジェクト管理に対応しています。実行時には対話入力や引数を使えます。結果はテキストだけでなく、ANSIやRichによる出力、画像、グラフでも確認できます。\n\nまず試すなら、標準ライブラリだけを使った短い処理から始めると、編集から実行までの流れを確認しやすいと思います。文字列処理や集計など、入力と出力がはっきりしたコードが向いています。\n\n \nPythonエディタの画面。掲載画像はiPhoneシミュレーター上のサンプルプロジェクトです。\n\n2. ブレークポイントで処理の途中を調べる\n\n結果が想定と違うときには、ブレークポイントで実行を止め、ステップ実行で処理を追えます。変数ビューアーとコールスタックも利用できます。\n\n「どの関数を通ったか」「どの段階で値が変わったか」を確認できるので、printを追加するだけでは追いにくい処理にも使えます。実行、出力確認、修正を同じプロジェクト内で進められる構成です。\n\n3. Notebookと科学計算ライブラリ\n\n.ipynb形式のNotebookを開いて編集し、Pythonをセル単位で実行できます。Markdownで説明を添え、HTML、画像、グラフなどの出力を並べられます。\n\nNumPy、pandas、Matplotlibなどを内蔵しているため、配列の計算、データの集計、可視化を試せます。SciPy、scikit-learn、OpenCV、Pillowなども含まれています。\n\nパッケージ管理やpipでは、iOSと内蔵Pythonに互換性のあるpure Pythonパッケージを追加できます。ただし、PCで使っているパッケージがすべてそのままインストールできるわけではありません。ネイティブ拡張の有無、Pythonのバージョン、依存関係を確認する必要があります。\n\n \nNotebookで説明、コード、実行結果の表を並べて確認できます。\n\n4. HTML・CSS・JavaScriptも扱う\n\n複数ファイルからなるWebプロジェクトを編集し、HTMLとCSSの変更をプレビューできます。HTML/CSSのオフライン補完、整形、相対リソースパスの候補表示にも対応しています。\n\nローカルの画像、スクリプト、スタイルを読み込めるほか、内蔵コンソールでconsole出力やリソース読み込み、Promise、fetchに関するエラーを確認できます。Webプロジェクトのオンライン公開機能もあります。\n\n簡単なページやUIの試作に使う場合も、プレビューだけでなくコンソールを合わせて確認すると、不具合の場所を探しやすくなります。\n\n \nWebプロジェクトのプレビュー画面。\n\n5. ターミナル、SSH/SFTP、Git\n\nプロジェクト用のターミナルに加え、SSH接続、SFTPでのファイル閲覧・編集・転送に対応しています。SSHではパスワードまたは鍵を使い、接続先のホストフィンガープリントを確認できます。\n\nGitでは、状態や差分の確認、ステージング、コミット、ブランチ、リモートとの同期、競合の管理を行えます。WebDAV、iOSの「ファイル」、iCloud Driveとも連携できます。\n\n端末内での実行と、SSH接続先での作業は別の実行環境です。ファイルの保存先やコマンドを実行する場所を確認して使うのが大切です。\n\n6. AIエージェントとMiniApp\n\nAIエージェントはプロジェクトの文脈をもとに、ファイルの作成・編集、コード実行、エラーの分析などを支援します。SkillsとMCPによる拡張にも対応しています。ツールの利用にはアプリの権限・確認設定が適用されます。\n\n生成されたコードや変更内容は、自分でも差分と実行結果を確認する使い方をおすすめします。\n\nまた、PythonとAppUIを組み合わせて、リスト、フォーム、グラフ、画面遷移などを備えたMiniAppを作れます。Pythonでウィジェットを作成したり、「ショートカット」や自動化と連携させたりする機能もあります。MiniAppの作成が、そのまま独立したApp Storeアプリの書き出しを意味するわけではありません。\n\n \nAppUIを使ったMiniAppの例。チェックリストの1件が完了した状態です。\n\n7. そのほかの機能と、先に確認しておきたいこと\n\nJSON、正規表現、エンコード、HTTP、QRなどの開発ツール、SQLite/CSVのプレビュー、コミュニティでのスクリプト共有も用意しています。\n\nMLX、h5py、PyAVなども内蔵しています。MLXでは配列演算や自動微分などを試せますが、iOS 17以降が必要です。モデルの重みは同梱していません。ローカルモデルの推論には、互換性のある関連パッケージや重み、端末のメモリなどの条件を確認する必要があります。\n\n利用前に、次の点も確認してください。\n・ローカルPythonの実行と、AIやリモート接続などのオンライン機能は条件が異なります。\n・AI、コミュニティ、リモート接続、オンライン公開にはインターネット接続が必要です。\n・一部機能はProが必要です。AIサービスには別途クレジットや自分のAPIキーが必要な場合があります。\n・パッケージやシステム連携は、端末、互換性、権限による制約があります。\n\nおわりに\n\nPythonIDEには、短いコードを試すところから、Notebookでの検証、複数ファイルの管理、WebやMiniAppの試作までをまとめています。\n\nまずは、普段使っている小さなスクリプトを一つ持ち込んで、必要なライブラリと入出力が動くか確認するところから試してもらえればと思います。\n\nPythonIDEを日本のApp Storeで見る\n\n執筆・翻訳の補助にOpenAI Codexを使用しました。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "629ad62a7a0b9c55",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6062444444444446,
+      "popularityPercentile": 0.051111111111111114,
+      "matchedTopics": [
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "PythonIDEはiPhoneやiPadだけでPythonの編集から実行まで行える開発環境です。",
+      "takeaways": [
+        "iPhoneやiPadだけでPythonを実行できる。",
+        "途中で処理を止めて値の変化を調べられる。",
+        "ノート形式の実行や外部機器との接続にも対応する。"
+      ],
+      "keywords": [
+        "PythonIDE",
+        "Python",
+        "iPhone",
+        "iPad",
+        "Notebook"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "sqlpxc/airhand — High-performance, low-latency remote desktop QUIC transport · hardware encoding and decoding · up to 120 fps Windows · macOS · Linux · Android · browser",
+      "url": "https://github.com/sqlpxc/airhand",
+      "publishedAt": "2026-10-31T13:33:04.000Z",
+      "author": "sqlpxc",
+      "authorDetail": {
+        "name": "sqlpxc",
+        "url": "https://github.com/sqlpxc",
+        "avatarUrl": "https://github.com/sqlpxc.png?size=120",
+        "bio": "High-performance, low-latency remote desktop QUIC transport · hardware encoding and decoding · up to 120 fps Windows · macOS · Linux · Android · browser"
+      },
+      "tags": [
+        "Rust"
+      ],
+      "snippet": "High-performance, low-latency remote desktop QUIC transport · hardware encoding and decoding · up to 120 fps Windows · macOS · Linux · Android · browser",
+      "metrics": {
+        "stars": 992
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "ebd3db56b3b7c14a",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.5003672316384181,
+      "popularityPercentile": 0.3728813559322034,
+      "matchedTopics": [
+        "フロントエンドの新技術",
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "airhand — 低遅延リモートデスクトップ基盤",
+      "oneLiner": "airhandは複数の端末で毎秒120コマまで対応する低遅延リモートデスクトップ基盤です。",
+      "takeaways": [
+        "画面を低い遅延で遠隔操作できる。",
+        "毎秒120コマの表示に対応している。",
+        "WindowsやmacOSなど複数の環境で動く。"
+      ],
+      "keywords": [
+        "airhand",
+        "QUIC",
+        "Rust",
+        "リモートデスクトップ",
+        "ハードウェアエンコード",
+        "120 fps"
+      ],
+      "category": "パフォーマンス",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nsqlpxc/airhand — High-performance, low-latency remote desktop QUIC transport · hardware encoding and decoding · up to 120 fps Windows · macOS · Linux · Android · browser を動かして、README の最初の出力まで到達する\nhttps://github.com/sqlpxc/airhand\n\n# 手順\n1. git clone --depth 1 https://github.com/sqlpxc/airhand\n2. cd airhand && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "id": "9208fd8337022df6",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@codex_lab_: OpenAIが「Codexのハーネス」をオープンソース化したの、めちゃくちゃ熱い。",
+      "url": "https://x.com/codex_lab_/status/2119778846698537091",
+      "publishedAt": "2026-11-09T13:07:15.000Z",
+      "author": "Codex 研究所",
+      "authorDetail": {
+        "name": "Codex 研究所",
+        "handle": "@codex_lab_",
+        "url": "https://x.com/codex_lab_"
+      },
+      "tags": [],
+      "snippet": "OpenAIが「Codexのハーネス」をオープンソース化したの、めちゃくちゃ熱い。 何が熱いかって、単なるCLIではなく「自社アプリやワークフローにエージェントを丸ごと埋め込むためのランタイム（SDK / JSON-RPC）」が解放されたこと。 モデル自体の性能競争が頭打ちになる中、「いかに安全に、実務で壊れないエージェントループを回すか」という実行基盤（ハーネス）のレイヤーに主戦場が移った決定打。 ・OSレベルの強固なサンドボックス ・ 状態管理・マルチターン・ストリーミング・承認フローの完備 ・ 独自のビジネスロジックやMCPとの分業 Claude Codeが「対話型AI体験の極み」なら、Codexハーネスは「自社プロダクトに組み込むための工業用エンジン」。 「汎用チャットに指示する」から「自分たちのダッシュボードや業務システムにエージェントを常駐させる」への移行が、これで一気に現実的…",
+      "body": "OpenAIが「Codexのハーネス」をオープンソース化したの、めちゃくちゃ熱い。\n\n何が熱いかって、単なるCLIではなく「自社アプリやワークフローにエージェントを丸ごと埋め込むためのランタイム（SDK / JSON-RPC）」が解放されたこと。\n\nモデル自体の性能競争が頭打ちになる中、「いかに安全に、実務で壊れないエージェントループを回すか」という実行基盤（ハーネス）のレイヤーに主戦場が移った決定打。\n\n・OSレベルの強固なサンドボックス\n・ 状態管理・マルチターン・ストリーミング・承認フローの完備\n・ 独自のビジネスロジックやMCPとの分業\n\nClaude Codeが「対話型AI体験の極み」なら、Codexハーネスは「自社プロダクトに組み込むための工業用エンジン」。\n「汎用チャットに指示する」から「自分たちのダッシュボードや業務システムにエージェントを常駐させる」への移行が、これで一気に現実的になった。AIの使い方が一段階変わりそう。\n\nhttps://t.co/v3hAtgFQM8",
+      "metrics": {
+        "likes": 45,
+        "replies": 2,
+        "quotes": 1,
+        "bookmarks": 28,
+        "impressions": 3778,
+        "comments": 2
+      },
+      "lang": "ja",
+      "sourceWeight": 3,
+      "linkedUrls": [
+        "https://github.com/openai/codex"
+      ],
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.702,
+      "popularityPercentile": 0.6,
+      "matchedTopics": [
+        "AI支援開発・品質"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "OpenAIはCodexの実行基盤を公開し自社製品へAIエージェントを組み込めるようにしました。",
+      "takeaways": [
+        "Codexを自社のサービスへ組み込めるようになった。",
+        "AIの実行を安全に隔離する仕組みを備える。",
+        "状態管理や人の承認を組み込んで動かせる。"
+      ],
+      "keywords": [
+        "OpenAI",
+        "Codex",
+        "Codex harness",
+        "JSON-RPC",
+        "サンドボックス",
+        "MCP"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "入力を外部に送らないブラウザツール集を、Next.js の static export と Cloudflare Workers で作った",
+      "url": "https://qiita.com/hasegawa--2025/items/de5cbceeae78ed776a43",
+      "publishedAt": "2026-11-09T08:17:46.000Z",
+      "author": "hasegawa--2025",
+      "authorDetail": {
+        "name": "hasegawa--2025",
+        "handle": "@hasegawa--2025",
+        "url": "https://qiita.com/hasegawa--2025",
+        "avatarUrl": "https://secure.gravatar.com/avatar/1eb6fca42b069b4a3fbe987794feb5d5",
+        "bio": "Web エンジニア。Next.js・NestJS・Laravel・AWS(ECS / ALB)・Keycloak で、業務向け Web サービスの開発と運用をしています。個人開発で、シフト管理アプリ「Shifna」と、入力を外部に送らないブラウザのツール集「犬の手」を作っています。認証・インフラ・性能まわりで、ハマって調べたことを書いていきます。お仕事のご相談も歓迎です。",
+        "followers": 0,
+        "posts": 4,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://inunote.app"
+          }
+        ]
+      },
+      "tags": [
+        "Next.js",
+        "cloudflare",
+        "CSP",
+        "WebWorker",
+        "個人開発"
+      ],
+      "snippet": "振込用のカナ変換、PDF の結合、CSV を Excel で開いたときの文字化けの直し方、写真の位置情報の削除など、事務作業でちょっと困ったときに使うツールを 69 個まとめたサイト「犬の手」を作りました。 https://inunote.app この手のツールは「名前や口座番号、社内の PDF を知らないサイトに送りたくない」が一番の不安です。そこで すべての処理をブラウザの中で完結させ、入力を外部に送らないことをブラウザ側でも強制する 作りにしました。この記事では、そのために決めたこと・ハマったことを書きます。 構成 | 項目 | 採用 | | --- | --- | | フレームワーク | Next.js 16(App Router、Turbopack)の static export | | UI | React 19、Tailwind CSS v4 + CSS Modules | …",
+      "body": "振込用のカナ変換、PDF の結合、CSV を Excel で開いたときの文字化けの直し方、写真の位置情報の削除など、事務作業でちょっと困ったときに使うツールを 69 個まとめたサイト「犬の手」を作りました。\n\nhttps://inunote.app\n\nこの手のツールは「名前や口座番号、社内の PDF を知らないサイトに送りたくない」が一番の不安です。そこで すべての処理をブラウザの中で完結させ、入力を外部に送らないことをブラウザ側でも強制する 作りにしました。この記事では、そのために決めたこと・ハマったことを書きます。\n\n構成\n\n| 項目 | 採用 |\n| --- | --- |\n| フレームワーク | Next.js 16(App Router、Turbopack)の static export |\n| UI | React 19、Tailwind CSS v4 + CSS Modules |\n| テスト | Vitest(ロジック)、Playwright(E2E) |\n| 配信 | Cloudflare Workers の静的アセット |\n| 重い処理 | Web Worker(pdf-lib、SheetJS、Papa Parse、kuromoji など) |\n\nサーバー処理はありません。全ページをビルド時に HTML にして、そのまま配信しています。\n\n [code] \n\noutput: 'export' にすると、API Routes・ISR・画像最適化・use cache は使えません。create-next-app が cacheComponents を有効にしてくるので、外す必要がありました。\n\n「送らない」をブラウザに守らせる:CSP の connect-src\n\n「入力は送信しません」と書くだけなら、どのサイトでも言えます。犬の手では、fetch や XHR の送信先を CSP で自サイトだけに絞っています。\n\n [code] \n\nこうしておくと、仮に依存ライブラリやページに入り込んだコードが外部に送ろうとしても、ブラウザが止めます。\n\nいくつか妥協した点もあります。\n・script-src 'unsafe-inline' が必要:static export では、Next.js が RSC ペイロードをインラインスクリプトで埋め込みます。リクエストごとに nonce を付けるサーバーがないので、'unsafe-inline' を外せませんでした。そのぶん、外部のスクリプトは解析用の 1 ファイルだけに絞っています\n・アクセス解析の例外は URL まで絞る:Cloudflare Web Analytics の送信先は、誰のトークンでも受け付けます。ドメイン単位で開けると、入り込んだコードが他人のトークンを使って入力を持ち出す経路になりえます。そのため、計測タグと送信先は URL まで絞っています\n・CSP とコードのずれをテストで検知する:トークンを外したのに CSP の例外だけが残る、という事故を防ぐため、headers を読んで突き合わせるテストを置いています\n\n [code] \n\nPermissions-Policy でもカメラ・位置情報・決済は禁止しています。マイクだけは、画面録画でナレーションを録るために自サイトに許可しています。\n\n重いライブラリは Worker の中に閉じ込める\n\nPDF・Excel・形態素解析などをブラウザで動かすので、ライブラリが重くなります。気をつけたのは「画面から値を 1 つでも import すると、そのモジュールがバンドルに入る」ことです。\n・pdf-lib・SheetJS・Papa Parse・kuromoji などは、Worker のファイルの中だけで import する\n・画面が使う型や軽い関数(並べ替え、設定値の検査など)は別ファイルに分け、重いモジュールの近くに置かない\n・画面と Worker の間でやりとりするメッセージの型は .protocol.ts に置く\n\n [code] \n\nCSV は最大 10 万行を扱うので、表そのものは Worker の中に置いたままにしました。画面には見出しと先頭 20 行だけを返します。\n\n1 つの動的ルートに全ツールのチャンクが載った話\n\nツールのページは /tools/[slug] の 1 ルートで、slug から画面を選ぶ対応表(next/dynamic の一覧)を持っています。この対応表をサーバーコンポーネントに置いたところ、全ツールのチャンクがルートの依存として全ページに読み込まれました(実測で、encoding-japanese を含む約 290KB)。\n\n対応表のファイルを 'use client' にしたところ、各ツールが非同期のチャンクになり、開いたツールのものだけが読み込まれるようになりました。\n\nライセンスで避けたもの\n\n動画を GIF にする機能では ffmpeg.wasm を使うのが手軽です。ただ、配布物に GPL のコードを含むので使いませんでした。 と Canvas でコマを取り出し、GIF の書き出しは gifenc を Worker で動かしています。本番の依存は寛容なライセンスだけにして、ライセンスの検査を npm run check に入れています。\n\npdf.js も、WebAssembly を使うには CSP に wasm-unsafe-eval が必要になります。そのため useWasm: false で使っています。\n\nオフラインで使えるようにする(Service Worker を手書き)\n\n処理がすべてブラウザの中で完結するので、ページとプログラムさえ保存すればオフラインで動きます。static export では Next.js が Service Worker を作らないので、手書きしました。ビルドの後に、保存するファイルの一覧と版(内容のハッシュ)を埋め込んでいます。\n\n決めたこと:\n・JS・CSS は最初に全部保存する(開いていない機能もオフラインで動くように)\n・ページは通信を優先し、通信できないときだけ保存した版を出す(古い画面が出続けないように)\n・新しい版は自動で切り替えず、「新しい版があります」を出して利用者に再読み込みしてもらう(入力中の内容が消えないように)\n\nハマったのは Worker です。Turbopack の Worker は、起動の設定を URL のフラグメント(#params=)から読みます。Service Worker のキャッシュの応答をそのまま返すとフラグメントが失われ、Worker が起動しませんでした。URL を持たない応答に作り直して返すことで解決しました。\n\nフォントで Lighthouse が 80 に落ちた話\n\n見出しに Zen Maru Gothic を next/font/google で読み込んだところ、unicode-range で分割された @font-face が 245 件(約 180KB)の CSS になりました。これが描画をブロックし、Lighthouse のモバイル性能が 80 前後まで落ちました。\n\nそこで、見出しの書体を使う場所を「固定の文言・ツール名・カテゴリ名」に限り、ソースからその文字だけを集めてサブセット(woff2 1 ファイル)を作るスクリプトを書きました。next/font/local で読み込んでいます。\n\n配信:Cloudflare Workers の静的アセット\n\nWorker のスクリプトを書かずに静的アセットだけを配信すると、無料枠の中で動きます。\n\n [code] \n・trailingSlash: true で /tools/foo/index.html を出力し、htmlhandling: auto-trailing-slash と URL の形をそろえています\n・独自ドメインで公開した後は、workersdev と previewurls を閉じています。同じ内容が別の URL で見えないようにするためです\n・.app ドメインは HSTS preload リストに入っているので、最初から HTTPS でしか開けません\n\n共有したときのサムネイルもビルド時に作る\n\nX などで URL を共有したときの画像(1200×630)を、サイトと全ツールについてビルド時に作っています。Playwright の Chromium で HTML を描いて PNG にしています。\n・長いツール名は 1 行に収まるまで文字を小さくし、それでも収まらなければ 2 行に折り返す。それでもはみ出すときは、ビルドを失敗させる\n・どのツール名から描いたかを JSON に記録し、名前を変えて作り直し忘れたらテストが失敗するようにした\n\nまとめ\n・static export + Cloudflare Workers の静的アセットで、サーバーなし・無料枠で運用できる\n・「送らない」は CSP の connect-src 'self' でブラウザに守らせる。例外は URL まで絞り、テストで見張る\n・重いライブラリは Worker の中だけで import し、画面からは型と軽い関数だけを参照する\n\n困ったときに思い出してもらえるとうれしいです。\n\nhttps://inunote.app",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "a7130546363d375c",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8868,
+      "popularityPercentile": 0.94,
+      "matchedTopics": [
+        "クラウド / 本番環境構築",
+        "フロントエンドの新技術"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "「犬の手」は入力を外部に送らずブラウザ内だけで処理する69個の業務ツール集です。",
+      "takeaways": [
+        "69個の事務作業をブラウザ内だけで処理する。",
+        "入力した個人情報や社内資料を外へ送らない。",
+        "静的ページとして配信しサーバー処理を使わない。"
+      ],
+      "keywords": [
+        "Next.js 16",
+        "Cloudflare Workers",
+        "React 19",
+        "Web Worker",
+        "CSP",
+        "犬の手"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "readingMinutes": 9,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "deepseek-ai/dsh-superagent-prototype — Towards a More Autonomous Agent System",
+      "url": "https://github.com/deepseek-ai/dsh-superagent-prototype",
+      "publishedAt": "2026-10-31T09:32:46.000Z",
+      "author": "deepseek-ai",
+      "authorDetail": {
+        "name": "deepseek-ai",
+        "url": "https://github.com/deepseek-ai",
+        "avatarUrl": "https://github.com/deepseek-ai.png?size=120",
+        "bio": "Towards a More Autonomous Agent System"
+      },
+      "tags": [
+        "TypeScript"
+      ],
+      "snippet": "Towards a More Autonomous Agent System",
+      "metrics": {
+        "stars": 21730,
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "7165b2c2986f4dd9",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.6912711864406781,
+      "popularityPercentile": 0.9830508474576272,
+      "matchedTopics": [
+        "AIエージェント構築",
+        "フロントエンドの新技術"
+      ],
+      "buzz": true,
+      "score": 76,
+      "titleJa": "dsh-superagent-prototype — 自律性を高めるAIエージェント基盤",
+      "oneLiner": "dsh-superagent-prototypeは自律性の高いAIエージェントシステムを目指すTypeScript製の試作です。",
+      "takeaways": [
+        "自律性の高いAIエージェントを目指している。",
+        "TypeScriptで作られた試作システムである。",
+        "エージェントをより自動で動かす方向の実装だ。"
+      ],
+      "keywords": [
+        "dsh-superagent-prototype",
+        "DeepSeek",
+        "TypeScript",
+        "AIエージェント",
+        "自律エージェント"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\ndeepseek-ai/dsh-superagent-prototype — Towards a More Autonomous Agent System を動かして、README の最初の出力まで到達する\nhttps://github.com/deepseek-ai/dsh-superagent-prototype\n\n# 手順\n1. git clone --depth 1 https://github.com/deepseek-ai/dsh-superagent-prototype\n2. cd dsh-superagent-prototype && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    }
+  ],
+  "stats": {
+    "collected": 950,
+    "afterDedupe": 901,
+    "afterPreScore": 130,
+    "ranked": 130,
+    "bySource": {
+      "qiita": 452,
+      "zenn": 165,
+      "hatena": 36,
+      "hackernews": 63,
+      "devto": 10,
+      "github_release": 29,
+      "github_repo": 95,
+      "rss": 78,
+      "changelog": 1,
+      "x": 21
+    },
+    "byLane": {
+      "security": 9,
+      "know": 8,
+      "build": 8
+    },
+    "estimatedReadMinutes": 47
+  },
+  "topics": [
+    "クラウド / 本番環境構築",
+    "AI支援開発・品質",
+    "セキュアな開発",
+    "AIプロダクトのUI/UX",
+    "AIエージェント構築",
+    "フロントエンドの新技術",
+    "FDE / 業務改革",
+    "成果の測り方・評価",
+    "データ基盤",
+    "言語 / ランタイム"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4563,
+        "outputTokens": 811,
+        "cacheReadTokens": 0,
+        "elapsedMs": 7583,
+        "estimatedCostUsd": 0.0018858
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3251,
+        "outputTokens": 2168,
+        "cacheReadTokens": 0,
+        "elapsedMs": 17109,
+        "estimatedCostUsd": 0.0032518
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 9885,
+        "outputTokens": 4158,
+        "cacheReadTokens": 0,
+        "elapsedMs": 29989,
+        "estimatedCostUsd": 0.0069666
+      },
+      "score:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 6699,
+        "outputTokens": 931,
+        "cacheReadTokens": 1598,
+        "elapsedMs": 11136,
+        "estimatedCostUsd": 0.00248896
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 14981,
+        "outputTokens": 1569,
+        "cacheReadTokens": 3728,
+        "elapsedMs": 18909,
+        "estimatedCostUsd": 0.00495356
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 16598,
+        "outputTokens": 1656,
+        "cacheReadTokens": 3574,
+        "elapsedMs": 19823,
+        "estimatedCostUsd": 0.00537828
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 12983,
+        "outputTokens": 3558,
+        "cacheReadTokens": 8057,
+        "elapsedMs": 30643,
+        "estimatedCostUsd": 0.00702734
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 20578,
+        "outputTokens": 4177,
+        "cacheReadTokens": 0,
+        "elapsedMs": 31709,
+        "estimatedCostUsd": 0.009128
+      },
+      "describe:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13012,
+        "outputTokens": 5132,
+        "cacheReadTokens": 8588,
+        "elapsedMs": 44236,
+        "estimatedCostUsd": 0.00893256
+      },
+      "deep:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 32732,
+        "outputTokens": 9772,
+        "cacheReadTokens": 12412,
+        "elapsedMs": 75897,
+        "estimatedCostUsd": 0.018521040000000003
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 14465,
+        "outputTokens": 4876,
+        "cacheReadTokens": 11987,
+        "elapsedMs": 42644,
+        "estimatedCostUsd": 0.008983940000000001
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 19748,
+        "outputTokens": 6034,
+        "cacheReadTokens": 15805,
+        "elapsedMs": 51833,
+        "estimatedCostUsd": 0.0115065
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4790,
+        "outputTokens": 373,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4384,
+        "estimatedCostUsd": 0.0014056
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5751,
+        "outputTokens": 346,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3715,
+        "estimatedCostUsd": 0.0015654
+      }
+    },
+    "totalCostUsd": 0.092
+  },
+  "notes": []
+}
