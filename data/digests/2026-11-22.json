@@ -1,0 +1,2897 @@
+{
+  "date": "2026-11-22",
+  "generatedAt": "2026-11-21T22:14:13.930Z",
+  "window": {
+    "start": "2026-11-20T22:00:00.000Z",
+    "end": "2026-11-21T22:00:00.000Z"
+  },
+  "summary": [
+    "セキュリティ関連が9件に達し、脆弱性の悪用と情報流出が相次いだ。",
+    "本番データのコピー先や委託先など、周辺環境の管理不備が被害を広げている。",
+    "AIエージェント関連が7件と目立ち、開発・運用・創作への組み込みが進んだ。",
+    "一方で、権限管理やサンドボックスなどエージェントの安全な実行基盤が課題になった。"
+  ],
+  "outlook": "現状、侵害は基盤ソフトだけでなく本番データのコピー先や委託先、開発環境まで連鎖し、AIエージェントの実運用導入と最小権限・隔離の整備が同時に進みつつある。この先は、脆弱性対応の即応力に加え、エージェントとデータの実行範囲を継続監査し、停止・復旧まで設計する仕事が焦点になりそうだ。",
+  "top": [
+    {
+      "source": "rss",
+      "sourceLabel": "AWS ブログ（日本）",
+      "title": "中国と関連のある脅威アクターが使用した Cairn の AI エージェントがゼロデイ脆弱性を自律的に発見した事例",
+      "url": "https://aws.amazon.com/jp/blogs/news/chinese-nexus-actors-cairn-ai-agents-found-a-zero-day-on-their-own/",
+      "publishedAt": "2026-11-21T00:57:57.000Z",
+      "author": "中島 章博",
+      "authorDetail": {
+        "name": "中島 章博"
+      },
+      "tags": [
+        "Announcements",
+        "Artificial Intelligence",
+        "Security, Identity, & Compliance",
+        "Thought Leadership",
+        "Security Blog"
+      ],
+      "snippet": "Amazon Threat Intelligence が調査した、中国と関連のある脅威アクターによる自律型 AI エージェントを使った攻撃を紹介します。アクターがオープンソースの AI ペネトレーションテストフレームワーク Cairn に「シェルアクセスを取得する」という目標を与えると、エージェントは人間の指示なしに攻撃を進めました。その結果、医用画像 AI アプリケーションのゼロデイ脆弱性を発見し、root として動作するリバースシェルを確立しました。攻撃のスピードと持続性に備えて防御側が取るべき対策も解説します。",
+      "body": "本ブログは 2026 年 11 月 20 日に公開された AWS Blog “ Chinese-nexus actor’s Cairn AI agents found a zero-day on their own ” を翻訳したものです。\n \n \n \n Amazon Threat Intelligence は、自律型の AI エージェントを使い、人間の関与を最小限に抑えてハッキング活動を行っていた、中国と関連のある脅威アクターに関する調査結果を共有します。このアクターはエージェントに「シェルアクセスを取得する」というシンプルな目標を与えていました。このキャンペーンの中で、エージェントはオープンソースアプリケーションに存在するゼロデイ脆弱性を発見し、それを悪用してサーバーの完全な制御を奪いました。この調査結果は、エージェントによる攻撃活動が既に現実に行われていることを示しています。防御側は、こうしたツールがもたらす攻撃のスピードと持続性に備える必要があります。\n \n \n 発見の経緯\n \n \n\n \n \n 2026 年 9 月 10 日、Amazon Threat Intelligence は、オープンソースの自律型 AI ペネトレーションテストフレームワークである Cairn のインスタンスが認証なしで稼働し、一般に公開されているサーバーを特定しました。オペレーターがサーバーを公開状態のままにしていたため、プロジェクトの設定、アクターのプロンプト、AI の出力など、プラットフォームの運用履歴をインターネット経由で誰でも閲覧できる状態になっていました。オペレーターは簡体字中国語でプロンプトを記述しており、実行されたスクリプト内のタイムスタンプは中国標準時に設定されていました。\n \n このインスタンスを分析した結果、2026 年 9 月 8 日から約 48 時間にわたって、中国本土以外の東アジアにある大学に関連する IP アドレスを標的としたキャンペーンが行われていたことが判明しました。\n \n \n Cairn と今回のキャンペーンの概要\n \n \n\n \n \n Cairn は、防御側のための調査・問題解決エンジンとして構築されました。操作は簡単です。出発点と目的を平易な言葉で指定すると、複数の AI エージェントを連携させ、その目的に至る経路を探します。こうした使いやすさは、脅威アクターにとっても魅力となります。今回のキャンペーンでは、アクターは、標的の IP アドレスの一覧と、表現を少しずつ変えた「シェルアクセスを取得する」という目標を与えていました。これらの入力に基づいて、AI エージェントは、オペレーターが次の手順を逐一指示することなく、計画、実行、そして学習に応じたアプローチの調整を行いました。\n \n このキャンペーンには、複雑さも結果も大きく異なる複数の作戦が含まれていました。以下の作戦は、自律型 AI エージェントの持続性と能力の両方を示しています。\n \n \n 堅牢化された標的に対する持続的な攻撃\n \n \n\n \n \n 最も大規模な作戦は、ある大学の Redis (Remote Dictionary Server) インスタンスを標的としたものでした。このインスタンスは、認証なしでアクセスできるように設定されていました。Redis は、頻繁に使用されるデータをメモリ内に保持し、アプリケーションがすばやく取得できるようにするデータベースであり、ネットワーク内部への足がかりとして価値が高くなる場合があります。エージェントは約 16 時間、148 回の連続した操作にわたり、公開状態の Redis サーバーを乗っ取るための既知の手法を数多く試しました。これには、Redis のレプリケーション機能を悪用した不正なコードのロード、スクリプトのサンドボックスからの脱出、設定ファイルへの書き込み、メモリの破壊などが含まれます。エージェントは、同じシステム上で稼働している別のサービスに対して、Log4Shell インジェクションも試みました。\n \n これらの試みが失敗すると、エージェントは、Redis インスタンスと同じ環境で稼働していた Qdrant インスタンスのサーバーサイドリクエストフォージェリ (SSRF) 脆弱性を通じて内部の Docker ネットワークトポロジーを把握し、PostgreSQL、SSH、その他いくつかのサービスに対して認証情報のスプレー攻撃を仕掛けました。これらの試みはいずれも成功しませんでした。\n \n 別の作戦は 6 時間を超えて続き、大学の GPU サーバーを標的としていました。この GPU サーバーは、計算負荷の高い研究のために構築された高性能コンピュータ群です。エージェントはまず、教員名簿、研究室のウェブサイト、アーカイブされたウェブページ、学術論文など、大学の公開情報を調べ、約 80 件の実在するユーザー名のリストを作成しました。その後、このサーバーのリモートログイン (SSH) と、大学ネットワーク内の他のシステムである管理ダッシュボード、ネットワークストレージデバイス、VPN サーバー、大学のキャンパスポータルに対して、30,000 を超える認証情報の組み合わせを試行しました。ログインに成功する組み合わせは、最後まで見つかりませんでした。\n \n どちらの作戦も成功しませんでしたが、これらを合わせると、エージェントが人間の指示なしに、ほぼ丸 1 日にわたって対応方法を調整し続けたことがわかります。\n \n \n ゼロデイ脆弱性の発見\n \n \n\n \n \n オープンソースの医用画像 AI アプリケーションを実行している標的に対しては、結果が異なりました。エージェントは、このアプリケーションのフレームワークを特定し、API エンドポイントをマッピングして、ファイル名パラメータを持つアップロードエンドポイントを見つけました。そのパラメータにパストラバーサルの脆弱性がないかをテストしたところ、実際に脆弱でした。エージェントがアプリケーションの API のマッピングから、サーバー上への任意のファイル書き込みに至るまでに要した時間は、約 11 分でした。\n \n その後のセッションで、エージェントは同じ脆弱性を使い、Python のリバースシェルペイロードを sitecustomize.py に書き込みました。sitecustomize.py は、Python がインタープリターの起動時に自動的にインポートするファイルです。続いてエージェントは、トレーニング API エンドポイントを呼び出して新しい Python プロセスを起動しました。新しいプロセスがペイロードをインポートし、root として動作するリバースシェルが確立されました。\n \n 発見された時点では、この医用画像アプリケーションのパストラバーサル脆弱性にはセキュリティアドバイザリが割り当てられておらず、パッチも提供されていませんでした。影響を受けるオープンソースプロジェクトについて、対応する修正、問題報告、アドバイザリ、あるいは脆弱性データベースへの過去の記載がいずれも存在しなかったことから、Amazon Threat Intelligence は、これがゼロデイ脆弱性であったと高い確度で評価しています。\n \n \n その後の悪用\n \n \n\n \n \n 別のセッションでは、脅威アクターが介入しました。エージェントがゼロデイ脆弱性を発見した後、アクターはエージェントに、別の大学のネットワークへトンネルを張るプロキシを提供しました。このプロキシの接続先サーバーでは同じ脆弱なソフトウェアが動作していたことから、Amazon Threat Intelligence は、アクターがゼロデイ脆弱性を使ってそのサーバーを侵害し、トンネルを確立したと推測しています。アクターはエージェントに対し、このトンネルを使ってそのネットワーク内の他のマシンを標的にするよう指示しました。\n \n \n アトリビューション\n \n \n\n \n \n Amazon Threat Intelligence は、簡体字中国語のプロンプト、中国標準時のスクリプトのタイムスタンプ、中国が戦略的な関心を寄せていると考えられる大学が標的とされていたことから、これが中国と関連のある脅威アクターであると中程度の確度で評価しています。\n \n \n AWS が講じた措置\n \n \n\n \n \n Amazon Threat Intelligence はこの脆弱性についてプロジェクトのメンテナーに通知し、メンテナーは修正と GitHub Security Advisory を公開しました。\n \n 影響を受けた組織は AWS のお客様ではなく、AWS が直接通知する手段がありませんでした。そのため AWS は、政府機関のパートナーと協力して、これらの組織にこの活動について通知しました。\n \n \n 利用の広がり\n \n \n\n \n \n Gambit Security は、業界でいち早く、脅威グループによる Cairn の使用を文書化した組織の 1 つです。同社の調査では、金銭目的の別のアクターが、Cairn を使ってオンライン小売業者を標的にしていたことが説明されています。これらの事例を合わせると、この自律型 AI エージェントフレームワークが、諜報活動と犯罪活動の両方で採用されつつあることがわかります。詳細については、 Gambit Security のレポート を参照してください。\n \n \n 防御側にとっての意味\n \n \n\n \n \n これらの事例における作戦の速さは、防御側が対応に使える時間を短縮します。ゼロデイ脆弱性を数分で発見して悪用するエージェントは、多くのセキュリティオペレーションセンターが手作業でアラートをトリアージするよりも速く活動を完了します。堅牢化された Redis インスタンスへの攻撃に失敗したエージェントも、休憩も睡眠も勤務時間の制約もなく、16 時間連続で稼働しました。この速度に対応するため、組織は、自動的な対応をトリガーする確度の高い検知を優先し、人間が個々の操作をすべて確認するのではなく、結果を監視する形にするべきです。\n \n AWS のアクティブディフェンスシステムは、バックグラウンドで、グローバルに配置したハニーポット (脅威アクターを引き付けるおとりのシステム) とネットワークトラフィック分析を使い、脆弱なシステムを探してスキャンしているアクターを特定して、その活動をネットワークレベルで制限できるよう支援しています。これらの保護機能は AWS ネットワークに組み込まれており、お客様に追加費用は発生しません。\n \n \n 侵害の痕跡 (IoC)\n \n \n\n \n \n 以下のアドレスは、2026 年 9 月 8 日から 10 日までの記録に登場します。\n \n 142[.]4.98.145\n 142[.]4.107.34\n \n \n\n \n \n \n\n \n この記事に関するご質問は、 AWS サポート にお問い合わせいただくか、 AWS re:Post で新しいスレッドを作成してください。\n \n \n \n \n \n \n \n \n CJ Moses\n \n CJ Moses は Amazon Integrated Security の CISO です。この役職で CJ は、Amazon 全体のセキュリティエンジニアリングとオペレーションを統括しています。CJ の使命は、セキュリティのメリットを生かすことが事業を進めるうえで最も容易な選択肢となるようにし、Amazon の各事業を支えることです。CJ は 2007 年 12 月に Amazon に入社し、コンシューマー担当の CISO や、直近では AWS CISO など、さまざまな役職を歴任したのち、2023 年 9 月に Amazon Integrated Security の CISO に就任しました。\n \n Amazon に入社する前、CJ は米国連邦捜査局 (FBI) のサイバー部門で、コンピュータおよびネットワークへの侵入に関する技術分析を主導していました。また、米国空軍特別捜査局 (AFOSI) の特別捜査官も務めました。CJ は、今日のセキュリティ業界の基礎とみなされているコンピュータ侵入調査をいくつも主導しました。\n \n CJ はコンピュータサイエンスと刑事司法の学位を持ち、SRO GT America GT2 クラスで現役のレーシングカードライバーとしても活動しています。\n \n \n\n \n \n \n 本ブログは Security Solutions Architect の 中島 章博 が翻訳しました。",
+      "metrics": {},
+      "sourceWeight": 3,
+      "id": "2ba1377ee4ec87ca",
+      "lang": "ja",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.9550000000000001,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "セキュアな開発",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 96,
+      "titleJa": null,
+      "oneLiner": "中国と関連する攻撃者のAIエージェントがMONAI Labelの未知の欠陥を発見しサーバーを奪取した。",
+      "takeaways": [
+        "AIエージェントが未知の欠陥を自動で見つけた。",
+        "攻撃者は短い指示だけで侵入作業を進めた。",
+        "公開された操作履歴から攻撃の実態が判明した。"
+      ],
+      "keywords": [
+        "Cairn",
+        "MONAI Label",
+        "AIエージェント",
+        "ゼロデイ",
+        "Amazon Threat Intelligence"
+      ],
+      "category": "AI/エージェント",
+      "lane": "security",
+      "incident": "MONAI Label ゼロデイ悪用",
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "imageUrl": "https://d2908q01vomqb2.cloudfront.net/b3f0c7f6bb763af1be91d9e74eabfeb199dc1f1f/2026/11/20/networked-system-computer.jpg",
+      "rank": 1,
+      "deep": {
+        "summary": "Amazon Threat Intelligence は、2026 年 9 月 8〜10 日に、中国と関連のある脅威アクターが Cairn の自律型 AI エージェントを使い、東アジアの大学関連 IP を標的にした活動を確認しました。エージェントには「シェルアクセスを取得する」という目標だけが与えられ、Redis への攻撃、公開情報からのユーザー名収集、認証情報スプレーなどを人間の逐次指示なしに実行しました。医用画像 AI アプリケーションでは、API のマッピングから約 11 分でパストラバーサルを発見し、任意ファイル書き込みと sitecustomize.py を利用して root のリバースシェルを確立しました。発見時点で修正や既存の脆弱性記録がなかったため、Amazon Threat Intelligence はゼロデイ脆弱性と高い確度で評価しています。防御側には、個々の操作を人間が確認するのではなく、高確度の検知を自動対応へつなげる運用が求められます。",
+        "prerequisites": [
+          {
+            "term": "Cairn",
+            "stumblingPoint": "記事は「Cairn のインスタンス」や「複数の AI エージェント」と書くが、何を自動化する基盤かを知らないと攻撃の自律性が読めない。",
+            "explanation": "Cairn は、防御側のペネトレーションテスト向けに、平易な目標から複数の AI エージェントへ調査と実行を分担させるフレームワークです。今回の文脈では、攻撃者が標的 IP と「シェルアクセスを取得する」という目標を渡すと、エージェントが計画、試行、失敗後の方針変更まで続けたことを意味します。人間がコマンドを一つずつ入力する自動化ではなく、目標達成までの探索ループ自体を委譲している点が重要です。"
+          },
+          {
+            "term": "ゼロデイ脆弱性",
+            "stumblingPoint": "記事は「パッチも提供されていない」ことからゼロデイと評価するが、既知の脆弱性との違いがないと評価の根拠を読み取れない。",
+            "explanation": "ゼロデイ脆弱性は、攻撃に使われた時点で、修正や公的な脆弱性情報が利用できない脆弱性です。今回のパストラバーサルには、発見時点でアドバイザリ、修正、問題報告、脆弱性データベースの過去記載がありませんでした。そのため、防御側が通常のパッチ適用で事前に防ぐ余地がほぼなく、公開 API の挙動監視と侵害後の自動封じ込めが必要になります。"
+          },
+          {
+            "term": "SSRF",
+            "stumblingPoint": "記事は Qdrant の「SSRF 脆弱性」を通じて Docker ネットワークを把握したと書くが、外部入力が内部探索につながる理由が省略されている。",
+            "explanation": "SSRF は、攻撃者がサーバーに指定した URL へアクセスさせ、外部から直接届かない内部サービスへリクエストを送らせる脆弱性です。今回の文脈では、Qdrant を踏み台にして内部の Docker ネットワークトポロジーを調べ、PostgreSQL や SSH など次の標的を見つける用途でした。外部公開サービス一つの脆弱性が、内部ネットワークの可視化と横展開の入口になります。"
+          },
+          {
+            "term": "sitecustomize.py",
+            "stumblingPoint": "記事は「Python が自動的にインポートするファイル」と説明するが、なぜファイル書き込みだけで後続プロセスを乗っ取れるかが詰まりやすい。",
+            "explanation": "sitecustomize.py は、Python インタープリター起動時に自動読み込みされる特殊なモジュールです。今回の攻撃では、パストラバーサルによる任意ファイル書き込みでここへリバースシェルのペイロードを配置し、トレーニング API で新しい Python プロセスを起動しました。新プロセスが自動インポートした結果、root 権限で攻撃者側へ接続するシェルが成立しました。"
+          },
+          {
+            "term": "リバースシェル",
+            "stumblingPoint": "記事は「root として動作するリバースシェル」と書くが、通常のリモートログインと異なる侵入経路が読み取りにくい。",
+            "explanation": "リバースシェルは、侵害されたサーバー側から攻撃者の待受先へ接続し、攻撃者がコマンドを実行できる状態です。受信ポートを外部公開していない環境でも、サーバーから外向き通信が許可されていれば成立し得ます。今回のケースでは、任意ファイル書き込みと Python プロセス起動を組み合わせ、root 権限の実行環境を攻撃者へ渡しました。"
+          },
+          {
+            "term": "認証情報スプレー",
+            "stumblingPoint": "記事は「30,000 を超える認証情報の組み合わせ」と書くが、単純な総当たりとの違いがないと攻撃の検知点を誤る。",
+            "explanation": "認証情報スプレーは、少数のパスワードを多数のユーザー名へ試す攻撃です。同じユーザーへ大量のパスワードを試す総当たりより、アカウント単位のロックアウトを回避しやすい特徴があります。今回のエージェントは公開情報から約 80 件の実在ユーザー名を集め、SSH、VPN、管理ダッシュボードなど複数の入口へ組み合わせを試しました。"
+          },
+          {
+            "term": "アクティブディフェンス",
+            "stumblingPoint": "記事は AWS の「アクティブディフェンスシステム」が活動を制限すると書くが、単なる監視との違いが分からないと防御策の意図を捉えにくい。",
+            "explanation": "アクティブディフェンスは、攻撃を記録するだけでなく、ハニーポットやネットワークトラフィック分析で攻撃者を特定し、通信制限などの対応へつなげる仕組みです。今回の記事では、AWS ネットワークに組み込まれた保護機能が、脆弱なシステムを探すスキャン活動の識別とネットワークレベルの制限を支援するとされています。AI エージェントの高速な反復に対して、検知後の自動処理を短くする考え方です。"
+          }
+        ],
+        "visual": {
+          "type": "flow",
+          "title": "ゼロデイ悪用の流れ",
+          "steps": [
+            {
+              "label": "標的探索",
+              "detail": "アプリのフレームワークと API を特定"
+            },
+            {
+              "label": "脆弱性発見",
+              "detail": "ファイル名のパストラバーサルを検証"
+            },
+            {
+              "label": "任意書き込み",
+              "detail": "約11分でサーバー上へ書き込み"
+            },
+            {
+              "label": "ペイロード配置",
+              "detail": "sitecustomize.py にリバースシェルを書き込み"
+            },
+            {
+              "label": "権限取得",
+              "detail": "訓練 API で Python を起動し root 化"
+            },
+            {
+              "label": "追加悪用",
+              "detail": "トンネル経由で別大学ネットワークを標的化"
+            }
+          ]
+        },
+        "figures": [],
+        "code": {
+          "lang": "bash",
+          "caption": "公開された IoC アドレスが Web・認証・ネットワークログに出ていないか確認する。",
+          "content": "grep -REn '142\\.4\\.98\\.145|142\\.4\\.107\\.34' /var/log 2>/dev/null"
+        },
+        "relatedLinks": [
+          {
+            "label": "AWS サポート",
+            "url": "https://aws.amazon.com/jp/support/"
+          },
+          {
+            "label": "AWS re:Post",
+            "url": "https://repost.aws/ja/"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "security",
+        "whatHappened": [
+          "2026-09-08〜10、大学関連IPを約48時間攻撃",
+          "約11分で医用画像AIのゼロデイを発見・悪用",
+          "Redis攻撃148回、認証情報30,000超を試行",
+          "2026-09-10、公開CairnインスタンスをAWSが発見"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "公開サーバー上の医用画像 AI アプリを調査"
+          },
+          {
+            "stage": "other",
+            "detail": "APIをマッピングしファイル名パラメータを発見"
+          },
+          {
+            "stage": "initial-access",
+            "detail": "パストラバーサルで任意ファイル書き込み"
+          },
+          {
+            "stage": "impact",
+            "detail": "sitecustomize.py経由でrootのリバースシェルを確立"
+          },
+          {
+            "stage": "lateral-movement",
+            "detail": "提供されたトンネルで別大学ネットワークを標的化"
+          }
+        ],
+        "personal": [
+          "管理する公開サーバーのアクセスログをIoC 2アドレスで検索する。",
+          "Redisを使う環境では認証を有効化し、インターネットからの接続を遮断する。",
+          "SSH・VPN・ポータルのパスワードを使い回さず、MFAを有効化する。",
+          "不審なPythonプロセスや外向き接続を端末のEDRで確認する。"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "初期侵入を止めるため、公開アップロード API のファイル名を正規化し、許可ディレクトリ外への書き込みを拒否する。"
+          },
+          {
+            "kind": "tech",
+            "action": "root シェル化を止めるため、アプリを非rootユーザーで実行し、sitecustomize.pyへの書き込み権限を除去する。"
+          },
+          {
+            "kind": "tech",
+            "action": "SSRFと横展開を止めるため、公開サービスからDocker内部・管理系ネットワークへの通信をdenyする。"
+          },
+          {
+            "kind": "tech",
+            "action": "認証情報スプレーを止めるため、SSH・VPN・ポータルにMFA、レート制限、異常な組み合わせ検知を入れる。"
+          },
+          {
+            "kind": "ops",
+            "action": "AIエージェントの反復速度に合わせ、IoC検知時の遮断・隔離を自動実行し、人間は結果と誤検知を監視する。"
+          }
+        ],
+        "relevance": [
+          "Cairnや自律型AIエージェントを導入・公開している組織",
+          "医用画像AIやファイルアップロードAPIを運用している企業",
+          "Redis・Qdrant・SSH・VPNを外部公開している環境"
+        ],
+        "unknowns": [
+          "医用画像AIアプリケーションとCairnの正確なバージョン",
+          "攻撃者の実名と最終的な被害範囲",
+          "トンネル先ネットワークでの追加侵害の成否"
+        ],
+        "whatsNew": null
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "楽天証券1,570万口座と三井住友1,400万件。破られたのは、どちらもデータのコピーの置き場所だった",
+      "url": "https://qiita.com/salamanda_sec/items/f72ea9bb5fe9ee03de95",
+      "publishedAt": "2026-11-20T23:34:02.000Z",
+      "author": "サラマンダー",
+      "authorDetail": {
+        "name": "サラマンダー",
+        "handle": "@salamanda_sec",
+        "url": "https://qiita.com/salamanda_sec",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4535836/b41934cffa188e2c8346c716ca59732060bb219e/large.png?1795238214",
+        "bio": "IT企業でSEをしています。笑えないけど笑うしかないセキュリティ問題を、企業の発表を確認しながら書いています。IT基礎シリーズも不定期で。",
+        "followers": 0,
+        "posts": 1,
+        "links": []
+      },
+      "tags": [
+        "Security",
+        "情報漏洩",
+        "個人情報",
+        "セキュリティニュース",
+        "サイバーセキュリティ"
+      ],
+      "snippet": "11月17日に楽天証券が最大約1,570万口座分、20日に三井住友銀行が最大約1,400万件の情報漏えいを発表しました。同じ週に2件続いたので、どうしても件数の大きさ比べみたいな報道になりがちなんですが、2社の発表を並べて読んでみると、気になるのは数字よりも漏れた場所のほうでした。 というのも、どちらの件も、銀行の勘定系や証券の取引システムそのものが破られたわけではないんです。パスワードも暗証番号も含まれていなくて、不正取引も両社とも確認されていない。お金に直結する部分は、今のところ無事です。破られたのは、本番データのコピーが置いてあった場所でした。 | 会社・サービス | 漏れた場所 | 件数 | 主な項目 | パスワード・暗証番号 | | --- | --- | --- | --- | --- | | 楽天証券 | テスト環境（本番データをマスキングなしで配置） | 最大約1,572万…",
+      "body": "11月17日に楽天証券が最大約1,570万口座分、20日に三井住友銀行が最大約1,400万件の情報漏えいを発表しました。同じ週に2件続いたので、どうしても件数の大きさ比べみたいな報道になりがちなんですが、2社の発表を並べて読んでみると、気になるのは数字よりも漏れた場所のほうでした。\n\nというのも、どちらの件も、銀行の勘定系や証券の取引システムそのものが破られたわけではないんです。パスワードも暗証番号も含まれていなくて、不正取引も両社とも確認されていない。お金に直結する部分は、今のところ無事です。破られたのは、本番データのコピーが置いてあった場所でした。\n\n| 会社・サービス | 漏れた場所 | 件数 | 主な項目 | パスワード・暗証番号 |\n| --- | --- | --- | --- | --- |\n| 楽天証券 | テスト環境（本番データをマスキングなしで配置） | 最大約1,572万口座分（軽いほう約1,125万口座分＋重いほう約447万口座分） | 重いほう：氏名、生年月日、住所、電話番号、メールアドレス、勤務先、出金先の銀行口座、申告した年収と金融資産、商品ごとの資産情報、最終ログイン日 | なし |\n| 三井住友銀行 | 委託先のマーケティングツールKARTE（運営はプレイド） | 最大約1,400万件 | 生年月日、年齢帯、性別、電話番号を登録しているかどうかの区分値、お知らせが要るかどうかのフラグ（氏名とは結び付いていない） | なし |\n\n楽天証券：テスト環境に、マスキングされていない本番データがあった\n\n楽天証券のほうはテスト環境からの漏えいで、11日に漏れて、検知が16日、公表が17日でした。\n\n中身には2段階あります。軽いほうは最大約1,125万口座分で、部店・顧客コードとログインIDだけ。重いほうの最大約447万口座分には、氏名、生年月日、住所、電話番号、メールアドレス、勤務先、出金先の銀行口座、申告した年収と金融資産、商品ごとの資産情報、最終ログイン日まで入っています。退会済みの人の分も含みます。\n\nでは、なんでテスト環境にこんなものがあったのか。同社の説明によると、システムのアップグレードで一部の機能は本番データで検証する必要があり、今回は例外的に置いたそうです。普段はダミーデータしか置かない運用で、マスキングはしていなかった。そして、誰か一人の独断ではなく、正式な手続きを経ていた、と。\n\n個人的に一番引っかかったのは、最後のそこです。規則を破った人がいる事故なら、その人を止めれば済みます。でも今回は、手続きを通ってしまった。つまり、その会社のふだんの判断の流れのままでは「本番データをマスキングなしでテスト環境へ」が止まらなかった、ということになります。止める相手がいない事故のほうが、たぶん厄介です。\n\n検証環境でダミーデータがうまく動かなくて、本番に近いデータを入れたくなる場面は、開発をしていれば心当たりがあると思います。あそこで止まれるかどうかは、気をつけているかどうかではなくて、マスキングを通さないと手続き自体が先に進まない形になっているかどうかで、今回はなっていなかった。あと、漏えいから検知まで5日空いているのも、テスト環境は本番ほど見張られていないという、置き場所の性質が出ている気がします。\n\nKARTE：銀行が破られたのではなく、銀行がデータを渡した先で起きた\n\n三井住友の1,400万件は、銀行が直接破られた話ではありません。銀行がデータを渡していた先、マーケティングツールのKARTEが破られました。運営はプレイドで、11月13日未明の不正アクセスで全サービスが止まっていて、再開は段階的に、2027年1月中旬が目標だそうです。\n\n銀行が出した項目は、生年月日、年齢帯、性別、電話番号を登録しているかどうかの区分値、お知らせが要るかどうかのフラグで、氏名とは結び付いていないと銀行は説明しています。このデータだけでは、誰のものかは分かりません。\n\n同じKARTEを使っていた会社でも、出たものはだいぶ違います。三菱UFJ銀行は約650万件で、性別・年齢・都道府県まで。生年月日を渡していなかったんですね。シャープの通販は最大3,264,445件で、生年月日が入っています。プレイドの発表には、取り込む項目は利用する会社が決めているとあります。裏を返すと、何が出るかは攻撃される前に、各社が何を渡したかでほぼ決まっていたわけです。\n\nもうひとつ、11月20日にプレイドが出した訂正のほうも見ておきたいところです。漏えいの対象には、すでにKARTEの契約が終わっていた会社のデータも含まれていたそうで、本来は契約終了で消えるはずのものが、運用の不備で残っていた。検証のために今は保全していて、終われば消す、とあります。\n\nデータの削除という処理は、運用の中でいちばん目立たない処理だと思います。残すほうの処理は、失敗すれば「データがない」と誰かが気づいて騒ぎになります。消すほうは、失敗しても画面に何も出ない。消えたはずのものが残っていることを知らせる仕組みは、普通はありません。だから削除は、いつの間にか「やったつもり」になりやすい。\n\n利用者の側でも同じことが起きています。mineoの発表では、対象に2020年1月以降に解約した一部の人が含まれていました。最大142万件で、メールアドレス、性別、年代、郵便番号、都道府県、誕生日や記念日まで入っているそうです。自分では解約して終わったつもりでも、渡した先では消えていなかった、ということです。\n\n認証情報754社分\n\n数字の報道に埋もれていたのが、認証情報754社分という部分です。プレイドの調査結果では、対象は連携データ570社、解析データ487社、キャッシュデータ409社（推定の最大値）、外部サービスと連携するための認証情報754社に分かれていて、重複があるので単純に足し算はできません。\n\nこの中で性質が違うのは認証情報です。顧客データは、出た時点で被害がほぼ固まります。でも認証情報は鍵なので、差し替えられるまでは生きていて、別のシステムへの入口になりえます。連携していた会社では今ごろ、トークンを差し替えたか、ログに変なアクセスがないかを確認しているはずで、件数としては表に出てこないこの作業のほうが、この件がまだ終わっていない理由なんだと思います。\n\nでは、安心していいのか\n\nお金については、材料はそろっています。パスワードと暗証番号は出ていないし、中核のシステムは破られていないし、不正取引は確認されていない。口座から直接抜かれる経路は、今の情報では開いていません。\n\n怖いのは楽天証券の447万口座分のほうです。氏名と住所と勤務先に、年収と資産までそろっているので、「楽天証券ですが、保有資産の確認でお電話しました」と言われたときに、相手が本物の情報を持っているかもしれない、という警戒が要ります。漏れたデータは回収できないので、この警戒に期限はありません。数か月ではなく、年単位の話だと思っておいたほうがいいです。\n\nKARTEのほうは、まだ途中です。プレイドから各社への詳しいデータの受け渡しは11月24日から始まるので、公表する会社はこれから増えます。自分が使っているサービスが関係していたかどうか、これから分かる人も多いはずです。それと、プレイドが「終われば消す」と言った契約終了企業のデータが、本当に消えたと報告されるかどうかも、見ておきたいところです。\n\n最後に、作る側の話を少しだけ。\n\nこの2件を自分の職場に置き換えると、確認は3つだけです。テスト環境に本番データを置いていないか。置くなら、マスキングを通さないと先に進めない形になっているか。もうひとつは、SaaSを解約したあと、自分たちのデータが相手先で消えたことをどうやって確かめているか。プレイドの件では、消したはずの契約終了企業のデータが残っていたことが、後から分かりました。\n\n分かっていないこともあります。楽天証券の侵入経路はまだ公表されていません（調査中だそうで、金融庁が報告徴求命令を出したと報じられています）。KARTEの認証情報が実際に悪用されたかどうかも、まだ出ていません。各社の件数や項目は、11月24日からの受け渡しで更新される可能性があります。\n\n参考\n・プレイド「『KARTE』への不正アクセスに関する当社調査結果と、サービス再開の見通し等のお知らせ」（2026年11月20日） https://plaid.co.jp/news/20261120/\n・プレイド「不正アクセスによる個人情報を含む可能性のある情報等の漏えいに関するお詫びとお知らせ」（2026年11月16日） https://plaid.co.jp/news/20261116/\n・三菱UFJ銀行「当行委託先が提供するサービスへの不正アクセスについて」（2026年11月18日） https://www.bk.mufg.jp/news/news2026/pdf/news1118.pdf\n・シャープ「公式通販『COCORO STORE』で利用する外部マーケティングツール『KARTE』への不正アクセスに関するお詫びとお知らせ」（2026年11月19日） https://corporate.jp.sharp/info/notices/261119-a.html\n・三井住友銀行とオプテージ（mineo）の項目・件数は、各社の2026年11月20日・11月18日の発表による\n・楽天証券の件数・項目・経緯は、同社の2026年11月17日の発表と、その後の同社説明（日経クロステック、ITmedia NEWSの取材記事）による\n\n---\n次回から、ネットワークの成り立ちを最初から追う連載を始めます。第1回はパケット交換。電話の仕組みを捨てたところからです。",
+      "metrics": {
+        "likes": 1,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "f6bcb484a188ac52",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.42808219178082196,
+      "popularityPercentile": 0.9155251141552512,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": null,
+      "oneLiner": "楽天証券と三井住友銀行では本番データのコピーや委託先の情報が漏えいした。",
+      "takeaways": [
+        "楽天証券では最大約1570万口座分が漏れた。",
+        "本番データがテスト環境にそのまま置かれていた。",
+        "三井住友銀行では委託先経由で約1400万件が漏れた。"
+      ],
+      "keywords": [
+        "楽天証券",
+        "三井住友銀行",
+        "KARTE",
+        "テスト環境",
+        "本番データ"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "楽天証券 テスト環境情報漏えい",
+      "readingMinutes": 7,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "楽天証券では、最大約1,572万口座分の本番データがマスキングされないままテスト環境に置かれ、2026年11月11日に漏えいした可能性があります。三井住友銀行などでは、委託先のマーケティングツールKARTEに渡したデータが、2026年11月13日の不正アクセスにより漏えいしました。いずれも銀行の勘定系や証券の取引システム、パスワード、暗証番号、不正取引が直接破られた事案ではありません。KARTEでは契約終了企業のデータや、外部サービス連携用の認証情報754社分も対象に含まれました。本番データのコピー先と、委託先に渡したデータの削除・認証情報管理が、被害範囲を決めました。",
+        "prerequisites": [
+          {
+            "term": "テスト環境",
+            "stumblingPoint": "記事は「テスト環境に、マスキングされていない本番データ」と書いているが、本番環境と何が違うかを知らないと危険性が読み取れない。",
+            "explanation": "テスト環境は、アップグレードや機能検証を本番稼働に影響させずに行う場所です。本番環境より監視やアクセス制御が弱い場合があり、そこへ実在顧客のデータを置くと、取引機能を破らなくても個人情報だけを狙えます。この記事では、データのコピー先そのものが侵入口になりました。"
+          },
+          {
+            "term": "マスキング",
+            "stumblingPoint": "記事は「普段はダミーデータしか置かない運用で、マスキングはしていなかった」と書いているが、何を防ぐ処理かを知らないと判断ミスの重さが分からない。",
+            "explanation": "マスキングは、氏名や住所などを別の値に置き換え、テストに必要な形式だけを残す処理です。処理済みなら漏えいしても実在人物との結び付きや資産情報の露出を抑えられます。楽天証券では例外手続きがマスキングなしの配置を止めませんでした。"
+          },
+          {
+            "term": "KARTE",
+            "stumblingPoint": "記事は「銀行がデータを渡していた先、マーケティングツールのKARTEが破られました」と書いているが、KARTEが顧客データを保持する位置づけを知らないと責任範囲を追えない。",
+            "explanation": "KARTEはプレイドが運営するマーケティングツールで、利用企業が顧客属性や通知用フラグなどを連携して使います。攻撃者は銀行の中核システムではなく、委託先に集約されたデータを取得しました。渡す項目を各利用企業が決めるため、企業ごとに漏えいした内容が異なります。"
+          },
+          {
+            "term": "認証情報",
+            "stumblingPoint": "記事は「外部サービスと連携するための認証情報754社」と書いているが、顧客データとの違いを知らないと被害が継続する理由を読めない。",
+            "explanation": "認証情報は、APIキーやトークンなど、別のシステムへ接続するための秘密情報です。顧客データは漏えい時点で被害が確定しやすい一方、認証情報は失効・差し替えまで使われ続ける可能性があります。連携企業はトークンのローテーションと利用ログ確認が必要です。"
+          },
+          {
+            "term": "契約終了企業",
+            "stumblingPoint": "記事は「契約終了企業のデータも含まれていた」と書いているが、解約後も委託先に残るデータをどう管理するかが読み取れない。",
+            "explanation": "契約終了企業とは、KARTEの利用を終えたものの、過去に取り込んだデータが保存先から消えていなかった企業です。契約終了はデータ消去の実行・検証を意味しません。この記事では、消すはずだった情報が運用不備で残り、後の不正アクセスの対象になりました。"
+          },
+          {
+            "term": "不正アクセス",
+            "stumblingPoint": "記事はKARTEについて「11月13日未明の不正アクセス」と書くが、楽天証券では侵入経路が未公表で、同じ言葉から手口を推測できない。",
+            "explanation": "不正アクセスは許可されていない利用を指す結果の表現で、フィッシングや脆弱性悪用など具体的な入口までは示しません。この記事で確定しているのはKARTEへの不正アクセスと楽天証券のテスト環境からの漏えいだけです。攻撃手段を補って読むと誤った対策になります。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "コピー先への経路",
+          "layers": [
+            {
+              "label": "データ提供元",
+              "nodes": [
+                {
+                  "name": "楽天証券本番データ",
+                  "note": "顧客情報の原本",
+                  "highlight": false
+                },
+                {
+                  "name": "利用企業の顧客データ",
+                  "note": "属性・通知フラグ等",
+                  "highlight": false
+                }
+              ],
+              "via": "コピー・連携"
+            },
+            {
+              "label": "保管先",
+              "nodes": [
+                {
+                  "name": "テスト環境",
+                  "note": "未マスキングで配置",
+                  "highlight": true
+                },
+                {
+                  "name": "KARTE",
+                  "note": "委託先ツール",
+                  "highlight": true
+                }
+              ],
+              "via": "不正アクセス"
+            },
+            {
+              "label": "漏えい対象",
+              "nodes": [
+                {
+                  "name": "最大1,572万口座",
+                  "note": "資産・連絡先を含む",
+                  "highlight": false
+                },
+                {
+                  "name": "最大1,400万件等",
+                  "note": "企業ごとに項目が異なる",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "プレイド：KARTE不正アクセス調査結果（2026-11-20）",
+            "url": "https://plaid.co.jp/news/20261120/"
+          },
+          {
+            "label": "プレイド：情報漏えいに関するお詫び（2026-11-16）",
+            "url": "https://plaid.co.jp/news/20261116/"
+          },
+          {
+            "label": "三菱UFJ銀行：委託先サービスへの不正アクセス",
+            "url": "https://www.bk.mufg.jp/news/news2026/pdf/news1118.pdf"
+          },
+          {
+            "label": "シャープ：COCORO STOREへの影響",
+            "url": "https://corporate.jp.sharp/info/notices/261119-a.html"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "security",
+        "whatHappened": [
+          "2026-11-17 楽天証券が最大約1,572万口座分の漏えい可能性を公表",
+          "2026-11-20 三井住友銀行が最大約1,400万件の漏えい可能性を公表",
+          "2026-11-13 KARTEへの不正アクセスで全サービス停止",
+          "楽天証券は本番データをテスト環境に保管していた"
+        ],
+        "attackChain": [
+          {
+            "stage": "other",
+            "detail": "楽天証券が本番データをマスキングなしでテスト環境へ配置"
+          },
+          {
+            "stage": "other",
+            "detail": "各社が顧客データをマーケティングツールKARTEへ連携"
+          },
+          {
+            "stage": "initial-access",
+            "detail": "KARTEへ2026-11-13未明に不正アクセス"
+          },
+          {
+            "stage": "exfiltration",
+            "detail": "KARTEの連携・解析・キャッシュ等の情報が漏えい対象に"
+          },
+          {
+            "stage": "exfiltration",
+            "detail": "楽天証券のテスト環境から顧客情報が外部へ漏えいした可能性"
+          }
+        ],
+        "personal": [
+          "楽天証券利用者は公式アプリ・公式サイトで通知を確認し、電話は掲載番号へ折り返す。",
+          "「保有資産の確認」などの電話やメールは信用せず、リンクを開かず公式窓口へ確認する。",
+          "KARTE利用サービスは各社の公式発表で対象項目を確認し、追加の案内を待つ。"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "テスト環境への本番データ投入を禁止し、必要時はマスキング完了を必須条件にする。"
+          },
+          {
+            "kind": "ops",
+            "action": "テスト環境のアクセスログを監視し、漏えいから検知までの遅延を短縮する。"
+          },
+          {
+            "kind": "tech",
+            "action": "KARTE等の委託先へ渡す項目を最小化し、氏名や生年月日を不要なら連携しない。"
+          },
+          {
+            "kind": "ops",
+            "action": "SaaS解約時にデータ消去を依頼し、消去証跡または削除確認を取得する。"
+          },
+          {
+            "kind": "tech",
+            "action": "委託先に保存された認証情報を全件ローテーションし、連携先の利用ログを確認する。"
+          }
+        ],
+        "relevance": [
+          "テスト環境に本番データのコピーを置く企業",
+          "KARTEなどのマーケティングSaaSを使う企業",
+          "SaaSへ顧客データや認証情報を連携する企業"
+        ],
+        "unknowns": [
+          "楽天証券への侵入経路は未公表",
+          "KARTEの認証情報が悪用されたかは未公表",
+          "KARTE各社の最終件数と削除完了は未確定"
+        ],
+        "whatsNew": "前回の楽天証券の公表に加え、三井住友銀行などKARTE利用企業の影響、認証情報754社分、契約終了企業のデータ残存が判明した。"
+      }
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "Hackers Exploit Critical VMware, Cisco, and Apache Flaws as Espionage Attacks Emerge",
+      "url": "https://thehackernews.com/2026/11/hackers-exploit-critical-vmware-cisco.html",
+      "publishedAt": "2026-11-21T08:49:13.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "The U.S. Cybersecurity and Infrastructure Security Agency (CISA) on Friday added four flaws impacting Apache Roller, Cisco Expressway, SAP NetWeaver, and Broadcom VMware vCenter to its Known Exploited Vulnerabilities (KEV), citing evidence of active exploitation. The vulnerabilities are listed below - CVE-2026-129448 (CVSS score: 9.8) - A deserialization of untrusted data vulnerability in",
+      "body": "Ravie LakshmananNov 21, 2026Vulnerability / Enterprise Security\nThe U.S. Cybersecurity and Infrastructure Security Agency (CISA) on Friday added four flaws impacting Apache Roller, Cisco Expressway, SAP NetWeaver, and Broadcom VMware vCenter to its Known Exploited Vulnerabilities (KEV), citing evidence of active exploitation.\n\nThe vulnerabilities are listed below -\n\n  CVE-2026-129448 (CVSS score: 9.8) - A deserialization of untrusted data vulnerability in Apache Roller that could allow an unauthenticated remote attacker to execute arbitrary code via the XML-RPC endpoint, which accepts and deserializes vendor extension types before authentication. (Fixed in November 2026)\n  CVE-2026-76466 (CVSS score: 9.8) - A use of hard-coded credentials vulnerability in Cisco Expressway Series that could allow an unauthenticated, remote attacker with persistent cookies and network access to execute commands as root on a clustered device via the database service. (Fixed in October 2026)\n  CVE-2025-42884 (CVSS score: 6.5) - An improper neutralization of special elements in data query logic vulnerability in SAP NetWeaver Enterprise Portal that could allow an unauthenticated attacker to disclose or modify server information via injected JNDI environment properties or a URL used during JNDI lookup operations. (Fixed in November 2025)\n  CVE-2026-123890 (CVSS score: 9.8) - An authentication bypass using an alternate path or channel vulnerability in VMware vCenter that could allow an unauthenticated attacker with network access to vCenter to bypass authentication and gain unauthorized access to the system. (Fixed in November 2026)\n\nEarlier this week, the maintainers of Apache Roller acknowledged that the \"issue is being actively exploited\" but did not reveal how it was being weaponized or who is behind it. As of writing, there also appear to be no public reports documenting active exploitation of CVE-2025-42884.\n\nThe addition of CVE-2026-76466 to the KEV catalog follows a report from F6 that the vulnerability was exploited to breach a Russian organization following the release of a proof-of-concept (PoC) exploit, enabling the attackers to move laterally across the network and access sensitive data. The activity has not been attributed to any threat actor.\n\nThe exploitation of CVE-2026-123890, on the other hand, has linked to a suspected China-nexus cyber espionage group tracked as Armory Castle (formerly UNC5221), which is said to have weaponized it in conjunction with another now-patched flaw in BeyondTrust Remote Support (CVE-2026-102764, CVSS score: 9.3) to deploy custom backdoors for persistent access and data theft.\n\nFederal Civilian Executive Branch (FCEB) agencies have been urged to patch all four vulnerabilities by November 23, 2026, pursuant to Binding Operational Directive (BOD) 26-04: Prioritizing Security Updates Based on Risk. \n\nFound this article interesting?  Follow us on Google News, Twitter and LinkedIn to read more exclusive content we post.",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "4bcb85414104fc74",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.8700000000000001,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [
+        "クラウド / 本番環境構築"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": "VMwareやCiscoなど4製品の欠陥が実際の攻撃に悪用",
+      "oneLiner": "CISAはVMware vCenterやCisco Expresswayなど4製品の欠陥を実際の攻撃対象として登録した。",
+      "takeaways": [
+        "4製品の重大な欠陥が実際の攻撃に使われた。",
+        "対象にはVMware vCenterとCisco Expresswayが含まれる。",
+        "攻撃者は侵入後に裏口を置き情報を盗んだ。"
+      ],
+      "keywords": [
+        "CISA KEV",
+        "VMware vCenter",
+        "Cisco Expressway",
+        "Apache Roller",
+        "CVE-2026-129448"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 6,
+      "payoff": "aware",
+      "durability": "durable",
+      "imageUrl": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhFnWnBDigw8RogBTSInXktn1vUISbzwjHm5GuAFBNX0_ClLBk83WOa2BYiHUbgtva76TY8Oz2kJvEZtvEjqZlFFCuvQ-u-l-4l5dzo2MXw7zHLEuklv_Gn1mB-f5TL9GP_3n1NxQkzkZ-fAX7UpcqfZqUefQiRQZm21sq6IZOzmyuQ1hYs4AFHWQAj83WX/s1700-nu-rw-lo-l85-e365/vmware-cisco.jpg",
+      "rank": 3,
+      "deep": {
+        "summary": "CISAは、Apache Roller、Cisco Expressway、SAP NetWeaver Enterprise Portal、Broadcom VMware vCenterの4件をKnown Exploited Vulnerabilities（KEV）に追加しました。Apache RollerのCVE-2026-129448とVMware vCenterのCVE-2026-123890はCVSS 9.8で、認証前後の処理を悪用してコード実行や認証 bypass につながります。Cisco ExpresswayのCVE-2026-76466は、永続Cookieとネットワークアクセスを持つ攻撃者がハードコードされた認証情報を利用し、クラスタ上でroot権限のコマンドを実行できます。Ciscoの脆弱性ではロシアの組織への侵入と横展開・機密データへのアクセスが報告され、VMware vCenterの脆弱性ではArmory Castle（旧UNC5221）によるBeyondTrust Remote Supportの脆弱性との連鎖、バックドア展開、データ窃取が疑われています。FCEB機関には、BOD 26-04に基づき2026-11-23までの修正が求められています。",
+        "prerequisites": [
+          {
+            "term": "KEV",
+            "stumblingPoint": "記事は4件をKEVに追加したと書くが、通常の脆弱性一覧との違いがないと緊急度を読み取れない。",
+            "explanation": "KEVは、実際に悪用された証拠がある脆弱性をCISAが管理する一覧です。単にCVSSが高い脆弱性ではなく、攻撃が確認されたものとして扱うため、通常の更新計画より先に修正・露出制限を判断する材料になります。"
+          },
+          {
+            "term": "XML-RPC",
+            "stumblingPoint": "Apache Rollerの「XML-RPC endpointがvendor extension typesをdeserializesする」という記述で、認証前の処理がなぜ危険かが止まりやすい。",
+            "explanation": "XML-RPCは、XMLで遠隔メソッド呼び出しを受け付ける通信エンドポイントです。この記事の脆弱性では認証より前にvendor extension typesをデシリアライズするため、ログイン済みでないリモート攻撃者でも細工したデータを処理させ、任意コード実行につなげられます。"
+          },
+          {
+            "term": "デシリアライズ",
+            "stumblingPoint": "「deserialization of untrusted data」とあるが、単なる入力検証不足と同じ問題なのか読み分けにくい。",
+            "explanation": "デシリアライズは、受信したデータをプログラム内のオブジェクトへ復元する処理です。復元対象の型や処理を攻撃者が選べると、入力値の読み取りを超えて、オブジェクト生成時の処理を実行させられます。Apache Rollerではこの処理が認証前のXML-RPCに置かれている点が攻撃面です。"
+          },
+          {
+            "term": "PoC",
+            "stumblingPoint": "Cisco Expresswayは「PoC exploitの公開後に悪用」とあるが、PoCが実攻撃にどう影響するかが省略されている。",
+            "explanation": "PoCは、脆弱性を再現するための実証コードです。Cisco ExpresswayではPoCの公開後、ハードコードされた認証情報を使う攻撃が実行され、ロシアの組織への侵入、ネットワーク内の横展開、機密データへのアクセスにつながったと報告されています。"
+          },
+          {
+            "term": "JNDI",
+            "stumblingPoint": "SAP NetWeaverについて「injected JNDI environment properties」と書かれているが、情報開示・変更までの関係が読み取りにくい。",
+            "explanation": "JNDIは、名前を使って設定値やリソースを検索するJavaの仕組みです。SAP NetWeaver Enterprise Portalでは、JNDI lookupに使うURLや環境プロパティへ特殊要素を注入でき、サーバー情報の開示または変更につながる脆弱性と説明されています。記事はこのCVEについて、現時点で実 exploitation の公開報告はないとしています。"
+          },
+          {
+            "term": "認証 bypass",
+            "stumblingPoint": "VMware vCenterの「alternate path or channelによるauthentication bypass」が、通常のログイン突破とどう違うか分かりにくい。",
+            "explanation": "認証 bypassは、正しい認証情報を得るのではなく、別のURL・通信経路・処理分岐を通って認証確認を回避することです。CVE-2026-123890では、ネットワークからvCenterへ到達できる未認証攻撃者がこの経路を使い、不正アクセスを得られます。"
+          },
+          {
+            "term": "Armory Castle",
+            "stumblingPoint": "Armory Castle（formerly UNC5221）が「suspected China-nexus」と表現され、確定した攻撃者名と推定情報の区別が必要になる。",
+            "explanation": "Armory Castleは、記事がVMware vCenterの悪用と関連付けた脅威グループの追跡名で、旧称はUNC5221です。記事は中国との関連を疑っているものの、断定ではありません。攻撃者の帰属より、vCenterとBeyondTrust Remote Supportを連鎖してバックドアとデータ窃取に使った点を防御判断に利用します。"
+          },
+          {
+            "term": "BOD 26-04",
+            "stumblingPoint": "FCEBにBOD 26-04が適用されるとあるが、なぜ2026-11-23が対応期限になるのか読み取りにくい。",
+            "explanation": "BOD 26-04は、リスクに基づいてセキュリティ更新の優先順位を付ける米国連邦行政機関向けの拘束的指令です。この記事では、KEVに追加された4件についてFCEB機関が2026-11-23までに修正するよう求められています。民間企業にも、同じ期限をそのまま義務付ける記事ではありませんが、緊急対応の基準として使えます。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "4脆弱性の攻撃経路",
+          "layers": [
+            {
+              "label": "攻撃者",
+              "nodes": [
+                {
+                  "name": "未認証リモート",
+                  "note": "RollerへXML-RPC送信",
+                  "highlight": false
+                },
+                {
+                  "name": "Cookie保有者",
+                  "note": "Expresswayへ到達",
+                  "highlight": false
+                },
+                {
+                  "name": "未認証攻撃者",
+                  "note": "SAPへJNDI入力",
+                  "highlight": false
+                },
+                {
+                  "name": "ネットワーク攻撃者",
+                  "note": "vCenterへ到達",
+                  "highlight": false
+                }
+              ],
+              "via": "悪意ある入力・経路"
+            },
+            {
+              "label": "対象製品",
+              "nodes": [
+                {
+                  "name": "Apache Roller",
+                  "note": "CVE-2026-129448",
+                  "highlight": true
+                },
+                {
+                  "name": "Cisco Expressway",
+                  "note": "CVE-2026-76466",
+                  "highlight": true
+                },
+                {
+                  "name": "SAP NetWeaver",
+                  "note": "CVE-2025-42884",
+                  "highlight": true
+                },
+                {
+                  "name": "VMware vCenter",
+                  "note": "CVE-2026-123890",
+                  "highlight": true
+                }
+              ],
+              "via": "脆弱性の悪用"
+            },
+            {
+              "label": "到達した影響",
+              "nodes": [
+                {
+                  "name": "任意コード実行",
+                  "note": null,
+                  "highlight": false
+                },
+                {
+                  "name": "rootコマンド",
+                  "note": "横展開・機密データ",
+                  "highlight": false
+                },
+                {
+                  "name": "情報開示・変更",
+                  "note": null,
+                  "highlight": false
+                },
+                {
+                  "name": "不正アクセス",
+                  "note": "バックドア・データ窃取",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [],
+        "readingMinutes": 6,
+        "lane": "security",
+        "whatHappened": [
+          "2026-11-21 CISAが4件をKEVに追加、いずれもactive exploitationの証拠あり",
+          "Cisco Expressway悪用でロシアの組織に侵入し、横展開と機密データアクセス",
+          "VMware vCenter悪用をArmory Castleによる諜報活動と関連付け",
+          "4件は2026-11-23までの修正をFCEB機関に要求"
+        ],
+        "attackChain": [
+          {
+            "stage": "initial-access",
+            "detail": "Cisco ExpresswayをPoC公開後に悪用し、ロシアの組織へ侵入"
+          },
+          {
+            "stage": "lateral-movement",
+            "detail": "Cisco Expressway侵入後、ネットワーク内を横展開"
+          },
+          {
+            "stage": "exfiltration",
+            "detail": "横展開後に機密データへアクセス"
+          },
+          {
+            "stage": "initial-access",
+            "detail": "Armory CastleがVMware vCenterの認証bypassを悪用"
+          },
+          {
+            "stage": "impact",
+            "detail": "BeyondTrust脆弱性と連鎖し、バックドア展開とデータ窃取"
+          }
+        ],
+        "personal": [
+          "利用中の4製品を棚卸しし、ベンダー提供の2026年11月修正版へ直ちに更新する。",
+          "vCenterとExpresswayの管理インターフェースをインターネットから遮断し、管理用ネットワークからだけ到達可能にする。",
+          "Cisco Expresswayの永続Cookieと管理セッションを失効させ、更新後に管理者認証をやり直す。",
+          "VMware vCenterとBeyondTrust Remote Supportの認証ログを確認し、未知の管理アクセスやバックドア作成を調べる。"
+        ],
+        "organization": [
+          {
+            "kind": "tech",
+            "action": "4製品を資産台帳と外部公開スキャンで特定し、修正版を適用して初期侵入段階を止める。"
+          },
+          {
+            "kind": "tech",
+            "action": "vCenterとExpresswayを管理ネットワークに限定し、未認証のネットワーク到達を遮断する。"
+          },
+          {
+            "kind": "ops",
+            "action": "Expresswayのrootコマンド実行、横展開、機密データアクセスを監査ログで検知する。"
+          },
+          {
+            "kind": "ops",
+            "action": "vCenterとBeyondTrustの認証bypass後に作られたバックドアとデータ持ち出しを調査する。"
+          },
+          {
+            "kind": "org",
+            "action": "FCEB機関はBOD 26-04に従い、4件すべてを2026-11-23までに修正する。"
+          }
+        ],
+        "relevance": [
+          "Apache Roller、Cisco Expressway、SAP NetWeaver、VMware vCenterを使っている組織",
+          "BeyondTrust Remote SupportをvCenter管理経路と連携している組織",
+          "インターネットや社内ネットワークから管理製品へ到達可能な環境"
+        ],
+        "unknowns": [
+          "Apache Rollerの具体的なweaponizationと攻撃者は未公表",
+          "CVE-2025-42884のactive exploitation報告は記事時点でなし",
+          "Cisco Expressway事案の攻撃者帰属は未確定"
+        ],
+        "whatsNew": null
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AI日報 2026年11月21日：AnthropicのIPOが交割完了、GeminiがMacを操作、AIが食品工場に入る",
+      "url": "https://qiita.com/lhjjjk4/items/22392ebeaba153b2708d",
+      "publishedAt": "2026-11-20T22:09:37.000Z",
+      "author": "KD Agentic",
+      "authorDetail": {
+        "name": "KD Agentic",
+        "handle": "@lhjjjk4",
+        "url": "https://qiita.com/lhjjjk4",
+        "avatarUrl": "https://lh3.googleusercontent.com/a/AATXAJz4IROlG0wRpibP5oF3Xz6cou17GaupbL5_wSQB=s50-mo",
+        "followers": 6,
+        "posts": 223,
+        "links": []
+      },
+      "tags": [
+        "AI",
+        "ビジネス",
+        "エージェント",
+        "データセンター"
+      ],
+      "snippet": "Anthropic、IPO交割を完了。オーバーアロットメント全額行使で総額約935億ドルに Anthropic は11月20日、新規公開（IPO）の交割完了を発表した。クラスA株式11億2700万株を1株83ドルで売り、引受証券会社の1億4700万株のオーバーアロットメント（追加発行権）が全額行使された。これに伴い、IPO本体だけの総調達額は約935億ドルに達し、813億ドルのベースディールがすでに SpaceX の6月記録を超えていた「史上最大IPO」を、さらに上積みする形になった。同時に実施されていた私募も交割を完了し、報じられている Google・Microsoft・Nvidia・AMD による戦略出資の資金も同時に着地した。 ただし市場の2日目の反応は祝賀とはほど遠かった。11月20日、ANT は寄り付きで9%超下落し、一時は発行価格の83ドルから約5ドルまで迫った後、下げ幅を一部…",
+      "body": "Anthropic、IPO交割を完了。オーバーアロットメント全額行使で総額約935億ドルに\n\nAnthropic は11月20日、新規公開（IPO）の交割完了を発表した。クラスA株式11億2700万株を1株83ドルで売り、引受証券会社の1億4700万株のオーバーアロットメント（追加発行権）が全額行使された。これに伴い、IPO本体だけの総調達額は約935億ドルに達し、813億ドルのベースディールがすでに SpaceX の6月記録を超えていた「史上最大IPO」を、さらに上積みする形になった。同時に実施されていた私募も交割を完了し、報じられている Google・Microsoft・Nvidia・AMD による戦略出資の資金も同時に着地した。\n\nただし市場の2日目の反応は祝賀とはほど遠かった。11月20日、ANT は寄り付きで9%超下落し、一時は発行価格の83ドルから約5ドルまで迫った後、下げ幅を一部縮小した。周辺も赤一色で、ナスダックは約2%下落して年初来の上昇分をほぼ帳消しにし、フィラデルフィア半導体指数は最大6%近く下げ、NVIDIA は2025年6月以来の安値をつけ、一時は Alphabet が時価総額で NVIDIA を逆転する場面もあった。空売り投資家の Michael Burry 氏はこの日を「1929年や2000年と同じ構図だ」と述べ、バブル警戒論を繰り返す機会にした。\n\nビルダー側の教訓はパニックではなく情報にある。上場した Anthropic は四半期ごとに決算を開示するようになり、Claude の価格・マージン・計算資源コミットメントが計画に使える公開数値になる。また、AI市場全体が初めて「フロンティアラボの株価がリスクオフの週にどう振る舞うか」というストレステストを経験した。IPO交割の完了は、この発行に言及していたすべてのエンタープライズ契約条項にとって、確定した節目の日付でもある。— Anthropic · The Guardian\n\n🔗 Anthropic · The Guardian\n\nGoogle、macOS版Geminiに「Computer Use」を搭載。バックグラウンドでPCを操作する\n\nGoogle は macOS 版 Gemini アプリに Computer Use 機能を追加した。自然言語の指示から、デスクトップアプリ間の切り替え、ローカルファイルの読み書き、Webページをまたぐ複数ステップのタスクをAIが直接実行できる。Google 自身の例には、写真の一括編集、ローカルPDFから寸法や重量を抽出して配送フォームに自動入力、ダッシュボードのスクリーンショットをプレゼン資料にまとめる作業、フリマアプリへの商品出品が挙げられている。Blender や Autodesk Fusion といったデスクトップアプリもコネクタ一覧に加わり、プロンプトで @Computer use を付けて呼び出す。\n\n能力そのものより、設計上の選択が重要だ。すべての作業は独立したバックグラウンドウィンドウで動き、ユーザーのカーソルとメイン画面は奪われない。チャット画面内にリアルタイムのプレビューが表示され、停止ボタンは常に有効だ。権限はマシン全体ではなくアプリケーション単位で付与し、ログインや決済といった機微なステップではユーザーの操作のために一時停止する。アクセス範囲を特定フォルダに絞り、リクエストごとに承認を求める設定も可能だ。要件は Apple Silicon 搭載の macOS Sequoia 15.0 以降、Google AI Plus・Pro・Ultra の購読で、初回は米国の英語ユーザー限定。\n\nタイミングも示唆的だ。Apple はまさにこの種のソフトウェア向けに Mac の権限管理を引き締めており、macOS 27.3 ベータではデバイス制御とデータアクセスを別権限に分割し、あるアプリが別のアプリを制御している際のメニューバー表示を追加したうえで、フルディスクアクセスのリスクを明示的に警告している。Computer Use は「エージェント能力」と「OSのセキュリティポリシー」が正面衝突する機能であり、両社は真逆の立場から同じ答えに収束しつつある。強力なエージェントを、狭い権限で、人間の監視付きで動かす、という答えに。— Google · The Verge\n\n🔗 Google Gemini · The Verge\n\nOpenAI、「Performance Factory」を公開。CodexエージェントがChatGPTを高速に保ち続ける\n\nOpenAI は「Performance Factory」と呼ぶ内部システムを紹介する投稿を公開した。Codex 駆動のワークフロー群が ChatGPT 全体の性能問題を継続的に探し、修正する仕組みだ。興味深いのは枠組みのほうで、速度をリリース前の確認項目として扱うのではなく、実ワークロードをプロファイリングし、退行を切り分け、修正を出す常設のエージェントワークフローを回す。レイテンシをインシデント対応ではなく、専用工場を持つ製品表面として扱っている。\n\nこれは今月追ってきた流れの続きでもある。AWS はエージェントチームでエミュレータ全体を書き上げ、OpenAI は医療チームの computer-use エージェントを CVS の本番環境に投入した。そして今回は同じ機械仕様を自社インフラに向けた。三つの事例に共通するのは、エージェントに機能開発ではなく「運用そのもの」を所有させ、人間が「良い状態」の定義を担当し、測定と修復の反復作業をエージェントに任せる構図だ。\n\nエンジニアリングチームへの転用ポイントはブランド名ではなくループのほうだ。ユーザーが体感する指標を一つ選び、エージェントに測定と変更のツールを与え、ガードレール付きで継続実行させる。性能仕事は最初の候補として適切だ。フィードバック信号が曖昧でなく、誤った変更の影響範囲が測定可能で、そして手作業では誰もやりたがらない仕事だからだ。— OpenAI\n\n🔗 OpenAI\n\nNestlé、Microsoft AI と Boston Dynamics ロボットを工場そしてコーヒーマシンに導入\n\nWall Street Journal が11月20日に報じたところによると、世界最大の食品メーカー Nestlé が Microsoft と Boston Dynamics と組み、AI を自社工場と製品に導入する。両テック企業は提携を確認している。中核となるのはスイス Orbe に開設する Deep Tech Center で、AI・スマートセンサー・ロボティクスを組み合わせて業務効率を引き上げ、成果は世界中の工場網へ展開する予定だ。CTO の Stefan Palzer 氏は Journal に対し、パートナーと開発した技術を Nestlé の世界中の施設に展開すると述べた。\n\nグループ内にはすでに実績がある。Boston Dynamics は Nestlé Purina の事例研究を公開しており、Spot ロボットが包装ラインの熱・音響検査を毎時ルートで実行し、保守技術者を予防保全の仕事へ解放している。この単一ブランドのパイロットをグループ規模へ引き上げるのが今回の合意だ。さらに工場の外にも手が伸びる。AI の仕事は消費者製品そのものに及び、例としてコーヒーマシンが挙げられた。フロンティアに近いソフトウェアスタックが、ほとんどの人が想定していない製品カテゴリに入る。\n\n食品製造は衛生設計・洗浄環境・多品種少量生産の壁から、自動車や電子機器よりロボット導入が遅れており、だからこそ最初の一歩は検査ロボットだった。Nestlé は AI 時代の調達構造を本格的に組んだ最大級の消費財ブランドであり、スイスの応用AI拠点と、中国技術を世界向け製品に取り込む深圳ハブを対にして回す。正直な留保もいつもの通りだ。「グローバル展開」はCTOの言葉であって、工場改装は生産停止のペースで進む。サイト数も機種リストも公表されていない。今後数四半期で Spot クラスの検査が Purina からコーヒー・菓子・ペットフード工場へ広がるかが、実態を見る試金石だ。— Boston Dynamics · Microsoft · WSJ\n\n🔗 Boston Dynamics · WSJ\n\nSupermicro、PCIe Gen 6 対応オールフラッシュストレージサーバーの出荷を開始\n\nSupermicro は Supercomputing 2026 において、AMD EPYC 9006 シリーズ（旧コードネーム Venice）ベースの新オールフラッシュストレージサーバーの第一批を出荷開始したと発表した。SP8 CPU 版の到着に合わせて追加構成も順次投入される。同社によれば、PCIe Gen 6 I/O に対応した初のストレージ製品であり、PCIe Gen 5 比で順次読み出し帯域が最大100%向上する。プラットフォームは Data Center Building Block Solutions アーキテクチャの下、CloudDC・GrandTwin・Hyper ファミリーで提供される。\n\nハードと同じくらい重要なのがソフト側の話だ。Supermicro は Hammerspace、IBM、MinIO、Nutanix、Scality、VAST Data、VDURA、WEKA という幅広いソフトウェア定義ストレージのパートナーでプラットフォームを検証しており、既存のストレージスタックを維持したまま下のサーバだけを交換できる。Vik Malyala 最高業務責任者の説明は聞き慣れたボトルネックを突く。AI と HPC のワークロードがストレージ層を追い越し、学習・推論クラスタには GPU の消費能力に見合う I/O が必要だ、というものだ。\n\nストレージはAIインフラ拡張の地味な階層だが、だからこそ資金が入り続けている。今四半期に出荷されたGPUラックの数だけ、背後の並列ファイルシステムとチェックポイント処理への圧力が上がる。PCIe Gen 6 と新 EPYC 世代は、未知の相互接続に移行させられることなく、ストレージ層が追いつくための増強経路を与える。— Supermicro · PR Newswire\n\n🔗 Supermicro · PR Newswire\n\nDeutsche Telekom、Mistral に1億ユーロ出資。欧州AIの統合が進む\n\nDeutsche Telekom は11月19日、T.Capital テックファンドを通じて Mistral AI に1億ユーロ（約1億1000万ドル）を出資すると発表した。欧州最大の通信キャリアが、欧州を代表するAIラボの株主に加わる。タイミングは Mistral がオープンウェイトモデルを有償製品へ押し進めている最中で、今週は Vibe デスクトップエージェントが登場し、有償ユーザーのデフォルトモデルには1兆パラメータのオープンウェイトモデル Mistral Large 4 が据えられた。\n\nDeutsche Telekom にとってこの出資はヘッジであり供給線だ。欧州のキャリアは顧客データを域内に留めるソブリンAIサービスを求められており、オンプレミス展開できるオープンウェイトの欧州ラボは、米国のフロンティアAPIでは満たせない要件に合致する。Mistral にとっては、数千万の顧客を持つ戦略株主が Vibe とエンタープライズ事業の流通経路になり、欧州企業が「地域独立性について語る」だけでなく金を払うことのシグナルになる。\n\nこの取引は、Anthropic の史上最大IPOの後にAIセクターが大幅に売られる荒れた週に着地した。その文脈では、ベンチャーファンドではなく事業会社からの9桁の戦略チェックは、リスクオフの環境で生き残れるAI投資の類型を示している。契約と流通と地域政策が付いた投資、という類型だ。— Deutsche Telekom · WSJ\n\n🔗 Deutsche Telekom · WSJ\n\nCognition、脆弱性対応を製品化。「Devin Security Threats」を公開\n\nCognition は Devin Security Threats を公開した（app.devin.ai/security で稼働）。新たに公開されたソフトウェア脆弱性の管理インデックスに、ワンクリックのリポジトリ走査とプルリクエスト修正を組み合わせ、Devin の Agentic MapReduce エンジンの上に載せた。Scan with Devin を選ぶと対象リポジトリを一括走査し、組織の脅威モデルに照らして結果を順位付けし、確定した問題を Devin に割り当ててレビュー可能な修正PRを起草させる。リポジトリ一覧と重大度のしきい値を設定した自動トリアージを有効にすれば、Cognition が新しい勧告を公開するたびに走査が自動で走る。バグバウンティ報告やインシデント復習から社内独自の脅威定義を作ることもできる。\n\nローンチには最初の脅威定義が二つ組み込まれている。Cognition はオープンソースのプレーンMarkdownスキル（Devin Marketplace の Vulnerability Fixes プラグインと Devin CLI に含まれる fix-nginx-vuln と fix-java-vuln）とともに脅威定義を公開し、11月17日に公開された OpenJDK ランタイムRCE「Java4Shell」と、11月18日に公開された NGINX の5件のメモリ破壊バグ「NGINX2Root」に対応した。スキルはプレーンMarkdownなので、アプリセックのエンジニアは人間用の検証チェックリストとして読めるし、別のコーディングエージェントに渡すこともできる。修正ロジックが Devin 専用に閉じない設計だ。\n\nこれは昨日扱った話の続編でもある。AIツールは数時間、算力200ドル弱で重大な NGINX と OpenJDK の脆弱性を見つけた。Cognition が賭けているのはそのループの反対側、つまり勧告トリアージとパッチ起草を常時稼働のエージェントワークフローに変えることだ。業界はこの1か月で「AIが脆弱性を安く見つける」ことを実証した。次の競争は誰が対応を自動化するかだ。管理された脅威フィードとオープンな修正スキルは、その第一手として説得力がある。— Cognition · Devin Blog\n\n🔗 Devin Security Threats · Cognition\n\nKD Agentic · AI Daily Digest",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "51ddf2e569bec740",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.6572602739726028,
+      "popularityPercentile": 0.9269406392694064,
+      "matchedTopics": [
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 96,
+      "titleJa": null,
+      "oneLiner": "AnthropicのIPO完了やGeminiのMac操作などAI業界の主要動向をまとめている。",
+      "takeaways": [
+        "AnthropicがIPOを完了し約935億ドルを調達した。",
+        "上場でClaudeの価格や利益率が公開される。",
+        "AIがパソコン操作や食品工場へ広がっている。"
+      ],
+      "keywords": [
+        "Anthropic",
+        "Claude",
+        "Gemini",
+        "IPO",
+        "AIエージェント",
+        "データセンター"
+      ],
+      "category": "AI/エージェント",
+      "lane": "know",
+      "readingMinutes": 5,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "2026-11-20のAI業界では、AnthropicのIPO交割が完了し、IPO本体の調達額は約935億ドルとなった。上場後はClaudeの価格・マージン・計算資源コミットメントが四半期決算の公開数値となり、エンタープライズ契約にも交割完了という確定日が生じる。GoogleはmacOS版GeminiにComputer Useを追加し、独立したバックグラウンドウィンドウ、アプリ単位の権限、機微操作時の一時停止でエージェントの実行範囲を制御する。OpenAIのPerformance Factoryは、CodexエージェントにChatGPTの性能計測・退行切り分け・修正を継続実行させる運用ループである。Nestléの工場・製品へのAI導入、PCIe Gen 6ストレージ、Deutsche TelekomによるMistralへの出資は、AIがソフトウェア以外の製造・通信・インフラにも組み込まれる流れを示す。CognitionのDevin Security Threatsは、脆弱性勧告の自動トリアージから修正PRの起草までをエージェント化する。",
+        "prerequisites": [
+          {
+            "term": "IPO交割",
+            "stumblingPoint": "記事は「IPO交割を完了」と書いているが、株式販売の発表と何が違うかを知らないと節目の意味が読めない。",
+            "explanation": "IPO交割は、株式の発行・代金の受け渡し・引受会社の追加発行を実際に完了させる決済段階です。この記事では、Anthropicの調達額が確定し、発行に言及したエンタープライズ契約で参照できる確定日になったことを意味します。単なる上場計画や募集開始ではなく、資金と株式の取引が成立した状態です。"
+          },
+          {
+            "term": "オーバーアロットメント",
+            "stumblingPoint": "記事は「1億4700万株のオーバーアロットメントが全額行使」と書くが、なぜ調達額がIPO本体から増えるのかが読み取りにくい。",
+            "explanation": "オーバーアロットメントは、需要が強い場合に引受証券会社が追加で株式を発行できる仕組みです。今回は追加発行権が全額行使されたため、当初のIPO本体に加えて売却株式と調達額が増えました。"
+          },
+          {
+            "term": "Computer Use",
+            "stumblingPoint": "記事は「Computer Use」でデスクトップアプリやローカルファイルを操作すると書くが、通常のAPI連携との違いが分からないとリスク設計を評価できない。",
+            "explanation": "Computer Useは、APIが用意されたサービスだけでなく、画面を見てクリックや入力を行う形でデスクトップアプリを操作する機能です。この記事では、ファイル読み書きやアプリ間の切り替えまで対象になる一方、アプリ単位の権限、特定フォルダへの制限、ログイン・決済時の人間操作を組み合わせています。"
+          },
+          {
+            "term": "Performance Factory",
+            "stumblingPoint": "記事は「専用工場を持つ製品表面」と表現するが、Performance Factoryが単なる性能テスト基盤ではない点を知らないと構成を誤解する。",
+            "explanation": "Performance Factoryは、実ワークロードのプロファイリング、性能退行の切り分け、修正の作成までをCodex駆動のワークフローで継続する仕組みです。リリース前に一度測る工程ではなく、ユーザー体感の指標を観測し、変更し、再測定する常設の運用ループとして位置付けられています。"
+          },
+          {
+            "term": "Agentic MapReduce",
+            "stumblingPoint": "Cognitionは「Agentic MapReduceエンジン」とだけ説明しており、脅威スキャンを一括処理できる理由が読み取りにくい。",
+            "explanation": "Agentic MapReduceは、対象を複数の単位に分けてエージェント処理し、結果を集約する実行方式です。この記事では、組織のリポジトリを一括走査し、脅威モデルに基づく順位付けと修正PRの起草までを複数対象へ適用する土台として使われています。"
+          },
+          {
+            "term": "Threat model",
+            "stumblingPoint": "記事は「組織の脅威モデルに照らして結果を順位付け」と書くが、脆弱性の重大度と何が違うかが分からないと自動トリアージの意味が薄れる。",
+            "explanation": "Threat modelは、組織が守る資産、想定する攻撃者、許容できない侵害経路を定義したものです。Cognitionの仕組みでは、公開された脆弱性を一律に並べるのではなく、その組織固有のリスクに合わせて対応順を変えます。"
+          },
+          {
+            "term": "オープンウェイト",
+            "stumblingPoint": "記事はMistralの「オープンウェイトモデル」を有償製品やオンプレミス展開と結び付けているが、API提供モデルとの違いが省略されている。",
+            "explanation": "オープンウェイトモデルは、学習済みモデルの重みを利用者側で取得・運用できるモデルです。この記事の文脈では、通信事業者が推論環境やデータの置き場所を自社・域内で管理しやすく、米国APIへの依存を減らす選択肢として扱われています。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "脆弱性対応の経路",
+          "layers": [
+            {
+              "label": "入力",
+              "nodes": [
+                {
+                  "name": "公開脆弱性",
+                  "note": "新規勧告",
+                  "highlight": false
+                }
+              ],
+              "via": "脅威フィード"
+            },
+            {
+              "label": "判定",
+              "nodes": [
+                {
+                  "name": "Devin Security Threats",
+                  "note": "自動走査と順位付け",
+                  "highlight": true
+                }
+              ],
+              "via": "脅威定義"
+            },
+            {
+              "label": "変更",
+              "nodes": [
+                {
+                  "name": "Devin",
+                  "note": "修正PRを起草",
+                  "highlight": false
+                }
+              ],
+              "via": "リポジトリ"
+            },
+            {
+              "label": "確認",
+              "nodes": [
+                {
+                  "name": "レビュー担当者",
+                  "note": "PRを確認・適用",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "Devin Security Threats",
+            "url": "https://app.devin.ai/security"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "know",
+        "impact": [
+          "AnthropicのIPOに言及する企業契約を管理する人",
+          "Claudeの価格・マージンを計画に使う人",
+          "macOSでComputer Useを使う人",
+          "脆弱性対応を自動化する人"
+        ],
+        "timeline": [
+          "2026-11-17 Java4Shell公開",
+          "2026-11-18 NGINX2Root公開",
+          "2026-11-20 Anthropic IPO交割完了"
+        ],
+        "checkNow": [
+          "app.devin.ai/securityで対象リポジトリと重大度しきい値を開く",
+          "macOS Sequoia 15.0以降とApple Siliconを確認する",
+          "AnthropicのIPOに言及する契約の確定日を11月20日に更新する"
+        ],
+        "unknowns": [
+          "Nestléの展開サイト・対象機種は未公表",
+          "Gemini Computer Useの米国外提供時期は不明",
+          "IPO後のAnthropic契約条項への影響範囲は不明"
+        ]
+      }
+    },
+    {
+      "id": "ec08d30ed6be8e1b",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@madonomori: 【今週の人気記事】Webサーバー「nginx」に10件の脆弱性 ～HTTP/2実装の欠陥は未認証でリモートコード実行も／「CVE-2026-123633」「C…",
+      "url": "https://x.com/madonomori/status/2123984768782254104",
+      "publishedAt": "2026-11-21T03:40:05.000Z",
+      "author": "窓の杜",
+      "authorDetail": {
+        "name": "窓の杜",
+        "handle": "@madonomori",
+        "url": "https://x.com/madonomori"
+      },
+      "tags": [],
+      "snippet": "【今週の人気記事】Webサーバー「nginx」に10件の脆弱性 ～HTTP/2実装の欠陥は未認証でリモートコード実行も／「CVE-2026-123633」「CVE-2026-123… https://forest.watch.impress.co.jp/docs/news/2157695.html",
+      "body": "【今週の人気記事】Webサーバー「nginx」に10件の脆弱性 ～HTTP/2実装の欠陥は未認証でリモートコード実行も／「CVE-2026-123633」「CVE-2026-123… https://forest.watch.impress.co.jp/docs/news/2157695.html\n\n「nginx」でセキュリティアップデートが実施 　米F5は11月18日（現地時間）、Webサーバー「nginx」（エンジンエックス）の安定版（stable）v1.30.7と開発版（mainline）v1.31.9を公開した。10件の脆弱性が修正されたセキュリティアップデートとなっている。  　今回のアップデートで修正された脆弱性は、以下の通り。深刻度は「nginx.org」の評価で「major」が3件、「medium」が4件、「minor」が3件。v1.31.8までの幅広いバージョンに影響する（「CVE-2026-120993」のみ、安定版であるv1.30系統は影響を受けない）。 CVE-2026-123007（major）：HTTP/2のフロー制御におけるメモリ破損CVE-2026-118899（major）：TLS 1.3でリクエストボディを読み込む際の無限ループCVE-2026-113425（major）：メールプロキシモジュールにおける解放後メモリ使用（use-after-free）CVE-2026-123634（medium）：「resolver」における解放後メモリ使用CVE-2026-121810（medium）：HTTP/3における解放後メモリ使用CVE-2026-123633（medium）：HTTP/2における解放後メモリ使用CVE-2026-120967（medium）：streamモジュールでクライアント証明書を検証する際のSNIバイパスCVE-2026-120993（minor）：PROXYプロトコル バージョン2を使用する際のNULLポインター参照CVE-2026-125283（minor）：「alias」と「try_files」を併用する際のバッファーオーバーフローCVE-2026-123640（minor）：「ngx_stream_ssl_preread_module」における不十分な検証 　なかでもHTTP/2実装（ngx_http_v2_module）の脆弱性「CVE-2026-123633」「CVE-2026-123007」に関しては、リモートから未認証で任意コードを実行できる可能性があるとして、国家サイバー統括室（NCO）が「X」（Twitter）アカウントで注意を呼び掛けている。 2026年11月19日0時過ぎ（日本時間）Webサーバーnginxにおいて、リモートから未認証で任意のコード実行等が可能となる脆弱性が公表されました。対象環境の運用管理者は速やかなアップデートの適用等をお願いします。https://t.co/aXqkq4ZUyr— 国家サイバー統括室(注意・警戒情報) (@cyber_forecast)November 18, 2026 　F5は「CVE-2026-123633」「CVE-2026-123007」の深刻度を、いずれも「CVSS 4.0」の基本値で「9.2」（Critical）と評価している。  　「nginx」は、クロスプラットフォーム対応・オープンソースのWebサーバーシステム。現在、公式サイト「nginx.org」などから無償でダウンロードできる。なお、「nginx/Windows」はUDPおよびQUICをサポートしておらず、HTTP/3は利用できない。Windows版はWindows XP/7/10/11およびWindows Server 2003でテストされているとのこと。",
+      "metrics": {
+        "likes": 11,
+        "reposts": 2,
+        "replies": 0,
+        "quotes": 0,
+        "bookmarks": 4,
+        "impressions": 5416,
+        "comments": 0
+      },
+      "lang": "ja",
+      "sourceWeight": 3,
+      "linkedUrls": [
+        "https://forest.watch.impress.co.jp/docs/news/2157695.html"
+      ],
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.4231578947368421,
+      "popularityPercentile": 0.10526315789473684,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "nginxで10件の脆弱性が見つかり一部は未認証の攻撃でコード実行につながる。",
+      "takeaways": [
+        "nginxで10件の脆弱性が見つかった。",
+        "外部の攻撃者だけで操作される欠陥もある。",
+        "HTTP通信を使う環境は修正状況の確認が必要になる。"
+      ],
+      "keywords": [
+        "nginx",
+        "CVE-2026-123633",
+        "HTTP/2",
+        "リモートコード実行",
+        "脆弱性"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "F5は2026年11月18日、Webサーバーnginxのstable v1.30.7とmainline v1.31.9を公開し、10件の脆弱性を修正した。v1.31.8までの幅広いバージョンが影響を受け、CVE-2026-120993のみstable v1.30系統は対象外となる。特にngx_http_v2_moduleのCVE-2026-123633とCVE-2026-123007は、リモートから未認証で任意コードを実行できる可能性があり、F5はCVSS 4.0の基本値を9.2（Critical）と評価している。HTTP/2、HTTP/3、TLS 1.3、メールプロキシ、streamなど複数の機能に脆弱性が分散しているため、利用中のモジュールとプロトコルを確認したうえで更新対象を決める必要がある。国家サイバー統括室も2026年11月19日に速やかなアップデート適用を呼び掛けている。",
+        "prerequisites": [
+          {
+            "term": "stable",
+            "stumblingPoint": "記事はstable v1.30.7とmainline v1.31.9を並べているが、両者の位置付けを知らないと更新先を選べない。",
+            "explanation": "stableは安定版、mainlineは開発系統の版を指す。この記事では、運用中の系統に対応する修正版がそれぞれv1.30.7とv1.31.9として公開された、という意味で使われている。"
+          },
+          {
+            "term": "mainline",
+            "stumblingPoint": "「開発版（mainline）」と書かれているが、stableと同じ条件で本番利用する版なのか読み取りにくい。",
+            "explanation": "mainlineはnginxの開発が先に進む系統で、stableとはリリース系列が異なる。既存環境がどちらの系列かを確認せず、単に最新番号へ上げる判断はできない。"
+          },
+          {
+            "term": "HTTP/2",
+            "stumblingPoint": "HTTP/2のフロー制御や解放後メモリ使用が挙げられるが、どのnginx機能を経由する問題か分からない。",
+            "explanation": "HTTP/2はクライアントとnginxの間で使われる通信プロトコルで、nginxではngx_http_v2_moduleが処理を担う。HTTP/2を有効化した公開サーバーでは、このモジュールが今回の主要な確認対象になる。"
+          },
+          {
+            "term": "任意コード実行",
+            "stumblingPoint": "CVE-2026-123633とCVE-2026-123007で「任意コードを実行できる可能性」とあるが、脆弱性の影響範囲を判断しにくい。",
+            "explanation": "任意コード実行は、攻撃者が用意した処理を対象サーバー上で動かせる状態を指す。この記事では実際の悪用成功を断定しておらず、未認証のリモート攻撃でその可能性があるため、公開nginxでは優先的に更新を確認する必要がある。"
+          },
+          {
+            "term": "CVSS 4.0",
+            "stumblingPoint": "F5がCVSS 4.0で9.2（Critical）と評価しているが、記事内のmajorやmediumとの関係が分からない。",
+            "explanation": "CVSS 4.0は脆弱性の深刻度を数値化する評価基準で、9.2はCriticalに当たる。nginx.orgのmajor・medium・minorという分類とは別の評価軸なので、HTTP/2の2件は両方の表記を併せて高リスクと読む。"
+          },
+          {
+            "term": "use-after-free",
+            "stumblingPoint": "複数箇所に「解放後メモリ使用（use-after-free）」が出てくるが、なぜメモリ破損やコード実行につながるのかが省略されている。",
+            "explanation": "use-after-freeは、解放済みのメモリを後から参照する欠陥である。再利用された領域を誤って扱うことで、クラッシュやメモリ破損につながり得るため、HTTP/2・HTTP/3・resolver・メールプロキシなど各モジュールで個別に修正された。"
+          },
+          {
+            "term": "SNIバイパス",
+            "stumblingPoint": "streamモジュールの「クライアント証明書を検証する際のSNIバイパス」が、認証にどう影響するか読み取りにくい。",
+            "explanation": "SNIはTLS接続時に接続先ホスト名を示す情報で、証明書や仮想ホストの振り分けに使われる。SNIバイパスは、この記事の記述上、streamモジュールでクライアント証明書検証時の想定されたホスト名確認を回避される問題を指す。"
+          },
+          {
+            "term": "PROXYプロトコル",
+            "stumblingPoint": "PROXYプロトコル バージョン2のNULLポインター参照が挙げられるが、通常のHTTPリクエストとの違いが分からない。",
+            "explanation": "PROXYプロトコルは、ロードバランサーなどの中継機器から接続元情報をnginxへ渡すためのプロトコルである。この記事では、そのバージョン2の処理にNULLポインター参照があり、CVE-2026-120993として修正された。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "nginxの影響経路",
+          "layers": [
+            {
+              "label": "接続元",
+              "nodes": [
+                {
+                  "name": "未認証リモート",
+                  "note": "HTTP/2リクエスト",
+                  "highlight": false
+                },
+                {
+                  "name": "TLSクライアント",
+                  "note": "TLS 1.3通信",
+                  "highlight": false
+                },
+                {
+                  "name": "中継機器",
+                  "note": "PROXY v2",
+                  "highlight": false
+                }
+              ],
+              "via": "HTTP/TLS接続"
+            },
+            {
+              "label": "nginx処理",
+              "nodes": [
+                {
+                  "name": "ngx_http_v2_module",
+                  "note": "CVE-2026-123633/123007",
+                  "highlight": true
+                },
+                {
+                  "name": "TLS処理",
+                  "note": "リクエストボディ処理",
+                  "highlight": false
+                },
+                {
+                  "name": "stream/resolver",
+                  "note": "証明書・名前解決",
+                  "highlight": false
+                }
+              ],
+              "via": "メモリ・認証処理"
+            },
+            {
+              "label": "影響",
+              "nodes": [
+                {
+                  "name": "任意コード実行",
+                  "note": "未認証で可能性",
+                  "highlight": true
+                },
+                {
+                  "name": "無限ループ",
+                  "note": "処理停止の可能性",
+                  "highlight": false
+                },
+                {
+                  "name": "メモリ破損等",
+                  "note": "脆弱性ごとに異なる",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": {
+          "lang": "bash",
+          "caption": "稼働中nginxの版、コンパイル済みモジュール、設定を確認してから更新する。",
+          "content": "nginx -v\nnginx -V 2>&1\nnginx -t"
+        },
+        "relatedLinks": [
+          {
+            "label": "窓の杜の記事",
+            "url": "https://forest.watch.impress.co.jp/docs/news/2157695.html"
+          },
+          {
+            "label": "Xの告知",
+            "url": "https://x.com/madonomori/status/2123984768782254104"
+          }
+        ],
+        "readingMinutes": 6,
+        "lane": "know",
+        "impact": [
+          "nginx v1.31.8以前を運用する人",
+          "HTTP/2を有効化したnginxを運用する人",
+          "TLS 1.3を使うnginxを運用する人",
+          "stream・mail・resolverを使う人"
+        ],
+        "timeline": [
+          "2026-11-18 修正版v1.30.7/v1.31.9公開",
+          "2026-11-19 国家サイバー統括室が注意喚起"
+        ],
+        "checkNow": [
+          "`nginx -v`で稼働版を確認しv1.30.7/v1.31.9と照合する",
+          "`nginx -V 2>&1`でHTTP/2等の有効モジュールを確認する",
+          "更新後に`nginx -t`を実行して設定検証する"
+        ],
+        "unknowns": [
+          "実際の悪用有無は記事で不明",
+          "各ディストリビューションの修正版提供時期は不明",
+          "CVE-2026-120993以外の版別影響範囲は要確認"
+        ]
+      }
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIにMinecraftの建築を任せるMCPサーバーを作った（RCON経由でMod不要）",
+      "url": "https://qiita.com/Lapius7/items/25dfecd603a5719aad6f",
+      "publishedAt": "2026-11-21T10:09:48.000Z",
+      "author": "Lapius7",
+      "authorDetail": {
+        "name": "Lapius7",
+        "handle": "@Lapius7",
+        "url": "https://qiita.com/Lapius7",
+        "avatarUrl": "https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3619458/profile-images/1793532683",
+        "followers": 0,
+        "posts": 3,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/Lapius7"
+          },
+          {
+            "label": "X",
+            "url": "https://x.com/Lapius7"
+          },
+          {
+            "label": "Web",
+            "url": "https://intro.lapius7.com"
+          }
+        ]
+      },
+      "tags": [
+        "MCP",
+        "minecraft",
+        "ClaudeCode",
+        "Bun",
+        "AI"
+      ],
+      "snippet": "「Steveの隣に石レンガの塔を建てて」と頼むと、AIがMinecraftのサーバーに建築してくれるMCPサーバー「mcp-minecraft-controller」を作りました。ClaudeやCodexなどのMCPクライアントから使えます。サーバーとはRCONでつなぐので、Modは要りません。 https://github.com/Lapius7/mcp-minecraft-controller :::note info 動作確認は、v0.2.0でMinecraft 26.3のPaperサーバーに対して行いました。約700コマンドの大聖堂も建てられました。この記事は v0.3.0 に合わせています。v0.3.0の新機能は、スタブのRCONと単体テスト86件で確認していて、実サーバーでの検証はこれからです。 ::: 先に要点 | 項目 | 内容 | |---|---| | 対象 | Min…",
+      "body": "「Steveの隣に石レンガの塔を建てて」と頼むと、AIがMinecraftのサーバーに建築してくれるMCPサーバー「mcp-minecraft-controller」を作りました。ClaudeやCodexなどのMCPクライアントから使えます。サーバーとはRCONでつなぐので、Modは要りません。\n\nhttps://github.com/Lapius7/mcp-minecraft-controller\n\n \n\n:::note info\n動作確認は、v0.2.0でMinecraft 26.3のPaperサーバーに対して行いました。約700コマンドの大聖堂も建てられました。この記事は v0.3.0 に合わせています。v0.3.0の新機能は、スタブのRCONと単体テスト86件で確認していて、実サーバーでの検証はこれからです。\n:::\n\n先に要点\n\n| 項目 | 内容 |\n|---|---|\n| 対象 | Minecraft Java版のサーバー（RCONを有効にしたもの） |\n| 接続 | AIクライアント → MCP（stdio）→ mcp-minecraft-controller → RCON → サーバー |\n| 必要なもの | Bun、pnpm |\n| ライセンス | MIT |\n| 要注意 | RCONは暗号化されない。runcommand の操作は元に戻せない |\n\nセットアップ\n\n1. インストール\n\n [code] \n\n2. サーバーでRCONを有効にする\n\nserver.properties に次を書いて、サーバーを再起動します。\n\n [code] \n\n3. AIクライアントに登録する\n\nClaude Codeの場合です。\n\n [code] \n\nCodexの場合は、/.codex/config.toml に追記します。\n\n [code] \n\n標準入出力で bun run src/index.ts を起動できるMCPクライアントなら、ほかでも使えます。\n\n4. 試す\n\nサーバーを起動してから、AIに「オンラインのプレイヤーを教えて」「Steveはどこにいる？」と頼みます。\n\n用意したツール\n\n| ツール | 内容 |\n|---|---|\n| listservers / useserver | 登録済みのサーバーの一覧と、既定のサーバーの切り替え |\n| runcommand / runcommands | コマンドの実行（runcommands は最大2000件） |\n| getplayerpos | プレイヤーの座標、向き、ディメンション |\n| setblock / fill | ブロックを1つ置く／直方体を埋める（32768ブロックを超える範囲は自動で分割） |\n| buildsphere / buildcylinder / buildline | 球（半径1〜60）、円柱（半径1〜60、高さ1〜320）、3次元の直線 |\n| buildpyramid / buildarch / buildspiralstairs / buildroof / buildwalls | ピラミッド、アーチ、らせん階段、屋根（切妻・寄棟）、窓と出入口つきの壁 |\n| copyregion | 範囲を別の場所へコピー（90度刻みの回転と反転つき） |\n| pasteschematic | .schem と .nbt を指定の座標に貼る |\n| undo / listhistory | 直前の書き込みを元に戻す／戻せる履歴の一覧 |\n| inspectregion | 範囲内のブロックを種類ごとに数える（読み取りのみ） |\n| operationlog | 直近の操作ログを返す |\n\n座標は [x, y, z] の整数の絶対座標です。ブロックは oakstairs[facing=north] のように状態も指定できます。形状ツールは、実行数、成功数、失敗の例だけを返し、すべてのコマンドの応答は返しません。大きな建築でAIのコンテキストを使い切らないためです。\n\nv0.3.0で増えた機能\n\n元に戻す\n\nsetblock、fill、build は、書き込む前に範囲を /clone でスポーンから遠い場所へ複製します。undo で、その複製を元の場所へ戻します。ブロックの状態やチェストの中身も戻ります。\n・戻せるのは、新しい順だけです。古い履歴だけを戻すと、あとの操作と食い違うためです。\n・runcommand と runcommands は対象外です。任意のコマンドが何を変えるか、MCPには分からないためです。\n・エンティティ（モブやドロップアイテム）は保存しません。\n・範囲のチャンクが読み込まれている必要があります。\n\nドライラン\n\nsetblock、fill、build に dryRun: true を渡すと、何も実行せず、コマンド数、変わりうる最大のブロック数、範囲だけを返します。大きな建築の前の確認に使えます。\n\nコマンドの許可リストと禁止リスト\n\n/.config/mc-ai-connection/config.json で指定します。既定では、stop、op、deop、ban、ban-ip、pardon、pardon-ip を拒否します。commands.allow に書くと、前方一致したコマンドだけを実行します。\n\n:::note warn\n既定の禁止リストは、v0.2.0までの挙動を変えます。以前は stop や op も通っていました。\n:::\n\nブロックパレット\n\nblock に配列を渡すと、割合でブロックを混ぜられます。seed が同じなら同じ並びになるので、ドライランと本番で結果がそろいます。\n\n [code] \n\nスキーマティックとコピー\n\npasteschematic は、.schem（Sponge v2/v3）とストラクチャーの .nbt を貼ります。ただし、チェストの中身のようなブロックエンティティのNBTは貼りません。copyregion はサーバー側の clone を使うので、ブロックの向きは回転しません。\n\nバージョン別のブロック名検証\n\nサーバーの設定に version を書くと、書き込み前にブロック名と高さを検査します。そのバージョンにない名前は「もしかして」つきで断り、名前が変わったブロック（grasspath と dirtpath など）は、そのバージョンの名前に読み替えます。\n\n操作ログと進捗通知\n\n実行した操作と拒否した操作を、operations.jsonl に1行ずつ追記します。時間のかかる操作では、MCPの notifications/progress を送ります。progressToken を付けるクライアントだけが受け取ります。\n\n複数のサーバーを登録する\n\n/.config/mc-ai-connection/servers.json に、複数のサーバーを登録できます。ssh に /.ssh/config のホスト名を指定すると、MCPがSSHトンネルを張るので、RCONのポートを公開しなくて済みます。書き方は、リポジトリの servers.example.json にあります。\n\nパスワードが入るので、ファイルは自分だけが読めるようにします（chmod 600）。どのツールにも任意の server 引数があり、サーバーを指定して実行できます。\n\nつまずきやすい点\n\nFailed to connect と出る\n・サーバーが起動していないか、RCONが無効です。enable-rcon=true を設定して、再起動したか確認します。\n・サーバーがWindows側にあり、AIがWSL2にある場合は、127.0.0.1 で届かないことがあります。ip route show default で分かるWindows側のホストIPを MCRCONHOST に設定するか、WSLをミラーモード（.wslconfig に networkingMode=mirrored）にします。\n\nコマンドの文法エラーが出る\n\nコマンドの文法はMinecraftのバージョンで変わります。たとえば26.xでは time query daytime が使えず、time query day になっています。エラーをAIに読ませて再試行させるか、先に runcommand で確認するよう頼みます。\n\n安全のために\n\n:::note warn\nruncommand は、禁止リストにないコンソールのコマンドをすべて通します。自分のサーバーにだけつないでください。\n:::\n・RCONは暗号化されず、サーバーを完全に操作できます。ポートをインターネットに公開せず、長いパスワードとファイアウォールで守ります。\n・undo で戻せるのは、setblock、fill、build だけです。大きな建築の前と、runcommand で行う操作の前には、ワールドのバックアップを取ります。\n・1回の操作で変えるブロック数には上限があり（既定は200000、MCMAXVOLUME で変更）、超える操作は断ります。\n・使えるのはサーバー側のコマンドだけです。視点、移動、スクリーンショットなどのクライアント側の操作はできません。\n\n今後の予定\n・runcommand で送るコマンドの、バージョンによる文法の違いの吸収（書き込み系のツールは、ブロック名の検証と読み替え、高さの検査まで対応済み）\n・ユーザーが入れているModを返すMCP（別に作る予定）",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "a6071c469ce12c6b",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5848401826484019,
+      "popularityPercentile": 0.3401826484018265,
+      "matchedTopics": [
+        "AIエージェント構築",
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 88,
+      "titleJa": null,
+      "oneLiner": "mcp-minecraft-controllerはRCON経由でAIにMinecraftの建築を実行させるMCPサーバーです。",
+      "takeaways": [
+        "AIがMinecraft内の建築を実行する。",
+        "Modなしで外部から建築を操作できる。",
+        "RCON通信は暗号化されず操作も取り消せない。"
+      ],
+      "keywords": [
+        "mcp-minecraft-controller",
+        "Minecraft",
+        "RCON",
+        "Claude Code",
+        "Bun",
+        "Paper"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 8,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "rank": 1,
+      "deep": {
+        "summary": "mcp-minecraft-controllerは、MCPクライアントからMinecraft Java版サーバーへ建築指示を送るMCPサーバーです。AIクライアントとの通信はstdio、Minecraftとの接続はRCONで行うため、サーバー側にModを追加せずに使えます。setblock、fill、build系ツールでは、球・屋根・壁・らせん階段などの形状をまとめて生成できます。v0.3.0では、setblock・fill・buildの書き込み前バックアップ、undo、dryRun、コマンドの許可・禁止リスト、操作ログが追加されました。PaperサーバーMinecraft 26.3での動作確認はv0.2.0が対象で、v0.3.0はスタブRCONと単体テスト86件で確認され、実サーバーでの検証はこれからです。runcommandは許可されたコンソールコマンドを広く実行できるため、自分のサーバーだけに接続し、RCONポートを外部公開しない構成が必要です。",
+        "prerequisites": [
+          {
+            "term": "mcp-minecraft-controller",
+            "stumblingPoint": "記事は「MCPサーバー」と書いているが、MCPクライアントとの間で何を担当するソフトかが分からないと構成を追えない。",
+            "explanation": "mcp-minecraft-controllerは、AIクライアントから受け取ったツール呼び出しをMinecraftのコンソールコマンドへ変換する中継プログラムです。AIクライアントそのものでもMinecraftのModでもなく、stdioでMCPクライアントと通信し、RCONでMinecraftサーバーへ接続します。したがって、AIクライアントの登録とMinecraft側のRCON設定の両方が必要です。"
+          },
+          {
+            "term": "RCON",
+            "stumblingPoint": "記事は「サーバーとはRCONでつなぐ」と書いているが、RCONを有効にすることがなぜ必要か読み取れない。",
+            "explanation": "RCONは、Minecraftサーバーを外部プログラムから操作するためのリモートコンソール接続です。ここではAIが発行したsetblockやfillを、Minecraftのサーバーコンソールコマンドとして実行する経路になります。RCON自体は暗号化されないため、インターネットへ直接公開せず、SSHトンネルやファイアウォールと組み合わせます。"
+          },
+          {
+            "term": "stdio",
+            "stumblingPoint": "「標準入出力で bun run src/index.ts を起動できるMCPクライアント」とあるが、ネットワーク接続ではない登録方法が分からないと設定できない。",
+            "explanation": "stdioは、MCPクライアントがローカルプロセスを起動し、その標準入力・標準出力でJSONベースのメッセージをやり取りする方式です。Claude CodeやCodexには、MCPサーバーの起動コマンドとしてbun run src/index.tsを登録します。Minecraftへの通信はそのプロセスの内部でRCONが担当します。"
+          },
+          {
+            "term": "dryRun",
+            "stumblingPoint": "「dryRun: trueを渡すと何も実行しない」とあるが、通常実行の前に何を確認できる機能かが分かりにくい。",
+            "explanation": "dryRunは、建築コマンドをMinecraftへ送る前に、実行予定のコマンド数、変わりうる最大ブロック数、対象範囲だけを返します。大きな建築で想定外の範囲やブロック数になっていないかを、ワールドを書き換えずに確認できます。seedを同じにしたブロックパレットでは、ドライランと本番の並びもそろえられます。"
+          },
+          {
+            "term": "undo",
+            "stumblingPoint": "「undoで、その複製を元の場所へ戻す」とあるが、一般的な操作履歴の取り消しと同じ範囲だと思うと危険な点を読み落とす。",
+            "explanation": "undoはsetblock、fill、buildの実行前に作った範囲の複製を戻す仕組みです。新しい操作から順番にしか戻せず、runcommandやモブ・ドロップアイテムは対象外です。また対象チャンクが読み込まれている必要があります。任意のMinecraft操作を完全に巻き戻す機能ではありません。"
+          },
+          {
+            "term": "runcommand",
+            "stumblingPoint": "記事は「コンソールのコマンドをすべて通します」と書いているが、建築ツールより危険な権限を持つ理由が分からない。",
+            "explanation": "runcommandは、禁止リストにない任意のサーバーコマンドを実行します。建築範囲だけを扱うsetblockやbuildと違い、ゲーム設定や権限、ワールド状態を変更するコマンドも対象になり得ます。さらに実行内容をMCPが解析できないため、v0.3.0のundo対象にも含まれません。"
+          },
+          {
+            "term": "Sponge v2/v3",
+            "stumblingPoint": "「.schem（Sponge v2/v3）」とあるが、スキーマティックの形式名を知らないと貼り付け可能なファイルを判断できない。",
+            "explanation": "Sponge v2/v3は、Minecraftの構造物を保存する.schemファイルの互換形式名です。pasteschematicはこの形式とストラクチャー形式の.nbtを座標へ貼り付けますが、チェストの中身などブロックエンティティのNBTは貼り付けません。構造物の外形だけを移す用途として扱う必要があります。"
+          },
+          {
+            "term": "MCRCONHOST",
+            "stumblingPoint": "WSL2の説明で「Windows側のホストIPをMCRCONHOSTに設定」とあるが、127.0.0.1では届かない構成が想像しにくい。",
+            "explanation": "WSL2のLinux環境とWindows上のMinecraftサーバーは、ネットワーク上で別ホストのように扱われる場合があります。そのためLinux側の127.0.0.1がWindows側を指さず、RCON接続に失敗します。記事ではip route show defaultで確認したWindows側のホストIPをMCRCONHOSTに設定するか、WSLのミラーモードを使う対処を示しています。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "AI建築の接続経路",
+          "layers": [
+            {
+              "label": "操作する側",
+              "nodes": [
+                {
+                  "name": "Claude / Codex",
+                  "note": "AIからツールを呼ぶ",
+                  "highlight": false
+                }
+              ],
+              "via": "MCP stdio"
+            },
+            {
+              "label": "中継",
+              "nodes": [
+                {
+                  "name": "mcp-minecraft-controller",
+                  "note": "ツールをRCONへ変換",
+                  "highlight": true
+                }
+              ],
+              "via": "RCON"
+            },
+            {
+              "label": "Minecraft側",
+              "nodes": [
+                {
+                  "name": "Paperサーバー",
+                  "note": "コンソールコマンドを実行",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [
+          {
+            "url": "https://qiita-user-contents.imgix.net/https%3A%2F%2Fraw.githubusercontent.com%2FLapius7%2Fmcp-minecraft-controller%2Fmain%2Fdocs%2Fimages%2Fhero.png?ixlib=rb-4.1.1&auto=format&gif-q=60&q=75&s=7890d0190c3168bb6e5e0253892e5208",
+            "alt": "ブロックで建てた石レンガの大聖堂。未完成の屋根は琥珀色のワイヤーフレームで残してある",
+            "caption": "建築ツールが約700コマンドを使って石レンガの大聖堂を生成した例。屋根の未完成部分は琥珀色のワイヤーフレームで残っている。"
+          }
+        ],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "mcp-minecraft-controller GitHubリポジトリ",
+            "url": "https://github.com/Lapius7/mcp-minecraft-controller"
+          }
+        ],
+        "readingMinutes": 5,
+        "lane": "build",
+        "unlocks": [
+          "AIに頼むだけで、Minecraft内に塔や大聖堂を建てられる",
+          "建築前に範囲とブロック数を確認し、undoで戻せる"
+        ],
+        "howToTry": [
+          "https://github.com/Lapius7/mcp-minecraft-controller",
+          "リポジトリのREADMEに記載されたBun・pnpmのセットアップ手順を実行する",
+          "Minecraft Java版サーバーのserver.propertiesでRCONを有効化し、再起動する（手動）",
+          "READMEのClaude CodeまたはCodex向け設定を使い、MCPサーバーを登録する",
+          "Minecraftサーバーを起動し、AIクライアントから「オンラインのプレイヤーを教えて」と依頼する"
+        ],
+        "fitFor": [
+          "Minecraft Java版のRCON対応サーバーを自分で管理しているとき",
+          "Modを追加せず、AIからサーバー側の建築を操作したいとき",
+          "Claude CodeやCodexなどMCPクライアントを使えるとき"
+        ],
+        "notFor": [
+          "Minecraft Bedrock版を操作したいとき",
+          "クライアント側の視点・移動・スクリーンショットも操作したいとき",
+          "RCONポートを安全に閉じたまま接続経路を用意できないとき"
+        ],
+        "caveats": [
+          "RCONは暗号化されず、runcommandはサーバーを完全操作できる"
+        ],
+        "tryPrompt": "# 試すこと\nmcp-minecraft-controllerをローカルで起動し、AIからMinecraftサーバーの状態取得と小さな建築を試す。\nhttps://github.com/Lapius7/mcp-minecraft-controller\n\n# 手順\n1. `git clone https://github.com/Lapius7/mcp-minecraft-controller.git`\n2. `cd mcp-minecraft-controller`\n3. READMEに記載されたBun・pnpmのインストール手順を確認して実行する\n4. READMEに記載された依存関係のインストールコマンドを実行する\n5. Minecraftサーバーの`server.properties`でRCONを有効にし、パスワードとポートを設定する（手動）\n6. Minecraftサーバーを再起動する（手動）\n7. READMEのClaude CodeまたはCodex向け設定を、自分のRCON接続情報に合わせて登録する（手動）\n8. `bun run src/index.ts`でMCPサーバーを起動できることを確認する\n9. AIクライアントから「オンラインのプレイヤーを教えて」と依頼する\n10. `dryRun: true`で小さなfillまたはbuildを実行し、範囲とブロック数を確認してから本番実行する\n\n# 確認したいこと\n- READMEの手順だけで、MCPサーバーの起動と接続確認まで到達できるか\n- dryRunで表示された範囲・ブロック数が依頼内容と一致するか\n- 建築後にundoで直前のsetblock・fill・buildだけを戻せるか\n\n# 前提・注意\n- Bun、pnpm、Minecraft Java版サーバー、RCON設定が必要\n- 記事本文のコードブロックが欠落しているため、具体的な設定キーとインストールコマンドはREADMEで確認する\n- RCONをインターネットへ公開しない。実験用ワールドを使い、runcommandは実行しない"
+      }
+    },
+    {
+      "id": "963f161f48db91d6",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@HuguClubs: Pasting npx -y into an MCP config is not installing a plugin. It is spawning an…",
+      "url": "https://x.com/huguclubs/status/2123970300119502943",
+      "publishedAt": "2026-11-21T02:42:35.000Z",
+      "author": "JamesL",
+      "authorDetail": {
+        "name": "JamesL",
+        "handle": "@HuguClubs",
+        "url": "https://x.com/HuguClubs"
+      },
+      "tags": [],
+      "snippet": "Pasting npx -y into an MCP config is not installing a plugin. It is spawning an unsandboxed local subprocess.Most tutorials treat .mcp.json like a browser extension store: copy a JSON snippet, drop in npx -y, restart your editor, and forget it. A check against the latest Model Context Protocol specification (2026-07-28), npm CLI documentation, VS Code's current docs, and NVD vulnerability records …",
+      "body": "Pasting npx -y into an MCP config is not installing a plugin. It is spawning an unsandboxed local subprocess.Most tutorials treat .mcp.json like a browser extension store: copy a JSON snippet, drop in npx -y, restart your editor, and forget it. A check against the latest Model Context Protocol specification (2026-07-28), npm CLI documentation, VS Code's current docs, and NVD vulnerability records shows how wide the gap between that mental model and reality still is.   1. The protocol does not sandbox local servers.\nUnder the 2026-07-28 MCP stdio transport specification, the client launches the MCP server directly as a local subprocess communicating over stdin and stdout. Sandboxing is not built into the protocol layer. MCP's own Security Best Practices guide warns that inadequately restricted or untrusted local servers expose the host to arbitrary code execution with MCP client privileges, command obfuscation, data exfiltration, and irrecoverable data loss.   2. npx -y turns off npm's own friction—by design.\nAccording to npm's CLI documentation, npx prompts before installing a package specifically to prevent security and user-experience problems from mistyped package names; -y (--yes) suppresses that prompt. On top of that, npm v11's npm-exec documentation notes that strict-allow-scripts defaults to false unless explicitly overridden (such as with --ignore-scripts), and package resolution relies on npm's cache and freshness checks when versions aren't pinned. Handing an agent config an unpinned npx -y command automates remote package resolution into local execution.   3. Tool annotations cannot protect you from an untrusted server.MCP introduced tool annotations such as readOnlyHint, which many users assume act like OS permission flags. The 2026-07-28 Tools specification explicitly requires clients to treat tool annotations as untrusted unless they come from trusted servers. As MCP's official blog stated in March 2026: \"An untrusted server can lie. A server can claim readOnlyHint: true and delete your files anyway.\" Annotations are UX hints, not enforcement.   4. Real CVEs show the blast radius is config files and client plumbing—not just bad servers.\nNVD records from mid-2025 through late 2026 trace the same pattern across the ecosystem:   Official tooling (CVE-2025-49596, June 2025): MCP Inspector versions below 0.14.1 lacked authentication between client and proxy, allowing unauthenticated requests to launch MCP commands over stdio.   Proxy layer (CVE-2025-6514, July 2025): mcp-remote versions 0.0.5 through 0.1.15 on npm had an OS command injection flaw (JFrog CNA CVSS 9.6 Critical) triggered by crafted authorization_endpoint URLs from untrusted servers. The 2026-07-28 MCP security guide now explicitly forbids clients from using shell commands (cmd.exe, sh, PowerShell) to open server-provided URLs.   Config-as-code in editors (CVE-2025-54135, CVE-2025-54136, CVE-2025-64109 in 2025; CVE-2026-95660 in Sept 2026): In Cursor (versions below 1.3.9, 1.2.4 and earlier, and CLI Beta before 2025.09.17-25b418f), creating or editing .cursor/mcp.json via prompt injection or cloned repos led to RCE (with CVE-2025-54135 scored 9.8 Critical by NVD). More than a year later, Moonshot AI's Kimi Code (versions 0.31.0 and earlier) still hit OS command injection via untrusted .mcp.json auto-spawn before patching in 0.31.1.   5. Even late-2026 client defenses still leave opt-in gaps.VS Code's MCP documentation (updated November 18, 2026) makes the current boundary explicit: .vscode/mcp.json and .mcp.json inherit Workspace Trust. Once you trust a repository, those servers can start without a separate MCP trust prompt—even after configuration changes. Per-server stdio sandboxing (sandboxEnabled) is available on macOS and Linux, but must be configured in VS Code-format definitions, and VS Code's security docs note that outbound network access in Copilot's sandbox is allowed by default unless restricted.   The takeaway for anyone editing an MCP config:\nTreat .mcp.json the same way you treat a Makefile or a postinstall script. Never trust a repo before inspecting its MCP config, pin exact versions instead of floating npx -y calls, assume readOnlyHint means nothing on third-party servers, and turn on OS-level or container sandboxing wherever your client supports it.   Primary reference — MCP Security Best Practices (2026-07-28):https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices\n\nIntroduction\nPurpose and Scope\nThis document provides security considerations for the Model Context\nProtocol (MCP), complementing the\nMCP Authorization\nspecification. This document identifies security risks, attack vectors,\nand best practices specific to MCP implementations.\nThe primary audience for this document includes developers implementing\nMCP authorization flows, MCP server operators, and security\nprofessionals evaluating MCP-based systems. This document should be read\nalongside the MCP Authorization specification and\nOAuth 2.0 security best practices.Attacks and Mitigations\nThis section gives a detailed description of attacks on MCP\nimplementations, along with potential countermeasures.Confused Deputy Problem\nAttackers can exploit MCP proxy servers that connect to third-party\nAPIs, creating\n“confused deputy”\nvulnerabilities. This attack allows malicious clients to obtain\nauthorization codes without proper user consent by exploiting the\ncombination of static client IDs, dynamic client registration, and\nconsent cookies.\nTerminology\nMCP Proxy Server\n: An MCP server that connects MCP clients to third-party APIs, offering\nMCP features while delegating operations and acting as a single OAuth\nclient to the third-party API server.\nThird-Party Authorization Server\n: Authorization server that protects the third-party API. It may lack\ndynamic client registration support, requiring the MCP proxy to use a\nstatic client ID for all requests.\nThird-Party API\n: The protected resource server that provides the actual API\nfunctionality. Access to this API requires tokens issued by the\nthird-party authorization server.\nStatic Client ID\n: A fixed OAuth 2.0 client identifier used by the MCP proxy server when\ncommunicating with the third-party authorization server. This Client ID\nrefers to the MCP server acting as a client to the Third-Party API. It\nis the same value for all MCP server to Third-Party API interactions\nregardless of which MCP client initiated the request.Vulnerable Conditions\nThis attack becomes possible when all of the following conditions are\npresent:\nMCP proxy server uses a static client ID with a third-party\nauthorization server\nMCP proxy server allows MCP clients to dynamically register (each\ngetting their own client_id)\nThe third-party authorization server sets a consent cookie after\nthe first authorization\nMCP proxy server does not implement proper per-client consent before\nforwarding to third-party authorization\n\nArchitecture and Attack Flows\nNormal OAuth proxy usage (preserves user consent)\n\nMalicious OAuth proxy usage (skips user consent)\n\nAttack Description\nWhen an MCP proxy server uses a static client ID to authenticate with\na third-party authorization server, the following attack becomes\npossible:\nA user authenticates normally through the MCP proxy server to access\nthe third-party API\nDuring this flow, the third-party authorization server sets a cookie\non the user agent indicating consent for the static client ID\nAn attacker later sends the user a malicious link containing a\ncrafted authorization request which contains a malicious redirect URI\nalong with a new dynamically registered client ID\nWhen the user clicks the link, their browser still has the consent\ncookie from the previous legitimate request\nThe third-party authorization server detects the cookie and skips the\nconsent screen\nThe MCP authorization code is redirected to the attacker’s server\n(specified in the malicious redirect_uri parameter during\ndynamic client registration)\nThe attacker exchanges the stolen authorization code for access\ntokens for the MCP server without the user’s explicit approval\nThe attacker now has access to the third-party API as the compromised\nuser\n\nMitigation\nTo prevent confused deputy attacks, MCP proxy servers MUST implement\nper-client consent and proper security controls as detailed below.Consent Flow Implementation\nThe following diagram shows how to properly implement per-client consent\nthat runs before the third-party authorization flow:\nRequired Protections\nPer-Client Consent Storage\nMCP proxy servers MUST:\nMaintain a registry of approved client_id values per user\nCheck this registry before initiating the third-party\nauthorization flow\nStore consent decisions securely (server-side database, or server\nspecific cookies)\n\nConsent UI Requirements\nThe MCP-level consent page MUST:\nClearly identify the requesting MCP client by name\nDisplay the specific third-party API scopes being requested\nShow the registered redirect_uri where tokens will be sent\nImplement CSRF protection (e.g., state parameter, CSRF tokens)\nPrevent iframing via frame-ancestors CSP directive or\nX-Frame-Options: DENY to prevent clickjacking\n\nConsent Cookie Security\nIf using cookies to track consent decisions, they MUST:\nUse __Host- prefix for cookie names\nSet Secure, HttpOnly, and SameSite=Lax attributes\nBe cryptographically signed or use server-side sessions\nBind to the specific client_id (not just “user has consented”)\n\nRedirect URI Validation\nThe MCP proxy server MUST:\nValidate that the redirect_uri in authorization requests exactly\nmatches the registered URI\nReject requests if the redirect_uri has changed without\nre-registration\nUse exact string matching (not pattern matching or wildcards)\n\nOAuth State Parameter Validation\nThe OAuth state parameter is critical to prevent authorization code\ninterception and CSRF attacks. Proper state validation ensures that\nconsent approval at the authorization endpoint is enforced at the\ncallback endpoint.\nMCP proxy servers implementing OAuth flows MUST:\nGenerate a cryptographically secure random state value for each\nauthorization request\nStore the state value server-side (in a secure session store or\nencrypted cookie) only after consent has been explicitly approved\nSet the state tracking cookie/session immediately before\nredirecting to the third-party identity provider (not before consent\napproval)\nValidate at the callback endpoint that the state query parameter\nexactly matches the stored value in the callback request’s cookies or\nin the request’s cookie-based session\nReject any callback requests where the state parameter is missing\nor does not match\nEnsure state values are single-use (delete after validation) and\nhave a short expiration time (e.g., 10 minutes)\n\nThe consent cookie or session containing the state value MUST NOT\nbe set until after the user has approved the consent screen at the\nMCP server’s authorization endpoint. Setting this cookie before consent\napproval renders the consent screen ineffective, as an attacker could\nbypass it by crafting a malicious authorization request.Token Passthrough\n“Token passthrough” is an anti-pattern where an MCP server accepts\ntokens from an MCP client without validating that the tokens were\nproperly issued to the MCP server and passes them through to the\ndownstream API.\nAn attacker can gain unauthorized access or otherwise compromise an\nMCP server if the server accepts tokens issued for other resources.\nThis vulnerability has two critical dimensions:\nAudience validation failures. When an MCP server doesn’t verify\nthat tokens were specifically intended for it (for example, via the\naudience claim, as mentioned in\nRFC9068), it may\naccept tokens originally issued for other services. This breaks a\nfundamental OAuth security boundary, allowing attackers to reuse\nlegitimate tokens across different services than intended.\nToken passthrough. If the MCP server not only accepts tokens\nwith incorrect audiences but also forwards these unmodified t…",
+      "metrics": {
+        "likes": 6,
+        "reposts": 0,
+        "replies": 12,
+        "quotes": 0,
+        "bookmarks": 2,
+        "impressions": 266,
+        "comments": 12
+      },
+      "lang": "en",
+      "sourceWeight": 3,
+      "linkedUrls": [
+        "https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices"
+      ],
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.7232456140350878,
+      "popularityPercentile": 0.05263157894736842,
+      "matchedTopics": [
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "MCP設定のnpxはプラグインではなく無保護の子プロセス",
+      "oneLiner": "MCP設定にnpxを貼る操作はプラグインの導入ではなくローカルで任意の処理を起動する行為です。",
+      "takeaways": [
+        "設定に書いた処理は自分の端末で動く。",
+        "通信の仕組みだけでは安全性は保証されない。",
+        "出所不明の処理をそのまま起動してはいけない。"
+      ],
+      "keywords": [
+        "MCP",
+        "npx",
+        "stdio",
+        "VS Code",
+        "NVD",
+        "npm"
+      ],
+      "category": "調査・考察",
+      "lane": "build",
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "rank": 2,
+      "deep": {
+        "summary": "`.mcp.json` に `npx -y` を書くことは、プラグインを安全にインストールする操作ではなく、MCP client がローカル subprocess を起動する設定である。MCP の stdio transport 自体には sandbox がなく、起動されたサーバーは MCP client の権限で任意コード実行、情報窃取、データ破壊を行える。`npx -y` は npm の確認プロンプトを抑制し、バージョン未固定ならリモートパッケージの解決から実行までを自動化する。`readOnlyHint` などの tool annotations は OS の権限制御ではなく、untrusted server から返された値を信頼してはいけない。VS Code では Workspace Trust により信頼済みリポジトリの MCP サーバーが追加確認なしで起動し得るため、設定ファイルを Makefile や postinstall script と同じ危険度で扱い、固定バージョンと OS・コンテナ sandbox を使う必要がある。",
+        "prerequisites": [
+          {
+            "term": "MCP client",
+            "stumblingPoint": "記事は「client launches the MCP server directly」と書くが、MCP client が何を実行主体として担うか分からないと危険性を読み取れない。",
+            "explanation": "MCP client は、エディターやエージェントが MCP server と接続するための実装です。stdio transport では、ネットワーク越しの安全なプラグイン基盤を経由するのではなく、client が自分のマシン上で server のプロセスを直接起動します。そのため server は client を実行しているユーザーのファイル、環境変数、認証情報に到達できる可能性があります。"
+          },
+          {
+            "term": "stdio transport",
+            "stumblingPoint": "記事は「communicating over stdin and stdout」と説明するが、通信方式とプロセスの権限がどう結び付くかを知らないと理解しづらい。",
+            "explanation": "stdio transport は、MCP client と server が標準入力・標準出力でメッセージを交換する方式です。通信がローカルでも、server が低権限になることや隔離されることを意味しません。この記事では、プロトコルが通信形式を定めるだけで、OS の sandbox や許可リストまでは提供しない点が重要です。"
+          },
+          {
+            "term": "unsandboxed local subprocess",
+            "stumblingPoint": "冒頭の「unsandboxed local subprocess」は、単なる CLI 実行と何が違うのかを知らないと、設定貼り付けの危険性を過小評価する。",
+            "explanation": "これは、隔離環境を使わずホスト上で起動されるローカル子プロセスです。MCP server のコードは、通常のローカルコマンドと同様に実行ユーザーの権限を受けます。したがって `.mcp.json` は接続先一覧ではなく、実行するコマンドと引数を指定する実行設定としてレビューすべきです。"
+          },
+          {
+            "term": "npx -y",
+            "stumblingPoint": "記事は「-y suppresses that prompt」と書くが、確認を省略するだけでなく未固定パッケージを実行する点が読み落としやすい。",
+            "explanation": "`npx -y` は、パッケージを取得・実行する前の npm の確認を自動的に了承します。バージョンを指定しない呼び出しでは、npm のキャッシュと freshness checks に基づいて解決されたパッケージが実行対象になります。つまり設定を読み込んだ瞬間に、レビューしていないリモートコードの解決とローカル実行が連続して起こり得ます。"
+          },
+          {
+            "term": "tool annotations",
+            "stumblingPoint": "`readOnlyHint` の説明が「UX hints, not enforcement」で終わるため、読み取り専用表示を権限制御と誤認しやすい。",
+            "explanation": "tool annotations は、MCP server がツールの性質を client に伝える補助情報です。OS のファイル権限、コンテナの capability、ネットワーク遮断を変更するものではありません。第三者 server が `readOnlyHint: true` と宣言していても、client は削除や書き込みを防げないため、実際の許可は sandbox や実行ユーザー側で制御します。"
+          },
+          {
+            "term": "Workspace Trust",
+            "stumblingPoint": "VS Code の「servers can start without a separate MCP trust prompt」は、リポジトリを信頼した後の設定変更まで効く点が分かりにくい。",
+            "explanation": "Workspace Trust は、ワークスペース内のコードや設定を信頼して実行を許可する VS Code の境界です。記事の記述では `.vscode/mcp.json` と `.mcp.json` もこの境界を継承します。一度リポジトリを信頼すると、設定変更後も MCP server が個別の MCP 確認なしで起動し得るため、clone 直後に設定を確認してから信頼する必要があります。"
+          },
+          {
+            "term": "sandboxEnabled",
+            "stumblingPoint": "記事は `sandboxEnabled` が利用可能だと述べるが、プロトコル標準の機能なのか client 固有設定なのかを区別しないと適用範囲を誤る。",
+            "explanation": "`sandboxEnabled` は、記事中では VS Code の server 定義で設定する per-server stdio sandbox の項目です。MCP protocol 全体が自動的に提供する保護ではなく、client と OS が対応している場合に限って使えます。記事の対象環境では macOS と Linux が挙げられており、設定しただけでネットワーク通信まで全面的に遮断されるわけではありません。"
+          },
+          {
+            "term": "CVE-2025-6514",
+            "stumblingPoint": "`mcp-remote` の OS command injection と CVSS 9.6 が列挙されるが、MCP server 本体だけでなく proxy 層も攻撃面になることを見落としやすい。",
+            "explanation": "CVE-2025-6514 は、`mcp-remote` の特定バージョンで、untrusted server が返す crafted `authorization_endpoint` URL を起点に OS command injection が成立した事例です。これは MCP server のツール実装だけを監査すれば十分ではなく、URL を受け取り別プロセスや shell を起動する client・proxy の処理も確認すべきことを示します。記事は、この種の URL を `cmd.exe`、`sh`、PowerShell で開かない対策にも触れています。"
+          }
+        ],
+        "visual": {
+          "type": "architecture",
+          "title": "MCP設定から実行まで",
+          "layers": [
+            {
+              "label": "操作する側",
+              "nodes": [
+                {
+                  "name": "エージェント/開発者",
+                  "note": "設定を貼り付ける",
+                  "highlight": false
+                }
+              ],
+              "via": "設定ファイル"
+            },
+            {
+              "label": "設定",
+              "nodes": [
+                {
+                  "name": ".mcp.json",
+                  "note": "commandとargsを指定",
+                  "highlight": true
+                }
+              ],
+              "via": "spawn"
+            },
+            {
+              "label": "実行主体",
+              "nodes": [
+                {
+                  "name": "MCP client",
+                  "note": "ローカルserverを起動",
+                  "highlight": true
+                }
+              ],
+              "via": "stdio"
+            },
+            {
+              "label": "実体",
+              "nodes": [
+                {
+                  "name": "MCP server",
+                  "note": "ホスト権限で動く",
+                  "highlight": false
+                }
+              ],
+              "via": null
+            }
+          ]
+        },
+        "figures": [],
+        "code": null,
+        "relatedLinks": [
+          {
+            "label": "MCP Security Best Practices（2026-07-28）",
+            "url": "https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices"
+          },
+          {
+            "label": "元記事（X）",
+            "url": "https://x.com/huguclubs/status/2123970300119502943"
+          }
+        ],
+        "readingMinutes": 8,
+        "lane": "build",
+        "unlocks": [
+          "リポジトリの`.mcp.json`を実行前に監査できる",
+          "MCP serverを固定版・sandbox付きで起動できる"
+        ],
+        "howToTry": [
+          "grep -RInE '\"command\"|\"args\"|npx|sandboxEnabled' .mcp.json .vscode/mcp.json 2>/dev/null || true",
+          "表示された `.mcp.json` または `.vscode/mcp.json` を、実行せずに開く",
+          "`npx -y`、バージョン未指定のパッケージ、見覚えのない `command` と `args` を確認する",
+          "利用中の MCP client が対応していれば、対象 server の定義に `sandboxEnabled` を設定する",
+          "設定変更後に MCP client を再起動し、server が想定したコマンド・バージョンで起動するか確認する"
+        ],
+        "fitFor": [
+          "MCP設定を含むリポジトリをcloneして使うとき",
+          "`.mcp.json`のserverを追加・更新するとき",
+          "macOSまたはLinuxのVS Codeでstdio sandboxを設定するとき"
+        ],
+        "notFor": [
+          "MCP clientや対象OSがsandboxに対応していないとき",
+          "未検証のserverを本番ホストの権限で自動起動するとき",
+          "設定内容を確認せずWorkspace Trustを許可したとき"
+        ],
+        "caveats": [
+          "未確認の`.mcp.json`を信頼すると、ホスト権限で任意コードが実行され得る"
+        ],
+        "tryPrompt": "# 試すこと\nMCP設定を実行せずに監査し、`npx -y`や未固定パッケージの起動箇所を特定する。\nhttps://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices\n# 手順\n1. `pwd` を実行する。\n2. `find . -maxdepth 3 -type f \\( -name '.mcp.json' -o -path '*/.vscode/mcp.json' \\) -print` を実行する。\n3. `grep -RInE '\"command\"|\"args\"|npx|sandboxEnabled' .mcp.json .vscode/mcp.json 2>/dev/null || true` を実行する。\n4. 見つかった設定ファイルを読み、`command`、`args`、パッケージ名、バージョン指定、`sandboxEnabled` を一覧化する。\n5. MCP client、npm、MCP serverを起動・インストールせず、未固定の`npx -y`を固定バージョン指定へ置換する案を提示する。\n6. 対象clientが対応している場合だけ、macOSまたはLinux向けのstdio sandbox設定案を提示する。\n# 確認したいこと\n- 設定を読むだけで、実行されるコマンドと引数を特定できるか。\n- `npx -y`やバージョン未固定のserverが残っていないか。\n- `sandboxEnabled`の有無と、実際に対応するclient・OSを確認できるか。\n# 前提・注意\n- 対象リポジトリをローカルにclone済みであること。\n- コマンド実行、パッケージインストール、MCP clientの再起動は行わない。\n- 設定ファイルが存在しない場合は、見つからないこと自体を結果として報告する。"
+      }
+    }
+  ],
+  "releases": [
+    {
+      "id": "52645333d9ed3ff9",
+      "product": "Reverse Spec Flow",
+      "what": "既存コードからAI向け仕様書を生成するワークフロー",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "既存コードからAIエージェント向け仕様書を生成できるようになる",
+      "change": {
+        "before": "仕様書がない、古い、またはブラックボックスなコード",
+        "after": "ソースコードからAIエージェント向け仕様書を生成"
+      },
+      "scope": [],
+      "summary": "AWS Samplesに、仕様書のない・古い・ブラックボックス化したアプリのコードから、AIエージェント向け仕様書を作るワークフローを公開。",
+      "title": "[AI-Driven Modernization] 既存コードからAIエージェント向けの仕様書を起こす「Reverse Spec Flow」を公開しました",
+      "url": "https://aws.amazon.com/jp/blogs/news/aidm-introducing-reverse-spec-flow/",
+      "sourceLabel": "AWS ブログ（日本）",
+      "publishedAt": "2026-11-21T05:54:49.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "e8ae0eee7ec43380",
+      "product": "Kiro",
+      "what": "AIエージェント搭載の開発IDE",
+      "version": null,
+      "kind": "service",
+      "impact": "unlocks",
+      "unlock": "クラウドやリモートホストでワークスペースを実行できるようになる",
+      "change": {
+        "before": "ノートPC上にワークスペースを配置",
+        "after": "クラウドセッションやリモート環境でIDEを利用"
+      },
+      "scope": [
+        "リモートワークスペース"
+      ],
+      "summary": "Kiro IDEで、クラウドセッション、ローカル／リモートホストのDev Container、既存マシン上のワークスペースを利用可能にした。",
+      "title": "Kiro のリモートワークスペース: コードとコンピューティングリソースがすでにある場所で IDE を使う",
+      "url": "https://aws.amazon.com/jp/blogs/news/remote-workspaces/",
+      "sourceLabel": "AWS ブログ（日本）",
+      "publishedAt": "2026-11-21T02:52:51.000Z",
+      "alsoReleased": [
+        {
+          "label": "Kiro のクラウドセッションからプライベートネットワークにアクセスできるようになりました",
+          "url": "https://aws.amazon.com/jp/blogs/news/private-networks/"
+        }
+      ],
+      "tryPrompt": null
+    },
+    {
+      "id": "ca7a58c70d75da9b",
+      "product": "Kiro for VS Code",
+      "what": "VS Code向けAIエージェント開発拡張",
+      "version": null,
+      "kind": "major",
+      "impact": "unlocks",
+      "unlock": "VS Codeを離れずKiroのエージェントと開発できるようになる",
+      "change": {
+        "before": "Kiro専用IDEでエージェントと開発",
+        "after": "使い慣れたVS Code内でKiroを利用"
+      },
+      "scope": [
+        "VS Code",
+        "macOS",
+        "Windows",
+        "Linux"
+      ],
+      "summary": "Kiro for VS CodeをmacOS、Windows、Linux向けにGA提供。MarketplaceまたはOpen VSXから導入し、既存のVS Code環境でKiroのエージェントを利用できる。",
+      "title": "Kiro for VS Code のご紹介",
+      "url": "https://aws.amazon.com/jp/blogs/news/kiro-for-vs-code/",
+      "sourceLabel": "AWS ブログ（日本）",
+      "publishedAt": "2026-11-21T02:50:43.000Z",
+      "alsoReleased": [],
+      "tryPrompt": null
+    },
+    {
+      "id": "5ef6a35bb5502b28",
+      "product": "Claude Code",
+      "what": "AnthropicのコーディングエージェントCLI",
+      "version": "v2.1.330",
+      "kind": "minor",
+      "impact": "unlocks",
+      "unlock": "組織設定を適用してClaude Codeにサインインできるようになる",
+      "change": {
+        "before": "個人向けのサインインと手動設定",
+        "after": "Enterprise Admin Consoleの組織設定を自動適用"
+      },
+      "scope": [],
+      "summary": "Enterprise Admin Console管理組織へのサインイン、MCPメトリクスなどを描画する組み込みmod「easel」、完全なサインインURL出力設定を追加。",
+      "title": "anthropics/claude-code v2.1.330",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.330",
+      "sourceLabel": "GitHub Releases / anthropics/claude-code",
+      "publishedAt": "2026-11-20T22:32:56.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Code v2.1.330 を入れて、「組織設定を適用してClaude Codeにサインインできるようになる」を確かめる\nhttps://github.com/anthropics/claude-code/releases/tag/v2.1.330\n\n# 手順\n1. git clone --depth 1 --branch v2.1.330 https://github.com/anthropics/claude-code\n2. cd claude-code && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v2.1.330 が実際に入って動くか\n- 「組織設定を適用してClaude Codeにサインインできるようになる」を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v2.1.330 のタグを固定して clone している。main が要るなら --branch を外す"
+    },
+    {
+      "id": "9926b4e2818b0caa",
+      "product": "Claude Agent SDK TypeScript",
+      "what": "Claudeエージェント開発用TypeScript SDK",
+      "version": "v0.3.330",
+      "kind": "patch",
+      "impact": "chore",
+      "unlock": null,
+      "change": null,
+      "scope": [],
+      "summary": "設定ファイル検証失敗時の警告を追加し、停止済みバックグラウンドエージェントやSessionStartフック、Google Cloud Agent Platformの不具合を修正。",
+      "title": "anthropics/claude-agent-sdk-typescript v0.3.330",
+      "url": "https://github.com/anthropics/claude-agent-sdk-typescript/releases/tag/v0.3.330",
+      "sourceLabel": "GitHub Releases / anthropics/claude-agent-sdk-typescript",
+      "publishedAt": "2026-11-20T22:32:26.000Z",
+      "alsoReleased": [],
+      "tryPrompt": "# 試すこと\nClaude Agent SDK TypeScript v0.3.330 を入れて、この版の変更を確かめる\nhttps://github.com/anthropics/claude-agent-sdk-typescript/releases/tag/v0.3.330\n\n# 手順\n1. git clone --depth 1 --branch v0.3.330 https://github.com/anthropics/claude-agent-sdk-typescript\n2. cd claude-agent-sdk-typescript && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- v0.3.330 が実際に入って動くか\n- リリースノートに書かれた変更を実際に確かめられるか\n- 既存の使い方のまま上げたときに壊れる箇所はあるか\n\n# 前提・注意\n- git が入っていること\n- v0.3.330 のタグを固定して clone している。main が要るなら --branch を外す"
+    }
+  ],
+  "others": [
+    {
+      "id": "ef9aeabb5c256973",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@TheHackersNews: 🚨 Hackers are actively exploiting critical flaws in VMware, Cisco, Apache, and…",
+      "url": "https://x.com/thehackersnews/status/2124072828022452390",
+      "publishedAt": "2026-11-21T09:30:00.000Z",
+      "author": "The Hacker News",
+      "authorDetail": {
+        "name": "The Hacker News",
+        "handle": "@TheHackersNews",
+        "url": "https://x.com/TheHackersNews"
+      },
+      "tags": [],
+      "snippet": "🚨 Hackers are actively exploiting critical flaws in VMware, Cisco, Apache, and SAP. CISA confirms 4 vulnerabilities under attack, including 9.8-rated bugs. A suspected China-linked espionage group is using VMware flaws to deploy backdoors and steal data. Patch deadline: Nov 23. Details: https://thehackernews.com/2026/11/hackers-exploit-critical-vmware-cisco.html",
+      "body": "🚨 Hackers are actively exploiting critical flaws in VMware, Cisco, Apache, and SAP.\n\nCISA confirms 4 vulnerabilities under attack, including 9.8-rated bugs. A suspected China-linked espionage group is using VMware flaws to deploy backdoors and steal data.\n\nPatch deadline: Nov 23.\n\nDetails: https://thehackernews.com/2026/11/hackers-exploit-critical-vmware-cisco.html",
+      "metrics": {
+        "likes": 299,
+        "reposts": 99,
+        "replies": 22,
+        "quotes": 9,
+        "bookmarks": 74,
+        "impressions": 33423,
+        "comments": 22
+      },
+      "lang": "en",
+      "sourceWeight": 3,
+      "linkedUrls": [
+        "https://thehackernews.com/2026/11/hackers-exploit-critical-vmware-cisco.html"
+      ],
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.6586842105263158,
+      "popularityPercentile": 0.7894736842105263,
+      "matchedTopics": [
+        "クラウド / 本番環境構築"
+      ],
+      "buzz": true,
+      "score": 80,
+      "titleJa": "VMwareやCiscoなど4製品への攻撃をCISAが確認",
+      "oneLiner": "CISAがVMwareやCiscoなど4製品の欠陥について攻撃中であることを確認した。",
+      "takeaways": [
+        "重大な欠陥4件が攻撃中の一覧に加わった。",
+        "対象製品にはVMware vCenterが含まれる。",
+        "修正期限は11月23日に設定された。"
+      ],
+      "keywords": [
+        "CISA",
+        "VMware vCenter",
+        "Cisco Expressway",
+        "Apache Roller",
+        "KEV"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": null,
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "BleepingComputer",
+      "title": "Microsoft Entra Connect Health flaw exploited to steal tenant data",
+      "url": "https://www.bleepingcomputer.com/news/security/microsoft-entra-connect-health-flaw-exploited-to-steal-tenant-data/",
+      "publishedAt": "2026-11-21T18:01:58.000Z",
+      "author": "Lawrence Abrams",
+      "authorDetail": {
+        "name": "Lawrence Abrams"
+      },
+      "tags": [
+        "Security"
+      ],
+      "snippet": "Microsoft is warning organizations that it suffered a data breach after attackers exploited a vulnerability in its Entra Connect Health service to gain unauthorized access to administrator email addresses and tenant configuration information. [...]",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "18bf67ebed8fb93f",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.3883333333333333,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "Microsoft Entra Connect Healthの欠陥で利用者情報が流出",
+      "oneLiner": "攻撃者がMicrosoft Entra Connect Healthの欠陥を悪用し管理者メールアドレスなどを盗み出した。",
+      "takeaways": [
+        "Microsoftの連携サービスが攻撃を受けた。",
+        "管理者のメールアドレスが流出した。",
+        "組織の設定情報も不正に取得された。"
+      ],
+      "keywords": [
+        "Microsoft Entra Connect Health",
+        "Microsoft",
+        "テナント設定情報",
+        "管理者メールアドレス",
+        "脆弱性"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "Microsoft Entra Connect 情報漏えい",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "KVM脆弱性（CVE-2026-99312）から読み解くハイパーバイザーメモリ隔離の破綻と実務的含意",
+      "url": "https://qiita.com/savor-speedup-dotage/items/8401517b360e7fb6f318",
+      "publishedAt": "2026-11-21T19:12:03.000Z",
+      "author": "savor-speedup-dotage",
+      "authorDetail": {
+        "name": "savor-speedup-dotage",
+        "handle": "@savor-speedup-dotage",
+        "url": "https://qiita.com/savor-speedup-dotage",
+        "avatarUrl": "https://secure.gravatar.com/avatar/ea9a0b8303a05b83247cdf482eebe10e",
+        "followers": 0,
+        "posts": 40,
+        "links": []
+      },
+      "tags": [
+        "Security",
+        "KVM",
+        "仮想化",
+        "Cloud",
+        "CVE-2026-99312"
+      ],
+      "snippet": "概要 Linuxカーネルに組み込まれたハイパーバイザーであるKVM（Kernel-based Virtual Machine）において、AMDホスト環境下で動作するゲスト仮想マシン（VM）からホストの物理メモリ領域に直接アクセスし、大量のデータを読み出すことが可能となる脆弱性「CVE-2026-99312」が報告されました。研究者による実証では、クラウド環境上の単一ゲストVM内部から、ホストサーバーのメモリ約127GBが読み出せる状態であったとされています。 マルチテナント型クラウドインフラにおいて、異なる顧客のVM同士が同一の物理ノード上に同居することは標準的な運用形態です。しかし、ハイパーバイザー層によるメモリ空間の隔離（Memory Isolation）が破綻した場合、他のテナントが保持する機密データや認証情報、暗号鍵などが直接露出するリスクが生じます。 本記事では、このCVE-20…",
+      "body": "概要\n\nLinuxカーネルに組み込まれたハイパーバイザーであるKVM（Kernel-based Virtual Machine）において、AMDホスト環境下で動作するゲスト仮想マシン（VM）からホストの物理メモリ領域に直接アクセスし、大量のデータを読み出すことが可能となる脆弱性「CVE-2026-99312」が報告されました。研究者による実証では、クラウド環境上の単一ゲストVM内部から、ホストサーバーのメモリ約127GBが読み出せる状態であったとされています。\n\nマルチテナント型クラウドインフラにおいて、異なる顧客のVM同士が同一の物理ノード上に同居することは標準的な運用形態です。しかし、ハイパーバイザー層によるメモリ空間の隔離（Memory Isolation）が破綻した場合、他のテナントが保持する機密データや認証情報、暗号鍵などが直接露出するリスクが生じます。\n\n本記事では、このCVE-2026-99312の手法の要点を仮想化のアドレス変換メカニズムの観点から解説し、マルチテナント環境の設計や運用においてインフラエンジニアおよびセキュリティアーキテクトが考慮すべき実務的含意について掘り下げます。\n\n背景：仮想化におけるメモリ分離とアドレス変換\n\nハイパーバイザーが担保すべき最も根本的なセキュリティ機能の一つが「メモリアクセスの空間的分離」です。\n\n通常、OS上のアプリケーションは仮想化されたメモリ（ゲスト仮想アドレス：GVA）を利用します。KVM等の型2/型1ハイパーバイザー環境では、以下の2段階のアドレス変換が行われます。\n\n1. 第1段階（Guest OS内）: ゲスト仮想アドレス（GVA） $\\rightarrow$ ゲスト物理アドレス（GPA）\n2. 第2段階（Hypervisor内）: ゲスト物理アドレス（GPA） $\\rightarrow$ ホスト物理アドレス（HPA）\n\n現代のx8664アーキテクチャ（Intel VT-xにおけるEPT、AMD-VにおけるNPT: Nested Page Tables）では、この第2段階のアドレス変換をハードウェア（MMU）レベルで支援・高速化しています。\n\n [code] \n\nハイパーバイザーの役割は、ゲストに割り当てたGPAが許可された範囲のHPA以外にマッピングされないよう、NPT（あるいはEPT）の制御構造を厳密に構築・維持することです。このマッピングテーブルの生成時や、例外処理（MMU Fault）のハンドリング、あるいはCPUの特定の命令実行時の境界チェックに不備が存在すると、ゲスト空間から範囲外のHPAを直接参照するバイパスルートが発生します。\n\nCVE-2026-99312の手法と技術的要点\n\n1. 境界外アクセス（Out-of-Bounds Read）の発生\n\nCVE-2026-99312は、AMDプロセッサを搭載したホスト上で動作するLinux KVM環境において、ハイパーバイザー側のメモリアドレス検証またはMMUマッピング制御の欠陥に起因して発生します。\n\n報告によると、研究者は特定の構成下のゲストVMから、本来ハイパーバイザーによってアクセスが拒否されるべきホストのHPA領域へのマッピングを有効化、またはTLB（Translation Lookaside Buffer）の挙動を突くことで、ホスト物理メモリの広大な領域へのアクセス権限を獲得したとされます。\n\n2. 127GB領域参照の実態とマルチテナンシーへの脅威\n\n実験では、DigitalOceanの共有クラウド環境において、単一の低権限ゲストVMからホストメモリ約127GBの読み出しに成功しました。物理サーバー上には複数の顧客VMが同時に稼働しているため、物理メモリ（HPA）の連続した空間には以下のようなデータがそのまま存在しています。\n・他テナントのVMが使用中の動的メモリ（Webサーバーのセッション情報、データベースのキャッシュ）\n・他テナントのプロセスが保持する暗号鍵、環境変数、APIトークン\n・ホストOS（Linuxカーネル）自身のデータ構造およびネットワークパケットバッファ\n\n単なるDOS（サービス拒否）やローカルな権限昇格にとどまらず、「ハイパーバイザーによるマルチテナント隔離の無効化」を引き起こす点が、本脆弱性の最も深刻な側面です。\n\n実務における含意：インフラ設計・運用の再評価\n\n本問題は、自社でKVMベースのプライベートクラウドやオンプレミス仮想化基盤を構築している組織、ならびにパブリッククラウド（IaaS）を利用している企業の双方に強力な含意を持ちます。\n\n1. ハイパーバイザーの隔離信頼性モデルの限界\n\n従来のインフラ設計では、「ハイパーバイザー層は十分に堅牢であり、異なるVM間のデータ隔離は数学的・ハードウェア的に保証されている」という前提に依存しがちでした。しかし、マイクロアーキテクチャの脆弱性（Spectre/Meltdown等）や、本件のようなハイパーバイザーの実装・ハードウェア協調のバグ（CVE-2026-99312）は、ソフトウェア境界のみに依存した隔離モデルが破綻し得ることを示しています。\n\n2. コンプライアンスおよび事業リスク\n\nパブリックIaaSを利用する企業にとって、自社のコンテナやVMと同居する「見知らぬ他者（他テナント）」のアカウントが悪意のある第三者に侵入された場合、自社のメモリ内データが横移動（Lateral Movement）なしに直接盗聴される懸念が生じます。クレジットカード情報や個人情報（PII）、高度な機密文書を扱うワークロードにおいては、単なる暗号化ストレージ（Data at Rest）やTLS（Data in Transit）だけでは防御が不十分であり、処理中のデータ（Data in Use）の保護対策が問われることになります。\n\n緩和策とアーキテクチャ設計\n\n1. カーネルパッチの即時適用とバージョン管理\n\n本脆弱性への直接的な対策は、修正パッチが適用されたLinuxカーネルおよびKVMモジュールの更新です。オンプレミス環境やプライベートクラウドを運用する組織では、以下の点を確認・実行する必要があります。\n・ホストOSのLinuxカーネルパッケージの最新化（修正バージョンへの更新）\n・AMDホストにおけるKVMモジュール（kvmamd）の再ロードおよびハイパーバイザーの再起動\n・使用しているディストリビューションおよびベンダー（Red Hat, Ubuntu, SUSE等）からの公式エラッタ情報の要確認\n\n設定確認例（ホストOS上でのモジュール読み込み状態の確認）:\n\n [code] \n\n2. ワークロード分離（Physical Dedicated Hosts）の選択\n\nハイパーバイザーの脆弱性がもたらすリスクを根本的に排除するため、機密性の高い重要データを扱うシステム（認証基盤、基幹DB等）においては、パブリッククラウド上で「専有ホスト（Dedicated Host / Single-Tenant Node）」を選択することが物理的隔離の現実的な手段となります。\n\n| 構成パターン | 利点 | 課題・トレードオフ |\n| :--- | :--- | :--- |\n| マルチテナント共有VM | コスト効率が高い、柔軟なスケーリング | ハイパーバイザーブレイクアウトによる他者からのデータ漏洩リスクが存在する |\n| 専有ホスト（Dedicated Host） | 物理メモリ空間が自社専用となり、他者からのメモリ参照リスクを遮断可能 | 調整コスト増加、利用料金の上昇 |\n| Confidential Computing (SEV-SNP) | メモリがハードウェア暗号化され、ホストや他VMからのアクセスを物理的に防止 | 対応ハードウェア/インスタンス制限、開発・運用オーバーヘッド |\n\n3. 機密コンピューティング（Confidential Computing）の評価\n\nメモリ空間の覗き見攻撃に対する根本的な解決策として、ハードウェアベースのメモリ暗号化技術（AMD SEV-SNP、Intel TDXなど）の採用が進んでいます。\n\nAMD SEV-SNP（Secure Encrypted Virtualization-Secure Nested Paging）などの技術では、AESハードウェアエンジンを用いてゲストVMのメモリを暗号化し、ハイパーバイザーや他VMであっても、暗号鍵を持たないアクセスに対しては暗号化されたバイト列しか読み出せないように設計されています。\n\nハイパーバイザー層に本件のようなアクセス制御の脆弱性が存在した場合でも、メモリ暗号化が正しく有効化されていれば、盗み出されるデータは復号不可能な暗号データとなり、被害を最小限に抑えることが可能とされています。\n\n注意点と限界\n\n1. 修正パッチの適用と再起動コスト: KVMカーネルモジュールやホストカーネルの修正には、物理ホストの再起動またはライブパッチング（Kpatch/Livepatch等）の適用が必要となります。ライブパッチングを採用する場合でも、複雑なMMUおよびNPTの制御変更が正しく適用できるか事前検証が必要です。\n2. クラウドプロバイダ側の対応状況の確認: パブリッククラウドを利用している場合は、インフラ側での対処状況（ホストのメンテナンス適用状況）について、各事業者の公式ステータスアナウンスやドキュメントを必ず確認してください。\n3. 性能へのトレードオフ: SEV-SNP等のメモリ暗号化機能を有効化する場合、メモリレイテンシやCPUオーバーヘッドがわずかに増加する可能性があります。パフォーマンス要件とセキュリティ要件のバランスを考慮した評価が求められます。\n\nまとめ\n\nCVE-2026-99312は、Linux KVMとAMDホスト環境におけるメモリ隔離の境界が破れ、最大約127GBに及ぶホスト物理メモリがゲストVMから参照可能となった重大な脆弱性です。\n\nこの事例は、単に「パッチを充てる」という運用処理にとどまらず、マルチテナント環境の限界と「Data in Use」の保護方針を再考させる契機となります。セキュリティアーキテクトやインフラ管理者は、重要システムの配置方針（物理専有ノードの活用）や、暗号化ハードウェアを利用した機密コンピューティング（Confidential Computing）の導入を中長期的なアーキテクチャの選択肢として検討することが推奨されます。\n\n参考リンク\n・Linux KVM Flaw CVE-2026-99312 Lets Guest VMs Access Host Memory on AMD Hosts\n\n---\nこの記事は生成AI（Gemini）の支援を受けて自動生成しています。コード例は実行確認していない場合があります。誤りにお気づきの際はコメントでお知らせください。",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "08c90b0096ef3e7b",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.5463698630136986,
+      "popularityPercentile": 0.0365296803652968,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 75,
+      "titleJa": null,
+      "oneLiner": "Linux KVMの欠陥によりAMDホスト上のゲストVMから物理メモリ約127GBを読み出せた。",
+      "takeaways": [
+        "仮想マシンから物理メモリを読める欠陥が見つかった。",
+        "実証では約127GBのデータが読み出された。",
+        "同じ物理サーバーの他利用者も影響を受ける。"
+      ],
+      "keywords": [
+        "Linux KVM",
+        "CVE-2026-99312",
+        "AMD",
+        "ハイパーバイザー",
+        "メモリ隔離"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "security",
+      "incident": "Linux KVM CVE-2026-99312悪用",
+      "readingMinutes": 10,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "ALL.Netが止まった3週間 ― チュウニズム復旧までの記録と、e-amusementの閉域VPNに考えたこと",
+      "url": "https://qiita.com/jTakasuRyuji/items/6337b08f246856f131b1",
+      "publishedAt": "2026-11-21T10:23:56.000Z",
+      "author": "jTakasuRyuji",
+      "authorDetail": {
+        "name": "jTakasuRyuji",
+        "handle": "@jTakasuRyuji",
+        "url": "https://qiita.com/jTakasuRyuji",
+        "avatarUrl": "https://qiita-image-store.s3.amazonaws.com/0/67318/profile-images/1516754342",
+        "bio": "ネタ投稿たのしいです",
+        "organization": "公開していません",
+        "location": "地球, Japan",
+        "followers": 54,
+        "posts": 125,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/jTakasuRyuji"
+          }
+        ]
+      },
+      "tags": [
+        "Security",
+        "Network",
+        "VPN",
+        "ネットワークエンジニア",
+        "ポエム"
+      ],
+      "snippet": "11月1日、ゲーセンの音ゲーが一斉に止まった 2026年11月1日15時、セガ フェイブのアーケード向けネットワークサービス「ALL.Net」と「Aime」が停止しました。『CHUNITHM』『maimai でらっくす』をはじめとする対応タイトルで、オンラインプレイもAimeカードを使ったプレイもできなくなったのです。 翌11月2日、セガ フェイブが第一報を出しました。ALL.NetとAimeに関係するサーバーが第三者による不正アクセスを受け、データ流出の有無と影響範囲を調査中であること。安全性の確認のためサービスを停止したこと。初期調査の時点では顧客・取引先情報の流出は確認されておらず、クレジットカード情報を含む決済情報は当該サーバーに保有していないため影響がないこと。 そして本日11月21日9時、停止から約3週間ぶりに『CHUNITHM』『maimai でらっくす』『英傑大戦』（対人戦…",
+      "body": "11月1日、ゲーセンの音ゲーが一斉に止まった\n\n2026年11月1日15時、セガ フェイブのアーケード向けネットワークサービス「ALL.Net」と「Aime」が停止しました。『CHUNITHM』『maimai でらっくす』をはじめとする対応タイトルで、オンラインプレイもAimeカードを使ったプレイもできなくなったのです。\n\n翌11月2日、セガ フェイブが第一報を出しました。ALL.NetとAimeに関係するサーバーが第三者による不正アクセスを受け、データ流出の有無と影響範囲を調査中であること。安全性の確認のためサービスを停止したこと。初期調査の時点では顧客・取引先情報の流出は確認されておらず、クレジットカード情報を含む決済情報は当該サーバーに保有していないため影響がないこと。\n\nそして本日11月21日9時、停止から約3週間ぶりに『CHUNITHM』『maimai でらっくす』『英傑大戦』（対人戦を除く）とプリクラ3機種の試験稼働再開が発表されました。この3週間の経緯を、公式発表にあたって整理しながら、ネットワーク設計について考えたことを書きます。\n\n経緯の整理\n\n時系列で並べると、再開は3段階でした。\n・11月1日15時 — ALL.Net・Aime関連サービスを停止。オンラインプレイ、Aime利用、.NETサービス、PrizeON、セガ ラッキーくじオンライン、SEGA ID新規登録などが利用不可に（セガ フェイブ第一報）\n・11月2日 — セガ フェイブが不正アクセスを公表（第一報）\n・11月8日 — バンダイナムコ製品の対象タイトルが試験再開\n・11月15〜16日 — セガ製品12タイトル（オンゲキ、頭文字D THE ARCADE、艦これアーケード、MJ Arcadeなど）が試験再開。Aimeサービスサイトの一部機能も再開\n・11月21日 — CHUNITHM、maimai でらっくす、英傑大戦（対人戦を除く）、プリクラ3機種が試験再開\n\n巻き込まれたのはセガ製品だけではありません。ALL.Netはセガ フェイブが運営し、他社のタイトルも載る基盤です。セガ フェイブの第一報自体が、バンダイナムコエクスペリエンスのALL.Net対応タイトルについては同社に確認するよう案内しています。実際、『太鼓の達人』『機動戦士ガンダム エクストリームバーサス2 インフィニットブースト』など同社の8タイトルも停止し、11月8日から試験再開しました。\n\nCHUNITHM公式サイトの告知も追うと、現場の動きが見えます。11月1日付けの告知は「ALL.Net緊急メンテナンスのお知らせ」で、期間は「終了時間未定」とされていました。11月21日の再開告知では、各店舗へソフトを発送済みで、到着後にソフトウェア更新が完了してから再開可能になること、画面右下のバージョンが「Ver.2.51 Update on 2026/11/05」でない筐体ではAimeを使ったプレイができないことが明記されています。更新版の日付は11月5日、つまり停止期間の真っ最中に用意されたソフトです。あわせて、メンテナンスに伴う補填・お詫びの実施予定、全チームのチームブースト設定のリセット、大会「KING of Performai The 8th」オンライン予選の中断も告知されました。\n\nなお本日時点でも、英傑大戦の対人戦、ALL.Net P-ras MULTI バージョン2・3、『HOUSE OF THE DEAD ～SCARLET DAWN～』『BINGO THEATER』はメンテナンス継続中で、全面復旧の時期は未定です。次回の状況報告は11月24日9時頃の予定とされています。\n\n分かっていないこと\n\n肝心の侵入手口は、現時点で公表されていません。流出の有無についても「初期調査では確認されていない、調査中」のままで、11月16日の第二報でも原因や調査結果には触れられていません。ここは続報を待つしかありません。\n\n切り分けておきたいのは、同時期のもう一件です。11月9日にセガが公表したメールマガジン配信先メールアドレス2,196,044件（うち92,273件には配信に付随する情報も含まれる）の流出は、委託先であるアララ株式会社の配信システム「アララメッセージ」への不正アクセスによるもので、セガ自身がALL.Netの件とは別の事案だと明言しています。対象は2026年7月2日から10月28日までに配信した11件のメールマガジンで、氏名・生年月日・住所・電話番号・クレジットカード情報・ログインパスワードは含まれておらず、「SEGA Account」の登録アドレスは別システムのため対象外とされています。アララ側の発表では、Webサーバーの脆弱性を突かれて侵入されたと説明されています。\n\n設計の対比：e-amusementは「閉域」だった\n\nここからが本題です。Wikipediaによれば、コナミの「e-amusement」ではIPsecによるVPNが利用されています。店舗側とコナミ側を閉域でつなぐ設計で、店舗向けの情報サイトですら一般のインターネット回線からは接続することは不可能だとされています。\n\nつまりe-amusementのゲームサーバーは、インターネット側からは到達自体ができない場所に置かれているわけです。\n\n対してALL.Netは、セガ以外のメーカーのタイトルも載るプラットフォーム型の基盤です。他社に開く前提の設計であり、e-amusementのような閉域VPN一本で固めるわけにはいきません。今回、基盤を運営するセガ フェイブのサーバーが止まったことで、バンダイナムコのタイトルまで止まったのは、その構造の表れです。\n\n自分の見方：跨がせない設計と、跨ぐときの変換\n\nインジェクション攻撃について「攻撃は、変換を正しく行わずにドメインを跨ぐところで起きる」という考えを持っています。今回の件を見ていて思ったのは、対策には二つの方向があるということです。\n\n一つは、跨ぐ地点で変換を完全にする方向。入力検証やパラメータ化がこれにあたります。\n\nもう一つは、そもそも跨がせない方向。e-amusementの閉域VPNはまさにこれで、外部のドメインから内部のドメインへ到達する経路自体を置かない。到達できなければ、変換の不備を突く余地も生まれません。\n\nもちろん、今回の侵入が筐体ネットワーク経由だったかは分かりませんし、Aimeには公開Webサービスという、VPNでは守れない面もあります。「VPNがなかったから入られた」と断定はできません。\n\nただ、CHUNITHMの再開に筐体側のソフト更新が必要だった点は示唆的だと思います。サーバー側の復旧だけで戻れるなら、全国の店舗にソフトを送って更新させる必要はなかったはずです。何が変わったのかは公表されていませんが、接続時の信頼の仕組みに手を入れたと読むのが自然ではないでしょうか。到達可能な面の広さはそのまま攻撃面の広さであり、守るべき境界の設計が問われた3週間だったと思います。\n\nおわりに\n\n11月は、決済データ基盤やメール配信基盤など、委託先・基盤側を突かれる事故の公表が続いた月でした。個別の脆弱性対策と同じくらい、「どのドメインとどのドメインを、どこで跨がせるのか」という設計の話が大事だという思いを強くしています。\n\nセガ フェイブの調査結果と、11月24日の続報で侵入経路がどこまで開示されるかを引き続き見ていきます。\n\n参考\n・セガ フェイブ「【第一報】当社サーバーへの不正アクセスに関するお詫びとお知らせ」（2026年11月2日、sega.jp）\n・セガ フェイブ「【第二報】ALL.Net・Aimeの一部サービス復旧および対応タイトルの試験稼働再開について」（2026年11月16日）\n・CHUNITHM公式サイト「【重要】ALL.Net緊急メンテナンスのお知らせ」（2026年11月1日）\n・CHUNITHM公式サイト「【重要】Aimeを使用してのプレイを試験的に再開」（2026年11月21日）\n・ALL.Netサービス情報 公式X（allnetinfo）各日の状況報告\n・Aimeサービスサイト「ALL.NetおよびAime各サービスの試験的稼働再開について」（11月21日9:00更新）\n・株式会社セガ「業務委託企業への不正アクセスによる個人情報流出に関するお詫びとお知らせ」（2026年11月9日）\n・Wikipedia「e-amusement」「ALL.Net」",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 1
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "9119dd283a18c288",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0,
+      "popularityPercentile": 0.3264840182648402,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 75,
+      "titleJa": null,
+      "oneLiner": "セガのALL.NetとAimeが不正アクセスで約3週間停止し段階的な復旧を始めた。",
+      "takeaways": [
+        "ゲーム向け通信サービスが不正アクセスを受けた。",
+        "オンラインプレイなどが約3週間使えなくなった。",
+        "11月21日に一部タイトルの試験稼働が始まった。"
+      ],
+      "keywords": [
+        "ALL.Net",
+        "Aime",
+        "セガ フェイブ",
+        "不正アクセス",
+        "閉域VPN"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "ALL.Net 不正アクセス",
+      "readingMinutes": 9,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "The Hacker News",
+      "title": "GnuPG Warns Critical GPGME Flaw Could Expose App Data via Malicious OpenPGP Keys",
+      "url": "https://thehackernews.com/2026/11/gnupg-warns-critical-gpgme-flaw-could.html",
+      "publishedAt": "2026-11-21T11:05:53.000Z",
+      "author": "info@thehackernews.com (The Hacker News)",
+      "authorDetail": {
+        "name": "info@thehackernews.com (The Hacker News)"
+      },
+      "tags": [],
+      "snippet": "A malicious OpenPGP key with an unusually long user ID can trigger a critical memory bug in GPGME, the standard library that programs use to work with GnuPG. The GnuPG project warned yesterday that the flaw could be used to steal data from affected applications and has released fixed versions. The bug, tracked as CVE-2026-129975, affects all software that uses GPGME before version 2.3.0,",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "8788d136fe5dadca",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.3883333333333333,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 73,
+      "titleJa": "GPGMEの欠陥で細工した暗号鍵からアプリ情報が流出",
+      "oneLiner": "細工したOpenPGP鍵がGPGMEのメモリ欠陥を引き起こし利用アプリの情報を盗める状態になった。",
+      "takeaways": [
+        "細工した暗号鍵がアプリのメモリを壊した。",
+        "影響はGPGME 2.3.0未満を使うソフトに及ぶ。",
+        "GnuPGプロジェクトは修正版を公開した。"
+      ],
+      "keywords": [
+        "GPGME",
+        "GnuPG",
+        "CVE-2026-129975",
+        "OpenPGP",
+        "メモリ脆弱性"
+      ],
+      "category": "リリース/アップデート",
+      "lane": "security",
+      "incident": "GPGME CVE-2026-129975脆弱性",
+      "readingMinutes": 4,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "rss",
+      "sourceLabel": "BleepingComputer",
+      "title": "BADBOX botnet returns with record-breaking 40 billion daily ad requests",
+      "url": "https://www.bleepingcomputer.com/news/security/badbox-30-botnet-returns-with-record-breaking-40-billion-daily-ad-requests/",
+      "publishedAt": "2026-11-21T15:17:27.000Z",
+      "author": "Bill Toulas",
+      "authorDetail": {
+        "name": "Bill Toulas"
+      },
+      "tags": [
+        "Security",
+        "Hardware"
+      ],
+      "snippet": "The BADBOX malware found in a broad range of generic Android TV boxes has returned to large-scale ad-fraud operations following last year's disruptions. [...]",
+      "metrics": {},
+      "sourceWeight": 3,
+      "feedCategory": "security",
+      "id": "9d1c12e6efc3854f",
+      "lang": "en",
+      "foundIn": [
+        "rss"
+      ],
+      "preScore": 0.3883333333333333,
+      "popularityPercentile": 0.5,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 68,
+      "titleJa": "BADBOXボットネットが1日400億件の広告要求で再拡大",
+      "oneLiner": "BADBOXマルウェアがAndroid TVボックスを再び大規模な広告詐欺に利用し1日400億件を要求した。",
+      "takeaways": [
+        "Android TVボックスのマルウェアが再活動した。",
+        "感染機器が広告を大量に見せかけた。",
+        "広告要求は1日400億件まで膨らんだ。"
+      ],
+      "keywords": [
+        "BADBOX",
+        "Android TV",
+        "ボットネット",
+        "広告詐欺",
+        "マルウェア"
+      ],
+      "category": "調査・考察",
+      "lane": "security",
+      "incident": "BADBOX ボットネット再拡大",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "id": "838f4bd5c53adedd",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@BleepinComputer: 🚨 Microsoft Entra Connect Health flaw exploited to steal tenant data!",
+      "url": "https://x.com/bleepincomputer/status/2124202337967185945",
+      "publishedAt": "2026-11-21T18:04:37.000Z",
+      "author": "BleepingComputer",
+      "authorDetail": {
+        "name": "BleepingComputer",
+        "handle": "@BleepinComputer",
+        "url": "https://x.com/BleepinComputer"
+      },
+      "tags": [],
+      "snippet": "🚨 Microsoft Entra Connect Health flaw exploited to steal tenant data! Attackers accessed administrator email addresses, tenant IDs, configuration metadata, and synchronization status. Microsoft patched the flaw on November 19 and is notifying affected organizations. The number of impacted tenants remains unknown. ➡️https://www.bleepingcomputer.com/news/security/microsoft-entra-connect-health-flaw…",
+      "body": "🚨 Microsoft Entra Connect Health flaw exploited to steal tenant data!\n\nAttackers accessed administrator email addresses, tenant IDs, configuration metadata, and synchronization status.\n\nMicrosoft patched the flaw on November 19 and is notifying affected organizations.\n\nThe number of impacted tenants remains unknown.\n\n➡️https://www.bleepingcomputer.com/news/security/microsoft-entra-connect-health-flaw-exploited-to-steal-tenant-data/\nhttps://www.bleepingcomputer.com/news/security/microsoft-entra-connect-health-flaw-exploited-to-steal-tenant-data/",
+      "metrics": {
+        "likes": 194,
+        "reposts": 50,
+        "replies": 17,
+        "quotes": 6,
+        "bookmarks": 94,
+        "impressions": 20346,
+        "comments": 17
+      },
+      "lang": "en",
+      "sourceWeight": 3,
+      "linkedUrls": [
+        "https://www.bleepingcomputer.com/news/security/microsoft-entra-connect-health-flaw-exploited-to-steal-tenant-data/"
+      ],
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.25684210526315787,
+      "popularityPercentile": 0.8947368421052632,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 85,
+      "titleJa": null,
+      "oneLiner": "Microsoft Entra Connect Healthの欠陥が悪用され顧客環境の情報が盗まれた。",
+      "takeaways": [
+        "攻撃者が管理者のメールアドレスを盗み出した。",
+        "顧客番号や設定情報も漏れた可能性がある。",
+        "Microsoftは11月19日に修正し影響企業へ通知した。"
+      ],
+      "keywords": [
+        "Microsoft Entra Connect Health",
+        "Microsoft",
+        "CVE",
+        "テナント情報",
+        "脆弱性"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 新着リポジトリ",
+      "title": "MSNightmare/FastUnlock — FastUnlock : Windows Narrator LockScreen Bypass 0day Vulnerability",
+      "url": "https://github.com/MSNightmare/FastUnlock",
+      "publishedAt": "2026-11-19T12:37:51.000Z",
+      "author": "MSNightmare",
+      "authorDetail": {
+        "name": "MSNightmare",
+        "url": "https://github.com/MSNightmare",
+        "avatarUrl": "https://github.com/MSNightmare.png?size=120",
+        "bio": "FastUnlock : Windows Narrator LockScreen Bypass 0day Vulnerability"
+      },
+      "tags": [],
+      "snippet": "FastUnlock : Windows Narrator LockScreen Bypass 0day Vulnerability",
+      "metrics": {
+        "stars": 643,
+        "hatena": 9
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "bbe6bd2244d6a810",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.5682758620689656,
+      "popularityPercentile": 0.8103448275862069,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": true,
+      "score": 82,
+      "titleJa": "FastUnlock — Windowsのロック画面回避脆弱性",
+      "oneLiner": "FastUnlockはWindows Narratorを悪用してロック画面を回避する脆弱性を示す。",
+      "takeaways": [
+        "Windowsの読み上げ機能を悪用する欠陥が公開された。",
+        "攻撃者はロック画面を越えられる可能性がある。",
+        "公開直後の欠陥なので検証環境での扱いに注意が要る。"
+      ],
+      "keywords": [
+        "FastUnlock",
+        "Windows",
+        "Narrator",
+        "LockScreen Bypass",
+        "0day"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 2,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nMSNightmare/FastUnlock — FastUnlock : Windows Narrator LockScreen Bypass 0day Vulnerability を動かして、README の最初の出力まで到達する\nhttps://github.com/MSNightmare/FastUnlock\n\n# 手順\n1. git clone --depth 1 https://github.com/MSNightmare/FastUnlock\n2. cd FastUnlock && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "id": "4bc616b78a299869",
+      "source": "x",
+      "sourceLabel": "X",
+      "title": "@TheHackersNews: ‼️ CRITICAL - A malicious OpenPGP key could expose sensitive data from your app…",
+      "url": "https://x.com/thehackersnews/status/2124097807435157635",
+      "publishedAt": "2026-11-21T11:09:15.000Z",
+      "author": "The Hacker News",
+      "authorDetail": {
+        "name": "The Hacker News",
+        "handle": "@TheHackersNews",
+        "url": "https://x.com/TheHackersNews"
+      },
+      "tags": [],
+      "snippet": "‼️ CRITICAL - A malicious OpenPGP key could expose sensitive data from your apps. GnuPG warns that CVE-2026-129975, a critical double-free flaw in GPGME, affects mail clients, Samba, and other software. Data theft possible. RCE not ruled out. Read → https://thehackernews.com/2026/11/gnupg-warns-critical-gpgme-flaw-could.html",
+      "body": "‼️ CRITICAL - A malicious OpenPGP key could expose sensitive data from your apps.\n\nGnuPG warns that CVE-2026-129975, a critical double-free flaw in GPGME, affects mail clients, Samba, and other software.\n\nData theft possible. RCE not ruled out.\n\nRead → https://thehackernews.com/2026/11/gnupg-warns-critical-gpgme-flaw-could.html",
+      "metrics": {
+        "likes": 100,
+        "reposts": 33,
+        "replies": 10,
+        "quotes": 2,
+        "bookmarks": 42,
+        "impressions": 23479,
+        "comments": 10
+      },
+      "lang": "en",
+      "sourceWeight": 3,
+      "linkedUrls": [
+        "https://thehackernews.com/2026/11/gnupg-warns-critical-gpgme-flaw-could.html"
+      ],
+      "foundIn": [
+        "x"
+      ],
+      "preScore": 0.2891228070175439,
+      "popularityPercentile": 0.5263157894736842,
+      "matchedTopics": [],
+      "buzz": true,
+      "score": 78,
+      "titleJa": "GPGMEのOpenPGP鍵処理にある重大な脆弱性",
+      "oneLiner": "悪意あるOpenPGP鍵でGPGMEの二重解放欠陥が悪用され情報が盗まれる可能性がある。",
+      "takeaways": [
+        "GPGMEの鍵処理に重大な欠陥が見つかった。",
+        "メールソフトなどが秘密情報を盗まれる恐れがある。",
+        "外部からのコード実行も否定されていない。"
+      ],
+      "keywords": [
+        "GPGME",
+        "OpenPGP",
+        "CVE-2026-129975",
+        "GnuPG",
+        "double-free"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 4,
+      "payoff": "aware",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "公取委・中小企業庁が広告業71社に取適法で指導｜外注先への発注書電子化と取引記録の2年保存を進める3ステップ",
+      "url": "https://qiita.com/DnD-inc/items/a3a25c95965f576a1311",
+      "publishedAt": "2026-11-21T00:27:53.000Z",
+      "author": "株式会社 DnD",
+      "authorDetail": {
+        "name": "株式会社 DnD",
+        "handle": "@DnD-inc",
+        "url": "https://qiita.com/DnD-inc",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/4461009/57ec7b45c97fcda47601c509a73bd1c16044b448/x_large.png?1786104377",
+        "bio": "株式会社DnD（Distill n Develop）の公式アカウントです。中小企業のDX・業務効率化を支援しています。AIや自動化、MCP、社内ツール開発など、現場で使える技術情報を「わかりやすく・実務目線で」発信します。テーマは業務効率化／BI・SaaS代替／受託開発など。「人手不足は、採用ではなく仕組みで」を合言葉に、いまある人と時間を最大限に活かすヒントをお届けします。",
+        "organization": "株式会社DnD",
+        "location": "埼玉県さいたま市",
+        "followers": 0,
+        "posts": 94,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/DnD_inc_jp"
+          },
+          {
+            "label": "Web",
+            "url": "https://dnd-inc.jp"
+          }
+        ]
+      },
+      "tags": [
+        "AI",
+        "生成AI",
+        "業務効率化",
+        "DX",
+        "中小企業"
+      ],
+      "snippet": "公取委・中小企業庁が広告業71社に取適法で指導｜外注先への発注書電子化と取引記録の2年保存を進める3ステップ 本記事は、株式会社DnD（https://dnd-inc.jp）のコラムを一部編集して掲載しています。 初出: https://dnd-inc.jp/blog/toritekiho-order-record-system.html 2026年1月1日、旧下請法が「取適法（中小受託取引適正化法）」として改正施行されました。同年6月29日、公正取引委員会と中小企業庁は取適法施行後初の集中調査結果を公表し、広告業者71社に指導を行いました。主な問題は口頭発注の常態化と記録の不備でした。「広告業界の特殊な話」ではありません。外注・委託先に仕事を発注している中小企業であれば、業種を問わず発注書の電子交付と2年間の記録保存が義務です。今回は、取適法が自社の発注フローに与える影響を整理し、仕組み…",
+      "body": "公取委・中小企業庁が広告業71社に取適法で指導｜外注先への発注書電子化と取引記録の2年保存を進める3ステップ\n本記事は、株式会社DnD（https://dnd-inc.jp）のコラムを一部編集して掲載しています。\n初出: https://dnd-inc.jp/blog/toritekiho-order-record-system.html\n\n2026年1月1日、旧下請法が「取適法（中小受託取引適正化法）」として改正施行されました。同年6月29日、公正取引委員会と中小企業庁は取適法施行後初の集中調査結果を公表し、広告業者71社に指導を行いました。主な問題は口頭発注の常態化と記録の不備でした。「広告業界の特殊な話」ではありません。外注・委託先に仕事を発注している中小企業であれば、業種を問わず発注書の電子交付と2年間の記録保存が義務です。今回は、取適法が自社の発注フローに与える影響を整理し、仕組みで対応する3つのステップを解説します。\n\nこの記事の要点\n・取適法は2026年1月施行の改正法。外注・委託先に仕事を発注している会社は、業種・規模を問わず発注書の書面または電子交付と取引記録の2年保存が義務になった。口頭のみの発注は取適法上の違反になりうる。\n・公取委・中小企業庁の2026年6月29日公表の集中調査では、広告業者71社に指導。「口頭発注が業界慣習」という説明も認められず是正を求められた。今後、建設・IT・運送など他業種への集中調査が行われると見込まれる。\n・対応の3ステップは①現状の発注フロー棚卸し、②発注書テンプレートの標準化と電子交付の仕組み化、③受発注管理システムで記録保存・期限管理を自動化。スモールスタートは最も発注件数が多い取引先1社から始められる。\n\n旧下請法が「取適法」に変わった——2026年1月施行、何が義務になったか\n\n「下請法（下請代金支払遅延等防止法）」は、発注側の企業が受注側の中小企業に対して不当に不利な取引条件を課すことを防ぐための法律です。2026年1月1日、この法律が大幅に改正され、「中小受託取引適正化法（取適法）」として施行されました。\n旧下請法との主な違いは2点です。ひとつは適用対象の拡大です。旧法では「資本金3億円超の会社が資本金3億円以下の会社に発注する」という資本金基準だけで判定していましたが、取適法では資本金基準に加えて従業員数基準が追加されました。これにより、資本金は小さくても従業員数が一定規模以上の会社も委託者として規制の対象になります。\nもうひとつは義務内容の明確化と強化です。取適法で発注側（委託者）に課せられた主な義務は以下の通りです。\n・発注内容の明示義務：発注の際は「給付の内容・代金の額・支払期日・支払方法」を書面またはメールなどの電磁的方法で交付しなければなりません。旧法では相手の承諾がなければ電子交付が難しかったですが、取適法では相手の承諾なしに電子交付が可能になりました。\n・取引記録の2年保存義務：発注書・受領記録・変更指示・価格協議の経緯など、一連の取引記録を取引完了後2年間保存する義務があります。\n・受領後60日以内の支払い義務：給付を受領した日から60日以内に支払わなければなりません。支払サイトが60日を超える契約は義務違反となりえます。\n・手形払いの禁止：従来の手形払いや一括決済方式による支払いは原則として認められなくなりました。\n・価格協議要請への応答義務：受注側が原材料費・労務費の変動を理由に価格改定を要請した場合、協議に応じる義務があります。協議を先延ばしにしたり、一方的に単価を決定したりする行為は違反になります。\n\n2026年6月29日、公取委・中小企業庁が広告業への集中調査結果を公表\n\n取適法の施行から約5か月が経過した2026年6月29日、公正取引委員会と中小企業庁は取適法施行後初の集中調査結果を発表しました。\n調査の対象は広告業者と広告制作業者との間の取引です。新聞・雑誌・テレビ・インターネット・交通・屋外広告の制作から、広告に付随するイベント企画運営まで対象とした調査において、2026年2月以降に調査を実施。その結果、広告業者71社に対して指導が行われました（出典：後掲）。\n指摘された主な問題は次の通りです。\n・発注内容を書面や電子メールで伝えず、口頭のみで発注していた\n・発注書を後から作成し、実際の発注日より前の日付を記載していた（遡り記載）\n・受領から60日を超える支払い条件を設定していた\n・手形または電子記録債権による支払いを継続していた\n・追加修正・校正の費用を受注側に無償で負担させていた\n注目すべきは、指導を受けた事業者の中に「広告業では口頭発注が業界慣習だ」と理由を挙げたケースが複数あったという点です。公取委・中小企業庁はその慣習自体の是正を求めています。「業界の常識」は取適法上の免責理由にはなりません。\n\n自社の発注フローに当てはまることを確認する——6項目チェックリスト\n\n広告業への集中調査は、ほかの業種への調査が続くことを示唆しています。旧下請法の時代から、公取委は建設業・情報サービス業・運送業・製造業など多業種で集中調査を実施してきました。取適法施行後も同様のサイクルが続くと見込まれます。\n外注先・委託先に業務を発注している会社はどこにでもあります。制作物・清掃・保守・物流・ITシステム——どんな形であれ外注している会社は、現時点で自社の発注フローが取適法に対応できているか確認する必要があります。\nひとつでも△や✗がある項目は、発注フローの見直しが必要です。6項目すべてが問題ない状態であっても、仕組みとして維持できているかどうかを確認することが大切です。\n\n3つのステップで仕組みを作る\n\n取適法への対応は「担当者が気をつける」だけでは限界があります。担当者が変わるたびに同じ問題が再発するからです。発注フローをシステムに落とし込み、仕組みとして維持できる体制を作ることが本質的な解決策です。\n\nステップ1：現状の発注フローを棚卸しする\n\n最初のステップは、自社がどのように外注・委託先に発注しているかを可視化することです。誰が（担当部署・担当者）、どこに（取引先名）、どんな形で（電話・メール・紙・口頭）発注しているかを洗い出します。\nこの棚卸しで多くの会社が発見するのは次の3つです。①特定の担当者だけが口頭で発注していた、②メールで発注しているが発注書の形式がバラバラで必要事項が揃っていない、③保存が担当者のPCや個人メールに散在していて2年分の記録が存在しない——これらは今すぐ対処できます。\n\nステップ2：発注書テンプレートを標準化し、電子交付を仕組み化する\n\n棚卸し後は発注書の形式を統一します。「給付の内容・代金の額・支払期日・支払方法」の4項目を必須フィールドにした発注書テンプレートを1種類作成します。Excelでも十分です。\nこのテンプレートを使ってメール添付または社内のクラウドストレージ（Google DriveやBoxなど）経由で発注書を電子交付する運用ルールを決めます。重要なのは「発注書を送らないと発注が確定しない」という社内ルールを明文化することです。口頭で話が決まっても、発注書の送付まで発注が成立しないとすることで、習慣が変わります。\n送付した発注書は取引先ごとにフォルダを分けてクラウド上に保存し、2年分が維持される体制を整えます。このステップだけで、前述の6項目のうち1〜4の多くをカバーできます。\n\nステップ3：受発注管理システムで記録保存・期限管理を自動化する\n\nステップ2のExcel＋クラウドストレージの運用は、取引件数が少ない段階では有効ですが、件数が増えると管理が追いつかなくなります。発注書番号・取引先・金額・支払期日・保存期限を一元管理し、期限が近づいたらアラートが出て、2年保存が自動的に維持される——これを実現するのが受発注管理システムです。\n具体的には次の機能があると管理工数が大幅に下がります。\n・発注書の自動採番と電子交付（メール送信または専用ポータルから取引先が受け取る）\n・発注書・変更指示・価格協議メモを発注レコードに紐付けて管理\n・支払期日の自動アラート（60日超の条件を事前に検知）\n・2年保存の期限管理（期限切れになる前に通知）\nスモールスタートは、最も発注件数が多い取引先1社から始めることです。まず1社で運用を安定させ、取引先を順次追加していく進め方が定着率を高めます。全取引先を一度にシステム化しようとすると、移行コストと習慣の変更コストが重なり、途中で頓挫しやすくなります。\n\n取適法への対応は「コンプライアンス」だけの話ではない\n\n取適法への対応は義務であることは確かですが、仕組みを作ることで副次的なメリットもあります。発注書が全件デジタルで管理されることで、外注コストの集計・外注先ごとの取引履歴の確認・価格交渉の根拠となる実績データの蓄積が、自然にできるようになります。\n「外注先への発注書がまったく一元化されていない」という会社は珍しくありません。毎月の外注コストの全体像を担当者しか把握しておらず、担当者が変わると状況がわからなくなる——これは取適法のリスクであると同時に、業務管理上の課題でもあります。法対応をきっかけに、外注管理の仕組みを整えることは、経営の可視化にもつながります。\n自社の発注フローが取適法に対応できているか、一緒に確認してみませんか。\nご相談・お見積りは無料です。「口頭発注をどう変えればよいか」「どんなシステムが必要か」という段階からお受けしています。\n\nよくある質問\n\n取適法は中小企業にも適用されますか？\nはい。旧下請法では資本金基準のみで判定していましたが、取適法では資本金基準に加え従業員数基準が追加されました。いずれかを満たす委託者は規制の対象です。外注先・委託先が中小企業であれば、発注側の自社規模によらず義務が生じる場合があります。まず公正取引委員会の取適法リーフレット（https://www.jftc.go.jp/file/toritekileaflet.pdf）で自社が委託者に当たるか確認してください。\n\nメールで発注書を送れば取適法上の問題はありませんか？\n電子メールによる発注書交付は取適法上、認められています。ただし、発注書に「給付の内容・代金の額・支払期日・支払方法」が明示されていることが条件です。また、交付した発注書のコピーと送信記録を2年間保存できる体制も必要です。担当者のPC内のみへの保存では、退職・異動時に記録が失われるリスクがあります。\n\n発注書の2年保存は紙でなければなりませんか？\n電子データでの保存が認められています。電子メールの送信記録や、クラウドストレージに保存したPDFも対象です。ただし、担当者のPC内だけの保存や自動削除される環境では2年保存の維持が困難です。クラウド上で一元管理できる体制が望ましく、受発注管理システムを使えば保存期限の管理も自動化できます。\n\n今後、広告業以外の業種にも集中調査が行われる可能性はありますか？\nあります。公正取引委員会と中小企業庁は、業種ごとに集中調査を計画的に実施しています。旧下請法の時代から建設・情報サービス・運送・製造など多業種で調査が行われており、取適法施行後も同様のサイクルが続くと考えられます。「広告業が先に指導された」という状況を他業種への先触れとして受け止め、自社の発注フローを今から整えておくことが現実的な対策です。\n\n---\nこの記事は株式会社DnD（業務効率化・DXパートナー）が運営するコラムの転載です。\n▶ 初出・全文: https://dnd-inc.jp/blog/toritekiho-order-record-system.html\n▶ お問い合わせ: https://dnd-inc.jp/contact.html",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "440dfb4d72fa626d",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.17579908675799086,
+      "popularityPercentile": 0.7990867579908676,
+      "matchedTopics": [],
+      "buzz": false,
+      "score": 75,
+      "titleJa": null,
+      "oneLiner": "取適法の施行後に広告業71社が指導され発注書と取引記録の管理が求められた。",
+      "takeaways": [
+        "2026年1月から外注発注の記録保存が義務になった。",
+        "公取委などが広告業71社を指導した。",
+        "発注書の電子化と2年間の記録保存が必要になる。"
+      ],
+      "keywords": [
+        "取適法",
+        "中小企業庁",
+        "公正取引委員会",
+        "電子発注書",
+        "取引記録"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "know",
+      "readingMinutes": 7,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hatena",
+      "sourceLabel": "はてなブックマーク",
+      "title": "相次ぐシステム障害、AIはどこまで関係しているのか--「12月はさらに深刻に」と専門家",
+      "url": "https://japan.cnet.com/article/35255244/",
+      "publishedAt": "2026-11-20T23:39:26.000Z",
+      "tags": [
+        "テクノロジー"
+      ],
+      "snippet": "なぜ、何もかもが次々と止まるのか。そんな記事を書こうと思いながら、なかなか書けずにいた。何もかもが次々と止まるからだ。 米マイクロソフトの「Outlook」はしばらく使えなくなり、航空管制システムでもトラブルが起きた。米チェース銀行の利用者にとって、11月16日（現地時間）は踏んだり蹴ったりの月曜日だった。...",
+      "metrics": {
+        "hatena": 4
+      },
+      "sourceWeight": 3,
+      "id": "cb9278c4a1bda3ee",
+      "lang": "ja",
+      "foundIn": [
+        "hatena"
+      ],
+      "preScore": 0.42500000000000004,
+      "popularityPercentile": 0,
+      "matchedTopics": [
+        "クラウド / 本番環境構築"
+      ],
+      "buzz": true,
+      "score": 68,
+      "titleJa": null,
+      "oneLiner": "複数の大規模障害を題材にAI導入がシステム停止へ与える影響を考察している。",
+      "takeaways": [
+        "Outlookや航空管制など複数のサービスが停止した。",
+        "AIだけで障害の原因を説明できない事例が増えている。",
+        "専門家は12月に障害が深刻化すると警告している。"
+      ],
+      "keywords": [
+        "システム障害",
+        "AI",
+        "Microsoft Outlook",
+        "航空管制",
+        "障害対応"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 8,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "hackernews",
+      "sourceLabel": "Hacker News",
+      "title": "Upload2Shell · CVE-2026-125396",
+      "url": "https://pwn.ai/upload2shell",
+      "publishedAt": "2026-11-21T18:29:29.000Z",
+      "author": "f311a",
+      "authorDetail": {
+        "name": "f311a",
+        "handle": "f311a",
+        "url": "https://news.ycombinator.com/user?id=f311a"
+      },
+      "tags": [],
+      "snippet": "",
+      "metrics": {
+        "points": 54,
+        "comments": 13
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "fa4fecae170e4c84",
+      "foundIn": [
+        "hackernews"
+      ],
+      "preScore": 0.47655172413793107,
+      "popularityPercentile": 0.6206896551724138,
+      "matchedTopics": [
+        "セキュアな開発"
+      ],
+      "buzz": false,
+      "score": 60,
+      "titleJa": "Upload2Shell — CVE-2026-125396の脆弱性",
+      "oneLiner": "Upload2Shellとして知られるCVE-2026-125396が公開された。",
+      "takeaways": [
+        "記事本文は提供されていない。",
+        "脆弱性の影響範囲は抜粋から判断できない。"
+      ],
+      "keywords": [
+        "Upload2Shell",
+        "CVE-2026-125396",
+        "脆弱性"
+      ],
+      "category": "調査・考察",
+      "lane": "know",
+      "readingMinutes": 1,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "racdeufindurch198812/Blender-AI-MCP-Studio — Blender AI MCP Studio is an AI assistant and built-in Model Context Protocol MCP server for Blender that turns plain-language briefs into inspected, approved and reversible 3D scene operations — with a visual chat workspace, multi-agent teams and your choice of AI models. · blender ai mcp studio · mcp-for-blender · mcp for blender pro",
+      "url": "https://github.com/racdeufindurch198812/Blender-AI-MCP-Studio",
+      "publishedAt": "2026-11-12T19:28:20.000Z",
+      "author": "racdeufindurch198812",
+      "authorDetail": {
+        "name": "racdeufindurch198812",
+        "url": "https://github.com/racdeufindurch198812",
+        "avatarUrl": "https://github.com/racdeufindurch198812.png?size=120",
+        "bio": "Blender AI MCP Studio is an AI assistant and built-in Model Context Protocol MCP server for Blender that turns plain-language briefs into inspected, approved and reversible 3D scene operations — with a visual chat workspace, multi-agent teams and your choice of AI models. · blender ai mcp studio · mcp-for-blender · mcp for blender pro"
+      },
+      "tags": [
+        "3d-automation",
+        "3d-modeling",
+        "blender",
+        "blender-addon",
+        "blender-agents",
+        "blender-ai",
+        "blender-assistant",
+        "blender-automation"
+      ],
+      "snippet": "Blender AI MCP Studio is an AI assistant and built-in Model Context Protocol MCP server for Blender that turns plain-language briefs into inspected, approved and reversible 3D scene operations — with a visual chat workspace, multi-agent teams and your choice of AI models. · blender ai mcp studio · mcp-for-blender · mcp for blender pro",
+      "metrics": {
+        "stars": 516
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "40911d7586965a86",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.36948275862068963,
+      "popularityPercentile": 0.29310344827586204,
+      "matchedTopics": [
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 85,
+      "titleJa": "Blender AI MCP Studio — 会話で3Dシーンを作る支援ツール",
+      "oneLiner": "Blender AI MCP Studioは自然文から確認可能で元に戻せる3Dシーン操作を作るBlender拡張です。",
+      "takeaways": [
+        "文章でBlenderのシーン操作を指示できる。",
+        "実行前に内容を確認して承認できる。",
+        "複数のAI担当者を使い分けられる。"
+      ],
+      "keywords": [
+        "Blender AI MCP Studio",
+        "Blender",
+        "MCP",
+        "multi-agent",
+        "3D modeling"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nracdeufindurch198812/Blender-AI-MCP-Studio — Blender AI MCP Studio is an AI assistant and built-in Model Context Protocol MCP server for Blender that turns plain-language briefs into inspected, approved and reversible 3D scene operations — with a visual chat workspace, multi-agent teams and your choice of AI models. · blender ai mcp studio · mcp-for-blender · mcp for blender pro を動かして、README の最初の出力まで到達する\nhttps://github.com/racdeufindurch198812/Blender-AI-MCP-Studio\n\n# 手順\n1. git clone --depth 1 https://github.com/racdeufindurch198812/Blender-AI-MCP-Studio\n2. cd Blender-AI-MCP-Studio && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "Doug-218/blender-ai-copilot-forge — A scene-forging AI copilot for Blender—describe the layout and watch primitives, cameras, lights, materials and parenting assemble in ordered steps, with approvals, named undo and a built-in MCP server. · blender-ai-copilot-forge · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation",
+      "url": "https://github.com/Doug-218/blender-ai-copilot-forge",
+      "publishedAt": "2026-11-12T19:35:10.000Z",
+      "author": "Doug-218",
+      "authorDetail": {
+        "name": "Doug-218",
+        "url": "https://github.com/Doug-218",
+        "avatarUrl": "https://github.com/Doug-218.png?size=120",
+        "bio": "A scene-forging AI copilot for Blender—describe the layout and watch primitives, cameras, lights, materials and parenting assemble in ordered steps, with approvals, named undo and a built-in MCP server. · blender-ai-copilot-forge · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation"
+      },
+      "tags": [
+        "3d-automation",
+        "3d-modeling",
+        "blender",
+        "blender-addon",
+        "blender-agents",
+        "blender-ai",
+        "blender-assistant",
+        "blender-automation"
+      ],
+      "snippet": "A scene-forging AI copilot for Blender—describe the layout and watch primitives, cameras, lights, materials and parenting assemble in ordered steps, with approvals, named undo and a built-in MCP server. · blender-ai-copilot-forge · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation",
+      "metrics": {
+        "stars": 509
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "ab841a0006884639",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7906896551724139,
+      "popularityPercentile": 0.27586206896551724,
+      "matchedTopics": [
+        "AI支援開発・品質",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": "blender-ai-copilot-forge — 手順付きで3Dシーンを組み立てる支援ツール",
+      "oneLiner": "blender-ai-copilot-forgeは指示に沿ってBlenderの3Dシーンを段階的に組み立てるAI拡張です。",
+      "takeaways": [
+        "文章でシーンの構成を指示できる。",
+        "物体や照明を順番に組み立てられる。",
+        "承認と名前付きの取り消しに対応する。"
+      ],
+      "keywords": [
+        "blender-ai-copilot-forge",
+        "Blender",
+        "MCP",
+        "scene automation",
+        "AI copilot"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nDoug-218/blender-ai-copilot-forge — A scene-forging AI copilot for Blender—describe the layout and watch primitives, cameras, lights, materials and parenting assemble in ordered steps, with approvals, named undo and a built-in MCP server. · blender-ai-copilot-forge · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation を動かして、README の最初の出力まで到達する\nhttps://github.com/Doug-218/blender-ai-copilot-forge\n\n# 手順\n1. git clone --depth 1 https://github.com/Doug-218/blender-ai-copilot-forge\n2. cd blender-ai-copilot-forge && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "対話駆動仕様開発 isdd v2.3.0 ― v1系から変わったことと、isddあり・なしで測って分かった強みと弱み",
+      "url": "https://qiita.com/notfolder/items/369b863ade7e37b798d8",
+      "publishedAt": "2026-11-20T22:59:09.000Z",
+      "author": "notfolder",
+      "authorDetail": {
+        "name": "notfolder",
+        "handle": "@notfolder",
+        "url": "https://qiita.com/notfolder",
+        "avatarUrl": "https://s3-ap-northeast-1.amazonaws.com/qiita-image-store/0/490869/d4c96d1d8b0edc30a2cf0435a6f045b701d23a7d/x_large.png?1745393782",
+        "bio": "システムエンジニア歴30年以上。AIに要件を聞き取らせてから作る手順 isdd(対話駆動仕様開発)を作り、効果を測って書いています。Unity ゲーム『ことづての庭』も AI と作りました https://kotozute.notfolder.org/",
+        "followers": 7,
+        "posts": 42,
+        "links": [
+          {
+            "label": "X",
+            "url": "https://x.com/notfolder"
+          },
+          {
+            "label": "Web",
+            "url": "https://github.com/notfolder"
+          }
+        ]
+      },
+      "tags": [
+        "要件定義",
+        "生成AI",
+        "AIコーディング",
+        "仕様駆動開発",
+        "ClaudeCode"
+      ],
+      "snippet": "はじめに isdd（Interview-driven Spec-driven Development）は、AIのコーディングエージェントに入れて使うスキル群です。エージェントがインタビューで要件を聞き取り、要件定義書と詳細設計書を作ってから実装します。要件・設計・コードの対応はIDで追い、チェッカーで機械的に確かめます。 リポジトリは https://github.com/notfolder/isdd です。 isddについては、これまで次の記事を書いてきました。 | 時期 | 記事 | 書いたこと | |---|---|---| | 2026年3月 | コードが読めなくてもAIで品質の高いソフトウェアが作れる | 要件定義書と設計書を先に作る進め方と、そのためのプロンプト | | 2026年4月 | kiro vs 自作プロンプト | 同じアプリをkiroの標準の進め方と自作プロンプトで…",
+      "body": "はじめに\n\nisdd（Interview-driven Spec-driven Development）は、AIのコーディングエージェントに入れて使うスキル群です。エージェントがインタビューで要件を聞き取り、要件定義書と詳細設計書を作ってから実装します。要件・設計・コードの対応はIDで追い、チェッカーで機械的に確かめます。\n\nリポジトリは https://github.com/notfolder/isdd です。\n\nisddについては、これまで次の記事を書いてきました。\n\n| 時期 | 記事 | 書いたこと |\n|---|---|---|\n| 2026年3月 | コードが読めなくてもAIで品質の高いソフトウェアが作れる | 要件定義書と設計書を先に作る進め方と、そのためのプロンプト |\n| 2026年4月 | kiro vs 自作プロンプト | 同じアプリをkiroの標準の進め方と自作プロンプトで作り比べた結果 |\n| 2026年5月 | 対話駆動仕様開発 isdd | プロンプトをスキルにしたisddの紹介。v1系の内容 |\n| 2026年6月 | isdd v1.0.14 開発ログ | ローカルLLMでスキルのevalを回した記録 |\n\nv1.0.14のあと、v2.0.0からv2.3.0まで5回公開しました。その間の記事は書いていません。この記事1本で、v1系からv2.3.0までの変更と、v2.3.0の評価をまとめます。\n\n先に結論です。isddは、要件を自分で決め切って文章にできる人には要りません。作りたいものはあるが、要件を細部まで決め切れていない人に向いています。比較計測の次の3点が根拠です。\n・依頼と受け入れ基準が文章で決まっている題材では、isddを使っても点数は変わらなかった。備品管理アプリの題材では、新しく消費したトークンが約4.4倍だった\n・差が出たのは、あいまいな依頼から要件を決める場面だった。依頼者だけが知っている20項目のうち、要件定義書に正しく入った数は、isddなしが平均2.7、isddありが平均14.7だった\n・あいまいな依頼を実装の完了まで通すと、隠しテスト8本の平均は、isddなしが2.5、isddありが6.7だった\n\nこの記事の読み方\n\n| 読む人 | 読む章 |\n|---|---|\n| isddを初めて知った方 | 「isddとは」「導入と更新」。そのあと「isddあり・なしの比較計測」と「強みと弱み」 |\n| 以前の記事を読んだ方、v1系を使っている方 | 「以前の記事から変わったこと」「版ごとの変更」「導入と更新」 |\n| 自分に要るかを知りたい方 | 「どんな人と案件に向くか」「強みと弱み」 |\n| 効果があるのかを知りたい方 | 「v2.3.0のeval」「isddあり・なしの比較計測」「強みと弱み」 |\n\nisddとは\n\n何を解決したいか\n\nAIに実装を任せると、速く作れます。一方で、次の3つが起きやすくなります。\n・要件があいまいなまま実装が進む\n・変更したときに、どこへ影響するかを追えない\n・作った人やセッションが変わると、何が実装済みかが分からなくなる\n\nisddが文書で残すのは、文脈を持たない次の作業者に守ってほしい内容です。次の作業者とは、別のセッション、別の人、スキルを持たないエージェントのことです。文書は、要件、設計、対応表、依存の規則、受け入れテストの5種類あります。守られているかはチェッカーで確かめます。\n\n1回のセッションで仕様どおりに作ることは、モデルに任せる範囲です。isddは次の4つを受け持ちます。\n\n1. 要件を業務課題から絞る。業務課題に結びつかない要件は残さない\n2. 変更を重ねても、文書と実装がずれないようにする\n3. 作りすぎを見つける。要件に結びつかない公開関数、画面、設定項目を数える\n4. エージェントに機械的な完了条件を渡す\n\n流れ\n\n [code] \n\n人が確認して承認するのは、仕様ができたときと、実装が終わったときの2回です。スキルもこの区切りで分かれています。\n\n| スキル | 役割 |\n|---|---|\n| isdd-spec | インタビューで要件と設計を作り、承認を取る |\n| isdd-build | 設計どおりに実装して対応表を作り、実装後レビューで文書とコードの整合を確かめる |\n| isdd-reverse-engineering | 既存のコードから要件定義書と詳細設計書を書き起こす。既存のコードは変更しない |\n| isdd-setup | チェッカーとpre-commitをプロジェクトに入れる |\n\n用語\n\nこの記事で使う用語です。\n\n| 用語 | 意味 |\n|---|---|\n| 正本 | 確定した要件定義書docs/requirements.mdと詳細設計書docs/detaildesign.md |\n| 要件ID | RQ-[カテゴリ]-[内容]の形のID。例は業務課題のRQ-BK、機能のRQ-FT、テスト用シナリオのRQ-TS |\n| 設計ID | DS-[種類]-[要素名]の形のID。例はモジュールのDS-MD、関数のDS-FN、E2EシナリオのDS-TS |\n| 対応表 | 設計IDとコードの対応を書くdocs/tracemap.md |\n| 変更フロー | 正本があるプロジェクトに変更を入れるときの流れ |\n| 受け入れ判定 | E2Eの結果から、要件ごとに「実装済み / 不合格 / 未検証」を出す判定 |\n\nIDはRQ-001のような連番にしていません。意味の分かる名前を付けます。\n\nどんな人と案件に向くか\n\nいちばん分かりやすい基準は、要件を自分で決め切れるかどうかです。画面の文言、入力の桁数、空欄のときの振る舞いまで自分で文章にできるなら、その文章をそのままエージェントに渡せば足ります。後の章の計測でも、その条件ではisddを使っても点数は変わらず、トークンと時間が余計にかかりました。\n\nisddのインタビューが役に立つのは、決め切れていない人です。エージェントが業務の問題から順に聞き、依頼に書かれていない決め事を質問にして返します。答えた内容は要件定義書に残るので、コードを読まない方でも、何を作ることになったかを文書で確かめられます。\n\nまとめたのが次の表です。\n\n| 向く | 向かない |\n|---|---|\n| 作りたいものはあるが、要件を細部まで決め切れていない | 要件を細部まで自分で文章にできる |\n| 要件を業務の言葉で絞りたい | 要件が既に完全な形で与えられている |\n| 何を作ることになったかを文書で確かめたい | 使い捨て、1セッションで終わる小物や、1〜2ファイルの修正だけ |\n\n以前の記事から変わったこと\n\n5月の記事とv1.0.14の記事に書いたことのうち、今は違っている点です。\n\n| 以前の記事の内容 | v2.3.0 |\n|---|---|\n| gh skill install notfolder/req-spec-drivenで導入する | gh skill install notfolder/isddで導入する。リポジトリ名を変えた。古いURLは新しいURLへ転送される |\n| /isdd-requirementsから始める | /isdd-specから始める |\n| スキルは9本と共通スキルisdd-common | 4本。共通スキルは廃止した |\n| 実装時に、コードへ要件IDと設計IDのコメントを埋め込む | コードにIDを書かない。対応はdocs/tracemap.mdに書く |\n| 設計IDはDS-[種類]-[内容]-[要件のカテゴリ]-[要件の内容] | DS-[種類]-[要素名]。要件との対応は設計書の第11章だけに書く。長いIDも有効なまま |\n| 変更のたびに正本を更新する | 正本は実装済みの仕様だけを持つ。変更は実装の後に反映する |\n| 設計の章立てにPythonやStreamlitなどの既定値がある | 既定値を持たない。要件の技術制約と調査結果から候補を出し、承認を取る |\n| docker composeや初期ユーザーを無条件に求める | 実行形態、認証、外部連携に応じて切り替える |\n| 質問は1問ずつ | 依存のある問いは1問ずつ、独立した問いは番号を付けてまとめて出す |\n| 評価は、モデルとエージェントツールの組み合わせごとの所感 | 場面ごとのevalをClaude Haiku 5.5だけで回す。別に、isddあり・なしの比較計測をした |\n\n5月の記事では、非エンジニアが要件定義書を確認し、実装はAIに任せると書きました。この考え方は変えていません。今回の計測では、その前提になる「あいまいな依頼から正しい要件を決められるか」も測っています。\n\n5月の記事には「AIは実装とテストを同時に書くと自己採点に寄る」とも書きました。isddは受け入れテストを要件の段階で決めますが、この問題が解けたかどうかは、今回の計測では確かめられていません。\n\nv1系で作ったプロジェクトは、そのまま使い続けられます。手順は「導入と更新」にあります。\n\n版ごとの変更\n\n [code] \n\nv2.0.0 コードにIDを書かない\n\nv1系では、実装した関数ごとにIDをコメントで書き込んでいました。コードが読みにくくなり、既存のコードに入れるにはリファクタリングが要ります。\n\nv2.0.0でコードへのIDコメントをやめ、対応を対応表に移しました。対応表はMarkdownの表で、列は「DS-ID」「修飾名」「備考」の3つです。evalで使っているHello Worldの対応表を示します。この題材はv2.0系の長い設計IDのままで、v2.3.0でも有効です。\n\n| DS-ID | 修飾名 | 備考 |\n|---|---|---|\n| DS-MD-HELLO-MODULE-FT-PRINT-HELLO-WORLD | src/hello.py | モジュール |\n| DS-CL-HELLO-WORLD-PRINTER-FT-PRINT-HELLO-WORLD | src/hello.py::HelloWorldPrinter | クラス |\n| DS-FN-GET-HELLO-MESSAGE-FT-GET-HELLO-MESSAGE | src/hello.py::HelloWorldPrinter.gethellomessage | メソッド |\n| DS-FN-PRINT-HELLO-WORLD-FT-PRINT-HELLO-WORLD | src/hello.py::HelloWorldPrinter.printhelloworld | メソッド |\n\ntracemapchecker.pyは、詳細設計書、対応表、コードの3つを照らし合わせます。上の題材でメソッド名をgethellomessageからbuildmessageに変え、v2.3.0のチェッカーを実行した出力です。\n\n [code] \n\n改名前の名前は、対応表が指す先が無いのでエラーになります。改名後の名前は、対応表に載っていないので警告です。\n\nスキルが起動していないときも同じチェックが走るように、チェックを呼ぶ場所を3つにしました。\n\n [code] \n\npre-commitが止めるのはエラーだけで、警告では止めません。スキルを持っていない人がコードを足す場合があるためです。そのずれは、isdd-buildの実装後レビューが対応表と設計書に取り込みます。isdd-buildの完了条件は、エラーも警告も0件です。\n\nこの仕組みをプロジェクトに入れるスキルがisdd-setupです。チェッカーをscripts/isdd/に複製し、check.shとpre-commitを作り、AGENTS.mdとCLAUDE.mdに規則を追記します。\n\nv2.0.0ではほかに次の変更をしました。\n・共通スキルisdd-commonを廃止し、共通ファイルを各スキルに同梱した。スキルを1つだけ入れても動く\n・スキルの書き方を見直した。「あなたは〜として振る舞う」という役割指定をやめ、目的を書く。「必ず」「絶対」「禁止」の強調はSKILL.md全体で135か所あり、変わらない規則だけを理由付きで残した\n・設計の章立てから製品名の既定値を消した\n・記号まで確認できる言語を、Python、TypeScript / JavaScript、Java、Goにした。ほかの言語はファイルの存在だけを確かめる\n\nv2.0.1 正本は実装済みの仕様だけを持つ\n\nv2.0.0では、変更設計が確定した時点で正本を書き換えていました。この方式だと、実装をやめたり途中で止まったりしたときに、作っていない仕様が正本に残ります。\n\nv2.0.1で元に戻しました。変更フローでは、変更要件定義書と変更設計書を.history/[日付]-[タスク名]/に作り、その場所をdocs/activechangeに書きます。正本は書き換えません。実装中は、対応表チェックが変更設計書を正本に重ねて読みます。有効な設計IDは「正本＋変更設計書−削除した設計ID」です。正本への反映は、実装の後に実装後レビューだけが行います。\n\n [code] \n\nv2.1.0 スキルを4本にまとめ、追跡を3つに分ける\n\nv2.0.0の時点でスキルは10本ありました。要件定義、変更要件定義、外部連携の事前確認と詳細調査、設計、変更設計の6本をisdd-specに、実装と実装後レビューの2本をisdd-buildにまとめています。分ける基準は、人が確認して承認する区切りです。\n\n業務課題から要件、設計、実装、実装後レビューへ進む流れは変えていません。小さな変更のつもりでも大きな変更になりうるので、小さな変更向けの近道も作りませんでした。\n\n設計IDはDS-[種類]-[要素名]に短くしました。要件との対応は設計書の第11章「要件と設計の対応表」だけに書きます。要件を差し替えても、中身の変わらない設計要素のIDは変わりません。\n\n追跡は3つに分けています。\n\n| 見るもの | 何で確かめるか |\n|---|---|\n| 要件が実装されたか | 要件のテスト用シナリオRQ-TSから設計書のDS-TS、e2e/のテスト関数までのつながり |\n| 設計に無いコードが無いか | 対応表。粒度は設計書第7章でfunctionかclassを選ぶ |\n| 設計の構造が守られているか | dependencychecker.pyが、第7章の依存の規則に反するimportを検出する |\n\n外部連携の扱いも段階の境界で分けました。要件の段階では、連携先ごとに1回のヒアリングと接続テスト、仕様の調査、要件との照らし合わせまでを行います。連携ライブラリの採否とモック方式は設計の段階で承認を取り、コードはisdd-buildが作ります。\n\nv2.2.0 受け入れテストで中身を確かめる\n\n対応表と依存の規則で確かめられるのは、対応が書かれているかと、設計に無いコードが無いかです。中身が要件どおりかは確かめません。v2.2.0でこの位置づけをREADMEに書き、中身の確認を受け入れテストに任せました。\n\n要件定義書の第7章の表に「検証する要件ID」列を足しています。acceptancechecker.pyはE2Eの結果（JUnit XML）を対応表のDS-TS行と照らし合わせ、この列をたどって要件ごとの判定を出します。isdd-buildの完了条件は、判定が全部「実装済み」になることです。\n\n [code] \n\n実装後レビューの未マッピング一覧には「要件なし（作りすぎ）」の区分と件数を足しました。\n\nv2.3.0 依頼に無い決め事を見える化する\n\nv2.3.0の変更は2つで、どちらも公開前にisddを試しに動かして見つかった問題への対応です。\n\n1つ目は、依頼に無い決め事の見える化です。試したときには、空欄のときの文言や選択肢の上限などを、エージェントが依頼者に知らせずに決めていました。決めること自体は必要なので、禁止はしていません。要件定義書に「1-2. 依頼に無く自分で決めた項目」の節を必須で置き、次の表に残します。\n\n| 項目 | 決めた内容 | 根拠（最小案か、依頼のどこから推測したか） | 承認（承認済 / 未確認） |\n|---|---|---|---|\n\nヒアリングの規則には、決め事を見落とさないための洗い出しの表を足しました。\n\n| 対象 | 洗い出す場合 |\n|---|---|\n| 入力ごと | 無い、空、形式が違う、大きすぎる・多すぎる、重複している |\n| 出力ごと | 0件のとき、上限を超えたとき、書き込めないとき |\n| 操作ごと | 同時に行われたとき、繰り返したとき、途中で失敗したとき |\n| 値ごと | 既定値、上限と下限、文字種と長さ |\n\n聞ける状況では要件の段階でまとめて聞きます。聞けない状況では最小案で決め、「承認」列を「未確認」にして進めます。承認を求める報告には、この表をそのまま貼る決まりです。rqintegritychecker.pyは節が無い要件定義書を指摘します。\n\n2つ目は、対応表チェッカーの走査範囲です。--srcにファイルを書けるようにし、--excludeで除外できるようにしました。数千ファイルある既存リポジトリの一部だけをisddの対象にしたとき、範囲の外のコードが大量に未登録として報告されたためです。あわせて、設計IDのDS-MDを付ける対象を、チェッカーが走査するコードだけに限りました。起動スクリプトはDS-OP、テンプレートやCSSはDS-IFで受けます。\n\nv2.3.0のeval\n\nv2.3.0の評価は2種類あります。この章のevalは、スキルが手順どおりに動くかを場面ごとに確かめるものです。次の章の比較計測は、isddを使うと結果が良くなるかを確かめるものです。\n\n進め方\n・モデルはClaude Haiku 5.5だけを使う\n・1回目で落ちたら、再試行で通ってもスキルの質の問題としてSKILL.mdを直す\n・強いモデルで通して済ませることはしない\n\n5月の記事では、モデルとエージェントツールの組み合わせごとに所感を書きました。v2系では、いちばん小さいモデルで手順が通ることを合格の基準にしています。Haikuで通る手順なら、より強いモデルでも通ると考えているためです。\n\n採点は、決められる判定をプログラムで行います。採点の中でチェッカーを再実行し、ファイルの中身を確かめます。モデルに判定させるのは、会話の流れで決まる判定だけです。承認の前に止まったか、開始時にどの流れへ進んだかなどが当たります。\n\n結果\n\nv2.3.0の公開前に、全28場面を回しました。Anthropic APIの月間上限に達していたので、同じ場面定義をClaude Codeのログインで回すevals/run-claude-code.pyを使っています。wazaで回した結果とは実行基盤が違います。\n\n1回目は5場面が落ちました。スキルとチェッカーを直して回し直し、全28場面が合格しています。採点項目は合計165個です。場面ごとの結果は、リポジトリのevals/artifacts-claude-code/にあります。\n\n| スキル | 場面の数 | 確かめていること |\n|---|---|---|\n| isdd-spec | 16 | 開始時の振り分け、要件定義、設計、変更要件定義と変更設計、外部連携の接続テスト、承認の前に止まること、ヒアリングの作法、依頼に無い決め事の見える化 |\n| isdd-build | 10 | 対応表の作成、進行中の変更を正本に重ねた実装、設計に無い要素で止まること、実装後レビュー、未マッピングの検出、チェッカーの版の食い違い |\n| isdd-reverse-engineering | 1 | 既存コードからの要件定義書と詳細設計書の書き起こし |\n| isdd-setup | 1 | チェッカーとpre-commitの導入 |\n\n1場面にかかった時間は25秒から220秒で、28場面の合計は約53分でした。\n\n1回目に落ちた内容と、直したことです。\n\n| 落ちた内容 | 直したこと |\n|---|---|\n| isdd-specが、「続けて」のような承認の言葉が無い指示で実装へ進んだ | 仕様への明示の同意が無ければ、承認待ちで止まる |\n| isdd-buildが、設計に無い要素で止まったあと、自分でisdd-specを起動して文書を作った | 止まったあとにisdd-specを自分で起動しない |\n| 1-2の表に、本文に書いた決め事が載っていなかった | 本文に書く前に表へ足す。レビューでは要件の表を1行ごとに確かめる |\n| acceptancechecker.pyが、進行中の変更で削除する要件も判定の対象にしていた | 削除にした要件、RQ-TS、DS-TSを判定から外す |\n\nチェッカーの単体テストは95本あります。標準ライブラリだけで書いてあり、動作の対象はPython 3.9以上です。CIは持たず、bash tools/testpythons.shで手元にある複数の版を使って通しています。\n\nevalの題材はHello Worldと小さなCRMのデータベースです。確かめているのは手順が通ることで、作ったソフトの品質ではありません。品質への効果は次の章で測りました。\n\nisddあり・なしの比較計測\n\n計測の条件\n\nisddのスキルを使う群と、スキルを使わず依頼の文章だけを受け取る対照群を比べました。\n・モデルは両群で同じにする。11月5日の計測はClaude Haiku 5.5\n・計測専用のフォルダからclaude -pで無人実行する。対照群からisddのスキルが見えないことを毎回記録した\n・段ごとに新しいセッションで実行し、前の段の成果物だけを引き継ぐ\n・isdd群のヒアリングと承認は、あらかじめ用意した回答で代替する。あいまいな依頼の計測だけは、依頼者役のモデルが質問に答える\n・変更の題材は、機能の追加ではなく既存機能の変更にした\n・Webサイトの採点はOpus 5.5の採点者3人の多数決で、基準は文章で固定した\n・時期は2026年11月5日で、v2.3.0の公開の直前\n・使ったスキルは、v2.3.0の2つの変更を入れたあとのもの。公開前evalで直した5件は入っていない\n・公開後の11月19日から21日に、公開したv2.3.0で計測を2つ足した。依頼に書いていない決まりを含む変更と、あいまいな依頼を実装の完了まで通す計測で、後者のモデルはOpus 5.5\n\n変更の題材を既存機能の変更にしたのは、追加だけの依頼では、前の段のテストが落ちる退行が起きにくいためです。\n\n結果\n\n| 題材 | 対照群 | isdd群 |\n|---|---|---|\n| 備品管理アプリ。新規のあと既存機能の変更を2回。各群5回、最終段23本の平均 | 21.8/23 | 22.2/23 |\n| 上の備品管理アプリで、新しく消費したトークンの平均 | 265,319 | 1,179,767 |\n| Webサイト5課題を3回ずつ。新規のあと既存機能の変更を2回。最終段の合計 | 79/81 | 76.5/81 |\n| 上のWebサイトで、変更のケース57件のうち取りこぼした数 | 1 | 9 |\n| あいまいな依頼から要件を決める。依頼者だけが知る20項目との一致の平均 | 2.7 | 14.7 |\n| 依頼に書いていない決まりを含む変更を3回。備品管理アプリの続き、各群1回、最終段38本 | 38/38 | 38/38 |\n| あいまいな依頼を実装の完了まで通す。Opus 5.5、対照群12回とisdd群3回、隠しテスト8本の平均 | 2.5 | 6.7 |\n| 1段の所要時間の中央値 | 94秒 | 694秒 |\n| 1段のツール呼び出しの中央値 | 12回 | 59回 |\n\n備品管理アプリでは、isdd群が新しく消費したトークンは対照群の約4.4倍でした。1段の所要時間は約7倍です。所要時間とツール呼び出しの中央値は、11月5日の備品管理アプリとWebサイトの計測から出しました。\n\n差が出なかった題材\n\n備品管理アプリは、3月の記事から使っている題材です。画面の文言や振る舞いを契約の文書で渡し、隠しテストで合否を決めました。段2で社員番号を6桁から7桁に、段3で「担当者」を「管理者」に全画面で改称しています。変更の取りこぼしを拾うテストは両群とも全回合格し、退行も全回0でした。\n\n依頼と契約で合否が決まり、変更する箇所が文章で示されている題材では、Haikuはisddなしでも既存の機能を壊しませんでした。要件を決め切って渡せる人にとって、isddの手順は余分な手間になります。\n\n変更する箇所を文章で示さない依頼でも試しました。備品管理アプリの続きとして、変更を3回重ねます。依頼は業務の言葉だけで書き、前の段で決めた決まりには触れません。たとえば「借りている社員は削除できない」「管理者を0人にしない」といった決まりです。結果は両群とも38本すべて合格で、退行もありませんでした。所要時間は対照群が5.1分、isdd群が43.0分です。Opus 5.5で最初から作り直した回も、両群とも全段満点でした。コードは1,000行前後で、既存のコードを読めば決まりが分かる大きさです。この規模では、対応表による追跡は差を生みませんでした。\n\nWebサイトでは、isdd群のほうが低い点になりました。依頼に書かれていない「操作後の確認の知らせ」を、isdd群が作らないことが多かったためです。isdd群は要件に書いたことだけを作ります。3回ずつの結果なので、ばらつきの範囲である可能性も残ります。\n\n差が出た題材\n\n差がはっきり出たのは、あいまいな依頼から要件を決める計測です。契約には文言を書かず、依頼者役のモデルが、隠した台帳の範囲でだけ質問に答えます。\n\n| 群 | 依頼者に聞いた項目 | 台帳と一致 | 食い違い | 書かれていない |\n|---|---|---|---|---|\n| 対照群の平均 | 2.0 | 2.7 | 2.3 | 15.0 |\n| isdd群の平均 | 12.3 | 14.7 | 1.0 | 4.3 |\n\n対照群は質問を最終報告にまとめて出し、同時に完了の印を作りました。依頼者役が答える機会が無く、聞かずに決めた分が台帳から外れています。isdd群は手順どおりに要件と設計の承認を取り、台帳の大半を要件定義書に書きました。\n\n4月の記事では、情報が足りないまま仕様書を作ると失敗すると書きました。今回の数字は、聞いてから決める進め方の効果を、スキルの有無だけを変えて比べたものです。要件を決め切れていない依頼者から見ると、聞かれたことに答えるだけで、決め事の大半が要件定義書に入ったことになります。\n\nv2.3.0の公開後に、同じ題材を実装の完了まで通しました。モデルは両群ともOpus 5.5です。回数はisdd群が3回、対照群が12回です。対照群は点の揺れが大きかったので、回数を足しました。\n\n| 指標 | 対照群 | isdd群 |\n|---|---|---|\n| 隠しテスト8本の通過。回ごとの内訳 | 1・3・7・3・1・1・3・4・1・4・1・1 | 7・5・8 |\n| 隠しテスト8本の通過。平均 | 2.5 | 6.7 |\n| 依頼者が答えた往復の平均 | 0.5 | 11.0 |\n| 所要の平均 | 約3.4分 | 約24分 |\n| 総トークンの平均 | 約55万 | 約1,070万 |\n\n平均の差を並べ替え検定で確かめると、p=0.0066でした。\n\n対照群が落としたのは、聞かなかったか、聞き足りなかった項目です。ボタンの文言や0件のときの表示が台帳と違いました。ボタンの文言が違うと備品を登録できず、その先を確かめるテストもまとめて落ちます。isdd群の要件定義書と台帳の一致は、3回が20・18・20項目です。要件定義書に正しく書いたのに実装が違う、という失点は1件もありません。isdd群が落とした4本のうち2本は、行の「修正」をボタンにせずリンクにしたものです。残りの2本は、isddが示した文言の案を依頼者役が直し漏らしたものでした。\n\nこの隠しテストには、台帳と契約から決まらない期待が2か所ありました。両群が同じ箇所で落ちていたので、その2か所をどちらの書き方でも通すように直し、両群を採点し直しています。上の表は直した後の値です。\n\n対照群の12回のうち、何も聞かなかった6回はすべて1本でした。1回だけ質問した6回の平均は4.0本です。聞けば点は上がりますが、聞くかどうかは回によって違いました。isddで変わるのは、毎回必ず聞くようになる点です。\n\n計測で見つかった弱み\n・契約で仕様が決まっている題材では、点数が変わらないまま、トークンが約4.4倍、1段の時間が約7倍かかる\n・Webサイトでは、依頼に書かれていない「操作後の確認の知らせ」を作らないことが多く、変更の取りこぼしが対照群より多かった\n・依頼者との往復が多い。あいまいな依頼の計測では12〜17回の往復で、18〜47分かかった。Opus 5.5の回でも、依頼者が答えた往復は平均11回だった\n・変更する箇所を示さない依頼でも、1,000行前後のコードでは対応表による追跡が差を生まなかった\n・無人実行のisdd群は、スキルを呼ぶ機能を使わずにSKILL.mdを直接読んで進める\n\n強みと弱み\n\nevalと計測、設計から、強みを5つ挙げます。\n\n1つ目は、依頼に無い決め事を依頼者に聞いて決め、記録に残せることです。計測でいちばん大きな差が出たのがこの点でした。実装の完了まで通した計測でも、聞いて決めた分が隠しテストの点の差になりました。v2.3.0では、聞けずに決めた項目も1-2の表に残ります。「依頼に書いてあったこと」と「エージェントが決めたこと」を、あとから区別できます。\n\n2つ目は、エージェントに機械的な完了条件を渡せることです。対応表チェック、依存チェック、受け入れ判定が全部通ることが完了の条件です。スキルが起動していないときも、pre-commitと応答終了時のフックで同じチェックが走ります。\n\n3つ目は、正本が実装済みの仕様だけを持つことです。変更を途中でやめても、作っていない仕様が正本に残りません。\n\n4つ目は、会話を引き継がずに再開できることです。再開に要るのは正本、対応表、コード、変更フローならdocs/activechangeが指すディレクトリの文書だけです。計測でも、段ごとに新しいセッションで実行しました。\n\n5つ目は、Haikuで動くことをevalで確かめていることです。手順の抜けは、いちばん小さいモデルで先に見つかります。\n\n弱みは「計測で見つかった弱み」に書いたとおりです。\n\n強みの1つ目と弱みを合わせると、isddが要るかどうかは、要件を自分で決め切れるかで分かれます。決め切って文章で渡せる人は、isddなしで同じ点数を、少ないトークンと時間で得られました。決め切れていない人がisddなしで頼むと、聞かれないまま、エージェントに決められてしまいます。要件を決め切れる人にisddは要りません。\n\n導入と更新\n\n新しく導入する\n\n次のコマンドを対話モードで実行し、スキル選択画面で(all skills)を選びます。そのあと、使っているコーディングエージェントを選びます。\n\n [code] \n\n導入後の始め方は次のとおりです。\n\n [code] \n\n既存のコードがあるプロジェクトでも、同じコマンドで始められます。isdd-specが開始時に状況を判定し、isddの文書が無ければisdd-reverse-engineeringへ案内します。\n\nv1系から更新する\n\ngh skill updateは、新しく増えたスキルを入れず、廃止したスキルも消しません。全スキルを入れ直してから、古いスキルを消してください。--agentと--scopeは、最初に導入したときと同じ値にします。\n\n [code] \n\n古いisdd-commonには、コードにIDコメントを書く旧方式の規則が入っています。新しいスキルはこれを参照しませんが、エージェントが読むと古い規則で動くおそれがあるので消してください。\n\nv1系で作ったプロジェクトは、次の順で対応表方式に移せます。\n\n [code] \n\nコードに旧方式のIDコメントが残っていても、新しいスキルは動きます。対応表のチェックはコメントを読まないためです。対応表はisdd-buildの実装後レビューで作れます。旧コメントに書いてある設計IDが、登録の手がかりになります。対応表ができたら、旧コメントのIDを消してください。isdd-buildの完了条件に「コードに要件ID・設計IDを含むコメントが無い」があるためです。長い設計IDは書き換えなくてかまいません。\n\nv2系から更新する\n\nv2.1系かv2.2系から更新するときは、全スキルを入れ直します。\n\n [code] \n\n更新後は、各プロジェクトでisdd-setupを再実行してください。v2.2系で作った要件定義書には「1-2. 依頼に無く自分で決めた項目」の節が無いので、rqintegritychecker.pyが節の欠落を報告します。第1章の末尾に節を足し、決めた項目を表で書きます。決めた項目が無ければ、書く内容は「無し」です。\n\nv2.0系から更新するときは、v1系と同じ手順で入れ直し、isdd-specとisdd-buildにまとめた8本を消します。版ごとの詳しい手順はREADMEの「スキル導入手順」にあります。\n\n制約・注意点\n・11月5日の計測で使ったスキルは、版の表示がv2.2.0のままです。公開したv2.3.0で回したのは、11月19日から21日に足した2つの計測だけです\n・11月5日のあいまいな依頼の計測は別の環境で回していて、生成に使ったモデルが記録に残っていません\n・トークンの数字は備品管理アプリの題材だけのものです\n・Webサイトの計測は3回ずつ、あいまいな依頼の計測は各群3回、依頼に書いていない決まりの計測は各群1回です。回数が少なく、ばらつきの範囲である可能性があります。実装の完了まで通した計測は、対照群が12回、isdd群が3回です\n・計測のモデルはHaikuとOpus 5.5です。5月の記事で使ったGPT系のモデルでは測っていません\n・全部を読んでからは直せない大きさのコードベースで対応表が役に立つかは、まだ測れていません\n・v2.3.0の公開前evalはClaude Code経路で回した結果で、wazaで回した結果とは別のものとして扱っています\n・記号まで確認できる言語は、Python、TypeScript / JavaScript、Java、Goです。それ以外の言語はファイルの存在だけを確認します\n・応答終了時のフックはエージェント自身が作ります。フック機能の無いエージェントでは、規則とpre-commitの2層になります\n\nおわりに\n\nv1系からv2.3.0までの変更では、チェッカーに期待する範囲を狭めてきました。対応表と依存の規則は、対応が書かれているかと作りすぎを見るものです。中身は受け入れテストで確かめます。\n\n3月の記事では「コードレビューが不要になる」と書きました。今回の計測では、そのうち要件を決める部分の効果が数字に表れました。あいまいな依頼から正しい要件を決められ、決めた要件は実装まで届いています。隠しテストで落ちた分は、文言の直し漏らしと、契約と違う作りの2種類でした。コードを読まずに済むかどうかは、今回の計測では確かめていません。\n\n5月の記事の題には「非エンジニアが要件を握って、堅実に動くソフトを作る」と書きました。今回の計測は、isddが誰のための道具かを数字で示しています。要件を細部まで自分で書ける方は、書いた文章をそのままエージェントに渡してください。書き切れない方には、isddのインタビューに答えるところから始めることをおすすめします。\n\n次に確かめたいのは、対応表による追跡が差を生む条件です。1,000行前後のコードでは、変更する箇所を示さなくても差が出ませんでした。全部を読んでからは直せない大きさのコードベースを題材にして確かめます。\n\n補足・未確認事項\n・計測のスキルについての記述は、計測の実行器がリポジトリのskills/を複製して使うことと、コミットの順序から判断しました。計測の一部は別の環境で実行しており、その環境のスキルの中身は確かめられていません\n・11月19日から21日に足した計測の数字は、計測の報告書measure/results/REPORT.mdの該当の節から取りました。回ごとの成果物までは確かめていません\n・evalの結果（全28場面、採点項目165個）はmainブランチのコミットd073756から集計しました",
+      "metrics": {
+        "likes": 1,
+        "stocks": 1,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "6a516aa3c9c210bb",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.8844292237442923,
+      "popularityPercentile": 0.9292237442922374,
+      "matchedTopics": [
+        "AI支援開発・品質",
+        "FDE / 業務改革"
+      ],
+      "buzz": false,
+      "score": 84,
+      "titleJa": null,
+      "oneLiner": "isdd v2.3.0は対話で要件を固めてから実装する開発手法を改良し評価しています。",
+      "takeaways": [
+        "AIが質問して要件と設計を先に整理する。",
+        "要件とコードの対応を機械的に確認する。",
+        "作りたいものを細部まで決めにくい人に向く。"
+      ],
+      "keywords": [
+        "isdd",
+        "Interview-driven Spec-driven Development",
+        "Claude Code",
+        "AIコーディング",
+        "eval"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "readingMinutes": 12,
+      "payoff": "decide",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "fumbdendade19718/blender-ai-copilot-desk — A visual AI desk for Blender—chat, scene objects, viewport snapshots, approvals and a live task board in one companion window, backed by your choice of models and a built-in MCP server. · blender-ai-copilot-desk · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation · blender mcp",
+      "url": "https://github.com/fumbdendade19718/blender-ai-copilot-desk",
+      "publishedAt": "2026-11-12T19:37:25.000Z",
+      "author": "fumbdendade19718",
+      "authorDetail": {
+        "name": "fumbdendade19718",
+        "url": "https://github.com/fumbdendade19718",
+        "avatarUrl": "https://github.com/fumbdendade19718.png?size=120",
+        "bio": "A visual AI desk for Blender—chat, scene objects, viewport snapshots, approvals and a live task board in one companion window, backed by your choice of models and a built-in MCP server. · blender-ai-copilot-desk · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation · blender mcp"
+      },
+      "tags": [
+        "3d-automation",
+        "3d-modeling",
+        "blender",
+        "blender-addon",
+        "blender-agents",
+        "blender-ai",
+        "blender-assistant",
+        "blender-automation"
+      ],
+      "snippet": "A visual AI desk for Blender—chat, scene objects, viewport snapshots, approvals and a live task board in one companion window, backed by your choice of models and a built-in MCP server. · blender-ai-copilot-desk · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation · blender mcp",
+      "metrics": {
+        "stars": 506
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "105f94705c160ec8",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.786896551724138,
+      "popularityPercentile": 0.25862068965517243,
+      "matchedTopics": [
+        "AI支援開発・品質",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 82,
+      "titleJa": "blender-ai-copilot-desk — Blender作業をまとめるAIデスク",
+      "oneLiner": "blender-ai-copilot-deskは会話や画面確認と作業管理を一つにまとめるBlender拡張です。",
+      "takeaways": [
+        "会話しながらBlenderの作業を進められる。",
+        "画面の状態を確認してから操作を承認できる。",
+        "作業の進み具合を一覧で管理できる。"
+      ],
+      "keywords": [
+        "blender-ai-copilot-desk",
+        "Blender",
+        "MCP",
+        "task board",
+        "AI assistant"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "aware",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nfumbdendade19718/blender-ai-copilot-desk — A visual AI desk for Blender—chat, scene objects, viewport snapshots, approvals and a live task board in one companion window, backed by your choice of models and a built-in MCP server. · blender-ai-copilot-desk · blender · blender 3d · blender addon · blender plugin · blender extension · blender scripting · blender automation · blender mcp を動かして、README の最初の出力まで到達する\nhttps://github.com/fumbdendade19718/blender-ai-copilot-desk\n\n# 手順\n1. git clone --depth 1 https://github.com/fumbdendade19718/blender-ai-copilot-desk\n2. cd blender-ai-copilot-desk && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    },
+    {
+      "source": "qiita",
+      "sourceLabel": "Qiita",
+      "title": "AIエージェント（Muse）にサイト運用を任せる構成 — Cloudflare×GitHub連携とAPIで、コンソールに入らず運用する",
+      "url": "https://qiita.com/musing_lab/items/914cb5cb646a08a1e2b4",
+      "publishedAt": "2026-11-21T12:17:55.000Z",
+      "author": "musing_lab",
+      "authorDetail": {
+        "name": "musing_lab",
+        "handle": "@musing_lab",
+        "url": "https://qiita.com/musing_lab",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/359079244?v=4",
+        "bio": "AIのMuseに作業の9割を任せて小さな事業を起こす実験「Musing Lab」の記録アカウントです。エンジニアの視点で検証しながら進め、作ったゲームやツールはサイトで常時公開しています。費用も失敗も実額のまま出します。実験の連載はnote（https://note.com/musing_lab）で公開中です。",
+        "followers": 0,
+        "posts": 3,
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/musing-lab"
+          },
+          {
+            "label": "Web",
+            "url": "https://musing-lab.com"
+          }
+        ]
+      },
+      "tags": [
+        "cloudflare",
+        "GitHub",
+        "CloudflareWorkers",
+        "AI",
+        "自動化"
+      ],
+      "snippet": "はじめに 個人の実験サイト Musing Lab の運用構成のメモです。このサイトは、「AIアシスタントの Muse に作業の9割を任せて小さな事業を起こす」という実験の土台で、制作も更新も解析の確認も、基本的に Muse が担当しています。 この記事の主題は、AIエージェントにインフラ運用を任せるとき、どんな構成にすれば安全に回るかです。 前提として、Muse の実行環境には次の制約がありました。 ・ブラウザから Cloudflare のダッシュボードにログインしようとすると、Turnstile のボット検証が繰り返し失敗し、コンソールに入れない（人間が同じブラウザを引き継いで手動で試しても通りませんでした） ・GitHub への SSH 接続がプロキシに遮断され、使えない ・パスワードやトークンを、エージェント自身が直接見ない形で扱う必要がある そこで、コンソール操作を前提にしない構成…",
+      "body": "はじめに\n\n個人の実験サイト Musing Lab の運用構成のメモです。このサイトは、「AIアシスタントの Muse に作業の9割を任せて小さな事業を起こす」という実験の土台で、制作も更新も解析の確認も、基本的に Muse が担当しています。\n\nこの記事の主題は、AIエージェントにインフラ運用を任せるとき、どんな構成にすれば安全に回るかです。\n\n前提として、Muse の実行環境には次の制約がありました。\n・ブラウザから Cloudflare のダッシュボードにログインしようとすると、Turnstile のボット検証が繰り返し失敗し、コンソールに入れない（人間が同じブラウザを引き継いで手動で試しても通りませんでした）\n・GitHub への SSH 接続がプロキシに遮断され、使えない\n・パスワードやトークンを、エージェント自身が直接見ない形で扱う必要がある\n\nそこで、コンソール操作を前提にしない構成に寄せました。\n・デプロイ：GitHub リポジトリへの push → Cloudflare の Git 連携で自動ビルド\n・ファイルの反映：GitHub REST API（Contents API）経由\n・アクセス解析の取得：Cloudflare API（読み取り専用トークン）\n\nあわせて、任せる範囲の線引きも決めています。支払い、公開、アカウント作成のような「責任が伴う操作」は人間が行い、エージェントは準備と実行の大部分を担う。この線引きと権限の絞り方が、この構成のもう半分の主題です。\n\n全体構成\n\n [code] \n\nWorkers 側の設定\n\n静的サイトを配信する Worker の wrangler.toml は最小限です。\n\n [code] \n\nリポジトリのルートをそのままアセットとして配信します。トップページや各コンテンツは、パスに対応するディレクトリの index.html として置いています。\n\nカスタムドメイン（musing-lab.com）は Worker に割り当て済みです。ドメインの登録自体も Cloudflare Registrar で行いました。\n\nGitHub 連携（Cloudflare Builds）\n\nWorker の Settings → Builds で、GitHub リポジトリ（private）と Production branch（main）を接続します。この設定だけは、最初に一度だけ人間がコンソールで実施しました。\n\n接続後は、main への push で自動的にビルドとデプロイが走ります。反映の確認は、デプロイ前には存在しなかったファイル（README.md）がカスタムドメイン経由で読めることで行いました。\n\nファイル反映は Contents API で行う\n\n作業環境から GitHub への SSH 接続は、プロキシに遮断されて使えませんでした。そのため、ファイルの追加・更新は GitHub REST API の Contents API で行っています。\n\n認証は fine-grained personal access token で、権限は最小化しています。\n・対象リポジトリ：このサイトのリポジトリのみ\n・権限：Contents の読み書きのみ\n\nトークンは、発行者が内容を見ない形（セキュアな入力経路）で保管し、スクリプトからは資格情報の交換経由で利用します。push 用の小さなヘルパースクリプトを用意し、「サイトを構成するファイルの一覧」を渡すと全ファイルを順に PUT する形にしています。新しいページを足すときは、その一覧に1行足すだけです。\n\nつまずいた点\n\n1. デプロイ直後は 404 になることがある\n\npush の直後に確認すると、新しいページが 404 になったり、古いファイルが返ったりすることがありました。ビルドと反映に1〜2分かかるためです。「push が成功したこと」と「配信に反映されたこと」は分けて確認し、反映確認は少し待ってから行います。\n\n2. Web Analytics の計測タグはボット UA では見えない\n\nCloudflare Web Analytics を自動セットアップにした場合、計測タグ（beacon.min.js）はエッジで自動挿入されます。ただし、curl のようなボット系 User-Agent ではタグが挿入されず、「設定できていない」と誤判定しそうになりました。実ブラウザの UA で取得すると挿入が確認できます。\n\n3. 解析 API は GraphQL に移行している\n\nアクセス解析の取得には Cloudflare の GraphQL Analytics API（httpRequests1dGroups）を使っています。従来の REST の analytics dashboard エンドポイントは廃止されていて、エラーが返ります。トークンの権限は Zone Analytics の読み取りのみに絞っています。\n\nエージェントに任せるための権限設計\n\nこの構成で一番大事なのは、デプロイの自動化そのものより、エージェントが触れる範囲を先に絞ることでした。\n・GitHub のトークン：対象はこのサイトのリポジトリのみ、権限は Contents の読み書きのみ\n・Cloudflare のトークン：Zone Analytics の読み取りのみ（DNS や Worker の設定変更はできない）\n・資格情報の受け渡し：人間がセキュアな入力経路で登録し、エージェントは値を見ない。スクリプトからは資格情報の交換経由でのみ利用する\n・人間が担う操作：ドメイン購入などの支払い、記事や投稿の公開、アカウントの新規作成\n\nこうしておくと、エージェントが暴走したり資格情報が漏れたりしても、被害は「1リポジトリの内容」と「読み取り」に閉じます。逆に、コンソールの全権を渡す構成では、この実験は始められなかったと思います。\n\n実際の運用もこの線引きどおりで、サイトの更新（ファイル作成、検証、push、反映確認）はエージェントが通しで実行し、公開や投稿はその都度、人間の承認を挟んでいます。\n\nまとめ\n・AIエージェントに運用を任せる構成では、「コンソールに入れない」といったエージェント側の制約が、そのまま設計条件になります。Git 連携デプロイ + Contents API + 解析 API で、静的サイトの運用は一通り回せました\n・自動化の前提として、トークンの権限最小化と「責任が伴う操作は人間」という線引きが効きます。任せる範囲を先に決めることが、任せ続けるための条件でした\n・人間の作業は「最初の Git 連携設定」「ドメイン購入と支払い」「トークン発行」「公開の承認」のような点に寄ります\n\nこの構成は、AI エージェントに作業の大部分を任せる個人実験（Musing Lab）の運用基盤として使っています。実験の記録は note で連載しています。\n・サイト：https://musing-lab.com\n・note：https://note.com/musinglab",
+      "metrics": {
+        "likes": 0,
+        "stocks": 0,
+        "comments": 0
+      },
+      "sourceWeight": 3,
+      "lang": "ja",
+      "id": "3e58854bebb0a387",
+      "foundIn": [
+        "qiita"
+      ],
+      "preScore": 0.7317351598173516,
+      "popularityPercentile": 0.23515981735159816,
+      "matchedTopics": [
+        "クラウド / 本番環境構築",
+        "AIエージェント構築"
+      ],
+      "buzz": false,
+      "score": 80,
+      "titleJa": null,
+      "oneLiner": "MuseはCloudflareとGitHubのAPI連携を使いコンソールに入らずサイト運用を自動化します。",
+      "takeaways": [
+        "AIがサイトの更新と確認を代行する。",
+        "管理画面を使わずコード変更で公開できる。",
+        "支払いと公開判断は人間に残している。"
+      ],
+      "keywords": [
+        "Cloudflare",
+        "GitHub",
+        "Cloudflare Workers",
+        "Muse",
+        "GitHub REST API",
+        "Cloudflare API"
+      ],
+      "category": "設計・実装ノウハウ",
+      "lane": "build",
+      "readingMinutes": 9,
+      "payoff": "apply",
+      "durability": "durable",
+      "tryPrompt": null
+    },
+    {
+      "source": "github_repo",
+      "sourceLabel": "GitHub 急上昇リポジトリ",
+      "title": "threerocks/article2media — 把一篇文章或一条视频（抖音、B 站、YouTube，先转逐字稿）一键做成小红书图文、杂志长图、公众号排版和 AI 配音口播短视频的开源 Claude Code / Codex Skill。21 套主题，自动验收，零 npm 依赖。",
+      "url": "https://github.com/threerocks/article2media",
+      "publishedAt": "2026-11-08T08:07:28.000Z",
+      "author": "threerocks",
+      "authorDetail": {
+        "name": "threerocks",
+        "url": "https://github.com/threerocks",
+        "avatarUrl": "https://github.com/threerocks.png?size=120",
+        "bio": "把一篇文章或一条视频（抖音、B 站、YouTube，先转逐字稿）一键做成小红书图文、杂志长图、公众号排版和 AI 配音口播短视频的开源 Claude Code / Codex Skill。21 套主题，自动验收，零 npm 依赖。"
+      },
+      "tags": [
+        "JavaScript",
+        "agent-skills",
+        "bilibili",
+        "chinese",
+        "claude-code",
+        "claude-code-plugin",
+        "claude-code-skill",
+        "claude-skills"
+      ],
+      "snippet": "把一篇文章或一条视频（抖音、B 站、YouTube，先转逐字稿）一键做成小红书图文、杂志长图、公众号排版和 AI 配音口播短视频的开源 Claude Code / Codex Skill。21 套主题，自动验收，零 npm 依赖。",
+      "metrics": {
+        "stars": 522
+      },
+      "sourceWeight": 3,
+      "lang": "en",
+      "id": "b4a83c831a7a3df6",
+      "foundIn": [
+        "github_repo"
+      ],
+      "preScore": 0.7641379310344829,
+      "popularityPercentile": 0.15517241379310345,
+      "matchedTopics": [
+        "AI支援開発・品質",
+        "AIエージェント構築",
+        "言語 / ランタイム"
+      ],
+      "buzz": false,
+      "score": 78,
+      "titleJa": "article2media — 記事や動画を複数形式へ変換するSkill",
+      "oneLiner": "article2mediaは記事や動画をSNS画像や冊子画像や音声付き短編動画に変換するSkillです。",
+      "takeaways": [
+        "記事や動画を複数の配信形式に変換できる。",
+        "21種類の見た目から出力形式を選べる。",
+        "生成物を自動確認し追加部品なしで動く。"
+      ],
+      "keywords": [
+        "article2media",
+        "Claude Code",
+        "Codex",
+        "agent skills",
+        "Bilibili",
+        "YouTube"
+      ],
+      "category": "AI/エージェント",
+      "lane": "build",
+      "readingMinutes": 3,
+      "payoff": "apply",
+      "durability": "ephemeral",
+      "tryPrompt": "# 試すこと\nthreerocks/article2media — 把一篇文章或一条视频（抖音、B 站、YouTube，先转逐字稿）一键做成小红书图文、杂志长图、公众号排版和 AI 配音口播短视频的开源 Claude Code / Codex Skill。21 套主题，自动验收，零 npm 依赖。 を動かして、README の最初の出力まで到達する\nhttps://github.com/threerocks/article2media\n\n# 手順\n1. git clone --depth 1 https://github.com/threerocks/article2media\n2. cd article2media && ls\n3. README の手順どおりに依存を入れ、最初の出力が出るまで進める\n\n# 確認したいこと\n- README の手順だけで、最初の出力まで到達できるか\n- 動かすのに別途何が必要か（API キー・GUI・別のツール）\n\n# 前提・注意\n- git が入っていること\n- README にビルド手順が無ければ、リポジトリの package.json / Makefile を見る"
+    }
+  ],
+  "stats": {
+    "collected": 773,
+    "afterDedupe": 732,
+    "afterPreScore": 130,
+    "ranked": 130,
+    "bySource": {
+      "qiita": 439,
+      "zenn": 139,
+      "hatena": 26,
+      "hackernews": 30,
+      "devto": 6,
+      "github_release": 2,
+      "github_repo": 94,
+      "rss": 16,
+      "changelog": 1,
+      "x": 20
+    },
+    "byLane": {
+      "security": 9,
+      "know": 8,
+      "build": 8
+    },
+    "estimatedReadMinutes": 55
+  },
+  "topics": [
+    "クラウド / 本番環境構築",
+    "AI支援開発・品質",
+    "セキュアな開発",
+    "AIプロダクトのUI/UX",
+    "AIエージェント構築",
+    "フロントエンドの新技術",
+    "FDE / 業務改革",
+    "成果の測り方・評価",
+    "データ基盤",
+    "言語 / ランタイム"
+  ],
+  "models": {
+    "rank": "gpt-5.6-luna",
+    "summary": "gpt-5.6-luna"
+  },
+  "usage": {
+    "stages": {
+      "community": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4710,
+        "outputTokens": 507,
+        "cacheReadTokens": 0,
+        "elapsedMs": 5787,
+        "estimatedCostUsd": 0.0015504000000000002
+      },
+      "radar:resolve": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 2946,
+        "outputTokens": 1212,
+        "cacheReadTokens": 0,
+        "elapsedMs": 11710,
+        "estimatedCostUsd": 0.0020436
+      },
+      "release": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5490,
+        "outputTokens": 1894,
+        "cacheReadTokens": 0,
+        "elapsedMs": 16961,
+        "estimatedCostUsd": 0.0033707999999999998
+      },
+      "score:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 18920,
+        "outputTokens": 1366,
+        "cacheReadTokens": 3574,
+        "elapsedMs": 13441,
+        "estimatedCostUsd": 0.005494680000000001
+      },
+      "score:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 16113,
+        "outputTokens": 1480,
+        "cacheReadTokens": 1864,
+        "elapsedMs": 16310,
+        "estimatedCostUsd": 0.0050358799999999995
+      },
+      "score:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 10771,
+        "outputTokens": 1212,
+        "cacheReadTokens": 1598,
+        "elapsedMs": 14315,
+        "estimatedCostUsd": 0.00364056
+      },
+      "describe:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13024,
+        "outputTokens": 2803,
+        "cacheReadTokens": 8057,
+        "elapsedMs": 22530,
+        "estimatedCostUsd": 0.006129539999999999
+      },
+      "describe:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 13882,
+        "outputTokens": 3731,
+        "cacheReadTokens": 8064,
+        "elapsedMs": 29084,
+        "estimatedCostUsd": 0.00741488
+      },
+      "describe:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 14560,
+        "outputTokens": 3673,
+        "cacheReadTokens": 8588,
+        "elapsedMs": 28166,
+        "estimatedCostUsd": 0.007491359999999999
+      },
+      "deep:security": {
+        "model": "gpt-5.6-luna",
+        "requests": 3,
+        "inputTokens": 19926,
+        "outputTokens": 10316,
+        "cacheReadTokens": 24824,
+        "elapsedMs": 75068,
+        "estimatedCostUsd": 0.016860879999999998
+      },
+      "deep:know": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 17405,
+        "outputTokens": 5025,
+        "cacheReadTokens": 11987,
+        "elapsedMs": 41658,
+        "estimatedCostUsd": 0.009750739999999999
+      },
+      "deep:build": {
+        "model": "gpt-5.6-luna",
+        "requests": 2,
+        "inputTokens": 21037,
+        "outputTokens": 5988,
+        "cacheReadTokens": 15805,
+        "elapsedMs": 47919,
+        "estimatedCostUsd": 0.0117091
+      },
+      "digest-summary": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 4523,
+        "outputTokens": 202,
+        "cacheReadTokens": 0,
+        "elapsedMs": 2482,
+        "estimatedCostUsd": 0.001147
+      },
+      "digest-outlook": {
+        "model": "gpt-5.6-luna",
+        "requests": 1,
+        "inputTokens": 5479,
+        "outputTokens": 507,
+        "cacheReadTokens": 0,
+        "elapsedMs": 4536,
+        "estimatedCostUsd": 0.0017042
+      }
+    },
+    "totalCostUsd": 0.0833
+  },
+  "notes": []
+}
